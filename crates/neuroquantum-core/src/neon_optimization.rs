@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_neon_optimizer_creation() {
-        let optimizer = NeonOptimizer::new().unwrap();
+        let _optimizer = NeonOptimizer::new().unwrap();
         // Should not fail regardless of platform
     }
 

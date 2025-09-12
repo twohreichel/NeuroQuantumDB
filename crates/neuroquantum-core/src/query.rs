@@ -402,7 +402,7 @@ impl NeuromorphicQueryProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::synaptic::{SynapticNetwork, SynapticNode};
+    use crate::synaptic::{SynapticNetwork};
     use crate::learning::HebbianLearningEngine;
     use std::sync::{Arc, RwLock};
 

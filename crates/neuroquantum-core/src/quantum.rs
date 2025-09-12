@@ -147,9 +147,13 @@ impl GroverSearch {
             if data.len() < query.len() {
                 return vec![false; data.len()];
             }
-            data.windows(query.len())
-                .map(|window| window == query.as_bytes())
-                .collect()
+            let mut marks = vec![false; data.len()];
+            for i in 0..=(data.len() - query.len()) {
+                if &data[i..i + query.len()] == query.as_bytes() {
+                    marks[i] = true;
+                }
+            }
+            marks
         };
 
         let target_marks = oracle(database, query);
@@ -502,7 +506,6 @@ impl QuantumProcessorFactory {
 mod tests {
     use super::*;
     use crate::synaptic::SynapticNetwork;
-    use tokio_test;
 
     #[tokio::test]
     async fn test_grover_search_basic() {
