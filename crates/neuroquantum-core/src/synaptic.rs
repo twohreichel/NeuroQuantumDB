@@ -199,22 +199,7 @@ impl SynapticNetwork {
         Ok(())
     }
 
-    /// Remove a node from the network
-    pub fn remove_node(&mut self, id: u64) -> CoreResult<SynapticNode> {
-        let node = self.nodes.remove(&id)
-            .ok_or_else(|| CoreError::NotFound(format!("Node {} not found", id)))?;
-
-        self.memory_usage = self.memory_usage.saturating_sub(node.memory_usage());
-
-        // Remove connections to this node from other nodes
-        for other_node in self.nodes.values_mut() {
-            other_node.connections.retain(|c| c.target_id != id);
-        }
-
-        Ok(node)
-    }
-
-    /// Connect two nodes
+    /// Connect two nodes in the network
     #[instrument(level = "debug", skip(self))]
     pub fn connect_nodes(&mut self, source_id: u64, target_id: u64, weight: f32, connection_type: ConnectionType) -> CoreResult<()> {
         // Verify both nodes exist
@@ -225,13 +210,14 @@ impl SynapticNetwork {
             return Err(CoreError::NotFound(format!("Target node {} not found", target_id)));
         }
 
-        // Add connection
-        let source_node = self.nodes.get_mut(&source_id).unwrap();
+        // Get mutable reference to source node
+        let source_node = self.nodes.get_mut(&source_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Source node {} not found", source_id)))?;
+
         source_node.add_connection(target_id, weight, connection_type)?;
-
         self.total_connections += 1;
-        debug!("Connected nodes {} -> {}, total connections: {}", source_id, target_id, self.total_connections);
 
+        debug!("Connected nodes {} -> {}, total connections: {}", source_id, target_id, self.total_connections);
         Ok(())
     }
 
@@ -309,15 +295,110 @@ impl SynapticNetwork {
         nodes_by_strength
     }
 
-    /// Calculate average connection strength across the network
-    pub fn average_connection_strength(&self) -> f32 {
-        let total_weight: f32 = self.nodes.values()
-            .flat_map(|node| &node.connections)
-            .map(|conn| conn.weight.abs())
-            .sum();
+    /// Get serialized data for quantum algorithms
+    pub async fn get_serialized_data(&self) -> CoreResult<Vec<u8>> {
+        let mut serialized_data = Vec::new();
 
-        if self.total_connections > 0 {
-            total_weight / self.total_connections as f32
+        // Serialize node data and connections for quantum processing
+        for (node_id, node) in &self.nodes {
+            // Add node ID (8 bytes)
+            serialized_data.extend_from_slice(&node_id.to_le_bytes());
+
+            // Add node strength (4 bytes)
+            serialized_data.extend_from_slice(&node.strength.to_le_bytes());
+
+            // Add data payload length and data
+            let payload_len = node.data_payload.len() as u32;
+            serialized_data.extend_from_slice(&payload_len.to_le_bytes());
+            serialized_data.extend_from_slice(&node.data_payload);
+
+            // Add connection count and connections
+            let conn_count = node.connections.len() as u32;
+            serialized_data.extend_from_slice(&conn_count.to_le_bytes());
+
+            for connection in &node.connections {
+                serialized_data.extend_from_slice(&connection.target_id.to_le_bytes());
+                serialized_data.extend_from_slice(&connection.weight.to_le_bytes());
+            }
+        }
+
+        Ok(serialized_data)
+    }
+
+    /// Process query using synaptic network
+    pub async fn process_query(&self, query: &crate::query::Query) -> CoreResult<crate::query::QueryResult> {
+        use crate::query::QueryResult;
+
+        let start_time = std::time::Instant::now();
+        let mut activated_nodes = Vec::new();
+        let mut total_activation = 0.0;
+
+        // Find nodes that match the query pattern
+        for (node_id, node) in &self.nodes {
+            let match_score = self.calculate_match_score(node, &query.content);
+
+            if match_score > self.activation_threshold {
+                activated_nodes.push(*node_id);
+                total_activation += match_score;
+            }
+        }
+
+        let execution_time = start_time.elapsed();
+
+        Ok(QueryResult {
+            query_id: query.id,
+            matched_nodes: activated_nodes,
+            execution_time_ns: execution_time.as_nanos() as u64,
+            activation_score: total_activation,
+            metadata: std::collections::HashMap::new(),
+        })
+    }
+
+    /// Calculate match score between node and query
+    fn calculate_match_score(&self, node: &SynapticNode, query_content: &str) -> f32 {
+        if node.data_payload.is_empty() {
+            return 0.0;
+        }
+
+        let node_content = String::from_utf8_lossy(&node.data_payload);
+        let query_bytes = query_content.as_bytes();
+        let node_bytes = node_content.as_bytes();
+
+        // Simple pattern matching with boost from node strength
+        let mut matches = 0;
+        let mut total_comparisons = 0;
+
+        for window in node_bytes.windows(query_bytes.len()) {
+            total_comparisons += 1;
+            if window == query_bytes {
+                matches += 1;
+            }
+        }
+
+        let base_score = if total_comparisons > 0 {
+            matches as f32 / total_comparisons as f32
+        } else {
+            0.0
+        };
+
+        // Boost by node strength and recent activity
+        base_score * node.strength * (1.0 + node.access_count as f32 / 1000.0)
+    }
+
+    /// Get average connection strength for metrics
+    pub fn average_connection_strength(&self) -> f32 {
+        let mut total_weight = 0.0;
+        let mut total_connections = 0;
+
+        for node in self.nodes.values() {
+            for connection in &node.connections {
+                total_weight += connection.weight.abs();
+                total_connections += 1;
+            }
+        }
+
+        if total_connections > 0 {
+            total_weight / total_connections as f32
         } else {
             0.0
         }
@@ -350,6 +431,16 @@ impl SynapticNetwork {
     /// Optimize network using NEON SIMD instructions (ARM64 only)
     pub fn optimize_with_neon(&mut self) -> CoreResult<()> {
         if let Some(ref optimizer) = self.neon_optimizer {
+            optimizer.optimize_connections(&mut self.nodes)?;
+        }
+        Ok(())
+    }
+
+    /// Apply NEON optimizations if available
+    #[cfg(feature = "neon-optimizations")]
+    pub fn apply_neon_optimizations(&mut self) -> CoreResult<()> {
+        if let Some(ref optimizer) = self.neon_optimizer {
+            // Apply NEON-SIMD optimizations to all connections at once
             optimizer.optimize_connections(&mut self.nodes)?;
         }
         Ok(())

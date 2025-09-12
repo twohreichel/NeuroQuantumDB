@@ -24,11 +24,46 @@ pub enum QueryType {
     Analyze,
 }
 
+/// Query result with neuromorphic enhancements
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryResult {
+    pub query_id: u64,
+    pub matched_nodes: Vec<u64>,
+    pub execution_time_ns: u64,
+    pub activation_score: f32,
+    pub metadata: HashMap<String, String>,
+}
+
+impl QueryResult {
+    /// Create an empty query result
+    pub fn empty() -> Self {
+        Self {
+            query_id: 0,
+            matched_nodes: Vec::new(),
+            execution_time_ns: 0,
+            activation_score: 0.0,
+            metadata: HashMap::new(),
+        }
+    }
+
+    /// Create a new query result
+    pub fn new(query_id: u64, matched_nodes: Vec<u64>, execution_time_ns: u64, activation_score: f32) -> Self {
+        Self {
+            query_id,
+            matched_nodes,
+            execution_time_ns,
+            activation_score,
+            metadata: HashMap::new(),
+        }
+    }
+}
+
 /// Query structure for neuromorphic processing
 #[derive(Debug, Clone)]
 pub struct Query {
     pub id: u64,
     pub query_type: QueryType,
+    pub content: String,
     pub target_nodes: Vec<u64>,
     pub conditions: Vec<QueryCondition>,
     pub timestamp_secs: u64, // Store as seconds since epoch instead of Instant
@@ -45,17 +80,23 @@ pub struct QueryCondition {
     pub weight: f32, // Importance weight for neuromorphic processing
 }
 
-/// Query result with neuromorphic enhancements
-#[derive(Debug, Clone, Serialize)]
-pub struct QueryResult {
-    pub query_id: u64,
-    pub matched_nodes: Vec<u64>,
-    pub confidence_scores: Vec<f32>,
-    pub processing_time_ns: u64, // Store as nanoseconds instead of Duration
-    pub neural_pathway_used: Vec<u64>, // Nodes activated during processing
-    pub learning_feedback: f32, // Feedback for learning algorithm
-    pub cache_hit: bool,
-    pub optimization_suggestions: Vec<String>,
+impl Query {
+    /// Create a new query with content
+    pub fn new(content: String) -> Self {
+        Self {
+            id: rand::random(),
+            query_type: QueryType::Select,
+            content,
+            target_nodes: Vec::new(),
+            conditions: Vec::new(),
+            timestamp_secs: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            priority: 128,
+            expected_result_size: None,
+        }
+    }
 }
 
 /// Neuromorphic query processor using spiking neural networks
@@ -122,9 +163,7 @@ impl NeuromorphicQueryProcessor {
         // Check cache first
         let cache_key = self.generate_cache_key(query);
         if let Some(cached) = self.check_cache(&cache_key) {
-            let mut result = cached.result.clone();
-            result.cache_hit = true;
-            result.processing_time_ns = start_time.elapsed().as_nanos() as u64;
+            let result = cached.result.clone();
             return Ok(result);
         }
 
@@ -143,12 +182,9 @@ impl NeuromorphicQueryProcessor {
         let result = QueryResult {
             query_id: query.id,
             matched_nodes,
-            confidence_scores,
-            processing_time_ns: start_time.elapsed().as_nanos() as u64,
-            neural_pathway_used: neural_pathway,
-            learning_feedback,
-            cache_hit: false,
-            optimization_suggestions: self.generate_optimization_suggestions(query),
+            execution_time_ns: start_time.elapsed().as_nanos() as u64,
+            activation_score: 0.0,
+            metadata: HashMap::new(),
         };
 
         // Cache the result
@@ -157,7 +193,7 @@ impl NeuromorphicQueryProcessor {
         // Update statistics
         self.update_statistics(&result);
 
-        debug!("Processed query {} in {}ns", query.id, result.processing_time_ns);
+        debug!("Processed query {} in {}ns", query.id, result.execution_time_ns);
         Ok(result)
     }
 
@@ -387,6 +423,7 @@ mod tests {
         let query = Query {
             id: 1,
             query_type: QueryType::Select,
+            content: "SELECT * FROM test".to_string(),
             target_nodes: vec![1, 2, 3],
             conditions: vec![],
             timestamp_secs: 1694428800, // Example timestamp

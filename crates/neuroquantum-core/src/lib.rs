@@ -1,7 +1,7 @@
 //! # NeuroQuantumDB Core
 //!
 //! Neuromorphic computing core implementing synaptic networks, Hebbian learning,
-//! and adaptive plasticity for ultra-efficient edge database operations.
+//! quantum-inspired algorithms, and adaptive plasticity for ultra-efficient edge database operations.
 
 pub mod synaptic;
 pub mod learning;
@@ -9,12 +9,18 @@ pub mod plasticity;
 pub mod query;
 pub mod error;
 pub mod neon_optimization;
+pub mod quantum;
 
 pub use synaptic::{SynapticNode, SynapticNetwork, ConnectionType};
 pub use learning::{HebbianLearningEngine, LearningStats, AntiHebbianLearning};
 pub use plasticity::{PlasticityMatrix, PlasticityParams, AccessPatterns};
 pub use query::{NeuromorphicQueryProcessor, QueryResult, Query};
 pub use error::{CoreError, CoreResult};
+pub use quantum::{
+    QuantumSearch, GroverSearch, QuantumConfig, QuantumError,
+    QuantumSearchResult, OptimizedIndex, QuantumQueryResults,
+    QuantumProcessorFactory
+};
 
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
