@@ -16,7 +16,7 @@
       "description": "project_analysis",
       "order": 1,
       "dependencies": [],
-      "status": "pending",
+      "status": "done",
       "result": null,
       "error_message": null,
       "execution_time": null,
@@ -44,7 +44,7 @@
       "dependencies": [
         1
       ],
-      "status": "pending",
+      "status": "done",
       "result": null,
       "error_message": null,
       "execution_time": null,
