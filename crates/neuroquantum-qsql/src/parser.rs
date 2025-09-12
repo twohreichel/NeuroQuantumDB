@@ -52,7 +52,7 @@ pub enum TokenType {
     Select, From, Where, Having, GroupBy, OrderBy, Limit, Offset,
     Insert, Update, Delete, Create, Drop, Table, Index,
     Inner, Left, Right, Full, Cross, Join, On, As,
-    And, Or, Not, In, Like, Between, Is, Null,
+    And, Or, Not, In, Like, Between, Is, Null, With,
 
     // Neuromorphic keywords
     NeuroMatch, SynapticWeight, PlasticityThreshold, HebbianLearning,
@@ -448,7 +448,7 @@ impl QSQLParser {
         };
 
         // Parse neuromorphic extensions
-        let synaptic_weight = if state.match_keyword("WITH") && state.match_keyword("SYNAPTIC_WEIGHT") {
+        let synaptic_weight = if state.match_token(&TokenType::With) && state.match_token(&TokenType::SynapticWeight) {
             if let TokenType::FloatLiteral(weight) = state.next()? {
                 Some(weight as f32)
             } else {
@@ -490,11 +490,16 @@ impl QSQLParser {
             });
         };
 
-        state.expect(TokenType::Where)?;
-        let pattern_expression = self.parse_expression(state)?;
+        // Parse WHERE clause if present
+        let pattern_expression = if state.match_token(&TokenType::Where) {
+            self.parse_expression(state)?
+        } else {
+            // Default expression if no WHERE clause
+            Expression::Literal(Literal::Boolean(true))
+        };
 
-        state.expect_keyword("WITH")?;
-        state.expect_keyword("SYNAPTIC_WEIGHT")?;
+        state.expect(TokenType::With)?;
+        state.expect(TokenType::SynapticWeight)?;
 
         let synaptic_weight = if let TokenType::FloatLiteral(weight) = state.next()? {
             weight as f32
@@ -546,6 +551,12 @@ impl QSQLParser {
         keywords.insert("SELECT".to_string(), TokenType::Select);
         keywords.insert("FROM".to_string(), TokenType::From);
         keywords.insert("WHERE".to_string(), TokenType::Where);
+        keywords.insert("HAVING".to_string(), TokenType::Having);
+        keywords.insert("GROUP".to_string(), TokenType::GroupBy);
+        keywords.insert("BY".to_string(), TokenType::GroupBy); // Will handle GROUP BY as two tokens
+        keywords.insert("ORDER".to_string(), TokenType::OrderBy);
+        keywords.insert("LIMIT".to_string(), TokenType::Limit);
+        keywords.insert("OFFSET".to_string(), TokenType::Offset);
         keywords.insert("INSERT".to_string(), TokenType::Insert);
         keywords.insert("UPDATE".to_string(), TokenType::Update);
         keywords.insert("DELETE".to_string(), TokenType::Delete);
@@ -557,9 +568,19 @@ impl QSQLParser {
         keywords.insert("INNER".to_string(), TokenType::Inner);
         keywords.insert("LEFT".to_string(), TokenType::Left);
         keywords.insert("RIGHT".to_string(), TokenType::Right);
+        keywords.insert("FULL".to_string(), TokenType::Full);
+        keywords.insert("CROSS".to_string(), TokenType::Cross);
+        keywords.insert("ON".to_string(), TokenType::On);
+        keywords.insert("AS".to_string(), TokenType::As);
         keywords.insert("AND".to_string(), TokenType::And);
         keywords.insert("OR".to_string(), TokenType::Or);
         keywords.insert("NOT".to_string(), TokenType::Not);
+        keywords.insert("IN".to_string(), TokenType::In);
+        keywords.insert("LIKE".to_string(), TokenType::Like);
+        keywords.insert("BETWEEN".to_string(), TokenType::Between);
+        keywords.insert("IS".to_string(), TokenType::Is);
+        keywords.insert("NULL".to_string(), TokenType::Null);
+        keywords.insert("WITH".to_string(), TokenType::With);
 
         // Neuromorphic keywords
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
@@ -567,13 +588,19 @@ impl QSQLParser {
         keywords.insert("PLASTICITY_THRESHOLD".to_string(), TokenType::PlasticityThreshold);
         keywords.insert("HEBBIAN_LEARNING".to_string(), TokenType::HebbianLearning);
         keywords.insert("SYNAPTIC_OPTIMIZE".to_string(), TokenType::SynapticOptimize);
+        keywords.insert("NEURAL_PATHWAY".to_string(), TokenType::NeuralPathway);
+        keywords.insert("PLASTICITY_MATRIX".to_string(), TokenType::PlasticityMatrix);
+        keywords.insert("ACTIVATION_THRESHOLD".to_string(), TokenType::ActivationThreshold);
 
         // Quantum keywords
         keywords.insert("QUANTUM_SEARCH".to_string(), TokenType::QuantumSearch);
         keywords.insert("QUANTUM_JOIN".to_string(), TokenType::QuantumJoin);
         keywords.insert("SUPERPOSITION_QUERY".to_string(), TokenType::SuperpositionQuery);
         keywords.insert("AMPLITUDE_AMPLIFICATION".to_string(), TokenType::AmplitudeAmplification);
+        keywords.insert("QUANTUM_ENTANGLEMENT".to_string(), TokenType::QuantumEntanglement);
         keywords.insert("GROVER_SEARCH".to_string(), TokenType::GroverSearch);
+        keywords.insert("ORACLE_FUNCTION".to_string(), TokenType::OracleFunction);
+        keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
     }
 
     fn initialize_operators(operators: &mut HashMap<String, BinaryOperator>) {
@@ -608,9 +635,61 @@ impl QSQLParser {
         })
     }
 
-    fn parse_expression(&self, _state: &mut ParserState) -> QSQLResult<Expression> {
-        // Implementation for parsing expressions
-        Ok(Expression::Literal(Literal::Boolean(true)))
+    fn parse_expression(&self, state: &mut ParserState) -> QSQLResult<Expression> {
+        // Simple expression parsing - for now just handle basic comparisons
+        // This is a placeholder implementation that will be expanded later
+
+        // Parse left operand (identifier)
+        let left = if let TokenType::Identifier(name) = state.next()? {
+            Expression::Identifier(name)
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected identifier in expression".to_string(),
+                position: state.position(),
+            });
+        };
+
+        // Parse operator
+        let operator = match state.next()? {
+            TokenType::Equal => BinaryOperator::Equal,
+            TokenType::NotEqual => BinaryOperator::NotEqual,
+            TokenType::LessThan => BinaryOperator::LessThan,
+            TokenType::LessThanOrEqual => BinaryOperator::LessThanOrEqual,
+            TokenType::GreaterThan => BinaryOperator::GreaterThan,
+            TokenType::GreaterThanOrEqual => BinaryOperator::GreaterThanOrEqual,
+            TokenType::And => BinaryOperator::And,
+            TokenType::Or => BinaryOperator::Or,
+            TokenType::Like => BinaryOperator::Like,
+            TokenType::In => BinaryOperator::In,
+            token => {
+                return Err(QSQLError::ParseError {
+                    message: format!("Expected operator, found {:?}", token),
+                    position: state.position(),
+                });
+            }
+        };
+
+        // Parse right operand (literal or identifier)
+        let right = match state.next()? {
+            TokenType::Identifier(name) => Expression::Identifier(name),
+            TokenType::StringLiteral(s) => Expression::Literal(Literal::String(s)),
+            TokenType::IntegerLiteral(i) => Expression::Literal(Literal::Integer(i)),
+            TokenType::FloatLiteral(f) => Expression::Literal(Literal::Float(f)),
+            TokenType::BooleanLiteral(b) => Expression::Literal(Literal::Boolean(b)),
+            TokenType::DNALiteral(dna) => Expression::Literal(Literal::DNASequence(dna)),
+            token => {
+                return Err(QSQLError::ParseError {
+                    message: format!("Expected literal or identifier, found {:?}", token),
+                    position: state.position(),
+                });
+            }
+        };
+
+        Ok(Expression::BinaryOp {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
+        })
     }
 
     fn parse_insert_statement(&self, state: &mut ParserState) -> QSQLResult<Statement> {
@@ -787,7 +866,16 @@ mod tests {
     #[test]
     fn test_neuromatch_parsing() {
         let parser = QSQLParser::new().unwrap();
-        let result = parser.parse_query("NEUROMATCH users WHERE age > 30 WITH SYNAPTIC_WEIGHT 0.8");
+        let query = "NEUROMATCH users WHERE age > 30 WITH SYNAPTIC_WEIGHT 0.8";
+
+        // Debug: Check what tokens are generated
+        let tokens = parser.tokenize(query).unwrap();
+        println!("Tokens: {:?}", tokens);
+
+        let result = parser.parse_query(query);
+        if let Err(ref e) = result {
+            println!("Parse error: {:?}", e);
+        }
         assert!(result.is_ok());
     }
 
