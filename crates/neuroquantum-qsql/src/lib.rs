@@ -27,9 +27,17 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, instrument};
 
+// Import types from modules to avoid duplicates
+use optimizer::{ExecutionStrategy, NeuromorphicOptimizer, OptimizationMetadata, OptimizerConfig};
+use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
+use query_plan::{ExecutorConfig, QueryExecutor, QueryResult};
+
+// Use the QueryPlan from optimizer module
+pub use optimizer::QueryPlan;
+
 /// Main QSQL engine that coordinates parsing, optimization, and execution
 pub struct QSQLEngine {
-    parser: QSQLParser,
+    parser: ParserQSQLParser,
     optimizer: NeuromorphicOptimizer,
     executor: QueryExecutor,
     cache: HashMap<String, CachedQueryPlan>,
@@ -73,6 +81,8 @@ impl<'de> Deserialize<'de> for CachedQueryPlan {
 
 impl Default for CachedQueryPlan {
     fn default() -> Self {
+        use ast::{SelectStatement, Statement};
+
         Self {
             plan: QueryPlan {
                 statement: Statement::Select(SelectStatement {
@@ -129,7 +139,7 @@ impl QSQLEngine {
     /// Create a new QSQL engine with default configuration
     pub fn new() -> Result<Self> {
         Ok(Self {
-            parser: QSQLParser::new()?,
+            parser: ParserQSQLParser::new(),
             optimizer: NeuromorphicOptimizer::new()?,
             executor: QueryExecutor::new()?,
             cache: HashMap::new(),
@@ -140,7 +150,7 @@ impl QSQLEngine {
     /// Create a QSQL engine with custom configuration
     pub fn with_config(config: QSQLConfig) -> Result<Self> {
         Ok(Self {
-            parser: QSQLParser::with_config(config.parser_config)?,
+            parser: ParserQSQLParser::with_config(config.parser_config)?,
             optimizer: NeuromorphicOptimizer::with_config(config.optimizer_config)?,
             executor: QueryExecutor::with_config(config.executor_config)?,
             cache: HashMap::with_capacity(config.cache_size),
@@ -315,21 +325,10 @@ impl Default for QSQLConfig {
     }
 }
 
-// Public API exports - Clean and simple
+// Public API exports
 pub use ast::*;
 pub use error::*;
 pub use natural_language::NaturalLanguageProcessor;
-pub use optimizer::{
-    ExecutionStrategy, NeuromorphicOptimizer, OptimizationMetadata, OptimizerConfig, QueryPlan,
-};
-pub use parser::{ParserConfig, QSQLParser};
-pub use query_plan::{
-    ColumnInfo, ExecutionStats, ExecutorConfig, QueryExecutor, QueryResult, QueryValue,
-};
-
-// Type aliases for convenience
-pub type QSQLOptimizer = NeuromorphicOptimizer;
-pub type NLProcessor = NaturalLanguageProcessor;
 
 #[cfg(test)]
 mod tests {
