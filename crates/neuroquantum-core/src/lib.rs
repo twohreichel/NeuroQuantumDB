@@ -34,7 +34,9 @@ pub struct NeuroQuantumDB {
     metrics: Arc<MetricsCollector>,
     synaptic: Arc<SynapticNetwork>,
     quantum: Arc<QuantumProcessor>,
+    #[allow(dead_code)] // Used for future DNA compression features
     dna: Arc<DNACompressor>,
+    #[allow(dead_code)] // Used for runtime configuration updates
     config: Arc<RwLock<ProductionConfig>>,
 }
 

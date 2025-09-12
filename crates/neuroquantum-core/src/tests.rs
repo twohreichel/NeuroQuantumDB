@@ -1,14 +1,10 @@
 // Comprehensive Testing Suite for NeuroQuantumDB Production
 // 80%+ coverage requirement with performance and security validation
 
-use std::time::{Duration, Instant};
 
 use crate::{
-    dna::DNACompressor,
-    monitoring::{MetricsCollector, NeuromorphicEvent, QuantumAlgorithm},
-    quantum::QuantumProcessor,
+    monitoring::MetricsCollector,
     security::SecurityManager,
-    synaptic::{SynapticNetwork, ConnectionType, SynapticNode},
 };
 
 /// Integration tests for production readiness
@@ -264,7 +260,7 @@ mod integration_tests {
 
 /// Performance benchmarks using basic timing
 mod benchmarks {
-    use super::*;
+    
 
     #[tokio::test]
     async fn benchmark_query_performance() {

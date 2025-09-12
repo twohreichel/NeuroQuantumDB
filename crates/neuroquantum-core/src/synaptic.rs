@@ -136,6 +136,7 @@ pub struct SynapticNetwork {
     activation_threshold: f32,
     total_connections: RwLock<usize>,
     memory_usage: RwLock<usize>,
+    #[allow(dead_code)] // Used for ARM64/NEON optimizations on Raspberry Pi
     neon_optimizer: Option<NeonOptimizer>,
 }
 

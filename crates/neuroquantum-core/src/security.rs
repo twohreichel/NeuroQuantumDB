@@ -70,7 +70,9 @@ pub struct SecurityManager {
 
 #[derive(Debug, Clone)]
 struct SessionInfo {
+    #[allow(dead_code)] // Used for user tracking in future audit features
     user_id: String,
+    #[allow(dead_code)] // Used for session expiration logic
     created_at: std::time::SystemTime,
     last_access: std::time::SystemTime,
     permissions: Vec<String>,
