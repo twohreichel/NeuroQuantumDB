@@ -10,6 +10,7 @@ pub mod query;
 pub mod error;
 pub mod neon_optimization;
 pub mod quantum;
+pub mod dna;
 
 pub use synaptic::{SynapticNode, SynapticNetwork, ConnectionType};
 pub use learning::{HebbianLearningEngine, LearningStats, AntiHebbianLearning};
@@ -20,6 +21,11 @@ pub use quantum::{
     QuantumSearch, GroverSearch, QuantumConfig, QuantumError,
     QuantumSearchResult, OptimizedIndex, QuantumQueryResults,
     QuantumProcessorFactory
+};
+pub use dna::{
+    DNACompression, DNACompressor, EncodedData, FoldingMetadata,
+    CompressionError, CompressionResult, PerformanceMetrics as DNAMetrics,
+    CompressionConfig, QuaternaryEncoder, ReedSolomonCorrector, ProteinFolder
 };
 
 use std::sync::{Arc, RwLock};
