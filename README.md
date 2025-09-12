@@ -41,7 +41,7 @@ make docker-build
 
 ## Development
 
-See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed setup instructions.
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed setup instructions.
 
 ## License
 

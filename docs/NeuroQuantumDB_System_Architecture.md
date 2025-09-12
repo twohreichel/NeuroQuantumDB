@@ -1283,6 +1283,7 @@ impl DistributedTracing {
 ## **8. Deployment and Scaling**
 
 ### **8.1 Docker Configuration**
+
 ```dockerfile
 # Multi-stage build for minimal container size
 FROM rust:1.70-alpine AS builder
@@ -1300,7 +1301,7 @@ ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc
 ENV RUSTFLAGS="-C target-feature=+neon -C opt-level=3 -C codegen-units=1"
 
 WORKDIR /app
-COPY . .
+COPY .. .
 
 # Build optimized binary
 RUN cargo build \

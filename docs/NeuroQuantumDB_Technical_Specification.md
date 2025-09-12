@@ -304,11 +304,12 @@ pub trait DNACompression {
 - **Maintainability**: Clean architecture, SOLID principles
 
 ### **8.3 Continuous Integration**
+
 ```dockerfile
 # Multi-stage Docker build for ARM64
 FROM rust:1.70 as builder
 WORKDIR /app
-COPY . .
+COPY .. .
 RUN cargo build --release --target aarch64-unknown-linux-gnu
 
 FROM debian:bullseye-slim
