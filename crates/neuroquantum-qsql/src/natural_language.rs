@@ -3,14 +3,10 @@
 //! This module provides natural language understanding and translation
 //! capabilities for converting human language queries into QSQL syntax.
 
-use crate::ast::*;
 use crate::error::*;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, instrument};
-use unicode_normalization::UnicodeNormalization;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Natural Language Processor for QSQL translation
 #[derive(Debug, Clone)]

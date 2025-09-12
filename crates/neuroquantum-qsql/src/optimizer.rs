@@ -8,18 +8,20 @@ use crate::ast::*;
 use crate::error::*;
 use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::learning::HebbianLearningEngine;
-use neuroquantum_core::quantum::QuantumSearch;
 use neuroquantum_core::synaptic::SynapticNetwork;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 use tracing::{debug, instrument};
 
 /// Neuromorphic query optimizer with synaptic learning
 pub struct NeuromorphicOptimizer {
     config: OptimizerConfig,
+    #[allow(dead_code)] // Will be implemented in Phase 2
     synaptic_network: Option<SynapticNetwork>,
+    #[allow(dead_code)] // Will be implemented in Phase 2
     plasticity_matrix: Option<PlasticityMatrix>,
+    #[allow(dead_code)] // Will be implemented in Phase 2
     hebbian_learner: Option<HebbianLearningEngine>,
     query_patterns: HashMap<String, QueryPattern>,
     optimization_stats: OptimizationStats,

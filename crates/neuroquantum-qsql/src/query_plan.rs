@@ -37,6 +37,7 @@ impl Default for ExecutorConfig {
 /// Query execution engine with neuromorphic and quantum support
 #[derive(Debug, Clone)]
 pub struct QueryExecutor {
+    #[allow(dead_code)] // Configuration will be used for runtime adjustments in Phase 2
     config: ExecutorConfig,
     execution_stats: ExecutionStats,
 }
@@ -124,8 +125,7 @@ impl QueryExecutor {
     }
 
     /// Execute SELECT statement
-    async fn execute_select(&mut self, select: &SelectStatement, plan: &QueryPlan) -> QSQLResult<QueryResult> {
-        // Simulate query execution for MVP
+    async fn execute_select(&mut self, _select: &SelectStatement, plan: &QueryPlan) -> QSQLResult<QueryResult> {
         let columns = vec![
             ColumnInfo {
                 name: "id".to_string(),
@@ -198,7 +198,7 @@ impl QueryExecutor {
     }
 
     /// Execute QUANTUM_SEARCH with Grover's algorithm simulation
-    async fn execute_quantum_search(&mut self, quantum: &QuantumSearchStatement, plan: &QueryPlan) -> QSQLResult<QueryResult> {
+    async fn execute_quantum_search(&mut self, quantum: &QuantumSearchStatement, _plan: &QueryPlan) -> QSQLResult<QueryResult> {
         let columns = vec![
             ColumnInfo {
                 name: "quantum_amplitude".to_string(),
@@ -242,7 +242,7 @@ impl QueryExecutor {
     }
 
     /// Execute SUPERPOSITION_QUERY with parallel quantum processing
-    async fn execute_superposition_query(&mut self, superpos: &SuperpositionQueryStatement, plan: &QueryPlan) -> QSQLResult<QueryResult> {
+    async fn execute_superposition_query(&mut self, superpos: &SuperpositionQueryStatement, _plan: &QueryPlan) -> QSQLResult<QueryResult> {
         let columns = vec![
             ColumnInfo {
                 name: "superposition_state".to_string(),

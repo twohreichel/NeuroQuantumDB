@@ -430,7 +430,7 @@ pub enum ConflictResolution {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Statement::Select(s) => write!(f, "SELECT"),
+            Statement::Select(_s) => write!(f, "SELECT"),
             Statement::NeuroMatch(n) => write!(f, "NEUROMATCH {}", n.target_table),
             Statement::QuantumSearch(q) => write!(f, "QUANTUM_SEARCH {}", q.target_table),
             _ => write!(f, "{:?}", self),

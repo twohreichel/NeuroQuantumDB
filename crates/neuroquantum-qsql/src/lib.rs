@@ -12,23 +12,6 @@
 //! - **Neuromorphic optimization**: Synaptic pathway-based query planning
 //! - **Quantum-inspired execution**: Grover's search and superposition processing
 //! - **ARM64 optimizations**: NEON-SIMD accelerated parsing and execution
-//!
-//! ## Example Usage
-//!
-//! ```rust
-//! use neuroquantum_qsql::{QSQLParser, QueryPlan, ExecutionEngine};
-//!
-//! // Parse a neuromorphic query
-//! let parser = QSQLParser::new();
-//! let query = "NEUROMATCH users WHERE age > 30 WITH SYNAPTIC_WEIGHT 0.8";
-//! let plan = parser.parse_query(query)?;
-//!
-//! // Optimize with neuromorphic intelligence
-//! let optimized = plan.optimize_with_synaptic_networks()?;
-//!
-//! // Execute with quantum-inspired algorithms
-//! let results = ExecutionEngine::execute(optimized).await?;
-//! ```
 
 pub mod ast;
 pub mod error;
@@ -42,15 +25,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, instrument, warn};
-
-pub use ast::*;
-pub use error::*;
-pub use executor::*;
-pub use natural_language::*;
-pub use optimizer::*;
-pub use parser::*;
-pub use query_plan::*;
+use tracing::{debug, info, instrument};
 
 /// Main QSQL engine that coordinates parsing, optimization, and execution
 pub struct QSQLEngine {
@@ -189,7 +164,7 @@ impl QSQLEngine {
         };
 
         if let Some(plan) = cached_plan {
-            return self.execute_cached_plan(&plan).await.map_err(|e| anyhow::anyhow!(e));
+            return self.execute_cached_plan(&plan).await.map_err(|e| anyhow::anyhow!("{}", e));
         }
 
         // Parse query
@@ -208,7 +183,7 @@ impl QSQLEngine {
 
         // Execute query
         let exec_start = Instant::now();
-        let result = self.executor.execute(&plan).await.map_err(|e| anyhow::anyhow!(e))?;
+        let result = self.executor.execute(&plan).await.map_err(|e| anyhow::anyhow!("{}", e))?;
         let exec_duration = exec_start.elapsed();
 
         self.metrics.average_execution_time =
@@ -249,7 +224,7 @@ impl QSQLEngine {
     #[instrument(skip(self))]
     pub fn optimize_synaptic_pathways(&mut self) -> Result<()> {
         // Strengthen frequently used query patterns
-        for (query, cached_plan) in &mut self.cache {
+        for (_query, cached_plan) in &mut self.cache {
             if cached_plan.execution_count > 10 {
                 cached_plan.synaptic_strength = (cached_plan.synaptic_strength * 1.1).min(1.0);
                 debug!("Strengthened synaptic pathway for query pattern");
@@ -324,10 +299,21 @@ impl Default for QSQLConfig {
     }
 }
 
+// Public API exports - Clean and simple
+pub use ast::*;
+pub use error::*;
+pub use optimizer::{QueryPlan, ExecutionStrategy, OptimizationMetadata, NeuromorphicOptimizer, OptimizerConfig};
+pub use query_plan::{QueryExecutor, ExecutorConfig, QueryResult, QueryValue, ColumnInfo, ExecutionStats};
+pub use parser::{QSQLParser, ParserConfig};
+pub use natural_language::NaturalLanguageProcessor;
+
+// Type aliases for convenience
+pub type QSQLOptimizer = NeuromorphicOptimizer;
+pub type NLProcessor = NaturalLanguageProcessor;
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio_test;
 
     #[tokio::test]
     async fn test_basic_qsql_execution() {

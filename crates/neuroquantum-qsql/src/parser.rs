@@ -5,16 +5,6 @@
 
 use crate::ast::*;
 use crate::error::*;
-use nom::{
-    branch::alt,
-    bytes::complete::{tag, tag_no_case, take_while, take_while1},
-    character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, multispace1},
-    combinator::{map, opt, recognize, value},
-    multi::{many0, many1, separated_list0, separated_list1},
-    sequence::{delimited, pair, preceded, terminated, tuple},
-    IResult,
-};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, instrument, warn};
@@ -25,6 +15,7 @@ pub struct QSQLParser {
     config: ParserConfig,
     natural_language_processor: Option<NaturalLanguageProcessor>,
     keywords: HashMap<String, TokenType>,
+    #[allow(dead_code)] // Will be used for operator precedence parsing in Phase 2
     operators: HashMap<String, BinaryOperator>,
 }
 
@@ -604,12 +595,12 @@ impl QSQLParser {
     }
 
     // Placeholder methods for complex parsing operations
-    fn parse_select_list(&self, state: &mut ParserState) -> QSQLResult<Vec<SelectItem>> {
+    fn parse_select_list(&self, _state: &mut ParserState) -> QSQLResult<Vec<SelectItem>> {
         // Implementation for parsing SELECT list
         Ok(vec![])
     }
 
-    fn parse_from_clause(&self, state: &mut ParserState) -> QSQLResult<FromClause> {
+    fn parse_from_clause(&self, _state: &mut ParserState) -> QSQLResult<FromClause> {
         // Implementation for parsing FROM clause
         Ok(FromClause {
             relations: vec![],
@@ -617,7 +608,7 @@ impl QSQLParser {
         })
     }
 
-    fn parse_expression(&self, state: &mut ParserState) -> QSQLResult<Expression> {
+    fn parse_expression(&self, _state: &mut ParserState) -> QSQLResult<Expression> {
         // Implementation for parsing expressions
         Ok(Expression::Literal(Literal::Boolean(true)))
     }
