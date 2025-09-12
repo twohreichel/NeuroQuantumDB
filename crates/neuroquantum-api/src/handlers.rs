@@ -172,13 +172,9 @@ pub async fn execute_qsql(
     let query_plan = match parser.parse_query(&request.query) {
         Ok(plan) => plan,
         Err(e) => {
-            let metadata = create_metadata(request_id, start_time, false);
-            return Ok(ApiResponse::error(
-                ApiError::InvalidQuery {
-                    details: format!("QSQL parsing error: {}", e),
-                },
-                metadata,
-            ).error_response());
+            return Ok(ApiError::InvalidQuery {
+                details: format!("QSQL parsing error: {}", e),
+            }.error_response());
         }
     };
 
@@ -195,19 +191,15 @@ pub async fn execute_qsql(
             Ok(HttpResponse::Ok().json(ApiResponse::success(response, metadata)))
         }
         Err(e) => {
-            let metadata = create_metadata(request_id, start_time, false);
             error!(
                 request_id = %request_id,
                 error = %e,
                 "QSQL query execution failed"
             );
 
-            Ok(ApiResponse::error(
-                ApiError::InvalidQuery {
-                    details: format!("Query execution error: {}", e),
-                },
-                metadata,
-            ).error_response())
+            Ok(ApiError::InvalidQuery {
+                details: format!("Query execution error: {}", e),
+            }.error_response())
         }
     }
 }
@@ -270,17 +262,36 @@ pub async fn prometheus_metrics(
     ),
     tag = "System"
 )]
-pub async fn get_schema(
+pub async fn schema_info(
     db: web::Data<NeuroQuantumDB>,
 ) -> ActixResult<HttpResponse> {
+    let start_time = Instant::now();
+    let request_id = uuid::Uuid::new_v4().to_string();
+
+    info!(
+        request_id = %request_id,
+        "Processing schema introspection request"
+    );
+
+    // Retrieve schema information
     match db.get_schema_info().await {
-        Ok(schema) => Ok(HttpResponse::Ok().json(schema)),
-        Err(e) => {
-            let metadata = create_metadata(
-                uuid::Uuid::new_v4().to_string(),
-                Instant::now(),
-                false,
+        Ok(schema_info) => {
+            let metadata = create_metadata(request_id, start_time, true);
+            info!(
+                request_id = %request_id,
+                "Schema introspection completed successfully"
             );
+
+            Ok(HttpResponse::Ok().json(ApiResponse::success(schema_info, metadata)))
+        }
+        Err(e) => {
+            let metadata = create_metadata(request_id, start_time, false);
+            error!(
+                request_id = %request_id,
+                error = %e,
+                "Schema introspection failed"
+            );
+
             Ok(ApiResponse::error(
                 ApiError::InternalError {
                     context: format!("Schema introspection failed: {}", e),
@@ -386,9 +397,14 @@ async fn execute_quantum_search(
 
 async fn execute_qsql_query(
     db: &NeuroQuantumDB,
-    query_plan: QueryPlan,
+    statement: neuroquantum_qsql::ast::Statement,
     optimize: bool,
 ) -> anyhow::Result<QSQLResponse> {
+    // Convert Statement to QueryPlan using the optimizer
+    use neuroquantum_qsql::optimizer::NeuromorphicOptimizer;
+    let mut optimizer = NeuromorphicOptimizer::new()?;
+    let query_plan = optimizer.optimize(statement)?;
+
     let result = db.execute_qsql(query_plan, optimize).await?;
 
     Ok(QSQLResponse {

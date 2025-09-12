@@ -1,16 +1,21 @@
 use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform},
+    Error, HttpMessage, ResponseError,
+    http::{header::HeaderValue, StatusCode},
+    HttpResponse,
 };
 use futures::future::{ok, Ready};
 use std::{
-    cell::RefCell,
     collections::HashMap,
-    rc::Rc,
+    fmt,
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
     task::{Context, Poll},
     time::{Duration, Instant},
 };
-use tracing::{info, warn, error};
+use tracing::{debug, error, info, warn};
+
 use crate::error::ApiError;
 
 /// Quantum security middleware for enhanced protection
@@ -392,11 +397,12 @@ where
                     let status = res.status().as_u16();
 
                     // Add tracing headers
-                    res.headers_mut().insert(
-                        actix_web::http::header::HeaderName::from_static("x-request-id"),
-                        actix_web::http::header::HeaderValue::from_str(&request_id)
-                            .unwrap_or_default(),
-                    );
+                    if let Ok(header_value) = actix_web::http::header::HeaderValue::from_str(&request_id) {
+                        res.headers_mut().insert(
+                            actix_web::http::header::HeaderName::from_static("x-request-id"),
+                            header_value,
+                        );
+                    }
 
                     info!(
                         request_id = %request_id,
