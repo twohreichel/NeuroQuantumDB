@@ -3,7 +3,6 @@
 //! This module implements the core synaptic data structures that form the
 //! foundation of the neuromorphic computing layer.
 
-use std::collections::HashMap;
 use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use dashmap::DashMap;
@@ -23,15 +22,16 @@ pub enum ConnectionType {
 }
 
 /// Usage statistics for optimization
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default)]
 pub struct UsageStats {
     pub access_count: u64,
+    #[serde(skip)] // Skip serialization for Instant
     pub last_access: Option<Instant>,
     pub avg_response_time_ns: u64,
 }
 
 /// Synaptic connection between nodes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SynapticConnection {
     /// Target node identifier
     pub target_id: NodeId,
@@ -42,6 +42,7 @@ pub struct SynapticConnection {
     /// Usage statistics for this connection
     pub usage_stats: UsageStats,
     /// Creation timestamp
+    #[serde(skip)] // Skip serialization for Instant
     pub created_at: Instant,
 }
 
@@ -70,7 +71,7 @@ impl SynapticConnection {
 }
 
 /// Individual synaptic node in the network
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SynapticNode {
     /// Unique node identifier
     pub id: NodeId,
@@ -88,34 +89,42 @@ pub struct SynapticNode {
     pub usage_stats: UsageStats,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct NodeMetadata {
     /// Data type hint
     pub data_type: String,
     /// Size in bytes
     pub size: usize,
     /// Creation timestamp
+    #[serde(skip)] // Skip serialization for Instant
     pub created_at: Instant,
     /// Last modification timestamp
+    #[serde(skip)] // Skip serialization for Instant
     pub modified_at: Instant,
+}
+
+impl Default for NodeMetadata {
+    fn default() -> Self {
+        let now = Instant::now();
+        Self {
+            data_type: "unknown".to_string(),
+            size: 0,
+            created_at: now,
+            modified_at: now,
+        }
+    }
 }
 
 impl SynapticNode {
     /// Create a new synaptic node
     pub fn new(id: NodeId) -> Self {
-        let now = Instant::now();
         Self {
             id,
             strength: 0.0,
             connections: Vec::new(),
             activation: 0.0,
             data: None,
-            metadata: NodeMetadata {
-                data_type: "unknown".to_string(),
-                size: 0,
-                created_at: now,
-                modified_at: now,
-            },
+            metadata: NodeMetadata::default(),
             usage_stats: UsageStats::default(),
         }
     }
