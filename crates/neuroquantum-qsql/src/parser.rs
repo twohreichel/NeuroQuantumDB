@@ -49,23 +49,76 @@ impl Default for ParserConfig {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Standard SQL keywords
-    Select, From, Where, Having, GroupBy, OrderBy, Limit, Offset,
-    Insert, Update, Delete, Create, Drop, Table, Index,
-    Inner, Left, Right, Full, Cross, Join, On, As,
-    And, Or, Not, In, Like, Between, Is, Null, With,
+    Select,
+    From,
+    Where,
+    Having,
+    GroupBy,
+    OrderBy,
+    Limit,
+    Offset,
+    Insert,
+    Update,
+    Delete,
+    Create,
+    Drop,
+    Table,
+    Index,
+    Inner,
+    Left,
+    Right,
+    Full,
+    Cross,
+    Join,
+    On,
+    As,
+    And,
+    Or,
+    Not,
+    In,
+    Like,
+    Between,
+    Is,
+    Null,
+    With,
 
     // Neuromorphic keywords
-    NeuroMatch, SynapticWeight, PlasticityThreshold, HebbianLearning,
-    SynapticOptimize, NeuralPathway, PlasticityMatrix, ActivationThreshold,
+    NeuroMatch,
+    SynapticWeight,
+    PlasticityThreshold,
+    HebbianLearning,
+    SynapticOptimize,
+    NeuralPathway,
+    PlasticityMatrix,
+    ActivationThreshold,
 
     // Quantum keywords
-    QuantumSearch, QuantumJoin, SuperpositionQuery, AmplitudeAmplification,
-    QuantumEntanglement, GroverSearch, OracleFunction, QuantumAnnealing,
+    QuantumSearch,
+    QuantumJoin,
+    SuperpositionQuery,
+    AmplitudeAmplification,
+    QuantumEntanglement,
+    GroverSearch,
+    OracleFunction,
+    QuantumAnnealing,
 
     // Operators and punctuation
-    Equal, NotEqual, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual,
-    Plus, Minus, Multiply, Divide, Modulo,
-    LeftParen, RightParen, Comma, Semicolon, Dot,
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+    Modulo,
+    LeftParen,
+    RightParen,
+    Comma,
+    Semicolon,
+    Dot,
 
     // Literals and identifiers
     Identifier(String),
@@ -148,7 +201,7 @@ impl QSQLParser {
 
             // Skip whitespace and comments in most cases
             match token {
-                TokenType::Whitespace | TokenType::Comment(_) => {},
+                TokenType::Whitespace | TokenType::Comment(_) => {}
                 _ => tokens.push(token),
             }
 
@@ -219,7 +272,11 @@ impl QSQLParser {
     }
 
     /// Parse string literal
-    fn parse_string_literal(&self, chars: &[char], position: usize) -> QSQLResult<(TokenType, usize)> {
+    fn parse_string_literal(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
         let quote_char = chars[position];
         let mut new_pos = position + 1;
         let mut value = String::new();
@@ -261,7 +318,11 @@ impl QSQLParser {
     }
 
     /// Parse numeric literal (integer or float)
-    fn parse_numeric_literal(&self, chars: &[char], position: usize) -> QSQLResult<(TokenType, usize)> {
+    fn parse_numeric_literal(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
         let mut new_pos = position;
         let mut has_dot = false;
         let mut value = String::new();
@@ -303,7 +364,11 @@ impl QSQLParser {
         }
 
         // Look for DNA: prefix
-        chars[position..position + 4].iter().collect::<String>().to_uppercase() == "DNA:"
+        chars[position..position + 4]
+            .iter()
+            .collect::<String>()
+            .to_uppercase()
+            == "DNA:"
     }
 
     /// Parse DNA sequence literal
@@ -335,7 +400,11 @@ impl QSQLParser {
     }
 
     /// Parse identifier or keyword
-    fn parse_identifier_or_keyword(&self, chars: &[char], position: usize) -> QSQLResult<(TokenType, usize)> {
+    fn parse_identifier_or_keyword(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
         let mut new_pos = position;
         let mut value = String::new();
 
@@ -364,7 +433,11 @@ impl QSQLParser {
     }
 
     /// Parse operator or punctuation
-    fn parse_operator_or_punctuation(&self, chars: &[char], position: usize) -> QSQLResult<(TokenType, usize)> {
+    fn parse_operator_or_punctuation(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
         let ch = chars[position];
 
         // Two-character operators
@@ -423,7 +496,10 @@ impl QSQLParser {
             TokenType::QuantumSearch => self.parse_quantum_search_statement(state),
             TokenType::SuperpositionQuery => self.parse_superposition_query_statement(state),
             _ => Err(QSQLError::ParseError {
-                message: format!("Unexpected token at start of statement: {:?}", state.peek()?),
+                message: format!(
+                    "Unexpected token at start of statement: {:?}",
+                    state.peek()?
+                ),
                 position: state.position(),
             }),
         }
@@ -448,7 +524,9 @@ impl QSQLParser {
         };
 
         // Parse neuromorphic extensions
-        let synaptic_weight = if state.match_token(&TokenType::With) && state.match_token(&TokenType::SynapticWeight) {
+        let synaptic_weight = if state.match_token(&TokenType::With)
+            && state.match_token(&TokenType::SynapticWeight)
+        {
             if let TokenType::FloatLiteral(weight) = state.next()? {
                 Some(weight as f32)
             } else {
@@ -527,7 +605,8 @@ impl QSQLParser {
                 if stmt.synaptic_weight < 0.0 || stmt.synaptic_weight > 1.0 {
                     return Err(NeuromorphicError::InvalidSynapticWeight {
                         weight: stmt.synaptic_weight,
-                    }.into());
+                    }
+                    .into());
                 }
             }
             Statement::QuantumSearch(stmt) => {
@@ -535,7 +614,8 @@ impl QSQLParser {
                     if iterations == 0 {
                         return Err(QuantumError::GroversFailed {
                             reason: "Zero iterations not allowed".to_string(),
-                        }.into());
+                        }
+                        .into());
                     }
                 }
             }
@@ -585,19 +665,34 @@ impl QSQLParser {
         // Neuromorphic keywords
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
         keywords.insert("SYNAPTIC_WEIGHT".to_string(), TokenType::SynapticWeight);
-        keywords.insert("PLASTICITY_THRESHOLD".to_string(), TokenType::PlasticityThreshold);
+        keywords.insert(
+            "PLASTICITY_THRESHOLD".to_string(),
+            TokenType::PlasticityThreshold,
+        );
         keywords.insert("HEBBIAN_LEARNING".to_string(), TokenType::HebbianLearning);
         keywords.insert("SYNAPTIC_OPTIMIZE".to_string(), TokenType::SynapticOptimize);
         keywords.insert("NEURAL_PATHWAY".to_string(), TokenType::NeuralPathway);
         keywords.insert("PLASTICITY_MATRIX".to_string(), TokenType::PlasticityMatrix);
-        keywords.insert("ACTIVATION_THRESHOLD".to_string(), TokenType::ActivationThreshold);
+        keywords.insert(
+            "ACTIVATION_THRESHOLD".to_string(),
+            TokenType::ActivationThreshold,
+        );
 
         // Quantum keywords
         keywords.insert("QUANTUM_SEARCH".to_string(), TokenType::QuantumSearch);
         keywords.insert("QUANTUM_JOIN".to_string(), TokenType::QuantumJoin);
-        keywords.insert("SUPERPOSITION_QUERY".to_string(), TokenType::SuperpositionQuery);
-        keywords.insert("AMPLITUDE_AMPLIFICATION".to_string(), TokenType::AmplitudeAmplification);
-        keywords.insert("QUANTUM_ENTANGLEMENT".to_string(), TokenType::QuantumEntanglement);
+        keywords.insert(
+            "SUPERPOSITION_QUERY".to_string(),
+            TokenType::SuperpositionQuery,
+        );
+        keywords.insert(
+            "AMPLITUDE_AMPLIFICATION".to_string(),
+            TokenType::AmplitudeAmplification,
+        );
+        keywords.insert(
+            "QUANTUM_ENTANGLEMENT".to_string(),
+            TokenType::QuantumEntanglement,
+        );
         keywords.insert("GROVER_SEARCH".to_string(), TokenType::GroverSearch);
         keywords.insert("ORACLE_FUNCTION".to_string(), TokenType::OracleFunction);
         keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
@@ -740,7 +835,10 @@ impl QSQLParser {
         })
     }
 
-    fn parse_superposition_query_statement(&self, state: &mut ParserState) -> QSQLResult<Statement> {
+    fn parse_superposition_query_statement(
+        &self,
+        state: &mut ParserState,
+    ) -> QSQLResult<Statement> {
         // Implementation placeholder
         Err(QSQLError::ParseError {
             message: "SUPERPOSITION_QUERY not yet implemented".to_string(),
@@ -758,14 +856,19 @@ struct ParserState<'a> {
 
 impl<'a> ParserState<'a> {
     fn new(tokens: &'a [TokenType]) -> Self {
-        Self { tokens, position: 0 }
+        Self {
+            tokens,
+            position: 0,
+        }
     }
 
     fn peek(&self) -> QSQLResult<&TokenType> {
-        self.tokens.get(self.position).ok_or_else(|| QSQLError::ParseError {
-            message: "Unexpected end of input".to_string(),
-            position: self.position,
-        })
+        self.tokens
+            .get(self.position)
+            .ok_or_else(|| QSQLError::ParseError {
+                message: "Unexpected end of input".to_string(),
+                position: self.position,
+            })
     }
 
     fn next(&mut self) -> QSQLResult<TokenType> {
@@ -821,13 +924,16 @@ impl NaturalLanguageProcessor {
 
     pub fn translate_to_qsql(&self, natural_query: &str) -> QSQLResult<String> {
         // Simplified NLP translation - in reality this would use ML models
-        if natural_query.to_lowercase().contains("find") && natural_query.to_lowercase().contains("users") {
+        if natural_query.to_lowercase().contains("find")
+            && natural_query.to_lowercase().contains("users")
+        {
             Ok("SELECT * FROM users".to_string())
         } else {
             Err(NLPError::TranslationFailed {
                 from: "natural language".to_string(),
                 to: "QSQL".to_string(),
-            }.into())
+            }
+            .into())
         }
     }
 }

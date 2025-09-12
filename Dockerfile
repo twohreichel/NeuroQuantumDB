@@ -50,64 +50,50 @@ RUN if [ -d "zig" ]; then \
         -target aarch64-linux -O ReleaseFast -dynamic || true; \
     fi
 
-# Stage 3: Final runtime image
-FROM --platform=linux/arm64 debian:bullseye-slim
+# Stage 3: Security scanner
+FROM --platform=linux/arm64 aquasec/trivy:latest as security-scanner
+COPY --from=rust-builder /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-core /tmp/scan/
+RUN trivy fs --severity HIGH,CRITICAL --no-progress /tmp/scan/ || true
 
-# Install minimal runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    libssl1.1 \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get autoremove -y \
-    && apt-get clean
+# Stage 4: Production runtime (ultra-minimal)
+FROM --platform=linux/arm64 gcr.io/distroless/cc-debian12:latest
 
 # Create non-root user for security
-RUN groupadd -r neuroquantum && useradd -r -g neuroquantum neuroquantum
+USER nonroot:nonroot
 
-# Create application directory
-WORKDIR /app
+# Set production environment
+ENV RUST_LOG=info
+ENV NEUROQUANTUM_ENV=production
+ENV NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
 
-# Copy binary from Rust builder
-COPY --from=rust-builder /app/target/aarch64-unknown-linux-gnu/release/neuroquantumdb /app/
+# Copy optimized binary
+COPY --from=rust-builder --chown=nonroot:nonroot \
+    /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-core \
+    /usr/local/bin/neuroquantumdb
 
-# Copy Zig libraries if they exist
-COPY --from=zig-builder /app/*.so /app/lib/ 2>/dev/null || true
+# Copy Zig performance modules (if built)
+COPY --from=zig-builder --chown=nonroot:nonroot \
+    /app/*.so /usr/local/lib/ 2>/dev/null || true
 
-# Create necessary directories
-RUN mkdir -p /app/config /app/data /app/logs
+# Copy production configuration
+COPY --chown=nonroot:nonroot config/prod.toml /etc/neuroquantumdb/config.toml
 
-# Copy configuration files
-COPY config/ /app/config/ 2>/dev/null || true
-
-# Set ownership and permissions
-RUN chown -R neuroquantum:neuroquantum /app
-RUN chmod +x /app/neuroquantumdb
-
-# Switch to non-root user
-USER neuroquantum
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["/usr/local/bin/neuroquantumdb", "health-check"]
 
 # Expose ports
 EXPOSE 8080 9090
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["/app/neuroquantumdb", "health-check"]
+# Resource limits for Raspberry Pi 4
+LABEL com.neuroquantumdb.memory-limit="100MB"
+LABEL com.neuroquantumdb.power-limit="2W"
+LABEL com.neuroquantumdb.target-platform="arm64"
 
-# Set environment variables for Raspberry Pi 4 optimization
-ENV NEUROQUANTUM_MAX_MEMORY=100MB
-ENV NEUROQUANTUM_MAX_POWER=2W
-ENV NEUROQUANTUM_CPU_THREADS=4
-ENV NEUROQUANTUM_NEON_OPTIMIZATIONS=true
-ENV RUST_LOG=info
+# Security labels
+LABEL com.neuroquantumdb.security="quantum-resistant"
+LABEL com.neuroquantumdb.encryption="kyber-dilithium"
 
-# Entry point
-ENTRYPOINT ["/app/neuroquantumdb"]
-CMD ["--config", "/app/config/prod.toml"]
-
-# Container metadata
-LABEL maintainer="NeuroQuantumDB Team <team@neuroquantumdb.org>"
-LABEL version="1.0.0"
-LABEL description="Ultra-efficient neuromorphic database for edge computing"
-LABEL architecture="arm64"
-LABEL target="raspberry-pi-4"
-LABEL org.opencontainers.image.source="https://github.com/neuroquantumdb/neuroquantumdb"
+# Production entrypoint
+ENTRYPOINT ["/usr/local/bin/neuroquantumdb"]
+CMD ["--config", "/etc/neuroquantumdb/config.toml"]

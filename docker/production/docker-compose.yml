@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  # NeuroQuantumDB main application
+  neuroquantumdb:
+    image: neuroquantumdb:latest
+    platform: linux/arm64
+    container_name: neuroquantumdb-main
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - RUST_LOG=info
+      - NEUROQUANTUM_ENV=production
+      - NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
+    volumes:
+      - ./config/prod.toml:/etc/neuroquantumdb/config.toml:ro
+      - neuroquantum_data:/var/lib/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+          cpus: '1.0'
+        reservations:
+          memory: 50M
+          cpus: '0.5'
+    networks:
+      - neuroquantum-net
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    platform: linux/arm64
+    container_name: neuroquantum-prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - neuroquantum-net
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    platform: linux/arm64
+    container_name: neuroquantum-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=neuroquantum2024
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - neuroquantum-net
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    platform: linux/arm64
+    container_name: neuroquantum-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - neuroquantum-net
+
+  # Vector for log aggregation
+  vector:
+    image: timberio/vector:latest-alpine
+    platform: linux/arm64
+    container_name: neuroquantum-vector
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/vector.toml:/etc/vector/vector.toml:ro
+      - /var/log:/var/log:ro
+    networks:
+      - neuroquantum-net
+
+  # Edge node load balancer (HAProxy)
+  loadbalancer:
+    image: haproxy:alpine
+    platform: linux/arm64
+    container_name: neuroquantum-lb
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8404:8404"  # HAProxy stats
+    volumes:
+      - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - neuroquantumdb
+    networks:
+      - neuroquantum-net
+
+volumes:
+  neuroquantum_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  neuroquantum-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

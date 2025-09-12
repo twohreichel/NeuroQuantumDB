@@ -6,8 +6,8 @@
 
 use crate::ast::*;
 use crate::error::*;
-use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::learning::HebbianLearningEngine;
+use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::synaptic::SynapticNetwork;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -78,7 +78,8 @@ mod unix_timestamp {
     where
         S: Serializer,
     {
-        let timestamp = time.duration_since(UNIX_EPOCH)
+        let timestamp = time
+            .duration_since(UNIX_EPOCH)
             .map_err(serde::ser::Error::custom)?
             .as_secs();
         serializer.serialize_u64(timestamp)
@@ -193,20 +194,25 @@ impl NeuromorphicOptimizer {
 
     /// Create optimizer with custom configuration
     pub fn with_config(config: OptimizerConfig) -> QSQLResult<Self> {
-        let synaptic_network = SynapticNetwork::new(1000, config.activation_threshold)
-            .map_err(|e| QSQLError::NeuromorphicError {
-                message: format!("Failed to create synaptic network: {}", e),
+        let synaptic_network =
+            SynapticNetwork::new(1000, config.activation_threshold).map_err(|e| {
+                QSQLError::NeuromorphicError {
+                    message: format!("Failed to create synaptic network: {}", e),
+                }
             })?;
 
-        let plasticity_matrix = PlasticityMatrix::new(1000, config.activation_threshold)
-            .map_err(|e| QSQLError::NeuromorphicError {
-                message: format!("Failed to create plasticity matrix: {}", e),
+        let plasticity_matrix =
+            PlasticityMatrix::new(1000, config.activation_threshold).map_err(|e| {
+                QSQLError::NeuromorphicError {
+                    message: format!("Failed to create plasticity matrix: {}", e),
+                }
             })?;
 
-        let hebbian_learner = HebbianLearningEngine::new(config.learning_rate)
-            .map_err(|e| QSQLError::NeuromorphicError {
+        let hebbian_learner = HebbianLearningEngine::new(config.learning_rate).map_err(|e| {
+            QSQLError::NeuromorphicError {
                 message: format!("Failed to create Hebbian learner: {}", e),
-            })?;
+            }
+        })?;
 
         Ok(Self {
             config,
@@ -245,7 +251,11 @@ impl NeuromorphicOptimizer {
     }
 
     /// Optimize using synaptic networks and plasticity
-    fn optimize_with_synaptic_networks(&mut self, statement: &Statement, pattern_hash: &str) -> QSQLResult<QueryPlan> {
+    fn optimize_with_synaptic_networks(
+        &mut self,
+        statement: &Statement,
+        pattern_hash: &str,
+    ) -> QSQLResult<QueryPlan> {
         // Generate initial execution plan
         let mut plan = self.generate_initial_plan(statement)?;
 
@@ -315,7 +325,11 @@ impl NeuromorphicOptimizer {
     }
 
     /// Apply Hebbian learning to strengthen frequently used patterns
-    fn apply_hebbian_learning(&mut self, mut plan: QueryPlan, pattern_hash: &str) -> QSQLResult<QueryPlan> {
+    fn apply_hebbian_learning(
+        &mut self,
+        mut plan: QueryPlan,
+        pattern_hash: &str,
+    ) -> QSQLResult<QueryPlan> {
         // Check if pattern exists and strengthen it
         if let Some(pattern) = self.query_patterns.get_mut(pattern_hash) {
             pattern.execution_count += 1;
@@ -353,22 +367,26 @@ impl NeuromorphicOptimizer {
     }
 
     /// Update synaptic weights based on usage patterns
-    pub fn update_synaptic_weights(&mut self, cache: &HashMap<String, crate::CachedQueryPlan>) -> QSQLResult<()> {
+    pub fn update_synaptic_weights(
+        &mut self,
+        cache: &HashMap<String, crate::CachedQueryPlan>,
+    ) -> QSQLResult<()> {
         for (_query, cached_plan) in cache {
             let pattern_hash = self.generate_pattern_hash(&cached_plan.plan.statement)?;
 
             // Clone the pattern_hash to avoid borrowing issues
             let hash_key = pattern_hash.clone();
-            let pattern = self.query_patterns.entry(hash_key).or_insert_with(|| {
-                QueryPattern {
+            let pattern = self
+                .query_patterns
+                .entry(hash_key)
+                .or_insert_with(|| QueryPattern {
                     pattern_hash: pattern_hash.clone(),
                     synaptic_strength: 0.5,
                     execution_count: 0,
                     average_cost: 1.0,
                     last_optimization: SystemTime::now(),
                     optimal_plan: None,
-                }
-            });
+                });
 
             // Update pattern based on usage
             pattern.execution_count = cached_plan.execution_count;
@@ -408,10 +426,12 @@ impl NeuromorphicOptimizer {
         // Maintain cache size
         if self.query_patterns.len() > self.config.cache_size {
             // Remove oldest patterns (simplified LRU)
-            if let Some(oldest_key) = self.query_patterns
+            if let Some(oldest_key) = self
+                .query_patterns
                 .iter()
                 .min_by_key(|(_, pattern)| pattern.last_optimization)
-                .map(|(key, _)| key.clone()) {
+                .map(|(key, _)| key.clone())
+            {
                 self.query_patterns.remove(&oldest_key);
             }
         }

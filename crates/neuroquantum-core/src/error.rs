@@ -3,8 +3,8 @@
 //! Comprehensive error handling for the NeuroQuantumDB neuromorphic core
 //! with detailed error classification and recovery strategies.
 
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Result type alias for core operations
 pub type CoreResult<T> = Result<T, CoreError>;
@@ -199,36 +199,68 @@ impl fmt::Display for CoreError {
 
 impl std::error::Error for CoreError {}
 
-// Conversion implementations for common error types
-impl From<std::io::Error> for CoreError {
-    fn from(err: std::io::Error) -> Self {
-        CoreError::IoError(err.to_string())
+/// Top-level error type for NeuroQuantumDB operations
+/// Combines all possible error types from different subsystems
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NeuroQuantumError {
+    /// Core neuromorphic computing errors
+    CoreError(CoreError),
+
+    /// Security-related errors
+    SecurityError(String),
+
+    /// DNA compression/decompression errors
+    CompressionError(String),
+
+    /// Quantum algorithm errors
+    QuantumError(String),
+
+    /// QSQL parsing/execution errors
+    QueryError(String),
+
+    /// Network/distributed system errors
+    NetworkError(String),
+
+    /// Configuration errors
+    ConfigError(String),
+}
+
+impl fmt::Display for NeuroQuantumError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NeuroQuantumError::CoreError(e) => write!(f, "Core error: {}", e),
+            NeuroQuantumError::SecurityError(msg) => write!(f, "Security error: {}", msg),
+            NeuroQuantumError::CompressionError(msg) => write!(f, "Compression error: {}", msg),
+            NeuroQuantumError::QuantumError(msg) => write!(f, "Quantum error: {}", msg),
+            NeuroQuantumError::QueryError(msg) => write!(f, "Query error: {}", msg),
+            NeuroQuantumError::NetworkError(msg) => write!(f, "Network error: {}", msg),
+            NeuroQuantumError::ConfigError(msg) => write!(f, "Config error: {}", msg),
+        }
     }
 }
 
-impl From<serde_json::Error> for CoreError {
-    fn from(err: serde_json::Error) -> Self {
-        CoreError::SerializationError(err.to_string())
+impl std::error::Error for NeuroQuantumError {}
+
+impl From<CoreError> for NeuroQuantumError {
+    fn from(error: CoreError) -> Self {
+        NeuroQuantumError::CoreError(error)
     }
 }
 
-impl<T> From<std::sync::PoisonError<T>> for CoreError {
-    fn from(err: std::sync::PoisonError<T>) -> Self {
-        CoreError::LockError(err.to_string())
+impl From<crate::security::SecurityError> for NeuroQuantumError {
+    fn from(error: crate::security::SecurityError) -> Self {
+        NeuroQuantumError::SecurityError(error.to_string())
     }
 }
 
-impl From<std::num::ParseFloatError> for CoreError {
-    fn from(err: std::num::ParseFloatError) -> Self {
-        CoreError::ValidationError(format!("Failed to parse float: {}", err))
+impl From<crate::dna::CompressionError> for NeuroQuantumError {
+    fn from(error: crate::dna::CompressionError) -> Self {
+        NeuroQuantumError::CompressionError(error.to_string())
     }
 }
 
-impl From<std::num::ParseIntError> for CoreError {
-    fn from(err: std::num::ParseIntError) -> Self {
-        CoreError::ValidationError(format!("Failed to parse integer: {}", err))
-    }
-}
+/// Result type for high-level NeuroQuantumDB operations
+pub type NeuroQuantumResult<T> = Result<T, NeuroQuantumError>;
 
 /// Error recovery strategies for different error types
 pub struct ErrorRecovery;
@@ -328,7 +360,10 @@ mod tests {
     fn test_error_severity() {
         assert_eq!(CoreError::config("test").severity(), ErrorSeverity::High);
         assert_eq!(CoreError::lock_error("test").severity(), ErrorSeverity::Low);
-        assert_eq!(CoreError::MemoryError("test".to_string()).severity(), ErrorSeverity::High);
+        assert_eq!(
+            CoreError::MemoryError("test".to_string()).severity(),
+            ErrorSeverity::High
+        );
     }
 
     #[test]
@@ -337,7 +372,7 @@ mod tests {
         let context = ErrorContext::new(
             error,
             "query_processor".to_string(),
-            "process_query".to_string()
+            "process_query".to_string(),
         );
 
         assert_eq!(context.component, "query_processor");

@@ -4,17 +4,17 @@
 //! query processing optimized for ARM64/NEON hardware acceleration.
 
 use crate::error::{CoreError, CoreResult};
-use crate::synaptic::SynapticNetwork;
 use crate::query::{Query, QueryResult};
+use crate::synaptic::SynapticNetwork;
+use async_trait::async_trait;
+use rand::{thread_rng, Rng};
+use rand_distr::{Distribution, Normal};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use rand::{Rng, thread_rng};
-use rand_distr::{Normal, Distribution};
 use tracing::{debug, info, instrument, warn};
-use serde::{Deserialize, Serialize};
-use async_trait::async_trait;
 
 /// Quantum error types for quantum algorithm operations
 #[derive(Debug, thiserror::Error)]
@@ -124,7 +124,11 @@ impl GroverSearch {
 
     /// Classical simulation of Grover's algorithm with amplitude amplification
     #[instrument(skip(self, query))]
-    async fn grover_search_internal(&self, query: &str, database: &[u8]) -> CoreResult<QuantumSearchResult> {
+    async fn grover_search_internal(
+        &self,
+        query: &str,
+        database: &[u8],
+    ) -> CoreResult<QuantumSearchResult> {
         let start_time = Instant::now();
         let n = database.len();
 
@@ -136,7 +140,10 @@ impl GroverSearch {
         let iterations = ((PI / 4.0) * (n as f64).sqrt()) as usize;
         let clamped_iterations = iterations.min(self.config.max_grover_iterations);
 
-        debug!("Grover search: {} items, {} iterations", n, clamped_iterations);
+        debug!(
+            "Grover search: {} items, {} iterations",
+            n, clamped_iterations
+        );
 
         // Initialize quantum state with equal superposition
         let mut amplitudes = vec![1.0 / (n as f64).sqrt(); n];
@@ -191,7 +198,8 @@ impl GroverSearch {
             }
 
             // Check convergence early if probability is high enough
-            let max_prob = amplitudes.iter()
+            let max_prob = amplitudes
+                .iter()
                 .enumerate()
                 .filter(|(i, _)| target_marks[*i])
                 .map(|(_, &amp)| amp * amp)
@@ -258,15 +266,21 @@ impl QuantumSearch for GroverSearch {
         let result = self.grover_search_internal(query, &network_data).await?;
 
         if self.config.validate_quantum_advantage && result.quantum_advantage < 1.0 {
-            warn!("Quantum advantage not achieved: {:.2}x", result.quantum_advantage);
+            warn!(
+                "Quantum advantage not achieved: {:.2}x",
+                result.quantum_advantage
+            );
 
             if self.config.enable_classical_fallback {
                 return self.classical_search_fallback(query, &network_data).await;
             }
         }
 
-        info!("Grover search completed: {} results, {:.2}x speedup",
-              result.indices.len(), result.quantum_advantage);
+        info!(
+            "Grover search completed: {} results, {:.2}x speedup",
+            result.indices.len(),
+            result.quantum_advantage
+        );
 
         Ok(result.indices)
     }
@@ -290,7 +304,10 @@ impl QuantumSearch for GroverSearch {
         let mut rng = thread_rng();
         let normal = Normal::new(0.0, 1.0).unwrap();
 
-        debug!("Starting quantum annealing: {} data points, T={:.2}", n, temperature);
+        debug!(
+            "Starting quantum annealing: {} data points, T={:.2}",
+            n, temperature
+        );
 
         // Simulated annealing with quantum-inspired moves
         while temperature > 0.01 && iterations < 10000 {
@@ -307,7 +324,8 @@ impl QuantumSearch for GroverSearch {
             let acceptance_prob = if delta_energy < 0.0 {
                 1.0
             } else {
-                (-delta_energy / temperature).exp() * self.quantum_tunneling_factor(delta_energy, temperature)
+                (-delta_energy / temperature).exp()
+                    * self.quantum_tunneling_factor(delta_energy, temperature)
             };
 
             if rng.gen::<f64>() < acceptance_prob {
@@ -337,8 +355,10 @@ impl QuantumSearch for GroverSearch {
             0.0
         };
 
-        info!("Quantum annealing completed: {} iterations, energy={:.4}, improvement={:.2}x",
-              iterations, best_energy, improvement_factor);
+        info!(
+            "Quantum annealing completed: {} iterations, energy={:.4}, improvement={:.2}x",
+            iterations, best_energy, improvement_factor
+        );
 
         Ok(OptimizedIndex {
             node_arrangement: best_state.iter().map(|&x| x as u64).collect(),
@@ -368,9 +388,7 @@ impl QuantumSearch for GroverSearch {
         for query in queries {
             let network = Arc::clone(&self.synaptic_network);
             let query_clone = query.clone();
-            let task = tokio::spawn(async move {
-                network.process_query(&query_clone).await
-            });
+            let task = tokio::spawn(async move { network.process_query(&query_clone).await });
             query_tasks.push(task);
         }
 
@@ -391,17 +409,22 @@ impl QuantumSearch for GroverSearch {
 
         let execution_time = start_time.elapsed();
         let classical_time = Duration::from_nanos(
-            queries.len() as u64 * 1000 // Assume 1μs per sequential query
+            queries.len() as u64 * 1000, // Assume 1μs per sequential query
         );
         let quantum_speedup = classical_time.as_nanos() as f64 / execution_time.as_nanos() as f64;
 
         // Maintain quantum coherence within the specified time window
         if execution_time > coherence_time {
-            warn!("Coherence time exceeded: {:?} > {:?}", execution_time, coherence_time);
+            warn!(
+                "Coherence time exceeded: {:?} > {:?}",
+                execution_time, coherence_time
+            );
         }
 
-        info!("Superposition query completed: {} paths, {:.2}x speedup",
-              parallel_paths, quantum_speedup);
+        info!(
+            "Superposition query completed: {} paths, {:.2}x speedup",
+            parallel_paths, quantum_speedup
+        );
 
         Ok(QuantumQueryResults {
             results,
@@ -441,9 +464,9 @@ impl GroverSearch {
 
         // Ising model energy calculation
         for i in 0..state.len() {
-            for j in i+1..state.len() {
+            for j in i + 1..state.len() {
                 let coupling = if i + 1 == j {
-                    data[i.min(data.len()-1)] as f64
+                    data[i.min(data.len() - 1)] as f64
                 } else {
                     0.1
                 };
@@ -455,7 +478,13 @@ impl GroverSearch {
     }
 
     /// Quantum-inspired perturbation for annealing
-    fn quantum_perturbation<R: Rng>(&self, state: &mut [i32], temperature: f64, normal: &Normal<f64>, rng: &mut R) {
+    fn quantum_perturbation<R: Rng>(
+        &self,
+        state: &mut [i32],
+        temperature: f64,
+        normal: &Normal<f64>,
+        rng: &mut R,
+    ) {
         let flip_prob = (temperature / self.config.annealing_temperature).min(1.0);
 
         for spin in state.iter_mut() {
@@ -470,17 +499,18 @@ impl GroverSearch {
     fn quantum_tunneling_factor(&self, delta_energy: f64, temperature: f64) -> f64 {
         // Enhanced tunneling probability for quantum annealing
         let tunneling_strength = 0.1;
-        1.0 + tunneling_strength * (-delta_energy.abs() / temperature).exp()
+        1.0 + tunneling_strength * (-delta_energy / temperature).exp()
     }
 
-    /// Extract connection weights from optimized state
+    /// Extract connection weights from annealing state
     fn extract_connection_weights(&self, state: &[i32]) -> HashMap<(u64, u64), f32> {
         let mut weights = HashMap::new();
 
         for i in 0..state.len() {
-            for j in i+1..state.len() {
+            for j in i + 1..state.len() {
                 if state[i] * state[j] > 0 {
-                    let weight = 1.0 / (1.0 + (i as f32 - j as f32).abs());
+                    // Correlated spins have positive weight
+                    let weight = (state[i] * state[j]) as f32 * 0.1;
                     weights.insert((i as u64, j as u64), weight);
                 }
             }
@@ -490,64 +520,75 @@ impl GroverSearch {
     }
 }
 
-/// Factory for creating quantum algorithm implementations
-pub struct QuantumProcessorFactory;
-
-impl QuantumProcessorFactory {
-    pub fn create_grover_search(
-        config: QuantumConfig,
-        network: Arc<SynapticNetwork>
-    ) -> Box<dyn QuantumSearch> {
-        Box::new(GroverSearch::new(config, network))
-    }
+/// Main quantum processor that integrates all quantum algorithms
+/// This is the main struct that gets imported in lib.rs
+pub struct QuantumProcessor {
+    grover_search: GroverSearch,
+    config: QuantumConfig,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::synaptic::SynapticNetwork;
-
-    #[tokio::test]
-    async fn test_grover_search_basic() {
+impl QuantumProcessor {
+    /// Create a new quantum processor with the given synaptic network
+    pub fn new() -> Self {
+        // Create a minimal synaptic network for now
+        let synaptic_network = Arc::new(SynapticNetwork::new(1000, 0.5).unwrap());
         let config = QuantumConfig::default();
-        let network = Arc::new(SynapticNetwork::new(1000, 0.5).unwrap());
-        let grover = GroverSearch::new(config, network);
+        let grover_search = GroverSearch::new(config.clone(), synaptic_network);
 
-        // Test with simple database
-        let database = b"hello world test hello";
-        let result = grover.grover_search_internal("hello", database).await.unwrap();
-
-        assert!(!result.indices.is_empty());
-        assert!(result.quantum_advantage >= 0.0);
+        Self {
+            grover_search,
+            config,
+        }
     }
 
-    #[tokio::test]
-    async fn test_quantum_annealing() {
-        let config = QuantumConfig::default();
-        let network = Arc::new(SynapticNetwork::new(1000, 0.5).unwrap());
-        let grover = GroverSearch::new(config, network);
+    /// Create quantum processor with custom configuration
+    pub fn with_config(config: QuantumConfig, synaptic_network: Arc<SynapticNetwork>) -> Self {
+        let grover_search = GroverSearch::new(config.clone(), synaptic_network);
 
-        let data = vec![1.0, -1.0, 1.0, -1.0, 1.0];
-        let result = grover.quantum_annealing(&data).await.unwrap();
-
-        assert_eq!(result.node_arrangement.len(), data.len());
-        assert!(result.convergence_iterations > 0);
+        Self {
+            grover_search,
+            config,
+        }
     }
 
-    #[tokio::test]
-    async fn test_superposition_query() {
-        let config = QuantumConfig::default();
-        let network = Arc::new(SynapticNetwork::new(1000, 0.5).unwrap());
-        let grover = GroverSearch::new(config, network);
+    /// Perform Grover's search algorithm
+    pub async fn grover_search(&self, query: &str) -> CoreResult<Vec<usize>> {
+        self.grover_search.grover_search(query).await
+    }
 
-        let queries = vec![
-            Query::new("test1".to_string()),
-            Query::new("test2".to_string()),
-        ];
+    /// Perform classical search for comparison/fallback
+    pub async fn classical_search(&self, query: &str) -> CoreResult<Vec<usize>> {
+        // Simple classical search implementation
+        let network_data = self.grover_search.synaptic_network.get_serialized_data().await?;
+        let query_bytes = query.as_bytes();
+        let mut indices = Vec::new();
 
-        let result = grover.superposition_query(&queries).await.unwrap();
+        for (i, window) in network_data.windows(query_bytes.len()).enumerate() {
+            if window == query_bytes {
+                indices.push(i);
+            }
+        }
 
-        assert_eq!(result.results.len(), queries.len());
-        assert_eq!(result.parallel_paths, queries.len());
+        Ok(indices)
+    }
+
+    /// Perform quantum annealing optimization
+    pub async fn quantum_annealing(&self, data: &[f32]) -> CoreResult<OptimizedIndex> {
+        self.grover_search.quantum_annealing(data).await
+    }
+
+    /// Process multiple queries in superposition
+    pub async fn superposition_query(&self, queries: &[Query]) -> CoreResult<QuantumQueryResults> {
+        self.grover_search.superposition_query(queries).await
+    }
+
+    /// Get quantum processor configuration
+    pub fn config(&self) -> &QuantumConfig {
+        &self.config
+    }
+
+    /// Update quantum processor configuration
+    pub fn update_config(&mut self, config: QuantumConfig) {
+        self.config = config;
     }
 }

@@ -4,4 +4,6 @@
 //! with neuromorphic and quantum-inspired processing capabilities.
 
 // Re-export main executor components
-pub use crate::query_plan::{QueryExecutor, QueryResult, QueryValue, ExecutorConfig, ExecutionStats, ColumnInfo};
+pub use crate::query_plan::{
+    ColumnInfo, ExecutionStats, ExecutorConfig, QueryExecutor, QueryResult, QueryValue,
+};

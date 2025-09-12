@@ -256,27 +256,40 @@ pub enum Literal {
     String(String),
     Blob(Vec<u8>),
     // DNA-inspired literals
-    DNASequence(String), // ATGC sequence
+    DNASequence(String),   // ATGC sequence
     QuantumBit(bool, f64), // Value and probability amplitude
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BinaryOperator {
     // Arithmetic
-    Add, Subtract, Multiply, Divide, Modulo,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
 
     // Comparison
-    Equal, NotEqual, LessThan, LessThanOrEqual,
-    GreaterThan, GreaterThanOrEqual,
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 
     // Logical
-    And, Or,
+    And,
+    Or,
 
     // Pattern matching
-    Like, NotLike, ILike, NotILike,
+    Like,
+    NotLike,
+    ILike,
+    NotILike,
 
     // Set operations
-    In, NotIn,
+    In,
+    NotIn,
 
     // Neuromorphic operators
     SynapticStrength,
@@ -343,13 +356,19 @@ pub struct ColumnDefinition {
 pub enum DataType {
     // Standard types
     Boolean,
-    TinyInt, SmallInt, Integer, BigInt,
-    Real, Double,
+    TinyInt,
+    SmallInt,
+    Integer,
+    BigInt,
+    Real,
+    Double,
     Char(Option<u32>),
     VarChar(Option<u32>),
     Text,
     Blob,
-    Date, Time, Timestamp,
+    Date,
+    Time,
+    Timestamp,
 
     // Neuromorphic types
     SynapticWeight,
@@ -379,8 +398,13 @@ pub enum ColumnConstraint {
     Check(Expression),
     Default(Expression),
     // Neuromorphic constraints
-    SynapticRange { min: f32, max: f32 },
-    PlasticityBounds { threshold: f32 },
+    SynapticRange {
+        min: f32,
+        max: f32,
+    },
+    PlasticityBounds {
+        threshold: f32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -443,10 +467,16 @@ impl fmt::Display for Expression {
         match self {
             Expression::Literal(lit) => write!(f, "{:?}", lit),
             Expression::Identifier(id) => write!(f, "{}", id),
-            Expression::BinaryOp { left, operator, right } => {
+            Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => {
                 write!(f, "({} {:?} {})", left, operator, right)
             }
-            Expression::SynapticMatch { pattern, weight, .. } => {
+            Expression::SynapticMatch {
+                pattern, weight, ..
+            } => {
                 write!(f, "SYNAPTIC_MATCH({}, {})", pattern, weight)
             }
             Expression::QuantumSuperposition { states } => {

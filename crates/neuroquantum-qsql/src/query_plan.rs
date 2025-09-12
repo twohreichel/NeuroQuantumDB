@@ -109,7 +109,9 @@ impl QueryExecutor {
             Statement::Select(select) => self.execute_select(select, plan).await,
             Statement::NeuroMatch(neuromatch) => self.execute_neuromatch(neuromatch, plan).await,
             Statement::QuantumSearch(quantum) => self.execute_quantum_search(quantum, plan).await,
-            Statement::SuperpositionQuery(superpos) => self.execute_superposition_query(superpos, plan).await,
+            Statement::SuperpositionQuery(superpos) => {
+                self.execute_superposition_query(superpos, plan).await
+            }
             _ => Err(QSQLError::ExecutionError {
                 message: "Statement type not yet implemented".to_string(),
             }),
@@ -118,14 +120,20 @@ impl QueryExecutor {
         // Update statistics
         self.execution_stats.queries_executed += 1;
         self.execution_stats.total_execution_time += start_time.elapsed();
-        self.execution_stats.synaptic_optimizations += plan.optimization_metadata.synaptic_adaptations as u64;
-        self.execution_stats.quantum_operations += plan.optimization_metadata.quantum_optimizations_applied as u64;
+        self.execution_stats.synaptic_optimizations +=
+            plan.optimization_metadata.synaptic_adaptations as u64;
+        self.execution_stats.quantum_operations +=
+            plan.optimization_metadata.quantum_optimizations_applied as u64;
 
         Ok(result)
     }
 
     /// Execute SELECT statement
-    async fn execute_select(&mut self, _select: &SelectStatement, plan: &QueryPlan) -> QSQLResult<QueryResult> {
+    async fn execute_select(
+        &mut self,
+        _select: &SelectStatement,
+        plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
         let columns = vec![
             ColumnInfo {
                 name: "id".to_string(),
@@ -145,7 +153,10 @@ impl QueryExecutor {
         for i in 1..=5 {
             let mut row = HashMap::new();
             row.insert("id".to_string(), QueryValue::Integer(i));
-            row.insert("name".to_string(), QueryValue::String(format!("User {}", i)));
+            row.insert(
+                "name".to_string(),
+                QueryValue::String(format!("User {}", i)),
+            );
             rows.push(row);
         }
 
@@ -161,7 +172,11 @@ impl QueryExecutor {
     }
 
     /// Execute NEUROMATCH statement with synaptic optimization
-    async fn execute_neuromatch(&mut self, neuromatch: &NeuroMatchStatement, plan: &QueryPlan) -> QSQLResult<QueryResult> {
+    async fn execute_neuromatch(
+        &mut self,
+        neuromatch: &NeuroMatchStatement,
+        plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
         let columns = vec![
             ColumnInfo {
                 name: "match_score".to_string(),
@@ -181,7 +196,10 @@ impl QueryExecutor {
         for i in 1..=3 {
             let mut row = HashMap::new();
             let synaptic_score = neuromatch.synaptic_weight * (1.0 - (i as f32 * 0.1));
-            row.insert("match_score".to_string(), QueryValue::SynapticWeight(synaptic_score));
+            row.insert(
+                "match_score".to_string(),
+                QueryValue::SynapticWeight(synaptic_score),
+            );
             row.insert("entity_id".to_string(), QueryValue::Integer(i));
             rows.push(row);
         }
@@ -198,7 +216,11 @@ impl QueryExecutor {
     }
 
     /// Execute QUANTUM_SEARCH with Grover's algorithm simulation
-    async fn execute_quantum_search(&mut self, quantum: &QuantumSearchStatement, _plan: &QueryPlan) -> QSQLResult<QueryResult> {
+    async fn execute_quantum_search(
+        &mut self,
+        quantum: &QuantumSearchStatement,
+        _plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
         let columns = vec![
             ColumnInfo {
                 name: "quantum_amplitude".to_string(),
@@ -216,13 +238,22 @@ impl QueryExecutor {
 
         // Simulate quantum search results
         let iterations = quantum.max_iterations.unwrap_or(10);
-        let amplitude_boost = if quantum.amplitude_amplification { 1.5 } else { 1.0 };
+        let amplitude_boost = if quantum.amplitude_amplification {
+            1.5
+        } else {
+            1.0
+        };
 
         for i in 1..=2 {
             let mut row = HashMap::new();
-            row.insert("quantum_amplitude".to_string(),
-                QueryValue::String(format!("{}|0⟩ + {}|1⟩",
-                    0.6 * amplitude_boost, 0.8 * amplitude_boost)));
+            row.insert(
+                "quantum_amplitude".to_string(),
+                QueryValue::String(format!(
+                    "{}|0⟩ + {}|1⟩",
+                    0.6 * amplitude_boost,
+                    0.8 * amplitude_boost
+                )),
+            );
             row.insert("result_id".to_string(), QueryValue::Integer(i));
             rows.push(row);
         }
@@ -242,7 +273,11 @@ impl QueryExecutor {
     }
 
     /// Execute SUPERPOSITION_QUERY with parallel quantum processing
-    async fn execute_superposition_query(&mut self, superpos: &SuperpositionQueryStatement, _plan: &QueryPlan) -> QSQLResult<QueryResult> {
+    async fn execute_superposition_query(
+        &mut self,
+        superpos: &SuperpositionQueryStatement,
+        _plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
         let columns = vec![
             ColumnInfo {
                 name: "superposition_state".to_string(),
@@ -261,17 +296,22 @@ impl QueryExecutor {
         // Simulate superposition results from parallel queries
         for (i, _query) in superpos.parallel_queries.iter().enumerate() {
             let mut row = HashMap::new();
-            row.insert("superposition_state".to_string(),
-                QueryValue::QuantumState(format!("State_{}", i)));
-            row.insert("coherence_level".to_string(),
-                QueryValue::Float(0.9 - (i as f64 * 0.1)));
+            row.insert(
+                "superposition_state".to_string(),
+                QueryValue::QuantumState(format!("State_{}", i)),
+            );
+            row.insert(
+                "coherence_level".to_string(),
+                QueryValue::Float(0.9 - (i as f64 * 0.1)),
+            );
             rows.push(row);
         }
 
         // Parallel execution advantage
         let base_time = Duration::from_micros(1000);
         let parallel_speedup = superpos.parallel_queries.len() as u32;
-        let execution_time = Duration::from_nanos(base_time.as_nanos() as u64 / parallel_speedup as u64);
+        let execution_time =
+            Duration::from_nanos(base_time.as_nanos() as u64 / parallel_speedup as u64);
 
         Ok(QueryResult {
             rows,

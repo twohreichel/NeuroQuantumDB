@@ -5,9 +5,9 @@
 
 use crate::error::{CoreError, CoreResult};
 use crate::synaptic::SynapticNetwork;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::time::Instant;
-use serde::Serialize;
 use tracing::{debug, info, instrument, warn};
 
 /// Access pattern tracking for plasticity decisions
@@ -16,8 +16,8 @@ pub struct AccessPatterns {
     pub node_access_frequency: HashMap<u64, u64>,
     pub connection_usage: HashMap<(u64, u64), u64>,
     pub temporal_locality_secs: HashMap<u64, Vec<u64>>, // Store timestamps as seconds since epoch
-    pub spatial_locality: HashMap<u64, Vec<u64>>, // node_id -> frequently accessed neighbors
-    pub query_patterns: Vec<String>, // Recent query patterns for optimization
+    pub spatial_locality: HashMap<u64, Vec<u64>>,       // node_id -> frequently accessed neighbors
+    pub query_patterns: Vec<String>,                    // Recent query patterns for optimization
 }
 
 /// Plasticity parameters controlling reorganization behavior
@@ -57,7 +57,7 @@ pub struct PlasticityMatrix {
     params: PlasticityParams,
     reorganization_history: Vec<ReorganizationEvent>,
     last_reorganization_secs: Option<u64>, // Store as seconds since epoch
-    plasticity_scores: HashMap<u64, f32>, // node_id -> plasticity score
+    plasticity_scores: HashMap<u64, f32>,  // node_id -> plasticity score
     cluster_assignments: HashMap<u64, u32>, // node_id -> cluster_id
     next_cluster_id: u32,
 }
@@ -86,7 +86,7 @@ impl PlasticityMatrix {
     pub fn new(max_nodes: usize, plasticity_threshold: f32) -> CoreResult<Self> {
         if !(0.0..=1.0).contains(&plasticity_threshold) {
             return Err(CoreError::InvalidConfig(
-                "Plasticity threshold must be between 0.0 and 1.0".to_string()
+                "Plasticity threshold must be between 0.0 and 1.0".to_string(),
             ));
         }
 
@@ -107,34 +107,51 @@ impl PlasticityMatrix {
     #[instrument(level = "debug", skip(self))]
     pub fn record_access(&mut self, node_id: u64, access_time: Instant) {
         // Update access frequency
-        *self.access_patterns.node_access_frequency.entry(node_id).or_insert(0) += 1;
+        *self
+            .access_patterns
+            .node_access_frequency
+            .entry(node_id)
+            .or_insert(0) += 1;
 
         // Update temporal locality using seconds since epoch
         let access_time_secs = access_time.elapsed().as_secs();
-        self.access_patterns.temporal_locality_secs
+        self.access_patterns
+            .temporal_locality_secs
             .entry(node_id)
             .or_insert_with(Vec::new)
             .push(access_time_secs);
 
         // Keep only recent accesses within temporal window
         let cutoff_time_secs = access_time_secs.saturating_sub(self.params.temporal_window_secs);
-        if let Some(times) = self.access_patterns.temporal_locality_secs.get_mut(&node_id) {
+        if let Some(times) = self
+            .access_patterns
+            .temporal_locality_secs
+            .get_mut(&node_id)
+        {
             times.retain(|&t| t > cutoff_time_secs);
         }
 
         // Update plasticity score
         self.update_plasticity_score(node_id);
 
-        debug!("Recorded access to node {} at time {}", node_id, access_time_secs);
+        debug!(
+            "Recorded access to node {} at time {}",
+            node_id, access_time_secs
+        );
     }
 
     /// Record connection usage for plasticity tracking
     pub fn record_connection_usage(&mut self, source_id: u64, target_id: u64) {
         let connection_key = (source_id, target_id);
-        *self.access_patterns.connection_usage.entry(connection_key).or_insert(0) += 1;
+        *self
+            .access_patterns
+            .connection_usage
+            .entry(connection_key)
+            .or_insert(0) += 1;
 
         // Update spatial locality
-        self.access_patterns.spatial_locality
+        self.access_patterns
+            .spatial_locality
             .entry(source_id)
             .or_insert_with(Vec::new)
             .push(target_id);
@@ -152,27 +169,35 @@ impl PlasticityMatrix {
 
     /// Update plasticity score for a node based on access patterns
     fn update_plasticity_score(&mut self, node_id: u64) {
-        let frequency = self.access_patterns.node_access_frequency
+        let frequency = self
+            .access_patterns
+            .node_access_frequency
             .get(&node_id)
             .copied()
             .unwrap_or(0) as f32;
 
-        let temporal_locality = self.access_patterns.temporal_locality_secs
+        let temporal_locality = self
+            .access_patterns
+            .temporal_locality_secs
             .get(&node_id)
             .map(|times| times.len() as f32)
             .unwrap_or(0.0);
 
-        let spatial_locality = self.access_patterns.spatial_locality
+        let spatial_locality = self
+            .access_patterns
+            .spatial_locality
             .get(&node_id)
             .map(|neighbors| neighbors.len() as f32)
             .unwrap_or(0.0);
 
         // Calculate composite plasticity score
         let frequency_component = frequency * self.params.frequency_weight;
-        let locality_component = (temporal_locality + spatial_locality) * self.params.locality_weight;
+        let locality_component =
+            (temporal_locality + spatial_locality) * self.params.locality_weight;
 
         let plasticity_score = (frequency_component + locality_component) / 100.0; // Normalize
-        self.plasticity_scores.insert(node_id, plasticity_score.min(1.0));
+        self.plasticity_scores
+            .insert(node_id, plasticity_score.min(1.0));
     }
 
     /// Reorganize network based on plasticity analysis
@@ -241,8 +266,10 @@ impl PlasticityMatrix {
             // Apply decay to access patterns
             self.apply_access_decay();
 
-            info!("Network reorganization completed: {} operations, impact: {:.3}",
-                  reorganizations_performed, total_performance_impact);
+            info!(
+                "Network reorganization completed: {} operations, impact: {:.3}",
+                reorganizations_performed, total_performance_impact
+            );
         }
 
         Ok(reorganizations_performed > 0)
@@ -257,7 +284,9 @@ impl PlasticityMatrix {
                 .unwrap_or_default()
                 .as_secs();
 
-            if current_time_secs.saturating_sub(last_reorg_secs) < self.params.temporal_window_secs / 4 {
+            if current_time_secs.saturating_sub(last_reorg_secs)
+                < self.params.temporal_window_secs / 4
+            {
                 return Ok(false);
             }
         }
@@ -269,11 +298,14 @@ impl PlasticityMatrix {
         }
 
         // Check plasticity threshold
-        let high_plasticity_nodes = self.plasticity_scores.values()
+        let high_plasticity_nodes = self
+            .plasticity_scores
+            .values()
             .filter(|&&score| score > self.plasticity_threshold)
             .count();
 
-        let plasticity_ratio = high_plasticity_nodes as f32 / self.plasticity_scores.len().max(1) as f32;
+        let plasticity_ratio =
+            high_plasticity_nodes as f32 / self.plasticity_scores.len().max(1) as f32;
 
         Ok(plasticity_ratio > 0.1) // Reorganize if >10% of nodes show high plasticity
     }
@@ -284,7 +316,8 @@ impl PlasticityMatrix {
         let mut cluster_candidates = HashMap::new();
 
         for (&node_id, neighbors) in &self.access_patterns.spatial_locality {
-            if neighbors.len() >= 3 { // Minimum cluster size
+            if neighbors.len() >= 3 {
+                // Minimum cluster size
                 let cluster_id = self.next_cluster_id;
                 self.next_cluster_id += 1;
 
@@ -313,9 +346,14 @@ impl PlasticityMatrix {
 
         // Identify nodes with high temporal locality
         for (&node_id, access_times) in &self.access_patterns.temporal_locality_secs {
-            if access_times.len() >= 5 { // Minimum access frequency
-                let recent_accesses = access_times.iter()
-                    .filter(|&&time| current_time_secs.saturating_sub(time) < self.params.temporal_window_secs / 2)
+            if access_times.len() >= 5 {
+                // Minimum access frequency
+                let recent_accesses = access_times
+                    .iter()
+                    .filter(|&&time| {
+                        current_time_secs.saturating_sub(time)
+                            < self.params.temporal_window_secs / 2
+                    })
                     .count();
 
                 if recent_accesses >= 3 {
@@ -334,7 +372,9 @@ impl PlasticityMatrix {
     /// Perform frequency-based optimization
     fn perform_frequency_optimization(&mut self) -> CoreResult<bool> {
         // Sort nodes by access frequency
-        let mut nodes_by_frequency: Vec<_> = self.access_patterns.node_access_frequency
+        let mut nodes_by_frequency: Vec<_> = self
+            .access_patterns
+            .node_access_frequency
             .iter()
             .map(|(&id, &freq)| (id, freq))
             .collect();
@@ -355,7 +395,9 @@ impl PlasticityMatrix {
         let usage_threshold = 2; // Minimum usage count to keep connection
 
         // Find connections with low usage
-        let connections_to_prune: Vec<_> = self.access_patterns.connection_usage
+        let connections_to_prune: Vec<_> = self
+            .access_patterns
+            .connection_usage
             .iter()
             .filter(|(_, &usage_count)| usage_count < usage_threshold)
             .map(|(&(source_id, target_id), _)| (source_id, target_id))
@@ -365,7 +407,9 @@ impl PlasticityMatrix {
 
         // Remove low-usage connections from tracking
         for (source_id, target_id) in connections_to_prune {
-            self.access_patterns.connection_usage.remove(&(source_id, target_id));
+            self.access_patterns
+                .connection_usage
+                .remove(&(source_id, target_id));
         }
 
         Ok(pruned_count)
@@ -379,7 +423,9 @@ impl PlasticityMatrix {
         }
 
         // Remove nodes with very low frequency
-        self.access_patterns.node_access_frequency.retain(|_, &mut freq| freq > 0);
+        self.access_patterns
+            .node_access_frequency
+            .retain(|_, &mut freq| freq > 0);
 
         // Decay connection usage
         for usage in self.access_patterns.connection_usage.values_mut() {
@@ -387,7 +433,9 @@ impl PlasticityMatrix {
         }
 
         // Remove connections with very low usage
-        self.access_patterns.connection_usage.retain(|_, &mut usage| usage > 0);
+        self.access_patterns
+            .connection_usage
+            .retain(|_, &mut usage| usage > 0);
 
         // Update plasticity scores after decay
         let node_ids: Vec<_> = self.plasticity_scores.keys().cloned().collect();
@@ -399,7 +447,9 @@ impl PlasticityMatrix {
     /// Get plasticity statistics
     pub fn get_plasticity_stats(&self) -> PlasticityStats {
         let total_nodes = self.plasticity_scores.len();
-        let high_plasticity_nodes = self.plasticity_scores.values()
+        let high_plasticity_nodes = self
+            .plasticity_scores
+            .values()
             .filter(|&&score| score > self.plasticity_threshold)
             .count();
 
@@ -415,7 +465,13 @@ impl PlasticityMatrix {
             average_plasticity_score: avg_plasticity,
             total_reorganizations: self.reorganization_history.len(),
             last_reorganization_secs: self.last_reorganization_secs,
-            active_clusters: self.cluster_assignments.values().max().copied().unwrap_or(0) + 1,
+            active_clusters: self
+                .cluster_assignments
+                .values()
+                .max()
+                .copied()
+                .unwrap_or(0)
+                + 1,
         }
     }
 
@@ -464,8 +520,14 @@ mod tests {
         let now = Instant::now();
 
         matrix.record_access(1, now);
-        assert_eq!(matrix.access_patterns.node_access_frequency.get(&1), Some(&1));
-        assert!(matrix.access_patterns.temporal_locality_secs.contains_key(&1));
+        assert_eq!(
+            matrix.access_patterns.node_access_frequency.get(&1),
+            Some(&1)
+        );
+        assert!(matrix
+            .access_patterns
+            .temporal_locality_secs
+            .contains_key(&1));
     }
 
     #[test]
@@ -473,8 +535,16 @@ mod tests {
         let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
 
         matrix.record_connection_usage(1, 2);
-        assert_eq!(matrix.access_patterns.connection_usage.get(&(1, 2)), Some(&1));
-        assert!(matrix.access_patterns.spatial_locality.get(&1).unwrap().contains(&2));
+        assert_eq!(
+            matrix.access_patterns.connection_usage.get(&(1, 2)),
+            Some(&1)
+        );
+        assert!(matrix
+            .access_patterns
+            .spatial_locality
+            .get(&1)
+            .unwrap()
+            .contains(&2));
     }
 
     #[test]

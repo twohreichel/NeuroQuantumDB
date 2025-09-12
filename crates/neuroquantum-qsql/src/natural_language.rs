@@ -131,9 +131,7 @@ impl NaturalLanguageProcessor {
 
     /// Normalize text for processing
     fn normalize_text(&self, text: &str) -> String {
-        text.to_lowercase()
-            .trim()
-            .to_string()
+        text.to_lowercase().trim().to_string()
     }
 
     /// Classify query intent using pattern matching
@@ -156,7 +154,8 @@ impl NaturalLanguageProcessor {
         } else {
             Err(NLPError::IntentRecognitionFailed {
                 text: query.to_string(),
-            }.into())
+            }
+            .into())
         }
     }
 
@@ -191,7 +190,8 @@ impl NaturalLanguageProcessor {
             return 0.1;
         }
 
-        let entity_confidence: f32 = entities.iter().map(|e| e.confidence).sum::<f32>() / entities.len() as f32;
+        let entity_confidence: f32 =
+            entities.iter().map(|e| e.confidence).sum::<f32>() / entities.len() as f32;
         let intent_bonus = match intent {
             QueryIntent::Select | QueryIntent::NeuroMatch | QueryIntent::QuantumSearch => 0.9,
             _ => 0.7,
@@ -206,7 +206,11 @@ impl NaturalLanguageProcessor {
     }
 
     /// Generate QSQL from intent and entities
-    fn generate_qsql_from_components(&self, intent: &QueryIntent, entities: &[Entity]) -> QSQLResult<String> {
+    fn generate_qsql_from_components(
+        &self,
+        intent: &QueryIntent,
+        entities: &[Entity],
+    ) -> QSQLResult<String> {
         match intent {
             QueryIntent::Select => self.generate_select_query(entities),
             QueryIntent::NeuroMatch => self.generate_neuromatch_query(entities),
@@ -216,7 +220,8 @@ impl NaturalLanguageProcessor {
             QueryIntent::Join => self.generate_join_query(entities),
             _ => Err(NLPError::UnsupportedConstruct {
                 construct: format!("{:?}", intent),
-            }.into()),
+            }
+            .into()),
         }
     }
 
@@ -225,21 +230,24 @@ impl NaturalLanguageProcessor {
         let mut query = String::from("SELECT ");
 
         // Extract columns
-        let columns: Vec<&Entity> = entities.iter()
+        let columns: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::ColumnName)
             .collect();
 
         if columns.is_empty() {
             query.push_str("*");
         } else {
-            let column_names: Vec<String> = columns.iter()
+            let column_names: Vec<String> = columns
+                .iter()
                 .map(|e| self.map_column_name(&e.value))
                 .collect();
             query.push_str(&column_names.join(", "));
         }
 
         // Extract table
-        let tables: Vec<&Entity> = entities.iter()
+        let tables: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::TableName)
             .collect();
 
@@ -249,7 +257,8 @@ impl NaturalLanguageProcessor {
         } else {
             return Err(NLPError::EntityExtractionFailed {
                 text: "No table name found".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         // Add WHERE conditions
@@ -267,7 +276,8 @@ impl NaturalLanguageProcessor {
         let mut query = String::from("NEUROMATCH ");
 
         // Extract table
-        let tables: Vec<&Entity> = entities.iter()
+        let tables: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::TableName)
             .collect();
 
@@ -276,7 +286,8 @@ impl NaturalLanguageProcessor {
         } else {
             return Err(NLPError::EntityExtractionFailed {
                 text: "No table name found for NEUROMATCH".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         // Add pattern conditions
@@ -287,7 +298,8 @@ impl NaturalLanguageProcessor {
         }
 
         // Extract synaptic weight
-        let weights: Vec<&Entity> = entities.iter()
+        let weights: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::NeuromorphicWeight)
             .collect();
 
@@ -307,7 +319,8 @@ impl NaturalLanguageProcessor {
         let mut query = String::from("QUANTUM_SEARCH ");
 
         // Extract table
-        let tables: Vec<&Entity> = entities.iter()
+        let tables: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::TableName)
             .collect();
 
@@ -316,7 +329,8 @@ impl NaturalLanguageProcessor {
         } else {
             return Err(NLPError::EntityExtractionFailed {
                 text: "No table name found for QUANTUM_SEARCH".to_string(),
-            }.into());
+            }
+            .into());
         }
 
         // Add search conditions
@@ -342,12 +356,14 @@ impl NaturalLanguageProcessor {
         let mut query = String::from("SELECT ");
 
         // Extract aggregation functions
-        let aggregations: Vec<&Entity> = entities.iter()
+        let aggregations: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::Aggregation)
             .collect();
 
         if !aggregations.is_empty() {
-            let agg_exprs: Vec<String> = aggregations.iter()
+            let agg_exprs: Vec<String> = aggregations
+                .iter()
                 .map(|e| self.map_aggregation(&e.value))
                 .collect();
             query.push_str(&agg_exprs.join(", "));
@@ -356,7 +372,8 @@ impl NaturalLanguageProcessor {
         }
 
         // Add FROM clause
-        let tables: Vec<&Entity> = entities.iter()
+        let tables: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::TableName)
             .collect();
 
@@ -373,7 +390,8 @@ impl NaturalLanguageProcessor {
         // Simplified join generation
         let mut query = String::from("SELECT * FROM ");
 
-        let tables: Vec<&Entity> = entities.iter()
+        let tables: Vec<&Entity> = entities
+            .iter()
             .filter(|e| e.entity_type == EntityType::TableName)
             .collect();
 
@@ -382,7 +400,8 @@ impl NaturalLanguageProcessor {
             query.push_str(" JOIN ");
             query.push_str(&self.map_table_name(&tables[1].value));
             query.push_str(" ON "); // Add default join condition
-            query.push_str(&format!("{}.id = {}.id",
+            query.push_str(&format!(
+                "{}.id = {}.id",
                 self.map_table_name(&tables[0].value),
                 self.map_table_name(&tables[1].value)
             ));
@@ -400,8 +419,8 @@ impl NaturalLanguageProcessor {
             if entities[i].entity_type == EntityType::ColumnName {
                 if i + 2 < entities.len()
                     && entities[i + 1].entity_type == EntityType::Operator
-                    && entities[i + 2].entity_type == EntityType::Value {
-
+                    && entities[i + 2].entity_type == EntityType::Value
+                {
                     let column = self.map_column_name(&entities[i].value);
                     let operator = self.map_operator(&entities[i + 1].value);
                     let value = self.format_value(&entities[i + 2].value);
@@ -421,14 +440,16 @@ impl NaturalLanguageProcessor {
 
     /// Map natural language table names to actual table names
     fn map_table_name(&self, name: &str) -> String {
-        self.table_mappings.get(name)
+        self.table_mappings
+            .get(name)
             .cloned()
             .unwrap_or_else(|| name.to_string())
     }
 
     /// Map natural language column names to actual column names
     fn map_column_name(&self, name: &str) -> String {
-        self.column_mappings.get(name)
+        self.column_mappings
+            .get(name)
             .cloned()
             .unwrap_or_else(|| name.to_string())
     }
@@ -469,37 +490,49 @@ impl NaturalLanguageProcessor {
     /// Initialize intent patterns
     fn initialize_patterns(&mut self) -> QSQLResult<()> {
         // Select patterns
-        self.intent_patterns.insert(QueryIntent::Select, vec![
-            Regex::new(r"(?i)\b(show|display|list|get|find|select)\b").unwrap(),
-            Regex::new(r"(?i)\b(what|which|who)\b").unwrap(),
-        ]);
+        self.intent_patterns.insert(
+            QueryIntent::Select,
+            vec![
+                Regex::new(r"(?i)\b(show|display|list|get|find|select)\b").unwrap(),
+                Regex::new(r"(?i)\b(what|which|who)\b").unwrap(),
+            ],
+        );
 
         // NeuroMatch patterns
-        self.intent_patterns.insert(QueryIntent::NeuroMatch, vec![
-            Regex::new(r"(?i)\b(neural|neuromorphic|synaptic|brain|pattern)\b").unwrap(),
-            Regex::new(r"(?i)\b(match|similar|like|resembles)\b").unwrap(),
-        ]);
+        self.intent_patterns.insert(
+            QueryIntent::NeuroMatch,
+            vec![
+                Regex::new(r"(?i)\b(neural|neuromorphic|synaptic|brain|pattern)\b").unwrap(),
+                Regex::new(r"(?i)\b(match|similar|like|resembles)\b").unwrap(),
+            ],
+        );
 
         // Quantum patterns
-        self.intent_patterns.insert(QueryIntent::QuantumSearch, vec![
-            Regex::new(r"(?i)\b(quantum|superposition|entangled|grover)\b").unwrap(),
-            Regex::new(r"(?i)\b(search|find|locate)\b").unwrap(),
-        ]);
+        self.intent_patterns.insert(
+            QueryIntent::QuantumSearch,
+            vec![
+                Regex::new(r"(?i)\b(quantum|superposition|entangled|grover)\b").unwrap(),
+                Regex::new(r"(?i)\b(search|find|locate)\b").unwrap(),
+            ],
+        );
 
         // Filter patterns
-        self.intent_patterns.insert(QueryIntent::Filter, vec![
-            Regex::new(r"(?i)\b(where|filter|condition|criteria)\b").unwrap(),
-        ]);
+        self.intent_patterns.insert(
+            QueryIntent::Filter,
+            vec![Regex::new(r"(?i)\b(where|filter|condition|criteria)\b").unwrap()],
+        );
 
         // Aggregate patterns
-        self.intent_patterns.insert(QueryIntent::Aggregate, vec![
-            Regex::new(r"(?i)\b(count|sum|total|average|max|min|group)\b").unwrap(),
-        ]);
+        self.intent_patterns.insert(
+            QueryIntent::Aggregate,
+            vec![Regex::new(r"(?i)\b(count|sum|total|average|max|min|group)\b").unwrap()],
+        );
 
         // Join patterns
-        self.intent_patterns.insert(QueryIntent::Join, vec![
-            Regex::new(r"(?i)\b(join|combine|merge|connect)\b").unwrap(),
-        ]);
+        self.intent_patterns.insert(
+            QueryIntent::Join,
+            vec![Regex::new(r"(?i)\b(join|combine|merge|connect)\b").unwrap()],
+        );
 
         Ok(())
     }
@@ -507,49 +540,72 @@ impl NaturalLanguageProcessor {
     /// Initialize entity extractors
     fn initialize_entity_extractors(&mut self) -> QSQLResult<()> {
         // Table name patterns
-        self.entity_extractors.insert(EntityType::TableName,
-            Regex::new(r"(?i)\b(users|products|orders|customers|items|data)\b").unwrap());
+        self.entity_extractors.insert(
+            EntityType::TableName,
+            Regex::new(r"(?i)\b(users|products|orders|customers|items|data)\b").unwrap(),
+        );
 
         // Column name patterns
-        self.entity_extractors.insert(EntityType::ColumnName,
-            Regex::new(r"(?i)\b(name|age|price|id|email|status|date|amount)\b").unwrap());
+        self.entity_extractors.insert(
+            EntityType::ColumnName,
+            Regex::new(r"(?i)\b(name|age|price|id|email|status|date|amount)\b").unwrap(),
+        );
 
         // Number patterns
-        self.entity_extractors.insert(EntityType::Number,
-            Regex::new(r"\b\d+(?:\.\d+)?\b").unwrap());
+        self.entity_extractors.insert(
+            EntityType::Number,
+            Regex::new(r"\b\d+(?:\.\d+)?\b").unwrap(),
+        );
 
         // Operator patterns
-        self.entity_extractors.insert(EntityType::Operator,
-            Regex::new(r"(?i)\b(equals?|greater than|less than|above|below|contains|like)\b").unwrap());
+        self.entity_extractors.insert(
+            EntityType::Operator,
+            Regex::new(r"(?i)\b(equals?|greater than|less than|above|below|contains|like)\b")
+                .unwrap(),
+        );
 
         // Neuromorphic weight patterns
-        self.entity_extractors.insert(EntityType::NeuromorphicWeight,
-            Regex::new(r"(?i)weight\s+(\d+(?:\.\d+)?)").unwrap());
+        self.entity_extractors.insert(
+            EntityType::NeuromorphicWeight,
+            Regex::new(r"(?i)weight\s+(\d+(?:\.\d+)?)").unwrap(),
+        );
 
         Ok(())
     }
 
     /// Initialize synonyms
     fn initialize_synonyms(&mut self) {
-        self.synonym_map.insert("people".to_string(), "users".to_string());
-        self.synonym_map.insert("customers".to_string(), "users".to_string());
-        self.synonym_map.insert("items".to_string(), "products".to_string());
-        self.synonym_map.insert("goods".to_string(), "products".to_string());
-        self.synonym_map.insert("purchases".to_string(), "orders".to_string());
-        self.synonym_map.insert("transactions".to_string(), "orders".to_string());
+        self.synonym_map
+            .insert("people".to_string(), "users".to_string());
+        self.synonym_map
+            .insert("customers".to_string(), "users".to_string());
+        self.synonym_map
+            .insert("items".to_string(), "products".to_string());
+        self.synonym_map
+            .insert("goods".to_string(), "products".to_string());
+        self.synonym_map
+            .insert("purchases".to_string(), "orders".to_string());
+        self.synonym_map
+            .insert("transactions".to_string(), "orders".to_string());
     }
 
     /// Initialize table and column mappings
     fn initialize_mappings(&mut self) {
         // Table mappings
-        self.table_mappings.insert("people".to_string(), "users".to_string());
-        self.table_mappings.insert("customers".to_string(), "users".to_string());
-        self.table_mappings.insert("items".to_string(), "products".to_string());
+        self.table_mappings
+            .insert("people".to_string(), "users".to_string());
+        self.table_mappings
+            .insert("customers".to_string(), "users".to_string());
+        self.table_mappings
+            .insert("items".to_string(), "products".to_string());
 
         // Column mappings
-        self.column_mappings.insert("full name".to_string(), "name".to_string());
-        self.column_mappings.insert("cost".to_string(), "price".to_string());
-        self.column_mappings.insert("value".to_string(), "amount".to_string());
+        self.column_mappings
+            .insert("full name".to_string(), "name".to_string());
+        self.column_mappings
+            .insert("cost".to_string(), "price".to_string());
+        self.column_mappings
+            .insert("value".to_string(), "amount".to_string());
     }
 }
 
@@ -597,10 +653,14 @@ mod tests {
     #[test]
     fn test_entity_extraction() {
         let nlp = NaturalLanguageProcessor::new().unwrap();
-        let entities = nlp.extract_entities("show users where age greater than 25").unwrap();
+        let entities = nlp
+            .extract_entities("show users where age greater than 25")
+            .unwrap();
         assert!(!entities.is_empty());
 
-        let has_table = entities.iter().any(|e| e.entity_type == EntityType::TableName);
+        let has_table = entities
+            .iter()
+            .any(|e| e.entity_type == EntityType::TableName);
         let has_number = entities.iter().any(|e| e.entity_type == EntityType::Number);
         assert!(has_table && has_number);
     }

@@ -6,11 +6,11 @@
 //! - Protein-folding hierarchies for optimal data organization
 //! - ARM64/NEON-SIMD optimizations for Raspberry Pi 4
 
+use lru::LruCache;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use lru::LruCache;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -38,10 +38,10 @@ pub type CompressionResult<T> = Result<T, CompressionError>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum DNABase {
-    Adenine = 0b00,   // A = 00
-    Thymine = 0b01,   // T = 01
-    Guanine = 0b10,   // G = 10
-    Cytosine = 0b11,  // C = 11
+    Adenine = 0b00,  // A = 00
+    Thymine = 0b01,  // T = 01
+    Guanine = 0b10,  // G = 10
+    Cytosine = 0b11, // C = 11
 }
 
 impl DNABase {
@@ -52,7 +52,10 @@ impl DNABase {
             0b01 => Ok(DNABase::Thymine),
             0b10 => Ok(DNABase::Guanine),
             0b11 => Ok(DNABase::Cytosine),
-            _ => Err(CompressionError::InvalidFormat(format!("Invalid DNA base bits: {}", bits))),
+            _ => Err(CompressionError::InvalidFormat(format!(
+                "Invalid DNA base bits: {}",
+                bits
+            ))),
         }
     }
 
@@ -73,7 +76,10 @@ impl DNABase {
             'T' => Ok(DNABase::Thymine),
             'G' => Ok(DNABase::Guanine),
             'C' => Ok(DNABase::Cytosine),
-            _ => Err(CompressionError::InvalidFormat(format!("Invalid DNA base char: {}", c))),
+            _ => Err(CompressionError::InvalidFormat(format!(
+                "Invalid DNA base char: {}",
+                c
+            ))),
         }
     }
 }
@@ -95,6 +101,18 @@ pub struct EncodedData {
     pub checksum: u64,
 }
 
+impl EncodedData {
+    /// Get the length of the encoded sequence for compression ratio calculations
+    pub fn len(&self) -> usize {
+        self.sequence.len()
+    }
+
+    /// Check if the encoded data is empty
+    pub fn is_empty(&self) -> bool {
+        self.sequence.is_empty()
+    }
+}
+
 /// Protein folding metadata for hierarchical organization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FoldingMetadata {
@@ -111,31 +129,67 @@ pub struct FoldingMetadata {
 /// Secondary structure patterns in proteins
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SecondaryPattern {
-    AlphaHelix { start: usize, end: usize, stability: f32 },
-    BetaSheet { start: usize, end: usize, strand_count: u8 },
-    RandomCoil { start: usize, end: usize },
-    Turn { position: usize, angle: f32 },
+    AlphaHelix {
+        start: usize,
+        end: usize,
+        stability: f32,
+    },
+    BetaSheet {
+        start: usize,
+        end: usize,
+        strand_count: u8,
+    },
+    RandomCoil {
+        start: usize,
+        end: usize,
+    },
+    Turn {
+        position: usize,
+        angle: f32,
+    },
 }
 
 impl PartialEq for SecondaryPattern {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (SecondaryPattern::AlphaHelix { start: s1, end: e1, stability: st1 },
-             SecondaryPattern::AlphaHelix { start: s2, end: e2, stability: st2 }) => {
-                s1 == s2 && e1 == e2 && (st1 - st2).abs() < f32::EPSILON
-            }
-            (SecondaryPattern::BetaSheet { start: s1, end: e1, strand_count: sc1 },
-             SecondaryPattern::BetaSheet { start: s2, end: e2, strand_count: sc2 }) => {
-                s1 == s2 && e1 == e2 && sc1 == sc2
-            }
-            (SecondaryPattern::RandomCoil { start: s1, end: e1 },
-             SecondaryPattern::RandomCoil { start: s2, end: e2 }) => {
-                s1 == s2 && e1 == e2
-            }
-            (SecondaryPattern::Turn { position: p1, angle: a1 },
-             SecondaryPattern::Turn { position: p2, angle: a2 }) => {
-                p1 == p2 && (a1 - a2).abs() < f32::EPSILON
-            }
+            (
+                SecondaryPattern::AlphaHelix {
+                    start: s1,
+                    end: e1,
+                    stability: st1,
+                },
+                SecondaryPattern::AlphaHelix {
+                    start: s2,
+                    end: e2,
+                    stability: st2,
+                },
+            ) => s1 == s2 && e1 == e2 && (st1 - st2).abs() < f32::EPSILON,
+            (
+                SecondaryPattern::BetaSheet {
+                    start: s1,
+                    end: e1,
+                    strand_count: sc1,
+                },
+                SecondaryPattern::BetaSheet {
+                    start: s2,
+                    end: e2,
+                    strand_count: sc2,
+                },
+            ) => s1 == s2 && e1 == e2 && sc1 == sc2,
+            (
+                SecondaryPattern::RandomCoil { start: s1, end: e1 },
+                SecondaryPattern::RandomCoil { start: s2, end: e2 },
+            ) => s1 == s2 && e1 == e2,
+            (
+                SecondaryPattern::Turn {
+                    position: p1,
+                    angle: a1,
+                },
+                SecondaryPattern::Turn {
+                    position: p2,
+                    angle: a2,
+                },
+            ) => p1 == p2 && (a1 - a2).abs() < f32::EPSILON,
             _ => false,
         }
     }
@@ -146,14 +200,22 @@ impl Eq for SecondaryPattern {}
 impl std::hash::Hash for SecondaryPattern {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            SecondaryPattern::AlphaHelix { start, end, stability } => {
+            SecondaryPattern::AlphaHelix {
+                start,
+                end,
+                stability,
+            } => {
                 0u8.hash(state);
                 start.hash(state);
                 end.hash(state);
                 // Convert f32 to bits for hashing
                 stability.to_bits().hash(state);
             }
-            SecondaryPattern::BetaSheet { start, end, strand_count } => {
+            SecondaryPattern::BetaSheet {
+                start,
+                end,
+                strand_count,
+            } => {
                 1u8.hash(state);
                 start.hash(state);
                 end.hash(state);
@@ -202,18 +264,28 @@ impl QuaternaryEncoder {
         // Common DNA patterns in biological systems
         let patterns = vec![
             // Start/stop codons
-            (vec![0x41, 0x54, 0x47], vec![DNABase::Adenine, DNABase::Thymine, DNABase::Guanine]), // ATG (start)
-            (vec![0x54, 0x41, 0x41], vec![DNABase::Thymine, DNABase::Adenine, DNABase::Adenine]), // TAA (stop)
-            (vec![0x54, 0x41, 0x47], vec![DNABase::Thymine, DNABase::Adenine, DNABase::Guanine]), // TAG (stop)
-            (vec![0x54, 0x47, 0x41], vec![DNABase::Thymine, DNABase::Guanine, DNABase::Adenine]), // TGA (stop)
-
+            (
+                vec![0x41, 0x54, 0x47],
+                vec![DNABase::Adenine, DNABase::Thymine, DNABase::Guanine],
+            ), // ATG (start)
+            (
+                vec![0x54, 0x41, 0x41],
+                vec![DNABase::Thymine, DNABase::Adenine, DNABase::Adenine],
+            ), // TAA (stop)
+            (
+                vec![0x54, 0x41, 0x47],
+                vec![DNABase::Thymine, DNABase::Adenine, DNABase::Guanine],
+            ), // TAG (stop)
+            (
+                vec![0x54, 0x47, 0x41],
+                vec![DNABase::Thymine, DNABase::Guanine, DNABase::Adenine],
+            ), // TGA (stop)
             // Common amino acid patterns
             (vec![0x47, 0x43], vec![DNABase::Guanine, DNABase::Cytosine]), // GC-rich regions
-            (vec![0x41, 0x54], vec![DNABase::Adenine, DNABase::Thymine]), // AT-rich regions
-
+            (vec![0x41, 0x54], vec![DNABase::Adenine, DNABase::Thymine]),  // AT-rich regions
             // Repetitive elements
             (vec![0x43, 0x41], vec![DNABase::Cytosine, DNABase::Adenine]), // CA repeats
-            (vec![0x47, 0x54], vec![DNABase::Guanine, DNABase::Thymine]), // GT repeats
+            (vec![0x47, 0x54], vec![DNABase::Guanine, DNABase::Thymine]),  // GT repeats
         ];
 
         for (bytes, bases) in patterns {
@@ -280,8 +352,12 @@ impl QuaternaryEncoder {
             metrics.bytes_encoded += data.len();
         }
 
-        debug!("Encoded {} bytes to {} DNA bases in {:?}",
-               data.len(), result.len(), start_time.elapsed());
+        debug!(
+            "Encoded {} bytes to {} DNA bases in {:?}",
+            data.len(),
+            result.len(),
+            start_time.elapsed()
+        );
 
         Ok(result)
     }
@@ -293,7 +369,7 @@ impl QuaternaryEncoder {
 
         if sequence.len() % 4 != 0 {
             return Err(CompressionError::InvalidFormat(
-                "DNA sequence length must be multiple of 4".to_string()
+                "DNA sequence length must be multiple of 4".to_string(),
             ));
         }
 
@@ -315,8 +391,12 @@ impl QuaternaryEncoder {
             metrics.bytes_decoded += result.len();
         }
 
-        debug!("Decoded {} DNA bases to {} bytes in {:?}",
-               sequence.len(), result.len(), start_time.elapsed());
+        debug!(
+            "Decoded {} DNA bases to {} bytes in {:?}",
+            sequence.len(),
+            result.len(),
+            start_time.elapsed()
+        );
 
         Ok(result)
     }
@@ -328,7 +408,8 @@ impl QuaternaryEncoder {
 
     /// Get performance metrics
     pub fn get_metrics(&self) -> CompressionResult<PerformanceMetrics> {
-        self.metrics.read()
+        self.metrics
+            .read()
             .map(|metrics| metrics.clone())
             .map_err(|e| CompressionError::CacheError(format!("Failed to read metrics: {}", e)))
     }
@@ -459,8 +540,12 @@ impl ReedSolomonCorrector {
             metrics.total_error_correction_time += start_time.elapsed();
         }
 
-        debug!("Reed-Solomon encoded {} bytes to {} bytes in {:?}",
-               data.len(), result.len(), start_time.elapsed());
+        debug!(
+            "Reed-Solomon encoded {} bytes to {} bytes in {:?}",
+            data.len(),
+            result.len(),
+            start_time.elapsed()
+        );
 
         Ok(result)
     }
@@ -482,8 +567,11 @@ impl ReedSolomonCorrector {
                 metrics.total_error_correction_time += start_time.elapsed();
             }
 
-            debug!("Reed-Solomon decoded {} bytes (no errors) in {:?}",
-                   result.len(), start_time.elapsed());
+            debug!(
+                "Reed-Solomon decoded {} bytes (no errors) in {:?}",
+                result.len(),
+                start_time.elapsed()
+            );
 
             Ok(result)
         } else {
@@ -500,8 +588,11 @@ impl ReedSolomonCorrector {
                 metrics.total_error_correction_time += start_time.elapsed();
             }
 
-            debug!("Reed-Solomon decoded {} bytes (with basic error correction) in {:?}",
-                   result.len(), start_time.elapsed());
+            debug!(
+                "Reed-Solomon decoded {} bytes (with basic error correction) in {:?}",
+                result.len(),
+                start_time.elapsed()
+            );
 
             Ok(result)
         }
@@ -600,14 +691,20 @@ impl ProteinFolder {
             metrics.total_folding_time += start_time.elapsed();
         }
 
-        debug!("Analyzed protein folding for {} residues in {:?}",
-               sequence.len(), start_time.elapsed());
+        debug!(
+            "Analyzed protein folding for {} residues in {:?}",
+            sequence.len(),
+            start_time.elapsed()
+        );
 
         Ok(folding_metadata)
     }
 
     /// Predict secondary structure patterns
-    fn predict_secondary_structure(&self, sequence: &[u8]) -> CompressionResult<Vec<SecondaryPattern>> {
+    fn predict_secondary_structure(
+        &self,
+        sequence: &[u8],
+    ) -> CompressionResult<Vec<SecondaryPattern>> {
         let mut patterns = Vec::new();
         let mut i = 0;
 
@@ -615,7 +712,7 @@ impl ProteinFolder {
             // Simplified secondary structure prediction
             if i + 10 < sequence.len() {
                 // Check for alpha-helix pattern (simplified)
-                if self.is_helix_pattern(&sequence[i..i+10]) {
+                if self.is_helix_pattern(&sequence[i..i + 10]) {
                     let end = self.find_helix_end(sequence, i);
                     patterns.push(SecondaryPattern::AlphaHelix {
                         start: i,
@@ -627,7 +724,7 @@ impl ProteinFolder {
                 }
 
                 // Check for beta-sheet pattern (simplified)
-                if self.is_sheet_pattern(&sequence[i..i+6]) {
+                if self.is_sheet_pattern(&sequence[i..i + 6]) {
                     let end = self.find_sheet_end(sequence, i);
                     patterns.push(SecondaryPattern::BetaSheet {
                         start: i,
@@ -653,7 +750,8 @@ impl ProteinFolder {
     /// Check if sequence segment matches helix pattern
     fn is_helix_pattern(&self, segment: &[u8]) -> bool {
         // Simplified: look for hydrophobic residues pattern
-        let hydrophobic_count = segment.iter()
+        let hydrophobic_count = segment
+            .iter()
             .filter(|&&residue| matches!(residue, b'A' | b'V' | b'L' | b'I' | b'F'))
             .count();
         hydrophobic_count >= segment.len() / 3
@@ -662,13 +760,15 @@ impl ProteinFolder {
     /// Check if sequence segment matches beta-sheet pattern
     fn is_sheet_pattern(&self, segment: &[u8]) -> bool {
         // Simplified: alternating hydrophobic/hydrophilic pattern
-        segment.windows(2)
+        segment
+            .windows(2)
             .filter(|window| {
                 let is_first_hydrophobic = matches!(window[0], b'A' | b'V' | b'L' | b'I' | b'F');
                 let is_second_hydrophilic = matches!(window[1], b'S' | b'T' | b'N' | b'Q');
                 is_first_hydrophobic && is_second_hydrophilic
             })
-            .count() >= segment.len() / 4
+            .count()
+            >= segment.len() / 4
     }
 
     /// Find end of helix structure
@@ -692,7 +792,11 @@ impl ProteinFolder {
     }
 
     /// Generate 3D coordinates for tertiary structure
-    fn generate_tertiary_coordinates(&self, sequence: &[u8], patterns: &[SecondaryPattern]) -> CompressionResult<Vec<(f32, f32, f32)>> {
+    fn generate_tertiary_coordinates(
+        &self,
+        sequence: &[u8],
+        patterns: &[SecondaryPattern],
+    ) -> CompressionResult<Vec<(f32, f32, f32)>> {
         let mut coords = Vec::with_capacity(sequence.len());
         let mut current_pos = (0.0f32, 0.0f32, 0.0f32);
 
@@ -866,7 +970,7 @@ impl DNACompressor {
             error_corrector: ReedSolomonCorrector::new(config.error_correction_capability),
             folder: ProteinFolder::new(),
             cache: Arc::new(RwLock::new(LruCache::new(
-                std::num::NonZeroUsize::new(config.max_cache_size).unwrap()
+                std::num::NonZeroUsize::new(config.max_cache_size).unwrap(),
             ))),
             metrics: Arc::new(RwLock::new(PerformanceMetrics::default())),
             config,
@@ -940,8 +1044,10 @@ impl DNACompressor {
         // Step 7: Validate performance target
         let elapsed = start_time.elapsed();
         if elapsed > Duration::from_micros(self.config.performance_target_us) {
-            warn!("Performance target missed: {:?} > {}μs",
-                  elapsed, self.config.performance_target_us);
+            warn!(
+                "Performance target missed: {:?} > {}μs",
+                elapsed, self.config.performance_target_us
+            );
         }
 
         // Step 8: Update metrics
@@ -951,11 +1057,13 @@ impl DNACompressor {
             metrics.bytes_encoded += data.len();
         }
 
-        info!("Compressed {} bytes to {} bytes (ratio: {:.1}:1) in {:?}",
-              data.len(),
-              encoded_data.sequence.len(),
-              data.len() as f64 / encoded_data.sequence.len() as f64,
-              elapsed);
+        info!(
+            "Compressed {} bytes to {} bytes (ratio: {:.1}:1) in {:?}",
+            data.len(),
+            encoded_data.sequence.len(),
+            data.len() as f64 / encoded_data.sequence.len() as f64,
+            elapsed
+        );
 
         Ok(encoded_data)
     }
@@ -985,16 +1093,17 @@ impl DNACompressor {
         let calculated_checksum = self.calculate_checksum(&decoded_data);
         if calculated_checksum != encoded.checksum {
             return Err(CompressionError::DecodingFailed(
-                "Checksum verification failed".to_string()
+                "Checksum verification failed".to_string(),
             ));
         }
 
         // Step 5: Verify original length
         if decoded_data.len() != encoded.original_length {
-            return Err(CompressionError::DecodingFailed(
-                format!("Length mismatch: expected {}, got {}",
-                        encoded.original_length, decoded_data.len())
-            ));
+            return Err(CompressionError::DecodingFailed(format!(
+                "Length mismatch: expected {}, got {}",
+                encoded.original_length,
+                decoded_data.len()
+            )));
         }
 
         // Step 6: Update metrics
@@ -1005,8 +1114,12 @@ impl DNACompressor {
             metrics.bytes_decoded += decoded_data.len();
         }
 
-        info!("Decompressed {} bytes to {} bytes in {:?}",
-              encoded.sequence.len(), decoded_data.len(), elapsed);
+        info!(
+            "Decompressed {} bytes to {} bytes in {:?}",
+            encoded.sequence.len(),
+            decoded_data.len(),
+            elapsed
+        );
 
         Ok(decoded_data)
     }
@@ -1031,7 +1144,10 @@ impl DNACompressor {
             checksum: damaged.checksum,
         };
 
-        info!("Repaired damaged encoded data in {:?}", start_time.elapsed());
+        info!(
+            "Repaired damaged encoded data in {:?}",
+            start_time.elapsed()
+        );
 
         Ok(repaired)
     }
@@ -1049,21 +1165,24 @@ impl DNACompressor {
 
     /// Get compression performance metrics
     pub fn get_metrics(&self) -> CompressionResult<PerformanceMetrics> {
-        self.metrics.read()
+        self.metrics
+            .read()
             .map(|metrics| metrics.clone())
             .map_err(|e| CompressionError::CacheError(format!("Failed to read metrics: {}", e)))
     }
 
     /// Get cache statistics
     pub fn get_cache_stats(&self) -> CompressionResult<(usize, usize)> {
-        self.cache.read()
+        self.cache
+            .read()
             .map(|cache| (cache.len(), cache.cap().get()))
             .map_err(|e| CompressionError::CacheError(format!("Failed to read cache: {}", e)))
     }
 
     /// Clear compression cache
     pub fn clear_cache(&mut self) -> CompressionResult<()> {
-        self.cache.write()
+        self.cache
+            .write()
             .map(|mut cache| cache.clear())
             .map_err(|e| CompressionError::CacheError(format!("Failed to clear cache: {}", e)))
     }
@@ -1083,15 +1202,15 @@ pub trait DNACompression {
 
 impl DNACompression for DNACompressor {
     fn compress(&mut self, data: &[u8]) -> CompressionResult<EncodedData> {
-        self.compress(data)
+        DNACompressor::compress(self, data)
     }
 
     fn decompress(&mut self, encoded: &EncodedData) -> CompressionResult<Vec<u8>> {
-        self.decompress(encoded)
+        DNACompressor::decompress(self, encoded)
     }
 
     fn repair(&mut self, damaged: &EncodedData) -> CompressionResult<EncodedData> {
-        self.repair(damaged)
+        DNACompressor::repair(self, damaged)
     }
 }
 
@@ -1144,7 +1263,11 @@ mod tests {
 
         // With repetitive data and biological pattern recognition, we should achieve compression
         // Note: The current implementation includes Reed-Solomon overhead, so we adjust expectations
-        assert!(ratio > 0.5, "Compression ratio {} should be > 0.5 (accounting for error correction overhead)", ratio);
+        assert!(
+            ratio > 0.5,
+            "Compression ratio {} should be > 0.5 (accounting for error correction overhead)",
+            ratio
+        );
     }
 
     #[test]
@@ -1161,7 +1284,8 @@ mod tests {
     #[test]
     fn test_protein_folding_analysis() {
         let mut folder = ProteinFolder::new();
-        let sequence = b"MSTDKTIIHLTQASNQIVQVYGERRYQDDLLELRRTLDSYGIPYIIVTAQSRSQGTLPGQKVDLLIIGGGQIVQVYGE";
+        let sequence =
+            b"MSTDKTIIHLTQASNQIVQVYGERRYQDDLLELRRTLDSYGIPYIIVTAQSRSQGTLPGQKVDLLIIGGGQIVQVYGE";
 
         let folding = folder.analyze_folding(sequence).unwrap();
 
@@ -1230,4 +1354,3 @@ mod tests {
         assert!(syndrome.iter().any(|&x| x != 0)); // Error should be detected
     }
 }
-

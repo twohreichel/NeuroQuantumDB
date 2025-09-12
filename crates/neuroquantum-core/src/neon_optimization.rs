@@ -149,9 +149,9 @@ impl NeonOptimizer {
         // Handle remaining connections with scalar operations
         for j in i..node.connections.len() {
             let connection = &mut node.connections[j];
-            connection.weight = (connection.weight * node.decay_factor +
-                               connection.usage_count as f32 * 0.01 * node.learning_rate)
-                               .clamp(-1.0, 1.0);
+            connection.weight = (connection.weight * node.decay_factor
+                + connection.usage_count as f32 * 0.01 * node.learning_rate)
+                .clamp(-1.0, 1.0);
         }
 
         Ok(())
@@ -231,7 +231,7 @@ impl NeonOptimizer {
     pub fn dot_product(&self, a: &[f32], b: &[f32]) -> CoreResult<f32> {
         if a.len() != b.len() {
             return Err(CoreError::InvalidOperation(
-                "Vector lengths must match for dot product".to_string()
+                "Vector lengths must match for dot product".to_string(),
             ));
         }
 
@@ -406,7 +406,9 @@ mod tests {
         let mut inputs = vec![0.5, 1.5, -0.5, 2.0];
         let threshold = 1.0;
 
-        optimizer.apply_activation_function(&mut inputs, threshold).unwrap();
+        optimizer
+            .apply_activation_function(&mut inputs, threshold)
+            .unwrap();
 
         // Expected: max(0, input - threshold)
         assert!((inputs[0] - 0.0).abs() < 1e-6); // 0.5 - 1.0 = -0.5 -> 0.0

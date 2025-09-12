@@ -1,0 +1,54 @@
+# Prometheus Configuration for NeuroQuantumDB
+# Production monitoring with ARM64 optimization
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'neuroquantum-edge'
+    replica: 'primary'
+
+rule_files:
+  - "neuroquantum-alerts.yml"
+
+scrape_configs:
+  # NeuroQuantumDB main metrics
+  - job_name: 'neuroquantumdb'
+    static_configs:
+      - targets: ['neuroquantumdb:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+    params:
+      format: ['prometheus']
+
+  # System metrics for Raspberry Pi 4
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 10s
+
+  # ARM64 specific metrics
+  - job_name: 'arm64-metrics'
+    static_configs:
+      - targets: ['neuroquantumdb:9090']
+    scrape_interval: 5s
+    metrics_path: /arm64-metrics
+
+  # Performance target monitoring
+  - job_name: 'performance-targets'
+    static_configs:
+      - targets: ['neuroquantumdb:9090']
+    scrape_interval: 1s  # High frequency for <1μs query monitoring
+    metrics_path: /performance
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Storage configuration optimized for edge devices
+storage:
+  tsdb:
+    retention_time: 30d
+    retention_size: 1GB  # Limit for Raspberry Pi storage

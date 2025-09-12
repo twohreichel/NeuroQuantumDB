@@ -164,30 +164,46 @@ impl QSQLEngine {
         };
 
         if let Some(plan) = cached_plan {
-            return self.execute_cached_plan(&plan).await.map_err(|e| anyhow::anyhow!("{}", e));
+            return self
+                .execute_cached_plan(&plan)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e));
         }
 
         // Parse query
         let parse_start = Instant::now();
         let ast = self.parser.parse_query(query)?;
-        self.metrics.average_parse_time =
-            Self::update_average(self.metrics.average_parse_time, parse_start.elapsed(), self.metrics.queries_parsed);
+        self.metrics.average_parse_time = Self::update_average(
+            self.metrics.average_parse_time,
+            parse_start.elapsed(),
+            self.metrics.queries_parsed,
+        );
         self.metrics.queries_parsed += 1;
 
         // Optimize with neuromorphic intelligence
         let opt_start = Instant::now();
         let plan = self.optimizer.optimize(ast)?;
-        self.metrics.average_optimization_time =
-            Self::update_average(self.metrics.average_optimization_time, opt_start.elapsed(), self.metrics.queries_optimized);
+        self.metrics.average_optimization_time = Self::update_average(
+            self.metrics.average_optimization_time,
+            opt_start.elapsed(),
+            self.metrics.queries_optimized,
+        );
         self.metrics.queries_optimized += 1;
 
         // Execute query
         let exec_start = Instant::now();
-        let result = self.executor.execute(&plan).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+        let result = self
+            .executor
+            .execute(&plan)
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         let exec_duration = exec_start.elapsed();
 
-        self.metrics.average_execution_time =
-            Self::update_average(self.metrics.average_execution_time, exec_duration, self.metrics.queries_executed);
+        self.metrics.average_execution_time = Self::update_average(
+            self.metrics.average_execution_time,
+            exec_duration,
+            self.metrics.queries_executed,
+        );
         self.metrics.queries_executed += 1;
 
         // Cache successful plan
@@ -261,7 +277,7 @@ impl QSQLEngine {
             new
         } else {
             Duration::from_nanos(
-                ((current.as_nanos() as u64 * count + new.as_nanos() as u64) / (count + 1)) as u64
+                ((current.as_nanos() as u64 * count + new.as_nanos() as u64) / (count + 1)) as u64,
             )
         }
     }
@@ -302,10 +318,14 @@ impl Default for QSQLConfig {
 // Public API exports - Clean and simple
 pub use ast::*;
 pub use error::*;
-pub use optimizer::{QueryPlan, ExecutionStrategy, OptimizationMetadata, NeuromorphicOptimizer, OptimizerConfig};
-pub use query_plan::{QueryExecutor, ExecutorConfig, QueryResult, QueryValue, ColumnInfo, ExecutionStats};
-pub use parser::{QSQLParser, ParserConfig};
 pub use natural_language::NaturalLanguageProcessor;
+pub use optimizer::{
+    ExecutionStrategy, NeuromorphicOptimizer, OptimizationMetadata, OptimizerConfig, QueryPlan,
+};
+pub use parser::{ParserConfig, QSQLParser};
+pub use query_plan::{
+    ColumnInfo, ExecutionStats, ExecutorConfig, QueryExecutor, QueryResult, QueryValue,
+};
 
 // Type aliases for convenience
 pub type QSQLOptimizer = NeuromorphicOptimizer;

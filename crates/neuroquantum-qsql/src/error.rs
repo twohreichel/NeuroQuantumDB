@@ -3,8 +3,8 @@
 //! This module defines comprehensive error handling for parsing, optimization,
 //! and execution of QSQL queries with neuromorphic and quantum extensions.
 
-use thiserror::Error;
 use std::fmt;
+use thiserror::Error;
 
 /// Main error type for QSQL operations
 #[derive(Error, Debug)]
@@ -384,7 +384,11 @@ impl From<ParseError> for QSQLError {
                 message: format!("Unexpected token '{}'", token),
                 position,
             },
-            ParseError::ExpectedToken { expected, found, position } => QSQLError::ParseError {
+            ParseError::ExpectedToken {
+                expected,
+                found,
+                position,
+            } => QSQLError::ParseError {
                 message: format!("Expected '{}' but found '{}'", expected, found),
                 position,
             },
@@ -434,10 +438,8 @@ mod tests {
 
     #[test]
     fn test_error_context_creation() {
-        let context = ErrorContext::new(
-            "SELECT * FROM users".to_string(),
-            "parsing".to_string(),
-        ).with_position(7);
+        let context = ErrorContext::new("SELECT * FROM users".to_string(), "parsing".to_string())
+            .with_position(7);
 
         assert_eq!(context.line, Some(1));
         assert_eq!(context.column, Some(8));

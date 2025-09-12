@@ -4,12 +4,12 @@
 //! using brain-inspired algorithms in NeuroQuantumDB.
 
 use crate::error::{CoreError, CoreResult};
-use crate::synaptic::SynapticNetwork;
 use crate::learning::HebbianLearningEngine;
+use crate::synaptic::SynapticNetwork;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument};
 
 /// Query types supported by the neuromorphic processor
@@ -47,7 +47,12 @@ impl QueryResult {
     }
 
     /// Create a new query result
-    pub fn new(query_id: u64, matched_nodes: Vec<u64>, execution_time_ns: u64, activation_score: f32) -> Self {
+    pub fn new(
+        query_id: u64,
+        matched_nodes: Vec<u64>,
+        execution_time_ns: u64,
+        activation_score: f32,
+    ) -> Self {
         Self {
             query_id,
             matched_nodes,
@@ -67,7 +72,7 @@ pub struct Query {
     pub target_nodes: Vec<u64>,
     pub conditions: Vec<QueryCondition>,
     pub timestamp_secs: u64, // Store as seconds since epoch instead of Instant
-    pub priority: u8, // 0-255, higher = more priority
+    pub priority: u8,        // 0-255, higher = more priority
     pub expected_result_size: Option<usize>,
 }
 
@@ -193,17 +198,20 @@ impl NeuromorphicQueryProcessor {
         // Update statistics
         self.update_statistics(&result);
 
-        debug!("Processed query {} in {}ns", query.id, result.execution_time_ns);
+        debug!(
+            "Processed query {} in {}ns",
+            query.id, result.execution_time_ns
+        );
         Ok(result)
     }
 
     /// Generate cache key for query
     fn generate_cache_key(&self, query: &Query) -> String {
         // Simple hash of query components
-        format!("{:?}_{:?}_{:?}",
-                query.query_type,
-                query.target_nodes,
-                query.conditions)
+        format!(
+            "{:?}_{:?}_{:?}",
+            query.query_type, query.target_nodes, query.conditions
+        )
     }
 
     /// Check query cache for existing result
@@ -220,7 +228,9 @@ impl NeuromorphicQueryProcessor {
     /// Activate neural pathway for query processing
     fn activate_neural_pathway(&self, query: &Query) -> CoreResult<Vec<u64>> {
         let mut pathway = Vec::new();
-        let network = self.network.read()
+        let network = self
+            .network
+            .read()
             .map_err(|_| CoreError::LockError("Failed to acquire network read lock".to_string()))?;
 
         // Start with target nodes specified in query
@@ -250,7 +260,9 @@ impl NeuromorphicQueryProcessor {
     /// Execute pattern matching using activated pathway
     fn execute_pattern_matching(&self, query: &Query, pathway: &[u64]) -> CoreResult<Vec<u64>> {
         let mut matched_nodes = Vec::new();
-        let network = self.network.read()
+        let network = self
+            .network
+            .read()
             .map_err(|_| CoreError::LockError("Failed to acquire network read lock".to_string()))?;
 
         // Simple pattern matching based on node properties
@@ -261,7 +273,7 @@ impl NeuromorphicQueryProcessor {
 
                 for condition in &query.conditions {
                     // Simplified condition matching
-                    match_score += condition.weight * self.evaluate_condition(node, condition);
+                    match_score += condition.weight * self.evaluate_condition(&node, condition);
                 }
 
                 // Include node if it meets threshold
@@ -275,34 +287,52 @@ impl NeuromorphicQueryProcessor {
     }
 
     /// Evaluate a query condition against a node
-    fn evaluate_condition(&self, node: &crate::synaptic::SynapticNode, condition: &QueryCondition) -> f32 {
+    fn evaluate_condition(
+        &self,
+        node: &crate::synaptic::SynapticNode,
+        condition: &QueryCondition,
+    ) -> f32 {
         // Simplified condition evaluation
         // In a real implementation, this would check node data against condition
 
         match condition.operator.as_str() {
             "=" | "==" => {
                 // Exact match check
-                if node.strength > 0.5 { 0.9 } else { 0.1 }
-            },
+                if node.strength > 0.5 {
+                    0.9
+                } else {
+                    0.1
+                }
+            }
             ">" => {
                 // Greater than check
-                if node.strength > condition.value.parse::<f32>().unwrap_or(0.0) { 0.8 } else { 0.0 }
-            },
+                if node.strength > condition.value.parse::<f32>().unwrap_or(0.0) {
+                    0.8
+                } else {
+                    0.0
+                }
+            }
             "<" => {
                 // Less than check
-                if node.strength < condition.value.parse::<f32>().unwrap_or(1.0) { 0.8 } else { 0.0 }
-            },
+                if node.strength < condition.value.parse::<f32>().unwrap_or(1.0) {
+                    0.8
+                } else {
+                    0.0
+                }
+            }
             "LIKE" => {
                 // Pattern matching
                 0.7 // Simplified - would do actual pattern matching
-            },
+            }
             _ => 0.0,
         }
     }
 
     /// Calculate confidence scores for matched nodes
     fn calculate_confidence_scores(&self, matched_nodes: &[u64]) -> CoreResult<Vec<f32>> {
-        let network = self.network.read()
+        let network = self
+            .network
+            .read()
             .map_err(|_| CoreError::LockError("Failed to acquire network read lock".to_string()))?;
 
         let mut scores = Vec::new();
@@ -316,9 +346,9 @@ impl NeuromorphicQueryProcessor {
                 confidence += (node.access_count as f32).log10() / 10.0;
 
                 // Boost confidence based on connection strength
-                let avg_connection_strength: f32 = node.connections.iter()
-                    .map(|c| c.weight.abs())
-                    .sum::<f32>() / node.connections.len().max(1) as f32;
+                let avg_connection_strength: f32 =
+                    node.connections.iter().map(|c| c.weight.abs()).sum::<f32>()
+                        / node.connections.len().max(1) as f32;
                 confidence += avg_connection_strength * 0.3;
 
                 // Normalize to [0, 1]
@@ -361,12 +391,14 @@ impl NeuromorphicQueryProcessor {
 
         // Suggest index creation for frequently queried fields
         if query.conditions.len() > 2 {
-            suggestions.push("Consider creating composite index for multiple conditions".to_string());
+            suggestions
+                .push("Consider creating composite index for multiple conditions".to_string());
         }
 
         // Suggest query restructuring for complex queries
         if query.target_nodes.len() > 10 {
-            suggestions.push("Consider breaking down large queries into smaller batches".to_string());
+            suggestions
+                .push("Consider breaking down large queries into smaller batches".to_string());
         }
 
         suggestions
@@ -391,7 +423,7 @@ impl NeuromorphicQueryProcessor {
     pub fn set_activation_threshold(&mut self, threshold: f32) -> CoreResult<()> {
         if !(0.0..=1.0).contains(&threshold) {
             return Err(CoreError::InvalidConfig(
-                "Activation threshold must be between 0.0 and 1.0".to_string()
+                "Activation threshold must be between 0.0 and 1.0".to_string(),
             ));
         }
         self.activation_threshold = threshold;
@@ -402,8 +434,8 @@ impl NeuromorphicQueryProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::synaptic::{SynapticNetwork};
     use crate::learning::HebbianLearningEngine;
+    use crate::synaptic::SynapticNetwork;
     use std::sync::{Arc, RwLock};
 
     #[test]
