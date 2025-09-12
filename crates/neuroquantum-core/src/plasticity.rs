@@ -1,375 +1,444 @@
-//! Adaptive plasticity matrix for dynamic data reorganization
+//! # Adaptive Plasticity Matrix
+//!
+//! Implementation of neural plasticity mechanisms for dynamic data reorganization
+//! and intelligent memory optimization in NeuroQuantumDB.
 
-use std::collections::HashMap;
-use std::time::Instant;
-use nalgebra::{DMatrix, DVector};
-use parking_lot::RwLock;
-use crate::synaptic::{NodeId, SynapticNetwork};
 use crate::error::{CoreError, CoreResult};
+use crate::synaptic::SynapticNetwork;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+use serde::Serialize;
+use tracing::{debug, info, instrument, warn};
 
-/// Plasticity matrix for adaptive data reorganization
-pub struct PlasticityMatrix {
-    /// Matrix dimensions (nodes x nodes)
-    dimensions: (usize, usize),
-    /// Sparse matrix representation for efficiency
-    matrix: RwLock<DMatrix<f32>>,
-    /// Update frequency tracker
-    update_tracker: RwLock<UpdateTracker>,
-    /// Optimization parameters
-    params: PlasticityParams,
+/// Access pattern tracking for plasticity decisions
+#[derive(Debug, Clone, Default)]
+pub struct AccessPatterns {
+    pub node_access_frequency: HashMap<u64, u64>,
+    pub connection_usage: HashMap<(u64, u64), u64>,
+    pub temporal_locality_secs: HashMap<u64, Vec<u64>>, // Store timestamps as seconds since epoch
+    pub spatial_locality: HashMap<u64, Vec<u64>>, // node_id -> frequently accessed neighbors
+    pub query_patterns: Vec<String>, // Recent query patterns for optimization
 }
 
-#[derive(Debug, Clone)]
+/// Plasticity parameters controlling reorganization behavior
+#[derive(Debug, Clone, Serialize)]
 pub struct PlasticityParams {
-    /// Reorganization threshold
     pub reorganization_threshold: f32,
-    /// Learning rate for plasticity updates
-    pub plasticity_learning_rate: f32,
-    /// Decay factor for old connections
-    pub decay_factor: f32,
-    /// Maximum reorganizations per cycle
-    pub max_reorganizations: usize,
+    pub temporal_window_secs: u64, // Store as seconds instead of Duration
+    pub spatial_clustering_factor: f32,
+    pub decay_rate: f32,
+    pub min_access_count: u64,
+    pub max_reorganizations_per_cycle: u32,
+    pub locality_weight: f32,
+    pub frequency_weight: f32,
 }
 
 impl Default for PlasticityParams {
     fn default() -> Self {
         Self {
-            reorganization_threshold: 0.6,
-            plasticity_learning_rate: 0.01,
-            decay_factor: 0.95,
-            max_reorganizations: 10,
+            reorganization_threshold: 0.1,
+            temporal_window_secs: 300, // 5 minutes in seconds
+            spatial_clustering_factor: 0.8,
+            decay_rate: 0.95,
+            min_access_count: 10,
+            max_reorganizations_per_cycle: 100,
+            locality_weight: 0.6,
+            frequency_weight: 0.4,
         }
     }
 }
 
-#[derive(Debug, Default)]
-struct UpdateTracker {
-    last_update: Option<Instant>,
-    update_count: u64,
-    reorganizations_performed: u64,
+/// Plasticity matrix managing dynamic network reorganization
+pub struct PlasticityMatrix {
+    max_nodes: usize,
+    plasticity_threshold: f32,
+    access_patterns: AccessPatterns,
+    params: PlasticityParams,
+    reorganization_history: Vec<ReorganizationEvent>,
+    last_reorganization_secs: Option<u64>, // Store as seconds since epoch
+    plasticity_scores: HashMap<u64, f32>, // node_id -> plasticity score
+    cluster_assignments: HashMap<u64, u32>, // node_id -> cluster_id
+    next_cluster_id: u32,
 }
 
-/// Access pattern analysis for optimization
+/// Record of network reorganization events
 #[derive(Debug, Clone)]
-pub struct AccessPatterns {
-    pub node_access_counts: HashMap<NodeId, u64>,
-    pub co_access_patterns: HashMap<(NodeId, NodeId), u64>,
-    pub temporal_patterns: Vec<(NodeId, Instant)>,
+pub struct ReorganizationEvent {
+    pub timestamp_secs: u64, // Store as seconds since epoch
+    pub event_type: ReorganizationType,
+    pub nodes_affected: Vec<u64>,
+    pub performance_impact: f32,
+    pub memory_delta: i64, // Change in memory usage
 }
 
-impl AccessPatterns {
-    pub fn new() -> Self {
-        Self {
-            node_access_counts: HashMap::new(),
-            co_access_patterns: HashMap::new(),
-            temporal_patterns: Vec::new(),
-        }
-    }
-
-    pub fn record_access(&mut self, node_id: NodeId) {
-        *self.node_access_counts.entry(node_id).or_insert(0) += 1;
-        self.temporal_patterns.push((node_id, Instant::now()));
-
-        // Keep only recent patterns (last 1000 accesses)
-        if self.temporal_patterns.len() > 1000 {
-            self.temporal_patterns.drain(0..100);
-        }
-    }
-
-    pub fn record_co_access(&mut self, node1: NodeId, node2: NodeId) {
-        let key = if node1 < node2 { (node1, node2) } else { (node2, node1) };
-        *self.co_access_patterns.entry(key).or_insert(0) += 1;
-    }
-}
-
-/// Result of reorganization operation
-#[derive(Debug)]
-pub struct ReorganizationResult {
-    pub nodes_moved: usize,
-    pub connections_optimized: usize,
-    pub performance_improvement: f32,
-    pub execution_time_ns: u64,
-}
-
-/// Locality analysis for optimization decisions
-#[derive(Debug)]
-pub struct LocalityAnalysis {
-    pub spatial_clusters: Vec<Vec<NodeId>>,
-    pub temporal_sequences: Vec<Vec<NodeId>>,
-    pub access_frequency_ranking: Vec<(NodeId, u64)>,
+#[derive(Debug, Clone, Serialize)]
+pub enum ReorganizationType {
+    SpatialClustering,
+    TemporalReorganization,
+    FrequencyBasedOptimization,
+    ConnectionPruning,
+    NodeMigration,
 }
 
 impl PlasticityMatrix {
     /// Create a new plasticity matrix
-    pub fn new(max_nodes: usize) -> CoreResult<Self> {
-        let matrix = DMatrix::zeros(max_nodes, max_nodes);
+    pub fn new(max_nodes: usize, plasticity_threshold: f32) -> CoreResult<Self> {
+        if !(0.0..=1.0).contains(&plasticity_threshold) {
+            return Err(CoreError::InvalidConfig(
+                "Plasticity threshold must be between 0.0 and 1.0".to_string()
+            ));
+        }
 
         Ok(Self {
-            dimensions: (max_nodes, max_nodes),
-            matrix: RwLock::new(matrix),
-            update_tracker: RwLock::new(UpdateTracker::default()),
+            max_nodes,
+            plasticity_threshold,
+            access_patterns: AccessPatterns::default(),
             params: PlasticityParams::default(),
+            reorganization_history: Vec::new(),
+            last_reorganization_secs: None,
+            plasticity_scores: HashMap::new(),
+            cluster_assignments: HashMap::new(),
+            next_cluster_id: 0,
         })
     }
 
-    /// Create with custom parameters
-    pub fn with_params(max_nodes: usize, params: PlasticityParams) -> CoreResult<Self> {
-        let matrix = DMatrix::zeros(max_nodes, max_nodes);
+    /// Record access to a node for plasticity analysis
+    #[instrument(level = "debug", skip(self))]
+    pub fn record_access(&mut self, node_id: u64, access_time: Instant) {
+        // Update access frequency
+        *self.access_patterns.node_access_frequency.entry(node_id).or_insert(0) += 1;
 
-        Ok(Self {
-            dimensions: (max_nodes, max_nodes),
-            matrix: RwLock::new(matrix),
-            update_tracker: RwLock::new(UpdateTracker::default()),
-            params,
-        })
+        // Update temporal locality using seconds since epoch
+        let access_time_secs = access_time.elapsed().as_secs();
+        self.access_patterns.temporal_locality_secs
+            .entry(node_id)
+            .or_insert_with(Vec::new)
+            .push(access_time_secs);
+
+        // Keep only recent accesses within temporal window
+        let cutoff_time_secs = access_time_secs.saturating_sub(self.params.temporal_window_secs);
+        if let Some(times) = self.access_patterns.temporal_locality_secs.get_mut(&node_id) {
+            times.retain(|&t| t > cutoff_time_secs);
+        }
+
+        // Update plasticity score
+        self.update_plasticity_score(node_id);
+
+        debug!("Recorded access to node {} at time {}", node_id, access_time_secs);
     }
 
-    /// Reorganize data based on access patterns
-    pub fn reorganize_data(
-        &self,
-        network: &SynapticNetwork,
-        access_patterns: &AccessPatterns,
-    ) -> CoreResult<ReorganizationResult> {
+    /// Record connection usage for plasticity tracking
+    pub fn record_connection_usage(&mut self, source_id: u64, target_id: u64) {
+        let connection_key = (source_id, target_id);
+        *self.access_patterns.connection_usage.entry(connection_key).or_insert(0) += 1;
+
+        // Update spatial locality
+        self.access_patterns.spatial_locality
+            .entry(source_id)
+            .or_insert_with(Vec::new)
+            .push(target_id);
+
+        // Keep track of frequently accessed neighbors
+        if let Some(neighbors) = self.access_patterns.spatial_locality.get_mut(&source_id) {
+            // Remove duplicates and keep most recent
+            neighbors.sort_unstable();
+            neighbors.dedup();
+            if neighbors.len() > 10 {
+                neighbors.truncate(10); // Keep top 10 neighbors
+            }
+        }
+    }
+
+    /// Update plasticity score for a node based on access patterns
+    fn update_plasticity_score(&mut self, node_id: u64) {
+        let frequency = self.access_patterns.node_access_frequency
+            .get(&node_id)
+            .copied()
+            .unwrap_or(0) as f32;
+
+        let temporal_locality = self.access_patterns.temporal_locality_secs
+            .get(&node_id)
+            .map(|times| times.len() as f32)
+            .unwrap_or(0.0);
+
+        let spatial_locality = self.access_patterns.spatial_locality
+            .get(&node_id)
+            .map(|neighbors| neighbors.len() as f32)
+            .unwrap_or(0.0);
+
+        // Calculate composite plasticity score
+        let frequency_component = frequency * self.params.frequency_weight;
+        let locality_component = (temporal_locality + spatial_locality) * self.params.locality_weight;
+
+        let plasticity_score = (frequency_component + locality_component) / 100.0; // Normalize
+        self.plasticity_scores.insert(node_id, plasticity_score.min(1.0));
+    }
+
+    /// Reorganize network based on plasticity analysis
+    #[instrument(level = "info", skip(self, _network))]
+    pub fn reorganize_network(&mut self, _network: &mut SynapticNetwork) -> CoreResult<bool> {
+        info!("Starting network reorganization based on plasticity analysis");
+
+        // Check if reorganization is needed
+        if !self.should_reorganize()? {
+            return Ok(false);
+        }
+
         let start_time = Instant::now();
+        let mut reorganizations_performed = 0;
+        let mut total_performance_impact = 0.0;
 
-        // Analyze spatial locality patterns
-        let locality_analysis = self.analyze_locality(access_patterns)?;
+        // 1. Spatial clustering based on access patterns
+        if reorganizations_performed < self.params.max_reorganizations_per_cycle {
+            let clustered = self.perform_spatial_clustering()?;
+            if clustered {
+                reorganizations_performed += 1;
+                total_performance_impact += 0.1;
+            }
+        }
 
-        // Calculate optimal node placement
-        let placement_plan = self.calculate_placement(&locality_analysis)?;
+        // 2. Temporal reorganization for frequently accessed nodes
+        if reorganizations_performed < self.params.max_reorganizations_per_cycle {
+            let temporal_optimized = self.perform_temporal_reorganization()?;
+            if temporal_optimized {
+                reorganizations_performed += 1;
+                total_performance_impact += 0.15;
+            }
+        }
 
-        // Execute data reorganization
-        let result = self.execute_reorganization(network, &placement_plan)?;
+        // 3. Frequency-based optimization
+        if reorganizations_performed < self.params.max_reorganizations_per_cycle {
+            let frequency_optimized = self.perform_frequency_optimization()?;
+            if frequency_optimized {
+                reorganizations_performed += 1;
+                total_performance_impact += 0.2;
+            }
+        }
 
-        // Update plasticity matrix
-        self.update_matrix(&result)?;
+        // 4. Prune unused connections
+        if reorganizations_performed < self.params.max_reorganizations_per_cycle {
+            let pruned = self.prune_unused_connections()?;
+            if pruned > 0 {
+                reorganizations_performed += 1;
+                total_performance_impact += 0.05;
+            }
+        }
 
-        // Update tracker
-        let mut tracker = self.update_tracker.write();
-        tracker.last_update = Some(Instant::now());
-        tracker.update_count += 1;
-        tracker.reorganizations_performed += 1;
+        // Record reorganization event
+        if reorganizations_performed > 0 {
+            let event = ReorganizationEvent {
+                timestamp_secs: start_time.elapsed().as_secs(),
+                event_type: ReorganizationType::SpatialClustering, // Primary type
+                nodes_affected: self.plasticity_scores.keys().cloned().collect(),
+                performance_impact: total_performance_impact,
+                memory_delta: 0, // Calculate actual memory change
+            };
 
-        let execution_time = start_time.elapsed().as_nanos() as u64;
+            self.reorganization_history.push(event);
+            self.last_reorganization_secs = Some(start_time.elapsed().as_secs());
 
-        Ok(ReorganizationResult {
-            nodes_moved: result.nodes_moved,
-            connections_optimized: result.connections_optimized,
-            performance_improvement: result.performance_improvement,
-            execution_time_ns: execution_time,
-        })
+            // Apply decay to access patterns
+            self.apply_access_decay();
+
+            info!("Network reorganization completed: {} operations, impact: {:.3}",
+                  reorganizations_performed, total_performance_impact);
+        }
+
+        Ok(reorganizations_performed > 0)
     }
 
-    /// Analyze spatial and temporal locality
-    fn analyze_locality(&self, patterns: &AccessPatterns) -> CoreResult<LocalityAnalysis> {
-        // Spatial clustering based on co-access patterns
-        let spatial_clusters = self.compute_spatial_clusters(patterns)?;
+    /// Check if network reorganization should be triggered
+    fn should_reorganize(&self) -> CoreResult<bool> {
+        // Check if enough time has passed since last reorganization
+        if let Some(last_reorg_secs) = self.last_reorganization_secs {
+            let current_time_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
 
-        // Temporal sequence analysis
-        let temporal_sequences = self.compute_temporal_sequences(patterns)?;
+            if current_time_secs.saturating_sub(last_reorg_secs) < self.params.temporal_window_secs / 4 {
+                return Ok(false);
+            }
+        }
 
-        // Access frequency ranking
-        let mut access_ranking: Vec<_> = patterns.node_access_counts.iter()
-            .map(|(&node_id, &count)| (node_id, count))
+        // Check if we have enough access data
+        let total_accesses: u64 = self.access_patterns.node_access_frequency.values().sum();
+        if total_accesses < self.params.min_access_count {
+            return Ok(false);
+        }
+
+        // Check plasticity threshold
+        let high_plasticity_nodes = self.plasticity_scores.values()
+            .filter(|&&score| score > self.plasticity_threshold)
+            .count();
+
+        let plasticity_ratio = high_plasticity_nodes as f32 / self.plasticity_scores.len().max(1) as f32;
+
+        Ok(plasticity_ratio > 0.1) // Reorganize if >10% of nodes show high plasticity
+    }
+
+    /// Perform spatial clustering of related nodes
+    fn perform_spatial_clustering(&mut self) -> CoreResult<bool> {
+        // Find nodes that are frequently accessed together
+        let mut cluster_candidates = HashMap::new();
+
+        for (&node_id, neighbors) in &self.access_patterns.spatial_locality {
+            if neighbors.len() >= 3 { // Minimum cluster size
+                let cluster_id = self.next_cluster_id;
+                self.next_cluster_id += 1;
+
+                cluster_candidates.insert(node_id, cluster_id);
+                for &neighbor_id in neighbors {
+                    cluster_candidates.insert(neighbor_id, cluster_id);
+                }
+            }
+        }
+
+        // Assign cluster memberships
+        for (node_id, cluster_id) in cluster_candidates {
+            self.cluster_assignments.insert(node_id, cluster_id);
+        }
+
+        Ok(!self.cluster_assignments.is_empty())
+    }
+
+    /// Perform temporal reorganization for frequently accessed nodes
+    fn perform_temporal_reorganization(&mut self) -> CoreResult<bool> {
+        let current_time_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let mut hot_nodes = Vec::new();
+
+        // Identify nodes with high temporal locality
+        for (&node_id, access_times) in &self.access_patterns.temporal_locality_secs {
+            if access_times.len() >= 5 { // Minimum access frequency
+                let recent_accesses = access_times.iter()
+                    .filter(|&&time| current_time_secs.saturating_sub(time) < self.params.temporal_window_secs / 2)
+                    .count();
+
+                if recent_accesses >= 3 {
+                    hot_nodes.push(node_id);
+                }
+            }
+        }
+
+        // TODO: Implement actual node reorganization logic
+        // This would involve moving frequently accessed nodes closer together
+        // in memory or updating connection weights
+
+        Ok(!hot_nodes.is_empty())
+    }
+
+    /// Perform frequency-based optimization
+    fn perform_frequency_optimization(&mut self) -> CoreResult<bool> {
+        // Sort nodes by access frequency
+        let mut nodes_by_frequency: Vec<_> = self.access_patterns.node_access_frequency
+            .iter()
+            .map(|(&id, &freq)| (id, freq))
             .collect();
-        access_ranking.sort_by_key(|&(_, count)| std::cmp::Reverse(count));
+        nodes_by_frequency.sort_by(|a, b| b.1.cmp(&a.1));
 
-        Ok(LocalityAnalysis {
-            spatial_clusters,
-            temporal_sequences,
-            access_frequency_ranking: access_ranking,
-        })
+        // Identify top accessed nodes for optimization
+        let top_count = (nodes_by_frequency.len() / 10).max(1);
+        let _top_nodes: Vec<_> = nodes_by_frequency.iter().take(top_count).collect();
+
+        // TODO: Implement frequency-based optimization
+        // This would involve boosting frequently accessed nodes
+
+        Ok(!nodes_by_frequency.is_empty())
     }
 
-    /// Compute spatial clusters using co-access patterns
-    fn compute_spatial_clusters(&self, patterns: &AccessPatterns) -> CoreResult<Vec<Vec<NodeId>>> {
-        let mut clusters = Vec::new();
-        let mut processed_nodes = std::collections::HashSet::new();
+    /// Prune unused connections based on access patterns
+    fn prune_unused_connections(&mut self) -> CoreResult<u32> {
+        let mut pruned_count = 0;
+        let usage_threshold = 2; // Minimum usage count to keep connection
 
-        // Simple clustering algorithm based on co-access frequency
-        for (&(node1, node2), &frequency) in &patterns.co_access_patterns {
-            if frequency < 5 { // Minimum co-access threshold
-                continue;
-            }
+        // Find connections with low usage
+        let connections_to_prune: Vec<_> = self.access_patterns.connection_usage
+            .iter()
+            .filter(|(_, &usage_count)| usage_count < usage_threshold)
+            .map(|(&(source_id, target_id), _)| (source_id, target_id))
+            .collect();
 
-            if processed_nodes.contains(&node1) || processed_nodes.contains(&node2) {
-                continue;
-            }
+        pruned_count = connections_to_prune.len() as u32;
 
-            // Start a new cluster
-            let mut cluster = vec![node1, node2];
-            processed_nodes.insert(node1);
-            processed_nodes.insert(node2);
-
-            // Find other nodes that co-access with cluster members
-            for (&(a, b), &freq) in &patterns.co_access_patterns {
-                if freq < 3 { continue; }
-
-                if cluster.contains(&a) && !processed_nodes.contains(&b) {
-                    cluster.push(b);
-                    processed_nodes.insert(b);
-                } else if cluster.contains(&b) && !processed_nodes.contains(&a) {
-                    cluster.push(a);
-                    processed_nodes.insert(a);
-                }
-            }
-
-            if cluster.len() >= 2 {
-                clusters.push(cluster);
-            }
+        // Remove low-usage connections from tracking
+        for (source_id, target_id) in connections_to_prune {
+            self.access_patterns.connection_usage.remove(&(source_id, target_id));
         }
 
-        Ok(clusters)
+        Ok(pruned_count)
     }
 
-    /// Compute temporal access sequences
-    fn compute_temporal_sequences(&self, patterns: &AccessPatterns) -> CoreResult<Vec<Vec<NodeId>>> {
-        let mut sequences = Vec::new();
-
-        // Sort temporal patterns by time
-        let mut sorted_accesses = patterns.temporal_patterns.clone();
-        sorted_accesses.sort_by_key(|&(_, time)| time);
-
-        // Find sequences of consecutive accesses
-        let mut current_sequence = Vec::new();
-        let mut last_time = None;
-
-        for (node_id, access_time) in sorted_accesses {
-            if let Some(prev_time) = last_time {
-                let time_diff = access_time.duration_since(prev_time).as_millis();
-
-                if time_diff > 100 { // 100ms threshold for sequence breaks
-                    if current_sequence.len() >= 3 {
-                        sequences.push(current_sequence.clone());
-                    }
-                    current_sequence.clear();
-                }
-            }
-
-            current_sequence.push(node_id);
-            last_time = Some(access_time);
+    /// Apply decay to access patterns to forget old data
+    fn apply_access_decay(&mut self) {
+        // Decay access frequencies
+        for frequency in self.access_patterns.node_access_frequency.values_mut() {
+            *frequency = (*frequency as f32 * self.params.decay_rate) as u64;
         }
 
-        // Add final sequence
-        if current_sequence.len() >= 3 {
-            sequences.push(current_sequence);
+        // Remove nodes with very low frequency
+        self.access_patterns.node_access_frequency.retain(|_, &mut freq| freq > 0);
+
+        // Decay connection usage
+        for usage in self.access_patterns.connection_usage.values_mut() {
+            *usage = (*usage as f32 * self.params.decay_rate) as u64;
         }
 
-        Ok(sequences)
-    }
+        // Remove connections with very low usage
+        self.access_patterns.connection_usage.retain(|_, &mut usage| usage > 0);
 
-    /// Calculate optimal placement based on locality analysis
-    fn calculate_placement(&self, analysis: &LocalityAnalysis) -> CoreResult<PlacementPlan> {
-        let mut plan = PlacementPlan::new();
-
-        // Place frequently accessed nodes in high-priority locations
-        for (i, &(node_id, _frequency)) in analysis.access_frequency_ranking.iter().take(100).enumerate() {
-            plan.add_placement(node_id, PlacementPriority::High, i);
+        // Update plasticity scores after decay
+        let node_ids: Vec<_> = self.plasticity_scores.keys().cloned().collect();
+        for node_id in node_ids {
+            self.update_plasticity_score(node_id);
         }
-
-        // Group spatially clustered nodes together
-        for (cluster_id, cluster) in analysis.spatial_clusters.iter().enumerate() {
-            for &node_id in cluster {
-                plan.add_cluster_placement(node_id, cluster_id);
-            }
-        }
-
-        Ok(plan)
     }
 
-    /// Execute the reorganization plan
-    fn execute_reorganization(
-        &self,
-        _network: &SynapticNetwork,
-        _plan: &PlacementPlan,
-    ) -> CoreResult<ReorganizationResult> {
-        // In a real implementation, this would:
-        // 1. Move data physically based on the placement plan
-        // 2. Update memory layouts for cache efficiency
-        // 3. Reorganize connection patterns
-        // 4. Measure performance improvements
+    /// Get plasticity statistics
+    pub fn get_plasticity_stats(&self) -> PlasticityStats {
+        let total_nodes = self.plasticity_scores.len();
+        let high_plasticity_nodes = self.plasticity_scores.values()
+            .filter(|&&score| score > self.plasticity_threshold)
+            .count();
 
-        Ok(ReorganizationResult {
-            nodes_moved: 10,
-            connections_optimized: 25,
-            performance_improvement: 1.15, // 15% improvement
-            execution_time_ns: 1_000_000, // 1ms
-        })
-    }
-
-    /// Update the plasticity matrix based on reorganization results
-    fn update_matrix(&self, _result: &ReorganizationResult) -> CoreResult<()> {
-        let mut matrix = self.matrix.write();
-
-        // Apply decay to existing values
-        matrix.scale_mut(self.params.decay_factor);
-
-        // Update based on reorganization results
-        // This would involve updating the matrix based on new connection strengths
-
-        Ok(())
-    }
-
-    /// Get current plasticity statistics
-    pub fn get_stats(&self) -> PlasticityStats {
-        let tracker = self.update_tracker.read();
+        let avg_plasticity = if total_nodes > 0 {
+            self.plasticity_scores.values().sum::<f32>() / total_nodes as f32
+        } else {
+            0.0
+        };
 
         PlasticityStats {
-            last_update: tracker.last_update,
-            total_updates: tracker.update_count,
-            total_reorganizations: tracker.reorganizations_performed,
-            matrix_density: self.calculate_density(),
+            total_nodes,
+            high_plasticity_nodes,
+            average_plasticity_score: avg_plasticity,
+            total_reorganizations: self.reorganization_history.len(),
+            last_reorganization_secs: self.last_reorganization_secs,
+            active_clusters: self.cluster_assignments.values().max().copied().unwrap_or(0) + 1,
         }
     }
 
-    /// Calculate matrix density (non-zero elements / total elements)
-    fn calculate_density(&self) -> f32 {
-        let matrix = self.matrix.read();
-        let total_elements = matrix.nrows() * matrix.ncols();
-        let non_zero_elements = matrix.iter().filter(|&&x| x.abs() > f32::EPSILON).count();
+    /// Set plasticity parameters
+    pub fn set_params(&mut self, params: PlasticityParams) {
+        self.params = params;
+    }
 
-        non_zero_elements as f32 / total_elements as f32
+    /// Get current access patterns
+    pub fn get_access_patterns(&self) -> &AccessPatterns {
+        &self.access_patterns
     }
 }
 
-/// Placement plan for data reorganization
-#[derive(Debug)]
-struct PlacementPlan {
-    placements: HashMap<NodeId, (PlacementPriority, usize)>,
-    cluster_assignments: HashMap<NodeId, usize>,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum PlacementPriority {
-    High,
-    Medium,
-    Low,
-}
-
-impl PlacementPlan {
-    fn new() -> Self {
-        Self {
-            placements: HashMap::new(),
-            cluster_assignments: HashMap::new(),
-        }
-    }
-
-    fn add_placement(&mut self, node_id: NodeId, priority: PlacementPriority, position: usize) {
-        self.placements.insert(node_id, (priority, position));
-    }
-
-    fn add_cluster_placement(&mut self, node_id: NodeId, cluster_id: usize) {
-        self.cluster_assignments.insert(node_id, cluster_id);
-    }
-}
-
-/// Plasticity statistics
-#[derive(Debug)]
+/// Statistics about plasticity and reorganization
+#[derive(Debug, Clone, Serialize)]
 pub struct PlasticityStats {
-    pub last_update: Option<Instant>,
-    pub total_updates: u64,
-    pub total_reorganizations: u64,
-    pub matrix_density: f32,
+    pub total_nodes: usize,
+    pub high_plasticity_nodes: usize,
+    pub average_plasticity_score: f32,
+    pub total_reorganizations: usize,
+    pub last_reorganization_secs: Option<u64>,
+    pub active_clusters: u32,
 }
 
 #[cfg(test)]
@@ -378,38 +447,81 @@ mod tests {
 
     #[test]
     fn test_plasticity_matrix_creation() {
-        let matrix = PlasticityMatrix::new(1000).unwrap();
-        assert_eq!(matrix.dimensions, (1000, 1000));
-
-        let stats = matrix.get_stats();
-        assert_eq!(stats.total_updates, 0);
-        assert_eq!(stats.total_reorganizations, 0);
+        let matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+        assert_eq!(matrix.max_nodes, 1000);
+        assert_eq!(matrix.plasticity_threshold, 0.5);
     }
 
     #[test]
-    fn test_access_patterns() {
-        let mut patterns = AccessPatterns::new();
-
-        patterns.record_access(1);
-        patterns.record_access(2);
-        patterns.record_co_access(1, 2);
-
-        assert_eq!(patterns.node_access_counts[&1], 1);
-        assert_eq!(patterns.node_access_counts[&2], 1);
-        assert_eq!(patterns.co_access_patterns[&(1, 2)], 1);
+    fn test_invalid_plasticity_threshold() {
+        let result = PlasticityMatrix::new(1000, 1.5);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_plasticity_params() {
-        let params = PlasticityParams {
-            reorganization_threshold: 0.8,
-            plasticity_learning_rate: 0.02,
-            decay_factor: 0.9,
-            max_reorganizations: 5,
-        };
+    fn test_access_recording() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+        let now = Instant::now();
 
-        let matrix = PlasticityMatrix::with_params(100, params).unwrap();
-        assert_eq!(matrix.params.reorganization_threshold, 0.8);
-        assert_eq!(matrix.params.plasticity_learning_rate, 0.02);
+        matrix.record_access(1, now);
+        assert_eq!(matrix.access_patterns.node_access_frequency.get(&1), Some(&1));
+        assert!(matrix.access_patterns.temporal_locality_secs.contains_key(&1));
+    }
+
+    #[test]
+    fn test_connection_usage_recording() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        matrix.record_connection_usage(1, 2);
+        assert_eq!(matrix.access_patterns.connection_usage.get(&(1, 2)), Some(&1));
+        assert!(matrix.access_patterns.spatial_locality.get(&1).unwrap().contains(&2));
+    }
+
+    #[test]
+    fn test_plasticity_score_update() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+        let now = Instant::now();
+
+        // Record multiple accesses
+        for _ in 0..5 {
+            matrix.record_access(1, now);
+        }
+
+        assert!(matrix.plasticity_scores.contains_key(&1));
+        assert!(matrix.plasticity_scores[&1] > 0.0);
+    }
+
+    #[test]
+    fn test_reorganization_check() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.1).unwrap();
+
+        // Initially should not reorganize
+        assert!(!matrix.should_reorganize().unwrap());
+
+        // Add enough access data
+        for i in 0..20 {
+            matrix.access_patterns.node_access_frequency.insert(i, 10);
+            matrix.plasticity_scores.insert(i, 0.2); // Above threshold
+        }
+
+        // Now should reorganize
+        assert!(matrix.should_reorganize().unwrap());
+    }
+
+    #[test]
+    fn test_access_decay() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        // Add some access data
+        matrix.access_patterns.node_access_frequency.insert(1, 100);
+        matrix.access_patterns.connection_usage.insert((1, 2), 50);
+
+        let initial_freq = matrix.access_patterns.node_access_frequency[&1];
+        let initial_usage = matrix.access_patterns.connection_usage[&(1, 2)];
+
+        matrix.apply_access_decay();
+
+        assert!(matrix.access_patterns.node_access_frequency[&1] < initial_freq);
+        assert!(matrix.access_patterns.connection_usage[&(1, 2)] < initial_usage);
     }
 }

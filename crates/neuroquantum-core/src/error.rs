@@ -1,160 +1,302 @@
-//! Error types for the NeuroQuantumDB core
+//! # Core Error Types
+//!
+//! Comprehensive error handling for the NeuroQuantumDB neuromorphic core
+//! with detailed error classification and recovery strategies.
 
-use thiserror::Error;
-use crate::synaptic::NodeId;
+use std::fmt;
+use serde::{Deserialize, Serialize};
 
 /// Result type alias for core operations
 pub type CoreResult<T> = Result<T, CoreError>;
 
-/// Core error types for neuromorphic operations
-#[derive(Error, Debug)]
+/// Comprehensive error types for neuromorphic core operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CoreError {
-    #[error("Node {0} not found")]
-    NodeNotFound(NodeId),
+    /// Configuration validation errors
+    InvalidConfig(String),
 
-    #[error("Connection already exists between nodes {source} and {target}")]
-    ConnectionAlreadyExists { source: NodeId, target: NodeId },
+    /// Resource exhaustion errors (memory, connections, etc.)
+    ResourceExhausted(String),
 
-    #[error("Connection not found between nodes {source} and {target}")]
-    ConnectionNotFound { source: NodeId, target: NodeId },
+    /// Lock acquisition failures for concurrent access
+    LockError(String),
 
-    #[error("Network capacity exceeded (max nodes reached)")]
-    NetworkCapacityExceeded,
+    /// Entity not found errors
+    NotFound(String),
 
-    #[error("Memory limit exceeded")]
-    MemoryLimitExceeded,
+    /// Invalid operation attempts
+    InvalidOperation(String),
 
-    #[error("Invalid node state for node {0}")]
-    InvalidNodeState(NodeId),
+    /// Network topology errors
+    NetworkError(String),
 
-    #[error("Invalid connection weight {weight} between nodes {source} and {target} (must be -1.0 to 1.0)")]
-    InvalidConnectionWeight {
-        source: NodeId,
-        target: NodeId,
-        weight: f32,
-    },
+    /// Learning algorithm failures
+    LearningError(String),
 
-    #[error("Dangling connection from node {source} to non-existent node {target}")]
-    DanglingConnection { source: NodeId, target: NodeId },
+    /// Plasticity computation errors
+    PlasticityError(String),
 
-    #[error("Learning engine error: {message}")]
-    LearningError { message: String },
+    /// Query processing errors
+    QueryError(String),
 
-    #[error("Plasticity matrix error: {message}")]
-    PlasticityError { message: String },
+    /// ARM64/NEON optimization errors
+    NeonError(String),
 
-    #[error("Query processing error: {message}")]
-    QueryError { message: String },
+    /// Memory allocation failures
+    MemoryError(String),
 
-    #[error("ARM64/NEON optimization error: {message}")]
-    OptimizationError { message: String },
+    /// Serialization/deserialization errors
+    SerializationError(String),
 
-    #[error("Serialization error: {0}")]
-    SerializationError(#[from] serde_json::Error),
+    /// I/O operation failures
+    IoError(String),
 
-    #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error),
+    /// Timeout errors for operations
+    TimeoutError(String),
 
-    #[error("Configuration error: {message}")]
-    ConfigError { message: String },
+    /// Validation errors for input data
+    ValidationError(String),
 
-    #[error("Internal error: {message}")]
-    InternalError { message: String },
+    /// Internal system errors
+    InternalError(String),
 }
 
 impl CoreError {
-    /// Create a learning error
-    pub fn learning_error(message: impl Into<String>) -> Self {
-        Self::LearningError { message: message.into() }
+    /// Create a new configuration error
+    pub fn config<S: Into<String>>(msg: S) -> Self {
+        Self::InvalidConfig(msg.into())
     }
 
-    /// Create a plasticity error
-    pub fn plasticity_error(message: impl Into<String>) -> Self {
-        Self::PlasticityError { message: message.into() }
+    /// Create a new resource exhaustion error
+    pub fn resource_exhausted<S: Into<String>>(msg: S) -> Self {
+        Self::ResourceExhausted(msg.into())
     }
 
-    /// Create a query error
-    pub fn query_error(message: impl Into<String>) -> Self {
-        Self::QueryError { message: message.into() }
+    /// Create a new lock error
+    pub fn lock_error<S: Into<String>>(msg: S) -> Self {
+        Self::LockError(msg.into())
     }
 
-    /// Create an optimization error
-    pub fn optimization_error(message: impl Into<String>) -> Self {
-        Self::OptimizationError { message: message.into() }
+    /// Create a new not found error
+    pub fn not_found<S: Into<String>>(msg: S) -> Self {
+        Self::NotFound(msg.into())
     }
 
-    /// Create a configuration error
-    pub fn config_error(message: impl Into<String>) -> Self {
-        Self::ConfigError { message: message.into() }
+    /// Create a new invalid operation error
+    pub fn invalid_operation<S: Into<String>>(msg: S) -> Self {
+        Self::InvalidOperation(msg.into())
     }
 
-    /// Create an internal error
-    pub fn internal_error(message: impl Into<String>) -> Self {
-        Self::InternalError { message: message.into() }
-    }
-
-    /// Check if the error is recoverable
+    /// Check if error is recoverable
     pub fn is_recoverable(&self) -> bool {
         match self {
-            CoreError::NodeNotFound(_) => true,
-            CoreError::ConnectionNotFound { .. } => true,
-            CoreError::ConnectionAlreadyExists { .. } => true,
-            CoreError::NetworkCapacityExceeded => false,
-            CoreError::MemoryLimitExceeded => false,
-            CoreError::InvalidNodeState(_) => false,
-            CoreError::InvalidConnectionWeight { .. } => false,
-            CoreError::DanglingConnection { .. } => false,
-            CoreError::LearningError { .. } => true,
-            CoreError::PlasticityError { .. } => true,
-            CoreError::QueryError { .. } => true,
-            CoreError::OptimizationError { .. } => true,
-            CoreError::SerializationError(_) => true,
+            CoreError::InvalidConfig(_) => false,
+            CoreError::ResourceExhausted(_) => true,
+            CoreError::LockError(_) => true,
+            CoreError::NotFound(_) => false,
+            CoreError::InvalidOperation(_) => false,
+            CoreError::NetworkError(_) => true,
+            CoreError::LearningError(_) => true,
+            CoreError::PlasticityError(_) => true,
+            CoreError::QueryError(_) => true,
+            CoreError::NeonError(_) => true,
+            CoreError::MemoryError(_) => false,
+            CoreError::SerializationError(_) => false,
             CoreError::IoError(_) => true,
-            CoreError::ConfigError { .. } => false,
-            CoreError::InternalError { .. } => false,
+            CoreError::TimeoutError(_) => true,
+            CoreError::ValidationError(_) => false,
+            CoreError::InternalError(_) => false,
         }
     }
 
     /// Get error severity level
     pub fn severity(&self) -> ErrorSeverity {
         match self {
-            CoreError::NodeNotFound(_) => ErrorSeverity::Low,
-            CoreError::ConnectionNotFound { .. } => ErrorSeverity::Low,
-            CoreError::ConnectionAlreadyExists { .. } => ErrorSeverity::Low,
-            CoreError::NetworkCapacityExceeded => ErrorSeverity::High,
-            CoreError::MemoryLimitExceeded => ErrorSeverity::Critical,
-            CoreError::InvalidNodeState(_) => ErrorSeverity::High,
-            CoreError::InvalidConnectionWeight { .. } => ErrorSeverity::Medium,
-            CoreError::DanglingConnection { .. } => ErrorSeverity::High,
-            CoreError::LearningError { .. } => ErrorSeverity::Medium,
-            CoreError::PlasticityError { .. } => ErrorSeverity::Medium,
-            CoreError::QueryError { .. } => ErrorSeverity::Medium,
-            CoreError::OptimizationError { .. } => ErrorSeverity::Low,
+            CoreError::InvalidConfig(_) => ErrorSeverity::High,
+            CoreError::ResourceExhausted(_) => ErrorSeverity::Medium,
+            CoreError::LockError(_) => ErrorSeverity::Low,
+            CoreError::NotFound(_) => ErrorSeverity::Low,
+            CoreError::InvalidOperation(_) => ErrorSeverity::Medium,
+            CoreError::NetworkError(_) => ErrorSeverity::High,
+            CoreError::LearningError(_) => ErrorSeverity::Medium,
+            CoreError::PlasticityError(_) => ErrorSeverity::Medium,
+            CoreError::QueryError(_) => ErrorSeverity::Medium,
+            CoreError::NeonError(_) => ErrorSeverity::Low,
+            CoreError::MemoryError(_) => ErrorSeverity::High,
             CoreError::SerializationError(_) => ErrorSeverity::Medium,
             CoreError::IoError(_) => ErrorSeverity::Medium,
-            CoreError::ConfigError { .. } => ErrorSeverity::High,
-            CoreError::InternalError { .. } => ErrorSeverity::Critical,
+            CoreError::TimeoutError(_) => ErrorSeverity::Low,
+            CoreError::ValidationError(_) => ErrorSeverity::Medium,
+            CoreError::InternalError(_) => ErrorSeverity::High,
+        }
+    }
+
+    /// Get error category for monitoring
+    pub fn category(&self) -> &'static str {
+        match self {
+            CoreError::InvalidConfig(_) => "configuration",
+            CoreError::ResourceExhausted(_) => "resource",
+            CoreError::LockError(_) => "concurrency",
+            CoreError::NotFound(_) => "data",
+            CoreError::InvalidOperation(_) => "operation",
+            CoreError::NetworkError(_) => "network",
+            CoreError::LearningError(_) => "learning",
+            CoreError::PlasticityError(_) => "plasticity",
+            CoreError::QueryError(_) => "query",
+            CoreError::NeonError(_) => "optimization",
+            CoreError::MemoryError(_) => "memory",
+            CoreError::SerializationError(_) => "serialization",
+            CoreError::IoError(_) => "io",
+            CoreError::TimeoutError(_) => "timeout",
+            CoreError::ValidationError(_) => "validation",
+            CoreError::InternalError(_) => "internal",
+        }
+    }
+
+    /// Log error with appropriate level
+    pub fn log(&self) {
+        match self.severity() {
+            ErrorSeverity::Low => tracing::warn!("{}", self),
+            ErrorSeverity::Medium => tracing::error!("{}", self),
+            ErrorSeverity::High => {
+                tracing::error!("{}", self);
+                // Could trigger alerts for high severity errors
+            }
         }
     }
 }
 
-/// Error severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Error severity levels for monitoring and alerting
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ErrorSeverity {
     Low,
     Medium,
     High,
-    Critical,
 }
 
-impl std::fmt::Display for ErrorSeverity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for CoreError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ErrorSeverity::Low => write!(f, "LOW"),
-            ErrorSeverity::Medium => write!(f, "MEDIUM"),
-            ErrorSeverity::High => write!(f, "HIGH"),
-            ErrorSeverity::Critical => write!(f, "CRITICAL"),
+            CoreError::InvalidConfig(msg) => write!(f, "Configuration error: {}", msg),
+            CoreError::ResourceExhausted(msg) => write!(f, "Resource exhausted: {}", msg),
+            CoreError::LockError(msg) => write!(f, "Lock error: {}", msg),
+            CoreError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            CoreError::InvalidOperation(msg) => write!(f, "Invalid operation: {}", msg),
+            CoreError::NetworkError(msg) => write!(f, "Network error: {}", msg),
+            CoreError::LearningError(msg) => write!(f, "Learning error: {}", msg),
+            CoreError::PlasticityError(msg) => write!(f, "Plasticity error: {}", msg),
+            CoreError::QueryError(msg) => write!(f, "Query error: {}", msg),
+            CoreError::NeonError(msg) => write!(f, "NEON optimization error: {}", msg),
+            CoreError::MemoryError(msg) => write!(f, "Memory error: {}", msg),
+            CoreError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
+            CoreError::IoError(msg) => write!(f, "I/O error: {}", msg),
+            CoreError::TimeoutError(msg) => write!(f, "Timeout error: {}", msg),
+            CoreError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            CoreError::InternalError(msg) => write!(f, "Internal error: {}", msg),
         }
+    }
+}
+
+impl std::error::Error for CoreError {}
+
+// Conversion implementations for common error types
+impl From<std::io::Error> for CoreError {
+    fn from(err: std::io::Error) -> Self {
+        CoreError::IoError(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for CoreError {
+    fn from(err: serde_json::Error) -> Self {
+        CoreError::SerializationError(err.to_string())
+    }
+}
+
+impl<T> From<std::sync::PoisonError<T>> for CoreError {
+    fn from(err: std::sync::PoisonError<T>) -> Self {
+        CoreError::LockError(err.to_string())
+    }
+}
+
+impl From<std::num::ParseFloatError> for CoreError {
+    fn from(err: std::num::ParseFloatError) -> Self {
+        CoreError::ValidationError(format!("Failed to parse float: {}", err))
+    }
+}
+
+impl From<std::num::ParseIntError> for CoreError {
+    fn from(err: std::num::ParseIntError) -> Self {
+        CoreError::ValidationError(format!("Failed to parse integer: {}", err))
+    }
+}
+
+/// Error recovery strategies for different error types
+pub struct ErrorRecovery;
+
+impl ErrorRecovery {
+    /// Attempt to recover from an error
+    pub fn attempt_recovery(error: &CoreError) -> Option<RecoveryAction> {
+        match error {
+            CoreError::ResourceExhausted(_) => Some(RecoveryAction::WaitAndRetry),
+            CoreError::LockError(_) => Some(RecoveryAction::RetryWithBackoff),
+            CoreError::NetworkError(_) => Some(RecoveryAction::Reconnect),
+            CoreError::LearningError(_) => Some(RecoveryAction::ResetLearning),
+            CoreError::PlasticityError(_) => Some(RecoveryAction::ResetPlasticity),
+            CoreError::QueryError(_) => Some(RecoveryAction::SimplifyQuery),
+            CoreError::NeonError(_) => Some(RecoveryAction::FallbackToScalar),
+            CoreError::IoError(_) => Some(RecoveryAction::RetryWithBackoff),
+            CoreError::TimeoutError(_) => Some(RecoveryAction::IncreaseTimeout),
+            _ => None,
+        }
+    }
+}
+
+/// Recovery actions that can be taken for errors
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum RecoveryAction {
+    WaitAndRetry,
+    RetryWithBackoff,
+    Reconnect,
+    ResetLearning,
+    ResetPlasticity,
+    SimplifyQuery,
+    FallbackToScalar,
+    IncreaseTimeout,
+    RestartComponent,
+}
+
+/// Error context for debugging and monitoring
+#[derive(Debug, Clone)]
+pub struct ErrorContext {
+    pub error: CoreError,
+    pub timestamp_secs: u64, // Store as seconds since epoch instead of Instant
+    pub component: String,
+    pub operation: String,
+    pub recovery_attempted: bool,
+    pub recovery_action: Option<RecoveryAction>,
+}
+
+impl ErrorContext {
+    pub fn new(error: CoreError, component: String, operation: String) -> Self {
+        let timestamp_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        Self {
+            error,
+            timestamp_secs,
+            component,
+            operation,
+            recovery_attempted: false,
+            recovery_action: None,
+        }
+    }
+
+    pub fn with_recovery(mut self, action: RecoveryAction) -> Self {
+        self.recovery_attempted = true;
+        self.recovery_action = Some(action);
+        self
     }
 }
 
@@ -163,31 +305,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_recoverability() {
-        assert!(CoreError::NodeNotFound(1).is_recoverable());
-        assert!(!CoreError::MemoryLimitExceeded.is_recoverable());
-        assert!(!CoreError::NetworkCapacityExceeded.is_recoverable());
+    fn test_error_creation() {
+        let error = CoreError::config("Invalid learning rate");
+        assert!(matches!(error, CoreError::InvalidConfig(_)));
+        assert_eq!(error.category(), "configuration");
+        assert_eq!(error.severity(), ErrorSeverity::High);
+        assert!(!error.is_recoverable());
+    }
+
+    #[test]
+    fn test_error_recovery() {
+        let lock_error = CoreError::lock_error("Failed to acquire lock");
+        let recovery = ErrorRecovery::attempt_recovery(&lock_error);
+        assert_eq!(recovery, Some(RecoveryAction::RetryWithBackoff));
+
+        let config_error = CoreError::config("Invalid config");
+        let no_recovery = ErrorRecovery::attempt_recovery(&config_error);
+        assert_eq!(no_recovery, None);
     }
 
     #[test]
     fn test_error_severity() {
-        assert_eq!(CoreError::NodeNotFound(1).severity(), ErrorSeverity::Low);
-        assert_eq!(CoreError::MemoryLimitExceeded.severity(), ErrorSeverity::Critical);
-        assert_eq!(CoreError::InvalidNodeState(1).severity(), ErrorSeverity::High);
+        assert_eq!(CoreError::config("test").severity(), ErrorSeverity::High);
+        assert_eq!(CoreError::lock_error("test").severity(), ErrorSeverity::Low);
+        assert_eq!(CoreError::MemoryError("test".to_string()).severity(), ErrorSeverity::High);
     }
 
     #[test]
-    fn test_error_creation_helpers() {
-        let learning_err = CoreError::learning_error("test learning error");
-        match learning_err {
-            CoreError::LearningError { message } => assert_eq!(message, "test learning error"),
-            _ => panic!("Expected LearningError"),
-        }
+    fn test_error_context() {
+        let error = CoreError::QueryError("Invalid query".to_string());
+        let context = ErrorContext::new(
+            error,
+            "query_processor".to_string(),
+            "process_query".to_string()
+        );
 
-        let config_err = CoreError::config_error("test config error");
-        match config_err {
-            CoreError::ConfigError { message } => assert_eq!(message, "test config error"),
-            _ => panic!("Expected ConfigError"),
-        }
+        assert_eq!(context.component, "query_processor");
+        assert_eq!(context.operation, "process_query");
+        assert!(!context.recovery_attempted);
+    }
+
+    #[test]
+    fn test_error_display() {
+        let error = CoreError::not_found("Node 123");
+        assert_eq!(error.to_string(), "Not found: Node 123");
     }
 }

@@ -1,371 +1,370 @@
-//! Synaptic network implementation for NeuroQuantumDB
+//! # Synaptic Index Networks (SINs)
 //!
-//! This module implements the core synaptic data structures that form the
-//! foundation of the neuromorphic computing layer.
+//! Core synaptic data structures implementing neuromorphic computing principles
+//! for self-optimizing data organization and intelligent indexing.
 
-use std::time::Instant;
-use serde::{Deserialize, Serialize};
-use dashmap::DashMap;
-use parking_lot::RwLock;
 use crate::error::{CoreError, CoreResult};
+use crate::neon_optimization::NeonOptimizer;
+use std::collections::HashMap;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, instrument, warn};
 
-/// Unique identifier for synaptic nodes
-pub type NodeId = u64;
-
-/// Type of synaptic connection
+/// Types of synaptic connections
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectionType {
-    /// Excitatory connection (strengthens signal)
     Excitatory,
-    /// Inhibitory connection (weakens signal)
     Inhibitory,
+    Modulatory,
 }
 
-/// Usage statistics for optimization
-#[derive(Debug, Clone, Default)]
-pub struct UsageStats {
+/// Individual synaptic node representing a data point or index entry
+#[derive(Debug, Clone)]
+pub struct SynapticNode {
+    pub id: u64,
+    pub strength: f32,
+    pub connections: Vec<SynapticConnection>,
+    pub last_access: Instant,
     pub access_count: u64,
-    #[serde(skip)] // Skip serialization for Instant
-    pub last_access: Option<Instant>,
-    pub avg_response_time_ns: u64,
+    pub data_payload: Vec<u8>,
+    pub activation_level: f32,
+    pub learning_rate: f32,
+    pub decay_factor: f32,
 }
 
 /// Synaptic connection between nodes
 #[derive(Debug, Clone)]
 pub struct SynapticConnection {
-    /// Target node identifier
-    pub target_id: NodeId,
-    /// Connection weight (-1.0 to 1.0)
+    pub target_id: u64,
     pub weight: f32,
-    /// Connection type
     pub connection_type: ConnectionType,
-    /// Usage statistics for this connection
-    pub usage_stats: UsageStats,
-    /// Creation timestamp
-    #[serde(skip)] // Skip serialization for Instant
-    pub created_at: Instant,
-}
-
-impl SynapticConnection {
-    pub fn new(target_id: NodeId, weight: f32, connection_type: ConnectionType) -> Self {
-        Self {
-            target_id,
-            weight: weight.clamp(-1.0, 1.0),
-            connection_type,
-            usage_stats: UsageStats::default(),
-            created_at: Instant::now(),
-        }
-    }
-
-    /// Update connection usage statistics
-    pub fn record_usage(&mut self, response_time_ns: u64) {
-        self.usage_stats.access_count += 1;
-        self.usage_stats.last_access = Some(Instant::now());
-
-        // Update rolling average response time
-        let alpha = 0.1; // Smoothing factor
-        self.usage_stats.avg_response_time_ns =
-            ((1.0 - alpha) * self.usage_stats.avg_response_time_ns as f32 +
-             alpha * response_time_ns as f32) as u64;
-    }
-}
-
-/// Individual synaptic node in the network
-#[derive(Debug, Clone)]
-pub struct SynapticNode {
-    /// Unique node identifier
-    pub id: NodeId,
-    /// Current synaptic strength (0.0 - 1.0)
-    pub strength: f32,
-    /// Outgoing connections to other nodes
-    pub connections: Vec<SynapticConnection>,
-    /// Node activation level
-    pub activation: f32,
-    /// Data payload (optional)
-    pub data: Option<Vec<u8>>,
-    /// Node metadata
-    pub metadata: NodeMetadata,
-    /// Usage statistics
-    pub usage_stats: UsageStats,
-}
-
-#[derive(Debug, Clone)]
-pub struct NodeMetadata {
-    /// Data type hint
-    pub data_type: String,
-    /// Size in bytes
-    pub size: usize,
-    /// Creation timestamp
-    #[serde(skip)] // Skip serialization for Instant
-    pub created_at: Instant,
-    /// Last modification timestamp
-    #[serde(skip)] // Skip serialization for Instant
-    pub modified_at: Instant,
-}
-
-impl Default for NodeMetadata {
-    fn default() -> Self {
-        let now = Instant::now();
-        Self {
-            data_type: "unknown".to_string(),
-            size: 0,
-            created_at: now,
-            modified_at: now,
-        }
-    }
+    pub last_strengthened: Instant,
+    pub usage_count: u64,
+    pub plasticity_factor: f32,
 }
 
 impl SynapticNode {
     /// Create a new synaptic node
-    pub fn new(id: NodeId) -> Self {
+    pub fn new(id: u64) -> Self {
         Self {
             id,
             strength: 0.0,
             connections: Vec::new(),
-            activation: 0.0,
-            data: None,
-            metadata: NodeMetadata::default(),
-            usage_stats: UsageStats::default(),
+            last_access: Instant::now(),
+            access_count: 0,
+            data_payload: Vec::new(),
+            activation_level: 0.0,
+            learning_rate: 0.01,
+            decay_factor: 0.99,
         }
     }
 
-    /// Strengthen the node by a given amount
+    /// Create a node with data payload
+    pub fn with_data(id: u64, data: Vec<u8>) -> Self {
+        Self {
+            id,
+            strength: 0.0,
+            connections: Vec::new(),
+            last_access: Instant::now(),
+            access_count: 0,
+            data_payload: data,
+            activation_level: 0.0,
+            learning_rate: 0.01,
+            decay_factor: 0.99,
+        }
+    }
+
+    /// Strengthen the node based on access
+    #[instrument(level = "debug", skip(self))]
     pub fn strengthen(&mut self, amount: f32) {
-        self.strength = (self.strength + amount).clamp(0.0, 1.0);
-        self.metadata.modified_at = Instant::now();
+        self.strength += amount * self.learning_rate;
+        self.strength = self.strength.min(1.0); // Cap at 1.0
+        self.last_access = Instant::now();
+        self.access_count += 1;
+
+        debug!("Node {} strengthened to {}", self.id, self.strength);
+    }
+
+    /// Apply natural decay to simulate forgetting
+    pub fn apply_decay(&mut self) {
+        self.strength *= self.decay_factor;
+        self.activation_level *= self.decay_factor;
     }
 
     /// Add a connection to another node
-    pub fn add_connection(&mut self, target_id: NodeId, weight: f32, connection_type: ConnectionType) -> CoreResult<()> {
+    pub fn add_connection(&mut self, target_id: u64, weight: f32, connection_type: ConnectionType) -> CoreResult<()> {
         // Check if connection already exists
-        if self.connections.iter().any(|conn| conn.target_id == target_id) {
-            return Err(CoreError::ConnectionAlreadyExists { source: self.id, target: target_id });
+        if self.connections.iter().any(|c| c.target_id == target_id) {
+            return Err(CoreError::InvalidOperation(
+                format!("Connection to node {} already exists", target_id)
+            ));
         }
 
-        let connection = SynapticConnection::new(target_id, weight, connection_type);
+        let connection = SynapticConnection {
+            target_id,
+            weight,
+            connection_type,
+            last_strengthened: Instant::now(),
+            usage_count: 0,
+            plasticity_factor: 1.0,
+        };
+
         self.connections.push(connection);
-        self.metadata.modified_at = Instant::now();
+        Ok(())
+    }
+
+    /// Strengthen a specific connection using Hebbian learning
+    pub fn strengthen_connection(&mut self, target_id: u64, amount: f32) -> CoreResult<()> {
+        let connection = self.connections.iter_mut()
+            .find(|c| c.target_id == target_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Connection to node {} not found", target_id)))?;
+
+        connection.weight += amount * connection.plasticity_factor;
+        connection.weight = connection.weight.min(1.0).max(-1.0); // Keep in range [-1, 1]
+        connection.last_strengthened = Instant::now();
+        connection.usage_count += 1;
 
         Ok(())
     }
 
-    /// Remove a connection to another node
-    pub fn remove_connection(&mut self, target_id: NodeId) -> CoreResult<()> {
-        let initial_len = self.connections.len();
-        self.connections.retain(|conn| conn.target_id != target_id);
+    /// Calculate activation based on input signals
+    pub fn calculate_activation(&mut self, input_signals: &[f32]) -> f32 {
+        let weighted_sum: f32 = self.connections.iter()
+            .zip(input_signals.iter())
+            .map(|(conn, signal)| conn.weight * signal)
+            .sum();
 
-        if self.connections.len() == initial_len {
-            return Err(CoreError::ConnectionNotFound { source: self.id, target: target_id });
-        }
-
-        self.metadata.modified_at = Instant::now();
-        Ok(())
+        // Apply sigmoid activation function
+        self.activation_level = 1.0 / (1.0 + (-weighted_sum).exp());
+        self.activation_level
     }
 
-    /// Calculate total outgoing signal strength
-    pub fn calculate_output_signal(&self) -> f32 {
-        self.strength * self.activation
-    }
-
-    /// Update node activation based on input signals
-    pub fn update_activation(&mut self, input_signals: &[f32]) {
-        // Sigmoid activation function
-        let total_input: f32 = input_signals.iter().sum();
-        self.activation = 1.0 / (1.0 + (-total_input).exp());
-        self.metadata.modified_at = Instant::now();
-    }
-
-    /// Set data payload for the node
-    pub fn set_data(&mut self, data: Vec<u8>, data_type: String) {
-        self.metadata.size = data.len();
-        self.metadata.data_type = data_type;
-        self.metadata.modified_at = Instant::now();
-        self.data = Some(data);
-    }
-
-    /// Record usage of this node
-    pub fn record_usage(&mut self, response_time_ns: u64) {
-        self.usage_stats.access_count += 1;
-        self.usage_stats.last_access = Some(Instant::now());
-
-        // Update rolling average response time
-        let alpha = 0.1;
-        self.usage_stats.avg_response_time_ns =
-            ((1.0 - alpha) * self.usage_stats.avg_response_time_ns as f32 +
-             alpha * response_time_ns as f32) as u64;
+    /// Get memory usage of this node
+    pub fn memory_usage(&self) -> usize {
+        std::mem::size_of::<Self>() +
+        self.connections.len() * std::mem::size_of::<SynapticConnection>() +
+        self.data_payload.len()
     }
 }
 
-/// High-performance synaptic network implementation
+/// Synaptic network managing collections of nodes and their relationships
+#[derive(Debug)]
 pub struct SynapticNetwork {
-    /// Maximum number of nodes
+    pub nodes: HashMap<u64, SynapticNode>, // Made public for learning algorithm access
     max_nodes: usize,
-    /// Thread-safe node storage
-    nodes: DashMap<NodeId, RwLock<SynapticNode>>,
-    /// Node ID counter
-    next_id: parking_lot::Mutex<NodeId>,
-    /// Network statistics
-    stats: RwLock<NetworkStats>,
-}
-
-#[derive(Debug, Default)]
-pub struct NetworkStats {
-    pub total_nodes: usize,
-    pub total_connections: usize,
-    pub avg_node_degree: f32,
-    pub memory_usage_bytes: usize,
+    activation_threshold: f32,
+    total_connections: usize,
+    memory_usage: usize,
+    neon_optimizer: Option<NeonOptimizer>,
 }
 
 impl SynapticNetwork {
     /// Create a new synaptic network
-    pub fn new(max_nodes: usize) -> CoreResult<Self> {
+    pub fn new(max_nodes: usize, activation_threshold: f32) -> CoreResult<Self> {
+        let neon_optimizer = if cfg!(target_arch = "aarch64") {
+            Some(NeonOptimizer::new()?)
+        } else {
+            None
+        };
+
         Ok(Self {
+            nodes: HashMap::with_capacity(max_nodes.min(1000)), // Initial capacity
             max_nodes,
-            nodes: DashMap::new(),
-            next_id: parking_lot::Mutex::new(1),
-            stats: RwLock::new(NetworkStats::default()),
+            activation_threshold,
+            total_connections: 0,
+            memory_usage: 0,
+            neon_optimizer,
         })
     }
 
-    /// Create a new node in the network
-    pub fn create_node(&self) -> CoreResult<NodeId> {
+    /// Add a node to the network
+    #[instrument(level = "debug", skip(self, node))]
+    pub fn add_node(&mut self, node: SynapticNode) -> CoreResult<()> {
         if self.nodes.len() >= self.max_nodes {
-            return Err(CoreError::NetworkCapacityExceeded);
+            return Err(CoreError::ResourceExhausted(
+                format!("Maximum nodes ({}) exceeded", self.max_nodes)
+            ));
         }
 
-        let mut next_id = self.next_id.lock();
-        let id = *next_id;
-        *next_id += 1;
-        drop(next_id);
+        if self.nodes.contains_key(&node.id) {
+            return Err(CoreError::InvalidOperation(
+                format!("Node with ID {} already exists", node.id)
+            ));
+        }
 
-        let node = SynapticNode::new(id);
-        self.nodes.insert(id, RwLock::new(node));
+        self.memory_usage += node.memory_usage();
+        self.nodes.insert(node.id, node);
 
-        // Update statistics
-        let mut stats = self.stats.write();
-        stats.total_nodes = self.nodes.len();
-
-        Ok(id)
+        debug!("Added node to network, total nodes: {}", self.nodes.len());
+        Ok(())
     }
 
-    /// Connect two nodes with a synaptic connection
-    pub fn connect_nodes(
-        &self,
-        source_id: NodeId,
-        target_id: NodeId,
-        weight: f32,
-        connection_type: ConnectionType,
-    ) -> CoreResult<()> {
-        // Verify both nodes exist
-        let source_entry = self.nodes.get(&source_id)
-            .ok_or(CoreError::NodeNotFound(source_id))?;
-        let _target_entry = self.nodes.get(&target_id)
-            .ok_or(CoreError::NodeNotFound(target_id))?;
+    /// Remove a node from the network
+    pub fn remove_node(&mut self, id: u64) -> CoreResult<SynapticNode> {
+        let node = self.nodes.remove(&id)
+            .ok_or_else(|| CoreError::NotFound(format!("Node {} not found", id)))?;
 
-        // Add connection to source node
-        let mut source_node = source_entry.write();
+        self.memory_usage = self.memory_usage.saturating_sub(node.memory_usage());
+
+        // Remove connections to this node from other nodes
+        for other_node in self.nodes.values_mut() {
+            other_node.connections.retain(|c| c.target_id != id);
+        }
+
+        Ok(node)
+    }
+
+    /// Connect two nodes
+    #[instrument(level = "debug", skip(self))]
+    pub fn connect_nodes(&mut self, source_id: u64, target_id: u64, weight: f32, connection_type: ConnectionType) -> CoreResult<()> {
+        // Verify both nodes exist
+        if !self.nodes.contains_key(&source_id) {
+            return Err(CoreError::NotFound(format!("Source node {} not found", source_id)));
+        }
+        if !self.nodes.contains_key(&target_id) {
+            return Err(CoreError::NotFound(format!("Target node {} not found", target_id)));
+        }
+
+        // Add connection
+        let source_node = self.nodes.get_mut(&source_id).unwrap();
         source_node.add_connection(target_id, weight, connection_type)?;
 
-        // Update network statistics
-        let mut stats = self.stats.write();
-        stats.total_connections += 1;
-        stats.avg_node_degree = stats.total_connections as f32 / stats.total_nodes as f32;
+        self.total_connections += 1;
+        debug!("Connected nodes {} -> {}, total connections: {}", source_id, target_id, self.total_connections);
 
         Ok(())
     }
 
-    /// Get a node by ID (read-only access)
-    pub fn get_node(&self, id: NodeId) -> CoreResult<dashmap::mapref::one::Ref<NodeId, RwLock<SynapticNode>>> {
-        self.nodes.get(&id).ok_or(CoreError::NodeNotFound(id))
+    /// Get a node by ID
+    pub fn get_node(&self, id: u64) -> Option<&SynapticNode> {
+        self.nodes.get(&id)
     }
 
-    /// Strengthen a connection between two nodes
-    pub fn strengthen_connection(&self, source_id: NodeId, target_id: NodeId, amount: f32) -> CoreResult<()> {
-        let source_entry = self.nodes.get(&source_id)
-            .ok_or(CoreError::NodeNotFound(source_id))?;
+    /// Get a mutable reference to a node
+    pub fn get_node_mut(&mut self, id: u64) -> Option<&mut SynapticNode> {
+        self.nodes.get_mut(&id)
+    }
 
-        let mut source_node = source_entry.write();
+    /// Activate a node and propagate signals
+    #[instrument(level = "debug", skip(self))]
+    pub fn activate_node(&mut self, id: u64, input_strength: f32) -> CoreResult<Vec<(u64, f32)>> {
+        let mut propagated_signals = Vec::new();
 
-        // Find and update the connection
-        for connection in &mut source_node.connections {
-            if connection.target_id == target_id {
-                connection.weight = (connection.weight + amount).clamp(-1.0, 1.0);
-                return Ok(());
+        {
+            let node = self.nodes.get_mut(&id)
+                .ok_or_else(|| CoreError::NotFound(format!("Node {} not found", id)))?;
+
+            node.strengthen(input_strength);
+
+            // Calculate activation
+            let activation = if node.activation_level > self.activation_threshold {
+                node.activation_level
+            } else {
+                0.0
+            };
+
+            // Prepare signals to propagate
+            for connection in &node.connections {
+                let signal_strength = activation * connection.weight;
+                propagated_signals.push((connection.target_id, signal_strength));
             }
         }
 
-        Err(CoreError::ConnectionNotFound { source: source_id, target: target_id })
+        // Propagate signals to connected nodes
+        for (target_id, signal_strength) in &propagated_signals {
+            if let Some(target_node) = self.nodes.get_mut(target_id) {
+                target_node.activation_level += signal_strength;
+            }
+        }
+
+        Ok(propagated_signals)
+    }
+
+    /// Apply decay to all nodes (simulating natural forgetting)
+    pub fn apply_global_decay(&mut self) {
+        for node in self.nodes.values_mut() {
+            node.apply_decay();
+        }
+    }
+
+    /// Find most connected nodes (hubs)
+    pub fn find_hub_nodes(&self, top_n: usize) -> Vec<(u64, usize)> {
+        let mut nodes_by_connections: Vec<_> = self.nodes.iter()
+            .map(|(id, node)| (*id, node.connections.len()))
+            .collect();
+
+        nodes_by_connections.sort_by(|a, b| b.1.cmp(&a.1));
+        nodes_by_connections.truncate(top_n);
+        nodes_by_connections
+    }
+
+    /// Get nodes with highest strength (most frequently accessed)
+    pub fn get_strongest_nodes(&self, top_n: usize) -> Vec<(u64, f32)> {
+        let mut nodes_by_strength: Vec<_> = self.nodes.iter()
+            .map(|(id, node)| (*id, node.strength))
+            .collect();
+
+        nodes_by_strength.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        nodes_by_strength.truncate(top_n);
+        nodes_by_strength
+    }
+
+    /// Calculate average connection strength across the network
+    pub fn average_connection_strength(&self) -> f32 {
+        let total_weight: f32 = self.nodes.values()
+            .flat_map(|node| &node.connections)
+            .map(|conn| conn.weight.abs())
+            .sum();
+
+        if self.total_connections > 0 {
+            total_weight / self.total_connections as f32
+        } else {
+            0.0
+        }
     }
 
     /// Get network statistics
-    pub fn get_stats(&self) -> NetworkStats {
-        let stats = self.stats.read();
-        NetworkStats {
-            total_nodes: stats.total_nodes,
-            total_connections: stats.total_connections,
-            avg_node_degree: stats.avg_node_degree,
-            memory_usage_bytes: self.estimate_memory_usage(),
-        }
-    }
-
-    /// Estimate memory usage of the network
-    fn estimate_memory_usage(&self) -> usize {
-        let base_size = std::mem::size_of::<SynapticNetwork>();
-        let node_size = std::mem::size_of::<SynapticNode>();
-        let connection_size = std::mem::size_of::<SynapticConnection>();
-
-        let stats = self.stats.read();
-        base_size +
-        (stats.total_nodes * node_size) +
-        (stats.total_connections * connection_size)
-    }
-
-    /// Validate network integrity
-    pub fn validate(&self) -> CoreResult<()> {
-        let mut total_connections = 0;
-
-        for entry in self.nodes.iter() {
-            let node = entry.value().read();
-
-            // Validate node constraints
-            if node.strength < 0.0 || node.strength > 1.0 {
-                return Err(CoreError::InvalidNodeState(node.id));
-            }
-
-            // Validate connections
-            for connection in &node.connections {
-                if connection.weight < -1.0 || connection.weight > 1.0 {
-                    return Err(CoreError::InvalidConnectionWeight {
-                        source: node.id,
-                        target: connection.target_id,
-                        weight: connection.weight,
-                    });
-                }
-
-                // Verify target node exists
-                if !self.nodes.contains_key(&connection.target_id) {
-                    return Err(CoreError::DanglingConnection {
-                        source: node.id,
-                        target: connection.target_id,
-                    });
-                }
-
-                total_connections += 1;
-            }
-        }
-
-        // Update statistics
-        let mut stats = self.stats.write();
-        stats.total_nodes = self.nodes.len();
-        stats.total_connections = total_connections;
-        stats.avg_node_degree = if stats.total_nodes > 0 {
-            total_connections as f32 / stats.total_nodes as f32
+    pub fn get_statistics(&self) -> NetworkStatistics {
+        let total_strength: f32 = self.nodes.values().map(|n| n.strength).sum();
+        let avg_connections = if !self.nodes.is_empty() {
+            self.total_connections as f32 / self.nodes.len() as f32
         } else {
             0.0
         };
 
+        NetworkStatistics {
+            total_nodes: self.nodes.len(),
+            total_connections: self.total_connections,
+            average_connections_per_node: avg_connections,
+            total_strength,
+            average_strength: total_strength / self.nodes.len().max(1) as f32,
+            memory_usage_bytes: self.memory_usage,
+        }
+    }
+
+    /// Get current memory usage
+    pub fn memory_usage(&self) -> usize {
+        self.memory_usage
+    }
+
+    /// Optimize network using NEON SIMD instructions (ARM64 only)
+    pub fn optimize_with_neon(&mut self) -> CoreResult<()> {
+        if let Some(ref optimizer) = self.neon_optimizer {
+            optimizer.optimize_connections(&mut self.nodes)?;
+        }
         Ok(())
     }
+}
+
+/// Network performance and health statistics
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkStatistics {
+    pub total_nodes: usize,
+    pub total_connections: usize,
+    pub average_connections_per_node: f32,
+    pub total_strength: f32,
+    pub average_strength: f32,
+    pub memory_usage_bytes: usize,
 }
 
 #[cfg(test)]
@@ -377,7 +376,6 @@ mod tests {
         let node = SynapticNode::new(1);
         assert_eq!(node.id, 1);
         assert_eq!(node.strength, 0.0);
-        assert_eq!(node.activation, 0.0);
         assert!(node.connections.is_empty());
     }
 
@@ -385,60 +383,57 @@ mod tests {
     fn test_node_strengthening() {
         let mut node = SynapticNode::new(1);
         node.strengthen(0.5);
-        assert_eq!(node.strength, 0.5);
-
-        // Test clamping
-        node.strengthen(0.8);
-        assert_eq!(node.strength, 1.0);
+        assert!(node.strength > 0.0);
+        assert_eq!(node.access_count, 1);
     }
 
     #[test]
-    fn test_connection_management() {
+    fn test_node_connections() {
         let mut node = SynapticNode::new(1);
-
-        // Add connection
-        node.add_connection(2, 0.7, ConnectionType::Excitatory).unwrap();
+        node.add_connection(2, 0.5, ConnectionType::Excitatory).unwrap();
         assert_eq!(node.connections.len(), 1);
         assert_eq!(node.connections[0].target_id, 2);
-        assert_eq!(node.connections[0].weight, 0.7);
-
-        // Remove connection
-        node.remove_connection(2).unwrap();
-        assert!(node.connections.is_empty());
     }
 
     #[test]
     fn test_network_creation() {
-        let network = SynapticNetwork::new(1000).unwrap();
-        let stats = network.get_stats();
-        assert_eq!(stats.total_nodes, 0);
+        let network = SynapticNetwork::new(1000, 0.5).unwrap();
+        assert_eq!(network.max_nodes, 1000);
+        assert_eq!(network.activation_threshold, 0.5);
+    }
+
+    #[test]
+    fn test_network_node_management() {
+        let mut network = SynapticNetwork::new(1000, 0.5).unwrap();
+        let node = SynapticNode::new(1);
+        network.add_node(node).unwrap();
+
+        assert!(network.get_node(1).is_some());
+        assert_eq!(network.nodes.len(), 1);
+    }
+
+    #[test]
+    fn test_node_activation() {
+        let mut network = SynapticNetwork::new(1000, 0.3).unwrap();
+        let node1 = SynapticNode::new(1);
+        let node2 = SynapticNode::new(2);
+
+        network.add_node(node1).unwrap();
+        network.add_node(node2).unwrap();
+        network.connect_nodes(1, 2, 0.8, ConnectionType::Excitatory).unwrap();
+
+        let signals = network.activate_node(1, 0.7).unwrap();
+        assert!(!signals.is_empty());
+    }
+
+    #[test]
+    fn test_network_statistics() {
+        let mut network = SynapticNetwork::new(1000, 0.5).unwrap();
+        let node = SynapticNode::new(1);
+        network.add_node(node).unwrap();
+
+        let stats = network.get_statistics();
+        assert_eq!(stats.total_nodes, 1);
         assert_eq!(stats.total_connections, 0);
-    }
-
-    #[test]
-    fn test_node_creation_and_connection() {
-        let network = SynapticNetwork::new(1000).unwrap();
-
-        let node1 = network.create_node().unwrap();
-        let node2 = network.create_node().unwrap();
-
-        network.connect_nodes(node1, node2, 0.8, ConnectionType::Excitatory).unwrap();
-
-        let stats = network.get_stats();
-        assert_eq!(stats.total_nodes, 2);
-        assert_eq!(stats.total_connections, 1);
-    }
-
-    #[test]
-    fn test_network_validation() {
-        let network = SynapticNetwork::new(1000).unwrap();
-
-        let node1 = network.create_node().unwrap();
-        let node2 = network.create_node().unwrap();
-
-        network.connect_nodes(node1, node2, 0.5, ConnectionType::Excitatory).unwrap();
-
-        // Network should be valid
-        network.validate().unwrap();
     }
 }

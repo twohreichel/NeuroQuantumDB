@@ -1,371 +1,421 @@
-//! Hebbian learning algorithms for synaptic adaptation
+//! # Hebbian Learning Engine
 //!
-//! "Neurons that fire together, wire together" - Donald Hebb
+//! Implementation of Hebbian learning algorithms for synaptic pathway strengthening
+//! and adaptive neural network optimization in NeuroQuantumDB.
 
-use std::time::Instant;
-use parking_lot::RwLock;
-use crate::synaptic::{NodeId, SynapticNetwork, ConnectionType};
 use crate::error::{CoreError, CoreResult};
+use crate::synaptic::SynapticNetwork;
+use std::collections::HashMap;
+use std::time::Instant;
+use tracing::{debug, instrument, info};
 
-/// Hebbian learning engine for synaptic adaptation
-pub struct HebbianLearningEngine {
-    /// Learning rate (0.0 - 1.0)
-    learning_rate: f32,
-    /// Decay rate for unused connections
-    decay_rate: f32,
-    /// Threshold for connection formation
-    formation_threshold: f32,
-    /// Threshold for connection pruning
-    pruning_threshold: f32,
-    /// Learning statistics
-    stats: RwLock<LearningStats>,
-}
-
-#[derive(Debug, Default)]
+/// Learning statistics for monitoring and optimization
+#[derive(Debug, Clone, Default)]
 pub struct LearningStats {
-    pub learning_events: u64,
-    pub connections_strengthened: u64,
-    pub connections_weakened: u64,
-    pub connections_formed: u64,
+    pub total_learning_events: u64,
+    pub strengthened_connections: u64,
+    pub weakened_connections: u64,
+    pub new_connections_formed: u64,
     pub connections_pruned: u64,
-    pub avg_learning_time_ns: u64,
+    pub average_learning_rate: f32,
+    pub learning_efficiency: f32,
+    pub last_learning_session_secs: Option<u64>, // Store as seconds since epoch instead of Instant
 }
 
-/// Learning parameters for fine-tuning
-#[derive(Debug, Clone)]
-pub struct LearningParams {
-    pub learning_rate: f32,
-    pub decay_rate: f32,
-    pub formation_threshold: f32,
-    pub pruning_threshold: f32,
-    pub max_connections_per_node: usize,
+/// Anti-Hebbian learning for competitive learning and pruning weak connections
+pub struct AntiHebbianLearning {
+    decay_rate: f32,
+    pruning_threshold: f32,
+    competition_factor: f32,
 }
 
-impl Default for LearningParams {
-    fn default() -> Self {
+impl AntiHebbianLearning {
+    pub fn new(decay_rate: f32, pruning_threshold: f32) -> Self {
         Self {
-            learning_rate: 0.01,
-            decay_rate: 0.001,
-            formation_threshold: 0.3,
-            pruning_threshold: 0.1,
-            max_connections_per_node: 100,
+            decay_rate,
+            pruning_threshold,
+            competition_factor: 0.1,
         }
     }
+
+    /// Apply anti-Hebbian learning to weaken unused connections
+    pub fn apply_weakening(&self, _network: &mut SynapticNetwork) -> CoreResult<u64> {
+        let weakened_count = 0;
+
+        // Implementation would go here for anti-Hebbian learning
+        // This is a placeholder for the complex algorithm
+
+        Ok(weakened_count)
+    }
+}
+
+/// Main Hebbian learning engine implementing neuroplasticity
+pub struct HebbianLearningEngine {
+    learning_rate: f32,
+    momentum: f32,
+    decay_factor: f32,
+    stats: LearningStats,
+    learning_history: HashMap<(u64, u64), Vec<f32>>, // (source, target) -> weight history
+    anti_hebbian: AntiHebbianLearning,
+    adaptive_rate_enabled: bool,
+    min_learning_rate: f32,
+    max_learning_rate: f32,
 }
 
 impl HebbianLearningEngine {
     /// Create a new Hebbian learning engine
-    pub fn new(learning_rate: f32) -> Self {
-        Self {
-            learning_rate: learning_rate.clamp(0.0, 1.0),
-            decay_rate: 0.001,
-            formation_threshold: 0.3,
-            pruning_threshold: 0.1,
-            stats: RwLock::new(LearningStats::default()),
+    pub fn new(learning_rate: f32) -> CoreResult<Self> {
+        if !(0.0..=1.0).contains(&learning_rate) {
+            return Err(CoreError::InvalidConfig(
+                "Learning rate must be between 0.0 and 1.0".to_string()
+            ));
         }
+
+        Ok(Self {
+            learning_rate,
+            momentum: 0.9,
+            decay_factor: 0.995,
+            stats: LearningStats::default(),
+            learning_history: HashMap::new(),
+            anti_hebbian: AntiHebbianLearning::new(0.01, 0.1),
+            adaptive_rate_enabled: true,
+            min_learning_rate: 0.001,
+            max_learning_rate: 0.1,
+        })
     }
 
-    /// Create with custom parameters
-    pub fn with_params(params: LearningParams) -> Self {
-        Self {
-            learning_rate: params.learning_rate.clamp(0.0, 1.0),
-            decay_rate: params.decay_rate.clamp(0.0, 1.0),
-            formation_threshold: params.formation_threshold.clamp(0.0, 1.0),
-            pruning_threshold: params.pruning_threshold.clamp(0.0, 1.0),
-            stats: RwLock::new(LearningStats::default()),
-        }
-    }
-
-    /// Apply Hebbian learning rule to strengthen synaptic connections
-    pub fn strengthen_pathway(
-        &self,
-        network: &SynapticNetwork,
-        source_id: NodeId,
-        target_id: NodeId,
-        activation_strength: f32,
+    /// Apply Hebbian learning rule: "Cells that fire together, wire together"
+    #[instrument(level = "debug", skip(self, network))]
+    pub fn strengthen_connection(
+        &mut self,
+        network: &mut SynapticNetwork,
+        source_id: u64,
+        target_id: u64,
+        correlation_strength: f32,
     ) -> CoreResult<()> {
-        let start_time = Instant::now();
+        // Get the source node
+        let source_node = network.get_node_mut(source_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Source node {} not found", source_id)))?;
 
-        // Get source and target nodes
-        let source_ref = network.get_node(source_id)?;
-        let target_ref = network.get_node(target_id)?;
-
-        let source_activation = {
-            let source_node = source_ref.read();
-            source_node.activation
+        // Calculate adaptive learning rate based on connection history
+        let adaptive_rate = if self.adaptive_rate_enabled {
+            self.calculate_adaptive_rate(source_id, target_id)
+        } else {
+            self.learning_rate
         };
 
-        let target_activation = {
-            let target_node = target_ref.read();
-            target_node.activation
-        };
+        // Apply Hebbian learning
+        let weight_change = adaptive_rate * correlation_strength * self.momentum;
 
-        // Hebbian rule: Δw = η * x_i * x_j * activation_strength
-        // where η is learning rate, x_i and x_j are activations
-        let weight_delta = self.learning_rate *
-            source_activation *
-            target_activation *
-            activation_strength;
+        // Strengthen the connection
+        source_node.strengthen_connection(target_id, weight_change)?;
 
-        // Apply weight update
-        if weight_delta.abs() > f32::EPSILON {
-            network.strengthen_connection(source_id, target_id, weight_delta)?;
+        // Update learning history
+        let connection_key = (source_id, target_id);
+        self.learning_history.entry(connection_key)
+            .or_insert_with(Vec::new)
+            .push(weight_change);
 
-            // Update statistics
-            let mut stats = self.stats.write();
-            stats.learning_events += 1;
-            if weight_delta > 0.0 {
-                stats.connections_strengthened += 1;
-            } else {
-                stats.connections_weakened += 1;
+        // Update statistics
+        self.stats.total_learning_events += 1;
+        if weight_change > 0.0 {
+            self.stats.strengthened_connections += 1;
+        } else {
+            self.stats.weakened_connections += 1;
+        }
+
+        // Store current time as seconds since epoch
+        if let Ok(duration) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            self.stats.last_learning_session_secs = Some(duration.as_secs());
+        }
+
+        debug!("Applied Hebbian learning: {} -> {} with change {}",
+               source_id, target_id, weight_change);
+
+        Ok(())
+    }
+
+    /// Calculate adaptive learning rate based on connection history
+    fn calculate_adaptive_rate(&self, source_id: u64, target_id: u64) -> f32 {
+        let connection_key = (source_id, target_id);
+
+        if let Some(history) = self.learning_history.get(&connection_key) {
+            if history.len() < 2 {
+                return self.learning_rate;
             }
 
-            let elapsed = start_time.elapsed().as_nanos() as u64;
-            stats.avg_learning_time_ns =
-                (stats.avg_learning_time_ns + elapsed) / 2;
+            // Calculate variance in recent weight changes
+            let recent_changes: Vec<_> = history.iter().rev().take(10).cloned().collect();
+            let mean: f32 = recent_changes.iter().sum::<f32>() / recent_changes.len() as f32;
+            let variance: f32 = recent_changes.iter()
+                .map(|x| (x - mean).powi(2))
+                .sum::<f32>() / recent_changes.len() as f32;
+
+            // Lower learning rate for stable connections, higher for volatile ones
+            let stability_factor = 1.0 - variance.min(1.0);
+            let adaptive_rate = self.learning_rate * (0.5 + 0.5 * stability_factor);
+
+            adaptive_rate.clamp(self.min_learning_rate, self.max_learning_rate)
+        } else {
+            self.learning_rate
+        }
+    }
+
+    /// Apply long-term potentiation (LTP) for frequently co-activated connections
+    #[instrument(level = "debug", skip(self, network))]
+    pub fn apply_long_term_potentiation(
+        &mut self,
+        network: &mut SynapticNetwork,
+        activation_pairs: &[(u64, u64, f32)], // (source, target, correlation)
+    ) -> CoreResult<()> {
+        info!("Applying long-term potentiation to {} connection pairs", activation_pairs.len());
+
+        for &(source_id, target_id, correlation) in activation_pairs {
+            // LTP strengthening is proportional to correlation strength
+            let ltp_strength = correlation * 1.5; // LTP amplification factor
+            self.strengthen_connection(network, source_id, target_id, ltp_strength)?;
         }
 
         Ok(())
     }
 
-    /// Form new synaptic connections based on co-activation
-    pub fn form_connections(
-        &self,
-        network: &SynapticNetwork,
-        activations: &[(NodeId, f32)],
-    ) -> CoreResult<usize> {
-        let mut connections_formed = 0;
+    /// Apply long-term depression (LTD) for weakly correlated connections
+    #[instrument(level = "debug", skip(self, network))]
+    pub fn apply_long_term_depression(
+        &mut self,
+        network: &mut SynapticNetwork,
+        weak_connections: &[(u64, u64)],
+    ) -> CoreResult<()> {
+        info!("Applying long-term depression to {} connections", weak_connections.len());
 
-        // Find pairs of highly activated nodes
-        for (i, &(source_id, source_activation)) in activations.iter().enumerate() {
-            if source_activation < self.formation_threshold {
-                continue;
-            }
+        for &(source_id, target_id) in weak_connections {
+            // Apply negative weight change for LTD
+            let ltd_strength = -0.1 * self.learning_rate;
+            self.strengthen_connection(network, source_id, target_id, ltd_strength)?;
+        }
 
-            for &(target_id, target_activation) in activations.iter().skip(i + 1) {
-                if target_activation < self.formation_threshold {
-                    continue;
-                }
+        Ok(())
+    }
 
-                // Calculate connection strength based on co-activation
-                let connection_strength = (source_activation * target_activation).sqrt();
+    /// Spike-timing-dependent plasticity (STDP) implementation
+    pub fn apply_stdp(
+        &mut self,
+        network: &mut SynapticNetwork,
+        spike_times: &HashMap<u64, Vec<Instant>>, // node_id -> spike times
+    ) -> CoreResult<()> {
+        let _current_time = Instant::now();
+        let stdp_window = std::time::Duration::from_millis(20); // 20ms window
 
-                // Attempt to form bidirectional connections
-                match network.connect_nodes(
-                    source_id,
-                    target_id,
-                    connection_strength,
-                    ConnectionType::Excitatory
-                ) {
-                    Ok(()) => {
-                        connections_formed += 1;
+        // Collect all the connections to strengthen first to avoid borrowing conflicts
+        let mut connections_to_strengthen = Vec::new();
 
-                        // Try reverse connection
-                        if network.connect_nodes(
-                            target_id,
-                            source_id,
-                            connection_strength,
-                            ConnectionType::Excitatory
-                        ).is_ok() {
-                            connections_formed += 1;
+        // Find all pairs of connected nodes that spiked within the STDP window
+        for (&source_id, source_spikes) in spike_times {
+            if let Some(source_node) = network.get_node(source_id) {
+                for connection in &source_node.connections {
+                    let target_id = connection.target_id;
+
+                    if let Some(target_spikes) = spike_times.get(&target_id) {
+                        // Calculate timing-dependent weight changes
+                        for &source_spike in source_spikes {
+                            for &target_spike in target_spikes {
+                                let time_diff = if target_spike > source_spike {
+                                    target_spike.duration_since(source_spike)
+                                } else {
+                                    source_spike.duration_since(target_spike)
+                                };
+
+                                if time_diff <= stdp_window {
+                                    let weight_change = if target_spike > source_spike {
+                                        // Pre before post: strengthening
+                                        0.1 * (-(time_diff.as_millis() as f32) / 20.0).exp()
+                                    } else {
+                                        // Post before pre: weakening
+                                        -0.05 * (-(time_diff.as_millis() as f32) / 20.0).exp()
+                                    };
+
+                                    connections_to_strengthen.push((source_id, target_id, weight_change));
+                                }
+                            }
                         }
                     }
-                    Err(CoreError::ConnectionAlreadyExists { .. }) => {
-                        // Connection already exists, strengthen it instead
-                        let _ = self.strengthen_pathway(
-                            network,
-                            source_id,
-                            target_id,
-                            connection_strength
-                        );
-                    }
-                    Err(e) => return Err(e),
                 }
             }
         }
 
-        // Update formation statistics
-        let mut stats = self.stats.write();
-        stats.connections_formed += connections_formed as u64;
+        // Now apply all the strengthening operations
+        for (source_id, target_id, weight_change) in connections_to_strengthen {
+            self.strengthen_connection(network, source_id, target_id, weight_change)?;
+        }
 
-        Ok(connections_formed)
-    }
-
-    /// Prune weak synaptic connections
-    pub fn prune_connections(&self, network: &SynapticNetwork) -> CoreResult<usize> {
-        let mut connections_pruned = 0;
-
-        // This is a simplified implementation - in practice, we'd need
-        // to iterate through all nodes and their connections
-        // For now, we'll return the count of pruned connections
-
-        let mut stats = self.stats.write();
-        stats.connections_pruned += connections_pruned as u64;
-
-        Ok(connections_pruned)
-    }
-
-    /// Apply temporal decay to all connections
-    pub fn apply_decay(&self, network: &SynapticNetwork) -> CoreResult<()> {
-        // This would iterate through all connections and apply decay
-        // Implementation would be similar to pruning but with gradual weakening
         Ok(())
     }
 
-    /// Get learning statistics
-    pub fn get_stats(&self) -> LearningStats {
-        let stats = self.stats.read();
-        LearningStats {
-            learning_events: stats.learning_events,
-            connections_strengthened: stats.connections_strengthened,
-            connections_weakened: stats.connections_weakened,
-            connections_formed: stats.connections_formed,
-            connections_pruned: stats.connections_pruned,
-            avg_learning_time_ns: stats.avg_learning_time_ns,
+    /// Prune weak connections below threshold
+    pub fn prune_weak_connections(&mut self, network: &mut SynapticNetwork, threshold: f32) -> CoreResult<u64> {
+        let mut pruned_count = 0;
+
+        // Collect weak connections to prune
+        let mut connections_to_prune = Vec::new();
+
+        for (&node_id, node) in &network.nodes {
+            for (conn_idx, connection) in node.connections.iter().enumerate() {
+                if connection.weight.abs() < threshold {
+                    connections_to_prune.push((node_id, conn_idx));
+                }
+            }
         }
+
+        // Remove weak connections
+        for (node_id, conn_idx) in connections_to_prune.into_iter().rev() {
+            if let Some(node) = network.get_node_mut(node_id) {
+                if conn_idx < node.connections.len() {
+                    node.connections.remove(conn_idx);
+                    pruned_count += 1;
+                }
+            }
+        }
+
+        self.stats.connections_pruned += pruned_count;
+        info!("Pruned {} weak connections below threshold {}", pruned_count, threshold);
+
+        Ok(pruned_count)
+    }
+
+    /// Update learning parameters based on network performance
+    pub fn adapt_learning_parameters(&mut self, network_performance: f32) {
+        if self.adaptive_rate_enabled {
+            // Increase learning rate if performance is poor, decrease if good
+            if network_performance < 0.5 {
+                self.learning_rate = (self.learning_rate * 1.1).min(self.max_learning_rate);
+            } else if network_performance > 0.8 {
+                self.learning_rate = (self.learning_rate * 0.95).max(self.min_learning_rate);
+            }
+
+            // Update momentum based on performance stability
+            self.momentum = 0.9 + 0.1 * network_performance;
+        }
+    }
+
+    /// Get current learning statistics
+    pub fn get_stats(&self) -> &LearningStats {
+        &self.stats
     }
 
     /// Reset learning statistics
-    pub fn reset_stats(&self) {
-        let mut stats = self.stats.write();
-        *stats = LearningStats::default();
+    pub fn reset_stats(&mut self) {
+        self.stats = LearningStats::default();
+        self.learning_history.clear();
     }
 
-    /// Update learning parameters
-    pub fn update_params(&mut self, params: LearningParams) {
-        self.learning_rate = params.learning_rate.clamp(0.0, 1.0);
-        self.decay_rate = params.decay_rate.clamp(0.0, 1.0);
-        self.formation_threshold = params.formation_threshold.clamp(0.0, 1.0);
-        self.pruning_threshold = params.pruning_threshold.clamp(0.0, 1.0);
-    }
-}
-
-/// Anti-Hebbian learning for competitive inhibition
-pub struct AntiHebbianLearning {
-    inhibition_rate: f32,
-    competition_threshold: f32,
-}
-
-impl AntiHebbianLearning {
-    pub fn new(inhibition_rate: f32) -> Self {
-        Self {
-            inhibition_rate: inhibition_rate.clamp(0.0, 1.0),
-            competition_threshold: 0.7,
+    /// Set learning rate
+    pub fn set_learning_rate(&mut self, rate: f32) -> CoreResult<()> {
+        if !(0.0..=1.0).contains(&rate) {
+            return Err(CoreError::InvalidConfig(
+                "Learning rate must be between 0.0 and 1.0".to_string()
+            ));
         }
-    }
-
-    /// Apply competitive inhibition between strongly activated nodes
-    pub fn apply_competition(
-        &self,
-        network: &SynapticNetwork,
-        activations: &[(NodeId, f32)],
-    ) -> CoreResult<()> {
-        // Find highly activated nodes
-        let mut competitors: Vec<_> = activations.iter()
-            .filter(|(_, activation)| *activation > self.competition_threshold)
-            .collect();
-
-        // Sort by activation level (highest first)
-        competitors.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-        // Apply inhibition between competitors
-        for (i, &(source_id, _)) in competitors.iter().enumerate() {
-            for &(target_id, _) in competitors.iter().skip(i + 1) {
-                // Create or strengthen inhibitory connections
-                match network.connect_nodes(
-                    *source_id,
-                    *target_id,
-                    -self.inhibition_rate, // Negative weight for inhibition
-                    ConnectionType::Inhibitory
-                ) {
-                    Ok(()) => {},
-                    Err(CoreError::ConnectionAlreadyExists { .. }) => {
-                        // Strengthen existing inhibitory connection
-                        network.strengthen_connection(*source_id, *target_id, -self.inhibition_rate / 2.0)?;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-        }
-
+        self.learning_rate = rate;
         Ok(())
+    }
+
+    /// Enable or disable adaptive learning rate
+    pub fn set_adaptive_rate(&mut self, enabled: bool) {
+        self.adaptive_rate_enabled = enabled;
+    }
+
+    /// Get learning efficiency based on connection strengthening success rate
+    pub fn calculate_learning_efficiency(&mut self) -> f32 {
+        let total_events = self.stats.total_learning_events;
+        if total_events == 0 {
+            return 0.0;
+        }
+
+        let successful_events = self.stats.strengthened_connections;
+        let efficiency = successful_events as f32 / total_events as f32;
+
+        self.stats.learning_efficiency = efficiency;
+        efficiency
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::synaptic::SynapticNetwork;
+    use crate::synaptic::{SynapticNetwork, SynapticNode, ConnectionType};
 
     #[test]
     fn test_learning_engine_creation() {
-        let engine = HebbianLearningEngine::new(0.05);
-        assert_eq!(engine.learning_rate, 0.05);
-
-        let stats = engine.get_stats();
-        assert_eq!(stats.learning_events, 0);
+        let engine = HebbianLearningEngine::new(0.01).unwrap();
+        assert_eq!(engine.learning_rate, 0.01);
+        assert_eq!(engine.stats.total_learning_events, 0);
     }
 
     #[test]
-    fn test_learning_params() {
-        let params = LearningParams {
-            learning_rate: 0.02,
-            decay_rate: 0.005,
-            formation_threshold: 0.4,
-            pruning_threshold: 0.15,
-            max_connections_per_node: 50,
-        };
-
-        let engine = HebbianLearningEngine::with_params(params);
-        assert_eq!(engine.learning_rate, 0.02);
-        assert_eq!(engine.decay_rate, 0.005);
-    }
-
-    #[tokio::test]
-    async fn test_pathway_strengthening() {
-        let network = SynapticNetwork::new(100).unwrap();
-        let engine = HebbianLearningEngine::new(0.1);
-
-        let node1 = network.create_node().unwrap();
-        let node2 = network.create_node().unwrap();
-
-        // Create initial connection
-        network.connect_nodes(node1, node2, 0.5, ConnectionType::Excitatory).unwrap();
-
-        // Set activations for both nodes
-        {
-            let node1_ref = network.get_node(node1).unwrap();
-            let mut node1_guard = node1_ref.write();
-            node1_guard.activation = 0.8;
-        }
-
-        {
-            let node2_ref = network.get_node(node2).unwrap();
-            let mut node2_guard = node2_ref.write();
-            node2_guard.activation = 0.7;
-        }
-
-        // Apply learning
-        engine.strengthen_pathway(&network, node1, node2, 1.0).unwrap();
-
-        let stats = engine.get_stats();
-        assert_eq!(stats.learning_events, 1);
-        assert_eq!(stats.connections_strengthened, 1);
+    fn test_invalid_learning_rate() {
+        let result = HebbianLearningEngine::new(1.5);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_anti_hebbian_learning() {
-        let anti_hebbian = AntiHebbianLearning::new(0.2);
-        assert_eq!(anti_hebbian.inhibition_rate, 0.2);
-        assert_eq!(anti_hebbian.competition_threshold, 0.7);
+    fn test_connection_strengthening() {
+        let mut engine = HebbianLearningEngine::new(0.01).unwrap();
+        let mut network = SynapticNetwork::new(1000, 0.5).unwrap();
+
+        // Add nodes and connection
+        let node1 = SynapticNode::new(1);
+        let node2 = SynapticNode::new(2);
+        network.add_node(node1).unwrap();
+        network.add_node(node2).unwrap();
+        network.connect_nodes(1, 2, 0.5, ConnectionType::Excitatory).unwrap();
+
+        // Test strengthening
+        engine.strengthen_connection(&mut network, 1, 2, 0.8).unwrap();
+        assert_eq!(engine.stats.total_learning_events, 1);
+        assert_eq!(engine.stats.strengthened_connections, 1);
     }
 
     #[test]
-    fn test_learning_rate_clamping() {
-        let engine = HebbianLearningEngine::new(1.5); // > 1.0
-        assert_eq!(engine.learning_rate, 1.0);
+    fn test_learning_rate_adaptation() {
+        let mut engine = HebbianLearningEngine::new(0.01).unwrap();
+        let initial_rate = engine.learning_rate;
 
-        let engine2 = HebbianLearningEngine::new(-0.5); // < 0.0
-        assert_eq!(engine2.learning_rate, 0.0);
+        // Test adaptation based on poor performance
+        engine.adapt_learning_parameters(0.3);
+        assert!(engine.learning_rate > initial_rate);
+
+        // Test adaptation based on good performance
+        engine.adapt_learning_parameters(0.9);
+        assert!(engine.learning_rate < initial_rate * 1.1);
+    }
+
+    #[test]
+    fn test_learning_efficiency_calculation() {
+        let mut engine = HebbianLearningEngine::new(0.01).unwrap();
+
+        // Initially no events
+        assert_eq!(engine.calculate_learning_efficiency(), 0.0);
+
+        // Simulate some learning events
+        engine.stats.total_learning_events = 10;
+        engine.stats.strengthened_connections = 8;
+
+        let efficiency = engine.calculate_learning_efficiency();
+        assert_eq!(efficiency, 0.8);
+    }
+
+    #[test]
+    fn test_statistics_reset() {
+        let mut engine = HebbianLearningEngine::new(0.01).unwrap();
+
+        // Add some stats
+        engine.stats.total_learning_events = 5;
+        engine.stats.strengthened_connections = 3;
+
+        // Reset and verify
+        engine.reset_stats();
+        assert_eq!(engine.stats.total_learning_events, 0);
+        assert_eq!(engine.stats.strengthened_connections, 0);
+        assert!(engine.learning_history.is_empty());
     }
 }

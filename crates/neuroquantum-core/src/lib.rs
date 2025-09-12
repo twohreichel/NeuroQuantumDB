@@ -16,9 +16,11 @@ pub use plasticity::{PlasticityMatrix, PlasticityParams, AccessPatterns};
 pub use query::{NeuromorphicQueryProcessor, QueryResult, Query};
 pub use error::{CoreError, CoreResult};
 
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use tracing::{info, debug, error, instrument};
+use tracing::{info, debug, instrument, warn};
 use serde::{Deserialize, Serialize};
+use dashmap::DashMap;
 
 /// Neuromorphic core configuration with enterprise-grade parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,511 +54,313 @@ impl Default for CoreConfig {
             learning_rate: 0.01,
             activation_threshold: 0.5,
             memory_limit: 100 * 1024 * 1024, // 100MB
-            neon_optimizations: cfg!(target_arch = "aarch64"),
+            neon_optimizations: true,
             power_management: true,
             query_timeout_us: 1, // <1μs target
             max_connections: 500_000,
             learning_enabled: true,
-            plasticity_threshold: 0.6,
+            plasticity_threshold: 0.1,
         }
     }
 }
 
-/// Main neuromorphic core implementation with enterprise features
-pub struct NeuromorphicCore {
-    config: CoreConfig,
-    network: SynapticNetwork,
-    learning_engine: HebbianLearningEngine,
-    anti_hebbian: AntiHebbianLearning,
-    plasticity_matrix: PlasticityMatrix,
-    query_processor: NeuromorphicQueryProcessor,
-    stats: CoreStats,
-    access_patterns: AccessPatterns,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct CoreStats {
-    pub nodes_created: u64,
-    pub connections_formed: u64,
-    pub learning_events: u64,
-    pub queries_processed: u64,
+/// Performance metrics for monitoring and optimization
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct PerformanceMetrics {
+    pub total_queries: u64,
     pub avg_response_time_ns: u64,
     pub memory_usage_bytes: usize,
-    pub power_consumption_mw: f32,
-    pub cache_hits: u64,
-    pub cache_misses: u64,
-    pub optimization_cycles: u64,
-    pub error_count: u64,
+    pub power_consumption_mw: u32,
+    pub connection_count: u32,
+    pub learning_iterations: u64,
+    pub plasticity_reorganizations: u64,
+    pub cache_hit_rate: f32,
+    pub synaptic_strength_avg: f32,
 }
 
-impl NeuromorphicCore {
-    /// Create a new neuromorphic core with default configuration
-    #[instrument(name = "neuromorphic_core_new")]
-    pub fn new() -> CoreResult<Self> {
-        Self::with_config(CoreConfig::default())
-    }
+/// Main neuromorphic core implementing the intelligent database engine
+pub struct NeuroQuantumCore {
+    config: CoreConfig,
+    synaptic_network: Arc<RwLock<SynapticNetwork>>,
+    learning_engine: Arc<RwLock<HebbianLearningEngine>>,
+    plasticity_matrix: Arc<RwLock<PlasticityMatrix>>,
+    query_processor: Arc<RwLock<NeuromorphicQueryProcessor>>,
+    metrics: Arc<RwLock<PerformanceMetrics>>,
+    active_connections: Arc<DashMap<u64, Instant>>,
+    start_time: Instant,
+}
 
-    /// Create a new neuromorphic core with custom configuration
-    #[instrument(name = "neuromorphic_core_with_config", skip(config))]
-    pub fn with_config(config: CoreConfig) -> CoreResult<Self> {
-        info!("Initializing NeuroQuantumDB Neuromorphic Core v0.1.0");
-        debug!("Config: {:?}", config);
+impl NeuroQuantumCore {
+    /// Create a new neuromorphic core with the given configuration
+    #[instrument(level = "info")]
+    pub fn new(config: CoreConfig) -> CoreResult<Self> {
+        info!("Initializing NeuroQuantumDB neuromorphic core");
 
         // Validate configuration
-        if config.learning_rate < 0.0 || config.learning_rate > 1.0 {
-            return Err(CoreError::config_error("Learning rate must be between 0.0 and 1.0"));
-        }
+        Self::validate_config(&config)?;
 
-        if config.max_nodes == 0 {
-            return Err(CoreError::config_error("Max nodes must be greater than 0"));
-        }
+        let synaptic_network = Arc::new(RwLock::new(
+            SynapticNetwork::new(config.max_nodes, config.activation_threshold)?
+        ));
 
-        let network = SynapticNetwork::new(config.max_nodes)?;
-        let learning_engine = HebbianLearningEngine::new(config.learning_rate);
-        let anti_hebbian = AntiHebbianLearning::new(0.2); // 20% inhibition rate
-        let plasticity_matrix = PlasticityMatrix::new(config.max_nodes)?;
-        let query_processor = NeuromorphicQueryProcessor::new()?;
-        let access_patterns = AccessPatterns::new();
+        let learning_engine = Arc::new(RwLock::new(
+            HebbianLearningEngine::new(config.learning_rate)?
+        ));
 
-        info!("Neuromorphic core initialized successfully");
+        let plasticity_matrix = Arc::new(RwLock::new(
+            PlasticityMatrix::new(config.max_nodes, config.plasticity_threshold)?
+        ));
 
-        Ok(Self {
+        let query_processor = Arc::new(RwLock::new(
+            NeuromorphicQueryProcessor::new(
+                Arc::clone(&synaptic_network),
+                Arc::clone(&learning_engine),
+                config.neon_optimizations,
+            )?
+        ));
+
+        let core = Self {
             config,
-            network,
+            synaptic_network,
             learning_engine,
-            anti_hebbian,
             plasticity_matrix,
             query_processor,
-            stats: CoreStats::default(),
-            access_patterns,
-        })
+            metrics: Arc::new(RwLock::new(PerformanceMetrics::default())),
+            active_connections: Arc::new(DashMap::new()),
+            start_time: Instant::now(),
+        };
+
+        info!("Neuromorphic core initialized successfully");
+        Ok(core)
     }
 
-    /// Create a new synaptic node in the network
-    #[instrument(name = "create_node", skip(self))]
-    pub async fn create_node(&mut self, data: Option<&[u8]>) -> CoreResult<u64> {
-        let node_id = self.network.create_node()?;
-
-        if let Some(data) = data {
-            let node_ref = self.network.get_node(node_id)?;
-            let mut node = node_ref.write();
-            node.set_data(data.to_vec(), "binary".to_string());
+    /// Validate configuration parameters
+    fn validate_config(config: &CoreConfig) -> CoreResult<()> {
+        if config.max_nodes == 0 {
+            return Err(CoreError::InvalidConfig("max_nodes must be > 0".to_string()));
         }
-
-        self.stats.nodes_created += 1;
-        self.update_power_consumption().await?;
-
-        info!("Created new synaptic node: {}", node_id);
-        Ok(node_id)
-    }
-
-    /// Connect two nodes with a synaptic connection
-    #[instrument(name = "connect_nodes", skip(self))]
-    pub async fn connect_nodes(
-        &mut self,
-        source_id: u64,
-        target_id: u64,
-        weight: f32,
-        connection_type: ConnectionType,
-    ) -> CoreResult<()> {
-        self.network.connect_nodes(source_id, target_id, weight, connection_type)?;
-        self.stats.connections_formed += 1;
-
-        // Apply learning if enabled
-        if self.config.learning_enabled {
-            self.learning_engine.strengthen_pathway(&self.network, source_id, target_id, weight.abs())?;
-            self.stats.learning_events += 1;
+        if !(0.0..=1.0).contains(&config.learning_rate) {
+            return Err(CoreError::InvalidConfig("learning_rate must be between 0.0 and 1.0".to_string()));
         }
-
-        debug!("Connected nodes {} -> {} with weight {}", source_id, target_id, weight);
+        if !(0.0..=1.0).contains(&config.activation_threshold) {
+            return Err(CoreError::InvalidConfig("activation_threshold must be between 0.0 and 1.0".to_string()));
+        }
+        if config.memory_limit < 1024 * 1024 { // Minimum 1MB
+            return Err(CoreError::InvalidConfig("memory_limit must be at least 1MB".to_string()));
+        }
         Ok(())
     }
 
-    /// Strengthen a synaptic connection using Hebbian learning
-    #[instrument(name = "strengthen_connection", skip(self))]
-    pub async fn strengthen_connection(
-        &mut self,
-        source_id: u64,
-        target_id: u64,
-        amount: f32,
-    ) -> CoreResult<()> {
-        self.learning_engine.strengthen_pathway(&self.network, source_id, target_id, amount)?;
-        self.stats.learning_events += 1;
+    /// Create a new synaptic node
+    #[instrument(level = "debug", skip(self))]
+    pub fn create_node(&self, id: u64) -> CoreResult<()> {
+        let mut network = self.synaptic_network.write()
+            .map_err(|_| CoreError::LockError("Failed to acquire network write lock".to_string()))?;
 
-        debug!("Strengthened connection {} -> {} by {}", source_id, target_id, amount);
+        let node = SynapticNode::new(id);
+        network.add_node(node)?;
+
+        // Update metrics
+        if let Ok(mut metrics) = self.metrics.write() {
+            metrics.memory_usage_bytes = network.memory_usage();
+        }
+
+        debug!("Created synaptic node with ID: {}", id);
         Ok(())
     }
 
-    /// Process a query using neuromorphic optimization
-    #[instrument(name = "process_query", skip(self, query))]
-    pub async fn process_query(&mut self, query: &Query) -> CoreResult<QueryResult> {
+    /// Connect two synaptic nodes with specified weight
+    #[instrument(level = "debug", skip(self))]
+    pub fn connect_nodes(&self, source: u64, target: u64, weight: f32) -> CoreResult<()> {
+        let mut network = self.synaptic_network.write()
+            .map_err(|_| CoreError::LockError("Failed to acquire network write lock".to_string()))?;
+
+        network.connect_nodes(source, target, weight, ConnectionType::Excitatory)?;
+
+        debug!("Connected nodes {} -> {} with weight {}", source, target, weight);
+        Ok(())
+    }
+
+    /// Strengthen connection between nodes using Hebbian learning
+    #[instrument(level = "debug", skip(self))]
+    pub fn strengthen_connection(&self, source: u64, target: u64, amount: f32) -> CoreResult<()> {
+        let mut learning_engine = self.learning_engine.write()
+            .map_err(|_| CoreError::LockError("Failed to acquire learning engine write lock".to_string()))?;
+
+        let mut network = self.synaptic_network.write()
+            .map_err(|_| CoreError::LockError("Failed to acquire network write lock".to_string()))?;
+
+        learning_engine.strengthen_connection(&mut network, source, target, amount)?;
+
+        // Update learning metrics
+        if let Ok(mut metrics) = self.metrics.write() {
+            metrics.learning_iterations += 1;
+            metrics.synaptic_strength_avg = network.average_connection_strength();
+        }
+
+        debug!("Strengthened connection {} -> {} by {}", source, target, amount);
+        Ok(())
+    }
+
+    /// Process a query using neuromorphic intelligence
+    #[instrument(level = "debug", skip(self, query))]
+    pub fn process_query(&self, query: &Query) -> CoreResult<QueryResult> {
         let start_time = Instant::now();
 
-        // Record access pattern
-        for &node_id in &query.target_nodes {
-            self.access_patterns.record_access(node_id);
+        // Check connection limit
+        if self.active_connections.len() >= self.config.max_connections as usize {
+            return Err(CoreError::ResourceExhausted("Maximum connections exceeded".to_string()));
         }
 
-        // Process query with neuromorphic optimization
-        let result = self.query_processor.process_query(
-            &query.sql,
-            &self.network,
-            &self.learning_engine,
-            &self.plasticity_matrix,
-        ).await?;
+        // Register connection
+        let connection_id = rand::random::<u64>();
+        self.active_connections.insert(connection_id, start_time);
 
-        // Update statistics
-        let execution_time = start_time.elapsed().as_nanos() as u64;
-        self.stats.queries_processed += 1;
-        self.stats.avg_response_time_ns =
-            (self.stats.avg_response_time_ns + execution_time) / 2;
+        // Process query
+        let result = {
+            let processor = self.query_processor.read()
+                .map_err(|_| CoreError::LockError("Failed to acquire query processor read lock".to_string()))?;
 
-        // Check performance target
-        if execution_time > self.config.query_timeout_us * 1000 {
-            error!("Query exceeded timeout: {}μs > {}μs",
-                   execution_time / 1000, self.config.query_timeout_us);
+            processor.process_query(query)?
+        };
+
+        // Cleanup connection
+        self.active_connections.remove(&connection_id);
+
+        let elapsed = start_time.elapsed();
+
+        // Update performance metrics
+        if let Ok(mut metrics) = self.metrics.write() {
+            metrics.total_queries += 1;
+            metrics.avg_response_time_ns = (metrics.avg_response_time_ns + elapsed.as_nanos() as u64) / 2;
+            metrics.connection_count = self.active_connections.len() as u32;
         }
 
-        debug!("Query processed in {}ns", execution_time);
+        // Check if query exceeded timeout
+        if elapsed.as_micros() > self.config.query_timeout_us as u128 {
+            warn!("Query exceeded timeout: {}μs > {}μs", elapsed.as_micros(), self.config.query_timeout_us);
+        }
+
+        debug!("Processed query in {}μs", elapsed.as_micros());
         Ok(result)
     }
 
-    /// Optimize the entire network using plasticity and learning
-    #[instrument(name = "optimize_network", skip(self))]
-    pub async fn optimize_network(&mut self) -> CoreResult<()> {
-        info!("Starting network optimization cycle");
+    /// Optimize the synaptic network using plasticity algorithms
+    #[instrument(level = "info", skip(self))]
+    pub fn optimize_network(&self) -> CoreResult<()> {
+        info!("Starting network optimization");
 
-        // Apply competitive inhibition
-        let activations: Vec<_> = (0..self.stats.nodes_created)
-            .map(|id| {
-                let node_ref = self.network.get_node(id).ok()?;
-                let node = node_ref.read();
-                Some((id, node.activation))
-            })
-            .filter_map(|x| x)
-            .collect();
+        let mut plasticity = self.plasticity_matrix.write()
+            .map_err(|_| CoreError::LockError("Failed to acquire plasticity matrix write lock".to_string()))?;
 
-        self.anti_hebbian.apply_competition(&self.network, &activations)?;
+        let mut network = self.synaptic_network.write()
+            .map_err(|_| CoreError::LockError("Failed to acquire network write lock".to_string()))?;
 
-        // Reorganize data based on access patterns
-        let reorganization_result = self.plasticity_matrix
-            .reorganize_data(&self.network, &self.access_patterns)?;
+        let reorganized = plasticity.reorganize_network(&mut network)?;
 
-        info!("Network optimization completed: {} nodes moved, {:.2}% performance improvement",
-              reorganization_result.nodes_moved,
-              (reorganization_result.performance_improvement - 1.0) * 100.0);
+        if reorganized {
+            if let Ok(mut metrics) = self.metrics.write() {
+                metrics.plasticity_reorganizations += 1;
+            }
+            info!("Network successfully reorganized for optimal performance");
+        }
 
-        self.stats.optimization_cycles += 1;
         Ok(())
     }
 
-    /// Perform comprehensive health check
-    #[instrument(name = "health_check", skip(self))]
-    pub async fn health_check(&self) -> CoreResult<HealthStatus> {
-        debug!("Performing neuromorphic core health check");
+    /// Get current performance metrics
+    pub fn get_metrics(&self) -> CoreResult<PerformanceMetrics> {
+        let metrics = self.metrics.read()
+            .map_err(|_| CoreError::LockError("Failed to acquire metrics read lock".to_string()))?;
 
-        let mut status = HealthStatus::default();
-
-        // Check memory usage
-        if self.stats.memory_usage_bytes > self.config.memory_limit {
-            error!("Memory usage {} exceeds limit {}",
-                   self.stats.memory_usage_bytes, self.config.memory_limit);
-            status.memory_status = HealthLevel::Critical;
-        } else if self.stats.memory_usage_bytes > self.config.memory_limit * 8 / 10 {
-            status.memory_status = HealthLevel::Warning;
-        }
-
-        // Check power consumption (target <2W = 2000mW)
-        if self.stats.power_consumption_mw > 2000.0 {
-            error!("Power consumption {:.2}mW exceeds 2W limit", self.stats.power_consumption_mw);
-            status.power_status = HealthLevel::Critical;
-        } else if self.stats.power_consumption_mw > 1600.0 {
-            status.power_status = HealthLevel::Warning;
-        }
-
-        // Check query performance
-        if self.stats.avg_response_time_ns > self.config.query_timeout_us * 1000 {
-            error!("Average query time {}μs exceeds {}μs target",
-                   self.stats.avg_response_time_ns / 1000, self.config.query_timeout_us);
-            status.performance_status = HealthLevel::Critical;
-        }
-
-        // Check network integrity
-        self.network.validate()?;
-        status.network_status = HealthLevel::Healthy;
-
-        info!("Health check completed: {:?}", status);
-        Ok(status)
-    }
-
-    /// Update power consumption estimate
-    async fn update_power_consumption(&mut self) -> CoreResult<()> {
-        // Estimate power consumption based on activity
-        let base_power = 500.0; // 500mW base consumption
-        let node_power = self.stats.nodes_created as f32 * 0.001; // 1μW per node
-        let query_power = self.stats.queries_processed as f32 * 0.01; // 10μW per query
-
-        self.stats.power_consumption_mw = base_power + node_power + query_power;
-        Ok(())
-    }
-
-    /// Get current statistics
-    pub fn stats(&self) -> &CoreStats {
-        &self.stats
+        Ok(metrics.clone())
     }
 
     /// Get configuration
-    pub fn config(&self) -> &CoreConfig {
+    pub fn get_config(&self) -> &CoreConfig {
         &self.config
     }
 
-    /// Get network reference
-    pub fn network(&self) -> &SynapticNetwork {
-        &self.network
+    /// Shutdown the neuromorphic core gracefully
+    #[instrument(level = "info", skip(self))]
+    pub fn shutdown(&self) -> CoreResult<()> {
+        info!("Shutting down neuromorphic core");
+
+        // Wait for active connections to complete (with timeout)
+        let shutdown_start = Instant::now();
+        while !self.active_connections.is_empty() && shutdown_start.elapsed().as_secs() < 5 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        if !self.active_connections.is_empty() {
+            warn!("Forced shutdown with {} active connections", self.active_connections.len());
+        }
+
+        info!("Neuromorphic core shutdown completed");
+        Ok(())
     }
 }
 
-/// Health status for different system components
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct HealthStatus {
-    pub memory_status: HealthLevel,
-    pub power_status: HealthLevel,
-    pub performance_status: HealthLevel,
-    pub network_status: HealthLevel,
+/// Trait defining the neuromorphic core interface for integration
+pub trait NeuromorphicCoreInterface {
+    fn create_node(&mut self, id: u64) -> CoreResult<()>;
+    fn connect_nodes(&mut self, source: u64, target: u64, weight: f32) -> CoreResult<()>;
+    fn strengthen_connection(&mut self, source: u64, target: u64, amount: f32) -> CoreResult<()>;
+    fn process_query(&self, query: &Query) -> CoreResult<QueryResult>;
+    fn optimize_network(&mut self) -> CoreResult<()>;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum HealthLevel {
-    Healthy,
-    Warning,
-    Critical,
-}
-
-impl Default for HealthLevel {
-    fn default() -> Self {
-        Self::Healthy
-    }
-}
-
-/// Query structure for neuromorphic processing
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Query {
-    pub sql: String,
-    pub target_nodes: Vec<u64>,
-    pub priority: QueryPriority,
-    pub optimization_hints: Vec<OptimizationHint>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum QueryPriority {
-    Low,
-    Normal,
-    High,
-    Critical,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum OptimizationHint {
-    UseCache,
-    SkipLearning,
-    ForceReorganization,
-    PreferSpeed,
-    PreferAccuracy,
-}
-
-// Implement the NeuromorphicCore trait for external interfaces
-#[async_trait::async_trait]
-pub trait NeuromorphicCoreInterface: Send + Sync {
-    async fn create_node(&mut self, data: Option<&[u8]>) -> CoreResult<u64>;
-    async fn connect_nodes(&mut self, source: u64, target: u64, weight: f32) -> CoreResult<()>;
-    async fn strengthen_connection(&mut self, source: u64, target: u64, amount: f32) -> CoreResult<()>;
-    async fn process_query(&mut self, query: &Query) -> CoreResult<QueryResult>;
-    async fn optimize_network(&mut self) -> CoreResult<()>;
-    async fn health_check(&self) -> CoreResult<HealthStatus>;
-}
-
-#[async_trait::async_trait]
-impl NeuromorphicCoreInterface for NeuromorphicCore {
-    async fn create_node(&mut self, data: Option<&[u8]>) -> CoreResult<u64> {
-        self.create_node(data).await
-    }
-
-    async fn connect_nodes(&mut self, source: u64, target: u64, weight: f32) -> CoreResult<()> {
-        self.connect_nodes(source, target, weight, ConnectionType::Excitatory).await
-    }
-
-    async fn strengthen_connection(&mut self, source: u64, target: u64, amount: f32) -> CoreResult<()> {
-        self.strengthen_connection(source, target, amount).await
-    }
-
-    async fn process_query(&mut self, query: &Query) -> CoreResult<QueryResult> {
-        self.process_query(query).await
-    }
-
-    async fn optimize_network(&mut self) -> CoreResult<()> {
-        self.optimize_network().await
-    }
-
-    async fn health_check(&self) -> CoreResult<HealthStatus> {
-        self.health_check().await
+impl Drop for NeuroQuantumCore {
+    fn drop(&mut self) {
+        let _ = self.shutdown();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio_test;
 
-    #[tokio::test]
-    async fn test_core_initialization() {
-        let core = NeuromorphicCore::new().unwrap();
-        assert_eq!(core.stats().nodes_created, 0);
-
-        // Health check should pass for new core
-        let health = core.health_check().await.unwrap();
-        assert!(matches!(health.memory_status, HealthLevel::Healthy));
-    }
-
-    #[tokio::test]
-    async fn test_node_creation_and_connection() {
-        let mut core = NeuromorphicCore::new().unwrap();
-
-        let node1 = core.create_node(Some(b"test_data_1")).await.unwrap();
-        let node2 = core.create_node(Some(b"test_data_2")).await.unwrap();
-
-        core.connect_nodes(node1, node2, 0.8, ConnectionType::Excitatory).await.unwrap();
-
-        assert_eq!(core.stats().nodes_created, 2);
-        assert_eq!(core.stats().connections_formed, 1);
-    }
-
-    #[tokio::test]
-    async fn test_query_processing() {
-        let mut core = NeuromorphicCore::new().unwrap();
-
-        let node1 = core.create_node(Some(b"SELECT * FROM users")).await.unwrap();
-
-        let query = Query {
-            sql: "SELECT * FROM users WHERE id = 1".to_string(),
-            target_nodes: vec![node1],
-            priority: QueryPriority::Normal,
-            optimization_hints: vec![OptimizationHint::PreferSpeed],
-        };
-
-        let result = core.process_query(&query).await.unwrap();
-        assert!(result.execution_time_ns > 0);
-        assert_eq!(core.stats().queries_processed, 1);
-    }
-
-    #[tokio::test]
-    async fn test_network_optimization() {
-        let mut core = NeuromorphicCore::new().unwrap();
-
-        // Create some nodes and connections
-        let node1 = core.create_node(None).await.unwrap();
-        let node2 = core.create_node(None).await.unwrap();
-        let node3 = core.create_node(None).await.unwrap();
-
-        core.connect_nodes(node1, node2, 0.7, ConnectionType::Excitatory).await.unwrap();
-        core.connect_nodes(node2, node3, 0.6, ConnectionType::Excitatory).await.unwrap();
-
-        // Optimize network
-        core.optimize_network().await.unwrap();
-
-        assert_eq!(core.stats().optimization_cycles, 1);
-    }
-
-    #[tokio::test]
-    async fn test_power_consumption_monitoring() {
-        let mut core = NeuromorphicCore::new().unwrap();
-
-        // Create nodes and check power consumption increases
-        let initial_power = core.stats().power_consumption_mw;
-
-        for _ in 0..100 {
-            core.create_node(None).await.unwrap();
-        }
-
-        assert!(core.stats().power_consumption_mw > initial_power);
-        assert!(core.stats().power_consumption_mw < 2000.0); // Under 2W limit
+    #[test]
+    fn test_core_creation() {
+        let config = CoreConfig::default();
+        let core = NeuroQuantumCore::new(config).expect("Failed to create core");
+        assert_eq!(core.get_config().max_nodes, 1_000_000);
     }
 
     #[test]
     fn test_config_validation() {
         let mut config = CoreConfig::default();
-        config.learning_rate = 1.5; // Invalid
+        config.learning_rate = 2.0; // Invalid
 
-        let result = NeuromorphicCore::with_config(config);
+        let result = NeuroQuantumCore::new(config);
         assert!(result.is_err());
     }
-}
-
-#[cfg(all(test, feature = "neon-optimizations", target_arch = "aarch64"))]
-mod neon_tests {
-    use super::*;
 
     #[test]
-    fn test_neon_optimizations_enabled() {
-        let core = NeuromorphicCore::new().unwrap();
-        assert!(core.config.neon_optimizations);
+    fn test_node_creation() {
+        let config = CoreConfig::default();
+        let core = NeuroQuantumCore::new(config).expect("Failed to create core");
+
+        core.create_node(1).expect("Failed to create node");
+        core.create_node(2).expect("Failed to create node");
     }
 
-    #[tokio::test]
-    async fn test_neon_simd_performance() {
-        let mut core = NeuromorphicCore::new().unwrap();
+    #[test]
+    fn test_node_connection() {
+        let config = CoreConfig::default();
+        let core = NeuroQuantumCore::new(config).expect("Failed to create core");
 
-        // Create a large number of nodes to test SIMD optimizations
-        let start = Instant::now();
-        for _ in 0..1000 {
-            core.create_node(None).await.unwrap();
-        }
-        let duration = start.elapsed();
-
-        // With NEON optimizations, this should be very fast
-        assert!(duration.as_millis() < 100);
-    }
-}
-
-#[cfg(feature = "benchmarks")]
-mod benchmarks {
-    use super::*;
-    use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-    fn benchmark_node_creation(c: &mut Criterion) {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-
-        c.bench_function("node_creation", |b| {
-            b.iter(|| {
-                rt.block_on(async {
-                    let mut core = NeuromorphicCore::new().unwrap();
-                    black_box(core.create_node(Some(b"test_data")).await.unwrap());
-                });
-            });
-        });
+        core.create_node(1).expect("Failed to create node");
+        core.create_node(2).expect("Failed to create node");
+        core.connect_nodes(1, 2, 0.5).expect("Failed to connect nodes");
     }
 
-    fn benchmark_query_processing(c: &mut Criterion) {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+    #[test]
+    fn test_performance_metrics() {
+        let config = CoreConfig::default();
+        let core = NeuroQuantumCore::new(config).expect("Failed to create core");
 
-        c.bench_function("query_processing", |b| {
-            b.iter(|| {
-                rt.block_on(async {
-                    let mut core = NeuromorphicCore::new().unwrap();
-                    let node_id = core.create_node(None).await.unwrap();
-
-                    let query = Query {
-                        sql: "SELECT * FROM test".to_string(),
-                        target_nodes: vec![node_id],
-                        priority: QueryPriority::Normal,
-                        optimization_hints: vec![],
-                    };
-
-                    black_box(core.process_query(&query).await.unwrap());
-                });
-            });
-        });
+        let metrics = core.get_metrics().expect("Failed to get metrics");
+        assert_eq!(metrics.total_queries, 0);
     }
-
-    criterion_group!(benches, benchmark_node_creation, benchmark_query_processing);
-    criterion_main!(benches);
 }

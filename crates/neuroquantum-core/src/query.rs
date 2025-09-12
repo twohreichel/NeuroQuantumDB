@@ -1,825 +1,408 @@
-//! Neuromorphic query processing implementation with enterprise features
+//! # Neuromorphic Query Processing
+//!
+//! Spiking neural network implementation for intelligent query processing
+//! using brain-inspired algorithms in NeuroQuantumDB.
 
+use crate::error::{CoreError, CoreResult};
+use crate::synaptic::SynapticNetwork;
+use crate::learning::HebbianLearningEngine;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, instrument};
-use crate::synaptic::{NodeId, SynapticNetwork};
-use crate::learning::HebbianLearningEngine;
-use crate::plasticity::{PlasticityMatrix, AccessPatterns};
-use crate::error::CoreResult;
-use crate::neon_optimization::NeonOptimizer;
+use tracing::{debug, instrument};
+
+/// Query types supported by the neuromorphic processor
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum QueryType {
+    Select,
+    Insert,
+    Update,
+    Delete,
+    CreateIndex,
+    DropIndex,
+    Analyze,
+}
 
 /// Query structure for neuromorphic processing
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Query {
-    pub sql: String,
+    pub id: u64,
+    pub query_type: QueryType,
     pub target_nodes: Vec<u64>,
-    pub priority: QueryPriority,
-    pub optimization_hints: Vec<OptimizationHint>,
+    pub conditions: Vec<QueryCondition>,
+    pub timestamp_secs: u64, // Store as seconds since epoch instead of Instant
+    pub priority: u8, // 0-255, higher = more priority
+    pub expected_result_size: Option<usize>,
 }
 
+/// Query condition for filtering and matching
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum QueryPriority {
-    Low,
-    Normal,
-    High,
-    Critical,
+pub struct QueryCondition {
+    pub field: String,
+    pub operator: String,
+    pub value: String,
+    pub weight: f32, // Importance weight for neuromorphic processing
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum OptimizationHint {
-    UseCache,
-    SkipLearning,
-    ForceReorganization,
-    PreferSpeed,
-    PreferAccuracy,
+/// Query result with neuromorphic enhancements
+#[derive(Debug, Clone, Serialize)]
+pub struct QueryResult {
+    pub query_id: u64,
+    pub matched_nodes: Vec<u64>,
+    pub confidence_scores: Vec<f32>,
+    pub processing_time_ns: u64, // Store as nanoseconds instead of Duration
+    pub neural_pathway_used: Vec<u64>, // Nodes activated during processing
+    pub learning_feedback: f32, // Feedback for learning algorithm
+    pub cache_hit: bool,
+    pub optimization_suggestions: Vec<String>,
 }
 
-/// Advanced neuromorphic query processor with NEON optimization
+/// Neuromorphic query processor using spiking neural networks
 pub struct NeuromorphicQueryProcessor {
-    /// Query execution statistics
-    stats: QueryStats,
-    /// Query optimization cache
-    cache: HashMap<String, CachedQuery>,
-    /// Maximum cache size
-    max_cache_size: usize,
-    /// NEON optimizer for ARM64 acceleration
-    neon_optimizer: NeonOptimizer,
-    /// Query plan optimizer
-    plan_optimizer: QueryPlanOptimizer,
-    /// Neural pattern matcher
-    pattern_matcher: NeuralPatternMatcher,
+    network: Arc<RwLock<SynapticNetwork>>,
+    learning_engine: Arc<RwLock<HebbianLearningEngine>>,
+    query_cache: HashMap<String, CachedResult>,
+    spike_patterns: HashMap<u64, Vec<Instant>>, // Node spike histories
+    activation_threshold: f32,
+    neon_optimizations: bool,
+    query_statistics: QueryStatistics,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct QueryStats {
-    pub queries_processed: u64,
+/// Cached query result for performance optimization
+#[derive(Debug, Clone)]
+struct CachedResult {
+    result: QueryResult,
+    created_at_secs: u64, // Store as seconds since epoch
+    access_count: u64,
+    last_accessed_secs: u64, // Store as seconds since epoch
+}
+
+/// Statistics about query processing performance
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct QueryStatistics {
+    pub total_queries: u64,
     pub cache_hits: u64,
     pub cache_misses: u64,
-    pub avg_response_time_ns: u64,
-    pub total_execution_time_ns: u64,
-    pub neuromorphic_optimizations: u64,
-    pub simd_operations: u64,
-    pub error_count: u64,
-}
-
-#[derive(Debug, Clone)]
-struct CachedQuery {
-    query_plan: QueryPlan,
-    access_pattern: Vec<NodeId>,
-    #[allow(dead_code)]
-    last_used: Instant,
-    usage_count: u64,
-    performance_score: f32,
-}
-
-/// Advanced query execution plan optimized for neuromorphic processing
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueryPlan {
-    pub query_id: String,
-    pub operations: Vec<QueryOperation>,
-    pub estimated_cost: f32,
-    pub uses_synaptic_indexing: bool,
-    pub uses_quantum_optimization: bool,
-    pub access_pattern: Vec<NodeId>,
-    pub optimization_level: OptimizationLevel,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum QueryOperation {
-    SynapticScan {
-        node_id: NodeId,
-        activation_threshold: f32,
-        use_neon_simd: bool,
-    },
-    HebbianJoin {
-        left_nodes: Vec<NodeId>,
-        right_nodes: Vec<NodeId>,
-        learning_rate: f32,
-        join_type: JoinType,
-    },
-    PlasticityAggregation {
-        target_nodes: Vec<NodeId>,
-        operation: AggregationType,
-        grouping_strategy: GroupingStrategy,
-    },
-    NeuralFilter {
-        condition: FilterCondition,
-        activation_pattern: Vec<f32>,
-        selectivity: f32,
-    },
-    QuantumSuperposition {
-        parallel_queries: Vec<String>,
-        coherence_time: u64,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum OptimizationLevel {
-    None,
-    Basic,
-    Neuromorphic,
-    QuantumEnhanced,
-    Full,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum JoinType {
-    SynapticInner,
-    SynapticLeft,
-    SynapticRight,
-    AdaptiveMerge,
-    QuantumParallel,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AggregationType {
-    Sum,
-    Average,
-    Max,
-    Min,
-    SynapticWeightedSum,
-    NeuralActivationSum,
-    QuantumSuperposition,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum GroupingStrategy {
-    Spatial,
-    Temporal,
-    Synaptic,
-    Hierarchical,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FilterCondition {
-    pub field: String,
-    pub operator: ComparisonOperator,
-    pub value: serde_json::Value,
-    pub confidence: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ComparisonOperator {
-    Equal,
-    NotEqual,
-    GreaterThan,
-    LessThan,
-    GreaterEqual,
-    LessEqual,
-    Like,
-    SynapticMatch,
-    NeuralSimilarity,
-    QuantumEntangled,
-}
-
-/// Enhanced query result with neuromorphic optimization metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueryResult {
-    pub result_set: Vec<ResultRow>,
-    pub execution_time_ns: u64,
-    pub nodes_accessed: Vec<NodeId>,
-    pub synaptic_strength_used: f32,
-    pub optimization_metadata: OptimizationMetadata,
-    pub performance_metrics: PerformanceMetrics,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResultRow {
-    pub node_id: NodeId,
-    pub data: serde_json::Value,
-    pub activation_level: f32,
-    pub synaptic_strength: f32,
-    pub confidence_score: f32,
-    pub quantum_probability: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OptimizationMetadata {
-    pub cache_hit: bool,
-    pub learning_applied: bool,
-    pub plasticity_used: bool,
-    pub neon_simd_used: bool,
-    pub quantum_optimization: bool,
-    pub performance_improvement: f32,
-    pub optimization_level: OptimizationLevel,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceMetrics {
-    pub cpu_cycles: u64,
-    pub memory_accesses: u64,
-    pub cache_misses: u64,
-    pub simd_operations: u64,
-    pub power_consumption_mw: f32,
-}
-
-/// Query plan optimizer with machine learning
-struct QueryPlanOptimizer {
-    cost_model: CostModel,
-    #[allow(dead_code)]
-    learning_history: Vec<QueryExecution>,
-    #[allow(dead_code)]
-    optimization_rules: Vec<OptimizationRule>,
-}
-
-/// Neural pattern matcher for intelligent query optimization
-struct NeuralPatternMatcher {
-    #[allow(dead_code)]
-    pattern_database: HashMap<String, QueryPattern>,
-    #[allow(dead_code)]
-    similarity_threshold: f32,
-    #[allow(dead_code)]
-    learning_enabled: bool,
-}
-
-#[derive(Debug, Clone)]
-struct QueryPattern {
-    #[allow(dead_code)]
-    signature: String,
-    #[allow(dead_code)]
-    execution_stats: ExecutionStats,
-    optimization_hints: Vec<String>,
-    #[allow(dead_code)]
-    success_rate: f32,
-}
-
-#[derive(Debug, Clone)]
-struct ExecutionStats {
-    #[allow(dead_code)]
-    avg_execution_time: u64,
-    #[allow(dead_code)]
-    memory_usage: usize,
-    #[allow(dead_code)]
-    success_count: u32,
-    #[allow(dead_code)]
-    failure_count: u32,
-}
-
-#[derive(Debug)]
-struct CostModel {
-    base_cost: f32,
-    #[allow(dead_code)]
-    memory_cost_factor: f32,
-    #[allow(dead_code)]
-    cpu_cost_factor: f32,
-    #[allow(dead_code)]
-    network_cost_factor: f32,
-}
-
-#[derive(Debug)]
-struct QueryExecution {
-    #[allow(dead_code)]
-    query_hash: String,
-    #[allow(dead_code)]
-    execution_time: u64,
-    #[allow(dead_code)]
-    memory_used: usize,
-    #[allow(dead_code)]
-    success: bool,
-    #[allow(dead_code)]
-    optimization_applied: OptimizationLevel,
-}
-
-#[derive(Debug)]
-struct OptimizationRule {
-    #[allow(dead_code)]
-    pattern: String,
-    #[allow(dead_code)]
-    transformation: String,
-    #[allow(dead_code)]
-    confidence: f32,
-    #[allow(dead_code)]
-    success_rate: f32,
+    pub average_processing_time_ns: u64,
+    pub total_spikes_generated: u64,
+    pub neural_pathways_discovered: u64,
+    pub optimization_events: u64,
 }
 
 impl NeuromorphicQueryProcessor {
-    /// Create a new query processor with enterprise features
-    #[instrument(name = "query_processor_new")]
-    pub fn new() -> CoreResult<Self> {
-        info!("Initializing neuromorphic query processor");
-
+    /// Create a new neuromorphic query processor
+    pub fn new(
+        network: Arc<RwLock<SynapticNetwork>>,
+        learning_engine: Arc<RwLock<HebbianLearningEngine>>,
+        neon_optimizations: bool,
+    ) -> CoreResult<Self> {
         Ok(Self {
-            stats: QueryStats::default(),
-            cache: HashMap::new(),
-            max_cache_size: 10000,
-            neon_optimizer: NeonOptimizer::new(),
-            plan_optimizer: QueryPlanOptimizer::new(),
-            pattern_matcher: NeuralPatternMatcher::new(),
-        })
-    }
-
-    /// Process a query using advanced neuromorphic optimization
-    #[instrument(name = "process_query", skip(self, query, network, learning_engine, plasticity_matrix))]
-    pub async fn process_query(
-        &mut self,
-        query: &str,
-        network: &SynapticNetwork,
-        learning_engine: &HebbianLearningEngine,
-        plasticity_matrix: &PlasticityMatrix,
-    ) -> CoreResult<QueryResult> {
-        let start_time = Instant::now();
-        let query_hash = self.calculate_query_hash(query);
-
-        debug!("Processing query: {} (hash: {})", query, query_hash);
-
-        // Parse and optimize query with neural pattern matching
-        let query_plan = self.parse_and_optimize_query_advanced(query).await?;
-
-        // Check cache with intelligent eviction
-        if let Some(_cached) = self.check_cache_intelligent(&query_hash) {
-            // For now, proceed with normal execution
-            // In a full implementation, we would execute the cached query
-        }
-
-        // Execute query with full neuromorphic optimization
-        let result = self.execute_neuromorphic_query_advanced(
-            &query_plan,
             network,
             learning_engine,
-            plasticity_matrix,
-        ).await?;
-
-        // Update cache with performance-based scoring
-        self.update_cache_intelligent(query_hash, query_plan.clone(), &result);
-
-        // Update statistics and learning
-        let execution_time = start_time.elapsed().as_nanos() as u64;
-        self.update_stats_advanced(execution_time, false, &result);
-        self.update_pattern_learning(query, &result).await?;
-
-        info!("Query processed in {}ns with {:?} optimization",
-              execution_time,
-              result.optimization_metadata.optimization_level);
-
-        Ok(QueryResult {
-            execution_time_ns: execution_time,
-            ..result
+            query_cache: HashMap::new(),
+            spike_patterns: HashMap::new(),
+            activation_threshold: 0.5,
+            neon_optimizations,
+            query_statistics: QueryStatistics::default(),
         })
     }
 
-    /// Advanced query parsing with neural pattern recognition
-    async fn parse_and_optimize_query_advanced(&mut self, query: &str) -> CoreResult<QueryPlan> {
-        let query_id = format!("query_{}", self.stats.queries_processed);
+    /// Process a query using neuromorphic intelligence
+    #[instrument(level = "debug", skip(self, query))]
+    pub fn process_query(&self, query: &Query) -> CoreResult<QueryResult> {
+        let start_time = Instant::now();
 
-        // Neural pattern matching for optimization hints
-        let pattern_hints = self.pattern_matcher.find_similar_patterns(query)?;
-
-        // Analyze query patterns with machine learning
-        let operations = self.analyze_query_patterns_advanced(query, &pattern_hints)?;
-        let estimated_cost = self.plan_optimizer.estimate_cost(&operations);
-
-        let uses_synaptic_indexing = operations.iter().any(|op| matches!(op,
-            QueryOperation::SynapticScan { .. } |
-            QueryOperation::HebbianJoin { .. }
-        ));
-
-        let uses_quantum_optimization = operations.iter().any(|op| matches!(op,
-            QueryOperation::QuantumSuperposition { .. }
-        ));
-
-        let optimization_level = self.determine_optimization_level(&operations, &pattern_hints);
-
-        Ok(QueryPlan {
-            query_id,
-            operations,
-            estimated_cost,
-            uses_synaptic_indexing,
-            uses_quantum_optimization,
-            access_pattern: Vec::new(),
-            optimization_level,
-        })
-    }
-
-    /// Advanced query pattern analysis with ML-based optimization
-    fn analyze_query_patterns_advanced(
-        &self,
-        query: &str,
-        pattern_hints: &[QueryPattern]
-    ) -> CoreResult<Vec<QueryOperation>> {
-        let mut operations = Vec::new();
-        let query_lower = query.to_lowercase();
-
-        // Use pattern hints for optimization
-        let use_neon_simd = pattern_hints.iter()
-            .any(|p| p.optimization_hints.contains(&"neon_simd".to_string()));
-
-        // Enhanced pattern matching with confidence scoring
-        if query_lower.contains("select") {
-            let selectivity = self.estimate_selectivity(&query_lower);
-            operations.push(QueryOperation::SynapticScan {
-                node_id: 1, // Will be determined by query planner
-                activation_threshold: if selectivity > 0.5 { 0.7 } else { 0.3 },
-                use_neon_simd,
-            });
+        // Check cache first
+        let cache_key = self.generate_cache_key(query);
+        if let Some(cached) = self.check_cache(&cache_key) {
+            let mut result = cached.result.clone();
+            result.cache_hit = true;
+            result.processing_time_ns = start_time.elapsed().as_nanos() as u64;
+            return Ok(result);
         }
 
-        if query_lower.contains("join") {
-            let join_type = if query_lower.contains("adaptive") {
-                JoinType::AdaptiveMerge
-            } else if query_lower.contains("quantum") {
-                JoinType::QuantumParallel
-            } else {
-                JoinType::SynapticInner
-            };
+        // Process query through spiking neural network
+        let neural_pathway = self.activate_neural_pathway(query)?;
+        let matched_nodes = self.execute_pattern_matching(query, &neural_pathway)?;
+        let confidence_scores = self.calculate_confidence_scores(&matched_nodes)?;
 
-            operations.push(QueryOperation::HebbianJoin {
-                left_nodes: vec![1, 2],
-                right_nodes: vec![3, 4],
-                learning_rate: 0.01,
-                join_type,
-            });
-        }
+        // Generate spikes for learning
+        self.generate_learning_spikes(&neural_pathway, &matched_nodes)?;
 
-        if query_lower.contains("group by") || query_lower.contains("sum") {
-            let aggregation_type = if query_lower.contains("neural") {
-                AggregationType::NeuralActivationSum
-            } else if query_lower.contains("quantum") {
-                AggregationType::QuantumSuperposition
-            } else {
-                AggregationType::SynapticWeightedSum
-            };
+        // Calculate learning feedback
+        let learning_feedback = self.calculate_learning_feedback(&matched_nodes, query);
 
-            operations.push(QueryOperation::PlasticityAggregation {
-                target_nodes: vec![1, 2, 3],
-                operation: aggregation_type,
-                grouping_strategy: GroupingStrategy::Synaptic,
-            });
-        }
-
-        if query_lower.contains("parallel") || query_lower.contains("quantum") {
-            operations.push(QueryOperation::QuantumSuperposition {
-                parallel_queries: vec![query.to_string()],
-                coherence_time: 1000, // 1μs coherence time
-            });
-        }
-
-        Ok(operations)
-    }
-
-    /// Execute query with advanced neuromorphic optimization
-    async fn execute_neuromorphic_query_advanced(
-        &mut self,
-        plan: &QueryPlan,
-        network: &SynapticNetwork,
-        learning_engine: &HebbianLearningEngine,
-        plasticity_matrix: &PlasticityMatrix,
-    ) -> CoreResult<QueryResult> {
-        let mut result = self.execute_plan_advanced(plan, network).await?;
-
-        // Apply advanced learning strategies
-        let learning_applied = match plan.optimization_level {
-            OptimizationLevel::Neuromorphic | OptimizationLevel::Full => {
-                self.apply_advanced_learning(&result.nodes_accessed, learning_engine, network).await?
-            }
-            _ => false,
-        };
-
-        // Apply plasticity optimization
-        let plasticity_used = match plan.optimization_level {
-            OptimizationLevel::Neuromorphic | OptimizationLevel::Full => {
-                self.update_advanced_plasticity(&result.nodes_accessed, plasticity_matrix).await?
-            }
-            _ => false,
-        };
-
-        // Apply NEON SIMD optimizations where applicable
-        let neon_simd_used = self.apply_neon_optimizations(plan, &mut result).await?;
-
-        result.optimization_metadata = OptimizationMetadata {
+        // Create result
+        let result = QueryResult {
+            query_id: query.id,
+            matched_nodes,
+            confidence_scores,
+            processing_time_ns: start_time.elapsed().as_nanos() as u64,
+            neural_pathway_used: neural_pathway,
+            learning_feedback,
             cache_hit: false,
-            learning_applied,
-            plasticity_used,
-            neon_simd_used,
-            quantum_optimization: plan.uses_quantum_optimization,
-            performance_improvement: 1.0,
-            optimization_level: plan.optimization_level.clone(),
+            optimization_suggestions: self.generate_optimization_suggestions(query),
         };
 
+        // Cache the result
+        self.cache_result(cache_key, &result);
+
+        // Update statistics
+        self.update_statistics(&result);
+
+        debug!("Processed query {} in {}ns", query.id, result.processing_time_ns);
         Ok(result)
     }
 
-    /// Execute query plan with enterprise-grade performance monitoring
-    async fn execute_plan_advanced(
-        &self,
-        plan: &QueryPlan,
-        network: &SynapticNetwork,
-    ) -> CoreResult<QueryResult> {
-        let mut result_set = Vec::new();
-        let mut nodes_accessed = Vec::new();
-        let mut total_synaptic_strength = 0.0;
-        let mut performance_metrics = PerformanceMetrics {
-            cpu_cycles: 0,
-            memory_accesses: 0,
-            cache_misses: 0,
-            simd_operations: 0,
-            power_consumption_mw: 0.0,
-        };
+    /// Generate cache key for query
+    fn generate_cache_key(&self, query: &Query) -> String {
+        // Simple hash of query components
+        format!("{:?}_{:?}_{:?}",
+                query.query_type,
+                query.target_nodes,
+                query.conditions)
+    }
 
-        for operation in &plan.operations {
-            match operation {
-                QueryOperation::SynapticScan { node_id, activation_threshold, use_neon_simd } => {
-                    let node_ref = network.get_node(*node_id)?;
-                    let node = node_ref.read();
+    /// Check query cache for existing result
+    fn check_cache(&self, _cache_key: &str) -> Option<CachedResult> {
+        // Implementation placeholder - would use actual cache lookup
+        None
+    }
 
-                    if node.activation >= *activation_threshold {
-                        let confidence_score = node.activation / activation_threshold;
-                        let quantum_probability = if plan.uses_quantum_optimization {
-                            (node.activation * node.strength).sqrt()
-                        } else {
-                            1.0
-                        };
+    /// Cache query result
+    fn cache_result(&self, _cache_key: String, _result: &QueryResult) {
+        // Implementation placeholder - would store in cache
+    }
 
-                        result_set.push(ResultRow {
-                            node_id: *node_id,
-                            data: serde_json::json!({"id": node_id, "type": "synaptic_scan"}),
-                            activation_level: node.activation,
-                            synaptic_strength: node.strength,
-                            confidence_score,
-                            quantum_probability,
-                        });
+    /// Activate neural pathway for query processing
+    fn activate_neural_pathway(&self, query: &Query) -> CoreResult<Vec<u64>> {
+        let mut pathway = Vec::new();
+        let network = self.network.read()
+            .map_err(|_| CoreError::LockError("Failed to acquire network read lock".to_string()))?;
 
-                        nodes_accessed.push(*node_id);
-                        total_synaptic_strength += node.strength;
+        // Start with target nodes specified in query
+        for &node_id in &query.target_nodes {
+            if let Some(node) = network.get_node(node_id) {
+                if node.activation_level > self.activation_threshold {
+                    pathway.push(node_id);
 
-                        if *use_neon_simd {
-                            performance_metrics.simd_operations += 1;
+                    // Follow strong connections
+                    for connection in &node.connections {
+                        if connection.weight > 0.7 {
+                            pathway.push(connection.target_id);
                         }
                     }
-
-                    performance_metrics.memory_accesses += 1;
-                }
-
-                QueryOperation::HebbianJoin { left_nodes, right_nodes, join_type, .. } => {
-                    match join_type {
-                        JoinType::QuantumParallel => {
-                            // Parallel processing of join operations
-                            performance_metrics.simd_operations += left_nodes.len() as u64;
-                        }
-                        JoinType::AdaptiveMerge => {
-                            // Adaptive merge based on synaptic strengths
-                            performance_metrics.cpu_cycles += (left_nodes.len() * right_nodes.len()) as u64;
-                        }
-                        _ => {
-                            // Standard synaptic join
-                            performance_metrics.memory_accesses += (left_nodes.len() + right_nodes.len()) as u64;
-                        }
-                    }
-
-                    for &left_id in left_nodes {
-                        for &right_id in right_nodes {
-                            nodes_accessed.push(left_id);
-                            nodes_accessed.push(right_id);
-                        }
-                    }
-                }
-
-                QueryOperation::PlasticityAggregation { target_nodes, operation, grouping_strategy } => {
-                    let aggregated_value = match operation {
-                        AggregationType::SynapticWeightedSum => {
-                            self.calculate_synaptic_weighted_sum(target_nodes, network)?
-                        }
-                        AggregationType::NeuralActivationSum => {
-                            self.calculate_neural_activation_sum(target_nodes, network)?
-                        }
-                        AggregationType::QuantumSuperposition => {
-                            self.calculate_quantum_superposition(target_nodes, network)?
-                        }
-                        _ => 0.0,
-                    };
-
-                    result_set.push(ResultRow {
-                        node_id: 0,
-                        data: serde_json::json!({
-                            "aggregated_value": aggregated_value,
-                            "grouping_strategy": format!("{:?}", grouping_strategy)
-                        }),
-                        activation_level: 1.0,
-                        synaptic_strength: aggregated_value,
-                        confidence_score: 0.95,
-                        quantum_probability: if matches!(operation, AggregationType::QuantumSuperposition) {
-                            aggregated_value.abs()
-                        } else {
-                            1.0
-                        },
-                    });
-
-                    nodes_accessed.extend_from_slice(target_nodes);
-                    performance_metrics.cpu_cycles += target_nodes.len() as u64 * 10;
-                }
-
-                QueryOperation::QuantumSuperposition { parallel_queries, coherence_time } => {
-                    // Simulate quantum superposition processing
-                    performance_metrics.cpu_cycles += parallel_queries.len() as u64 * *coherence_time;
-                    performance_metrics.power_consumption_mw += 0.1; // Quantum operations require more power
-                }
-
-                QueryOperation::NeuralFilter { activation_pattern, selectivity, .. } => {
-                    // Apply neural filtering with confidence scoring
-                    performance_metrics.cpu_cycles += (activation_pattern.len() as f32 / selectivity) as u64;
                 }
             }
         }
 
-        Ok(QueryResult {
-            result_set,
-            execution_time_ns: 0, // Will be set by caller
-            nodes_accessed,
-            synaptic_strength_used: total_synaptic_strength,
-            optimization_metadata: OptimizationMetadata {
-                cache_hit: false,
-                learning_applied: false,
-                plasticity_used: false,
-                neon_simd_used: false,
-                quantum_optimization: false,
-                performance_improvement: 1.0,
-                optimization_level: OptimizationLevel::Basic,
+        // Remove duplicates and limit pathway length
+        pathway.sort_unstable();
+        pathway.dedup();
+        pathway.truncate(50); // Limit to prevent excessive processing
+
+        Ok(pathway)
+    }
+
+    /// Execute pattern matching using activated pathway
+    fn execute_pattern_matching(&self, query: &Query, pathway: &[u64]) -> CoreResult<Vec<u64>> {
+        let mut matched_nodes = Vec::new();
+        let network = self.network.read()
+            .map_err(|_| CoreError::LockError("Failed to acquire network read lock".to_string()))?;
+
+        // Simple pattern matching based on node properties
+        for &node_id in pathway {
+            if let Some(node) = network.get_node(node_id) {
+                // Check if node matches query conditions
+                let mut match_score = 0.0;
+
+                for condition in &query.conditions {
+                    // Simplified condition matching
+                    match_score += condition.weight * self.evaluate_condition(node, condition);
+                }
+
+                // Include node if it meets threshold
+                if match_score > 0.5 {
+                    matched_nodes.push(node_id);
+                }
+            }
+        }
+
+        Ok(matched_nodes)
+    }
+
+    /// Evaluate a query condition against a node
+    fn evaluate_condition(&self, node: &crate::synaptic::SynapticNode, condition: &QueryCondition) -> f32 {
+        // Simplified condition evaluation
+        // In a real implementation, this would check node data against condition
+
+        match condition.operator.as_str() {
+            "=" | "==" => {
+                // Exact match check
+                if node.strength > 0.5 { 0.9 } else { 0.1 }
             },
-            performance_metrics,
-        })
-    }
-
-    /// Get query processing statistics
-    pub fn get_stats(&self) -> &QueryStats {
-        &self.stats
-    }
-
-    // Helper methods for implementation stubs
-    fn check_cache_intelligent(&self, _query_hash: &str) -> Option<&CachedQuery> {
-        None // Simplified for now
-    }
-
-    fn update_cache_intelligent(&mut self, _query_hash: String, _plan: QueryPlan, _result: &QueryResult) {
-        // Simplified for now
-    }
-
-    fn update_stats_advanced(&mut self, execution_time: u64, cache_hit: bool, _result: &QueryResult) {
-        self.stats.queries_processed += 1;
-        self.stats.total_execution_time_ns += execution_time;
-
-        if cache_hit {
-            self.stats.cache_hits += 1;
-        } else {
-            self.stats.cache_misses += 1;
-        }
-
-        self.stats.avg_response_time_ns =
-            self.stats.total_execution_time_ns / self.stats.queries_processed;
-    }
-
-    fn calculate_query_hash(&self, query: &str) -> String {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        let mut hasher = DefaultHasher::new();
-        query.hash(&mut hasher);
-        format!("{:x}", hasher.finish())
-    }
-
-    fn estimate_selectivity(&self, query: &str) -> f32 {
-        // Simple heuristic - in production this would use statistics
-        if query.contains("where") {
-            if query.contains("=") { 0.1 }
-            else if query.contains("like") { 0.3 }
-            else { 0.5 }
-        } else {
-            1.0
+            ">" => {
+                // Greater than check
+                if node.strength > condition.value.parse::<f32>().unwrap_or(0.0) { 0.8 } else { 0.0 }
+            },
+            "<" => {
+                // Less than check
+                if node.strength < condition.value.parse::<f32>().unwrap_or(1.0) { 0.8 } else { 0.0 }
+            },
+            "LIKE" => {
+                // Pattern matching
+                0.7 // Simplified - would do actual pattern matching
+            },
+            _ => 0.0,
         }
     }
 
-    fn determine_optimization_level(
-        &self,
-        operations: &[QueryOperation],
-        _pattern_hints: &[QueryPattern]
-    ) -> OptimizationLevel {
-        let has_complex_ops = operations.iter().any(|op| matches!(op,
-            QueryOperation::QuantumSuperposition { .. } |
-            QueryOperation::HebbianJoin { .. }
-        ));
+    /// Calculate confidence scores for matched nodes
+    fn calculate_confidence_scores(&self, matched_nodes: &[u64]) -> CoreResult<Vec<f32>> {
+        let network = self.network.read()
+            .map_err(|_| CoreError::LockError("Failed to acquire network read lock".to_string()))?;
 
-        let has_simd_ops = operations.iter().any(|op| matches!(op,
-            QueryOperation::SynapticScan { use_neon_simd: true, .. }
-        ));
+        let mut scores = Vec::new();
 
-        match (has_complex_ops, has_simd_ops) {
-            (true, true) => OptimizationLevel::Full,
-            (true, false) => OptimizationLevel::Neuromorphic,
-            (false, true) => OptimizationLevel::QuantumEnhanced,
-            (false, false) => OptimizationLevel::Basic,
+        for &node_id in matched_nodes {
+            if let Some(node) = network.get_node(node_id) {
+                // Base confidence from node strength
+                let mut confidence = node.strength;
+
+                // Boost confidence based on access patterns
+                confidence += (node.access_count as f32).log10() / 10.0;
+
+                // Boost confidence based on connection strength
+                let avg_connection_strength: f32 = node.connections.iter()
+                    .map(|c| c.weight.abs())
+                    .sum::<f32>() / node.connections.len().max(1) as f32;
+                confidence += avg_connection_strength * 0.3;
+
+                // Normalize to [0, 1]
+                confidence = confidence.min(1.0).max(0.0);
+                scores.push(confidence);
+            } else {
+                scores.push(0.0);
+            }
         }
+
+        Ok(scores)
     }
 
-    async fn update_pattern_learning(&mut self, _query: &str, _result: &QueryResult) -> CoreResult<()> {
+    /// Generate learning spikes for neural plasticity
+    fn generate_learning_spikes(&self, _pathway: &[u64], _matched_nodes: &[u64]) -> CoreResult<()> {
+        // Implementation placeholder for spike generation
+        // This would create spike patterns for learning algorithms
         Ok(())
     }
 
-    async fn apply_advanced_learning(&self, _nodes: &[NodeId], _engine: &HebbianLearningEngine, _network: &SynapticNetwork) -> CoreResult<bool> {
-        Ok(true)
+    /// Calculate learning feedback for query optimization
+    fn calculate_learning_feedback(&self, matched_nodes: &[u64], query: &Query) -> f32 {
+        // Simple feedback calculation
+        let expected_size = query.expected_result_size.unwrap_or(10) as f32;
+        let actual_size = matched_nodes.len() as f32;
+
+        // Feedback based on result size accuracy
+        let size_accuracy = 1.0 - (expected_size - actual_size).abs() / expected_size.max(1.0);
+
+        // Feedback based on query priority
+        let priority_factor = query.priority as f32 / 255.0;
+
+        (size_accuracy + priority_factor) / 2.0
     }
 
-    async fn update_advanced_plasticity(&self, _nodes: &[NodeId], _matrix: &PlasticityMatrix) -> CoreResult<bool> {
-        Ok(true)
-    }
+    /// Generate optimization suggestions
+    fn generate_optimization_suggestions(&self, query: &Query) -> Vec<String> {
+        let mut suggestions = Vec::new();
 
-    async fn apply_neon_optimizations(&self, _plan: &QueryPlan, _result: &mut QueryResult) -> CoreResult<bool> {
-        Ok(true)
-    }
-
-    fn calculate_synaptic_weighted_sum(&self, _nodes: &[NodeId], _network: &SynapticNetwork) -> CoreResult<f32> {
-        Ok(1.0)
-    }
-
-    fn calculate_neural_activation_sum(&self, _nodes: &[NodeId], _network: &SynapticNetwork) -> CoreResult<f32> {
-        Ok(1.0)
-    }
-
-    fn calculate_quantum_superposition(&self, _nodes: &[NodeId], _network: &SynapticNetwork) -> CoreResult<f32> {
-        Ok(1.0)
-    }
-}
-
-// Implementation stubs for helper structs
-impl QueryPlanOptimizer {
-    fn new() -> Self {
-        Self {
-            cost_model: CostModel {
-                base_cost: 1.0,
-                memory_cost_factor: 0.1,
-                cpu_cost_factor: 0.05,
-                network_cost_factor: 0.2,
-            },
-            learning_history: Vec::new(),
-            optimization_rules: Vec::new(),
+        // Suggest index creation for frequently queried fields
+        if query.conditions.len() > 2 {
+            suggestions.push("Consider creating composite index for multiple conditions".to_string());
         }
-    }
 
-    fn estimate_cost(&self, operations: &[QueryOperation]) -> f32 {
-        operations.len() as f32 * self.cost_model.base_cost
-    }
-}
-
-impl NeuralPatternMatcher {
-    fn new() -> Self {
-        Self {
-            pattern_database: HashMap::new(),
-            similarity_threshold: 0.8,
-            learning_enabled: true,
+        // Suggest query restructuring for complex queries
+        if query.target_nodes.len() > 10 {
+            suggestions.push("Consider breaking down large queries into smaller batches".to_string());
         }
+
+        suggestions
     }
 
-    fn find_similar_patterns(&self, _query: &str) -> CoreResult<Vec<QueryPattern>> {
-        Ok(Vec::new())
+    /// Update query processing statistics
+    fn update_statistics(&self, _result: &QueryResult) {
+        // Implementation placeholder for statistics updates
+    }
+
+    /// Get current query statistics
+    pub fn get_statistics(&self) -> &QueryStatistics {
+        &self.query_statistics
+    }
+
+    /// Clear query cache
+    pub fn clear_cache(&mut self) {
+        self.query_cache.clear();
+    }
+
+    /// Set activation threshold for spike generation
+    pub fn set_activation_threshold(&mut self, threshold: f32) -> CoreResult<()> {
+        if !(0.0..=1.0).contains(&threshold) {
+            return Err(CoreError::InvalidConfig(
+                "Activation threshold must be between 0.0 and 1.0".to_string()
+            ));
+        }
+        self.activation_threshold = threshold;
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::synaptic::SynapticNetwork;
+    use crate::synaptic::{SynapticNetwork, SynapticNode};
+    use crate::learning::HebbianLearningEngine;
+    use std::sync::{Arc, RwLock};
 
-    #[tokio::test]
-    async fn test_query_processor_creation() {
-        let processor = NeuromorphicQueryProcessor::new().unwrap();
-        assert_eq!(processor.stats.queries_processed, 0);
-        assert_eq!(processor.cache.len(), 0);
+    #[test]
+    fn test_query_processor_creation() {
+        let network = Arc::new(RwLock::new(SynapticNetwork::new(1000, 0.5).unwrap()));
+        let learning = Arc::new(RwLock::new(HebbianLearningEngine::new(0.01).unwrap()));
+
+        let processor = NeuromorphicQueryProcessor::new(network, learning, true).unwrap();
+        assert_eq!(processor.activation_threshold, 0.5);
     }
 
     #[test]
-    fn test_query_plan_creation() {
-        let operations = vec![
-            QueryOperation::SynapticScan {
-                node_id: 1,
-                activation_threshold: 0.5,
-                use_neon_simd: true,
-            }
-        ];
+    fn test_cache_key_generation() {
+        let network = Arc::new(RwLock::new(SynapticNetwork::new(1000, 0.5).unwrap()));
+        let learning = Arc::new(RwLock::new(HebbianLearningEngine::new(0.01).unwrap()));
+        let processor = NeuromorphicQueryProcessor::new(network, learning, true).unwrap();
 
-        let plan = QueryPlan {
-            query_id: "test_query".to_string(),
-            operations,
-            estimated_cost: 1.0,
-            uses_synaptic_indexing: true,
-            uses_quantum_optimization: false,
-            access_pattern: vec![1, 2, 3],
-            optimization_level: OptimizationLevel::Neuromorphic,
+        let query = Query {
+            id: 1,
+            query_type: QueryType::Select,
+            target_nodes: vec![1, 2, 3],
+            conditions: vec![],
+            timestamp_secs: 1694428800, // Example timestamp
+            priority: 128,
+            expected_result_size: Some(10),
         };
 
-        assert!(plan.uses_synaptic_indexing);
-        assert_eq!(plan.estimated_cost, 1.0);
+        let key = processor.generate_cache_key(&query);
+        assert!(!key.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_advanced_query_processing() {
-        let mut processor = NeuromorphicQueryProcessor::new().unwrap();
-        let network = SynapticNetwork::new(1000).unwrap();
-        let learning_engine = crate::learning::HebbianLearningEngine::new(0.01);
-        let plasticity_matrix = crate::plasticity::PlasticityMatrix::new(1000).unwrap();
+    #[test]
+    fn test_activation_threshold_setting() {
+        let network = Arc::new(RwLock::new(SynapticNetwork::new(1000, 0.5).unwrap()));
+        let learning = Arc::new(RwLock::new(HebbianLearningEngine::new(0.01).unwrap()));
+        let mut processor = NeuromorphicQueryProcessor::new(network, learning, true).unwrap();
 
-        let query = "SELECT * FROM users WHERE neural_activity > 0.5";
-        let result = processor.process_query(query, &network, &learning_engine, &plasticity_matrix).await;
+        processor.set_activation_threshold(0.7).unwrap();
+        assert_eq!(processor.activation_threshold, 0.7);
 
-        // Should not fail even with complex query
-        assert!(result.is_ok());
+        // Test invalid threshold
+        let result = processor.set_activation_threshold(1.5);
+        assert!(result.is_err());
     }
 }
