@@ -24,8 +24,11 @@ pub struct LearningStats {
 
 /// Anti-Hebbian learning for competitive learning and pruning weak connections
 pub struct AntiHebbianLearning {
+    #[allow(dead_code)] // Used in future anti-competitive learning algorithms
     decay_rate: f32,
+    #[allow(dead_code)] // Used for connection pruning thresholds
     pruning_threshold: f32,
+    #[allow(dead_code)] // Used in competitive learning mechanisms
     competition_factor: f32,
 }
 
@@ -53,9 +56,11 @@ impl AntiHebbianLearning {
 pub struct HebbianLearningEngine {
     learning_rate: f32,
     momentum: f32,
+    #[allow(dead_code)] // Used in future decay mechanisms
     decay_factor: f32,
     stats: LearningStats,
     learning_history: HashMap<(u64, u64), Vec<f32>>, // (source, target) -> weight history
+    #[allow(dead_code)] // Used in future competitive learning features
     anti_hebbian: AntiHebbianLearning,
     adaptive_rate_enabled: bool,
     min_learning_rate: f32,

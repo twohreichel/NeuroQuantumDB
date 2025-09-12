@@ -61,10 +61,13 @@ pub struct QueryResult {
 /// Neuromorphic query processor using spiking neural networks
 pub struct NeuromorphicQueryProcessor {
     network: Arc<RwLock<SynapticNetwork>>,
+    #[allow(dead_code)] // Used in future adaptive learning features
     learning_engine: Arc<RwLock<HebbianLearningEngine>>,
     query_cache: HashMap<String, CachedResult>,
+    #[allow(dead_code)] // Used in future spike-timing dependent plasticity
     spike_patterns: HashMap<u64, Vec<Instant>>, // Node spike histories
     activation_threshold: f32,
+    #[allow(dead_code)] // Used for ARM64/NEON optimizations
     neon_optimizations: bool,
     query_statistics: QueryStatistics,
 }
@@ -73,8 +76,11 @@ pub struct NeuromorphicQueryProcessor {
 #[derive(Debug, Clone)]
 struct CachedResult {
     result: QueryResult,
+    #[allow(dead_code)] // Used for cache expiration logic
     created_at_secs: u64, // Store as seconds since epoch
+    #[allow(dead_code)] // Used for cache statistics and LRU eviction
     access_count: u64,
+    #[allow(dead_code)] // Used for cache aging and cleanup
     last_accessed_secs: u64, // Store as seconds since epoch
 }
 

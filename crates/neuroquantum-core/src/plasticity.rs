@@ -6,7 +6,7 @@
 use crate::error::{CoreError, CoreResult};
 use crate::synaptic::SynapticNetwork;
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use serde::Serialize;
 use tracing::{debug, info, instrument, warn};
 
@@ -50,6 +50,7 @@ impl Default for PlasticityParams {
 
 /// Plasticity matrix managing dynamic network reorganization
 pub struct PlasticityMatrix {
+    #[allow(dead_code)] // Used for capacity validation in future features
     max_nodes: usize,
     plasticity_threshold: f32,
     access_patterns: AccessPatterns,
@@ -351,7 +352,6 @@ impl PlasticityMatrix {
 
     /// Prune unused connections based on access patterns
     fn prune_unused_connections(&mut self) -> CoreResult<u32> {
-        let mut pruned_count = 0;
         let usage_threshold = 2; // Minimum usage count to keep connection
 
         // Find connections with low usage
@@ -361,7 +361,7 @@ impl PlasticityMatrix {
             .map(|(&(source_id, target_id), _)| (source_id, target_id))
             .collect();
 
-        pruned_count = connections_to_prune.len() as u32;
+        let pruned_count = connections_to_prune.len() as u32;
 
         // Remove low-usage connections from tracking
         for (source_id, target_id) in connections_to_prune {

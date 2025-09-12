@@ -87,6 +87,7 @@ pub struct NeuroQuantumCore {
     query_processor: Arc<RwLock<NeuromorphicQueryProcessor>>,
     metrics: Arc<RwLock<PerformanceMetrics>>,
     active_connections: Arc<DashMap<u64, Instant>>,
+    #[allow(dead_code)] // Used for uptime tracking in future features
     start_time: Instant,
 }
 
