@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "crates/neuroquantum-core"
+    "crates/neuroquantum-core",
+    "crates/neuroquantum-qsql"
 ]
 resolver = "2"
 
