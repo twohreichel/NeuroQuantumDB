@@ -793,29 +793,9 @@ impl<'a> ParserState<'a> {
         }
     }
 
-    fn expect_keyword(&mut self, keyword: &str) -> QSQLResult<()> {
-        match self.next()? {
-            TokenType::Identifier(id) if id.to_uppercase() == keyword => Ok(()),
-            token => Err(QSQLError::ParseError {
-                message: format!("Expected keyword '{}', found {:?}", keyword, token),
-                position: self.position - 1,
-            })
-        }
-    }
-
     fn match_token(&mut self, expected: &TokenType) -> bool {
         if let Ok(token) = self.peek() {
             if std::mem::discriminant(token) == std::mem::discriminant(expected) {
-                self.position += 1;
-                return true;
-            }
-        }
-        false
-    }
-
-    fn match_keyword(&mut self, keyword: &str) -> bool {
-        if let Ok(TokenType::Identifier(id)) = self.peek() {
-            if id.to_uppercase() == keyword {
                 self.position += 1;
                 return true;
             }
