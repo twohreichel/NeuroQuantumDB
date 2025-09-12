@@ -1,0 +1,45 @@
+[package]
+name = "neuroquantum-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Neuromorphic computing core for NeuroQuantumDB"
+
+[dependencies]
+# Workspace dependencies
+tokio = { workspace = true }
+serde = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rayon = { workspace = true }
+crossbeam = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+
+# Core-specific dependencies
+nalgebra = "0.32"
+ndarray = "0.15"
+rand = "0.8"
+rand_distr = "0.4"
+fnv = "1.0"
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+tokio-test = "0.4"
+
+[features]
+default = ["neon-optimizations"]
+neon-optimizations = []
+debug-synaptic = []
+
+[[bench]]
+name = "synaptic_networks"
+harness = false
+
+[[bench]]
+name = "hebbian_learning"
+harness = false
