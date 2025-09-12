@@ -170,13 +170,13 @@ impl NeuromorphicQueryProcessor {
         // Process query through spiking neural network
         let neural_pathway = self.activate_neural_pathway(query)?;
         let matched_nodes = self.execute_pattern_matching(query, &neural_pathway)?;
-        let confidence_scores = self.calculate_confidence_scores(&matched_nodes)?;
+        let _confidence_scores = self.calculate_confidence_scores(&matched_nodes)?;
 
         // Generate spikes for learning
         self.generate_learning_spikes(&neural_pathway, &matched_nodes)?;
 
         // Calculate learning feedback
-        let learning_feedback = self.calculate_learning_feedback(&matched_nodes, query);
+        let _learning_feedback = self.calculate_learning_feedback(&matched_nodes, query);
 
         // Create result
         let result = QueryResult {
@@ -355,6 +355,7 @@ impl NeuromorphicQueryProcessor {
     }
 
     /// Generate optimization suggestions
+    #[allow(dead_code)] // Used for future query optimization features
     fn generate_optimization_suggestions(&self, query: &Query) -> Vec<String> {
         let mut suggestions = Vec::new();
 

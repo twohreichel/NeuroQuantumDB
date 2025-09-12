@@ -213,7 +213,7 @@ impl GroverSearch {
         let classical_time = Duration::from_nanos((n as f64 * query.len() as f64) as u64);
         let quantum_advantage = classical_time.as_nanos() as f64 / execution_time.as_nanos() as f64;
 
-        for (idx, prob) in &results {
+        for (idx, _prob) in &results {
             found_indices.push(*idx);
         }
 
