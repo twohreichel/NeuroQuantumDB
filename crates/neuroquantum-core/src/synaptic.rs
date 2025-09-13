@@ -201,42 +201,102 @@ impl SynapticNetwork {
         Ok(node_id.to_string())
     }
 
-    /// Optimize the network structure
+    /// Optimize the network structure with timeout and performance improvements
     pub async fn optimize_network(&self) -> CoreResult<()> {
-        // Apply decay to all nodes
+        let start_time = Instant::now();
+        let timeout = std::time::Duration::from_millis(5000); // 5 second timeout
+
+        debug!("Starting network optimization with timeout {:?}", timeout);
+
+        // Apply decay to all nodes (fast operation)
         self.apply_global_decay();
 
-        // Prune very weak connections
-        let mut connections_to_remove = Vec::new();
+        // Collect weak connections in batches to avoid holding locks too long
+        let weak_connections = self.collect_weak_connections(0.01)?;
 
-        {
-            let nodes = self.nodes.read().unwrap();
-            for (node_id, node) in nodes.iter() {
-                for (i, connection) in node.connections.iter().enumerate() {
-                    if connection.weight.abs() < 0.01 {
-                        connections_to_remove.push((*node_id, i));
-                    }
-                }
-            }
+        if start_time.elapsed() > timeout {
+            warn!("Network optimization timed out during weak connection collection");
+            return Ok(());
         }
 
-        // Remove weak connections
-        {
-            let mut nodes = self.nodes.write().unwrap();
-            let mut total_connections = self.total_connections.write().unwrap();
+        // Remove weak connections in optimized batches
+        self.remove_connections_batch(&weak_connections)?;
 
-            for (node_id, connection_index) in connections_to_remove.into_iter().rev() {
-                if let Some(node) = nodes.get_mut(&node_id) {
-                    if connection_index < node.connections.len() {
-                        node.connections.remove(connection_index);
-                        *total_connections -= 1;
-                    }
-                }
-            }
-        }
+        // Update memory usage efficiently
+        self.update_memory_usage_cache();
 
-        tracing::info!("Network optimization completed");
+        let elapsed = start_time.elapsed();
+        tracing::info!("Network optimization completed in {:?}", elapsed);
         Ok(())
+    }
+
+    /// Collect weak connections efficiently without holding long locks
+    fn collect_weak_connections(&self, threshold: f32) -> CoreResult<Vec<(u64, usize)>> {
+        let mut weak_connections = Vec::new();
+
+        // Use read lock and process in chunks to avoid long lock times
+        let nodes = self.nodes.read().unwrap();
+
+        for (node_id, node) in nodes.iter() {
+            for (i, connection) in node.connections.iter().enumerate() {
+                if connection.weight.abs() < threshold {
+                    weak_connections.push((*node_id, i));
+                }
+            }
+
+            // Limit the number of connections we check per optimization cycle
+            if weak_connections.len() > 1000 {
+                break;
+            }
+        }
+
+        Ok(weak_connections)
+    }
+
+    /// Remove connections in optimized batches
+    fn remove_connections_batch(&self, connections_to_remove: &[(u64, usize)]) -> CoreResult<()> {
+        if connections_to_remove.is_empty() {
+            return Ok(());
+        }
+
+        // Group removals by node to minimize lock overhead
+        let mut removals_by_node: HashMap<u64, Vec<usize>> = HashMap::new();
+        for &(node_id, connection_idx) in connections_to_remove {
+            removals_by_node.entry(node_id).or_default().push(connection_idx);
+        }
+
+        let mut nodes = self.nodes.write().unwrap();
+        let mut total_connections = self.total_connections.write().unwrap();
+        let mut removed_count = 0;
+
+        for (node_id, mut indices) in removals_by_node {
+            if let Some(node) = nodes.get_mut(&node_id) {
+                // Sort indices in descending order to avoid index shifts during removal
+                indices.sort_by(|a, b| b.cmp(a));
+
+                for &idx in &indices {
+                    if idx < node.connections.len() {
+                        node.connections.remove(idx);
+                        removed_count += 1;
+                    }
+                }
+            }
+        }
+
+        *total_connections = total_connections.saturating_sub(removed_count);
+        debug!("Removed {} weak connections", removed_count);
+
+        Ok(())
+    }
+
+    /// Update memory usage cache efficiently
+    fn update_memory_usage_cache(&self) {
+        let nodes = self.nodes.read().unwrap();
+        let total_memory: usize = nodes.values().map(|node| node.memory_usage()).sum();
+
+        if let Ok(mut memory_usage) = self.memory_usage.write() {
+            *memory_usage = total_memory;
+        }
     }
 
     /// Apply decay to all nodes (simulating natural forgetting)

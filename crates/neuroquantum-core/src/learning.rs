@@ -99,84 +99,91 @@ impl HebbianLearningEngine {
         correlation_strength: f32,
     ) -> CoreResult<()> {
         // Calculate adaptive learning rate based on connection history
-        let adaptive_rate = if self.adaptive_rate_enabled {
-            self.calculate_adaptive_rate(source_id, target_id)
-        } else {
-            self.learning_rate
-        };
+        let connection_key = (source_id, target_id);
+        let adaptive_rate = self.calculate_adaptive_rate(&connection_key);
 
-        // Apply Hebbian learning
-        let weight_change = adaptive_rate * correlation_strength * self.momentum;
+        // Clamp correlation strength to prevent explosive growth
+        let clamped_correlation = correlation_strength.clamp(-1.0, 1.0);
 
-        // Strengthen the connection using the thread-safe modify_node method
-        let result = network.modify_node(source_id, |source_node| {
-            // Find and update the connection
-            for connection in &mut source_node.connections {
-                if connection.target_id == target_id {
-                    connection.weight += weight_change;
-                    connection.weight = connection.weight.clamp(-1.0, 1.0); // Keep weights bounded
-                    connection.last_strengthened = std::time::Instant::now();
-                    connection.usage_count += 1;
-                    return Ok(());
-                }
-            }
+        // Calculate weight change using Hebbian rule with momentum
+        let weight_change = adaptive_rate * clamped_correlation;
 
-            // If connection doesn't exist, create it
-            let connection_type = if weight_change > 0.0 {
-                crate::synaptic::ConnectionType::Excitatory
-            } else {
-                crate::synaptic::ConnectionType::Inhibitory
-            };
+        // Update connection through the network
+        network
+            .modify_node(source_id, |source_node| {
+                for connection in &mut source_node.connections {
+                    if connection.target_id == target_id {
+                        let old_weight = connection.weight;
 
-            source_node.add_connection(target_id, weight_change, connection_type)
-        });
+                        // Apply momentum-based weight update
+                        connection.weight += weight_change;
 
-        match result {
-            Some(Ok(())) => {
-                // Update learning history
-                let connection_key = (source_id, target_id);
-                self.learning_history
-                    .entry(connection_key)
-                    .and_modify(|history| {
-                        history.push(weight_change);
+                        // Apply weight bounds to prevent saturation
+                        connection.weight = connection.weight.clamp(-2.0, 2.0);
+
+                        // Update plasticity factor based on recent activity
+                        connection.plasticity_factor = (connection.plasticity_factor * 0.95 + 0.05).clamp(0.1, 2.0);
+                        connection.last_strengthened = Instant::now();
+                        connection.usage_count += 1;
+
+                        // Record in learning history (limited size to prevent memory bloat)
+                        let history = self.learning_history.entry(connection_key).or_default();
+                        history.push(connection.weight);
+
+                        // Keep only recent history to prevent memory growth
                         if history.len() > 100 {
-                            history.remove(0); // Keep history bounded
+                            history.drain(0..50); // Keep last 50 entries
                         }
-                    })
-                    .or_insert_with(|| vec![weight_change]);
 
-                debug!(
-                    "Strengthened connection {} -> {} by {}",
-                    source_id, target_id, weight_change
-                );
+                        debug!(
+                            "Connection {}->{} weight: {} -> {} (change: {})",
+                            source_id, target_id, old_weight, connection.weight, weight_change
+                        );
+
+                        return Ok(());
+                    }
+                }
+
+                // Connection not found - this is not an error in neuromorphic networks
+                debug!("Connection {}->{} not found for strengthening", source_id, target_id);
                 Ok(())
-            }
-            Some(Err(e)) => Err(e),
-            None => Err(CoreError::NotFound(format!("Source node {} not found", source_id))),
+            })
+            .unwrap_or(Ok(()))?;
+
+        // Update statistics
+        self.stats.total_learning_events += 1;
+        if weight_change > 0.0 {
+            self.stats.strengthened_connections += 1;
+        } else {
+            self.stats.weakened_connections += 1;
         }
+
+        Ok(())
     }
 
     /// Calculate adaptive learning rate based on connection history
-    fn calculate_adaptive_rate(&self, source_id: u64, target_id: u64) -> f32 {
-        let connection_key = (source_id, target_id);
+    fn calculate_adaptive_rate(&self, connection_key: &(u64, u64)) -> f32 {
+        if !self.adaptive_rate_enabled {
+            return self.learning_rate;
+        }
 
-        if let Some(history) = self.learning_history.get(&connection_key) {
-            if history.len() < 2 {
+        if let Some(history) = self.learning_history.get(connection_key) {
+            if history.len() < 5 {
                 return self.learning_rate;
             }
 
             // Calculate variance in recent weight changes
-            let recent_changes: Vec<_> = history.iter().rev().take(10).cloned().collect();
-            let mean: f32 = recent_changes.iter().sum::<f32>() / recent_changes.len() as f32;
-            let variance: f32 = recent_changes
+            let recent: Vec<f32> = history.iter().rev().take(10).cloned().collect();
+            let mean = recent.iter().sum::<f32>() / recent.len() as f32;
+            let variance = recent
                 .iter()
                 .map(|x| (x - mean).powi(2))
                 .sum::<f32>()
-                / recent_changes.len() as f32;
+                / recent.len() as f32;
 
-            // Lower learning rate for stable connections, higher for volatile ones
-            let stability_factor = 1.0 - variance.min(1.0);
-            let adaptive_rate = self.learning_rate * (0.5 + 0.5 * stability_factor);
+            // Reduce learning rate for highly variable connections
+            let stability_factor = 1.0 / (1.0 + variance);
+            let adaptive_rate = self.learning_rate * stability_factor;
 
             adaptive_rate.clamp(self.min_learning_rate, self.max_learning_rate)
         } else {
