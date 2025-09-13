@@ -1,11 +1,11 @@
-use crate::error::{ApiError, QuantumAuthClaims};
+use crate::error::ApiError;
 use actix_web::{ResponseError, web, HttpResponse, Result as ActixResult};
 use ring::rand::SecureRandom;
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{error, info, warn};
 use anyhow::Result;
-use jsonwebtoken::{encode, decode, Header, Algorithm, EncodingKey, DecodingKey, Validation};
 use base64::{Engine as _, engine::general_purpose};
 
 /// Quantum-resistant authentication service
@@ -91,6 +91,8 @@ impl QuantumAuthService {
             quantum_signature: self.generate_quantum_signature(user_id)?,
             kyber_public_key: general_purpose::STANDARD.encode(&self.kyber_keypair.public_key),
             dilithium_signature: self.generate_dilithium_signature(user_id)?,
+            exp: _now + self.token_expiry,
+            iat: _now,
         };
 
         let header = Header::new(Algorithm::HS512);
@@ -190,6 +192,18 @@ impl QuantumAuthService {
         };
         Self::new(&config)
     }
+}
+
+/// Quantum-resistant authentication claims
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QuantumAuthClaims {
+    pub user_id: String,
+    pub session_id: String,
+    pub quantum_signature: String,
+    pub kyber_public_key: String,
+    pub dilithium_signature: String,
+    pub exp: u64, // JWT expiration claim
+    pub iat: u64, // JWT issued at claim
 }
 
 /// Login endpoint with quantum-resistant authentication
