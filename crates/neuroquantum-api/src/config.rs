@@ -259,23 +259,22 @@ gc_threshold_mb = 100
         config
     }
 
-    /// Create test configuration for unit tests
-    #[cfg(test)]
+    /// Create test configuration for development and testing
     pub fn test_config() -> Self {
         Self {
             server: ServerConfig {
                 host: "127.0.0.1".to_string(),
-                port: 0, // Random port for testing
-                workers: 1,
+                port: 8080,
+                workers: 2,
                 keep_alive: 30,
-                client_timeout: 10,
-                shutdown_timeout: 5,
+                client_timeout: 5000,
+                shutdown_timeout: 5000,
             },
             database: DatabaseConfig {
-                connection_string: "memory://test".to_string(),
+                connection_string: "neuroquantum://localhost:5432/test".to_string(),
                 max_connections: 10,
-                connection_timeout: 5,
-                query_timeout: 10,
+                connection_timeout: 5000,
+                query_timeout: 30000,
                 neuromorphic_config: NeuromorphicConfig {
                     synaptic_strength_threshold: 0.5,
                     learning_rate: 0.01,
@@ -284,34 +283,34 @@ gc_threshold_mb = 100
                     hebbian_window_ms: 100,
                 },
                 quantum_config: QuantumConfig {
-                    default_quantum_level: 64,
-                    grovers_iterations: 100,
+                    default_quantum_level: 128,
+                    grovers_iterations: 10,
                     annealing_temperature: 1.0,
                     superposition_depth: 4,
-                    quantum_error_correction: false,
+                    quantum_error_correction: true,
                 },
                 dna_config: DnaConfig {
                     target_compression_ratio: 100.0,
-                    error_correction_redundancy: 1,
-                    quaternary_encoding_block_size: 256,
+                    error_correction_redundancy: 3,
+                    quaternary_encoding_block_size: 1024,
                     protein_folding_levels: 2,
-                    cache_size_mb: 10,
+                    cache_size_mb: 32,
                 },
             },
             auth: AuthConfig {
-                jwt_secret: "test_secret_key".to_string(),
+                jwt_secret: "test_secret_key_for_quantum_auth_development_only".to_string(),
                 token_expiry_seconds: 3600,
-                quantum_level: 64,
+                quantum_level: 128,
                 kyber_key_size: 1184,
                 dilithium_signature_size: 1952,
-                password_hash_cost: 4, // Lower cost for testing
+                password_hash_cost: 8,
             },
             metrics: MetricsConfig {
-                enabled: false,
-                port: 9091,
+                enabled: true,
+                port: 9090,
                 path: "/metrics".to_string(),
                 collection_interval_ms: 1000,
-                retention_hours: 1,
+                retention_hours: 24,
                 export_format: "prometheus".to_string(),
             },
             security: SecurityConfig {
@@ -320,16 +319,16 @@ gc_threshold_mb = 100
                 tls_cert_path: None,
                 tls_key_path: None,
                 cors_origins: vec!["http://localhost:3000".to_string()],
-                rate_limit_requests_per_minute: 100,
-                max_request_size_mb: 1,
+                rate_limit_requests_per_minute: 1000,
+                max_request_size_mb: 10,
             },
             performance: PerformanceConfig {
                 arm64_neon_enabled: true,
                 power_management_enabled: true,
-                max_power_consumption_mw: 1000.0,
-                cpu_frequency_scaling: false,
+                max_power_consumption_mw: 2000.0,
+                cpu_frequency_scaling: true,
                 memory_pool_size_mb: 64,
-                gc_threshold_mb: 10,
+                gc_threshold_mb: 32,
             },
         }
     }

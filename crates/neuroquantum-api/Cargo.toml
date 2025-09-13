@@ -31,6 +31,7 @@ rustls = "0.21"
 tokio-rustls = "0.24"
 argon2 = "0.5"
 jsonwebtoken = "9.0"
+base64 = "0.22"
 
 # Async & concurrency
 tokio = { version = "1.0", features = ["full"] }
@@ -38,7 +39,7 @@ futures = "0.3"
 
 # Monitoring & observability
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-actix-web = "0.7"
 metrics = "0.21"
 metrics-exporter-prometheus = { version = "0.12", optional = true }
@@ -54,7 +55,6 @@ thiserror = "1.0"
 # Utilities
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-base64 = "0.21"
 
 [dev-dependencies]
 actix-test = "0.1"

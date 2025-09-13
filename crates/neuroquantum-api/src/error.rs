@@ -40,7 +40,7 @@ pub enum ApiError {
 }
 
 /// Standard API response wrapper
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
@@ -49,7 +49,7 @@ pub struct ApiResponse<T> {
 }
 
 /// Response metadata for observability
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ResponseMetadata {
     pub request_id: String,
     pub timestamp: chrono::DateTime<chrono::Utc>,
@@ -120,6 +120,41 @@ pub struct QuantumAuthClaims {
     pub quantum_signature: String,
     pub kyber_public_key: String,
     pub dilithium_signature: String,
+}
+
+impl<T> From<ApiResponse<T>> for HttpResponse
+where
+    T: Serialize,
+{
+    fn from(response: ApiResponse<T>) -> Self {
+        if response.success {
+            HttpResponse::Ok().json(response)
+        } else {
+            let mut status = match &response.error {
+                Some(ApiError::ValidationError { .. }) => HttpResponse::BadRequest(),
+                Some(ApiError::AuthenticationFailed { .. }) => HttpResponse::Unauthorized(),
+                Some(ApiError::AuthorizationDenied { .. }) => HttpResponse::Forbidden(),
+                Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
+                Some(ApiError::QuantumOperationFailed { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
+                Some(ApiError::InternalError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::ResourceNotFound { .. }) => HttpResponse::NotFound(),
+                Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
+                None => HttpResponse::InternalServerError(),
+            };
+            status.json(response)
+        }
+    }
+}
+
+impl<T> ApiResponse<T>
+where
+    T: Serialize,
+{
+    pub fn error_response(self) -> HttpResponse {
+        self.into()
+    }
 }
 
 #[cfg(test)]

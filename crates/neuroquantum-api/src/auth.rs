@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{error, info, warn};
 use anyhow::Result;
 use jsonwebtoken::{encode, decode, Header, Algorithm, EncodingKey, DecodingKey, Validation};
+use base64::{Engine as _, engine::general_purpose};
 
 /// Quantum-resistant authentication service
 #[derive(Clone)]
@@ -77,8 +78,8 @@ impl QuantumAuthService {
     }
 
     /// Generate JWT token with quantum-resistant claims
-    pub fn generate_token(&self, user_id: &str, permissions: Vec<String>) -> Result<String> {
-        let now = SystemTime::now()
+    pub fn generate_token(&self, user_id: &str, _permissions: Vec<String>) -> Result<String> {
+        let _now = SystemTime::now()
             .duration_since(UNIX_EPOCH)?
             .as_secs();
 
@@ -86,7 +87,7 @@ impl QuantumAuthService {
             user_id: user_id.to_string(),
             session_id: uuid::Uuid::new_v4().to_string(),
             quantum_signature: self.generate_quantum_signature(user_id)?,
-            kyber_public_key: base64::encode(&self.kyber_keypair.public_key),
+            kyber_public_key: general_purpose::STANDARD.encode(&self.kyber_keypair.public_key),
             dilithium_signature: self.generate_dilithium_signature(user_id)?,
         };
 
@@ -156,7 +157,7 @@ impl QuantumAuthService {
             message.as_bytes(),
         );
 
-        Ok(base64::encode(signature.as_ref()))
+        Ok(general_purpose::STANDARD.encode(signature.as_ref()))
     }
 
     fn generate_dilithium_signature(&self, user_id: &str) -> Result<String> {
@@ -167,7 +168,7 @@ impl QuantumAuthService {
             message.as_bytes(),
         );
 
-        Ok(base64::encode(signature.as_ref()))
+        Ok(general_purpose::STANDARD.encode(signature.as_ref()))
     }
 
     fn verify_quantum_signature(&self, user_id: &str, signature: &str) -> Result<bool> {
@@ -181,6 +182,9 @@ impl QuantumAuthService {
             jwt_secret: "test_secret_key_for_quantum_auth".to_string(),
             token_expiry_seconds: 3600,
             quantum_level: 128,
+            kyber_key_size: 0,
+            dilithium_signature_size: 0,
+            password_hash_cost: 0,
         };
         Self::new(&config)
     }
@@ -218,10 +222,10 @@ pub async fn login(
         Ok(access_token) => {
             // Perform quantum key exchange if client provided public key
             let kyber_shared_secret = if let Some(client_key) = &request.kyber_public_key {
-                match base64::decode(client_key) {
+                match general_purpose::STANDARD.decode(client_key) {
                     Ok(key_bytes) => {
                         match auth_service.quantum_key_exchange(&key_bytes) {
-                            Ok(secret) => base64::encode(secret),
+                            Ok(secret) => general_purpose::STANDARD.encode(secret),
                             Err(e) => {
                                 error!("Quantum key exchange failed: {}", e);
                                 "".to_string()
@@ -329,12 +333,12 @@ async fn validate_user_credentials(username: &str, password: &str) -> bool {
 fn generate_refresh_token(user_id: &str) -> Result<String, ApiError> {
     // Generate secure refresh token
     let token = format!("refresh_{}_{}", user_id, uuid::Uuid::new_v4());
-    Ok(base64::encode(token))
+    Ok(general_purpose::STANDARD.encode(token))
 }
 
 fn validate_refresh_token(token: &str) -> Result<String, ApiError> {
     // Validate refresh token and extract user ID
-    match base64::decode(token) {
+    match general_purpose::STANDARD.decode(token) {
         Ok(decoded) => {
             let token_str = String::from_utf8(decoded)
                 .map_err(|_| ApiError::AuthenticationFailed {

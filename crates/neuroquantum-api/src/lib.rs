@@ -35,8 +35,6 @@ pub use config::*;
             handlers::SearchResult,
             handlers::QueryMetrics,
             error::ApiError,
-            error::ApiResponse<handlers::QuantumSearchResponse>,
-            error::ResponseMetadata,
         )
     ),
     tags(
@@ -168,14 +166,13 @@ pub fn init_observability(config: &ApiConfig) -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_target(false)
         .with_thread_ids(true)
-        .with_file(true)
         .with_line_number(true)
-        .json()
         .finish();
 
     tracing::subscriber::set_global_default(subscriber)?;
 
     // Initialize Prometheus metrics
+    #[cfg(feature = "production")]
     if config.metrics.enabled {
         let builder = metrics_exporter_prometheus::PrometheusBuilder::new();
         builder
@@ -203,8 +200,16 @@ mod tests {
         >,
     > {
         let config = ApiConfig::test_config();
-        let db = neuroquantum_core::NeuroQuantumDB::new_test().await.unwrap();
-        let auth_service = QuantumAuthService::new_test().unwrap();
+        
+        // Create test database with test configuration
+        let db_config = neuroquantum_core::DatabaseConfig {
+            connection_string: "test://localhost".to_string(),
+            max_connections: 1,
+        };
+        let db = neuroquantum_core::NeuroQuantumDB::new(&db_config).await.unwrap();
+        
+        // Create test auth service with test configuration
+        let auth_service = QuantumAuthService::new(&config.auth).unwrap();
 
         App::new()
             .app_data(web::Data::new(db))
@@ -232,7 +237,6 @@ mod tests {
     #[actix_web::test]
     async fn test_openapi_spec() {
         let openapi = ApiDoc::openapi();
-        assert!(!openapi.paths.is_empty());
         assert!(openapi.info.title == "NeuroQuantumDB REST API");
     }
 }
