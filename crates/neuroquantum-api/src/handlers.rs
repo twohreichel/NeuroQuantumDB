@@ -1,7 +1,7 @@
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
 use neuroquantum_core::{NeuroQuantumDB, QueryRequest};
-use neuroquantum_qsql::{parser::QSQLParser, QueryPlan};
-use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
+use neuroquantum_qsql::parser::QSQLParser;
+use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult, ResponseError};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tracing::{error, info};
@@ -99,7 +99,7 @@ pub async fn quantum_search(
     let quantum_level = query.quantum_level.unwrap_or(128);
     if quantum_level > 255 {
         let metadata = create_metadata(request_id, start_time, false);
-        return Ok(ApiResponse::error(
+        return Ok(ApiResponse::<()>::error(
             ApiError::ValidationError {
                 field: "quantum_level".to_string(),
                 message: "Quantum level must be between 0-255".to_string(),
@@ -111,7 +111,7 @@ pub async fn quantum_search(
     // Execute quantum-enhanced search
     match execute_quantum_search(&db, &query, quantum_level).await {
         Ok(response) => {
-            let metadata = create_metadata(request_id, start_time, true);
+            let metadata = create_metadata(request_id.clone(), start_time, true);
             info!(
                 request_id = %request_id,
                 results_count = response.results.len(),
@@ -122,14 +122,14 @@ pub async fn quantum_search(
             Ok(HttpResponse::Ok().json(ApiResponse::success(response, metadata)))
         }
         Err(e) => {
-            let metadata = create_metadata(request_id, start_time, false);
+            let metadata = create_metadata(request_id.clone(), start_time, false);
             error!(
                 request_id = %request_id,
                 error = %e,
                 "Quantum search failed"
             );
 
-            Ok(ApiResponse::error(
+            Ok(ApiResponse::<()>::error(
                 ApiError::QuantumOperationFailed {
                     operation: "quantum_search".to_string(),
                 },
@@ -172,16 +172,16 @@ pub async fn execute_qsql(
     let query_plan = match parser.parse_query(&request.query) {
         Ok(plan) => plan,
         Err(e) => {
-            return Ok(ApiError::InvalidQuery {
+            return Ok(HttpResponse::BadRequest().json(ApiError::InvalidQuery {
                 details: format!("QSQL parsing error: {}", e),
-            }.error_response());
+            }));
         }
     };
 
     // Execute query with neuromorphic optimization
     match execute_qsql_query(&db, query_plan, request.optimize.unwrap_or(true)).await {
         Ok(response) => {
-            let metadata = create_metadata(request_id, start_time, true);
+            let metadata = create_metadata(request_id.clone(), start_time, true);
             info!(
                 request_id = %request_id,
                 execution_time_us = response.performance_metrics.execution_time_us,
@@ -197,9 +197,9 @@ pub async fn execute_qsql(
                 "QSQL query execution failed"
             );
 
-            Ok(ApiError::InvalidQuery {
+            Ok(HttpResponse::InternalServerError().json(ApiError::InvalidQuery {
                 details: format!("Query execution error: {}", e),
-            }.error_response())
+            }))
         }
     }
 }
@@ -276,7 +276,7 @@ pub async fn schema_info(
     // Retrieve schema information
     match db.get_schema_info().await {
         Ok(schema_info) => {
-            let metadata = create_metadata(request_id, start_time, true);
+            let metadata = create_metadata(request_id.clone(), start_time, true);
             info!(
                 request_id = %request_id,
                 "Schema introspection completed successfully"
@@ -285,14 +285,14 @@ pub async fn schema_info(
             Ok(HttpResponse::Ok().json(ApiResponse::success(schema_info, metadata)))
         }
         Err(e) => {
-            let metadata = create_metadata(request_id, start_time, false);
+            let metadata = create_metadata(request_id.clone(), start_time, false);
             error!(
                 request_id = %request_id,
                 error = %e,
                 "Schema introspection failed"
             );
 
-            Ok(ApiResponse::error(
+            Ok(ApiResponse::<()>::error(
                 ApiError::InternalError {
                     context: format!("Schema introspection failed: {}", e),
                 },
