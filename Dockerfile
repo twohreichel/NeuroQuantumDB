@@ -30,25 +30,19 @@ RUN rustup target add aarch64-unknown-linux-gnu
 RUN cargo build --release --target aarch64-unknown-linux-gnu \
     --features "neon-optimizations,quantum-simd,dna-compression"
 
-# Stage 2: Zig builder (for performance modules)
+# Stage 2: Zig builder (for performance modules) - SIMPLIFIED
 FROM --platform=linux/arm64 alpine:3.18 as zig-builder
 
-# Install Zig compiler
+# Install Zig compiler for future use
 RUN apk add --no-cache wget tar xz
 RUN wget https://ziglang.org/download/0.11.0/zig-linux-aarch64-0.11.0.tar.xz
 RUN tar -xf zig-linux-aarch64-0.11.0.tar.xz
 RUN mv zig-linux-aarch64-0.11.0 /opt/zig
 
 WORKDIR /app
-COPY zig/ zig/ 2>/dev/null || true
 
-# Build Zig performance modules (if they exist)
-RUN if [ -d "zig" ]; then \
-    /opt/zig/zig build-lib zig/neon-simd/simd_ops.zig \
-        -target aarch64-linux -O ReleaseFast -dynamic || true; \
-    /opt/zig/zig build-lib zig/quantum-kernels/grover.zig \
-        -target aarch64-linux -O ReleaseFast -dynamic || true; \
-    fi
+# For now, skip optional Zig modules (can be added later)
+RUN echo "Zig compiler ready for future performance modules"
 
 # Stage 3: Security scanner
 FROM --platform=linux/arm64 aquasec/trivy:latest as security-scanner
@@ -70,10 +64,6 @@ ENV NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
 COPY --from=rust-builder --chown=nonroot:nonroot \
     /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-core \
     /usr/local/bin/neuroquantumdb
-
-# Copy Zig performance modules (if built)
-COPY --from=zig-builder --chown=nonroot:nonroot \
-    /app/*.so /usr/local/lib/ 2>/dev/null || true
 
 # Copy production configuration
 COPY --chown=nonroot:nonroot config/prod.toml /etc/neuroquantumdb/config.toml

@@ -1,7 +1,7 @@
 # NeuroQuantumDB Production-Ready Makefile
 # Target: ARM64 (Raspberry Pi 4) with enterprise standards
 
-.PHONY: help build test check security benchmark docker clean install dev prod
+.PHONY: help build test test-full check security benchmark docker docker-build docker-run docker-clean clean install dev prod build-release build-arm64 monitor memory-profile power-monitor monitoring docker-security
 
 # Default target
 help: ## Show this help message
@@ -31,6 +31,8 @@ test: ## Run comprehensive test suite (80%+ coverage required)
 	@echo "📊 Generating coverage report..."
 	cargo tarpaulin --workspace --out Html --output-dir target/coverage
 
+test-full: test ## Alias for comprehensive test suite
+
 check: ## Static analysis and linting
 	@echo "🔍 Running static analysis..."
 	cargo fmt --all -- --check
@@ -51,6 +53,8 @@ build: ## Build optimized release for ARM64 (Raspberry Pi 4)
 	RUSTFLAGS="$(RUSTFLAGS)" cargo build $(CARGO_FLAGS)
 	@echo "✅ Build complete. Binary size: $$(du -h target/$(TARGET)/$(PROFILE)/neuroquantum-core | cut -f1)"
 
+build-release: build ## Alias for release build
+
 build-arm64: build ## Alias for ARM64 build
 
 benchmark: ## Run performance benchmarks
@@ -59,10 +63,30 @@ benchmark: ## Run performance benchmarks
 	@echo "📈 Benchmark results saved to target/criterion/"
 
 # Docker targets
-docker: ## Build production Docker image (<15MB target)
+docker-build: ## Build production Docker image (<15MB target)
 	@echo "🐳 Building production Docker image..."
 	docker build --platform linux/arm64 -t neuroquantumdb:latest .
 	@echo "📦 Image size: $$(docker images neuroquantumdb:latest --format 'table {{.Size}}')"
+
+docker-run: ## Run NeuroQuantumDB in Docker container
+	@echo "🚀 Starting NeuroQuantumDB container..."
+	docker run -d \
+		--name neuroquantumdb \
+		--platform linux/arm64 \
+		-p 8080:8080 \
+		--restart unless-stopped \
+		neuroquantumdb:latest
+	@echo "✅ NeuroQuantumDB is running at http://localhost:8080"
+	@echo "🔍 Check health: curl http://localhost:8080/health"
+
+docker-clean: ## Stop and remove Docker containers and images
+	@echo "🧹 Cleaning up Docker resources..."
+	-docker stop neuroquantumdb
+	-docker rm neuroquantumdb
+	-docker rmi neuroquantumdb:latest
+	@echo "✅ Docker cleanup complete"
+
+docker: docker-build ## Alias for docker-build
 
 docker-security: ## Security scan Docker image
 	@echo "🔒 Scanning Docker image for vulnerabilities..."
@@ -70,16 +94,40 @@ docker-security: ## Security scan Docker image
 		-v $(PWD):/tmp aquasec/trivy image neuroquantumdb:latest
 
 # Infrastructure targets
-install: ## Install for production deployment
+install: build ## Install for production deployment
 	@echo "📦 Installing NeuroQuantumDB for production..."
-	sudo cp target/$(TARGET)/$(PROFILE)/neuroquantum-core /usr/local/bin/
+	sudo mkdir -p /etc/neuroquantumdb
+	sudo cp target/$(TARGET)/$(PROFILE)/neuroquantum-api /usr/local/bin/neuroquantumdb
 	sudo cp config/prod.toml /etc/neuroquantumdb/
-	sudo systemctl enable neuroquantumdb
-	sudo systemctl start neuroquantumdb
+	@echo "✅ Installation complete"
 
 monitoring: ## Set up monitoring and observability
 	@echo "📊 Setting up monitoring infrastructure..."
 	docker-compose -f docker/monitoring/docker-compose.yml up -d
+
+# Monitoring targets
+monitor: ## Real-time monitoring start
+	@echo "📊 Starting real-time monitoring..."
+	@echo "🔍 CPU and Memory usage:"
+	@top -b -n 1 | head -n 20
+	@echo "📈 Disk usage:"
+	@df -h
+	@echo "🌐 Network connections:"
+	@ss -tuln
+
+memory-profile: ## Memory profiling
+	@echo "🧠 Profiling memory usage..."
+	@command -v cargo-heap >/dev/null 2>&1 || cargo install cargo-heap
+	cargo heap --workspace --all-features
+
+power-monitor: ## Power monitoring (requires powertop)
+	@echo "🔋 Monitoring power consumption..."
+	@if command -v powertop >/dev/null 2>&1; then \
+		sudo powertop --html=target/powertop-report.html; \
+		echo "📄 Power consumption report saved to target/powertop-report.html"; \
+	else \
+		echo "⚠️  powertop not installed. Install with: sudo apt install powertop"; \
+	fi
 
 # Clean targets
 clean: ## Clean build artifacts
