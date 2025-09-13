@@ -20,13 +20,15 @@ pub struct QuantumAuthService {
 /// Kyber key encapsulation mechanism for quantum-resistant key exchange
 #[derive(Clone)]
 pub struct KyberKeyPair {
-    public_key: Vec<u8>,
+    pub public_key: Vec<u8>,
+    #[allow(dead_code)]
     private_key: Vec<u8>,
 }
 
 /// Dilithium digital signature for quantum-resistant authentication
 #[derive(Clone)]
 pub struct DilithiumKeyPair {
+    #[allow(dead_code)]
     public_key: Vec<u8>,
     private_key: Vec<u8>,
 }
@@ -115,7 +117,7 @@ impl QuantumAuthService {
     }
 
     /// Perform quantum key exchange using Kyber
-    pub fn quantum_key_exchange(&self, client_public_key: &[u8]) -> Result<Vec<u8>> {
+    pub fn quantum_key_exchange(&self, _client_public_key: &[u8]) -> Result<Vec<u8>> {
         // Simulate Kyber key encapsulation
         // In a real implementation, this would use a proper Kyber library
         let rng = ring::rand::SystemRandom::new();

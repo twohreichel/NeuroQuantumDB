@@ -1,7 +1,5 @@
-use anyhow::Result;
 use actix_web::{HttpResponse, ResponseError};
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use utoipa::ToSchema;
 use thiserror::Error;
 

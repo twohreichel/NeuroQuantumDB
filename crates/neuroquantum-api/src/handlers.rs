@@ -1,7 +1,7 @@
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
 use neuroquantum_core::{NeuroQuantumDB, QueryRequest};
 use neuroquantum_qsql::parser::QSQLParser;
-use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult, ResponseError};
+use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tracing::{error, info};
@@ -80,11 +80,11 @@ pub struct QueryMetrics {
     ),
     tag = "Quantum Operations"
 )]
-#[tracing::instrument(skip(db, req))]
+#[tracing::instrument(skip(db, _req))]
 pub async fn quantum_search(
     query: web::Query<QuantumSearchRequest>,
     db: web::Data<NeuroQuantumDB>,
-    req: HttpRequest,
+    _req: HttpRequest,
 ) -> ActixResult<HttpResponse> {
     let start_time = Instant::now();
     let request_id = uuid::Uuid::new_v4().to_string();
@@ -95,19 +95,9 @@ pub async fn quantum_search(
         "Processing quantum search request"
     );
 
-    // Validate quantum level
+    // Validate quantum level (u8 is always <= 255, but we keep validation for API consistency)
     let quantum_level = query.quantum_level.unwrap_or(128);
-    if quantum_level > 255 {
-        let metadata = create_metadata(request_id, start_time, false);
-        return Ok(ApiResponse::<()>::error(
-            ApiError::ValidationError {
-                field: "quantum_level".to_string(),
-                message: "Quantum level must be between 0-255".to_string(),
-            },
-            metadata,
-        ).error_response());
-    }
-
+    
     // Execute quantum-enhanced search
     match execute_quantum_search(&db, &query, quantum_level).await {
         Ok(response) => {

@@ -349,10 +349,6 @@ gc_threshold_mb = 100
             return Err(anyhow::anyhow!("JWT secret must be at least 32 characters"));
         }
 
-        if self.auth.quantum_level > 255 {
-            return Err(anyhow::anyhow!("Quantum level must be between 0-255"));
-        }
-
         // Validate performance configuration
         if self.performance.max_power_consumption_mw <= 0.0 {
             return Err(anyhow::anyhow!("Maximum power consumption must be positive"));
@@ -405,18 +401,18 @@ mod tests {
     fn test_config_validation_errors() {
         let mut config = ApiConfig::test_config();
 
-        // Test invalid power consumption
+        // Test invalid JWT secret (too short)
         config.auth.jwt_secret = "short".to_string();
+        assert!(config.validate().is_err());
+
+        // Test invalid power consumption
+        config.auth.jwt_secret = "this_is_a_very_long_secret_key_for_testing".to_string();
         config.performance.max_power_consumption_mw = -100.0;
         assert!(config.validate().is_err());
 
         // Test invalid compression ratio
         config.performance.max_power_consumption_mw = 2000.0;
         config.database.dna_config.target_compression_ratio = 0.5;
-
-        // Test invalid quantum level
-        config.auth.jwt_secret = "this_is_a_very_long_secret_key_for_testing".to_string();
-        config.auth.quantum_level = 255;
         assert!(config.validate().is_err());
     }
 }

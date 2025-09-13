@@ -7,7 +7,7 @@ pub mod config;
 use actix_web::{web, App, HttpServer, middleware::Logger};
 use actix_cors::Cors;
 use std::io;
-use tracing::{info, warn};
+use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -160,7 +160,7 @@ impl ApiServer {
 }
 
 /// Initialize tracing and metrics for production deployment
-pub fn init_observability(config: &ApiConfig) -> anyhow::Result<()> {
+pub fn init_observability(_config: &ApiConfig) -> anyhow::Result<()> {
     // Initialize structured logging
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -200,14 +200,14 @@ mod tests {
         >,
     > {
         let config = ApiConfig::test_config();
-        
+
         // Create test database with test configuration
         let db_config = neuroquantum_core::DatabaseConfig {
             connection_string: "test://localhost".to_string(),
             max_connections: 1,
         };
         let db = neuroquantum_core::NeuroQuantumDB::new(&db_config).await.unwrap();
-        
+
         // Create test auth service with test configuration
         let auth_service = QuantumAuthService::new(&config.auth).unwrap();
 

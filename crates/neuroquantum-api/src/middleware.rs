@@ -1,23 +1,17 @@
 use actix_web::{
     body::EitherBody,
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, ResponseError,
-    http::{header::HeaderValue, StatusCode},
+    Error, HttpMessage,
     HttpResponse,
 };
-use futures::future::{ok, ready, Ready};
+use futures::future::{ok, Ready};
 use std::{
     collections::HashMap,
-    fmt,
-    future::Future,
-    pin::Pin,
     rc::Rc,
     cell::RefCell,
-    sync::{Arc, Mutex},
-    task::{Context, Poll},
-    time::{Duration, Instant},
+    time::Instant,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::error::ApiError;
 
@@ -70,17 +64,6 @@ where
             .and_then(|s| s.parse::<u8>().ok())
             .unwrap_or(64);
 
-        // Validate quantum security headers
-        if quantum_level > 255 {
-            let response = HttpResponse::BadRequest().json(ApiError::ValidationError {
-                field: "X-Quantum-Level".to_string(),
-                message: "Quantum level must be 0-255".to_string(),
-            });
-            return Box::pin(async move {
-                Ok(req.into_response(response).map_into_right_body())
-            });
-        }
-
         // Add quantum security context to request
         req.extensions_mut().insert(QuantumSecurityContext {
             level: quantum_level,
@@ -121,21 +104,6 @@ impl RateLimitMiddleware {
             window_seconds,
             clients: Rc::new(RefCell::new(HashMap::new())),
         }
-    }
-
-    fn get_client_ip(&self, req: &ServiceRequest) -> String {
-        // Extract client IP from various headers
-        req.headers()
-            .get("X-Forwarded-For")
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.split(',').next())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| {
-                req.connection_info()
-                    .realip_remote_addr()
-                    .unwrap_or("unknown")
-                    .to_string()
-            })
     }
 }
 
