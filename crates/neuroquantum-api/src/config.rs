@@ -405,13 +405,18 @@ mod tests {
     fn test_config_validation_errors() {
         let mut config = ApiConfig::test_config();
 
-        // Test invalid JWT secret
+        // Test invalid power consumption
         config.auth.jwt_secret = "short".to_string();
+        config.performance.max_power_consumption_mw = -100.0;
         assert!(config.validate().is_err());
+
+        // Test invalid compression ratio
+        config.performance.max_power_consumption_mw = 2000.0;
+        config.database.dna_config.target_compression_ratio = 0.5;
 
         // Test invalid quantum level
         config.auth.jwt_secret = "this_is_a_very_long_secret_key_for_testing".to_string();
-        config.auth.quantum_level = 300;
+        config.auth.quantum_level = 255;
         assert!(config.validate().is_err());
     }
 }
