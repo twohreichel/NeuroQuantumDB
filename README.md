@@ -16,9 +16,7 @@
 ## 📋 Table of Contents
 
 - [🚀 Quick Start](#-quick-start)
-- [🏗️ Architecture](#️-architecture)
 - [🎯 Performance Targets](#-performance-targets)
-- [⚙️ Development Environment](#️-development-environment)
 - [🔧 Build Commands](#-build-commands)
 - [🧪 Testing](#-testing)
 - [🐳 Docker Support](#-docker-support)
