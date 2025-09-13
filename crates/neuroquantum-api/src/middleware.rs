@@ -1,15 +1,18 @@
 use actix_web::{
-    dev::{Service, ServiceRequest, ServiceResponse, Transform},
+    body::EitherBody,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, ResponseError,
     http::{header::HeaderValue, StatusCode},
     HttpResponse,
 };
-use futures::future::{ok, Ready};
+use futures::future::{ok, ready, Ready};
 use std::{
     collections::HashMap,
     fmt,
     future::Future,
     pin::Pin,
+    rc::Rc,
+    cell::RefCell,
     sync::{Arc, Mutex},
     task::{Context, Poll},
     time::{Duration, Instant},
@@ -33,7 +36,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type InitError = ();
     type Transform = QuantumSecurityService<S>;
@@ -54,7 +57,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
@@ -69,13 +72,12 @@ where
 
         // Validate quantum security headers
         if quantum_level > 255 {
-            return Box::pin(async {
-                Ok(req.into_response(
-                    ApiError::ValidationError {
-                        field: "X-Quantum-Level".to_string(),
-                        message: "Quantum level must be 0-255".to_string(),
-                    }.error_response().into_body()
-                ))
+            let response = HttpResponse::BadRequest().json(ApiError::ValidationError {
+                field: "X-Quantum-Level".to_string(),
+                message: "Quantum level must be 0-255".to_string(),
+            });
+            return Box::pin(async move {
+                Ok(req.into_response(response).map_into_right_body())
             });
         }
 
@@ -88,7 +90,7 @@ where
         let fut = self.service.call(req);
         Box::pin(async move {
             let res = fut.await?;
-            Ok(res)
+            Ok(res.map_into_left_body())
         })
     }
 }
@@ -127,12 +129,13 @@ impl RateLimitMiddleware {
             .get("X-Forwarded-For")
             .and_then(|h| h.to_str().ok())
             .and_then(|s| s.split(',').next())
+            .map(|s| s.to_string())
             .unwrap_or_else(|| {
                 req.connection_info()
-                    .peer_addr()
+                    .realip_remote_addr()
                     .unwrap_or("unknown")
+                    .to_string()
             })
-            .to_string()
     }
 }
 
@@ -142,7 +145,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type InitError = ();
     type Transform = RateLimitService<S>;
@@ -171,7 +174,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
@@ -182,12 +185,13 @@ where
             .get("X-Forwarded-For")
             .and_then(|h| h.to_str().ok())
             .and_then(|s| s.split(',').next())
+            .map(|s| s.to_string())
             .unwrap_or_else(|| {
                 req.connection_info()
-                    .peer_addr()
+                    .realip_remote_addr()
                     .unwrap_or("unknown")
-            })
-            .to_string();
+                    .to_string()
+            });
 
         let now = Instant::now();
         let mut clients = self.clients.borrow_mut();
@@ -206,6 +210,9 @@ where
 
         // Check rate limit
         if client_limit.requests >= self.requests_per_window {
+            let requests_per_window = self.requests_per_window;
+            let window_seconds = self.window_seconds;
+
             warn!(
                 client_ip = %client_ip,
                 requests = client_limit.requests,
@@ -213,13 +220,13 @@ where
                 "Rate limit exceeded"
             );
 
-            return Box::pin(async {
-                Ok(req.into_response(
-                    ApiError::RateLimitExceeded {
-                        limit: self.requests_per_window,
-                        window: format!("{} seconds", self.window_seconds),
-                    }.error_response().into_body()
-                ))
+            let response = HttpResponse::TooManyRequests().json(ApiError::RateLimitExceeded {
+                limit: requests_per_window,
+                window: format!("{} seconds", window_seconds),
+            });
+
+            return Box::pin(async move {
+                Ok(req.into_response(response).map_into_right_body())
             });
         }
 
@@ -230,7 +237,7 @@ where
         let fut = self.service.call(req);
         Box::pin(async move {
             let res = fut.await?;
-            Ok(res)
+            Ok(res.map_into_left_body())
         })
     }
 }
@@ -295,7 +302,7 @@ where
             res.headers_mut().insert(
                 actix_web::http::header::HeaderName::from_static("x-processing-time-us"),
                 actix_web::http::header::HeaderValue::from_str(&processing_time.as_micros().to_string())
-                    .unwrap_or_default(),
+                    .unwrap_or_else(|_| actix_web::http::header::HeaderValue::from_static("0")),
             );
 
             // Estimate power consumption (simplified)
@@ -303,7 +310,7 @@ where
             res.headers_mut().insert(
                 actix_web::http::header::HeaderName::from_static("x-power-consumption-mw"),
                 actix_web::http::header::HeaderValue::from_str(&power_estimate_mw.to_string())
-                    .unwrap_or_default(),
+                    .unwrap_or_else(|_| actix_web::http::header::HeaderValue::from_static("0")),
             );
 
             Ok(res)
@@ -311,7 +318,7 @@ where
     }
 }
 
-impl PowerOptimizationService<S> {
+impl<S> PowerOptimizationService<S> {
     fn should_use_low_power_mode(&self, req: &ServiceRequest) -> bool {
         // Determine if request should use low-power mode based on headers or system state
         req.headers()
