@@ -2,8 +2,11 @@
 # Target: ARM64 (Raspberry Pi 4)
 # Size target: < 15MB
 
+# Build argument for target platform
+ARG TARGETPLATFORM=linux/arm64
+
 # Stage 1: Rust builder
-FROM --platform=linux/arm64 rust:latest AS rust-builder
+FROM --platform=$TARGETPLATFORM rust:latest AS rust-builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -32,7 +35,7 @@ RUN cargo build --release --target aarch64-unknown-linux-gnu \
     --bin neuroquantum-api
 
 # Stage 2: Zig builder (for performance modules) - SIMPLIFIED
-FROM --platform=linux/arm64 alpine:3.18 AS zig-builder
+FROM alpine:3.18 AS zig-builder
 
 # Install Zig compiler for future use
 RUN apk add --no-cache wget tar xz
@@ -46,12 +49,12 @@ WORKDIR /app
 RUN echo "Zig compiler ready for future performance modules"
 
 # Stage 3: Security scanner
-FROM --platform=linux/arm64 aquasec/trivy:latest AS security-scanner
+FROM aquasec/trivy:latest AS security-scanner
 COPY --from=rust-builder /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-api /tmp/scan/
 RUN trivy fs --severity HIGH,CRITICAL --no-progress /tmp/scan/ || true
 
 # Stage 4: Production runtime (ultra-minimal)
-FROM --platform=linux/arm64 gcr.io/distroless/cc-debian12:latest
+FROM --platform=$TARGETPLATFORM gcr.io/distroless/cc-debian12:latest
 
 # Create non-root user for security
 USER nonroot:nonroot
