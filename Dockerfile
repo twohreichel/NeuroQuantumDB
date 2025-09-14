@@ -3,7 +3,7 @@
 # Size target: < 15MB
 
 # Stage 1: Rust builder
-FROM --platform=linux/arm64 rust:1.70-slim as rust-builder
+FROM --platform=linux/arm64 rust:latest AS rust-builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -22,16 +22,17 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /app
 
 # Copy workspace configuration
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 COPY crates/ crates/
 
-# Build optimized binary for ARM64
+# Generate a compatible lock file and build
 RUN rustup target add aarch64-unknown-linux-gnu
+RUN cargo generate-lockfile
 RUN cargo build --release --target aarch64-unknown-linux-gnu \
-    --features "neon-optimizations,quantum-simd,dna-compression"
+    --bin neuroquantum-api
 
 # Stage 2: Zig builder (for performance modules) - SIMPLIFIED
-FROM --platform=linux/arm64 alpine:3.18 as zig-builder
+FROM --platform=linux/arm64 alpine:3.18 AS zig-builder
 
 # Install Zig compiler for future use
 RUN apk add --no-cache wget tar xz
@@ -45,8 +46,8 @@ WORKDIR /app
 RUN echo "Zig compiler ready for future performance modules"
 
 # Stage 3: Security scanner
-FROM --platform=linux/arm64 aquasec/trivy:latest as security-scanner
-COPY --from=rust-builder /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-core /tmp/scan/
+FROM --platform=linux/arm64 aquasec/trivy:latest AS security-scanner
+COPY --from=rust-builder /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-api /tmp/scan/
 RUN trivy fs --severity HIGH,CRITICAL --no-progress /tmp/scan/ || true
 
 # Stage 4: Production runtime (ultra-minimal)
@@ -62,7 +63,7 @@ ENV NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
 
 # Copy optimized binary
 COPY --from=rust-builder --chown=nonroot:nonroot \
-    /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-core \
+    /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-api \
     /usr/local/bin/neuroquantumdb
 
 # Copy production configuration
