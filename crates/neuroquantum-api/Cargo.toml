@@ -1,49 +1,49 @@
 [package]
 name = "neuroquantum-api"
-version = "0.1.0"
-edition = "2021"
-authors = ["NeuroQuantumDB Team"]
-description = "REST API server for NeuroQuantumDB"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NeuroQuantumDB REST API Server"
 
 [dependencies]
-# Core dependencies
+# Local dependencies
 neuroquantum-core = { path = "../neuroquantum-core" }
-neuroquantum-qsql = { path = "../neuroquantum-qsql" }
 
 # Web framework
-actix-web = "4.4"
-actix-cors = "0.6"
-actix-ws = "0.2"
-
-# Async runtime
-tokio = { version = "1.0", features = ["full"] }
+actix-web = "4.11.0"
+actix-cors = "0.7.1"
+actix-ws = "0.3.0"
+actix-web-prometheus = "0.1"
 futures-util = "0.3"
 
+# Async runtime
+tokio.workspace = true
+
 # Serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde.workspace = true
+serde_json.workspace = true
 
 # Error handling
-anyhow = "1.0"
-thiserror = "1.0"
+anyhow.workspace = true
+thiserror.workspace = true
 
-# Logging and observability
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-actix-web-prometheus = "0.1"
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
-# Documentation
-utoipa = { version = "4.0", features = ["actix_extras"] }
-utoipa-swagger-ui = { version = "4.0", features = ["actix-web"] }
+# UUID and time
+uuid.workspace = true
+chrono.workspace = true
 
-# Utilities
-uuid = { version = "1.0", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
+# API documentation
+utoipa = { version = "5.4.0", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 
-# Configuration (if needed)
-config = "0.13"
-toml = "0.8"
+# Configuration
+config.workspace = true
+toml = "0.9.6"
 
-[[bin]]
-name = "neuroquantum-api"
-path = "src/main.rs"
+[features]
+default = []

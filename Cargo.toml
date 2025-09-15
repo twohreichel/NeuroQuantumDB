@@ -49,6 +49,10 @@ ring = "0.16"
 rustls = { version = "0.21", features = ["dangerous_configuration"] }
 x25519-dalek = "2.0"
 
+# UUID and time handling
+uuid = { version = "1.4", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
 # ARM64 NEON optimizations
 wide = "0.7"
 

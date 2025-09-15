@@ -211,6 +211,12 @@ impl ApiServer {
                         .route("/config", web::put().to(handlers::update_config))
                 )
 
+                // Data Management endpoints
+                .service(
+                    web::scope("/api/v1/data")
+                        .route("/load", web::post().to(handlers::load_data))
+                )
+
                 // WebSocket endpoint for real-time communication
                 .route("/api/v1/realtime", web::get().to(websocket_handler))
         })
