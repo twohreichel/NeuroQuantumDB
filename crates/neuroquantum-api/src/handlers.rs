@@ -486,6 +486,19 @@ pub async fn dna_compress(
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
+    // Validate compression level
+    if request.compression_level > 9 {
+        return Err(ApiError::BadRequest {
+            message: "DNA compression level cannot exceed 9".to_string()
+        });
+    }
+
+    if request.compression_level == 0 {
+        return Err(ApiError::BadRequest {
+            message: "DNA compression level must be at least 1".to_string()
+        });
+    }
+
     let original_size = request.data.len() as u64;
     let compressed_size = original_size / 1180; // Simulate 1180:1 compression
 

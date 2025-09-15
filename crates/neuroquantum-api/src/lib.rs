@@ -143,7 +143,7 @@ impl ApiServer {
         // Initialize the database with config
         let db_config = DatabaseConfig {
             connection_string: "neuroquantum://localhost".to_string(),
-            max_connections: self.config.server.max_connections as u32,
+            max_connections: self.config.database.max_connections.unwrap_or(1000) as u32,
         };
         let db = NeuroQuantumDB::new(&db_config).await?;
 

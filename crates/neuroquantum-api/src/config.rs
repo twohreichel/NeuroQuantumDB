@@ -1,12 +1,14 @@
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
+use std::fs;
+use std::env;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ApiConfig {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub auth: AuthConfig,
-    pub monitoring: MonitoringConfig,
+    pub metrics: MetricsConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -14,52 +16,67 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub workers: usize,
-    pub max_connections: usize,
+    pub keep_alive: Option<u32>,
+    pub client_timeout: Option<u32>,
+    pub shutdown_timeout: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DatabaseConfig {
-    pub neuromorphic: NeuromorphicConfig,
-    pub quantum: QuantumConfig,
-    pub dna: DnaConfig,
+    pub connection_string: Option<String>,
+    pub max_connections: Option<u32>,
+    pub connection_timeout: Option<u32>,
+    pub query_timeout: Option<u32>,
+    pub neuromorphic_config: Option<NeuromorphicConfig>,
+    pub quantum_config: Option<QuantumConfig>,
+    pub dna_config: Option<DnaConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NeuromorphicConfig {
+    pub synaptic_strength_threshold: Option<f32>,
     pub learning_rate: f32,
-    pub plasticity_threshold: f32,
-    pub max_synapses: u64,
-    pub auto_optimization: bool,
+    pub plasticity_decay: Option<f32>,
+    pub max_synaptic_connections: Option<u64>,
+    pub hebbian_window_ms: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct QuantumConfig {
-    pub processors: u32,
-    pub grover_iterations: u32,
-    pub annealing_steps: u32,
-    pub error_correction: bool,
+    pub default_quantum_level: Option<u32>,
+    pub grovers_iterations: Option<u32>,
+    pub annealing_temperature: Option<f32>,
+    pub superposition_depth: Option<u32>,
+    pub quantum_error_correction: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DnaConfig {
-    pub compression_level: u8,
-    pub error_correction: bool,
+    pub target_compression_ratio: Option<f32>,
+    pub error_correction_redundancy: Option<u32>,
+    pub quaternary_encoding_block_size: Option<u32>,
+    pub protein_folding_levels: Option<u32>,
     pub cache_size_mb: u32,
-    pub biological_patterns: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AuthConfig {
-    pub enabled: bool,
     pub jwt_secret: String,
-    pub api_key_expiry_hours: u32,
+    pub token_expiry_seconds: Option<u32>,
+    pub quantum_level: Option<u32>,
+    pub kyber_key_size: Option<u32>,
+    pub dilithium_signature_size: Option<u32>,
+    pub password_hash_cost: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MonitoringConfig {
-    pub prometheus_enabled: bool,
-    pub metrics_path: String,
-    pub health_check_interval: u64,
+pub struct MetricsConfig {
+    pub enabled: bool,
+    pub port: u16,
+    pub path: String,
+    pub collection_interval_ms: Option<u32>,
+    pub retention_hours: Option<u32>,
+    pub export_format: Option<String>,
 }
 
 impl Default for ApiConfig {
@@ -69,37 +86,34 @@ impl Default for ApiConfig {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
                 workers: 4,
-                max_connections: 1000,
+                keep_alive: None,
+                client_timeout: None,
+                shutdown_timeout: None,
             },
             database: DatabaseConfig {
-                neuromorphic: NeuromorphicConfig {
-                    learning_rate: 0.012,
-                    plasticity_threshold: 0.5,
-                    max_synapses: 1000000,
-                    auto_optimization: true,
-                },
-                quantum: QuantumConfig {
-                    processors: 4,
-                    grover_iterations: 15,
-                    annealing_steps: 1000,
-                    error_correction: true,
-                },
-                dna: DnaConfig {
-                    compression_level: 9,
-                    error_correction: true,
-                    cache_size_mb: 512,
-                    biological_patterns: true,
-                },
+                connection_string: None,
+                max_connections: None,
+                connection_timeout: None,
+                query_timeout: None,
+                neuromorphic_config: None,
+                quantum_config: None,
+                dna_config: None,
             },
             auth: AuthConfig {
-                enabled: true,
                 jwt_secret: "neuroquantum-secret-key".to_string(),
-                api_key_expiry_hours: 24,
+                token_expiry_seconds: None,
+                quantum_level: None,
+                kyber_key_size: None,
+                dilithium_signature_size: None,
+                password_hash_cost: None,
             },
-            monitoring: MonitoringConfig {
-                prometheus_enabled: true,
-                metrics_path: "/metrics".to_string(),
-                health_check_interval: 30,
+            metrics: MetricsConfig {
+                enabled: true,
+                port: 9090,
+                path: "/metrics".to_string(),
+                collection_interval_ms: None,
+                retention_hours: None,
+                export_format: None,
             },
         }
     }
@@ -107,9 +121,30 @@ impl Default for ApiConfig {
 
 impl ApiConfig {
     pub fn load() -> Result<Self> {
-        // For now, return default config
-        // In the future, this could load from TOML files, environment variables, etc.
-        Ok(Self::default())
+        // Check for config file path from environment variable or use default
+        let config_path = env::var("NEUROQUANTUM_CONFIG")
+            .unwrap_or_else(|_| "config/prod.toml".to_string());
+
+        // Try to load from file first
+        if let Ok(content) = fs::read_to_string(&config_path) {
+            let mut config: ApiConfig = toml::from_str(&content)?;
+
+            // Override with environment variables if present
+            if let Ok(host) = env::var("NEUROQUANTUM_HOST") {
+                config.server.host = host;
+            }
+            if let Ok(port) = env::var("NEUROQUANTUM_PORT") {
+                config.server.port = port.parse()?;
+            }
+            if let Ok(workers) = env::var("NEUROQUANTUM_WORKERS") {
+                config.server.workers = workers.parse()?;
+            }
+
+            Ok(config)
+        } else {
+            // Fallback to default if file doesn't exist
+            Ok(Self::default())
+        }
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -121,16 +156,27 @@ impl ApiConfig {
             return Err(anyhow::anyhow!("Server workers cannot be 0"));
         }
 
-        if self.database.neuromorphic.learning_rate <= 0.0 || self.database.neuromorphic.learning_rate > 1.0 {
-            return Err(anyhow::anyhow!("Neuromorphic learning rate must be between 0.0 and 1.0"));
+        if let Some(neuromorphic) = &self.database.neuromorphic_config {
+            if neuromorphic.learning_rate <= 0.0 || neuromorphic.learning_rate > 1.0 {
+                return Err(anyhow::anyhow!("Neuromorphic learning rate must be between 0.0 and 1.0"));
+            }
         }
 
-        if self.database.quantum.processors == 0 {
-            return Err(anyhow::anyhow!("Quantum processors cannot be 0"));
+        if let Some(quantum) = &self.database.quantum_config {
+            if quantum.default_quantum_level.unwrap_or(1) == 0 {
+                return Err(anyhow::anyhow!("Quantum default level cannot be 0"));
+            }
         }
 
-        if self.database.dna.compression_level > 9 {
-            return Err(anyhow::anyhow!("DNA compression level cannot exceed 9"));
+        if let Some(dna) = &self.database.dna_config {
+            if let Some(compression_ratio) = dna.target_compression_ratio {
+                if compression_ratio > 1000.0 {
+                    return Err(anyhow::anyhow!("DNA target compression ratio cannot exceed 1000:1"));
+                }
+                if compression_ratio < 1.0 {
+                    return Err(anyhow::anyhow!("DNA target compression ratio must be at least 1:1"));
+                }
+            }
         }
 
         Ok(())
