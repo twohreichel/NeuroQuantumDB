@@ -496,10 +496,15 @@ class NeuroQuantumDBTester:
         config_update = {
             "neuromorphic": {
                 "learning_rate": 0.015,
-                "plasticity_threshold": 0.6
+                "plasticity_threshold": 0.6,
+                "max_synapses": 1000000,
+                "auto_optimization": True
             },
             "quantum": {
-                "grover_iterations": 20
+                "processors": 4,
+                "grover_iterations": 20,
+                "annealing_steps": 1000,
+                "error_correction": True
             }
         }
 
