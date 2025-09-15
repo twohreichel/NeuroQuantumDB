@@ -68,15 +68,26 @@ make docker-run
 curl http://localhost:8080/
 # Antwort: 
 {
-  "status": "healthy",
-  "version": "0.1.0",
-  "uptime_seconds": 0,
-  "memory_usage_mb": 0,
-  "power_consumption_mw": 0,
-  "active_connections": 0,
-  "quantum_operations_per_second": 0,
-  "neuromorphic_adaptations": 0,
-  "compression_ratio": 1000
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "version": "0.1.0",
+    "uptime_seconds": 0,
+    "memory_usage_mb": 0,
+    "power_consumption_mw": 0,
+    "active_connections": 0,
+    "quantum_operations_per_second": 0,
+    "neuromorphic_adaptations": 0,
+    "compression_ratio": 1000
+  },
+  "error": null,
+  "metadata": {
+    "request_id": "909dab34-df4f-4fff-a47e-79104afa3203",
+    "timestamp": "2025-09-15T06:41:54.076069469+00:00",
+    "processing_time_us": 3,
+    "quantum_enhancement": false,
+    "compression_ratio": null
+  }
 }
 ```
 
