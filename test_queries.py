@@ -108,16 +108,43 @@ class NeuroQuantumDBTester:
         response, response_time = self.make_request("GET", "/health")
 
         if response and response.status_code == 200:
-            data = response.json()
-            self.log_test(
-                "Basic Health Check",
-                True,
-                f"Status: {data.get('status', 'unknown')}",
-                response_time
-            )
-            return True
+            try:
+                result = response.json()
+                # Handle the server's response structure
+                if result.get("success") and "data" in result:
+                    data = result["data"]
+                    status = data.get("status", "unknown")
+                    version = data.get("version", "unknown")
+                    uptime = data.get("uptime_seconds", 0)
+                    self.log_test(
+                        "Basic Health Check",
+                        True,
+                        f"Status: {status}, Version: {version}, Uptime: {uptime}s",
+                        response_time
+                    )
+                else:
+                    # Fallback for different response structure
+                    status = result.get("status", "unknown")
+                    self.log_test(
+                        "Basic Health Check",
+                        True,
+                        f"Status: {status}",
+                        response_time
+                    )
+                return True
+            except (json.JSONDecodeError, KeyError) as e:
+                self.log_test(
+                    "Basic Health Check",
+                    False,
+                    f"Invalid health response: {str(e)}",
+                    response_time
+                )
+                return False
         else:
-            self.log_test("Basic Health Check", False, "Health endpoint failed", response_time)
+            error_msg = "Health endpoint failed"
+            if response:
+                error_msg += f" (HTTP {response.status_code})"
+            self.log_test("Basic Health Check", False, error_msg, response_time)
             return False
 
     def generate_api_key(self):
@@ -132,17 +159,72 @@ class NeuroQuantumDBTester:
         response, response_time = self.make_request("POST", "/auth/generate-key", data)
 
         if response and response.status_code == 200:
-            result = response.json()
-            self.api_key = result.get("api_key")
-            self.log_test(
-                "API Key Generation",
-                True,
-                f"Key generated: {self.api_key[:20]}...",
-                response_time
-            )
-            return True
+            try:
+                result = response.json()
+                # Check if response has the expected structure
+                if result.get("success") and "data" in result:
+                    api_key_data = result["data"]
+                    self.api_key = api_key_data.get("api_key")
+                    if self.api_key:
+                        # Extract additional info for logging
+                        expires_at = api_key_data.get("expires_at", "unknown")
+                        permissions = api_key_data.get("permissions", [])
+                        self.log_test(
+                            "API Key Generation",
+                            True,
+                            f"Key generated: {self.api_key[:20]}..., Expires: {expires_at}, Permissions: {len(permissions)}",
+                            response_time
+                        )
+                        return True
+                    else:
+                        self.log_test(
+                            "API Key Generation",
+                            False,
+                            "API key not found in response data",
+                            response_time
+                        )
+                        return False
+                else:
+                    # Fallback for different response structure
+                    self.api_key = result.get("api_key")
+                    if self.api_key:
+                        self.log_test(
+                            "API Key Generation",
+                            True,
+                            f"Key generated: {self.api_key[:20]}...",
+                            response_time
+                        )
+                        return True
+                    else:
+                        self.log_test(
+                            "API Key Generation",
+                            False,
+                            f"Unexpected response structure: {result.get('error', 'Unknown error')}",
+                            response_time
+                        )
+                        return False
+            except (json.JSONDecodeError, KeyError) as e:
+                self.log_test(
+                    "API Key Generation",
+                    False,
+                    f"Invalid response format: {str(e)}",
+                    response_time
+                )
+                return False
         else:
-            self.log_test("API Key Generation", False, "Failed to generate API key", response_time)
+            error_msg = "Failed to generate API key"
+            if response:
+                error_msg += f" (HTTP {response.status_code})"
+                try:
+                    error_data = response.json()
+                    if "error" in error_data:
+                        error_msg += f": {error_data['error']}"
+                except:
+                    pass
+            else:
+                error_msg += " (No response from server)"
+
+            self.log_test("API Key Generation", False, error_msg, response_time)
             return False
 
     def test_neuromorphic_queries(self):
@@ -172,10 +254,11 @@ class NeuroQuantumDBTester:
         # Test 2: Erweiterte neuromorphe Query mit Lernparametern
         data = {
             "query": "NEUROMATCH products WHERE category = 'electronics' AND price < 1000 WITH SYNAPTIC_WEIGHT 0.9, PLASTICITY_RATE 0.02",
-            "learning_enabled": True,
             "plasticity_threshold": 0.7,
             "memory_consolidation": True
         }
+
+        logger.info("���� Testing Neuromorphic Queries...")
 
         response, response_time = self.make_request("POST", "/neuromorphic/query", data)
 
