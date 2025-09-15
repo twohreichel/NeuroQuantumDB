@@ -244,7 +244,7 @@ impl ApiServer {
 }
 
 /// Initialize tracing and metrics for production deployment
-pub fn init_observability(_config: &ApiConfig) -> anyhow::Result<()> {
+pub fn init_observability(config: &ApiConfig) -> anyhow::Result<()> {
     // Initialize structured logging
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -255,16 +255,9 @@ pub fn init_observability(_config: &ApiConfig) -> anyhow::Result<()> {
 
     tracing::subscriber::set_global_default(subscriber)?;
 
-    // Initialize Prometheus metrics
-    #[cfg(feature = "production")]
-    if config.metrics.enabled {
-        let builder = metrics_exporter_prometheus::PrometheusBuilder::new();
-        builder
-            .with_http_listener(([0, 0, 0, 0], config.metrics.port))
-            .install()?;
-
-        info!("Prometheus metrics enabled on port {}", config.metrics.port);
-    }
+    // Note: Prometheus metrics are disabled for now due to dependency issues
+    // This can be re-enabled once the metrics dependencies are resolved
+    info!("Observability initialized (metrics disabled)");
 
     Ok(())
 }

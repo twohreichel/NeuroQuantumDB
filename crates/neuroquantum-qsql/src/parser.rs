@@ -141,6 +141,11 @@ impl QSQLParser {
         Self::with_config(ParserConfig::default()).expect("Failed to create QSQL parser")
     }
 
+    /// Parse a QSQL query string into an AST (alias for parse_query)
+    pub fn parse(&self, input: &str) -> QSQLResult<Statement> {
+        self.parse_query(input)
+    }
+
     /// Create a QSQL parser with custom configuration
     pub fn with_config(config: ParserConfig) -> QSQLResult<Self> {
         let mut keywords = HashMap::new();

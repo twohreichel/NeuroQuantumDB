@@ -12,6 +12,12 @@ pub enum ApiError {
     #[error("Authorization denied: {resource}")]
     AuthorizationDenied { resource: String },
 
+    #[error("Bad request: {message}")]
+    BadRequest { message: String },
+
+    #[error("Internal server error: {message}")]
+    InternalServerError { message: String },
+
     #[error("Invalid query: {details}")]
     InvalidQuery { details: String },
 
@@ -50,10 +56,22 @@ pub struct ApiResponse<T> {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ResponseMetadata {
     pub request_id: String,
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub timestamp: String,
     pub processing_time_us: u64,
     pub quantum_enhancement: bool,
     pub compression_ratio: Option<f32>,
+}
+
+impl ResponseMetadata {
+    pub fn new(duration: std::time::Duration, _message: &str) -> Self {
+        Self {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            processing_time_us: duration.as_micros() as u64,
+            quantum_enhancement: false,
+            compression_ratio: None,
+        }
+    }
 }
 
 impl<T> ApiResponse<T> {
@@ -80,7 +98,7 @@ impl ResponseError for ApiError {
     fn error_response(&self) -> HttpResponse {
         let metadata = ResponseMetadata {
             request_id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Utc::now(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
             processing_time_us: 0,
             quantum_enhancement: false,
             compression_ratio: None,
@@ -95,8 +113,47 @@ impl ResponseError for ApiError {
             ApiError::ValidationError { .. } => HttpResponse::BadRequest().json(response),
             ApiError::ResourceNotFound { .. } => HttpResponse::NotFound().json(response),
             ApiError::RateLimitExceeded { .. } => HttpResponse::TooManyRequests().json(response),
+            ApiError::BadRequest { .. } => HttpResponse::BadRequest().json(response),
+            ApiError::InternalServerError { .. } => HttpResponse::InternalServerError().json(response),
             _ => HttpResponse::InternalServerError().json(response),
         }
+    }
+}
+
+impl<T> From<ApiResponse<T>> for HttpResponse
+where
+    T: Serialize,
+{
+    fn from(response: ApiResponse<T>) -> Self {
+        if response.success {
+            HttpResponse::Ok().json(response)
+        } else {
+            let mut status = match &response.error {
+                Some(ApiError::ValidationError { .. }) => HttpResponse::BadRequest(),
+                Some(ApiError::AuthenticationFailed { .. }) => HttpResponse::Unauthorized(),
+                Some(ApiError::AuthorizationDenied { .. }) => HttpResponse::Forbidden(),
+                Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
+                Some(ApiError::QuantumOperationFailed { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
+                Some(ApiError::InternalError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::ResourceNotFound { .. }) => HttpResponse::NotFound(),
+                Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::BadRequest { .. }) => HttpResponse::BadRequest(),
+                Some(ApiError::InternalServerError { .. }) => HttpResponse::InternalServerError(),
+                None => HttpResponse::InternalServerError(),
+            };
+            status.json(response)
+        }
+    }
+}
+
+impl<T> ApiResponse<T>
+where
+    T: Serialize,
+{
+    pub fn error_response(self) -> HttpResponse {
+        self.into()
     }
 }
 
@@ -120,41 +177,6 @@ pub struct QuantumAuthClaims {
     pub dilithium_signature: String,
 }
 
-impl<T> From<ApiResponse<T>> for HttpResponse
-where
-    T: Serialize,
-{
-    fn from(response: ApiResponse<T>) -> Self {
-        if response.success {
-            HttpResponse::Ok().json(response)
-        } else {
-            let mut status = match &response.error {
-                Some(ApiError::ValidationError { .. }) => HttpResponse::BadRequest(),
-                Some(ApiError::AuthenticationFailed { .. }) => HttpResponse::Unauthorized(),
-                Some(ApiError::AuthorizationDenied { .. }) => HttpResponse::Forbidden(),
-                Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
-                Some(ApiError::QuantumOperationFailed { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
-                Some(ApiError::InternalError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::ResourceNotFound { .. }) => HttpResponse::NotFound(),
-                Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
-                None => HttpResponse::InternalServerError(),
-            };
-            status.json(response)
-        }
-    }
-}
-
-impl<T> ApiResponse<T>
-where
-    T: Serialize,
-{
-    pub fn error_response(self) -> HttpResponse {
-        self.into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -163,7 +185,7 @@ mod tests {
     fn test_api_response_success() {
         let metadata = ResponseMetadata {
             request_id: "test-123".to_string(),
-            timestamp: chrono::Utc::now(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
             processing_time_us: 500,
             quantum_enhancement: true,
             compression_ratio: Some(1000.0),
@@ -183,7 +205,7 @@ mod tests {
 
         let metadata = ResponseMetadata {
             request_id: "test-456".to_string(),
-            timestamp: chrono::Utc::now(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
             processing_time_us: 100,
             quantum_enhancement: false,
             compression_ratio: None,

@@ -193,7 +193,7 @@ pub struct ConfigResponse {
     pub dna: DnaConfig,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct NeuromorphicConfig {
     pub learning_rate: f32,
     pub plasticity_threshold: f32,
@@ -201,7 +201,7 @@ pub struct NeuromorphicConfig {
     pub auto_optimization: bool,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct QuantumConfig {
     pub processors: u32,
     pub grover_iterations: u32,
@@ -209,7 +209,7 @@ pub struct QuantumConfig {
     pub error_correction: bool,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct DnaConfig {
     pub compression_level: u8,
     pub error_correction: bool,
@@ -232,6 +232,16 @@ pub struct ConfigUpdateResponse {
 }
 
 /// 🔑 Generate API Key
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/generate-key",
+    request_body = GenerateKeyRequest,
+    responses(
+        (status = 200, description = "API key generated successfully", body = GenerateKeyResponse),
+        (status = 400, description = "Invalid request", body = ApiError)
+    ),
+    tag = "Authentication"
+)]
 pub async fn generate_api_key(
     _request: web::Json<GenerateKeyRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
@@ -253,6 +263,16 @@ pub async fn generate_api_key(
 }
 
 /// 🧠 Neuromorphic Query Handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/neuromorphic/query",
+    request_body = NeuromorphicQueryRequest,
+    responses(
+        (status = 200, description = "Neuromorphic query executed successfully", body = NeuromorphicQueryResponse),
+        (status = 400, description = "Invalid query", body = ApiError)
+    ),
+    tag = "Neuromorphic"
+)]
 pub async fn neuromorphic_query(
     db: web::Data<NeuroQuantumDB>,
     request: web::Json<NeuromorphicQueryRequest>,
@@ -283,6 +303,15 @@ pub async fn neuromorphic_query(
 }
 
 /// 🧠 Network Status Handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/neuromorphic/network-status",
+    responses(
+        (status = 200, description = "Network status retrieved successfully", body = NetworkStatusResponse),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Neuromorphic"
+)]
 pub async fn network_status(
     _db: web::Data<NeuroQuantumDB>,
 ) -> ActixResult<HttpResponse, ApiError> {
@@ -306,6 +335,16 @@ pub async fn network_status(
 }
 
 /// 🧠 Training Handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/neuromorphic/train",
+    request_body = TrainingRequest,
+    responses(
+        (status = 200, description = "Network training completed successfully"),
+        (status = 400, description = "Invalid training data", body = ApiError)
+    ),
+    tag = "Neuromorphic"
+)]
 pub async fn train_network(
     _db: web::Data<NeuroQuantumDB>,
     _request: web::Json<TrainingRequest>,
@@ -326,6 +365,16 @@ pub async fn train_network(
 }
 
 /// ⚛️ Quantum Search Handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/quantum/search",
+    request_body = QuantumSearchRequest,
+    responses(
+        (status = 200, description = "Quantum search completed successfully", body = QuantumSearchResponse),
+        (status = 400, description = "Invalid search parameters", body = ApiError)
+    ),
+    tag = "Quantum Operations"
+)]
 pub async fn quantum_search(
     db: web::Data<NeuroQuantumDB>,
     request: web::Json<QuantumSearchRequest>,
@@ -356,6 +405,16 @@ pub async fn quantum_search(
 }
 
 /// ⚛️ Quantum Optimization Handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/quantum/optimize",
+    request_body = OptimizationRequest,
+    responses(
+        (status = 200, description = "Quantum optimization completed successfully", body = OptimizationResponse),
+        (status = 400, description = "Invalid optimization problem", body = ApiError)
+    ),
+    tag = "Quantum Operations"
+)]
 pub async fn quantum_optimize(
     _db: web::Data<NeuroQuantumDB>,
     _request: web::Json<OptimizationRequest>,
@@ -381,6 +440,15 @@ pub async fn quantum_optimize(
 }
 
 /// ⚛️ Quantum Status Handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/quantum/status",
+    responses(
+        (status = 200, description = "Quantum status retrieved successfully", body = QuantumStatusResponse),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Quantum Operations"
+)]
 pub async fn quantum_status(
     _db: web::Data<NeuroQuantumDB>,
 ) -> ActixResult<HttpResponse, ApiError> {
@@ -403,6 +471,16 @@ pub async fn quantum_status(
 }
 
 /// 🧬 DNA Compression Handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/dna/compress",
+    request_body = CompressionRequest,
+    responses(
+        (status = 200, description = "DNA compression completed successfully", body = CompressionResponse),
+        (status = 400, description = "Invalid compression parameters", body = ApiError)
+    ),
+    tag = "DNA Storage"
+)]
 pub async fn dna_compress(
     _db: web::Data<NeuroQuantumDB>,
     request: web::Json<CompressionRequest>,
@@ -429,6 +507,16 @@ pub async fn dna_compress(
 }
 
 /// 🧬 DNA Decompression Handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/dna/decompress",
+    request_body = DecompressionRequest,
+    responses(
+        (status = 200, description = "DNA decompression completed successfully", body = DecompressionResponse),
+        (status = 400, description = "Invalid decompression parameters", body = ApiError)
+    ),
+    tag = "DNA Storage"
+)]
 pub async fn dna_decompress(
     _db: web::Data<NeuroQuantumDB>,
     _request: web::Json<DecompressionRequest>,
@@ -450,6 +538,16 @@ pub async fn dna_decompress(
 }
 
 /// 🧬 DNA Repair Handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/dna/repair",
+    request_body = RepairRequest,
+    responses(
+        (status = 200, description = "DNA repair completed successfully", body = RepairResponse),
+        (status = 400, description = "Invalid repair parameters", body = ApiError)
+    ),
+    tag = "DNA Storage"
+)]
 pub async fn dna_repair(
     _db: web::Data<NeuroQuantumDB>,
     _request: web::Json<RepairRequest>,
@@ -472,6 +570,15 @@ pub async fn dna_repair(
 }
 
 /// 📊 Get Configuration Handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/admin/config",
+    responses(
+        (status = 200, description = "Configuration retrieved successfully", body = ConfigResponse),
+        (status = 403, description = "Access denied", body = ApiError)
+    ),
+    tag = "Admin"
+)]
 pub async fn get_config(
     _db: web::Data<NeuroQuantumDB>,
 ) -> ActixResult<HttpResponse, ApiError> {
@@ -505,6 +612,17 @@ pub async fn get_config(
 }
 
 /// 📊 Update Configuration Handler
+#[utoipa::path(
+    put,
+    path = "/api/v1/admin/config",
+    request_body = ConfigUpdateRequest,
+    responses(
+        (status = 200, description = "Configuration updated successfully", body = ConfigUpdateResponse),
+        (status = 400, description = "Invalid configuration", body = ApiError),
+        (status = 403, description = "Access denied", body = ApiError)
+    ),
+    tag = "Admin"
+)]
 pub async fn update_config(
     _db: web::Data<NeuroQuantumDB>,
     _request: web::Json<ConfigUpdateRequest>,
