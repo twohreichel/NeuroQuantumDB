@@ -65,8 +65,19 @@ cd neuroquantumdb
 make docker-run
 
 # ✅ Testen
-curl http://localhost:8080/health
-# Antwort: {"status": "healthy", "neuromorphic": "active", "quantum": "optimized"}
+curl http://localhost:8080/
+# Antwort: 
+{
+  "status": "healthy",
+  "version": "0.1.0",
+  "uptime_seconds": 0,
+  "memory_usage_mb": 0,
+  "power_consumption_mw": 0,
+  "active_connections": 0,
+  "quantum_operations_per_second": 0,
+  "neuromorphic_adaptations": 0,
+  "compression_ratio": 1000
+}
 ```
 
 ### Ihre erste intelligente Abfrage:
