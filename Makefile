@@ -13,7 +13,7 @@ help: ## Show this help message
 RUST_VERSION := 1.70
 TARGET := aarch64-unknown-linux-gnu
 PROFILE := release
-FEATURES := neon-optimizations,quantum-simd,dna-compression,security-hardening
+FEATURES := neon-optimizations,neuromorphic,quantum,natural-language
 
 # Performance and security flags
 RUSTFLAGS := -C target-cpu=cortex-a72 -C target-feature=+neon,+fp-armv8 -C opt-level=3 -C lto=fat -C codegen-units=1 -D warnings
@@ -22,7 +22,7 @@ CARGO_FLAGS := --target $(TARGET) --profile $(PROFILE) --features $(FEATURES)
 # Development targets
 dev: ## Build for development with debug symbols
 	@echo "🔨 Building NeuroQuantumDB for development..."
-	cargo build --workspace --features dev-tools,debug-logs
+	cargo build --workspace --features debug-synaptic,neuromorphic,quantum,natural-language
 
 test: ## Run comprehensive test suite (80%+ coverage required)
 	@echo "🧪 Running comprehensive test suite..."
@@ -59,7 +59,7 @@ build-arm64: build ## Alias for ARM64 build
 
 benchmark: ## Run performance benchmarks
 	@echo "⚡ Running performance benchmarks..."
-	cargo bench --workspace --features bench-tests
+	cargo bench --workspace --all-features
 	@echo "📈 Benchmark results saved to target/criterion/"
 
 # Docker targets
