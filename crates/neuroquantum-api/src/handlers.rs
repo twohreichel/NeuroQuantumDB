@@ -1,7 +1,7 @@
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
 use neuroquantum_core::{NeuroQuantumDB, QueryRequest};
 use neuroquantum_qsql::parser::QSQLParser;
-use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
+use actix_web::{web, HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tracing::{error, info};
@@ -274,7 +274,7 @@ pub async fn generate_api_key(
     tag = "Neuromorphic"
 )]
 pub async fn neuromorphic_query(
-    db: web::Data<NeuroQuantumDB>,
+    _db: web::Data<NeuroQuantumDB>,
     request: web::Json<NeuromorphicQueryRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -376,7 +376,7 @@ pub async fn train_network(
     tag = "Quantum Operations"
 )]
 pub async fn quantum_search(
-    db: web::Data<NeuroQuantumDB>,
+    _db: web::Data<NeuroQuantumDB>,
     request: web::Json<QuantumSearchRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();

@@ -12,10 +12,14 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub use error::{ApiError, ApiResponse, ResponseMetadata};
-pub use handlers::*;
+pub use handlers::{
+    quantum_search, execute_qsql, health_check, generate_api_key, neuromorphic_query,
+    network_status, train_network, quantum_optimize, quantum_status, dna_compress,
+    dna_decompress, dna_repair, get_config, update_config, prometheus_metrics
+};
 pub use auth::*;
 pub use middleware::*;
-pub use config::*;
+pub use config::{ApiConfig, ServerConfig, DatabaseConfig, AuthConfig};
 
 /// OpenAPI documentation structure
 #[derive(OpenApi)]
@@ -244,13 +248,12 @@ impl ApiServer {
 }
 
 /// Initialize tracing and metrics for production deployment
-pub fn init_observability(config: &ApiConfig) -> anyhow::Result<()> {
+pub fn init_observability(_config: &ApiConfig) -> anyhow::Result<()> {
     // Initialize structured logging
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_target(false)
         .with_thread_ids(true)
-        .with_line_number(true)
         .finish();
 
     tracing::subscriber::set_global_default(subscriber)?;
