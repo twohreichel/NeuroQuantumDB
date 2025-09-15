@@ -1,11 +1,10 @@
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
-use neuroquantum_core::{NeuroQuantumDB, QueryRequest};
-use neuroquantum_qsql::parser::QSQLParser;
+use neuroquantum_core::NeuroQuantumDB;
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
-use tracing::{error, info};
-use utoipa::{IntoParams, ToSchema};
+use tracing::info;
+use utoipa::ToSchema;
 
 /// 🔑 Auth endpoints
 #[derive(Debug, Deserialize, ToSchema)]

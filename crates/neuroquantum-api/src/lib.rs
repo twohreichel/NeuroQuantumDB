@@ -224,7 +224,7 @@ impl ApiServer {
 }
 
 /// Initialize observability (logging and metrics)
-pub fn init_observability(config: &ApiConfig) -> Result<()> {
+pub fn init_observability(_config: &ApiConfig) -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
