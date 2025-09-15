@@ -52,24 +52,22 @@ pub struct ApiResponse<T> {
     pub metadata: ResponseMetadata,
 }
 
-/// Response metadata for observability
+/// Response metadata for tracking and debugging
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ResponseMetadata {
-    pub request_id: String,
+    pub response_time_ms: f64,
     pub timestamp: String,
-    pub processing_time_us: u64,
-    pub quantum_enhancement: bool,
-    pub compression_ratio: Option<f32>,
+    pub request_id: String,
+    pub message: String,
 }
 
 impl ResponseMetadata {
-    pub fn new(duration: std::time::Duration, _message: &str) -> Self {
+    pub fn new(duration: std::time::Duration, message: &str) -> Self {
         Self {
-            request_id: uuid::Uuid::new_v4().to_string(),
+            response_time_ms: duration.as_secs_f64() * 1000.0,
             timestamp: chrono::Utc::now().to_rfc3339(),
-            processing_time_us: duration.as_micros() as u64,
-            quantum_enhancement: false,
-            compression_ratio: None,
+            request_id: uuid::Uuid::new_v4().to_string(),
+            message: message.to_string(),
         }
     }
 }
@@ -99,9 +97,8 @@ impl ResponseError for ApiError {
         let metadata = ResponseMetadata {
             request_id: uuid::Uuid::new_v4().to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
-            processing_time_us: 0,
-            quantum_enhancement: false,
-            compression_ratio: None,
+            response_time_ms: 0.0,
+            message: String::new(),
         };
 
         let response = ApiResponse::<()>::error(self.clone(), metadata);
@@ -186,11 +183,9 @@ mod tests {
         let metadata = ResponseMetadata {
             request_id: "test-123".to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
-            processing_time_us: 500,
-            quantum_enhancement: true,
-            compression_ratio: Some(1000.0),
+            response_time_ms: 500.0,
+            message: "Success".to_string(),
         };
-
         let response = ApiResponse::success("test data", metadata);
         assert!(response.success);
         assert!(response.data.is_some());
@@ -206,11 +201,9 @@ mod tests {
         let metadata = ResponseMetadata {
             request_id: "test-456".to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
-            processing_time_us: 100,
-            quantum_enhancement: false,
-            compression_ratio: None,
+            response_time_ms: 100.0,
+            message: "Error".to_string(),
         };
-
         let response = ApiResponse::<()>::error(error, metadata);
         assert!(!response.success);
         assert!(response.data.is_none());

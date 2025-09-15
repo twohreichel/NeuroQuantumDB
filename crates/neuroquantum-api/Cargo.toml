@@ -2,9 +2,8 @@
 name = "neuroquantum-api"
 version = "0.1.0"
 edition = "2021"
-description = "Production-ready REST API for NeuroQuantumDB with quantum-resistant encryption"
 authors = ["NeuroQuantumDB Team"]
-license = "MIT"
+description = "REST API server for NeuroQuantumDB"
 
 [dependencies]
 # Core dependencies
@@ -12,54 +11,39 @@ neuroquantum-core = { path = "../neuroquantum-core" }
 neuroquantum-qsql = { path = "../neuroquantum-qsql" }
 
 # Web framework
-actix-web = "4.11.0"
-actix-cors = "0.7.1"
-actix-rt = "2.9"
+actix-web = "4.4"
+actix-cors = "0.6"
+actix-ws = "0.2"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+futures-util = "0.3"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-# HTTP & API
-reqwest = { version = "0.12.23", features = ["json"] }
-utoipa = { version = "5.4.0", features = ["actix_extras"] }
-utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
-
-# Security & Encryption
-ring = { version = "0.17", optional = true }
-rustls = "0.21"
-argon2 = "0.5"
-jsonwebtoken = "9.0"
-base64 = "0.22"
-
-# Async & concurrency
-tokio = { version = "1.47.1", features = ["full"] }
-futures = "0.3"
-
-# Monitoring & observability
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-actix-web = "0.7"
-
-# Configuration
-config = "0.13"
-toml = "0.9.5"
-
 # Error handling
 anyhow = "1.0"
-thiserror = "2.0.16"
+thiserror = "1.0"
+
+# Logging and observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+actix-web-prometheus = "0.1"
+
+# Documentation
+utoipa = { version = "4.0", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "4.0", features = ["actix-web"] }
 
 # Utilities
-uuid = { version = "1.18.1", features = ["v4", "serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
-# Testing
-mockall = { version = "0.13.1", optional = true }
+# Configuration (if needed)
+config = "0.13"
+toml = "0.8"
 
-[features]
-default = ["production"]
-production = ["ring"]
-testing = ["mockall"]
-
-[dev-dependencies]
-mockall = "0.13.1"
+[[bin]]
+name = "neuroquantum-api"
+path = "src/main.rs"

@@ -1,486 +1,70 @@
 use actix_web::{
-    body::EitherBody,
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage,
-    HttpResponse,
 };
-use futures::future::{ok, Ready};
+use futures_util::future::LocalBoxFuture;
 use std::{
-    collections::HashMap,
+    future::{ready, Ready},
     rc::Rc,
-    cell::RefCell,
-    time::Instant,
 };
-use tracing::{error, info, warn};
 
-use crate::error::ApiError;
+pub struct ApiKeyAuth;
 
-/// Quantum security middleware for enhanced protection
-pub struct QuantumSecurityMiddleware;
-
-impl QuantumSecurityMiddleware {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl<S, B> Transform<S, ServiceRequest> for QuantumSecurityMiddleware
+impl<S, B> Transform<S, ServiceRequest> for ApiKeyAuth
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<EitherBody<B>>;
-    type Error = Error;
-    type InitError = ();
-    type Transform = QuantumSecurityService<S>;
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
-
-    fn new_transform(&self, service: S) -> Self::Future {
-        ok(QuantumSecurityService { service })
-    }
-}
-
-pub struct QuantumSecurityService<S> {
-    service: S,
-}
-
-impl<S, B> Service<ServiceRequest> for QuantumSecurityService<S>
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<EitherBody<B>>;
-    type Error = Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
-
-    forward_ready!(service);
-
-    fn call(&self, req: ServiceRequest) -> Self::Future {
-        let quantum_level = req.headers()
-            .get("X-Quantum-Level")
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.parse::<u8>().ok())
-            .unwrap_or(64);
-
-        // Add quantum security context to request
-        req.extensions_mut().insert(QuantumSecurityContext {
-            level: quantum_level,
-            timestamp: Instant::now(),
-        });
-
-        let fut = self.service.call(req);
-        Box::pin(async move {
-            let res = fut.await?;
-            Ok(res.map_into_left_body())
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct QuantumSecurityContext {
-    pub level: u8,
-    pub timestamp: Instant,
-}
-
-/// Rate limiting middleware for API protection
-pub struct RateLimitMiddleware {
-    requests_per_window: u32,
-    window_seconds: u64,
-    clients: Rc<RefCell<HashMap<String, ClientRateLimit>>>,
-}
-
-#[derive(Debug, Clone)]
-struct ClientRateLimit {
-    requests: u32,
-    window_start: Instant,
-}
-
-impl RateLimitMiddleware {
-    pub fn new(requests_per_window: u32, window_seconds: u64) -> Self {
-        Self {
-            requests_per_window,
-            window_seconds,
-            clients: Rc::new(RefCell::new(HashMap::new())),
-        }
-    }
-}
-
-impl<S, B> Transform<S, ServiceRequest> for RateLimitMiddleware
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<EitherBody<B>>;
-    type Error = Error;
-    type InitError = ();
-    type Transform = RateLimitService<S>;
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
-
-    fn new_transform(&self, service: S) -> Self::Future {
-        ok(RateLimitService {
-            service,
-            requests_per_window: self.requests_per_window,
-            window_seconds: self.window_seconds,
-            clients: self.clients.clone(),
-        })
-    }
-}
-
-pub struct RateLimitService<S> {
-    service: S,
-    requests_per_window: u32,
-    window_seconds: u64,
-    clients: Rc<RefCell<HashMap<String, ClientRateLimit>>>,
-}
-
-impl<S, B> Service<ServiceRequest> for RateLimitService<S>
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<EitherBody<B>>;
-    type Error = Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
-
-    forward_ready!(service);
-
-    fn call(&self, req: ServiceRequest) -> Self::Future {
-        let client_ip = req.headers()
-            .get("X-Forwarded-For")
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.split(',').next())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| {
-                req.connection_info()
-                    .realip_remote_addr()
-                    .unwrap_or("unknown")
-                    .to_string()
-            });
-
-        let now = Instant::now();
-        let mut clients = self.clients.borrow_mut();
-
-        // Get or create client rate limit entry
-        let client_limit = clients.entry(client_ip.clone()).or_insert(ClientRateLimit {
-            requests: 0,
-            window_start: now,
-        });
-
-        // Reset window if expired
-        if now.duration_since(client_limit.window_start).as_secs() >= self.window_seconds {
-            client_limit.requests = 0;
-            client_limit.window_start = now;
-        }
-
-        // Check rate limit
-        if client_limit.requests >= self.requests_per_window {
-            let requests_per_window = self.requests_per_window;
-            let window_seconds = self.window_seconds;
-
-            warn!(
-                client_ip = %client_ip,
-                requests = client_limit.requests,
-                limit = self.requests_per_window,
-                "Rate limit exceeded"
-            );
-
-            let response = HttpResponse::TooManyRequests().json(ApiError::RateLimitExceeded {
-                limit: requests_per_window,
-                window: format!("{} seconds", window_seconds),
-            });
-
-            return Box::pin(async move {
-                Ok(req.into_response(response).map_into_right_body())
-            });
-        }
-
-        // Increment request count
-        client_limit.requests += 1;
-        drop(clients);
-
-        let fut = self.service.call(req);
-        Box::pin(async move {
-            let res = fut.await?;
-            Ok(res.map_into_left_body())
-        })
-    }
-}
-
-/// Power optimization middleware for edge deployment
-pub struct PowerOptimizationMiddleware;
-
-impl PowerOptimizationMiddleware {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl<S, B> Transform<S, ServiceRequest> for PowerOptimizationMiddleware
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
     type InitError = ();
-    type Transform = PowerOptimizationService<S>;
+    type Transform = ApiKeyAuthMiddleware<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ok(PowerOptimizationService { service })
+        ready(Ok(ApiKeyAuthMiddleware {
+            service: Rc::new(service),
+        }))
     }
 }
 
-pub struct PowerOptimizationService<S> {
-    service: S,
+pub struct ApiKeyAuthMiddleware<S> {
+    service: Rc<S>,
 }
 
-impl<S, B> Service<ServiceRequest> for PowerOptimizationService<S>
+impl<S, B> Service<ServiceRequest> for ApiKeyAuthMiddleware<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let start_time = Instant::now();
+        let service = self.service.clone();
 
-        // Add power optimization context
-        req.extensions_mut().insert(PowerOptimizationContext {
-            start_time,
-            low_power_mode: self.should_use_low_power_mode(&req),
-        });
-
-        let fut = self.service.call(req);
         Box::pin(async move {
-            let mut res = fut.await?;
-
-            // Add power consumption headers
-            let processing_time = start_time.elapsed();
-            res.headers_mut().insert(
-                actix_web::http::header::HeaderName::from_static("x-processing-time-us"),
-                actix_web::http::header::HeaderValue::from_str(&processing_time.as_micros().to_string())
-                    .unwrap_or_else(|_| actix_web::http::header::HeaderValue::from_static("0")),
-            );
-
-            // Estimate power consumption (simplified)
-            let power_estimate_mw = (processing_time.as_micros() as f32 / 1000.0) * 2.0; // 2W target
-            res.headers_mut().insert(
-                actix_web::http::header::HeaderName::from_static("x-power-consumption-mw"),
-                actix_web::http::header::HeaderValue::from_str(&power_estimate_mw.to_string())
-                    .unwrap_or_else(|_| actix_web::http::header::HeaderValue::from_static("0")),
-            );
-
-            Ok(res)
-        })
-    }
-}
-
-impl<S> PowerOptimizationService<S> {
-    fn should_use_low_power_mode(&self, req: &ServiceRequest) -> bool {
-        // Determine if request should use low-power mode based on headers or system state
-        req.headers()
-            .get("X-Power-Mode")
-            .and_then(|h| h.to_str().ok())
-            .map(|s| s == "low")
-            .unwrap_or(false)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PowerOptimizationContext {
-    pub start_time: Instant,
-    pub low_power_mode: bool,
-}
-
-/// Request tracing middleware for observability
-pub struct RequestTracingMiddleware;
-
-impl RequestTracingMiddleware {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl<S, B> Transform<S, ServiceRequest> for RequestTracingMiddleware
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<B>;
-    type Error = Error;
-    type InitError = ();
-    type Transform = RequestTracingService<S>;
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
-
-    fn new_transform(&self, service: S) -> Self::Future {
-        ok(RequestTracingService { service })
-    }
-}
-
-pub struct RequestTracingService<S> {
-    service: S,
-}
-
-impl<S, B> Service<ServiceRequest> for RequestTracingService<S>
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    S::Future: 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<B>;
-    type Error = Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
-
-    forward_ready!(service);
-
-    fn call(&self, req: ServiceRequest) -> Self::Future {
-        let request_id = uuid::Uuid::new_v4().to_string();
-        let method = req.method().to_string();
-        let path = req.path().to_string();
-        let start_time = Instant::now();
-
-        // Add request ID to extensions for downstream use
-        req.extensions_mut().insert(RequestTracingContext {
-            request_id: request_id.clone(),
-            start_time,
-        });
-
-        info!(
-            request_id = %request_id,
-            method = %method,
-            path = %path,
-            "Request started"
-        );
-
-        let fut = self.service.call(req);
-        Box::pin(async move {
-            match fut.await {
-                Ok(mut res) => {
-                    let duration = start_time.elapsed();
-                    let status = res.status().as_u16();
-
-                    // Add tracing headers
-                    if let Ok(header_value) = actix_web::http::header::HeaderValue::from_str(&request_id) {
-                        res.headers_mut().insert(
-                            actix_web::http::header::HeaderName::from_static("x-request-id"),
-                            header_value,
-                        );
-                    }
-
-                    info!(
-                        request_id = %request_id,
-                        method = %method,
-                        path = %path,
-                        status = status,
-                        duration_ms = duration.as_millis(),
-                        "Request completed"
-                    );
-
-                    Ok(res)
-                }
-                Err(e) => {
-                    let duration = start_time.elapsed();
-
-                    error!(
-                        request_id = %request_id,
-                        method = %method,
-                        path = %path,
-                        duration_ms = duration.as_millis(),
-                        error = %e,
-                        "Request failed"
-                    );
-
-                    Err(e)
-                }
+            // Skip auth for health checks and public endpoints
+            let path = req.path();
+            if path == "/health" 
+                || path == "/metrics" 
+                || path == "/api/v1/health"
+                || path.starts_with("/api/v1/auth/generate-key") {
+                return service.call(req).await;
             }
+
+            // For now, we'll accept any API key or allow requests without keys
+            // In a real implementation, this would validate against a database
+            if let Some(_api_key) = req.headers().get("X-API-Key") {
+                // API key present, could validate it here
+            }
+
+            service.call(req).await
         })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RequestTracingContext {
-    pub request_id: String,
-    pub start_time: Instant,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use actix_web::{test, web, App, HttpResponse};
-
-    async fn test_handler() -> Result<HttpResponse, Error> {
-        Ok(HttpResponse::Ok().json("test"))
-    }
-
-    #[actix_web::test]
-    async fn test_quantum_security_middleware() {
-        let app = test::init_service(
-            App::new()
-                .wrap(QuantumSecurityMiddleware::new())
-                .route("/test", web::get().to(test_handler))
-        ).await;
-
-        let req = test::TestRequest::get()
-            .uri("/test")
-            .insert_header(("X-Quantum-Level", "128"))
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-        assert!(resp.status().is_success());
-    }
-
-    #[actix_web::test]
-    async fn test_rate_limit_middleware() {
-        let app = test::init_service(
-            App::new()
-                .wrap(RateLimitMiddleware::new(2, 60)) // 2 requests per minute
-                .route("/test", web::get().to(test_handler))
-        ).await;
-
-        // First request should succeed
-        let req1 = test::TestRequest::get().uri("/test").to_request();
-        let resp1 = test::call_service(&app, req1).await;
-        assert!(resp1.status().is_success());
-
-        // Second request should succeed
-        let req2 = test::TestRequest::get().uri("/test").to_request();
-        let resp2 = test::call_service(&app, req2).await;
-        assert!(resp2.status().is_success());
-
-        // Third request should be rate limited
-        let req3 = test::TestRequest::get().uri("/test").to_request();
-        let resp3 = test::call_service(&app, req3).await;
-        assert_eq!(resp3.status(), actix_web::http::StatusCode::TOO_MANY_REQUESTS);
-    }
-
-    #[actix_web::test]
-    async fn test_power_optimization_middleware() {
-        let app = test::init_service(
-            App::new()
-                .wrap(PowerOptimizationMiddleware::new())
-                .route("/test", web::get().to(test_handler))
-        ).await;
-
-        let req = test::TestRequest::get()
-            .uri("/test")
-            .insert_header(("X-Power-Mode", "low"))
-            .to_request();
-
-        let resp = test::call_service(&app, req).await;
-        assert!(resp.status().is_success());
-        assert!(resp.headers().contains_key("x-processing-time-us"));
-        assert!(resp.headers().contains_key("x-power-consumption-mw"));
     }
 }

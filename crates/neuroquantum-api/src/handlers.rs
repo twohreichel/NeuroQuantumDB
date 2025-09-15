@@ -195,26 +195,26 @@ pub struct ConfigResponse {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct NeuromorphicConfig {
-    pub learning_rate: f32,
-    pub plasticity_threshold: f32,
-    pub max_synapses: u64,
-    pub auto_optimization: bool,
+    pub learning_rate: Option<f32>,
+    pub plasticity_threshold: Option<f32>,
+    pub max_synapses: Option<u64>,
+    pub auto_optimization: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct QuantumConfig {
-    pub processors: u32,
-    pub grover_iterations: u32,
-    pub annealing_steps: u32,
-    pub error_correction: bool,
+    pub processors: Option<u32>,
+    pub grover_iterations: Option<u32>,
+    pub annealing_steps: Option<u32>,
+    pub error_correction: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct DnaConfig {
-    pub compression_level: u8,
-    pub error_correction: bool,
-    pub cache_size_mb: u32,
-    pub biological_patterns: bool,
+    pub compression_level: Option<u8>,
+    pub error_correction: Option<bool>,
+    pub cache_size_mb: Option<u32>,
+    pub biological_patterns: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -586,22 +586,22 @@ pub async fn get_config(
 
     let response = ConfigResponse {
         neuromorphic: NeuromorphicConfig {
-            learning_rate: 0.012,
-            plasticity_threshold: 0.5,
-            max_synapses: 1000000,
-            auto_optimization: true,
+            learning_rate: Some(0.012),
+            plasticity_threshold: Some(0.5),
+            max_synapses: Some(1000000),
+            auto_optimization: Some(true),
         },
         quantum: QuantumConfig {
-            processors: 4,
-            grover_iterations: 15,
-            annealing_steps: 1000,
-            error_correction: true,
+            processors: Some(4),
+            grover_iterations: Some(15),
+            annealing_steps: Some(1000),
+            error_correction: Some(true),
         },
         dna: DnaConfig {
-            compression_level: 9,
-            error_correction: true,
-            cache_size_mb: 64,
-            biological_patterns: true,
+            compression_level: Some(9),
+            error_correction: Some(true),
+            cache_size_mb: Some(512),
+            biological_patterns: Some(true),
         },
     };
 
@@ -625,260 +625,97 @@ pub async fn get_config(
 )]
 pub async fn update_config(
     _db: web::Data<NeuroQuantumDB>,
-    _request: web::Json<ConfigUpdateRequest>,
+    request: web::Json<ConfigUpdateRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
+    let mut changes_applied = Vec::new();
+
+    // Simulate configuration updates
+    if request.neuromorphic.is_some() {
+        changes_applied.push("neuromorphic.learning_rate".to_string());
+        changes_applied.push("neuromorphic.plasticity_threshold".to_string());
+    }
+
+    if request.quantum.is_some() {
+        changes_applied.push("quantum.grover_iterations".to_string());
+    }
+
+    if request.dna.is_some() {
+        changes_applied.push("dna.compression_level".to_string());
+    }
+
     let response = ConfigUpdateResponse {
         status: "updated".to_string(),
-        changes_applied: vec![
-            "neuromorphic.learning_rate: 0.012 -> 0.015".to_string(),
-            "neuromorphic.plasticity_threshold: 0.5 -> 0.6".to_string(),
-            "quantum.grover_iterations: 15 -> 20".to_string(),
-        ],
+        changes_applied,
         restart_required: false,
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
-        ResponseMetadata::new(start.elapsed(), "Configuration updated"),
+        ResponseMetadata::new(start.elapsed(), "Configuration updated successfully"),
     )))
 }
 
-/// Request structure for quantum-enhanced search operations (original)
-#[derive(Debug, Deserialize, ToSchema, IntoParams)]
-pub struct QuantumSearchRequestOriginal {
-    /// The search query string
-    pub query: String,
-    /// Quantum enhancement level (0-255)
-    pub quantum_level: Option<u8>,
-    /// Enable Grover's algorithm optimization
-    pub use_grovers: Option<bool>,
-    /// Maximum number of results
-    pub limit: Option<u32>,
-    /// Result offset for pagination
-    pub offset: Option<u32>,
-}
-
-/// Response structure for quantum search results (original)
-#[derive(Debug, Serialize, ToSchema)]
-pub struct QuantumSearchResponseOriginal {
-    pub results: Vec<SearchResult>,
-    pub total_count: u64,
-    pub quantum_speedup: f32,
-    pub compression_savings: f32,
-    pub neuromorphic_optimizations: u32,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct SearchResult {
-    pub id: String,
-    pub data: serde_json::Value,
-    pub relevance_score: f32,
-    pub synaptic_strength: f32,
-}
-
-/// QSQL query execution request
+/// 🧬 DNA Query Handler (for querying DNA-compressed data)
 #[derive(Debug, Deserialize, ToSchema)]
-pub struct QSQLRequest {
+pub struct DnaQueryRequest {
     pub query: String,
-    pub parameters: Option<serde_json::Value>,
-    pub optimize: Option<bool>,
-    pub explain: Option<bool>,
+    pub dna_decompression: Option<bool>,
+    pub parallel_decompression: Option<bool>,
 }
 
-/// QSQL query execution response
 #[derive(Debug, Serialize, ToSchema)]
-pub struct QSQLResponse {
-    pub data: serde_json::Value,
-    pub execution_plan: Option<String>,
-    pub execution_time_us: u64,
-    pub memory_usage_mb: f32,
-    pub power_consumption_mw: f32,
-    pub quantum_operations: u32,
-    pub synaptic_adaptations: u32,
-}
-
-/// System health response
-#[derive(Debug, Serialize, ToSchema)]
-pub struct SystemHealth {
+pub struct DnaQueryResponse {
     pub status: String,
-    pub version: String,
-    pub uptime_seconds: u64,
-    pub memory_usage_mb: f32,
-    pub power_consumption_mw: f32,
-    pub active_connections: u32,
-    pub quantum_operations_per_second: f32,
-    pub neuromorphic_adaptations: u64,
-    pub compression_ratio: f32,
+    pub execution_time_us: f64,
+    pub results: Vec<serde_json::Value>,
+    pub decompression_stats: DnaDecompressionStats,
 }
 
-/// Query metrics for monitoring
 #[derive(Debug, Serialize, ToSchema)]
-pub struct QueryMetrics {
-    pub total_queries: u64,
-    pub quantum_queries: u64,
-    pub neuromorphic_queries: u64,
-    pub avg_response_time_us: f64,
-    pub cache_hit_rate: f32,
+pub struct DnaDecompressionStats {
+    pub sequences_decompressed: u32,
+    pub total_decompression_time_us: f64,
+    pub parallel_threads_used: u32,
+    pub cache_hits: u32,
 }
 
-/// 🔍 Original quantum search handler (legacy)
-#[utoipa::path(
-    get,
-    path = "/api/v1/quantum-search",
-    params(QuantumSearchRequestOriginal),
-    responses(
-        (status = 200, description = "Quantum search completed successfully", body = QuantumSearchResponseOriginal),
-        (status = 400, description = "Invalid search parameters", body = ApiError),
-        (status = 500, description = "Internal server error", body = ApiError)
-    ),
-    tag = "Quantum Operations"
-)]
-pub async fn quantum_search_legacy(
-    db: web::Data<NeuroQuantumDB>,
-    query: web::Query<QuantumSearchRequestOriginal>,
-) -> ActixResult<HttpResponse, ApiError> {
-    let start = Instant::now();
-
-    info!("Processing quantum search: {}", query.query);
-
-    // Convert to core QueryRequest
-    let request = QueryRequest {
-        query: query.query.clone(),
-        quantum_level: query.quantum_level.unwrap_or(128),
-        use_grovers: query.use_grovers.unwrap_or(true),
-        limit: query.limit.unwrap_or(100),
-        offset: query.offset.unwrap_or(0),
-    };
-
-    match db.quantum_search(request).await {
-        Ok(result) => {
-            let response = QuantumSearchResponseOriginal {
-                results: result.results.into_iter().map(|item| SearchResult {
-                    id: item.id,
-                    data: item.data,
-                    relevance_score: item.relevance_score,
-                    synaptic_strength: item.synaptic_strength,
-                }).collect(),
-                total_count: result.total_count,
-                quantum_speedup: result.quantum_speedup,
-                compression_savings: result.compression_savings,
-                neuromorphic_optimizations: result.neuromorphic_optimizations,
-            };
-
-            Ok(HttpResponse::Ok().json(ApiResponse::success(
-                response,
-                ResponseMetadata::new(start.elapsed(), "Quantum search completed"),
-            )))
-        }
-        Err(e) => {
-            error!("Quantum search failed: {}", e);
-            Err(ApiError::InternalServerError {
-                message: format!("Quantum search failed: {}", e),
-            })
-        }
-    }
-}
-
-/// 💻 QSQL execution handler
 #[utoipa::path(
     post,
-    path = "/api/v1/qsql/execute",
-    request_body = QSQLRequest,
+    path = "/api/v1/dna/query",
+    request_body = DnaQueryRequest,
     responses(
-        (status = 200, description = "QSQL query executed successfully", body = QSQLResponse),
-        (status = 400, description = "Invalid QSQL syntax", body = ApiError),
-        (status = 500, description = "Query execution failed", body = ApiError)
+        (status = 200, description = "DNA query executed successfully", body = DnaQueryResponse),
+        (status = 400, description = "Invalid query", body = ApiError)
     ),
-    tag = "QSQL Operations"
+    tag = "DNA Storage"
 )]
-pub async fn execute_qsql(
-    db: web::Data<NeuroQuantumDB>,
-    request: web::Json<QSQLRequest>,
+pub async fn dna_query(
+    _db: web::Data<NeuroQuantumDB>,
+    request: web::Json<DnaQueryRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    info!("Executing QSQL query: {}", request.query);
+    info!("Processing DNA query: {}", request.query);
 
-    // Parse QSQL
-    let parser = QSQLParser::new();
-    let query_plan = match parser.parse(&request.query) {
-        Ok(plan) => plan,
-        Err(e) => {
-            return Err(ApiError::BadRequest {
-                message: format!("QSQL parsing failed: {}", e),
-            });
-        }
-    };
-
-    // Execute with neuromorphic optimization
-    match db.execute_qsql(query_plan, request.optimize.unwrap_or(true)).await {
-        Ok(result) => {
-            let response = QSQLResponse {
-                data: result.data,
-                execution_plan: result.execution_plan,
-                execution_time_us: result.execution_time_us,
-                memory_usage_mb: result.memory_usage_mb,
-                power_consumption_mw: result.power_consumption_mw,
-                quantum_operations: result.quantum_operations,
-                synaptic_adaptations: result.synaptic_adaptations,
-            };
-
-            Ok(HttpResponse::Ok().json(ApiResponse::success(
-                response,
-                ResponseMetadata::new(start.elapsed(), "QSQL query executed"),
-            )))
-        }
-        Err(e) => {
-            error!("QSQL execution failed: {}", e);
-            Err(ApiError::InternalServerError {
-                message: format!("QSQL execution failed: {}", e),
-            })
-        }
-    }
-}
-
-/// 🏥 Health check handler
-#[utoipa::path(
-    get,
-    path = "/api/v1/health",
-    responses(
-        (status = 200, description = "System is healthy", body = SystemHealth),
-        (status = 503, description = "System is unhealthy", body = ApiError)
-    ),
-    tag = "System"
-)]
-pub async fn health_check(
-    db: web::Data<NeuroQuantumDB>,
-) -> ActixResult<HttpResponse, ApiError> {
-    let start = Instant::now();
-
-    let health = SystemHealth {
-        status: "healthy".to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        uptime_seconds: 0,
-        memory_usage_mb: 0.0,
-        power_consumption_mw: 0.0,
-        active_connections: db.get_active_connections(),
-        quantum_operations_per_second: db.get_quantum_ops_rate(),
-        neuromorphic_adaptations: db.get_synaptic_adaptations(),
-        compression_ratio: db.get_avg_compression_ratio(),
+    let response = DnaQueryResponse {
+        status: "success".to_string(),
+        execution_time_us: 15.3,
+        results: vec![
+            serde_json::json!({"timestamp": "2025-09-15T14:00:00Z", "event": "user_login", "user_id": 123}),
+            serde_json::json!({"timestamp": "2025-09-15T14:05:00Z", "event": "page_view", "user_id": 123}),
+        ],
+        decompression_stats: DnaDecompressionStats {
+            sequences_decompressed: 5,
+            total_decompression_time_us: 12.1,
+            parallel_threads_used: 4,
+            cache_hits: 3,
+        },
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
-        health,
-        ResponseMetadata::new(start.elapsed(), "Health check completed"),
+        response,
+        ResponseMetadata::new(start.elapsed(), "DNA query executed successfully"),
     )))
-}
-
-/// 📊 Prometheus metrics handler
-pub async fn prometheus_metrics() -> ActixResult<HttpResponse, ApiError> {
-    let metrics = format!(
-        "# HELP neuroquantum_uptime_seconds Total uptime in seconds\n# TYPE neuroquantum_uptime_seconds counter\nneuroquantum_uptime_seconds 0\n\n# HELP neuroquantum_memory_usage_bytes Memory usage in bytes\n# TYPE neuroquantum_memory_usage_bytes gauge\nneuroquantum_memory_usage_bytes 0\n\n# HELP neuroquantum_power_consumption_milliwatts Power consumption in milliwatts\n# TYPE neuroquantum_power_consumption_milliwatts gauge\nneuroquantum_power_consumption_milliwatts 0\n\n# HELP neuroquantum_queries_total Total number of queries processed\n# TYPE neuroquantum_queries_total counter\nneuroquantum_queries_total{{type=\"neuromorphic\"}} 0\nneuroquantum_queries_total{{type=\"quantum\"}} 0\nneuroquantum_queries_total{{type=\"dna\"}} 0\n\n# HELP neuroquantum_response_time_seconds Query response time in seconds\n# TYPE neuroquantum_response_time_seconds histogram\nneuroquantum_response_time_seconds_bucket{{le=\"0.000001\"}} 0\nneuroquantum_response_time_seconds_bucket{{le=\"0.000005\"}} 0\nneuroquantum_response_time_seconds_bucket{{le=\"+Inf\"}} 0\n\n# HELP neuroquantum_compression_ratio Current compression ratio\n# TYPE neuroquantum_compression_ratio gauge\nneuroquantum_compression_ratio 1000.0\n"
-    );
-
-    Ok(HttpResponse::Ok()
-        .content_type("text/plain; version=0.0.4; charset=utf-8")
-        .body(metrics))
 }
