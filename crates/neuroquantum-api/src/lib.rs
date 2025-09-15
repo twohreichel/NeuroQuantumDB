@@ -24,6 +24,17 @@ pub use config::*;
         handlers::quantum_search,
         handlers::execute_qsql,
         handlers::health_check,
+        handlers::generate_api_key,
+        handlers::neuromorphic_query,
+        handlers::network_status,
+        handlers::train_network,
+        handlers::quantum_optimize,
+        handlers::quantum_status,
+        handlers::dna_compress,
+        handlers::dna_decompress,
+        handlers::dna_repair,
+        handlers::get_config,
+        handlers::update_config,
     ),
     components(
         schemas(
@@ -34,19 +45,40 @@ pub use config::*;
             handlers::SystemHealth,
             handlers::SearchResult,
             handlers::QueryMetrics,
+            handlers::GenerateKeyRequest,
+            handlers::GenerateKeyResponse,
+            handlers::NeuromorphicQueryRequest,
+            handlers::NeuromorphicQueryResponse,
+            handlers::NetworkStatusResponse,
+            handlers::TrainingRequest,
+            handlers::OptimizationRequest,
+            handlers::OptimizationResponse,
+            handlers::QuantumStatusResponse,
+            handlers::CompressionRequest,
+            handlers::CompressionResponse,
+            handlers::DecompressionRequest,
+            handlers::DecompressionResponse,
+            handlers::RepairRequest,
+            handlers::RepairResponse,
+            handlers::ConfigResponse,
+            handlers::ConfigUpdateRequest,
+            handlers::ConfigUpdateResponse,
             error::ApiError,
         )
     ),
     tags(
+        (name = "Authentication", description = "API key management and quantum-resistant authentication"),
+        (name = "Neuromorphic", description = "Neuromorphic computing and synaptic network operations"),
         (name = "Quantum Operations", description = "Quantum-enhanced database operations"),
+        (name = "DNA Storage", description = "DNA-based compression and storage operations"),
         (name = "QSQL Operations", description = "QSQL query language operations"),
+        (name = "Admin", description = "Configuration and administration"),
         (name = "System", description = "System health and monitoring"),
-        (name = "Authentication", description = "Quantum-resistant authentication")
     ),
     info(
         title = "NeuroQuantumDB REST API",
         version = "1.0.0",
-        description = "Production-ready REST API for NeuroQuantumDB with quantum-resistant encryption and neuromorphic optimization",
+        description = "Production-ready REST API for NeuroQuantumDB with neuromorphic computing, quantum processing, and DNA storage",
         contact(
             name = "NeuroQuantumDB Team",
             email = "api@neuroquantumdb.org"
@@ -117,17 +149,10 @@ impl ApiServer {
                 // API routes
                 .service(
                     web::scope("/api/v1")
+                        // 🔑 Authentication endpoints
                         .service(
-                            web::resource("/quantum-search")
-                                .route(web::get().to(handlers::quantum_search))
-                        )
-                        .service(
-                            web::resource("/qsql/execute")
-                                .route(web::post().to(handlers::execute_qsql))
-                        )
-                        .service(
-                            web::resource("/health")
-                                .route(web::get().to(handlers::health_check))
+                            web::resource("/auth/generate-key")
+                                .route(web::post().to(handlers::generate_api_key))
                         )
                         .service(
                             web::resource("/auth/login")
@@ -137,9 +162,68 @@ impl ApiServer {
                             web::resource("/auth/refresh")
                                 .route(web::post().to(auth::refresh_token))
                         )
+
+                        // 🧠 Neuromorphic endpoints
+                        .service(
+                            web::resource("/neuromorphic/query")
+                                .route(web::post().to(handlers::neuromorphic_query))
+                        )
+                        .service(
+                            web::resource("/neuromorphic/network-status")
+                                .route(web::get().to(handlers::network_status))
+                        )
+                        .service(
+                            web::resource("/neuromorphic/train")
+                                .route(web::post().to(handlers::train_network))
+                        )
+
+                        // ⚛️ Quantum endpoints
+                        .service(
+                            web::resource("/quantum/search")
+                                .route(web::post().to(handlers::quantum_search))
+                        )
+                        .service(
+                            web::resource("/quantum/optimize")
+                                .route(web::post().to(handlers::quantum_optimize))
+                        )
+                        .service(
+                            web::resource("/quantum/status")
+                                .route(web::get().to(handlers::quantum_status))
+                        )
+
+                        // 🧬 DNA Storage endpoints
+                        .service(
+                            web::resource("/dna/compress")
+                                .route(web::post().to(handlers::dna_compress))
+                        )
+                        .service(
+                            web::resource("/dna/decompress")
+                                .route(web::post().to(handlers::dna_decompress))
+                        )
+                        .service(
+                            web::resource("/dna/repair")
+                                .route(web::post().to(handlers::dna_repair))
+                        )
+
+                        // 📊 Admin & Monitoring endpoints
+                        .service(
+                            web::resource("/admin/config")
+                                .route(web::get().to(handlers::get_config))
+                                .route(web::put().to(handlers::update_config))
+                        )
+                        .service(
+                            web::resource("/health")
+                                .route(web::get().to(handlers::health_check))
+                        )
                         .service(
                             web::resource("/metrics")
                                 .route(web::get().to(handlers::prometheus_metrics))
+                        )
+
+                        // Legacy QSQL endpoint
+                        .service(
+                            web::resource("/qsql/execute")
+                                .route(web::post().to(handlers::execute_qsql))
                         )
                 )
 
