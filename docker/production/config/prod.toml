@@ -1,0 +1,67 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+workers = 4
+keep_alive = 300
+client_timeout = 30
+shutdown_timeout = 30
+
+[database]
+connection_string = "neuroquantum://production:5432/neuroquantumdb"
+max_connections = 50
+connection_timeout = 10
+query_timeout = 30
+
+[database.neuromorphic_config]
+synaptic_strength_threshold = 0.7
+learning_rate = 0.005
+plasticity_decay = 0.01
+max_synaptic_connections = 5000
+hebbian_window_ms = 500
+
+[database.quantum_config]
+default_quantum_level = 192
+grovers_iterations = 1500
+annealing_temperature = 0.8
+superposition_depth = 12
+quantum_error_correction = true
+
+[database.dna_config]
+target_compression_ratio = 1000.0
+error_correction_redundancy = 5
+quaternary_encoding_block_size = 2048
+protein_folding_levels = 6
+cache_size_mb = 64
+
+[auth]
+jwt_secret = "${NEUROQUANTUM_JWT_SECRET}"
+token_expiry_seconds = 1800
+quantum_level = 192
+kyber_key_size = 1184
+dilithium_signature_size = 1952
+password_hash_cost = 14
+
+[metrics]
+enabled = true
+port = 9090
+path = "/metrics"
+collection_interval_ms = 5000
+retention_hours = 168
+export_format = "prometheus"
+
+[security]
+quantum_resistant_encryption = true
+tls_enabled = true
+tls_cert_path = "/etc/ssl/certs/neuroquantumdb.crt"
+tls_key_path = "/etc/ssl/private/neuroquantumdb.key"
+cors_origins = ["https://neuroquantumdb.org"]
+rate_limit_requests_per_minute = 500
+max_request_size_mb = 5
+
+[performance]
+arm64_neon_enabled = true
+power_management_enabled = true
+max_power_consumption_mw = 1500.0
+cpu_frequency_scaling = true
+memory_pool_size_mb = 256
+gc_threshold_mb = 50

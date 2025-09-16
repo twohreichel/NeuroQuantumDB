@@ -75,3 +75,4 @@ pnpm-debug.log**
 lerna-debug.log*
 .pnpm-debug.log**
 .env
+docker/production/monitoring/grafana-*

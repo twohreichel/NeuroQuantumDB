@@ -992,7 +992,7 @@ class NeuroQuantumDBDataTester:
                 "query": {
                     "filters": {
                         "office_location": ["Berlin", "München"],
-                        "active": True  # Fixed: Changed true to True
+                        "active": 1  # Fixed: Changed True to 1 for SQL compatibility
                     },
                     "table": "employees",
                     "limit": 15
@@ -1185,7 +1185,8 @@ class NeuroQuantumDBDataTester:
 
         for dataset, results in self.data_verification_results.items():
             # Skip non-storage datasets (these contain lists of test results)
-            if dataset in ["intelligent_queries", "advanced_search", "neuromorphic_queries", "quantum_queries", "dna_compression", "business_intelligence", "training_scenarios"]:
+            if dataset in ["intelligent_queries", "advanced_search", "neuromorphic_queries",
+                           "quantum_queries", "dna_compression", "business_intelligence", "training_scenarios"]:
                 continue
 
             # Handle only storage verification results (these should be dictionaries)
