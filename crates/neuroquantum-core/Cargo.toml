@@ -15,26 +15,13 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-rayon = { workspace = true }
-crossbeam = { workspace = true }
-parking_lot = { workspace = true }
-dashmap = { workspace = true }
 
 # Core-specific dependencies
-nalgebra = "0.32"
-ndarray = "0.15"
-rand = "0.8"
-rand_distr = "0.4"
-fnv = "1.0"
+rand = "0.10.0-rc.0"
+rand_distr = "0.6.0-rc.0"
 async-trait = "0.1"
-lru = "0.12"
-bytes = "1.0"
-uuid = { version = "1.0", features = ["v4"] }
-
-[dev-dependencies]
-proptest = { workspace = true }
-tokio-test = "0.4"
-criterion = { version = "0.5", features = ["html_reports"] }
+lru = "0.16.1"
+uuid = { version = "1.18.1", features = ["v4"] }
 
 [features]
 default = ["neon-optimizations"]

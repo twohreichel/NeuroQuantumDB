@@ -15,8 +15,8 @@ neuroquantum-core = { path = "../neuroquantum-core" }
 actix-web = "4.11.0"
 actix-cors = "0.7.1"
 actix-ws = "0.3.0"
-actix-web-prometheus = "0.1"
-futures-util = "0.3"
+actix-web-prometheus = "0.1.2"
+futures-util = "0.3.31"
 
 # Async runtime
 tokio.workspace = true
@@ -37,15 +37,10 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 
-# Random number generation
-rand = "0.8"
-
 # API documentation
 utoipa = { version = "5.4.0", features = ["actix_extras"] }
-utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 
 # Configuration
-config.workspace = true
 toml = "0.9.6"
 
 [features]
