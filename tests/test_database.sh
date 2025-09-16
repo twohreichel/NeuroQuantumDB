@@ -555,14 +555,16 @@ test_natural_language_queries() {
 
     for i in "${!natural_queries[@]}"; do
         echo ""
-        echo -e "${CYAN}❓ Natural Query ${((i+1))}: \"${natural_queries[i]}\"${NC}"
+        local current_query="${natural_queries[i]}"
+        local query_num=$((i+1))
+        echo -e "${CYAN}❓ Natural Query ${query_num}: \"${current_query}\"${NC}"
         echo "============================================"
 
-        # Versuche natürlichsprachliche Abfrage
-        local nl_query="{\"natural_query\": \"${natural_queries[i]}\", \"language\": \"de\"}"
+        # Versuche natürlichsprachliche Abfrage - escape JSON properly
+        local escaped_query=$(echo "$current_query" | sed 's/"/\\"/g' | sed "s/'/\\\\'/g")
         local nl_result=$(eval curl -s -X POST "${API_BASE}/natural-query" \
             $headers \
-            -d "'$nl_query'" 2>/dev/null)
+            -d '{"natural_query": "'"$escaped_query"'", "language": "de"}' 2>/dev/null)
 
         if [ $? -eq 0 ] && [ -n "$nl_result" ] && [[ "$nl_result" != *"error"* ]] && [[ "$nl_result" != *"404"* ]]; then
             echo -e "${GREEN}🧠 Neural Language Processing successful:${NC}"
@@ -574,10 +576,9 @@ test_natural_language_queries() {
         else
             echo -e "${YELLOW}🔄 Fallback to SQL translation:${NC}"
             # Fallback zu SQL-Abfrage
-            local sql_query="{\"query\": \"${sql_fallbacks[i]}\", \"limit\": 10}"
             local sql_result=$(eval curl -s -X POST "${API_BASE}/query" \
                 $headers \
-                -d "'$sql_query'" 2>/dev/null)
+                -d '{"query": "'"${sql_fallbacks[i]}"'", "limit": 10}' 2>/dev/null)
 
             if [ $? -eq 0 ] && [ -n "$sql_result" ]; then
                 if command -v jq > /dev/null 2>&1; then
@@ -679,7 +680,8 @@ test_quantum_performance() {
 
     for i in "${!performance_queries[@]}"; do
         echo ""
-        echo -e "${BLUE}⏱️ Performance Test ${((i+1))}:${NC}"
+        local test_num=$((i+1))
+        echo -e "${BLUE}⏱️ Performance Test ${test_num}:${NC}"
 
         local start_time=$(date +%s%N)
         local perf_query="{\"query\": \"${performance_queries[i]}\", \"quantum_enhanced\": true, \"limit\": 20}"
