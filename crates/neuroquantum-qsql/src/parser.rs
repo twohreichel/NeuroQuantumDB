@@ -553,7 +553,7 @@ impl QSQLParser {
         let activation_threshold = None;
 
         // Enhanced parsing for NEUROMATCH
-        for (i, token) in tokens.iter().enumerate() {
+        for (_i, token) in tokens.iter().enumerate() {
             match token {
                 TokenType::Identifier(table_name) => {
                     // Look for table names that might follow NEUROMATCH
@@ -561,15 +561,9 @@ impl QSQLParser {
                         target_table = table_name.clone();
                     }
                 }
-                TokenType::FloatLiteral(weight) => {
-                    // If we find a float after certain keywords, treat as synaptic weight
-                    if i > 0 {
-                        if let TokenType::Identifier(prev) = &tokens[i - 1] {
-                            if prev == "weight" || prev == "similar" {
-                                // Use the weight value directly in the statement creation
-                            }
-                        }
-                    }
+                TokenType::FloatLiteral(_weight) => {
+                    // Placeholder for future weight parsing implementation
+                    // Currently using default weight
                 }
                 _ => {}
             }
@@ -595,15 +589,19 @@ impl QSQLParser {
         let oracle_function = None;
 
         // Enhanced parsing for QUANTUM_SEARCH
-        for (i, token) in tokens.iter().enumerate() {
+        for token in tokens.iter() {
             match token {
                 TokenType::Identifier(table_name) => {
                     // Look for table names that might follow QUANTUM_SEARCH
                     if matches!(table_name.as_str(), "employees" | "departments" | "users") {
                         target_table = table_name.clone();
                     }
+                    // Check for AMPLITUDE_AMPLIFICATION as an identifier
+                    else if table_name.to_uppercase() == "AMPLITUDE_AMPLIFICATION" {
+                        amplitude_amplification = true;
+                    }
                 }
-                TokenType::Identifier(name) if name.to_uppercase() == "AMPLITUDE_AMPLIFICATION" => {
+                TokenType::AmplitudeAmplification => {
                     amplitude_amplification = true;
                 }
                 TokenType::IntegerLiteral(_iterations) => {
