@@ -684,10 +684,10 @@ test_quantum_performance() {
         echo -e "${BLUE}⏱️ Performance Test ${test_num}:${NC}"
 
         local start_time=$(date +%s%N)
-        local perf_query="{\"query\": \"${performance_queries[i]}\", \"quantum_enhanced\": true, \"limit\": 20}"
+        local escaped_perf_query=$(echo "${performance_queries[i]}" | sed 's/"/\\"/g' | sed "s/'/\\\\'/g")
         local perf_result=$(eval curl -s -X POST "${API_BASE}/query" \
             $headers \
-            -d "'$perf_query'" 2>/dev/null)
+            -d '{"query": "'"$escaped_perf_query"'", "quantum_enhanced": true, "limit": 20}' 2>/dev/null)
         local end_time=$(date +%s%N)
 
         local duration=$(( (end_time - start_time) / 1000000 )) # Convert to milliseconds
