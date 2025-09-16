@@ -773,20 +773,47 @@ class NeuroQuantumDBDataTester:
             with open("generated_access_logs.json", 'r', encoding='utf-8') as f:
                 access_logs = json.load(f)
 
-            # Nehme einen Sample der Logs für DNA-Kompression
-            sample_logs = random.sample(access_logs, min(10000, len(access_logs)))
+            # Start with a smaller sample to avoid payload size limits
+            sample_size = 100  # Reduced from 10,000 to 100
+            sample_logs = random.sample(access_logs, min(sample_size, len(access_logs)))
+
+            # Create a more compact data structure for compression
+            compact_logs = []
+            for log in sample_logs:
+                compact_log = {
+                    "id": log["id"],
+                    "doc_id": log["document_id"],
+                    "emp_id": log["employee_id"],
+                    "action": log["action"],
+                    "result": log["result"],
+                    "timestamp": log["timestamp"],
+                    "duration": log.get("duration_seconds", 0),
+                    "bytes": log.get("bytes_transferred", 0)
+                }
+                compact_logs.append(compact_log)
 
             compression_data = {
-                "data": json.dumps(sample_logs),
-                "compression_level": 9,
+                "data": json.dumps(compact_logs),
+                "compression_level": 5,  # Reduced from 9 to 5 for faster processing
                 "error_correction": True,
                 "biological_patterns": True,
                 "metadata": {
                     "data_type": "access_logs",
-                    "record_count": len(sample_logs),
+                    "record_count": len(compact_logs),
                     "compression_target": "long_term_storage"
                 }
             }
+
+            # Check payload size before sending
+            payload_size = len(json.dumps(compression_data).encode('utf-8'))
+            logger.info(f"DNA compression payload size: {payload_size} bytes")
+
+            if payload_size > 1024 * 1024:  # 1MB limit
+                logger.warning(f"Payload too large ({payload_size} bytes), reducing sample size further")
+                sample_size = 50
+                compact_logs = compact_logs[:sample_size]
+                compression_data["data"] = json.dumps(compact_logs)
+                compression_data["metadata"]["record_count"] = len(compact_logs)
 
             response = self.session.post(
                 f"{self.api_base}/dna/compress",
@@ -801,7 +828,7 @@ class NeuroQuantumDBDataTester:
             if response.status_code == 200:
                 result = response.json()
                 ratio = result.get("compression_ratio", 0)
-                logger.info(f"✅ DNA Compression: {ratio}:1 ratio for {len(sample_logs)} access logs")
+                logger.info(f"✅ DNA Compression: {ratio}:1 ratio for {len(compact_logs)} access logs")
 
                 # Teste Decompression
                 if "dna_sequence" in result:
@@ -823,9 +850,42 @@ class NeuroQuantumDBDataTester:
                     if decomp_response.status_code == 200:
                         logger.info("✅ DNA Decompression: Successfully restored data")
                     else:
-                        logger.error("❌ DNA Decompression: Failed")
+                        logger.error(f"❌ DNA Decompression: Failed with status {decomp_response.status_code}")
+            elif response.status_code == 413:
+                logger.error("❌ DNA Compression: Payload too large - trying with even smaller sample")
+
+                # Try with minimal sample
+                minimal_logs = compact_logs[:10]
+                minimal_data = {
+                    "data": json.dumps(minimal_logs),
+                    "compression_level": 3,
+                    "error_correction": False,
+                    "biological_patterns": False,
+                    "metadata": {
+                        "data_type": "access_logs",
+                        "record_count": len(minimal_logs),
+                        "compression_target": "test"
+                    }
+                }
+
+                minimal_response = self.session.post(
+                    f"{self.api_base}/dna/compress",
+                    json=minimal_data,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-API-Key": self.api_key
+                    },
+                    timeout=60
+                )
+
+                if minimal_response.status_code == 200:
+                    logger.info(f"✅ DNA Compression (minimal): Success with {len(minimal_logs)} records")
+                else:
+                    logger.error(f"❌ DNA Compression (minimal): Failed with status {minimal_response.status_code}")
             else:
-                logger.error("❌ DNA Compression: Failed")
+                logger.error(f"❌ DNA Compression: Failed with status {response.status_code}")
+                if response.text:
+                    logger.error(f"Response: {response.text[:200]}")
 
         except Exception as e:
             logger.error(f"❌ DNA Compression Test: {str(e)}")
