@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tracing::info;
 use utoipa::ToSchema;
-use uuid::Uuid;
+use uuid;
 
 /// 🔑 Auth endpoints
 #[derive(Debug, Deserialize, ToSchema)]

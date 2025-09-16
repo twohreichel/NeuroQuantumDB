@@ -37,6 +37,9 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 
+# Random number generation
+rand = "0.8"
+
 # API documentation
 utoipa = { version = "5.4.0", features = ["actix_extras"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
