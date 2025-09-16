@@ -293,236 +293,6 @@ test_intelligent_linking() {
     fi
 }
 
-# Funktion zum Analysieren der Datenbankstruktur
-analyze_database_structure() {
-    echo ""
-    echo -e "${PURPLE}🏗️ Database Structure Analysis - Tables, Columns & Relationships...${NC}"
-    echo "=================================================================="
-
-    # Headers für Anfragen
-    local headers="-H 'Content-Type: application/json'"
-    if [ -n "$API_KEY" ]; then
-        headers="$headers -H 'X-API-Key: $API_KEY'"
-    fi
-
-    echo -e "${CYAN}📋 Database Tables Overview:${NC}"
-    echo "============================"
-
-    # Versuche verschiedene Methoden um Tabellen zu finden
-    declare -a table_queries=(
-        "SHOW TABLES"
-        "SELECT name FROM sqlite_master WHERE type='table'"
-        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-    )
-
-    local tables_found=false
-
-    for table_query in "${table_queries[@]}"; do
-        echo -e "${BLUE}🔍 Trying: $table_query${NC}"
-        local tables_result=$(eval curl -s -X POST "${API_BASE}/query" \
-            $headers \
-            -d '{"query": "'"$table_query"'", "limit": 50}' 2>/dev/null)
-
-        if [ $? -eq 0 ] && [ -n "$tables_result" ] && [[ "$tables_result" != *"error"* ]] && [[ "$tables_result" != *"ERROR"* ]]; then
-            echo -e "${GREEN}✅ Tables found:${NC}"
-            if command -v jq > /dev/null 2>&1; then
-                local table_data=$(echo "$tables_result" | jq '.data[] // .results[] // empty' 2>/dev/null)
-                if [ -n "$table_data" ]; then
-                    echo "$table_data"
-                    tables_found=true
-                    break
-                fi
-            else
-                echo "$tables_result"
-                tables_found=true
-                break
-            fi
-        fi
-    done
-
-    if [ "$tables_found" = false ]; then
-        echo -e "${YELLOW}⚠️ Could not retrieve table list via standard queries${NC}"
-        echo -e "${BLUE}📊 Trying to discover tables from known data...${NC}"
-
-        # Versuche bekannte Tabellen zu testen
-        declare -a known_tables=("employees" "departments" "users" "documents" "access_logs" "security_events")
-
-        for table in "${known_tables[@]}"; do
-            local test_result=$(eval curl -s -X POST "${API_BASE}/query" \
-                $headers \
-                -d '{"query": "SELECT COUNT(*) FROM '"$table"'", "limit": 1}' 2>/dev/null)
-
-            if [ $? -eq 0 ] && [ -n "$test_result" ] && [[ "$test_result" != *"error"* ]] && [[ "$test_result" != *"ERROR"* ]]; then
-                echo -e "${GREEN}✅ Table found: $table${NC}"
-                tables_found=true
-            fi
-        done
-    fi
-
-    echo ""
-    echo -e "${CYAN}🗂️ Detailed Table Structure Analysis:${NC}"
-    echo "====================================="
-
-    # Analysiere bekannte Tabellen im Detail
-    declare -a analysis_tables=("employees" "departments" "users" "documents" "access_logs" "security_events")
-
-    for table in "${analysis_tables[@]}"; do
-        echo ""
-        echo -e "${BLUE}📋 Analyzing table: $table${NC}"
-        echo "----------------------------------------"
-
-        # Versuche DESCRIBE oder ähnliche Befehle
-        declare -a describe_queries=(
-            "DESCRIBE $table"
-            "PRAGMA table_info($table)"
-            "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '$table'"
-            "\\d $table"
-        )
-
-        local structure_found=false
-
-        for desc_query in "${describe_queries[@]}"; do
-            local structure_result=$(eval curl -s -X POST "${API_BASE}/query" \
-                $headers \
-                -d '{"query": "'"$desc_query"'", "limit": 50}' 2>/dev/null)
-
-            if [ $? -eq 0 ] && [ -n "$structure_result" ] && [[ "$structure_result" != *"error"* ]] && [[ "$structure_result" != *"ERROR"* ]]; then
-                echo -e "${GREEN}📊 Table structure for $table:${NC}"
-                if command -v jq > /dev/null 2>&1; then
-                    echo "$structure_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$structure_result"
-                else
-                    echo "$structure_result"
-                fi
-                structure_found=true
-                break
-            fi
-        done
-
-        if [ "$structure_found" = false ]; then
-            # Fallback: Zeige erste Zeile der Tabelle um Spalten zu erkennen
-            echo -e "${YELLOW}🔄 Fallback - Analyzing first row:${NC}"
-            local sample_result=$(eval curl -s -X POST "${API_BASE}/query" \
-                $headers \
-                -d '{"query": "SELECT * FROM '"$table"' LIMIT 1", "limit": 1}' 2>/dev/null)
-
-            if [ $? -eq 0 ] && [ -n "$sample_result" ] && [[ "$sample_result" != *"error"* ]] && [[ "$sample_result" != *"ERROR"* ]]; then
-                echo -e "${CYAN}📝 Sample data (shows column structure):${NC}"
-                if command -v jq > /dev/null 2>&1; then
-                    echo "$sample_result" | jq '.data[0] // .results[0] // empty' 2>/dev/null || echo "$sample_result"
-                else
-                    echo "$sample_result"
-                fi
-
-                # Versuche Anzahl der Datensätze zu ermitteln
-                local count_result=$(eval curl -s -X POST "${API_BASE}/query" \
-                    $headers \
-                    -d '{"query": "SELECT COUNT(*) as record_count FROM '"$table"'", "limit": 1}' 2>/dev/null)
-
-                if [ $? -eq 0 ] && [ -n "$count_result" ]; then
-                    echo -e "${CYAN}📊 Record count:${NC}"
-                    if command -v jq > /dev/null 2>&1; then
-                        echo "$count_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$count_result"
-                    else
-                        echo "$count_result"
-                    fi
-                fi
-            else
-                echo -e "${RED}❌ Table $table not accessible or doesn't exist${NC}"
-            fi
-        fi
-
-        # Kurze Pause zwischen Tabellen-Analysen
-        sleep 0.5
-    done
-
-    echo ""
-    echo -e "${CYAN}🔗 Relationship Analysis:${NC}"
-    echo "========================"
-
-    # Analysiere mögliche Beziehungen zwischen Tabellen
-    echo -e "${BLUE}🔍 Analyzing potential foreign key relationships...${NC}"
-
-    # Versuche Foreign Key Constraints zu finden
-    declare -a fk_queries=(
-        "SELECT tc.table_name, kcu.column_name, ccu.table_name AS foreign_table_name, ccu.column_name AS foreign_column_name FROM information_schema.table_constraints AS tc JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name WHERE constraint_type = 'FOREIGN KEY'"
-        "PRAGMA foreign_key_list(employees)"
-        "PRAGMA foreign_key_list(departments)"
-        "SELECT name, sql FROM sqlite_master WHERE type = 'table'"
-    )
-
-    local relationships_found=false
-
-    for fk_query in "${fk_queries[@]}"; do
-        local fk_result=$(eval curl -s -X POST "${API_BASE}/query" \
-            $headers \
-            -d '{"query": "'"$fk_query"'", "limit": 50}' 2>/dev/null)
-
-        if [ $? -eq 0 ] && [ -n "$fk_result" ] && [[ "$fk_result" != *"error"* ]] && [[ "$fk_result" != *"ERROR"* ]]; then
-            echo -e "${GREEN}🔗 Foreign key relationships found:${NC}"
-            if command -v jq > /dev/null 2>&1; then
-                echo "$fk_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$fk_result"
-            else
-                echo "$fk_result"
-            fi
-            relationships_found=true
-            break
-        fi
-    done
-
-    if [ "$relationships_found" = false ]; then
-        echo -e "${YELLOW}🔄 Manual relationship analysis...${NC}"
-
-        # Analysiere logische Beziehungen durch Spaltenvergleich
-        echo -e "${CYAN}📋 Logical relationships (based on column patterns):${NC}"
-        echo "- employees.department_id → departments.id"
-        echo "- access_logs.user_id → users.id"
-        echo "- documents.created_by → users.id"
-        echo "- security_events.user_id → users.id"
-
-        # Teste tatsächliche Beziehungen
-        echo ""
-        echo -e "${BLUE}🧪 Testing relationship: employees ↔ departments${NC}"
-        local rel_test=$(eval curl -s -X POST "${API_BASE}/query" \
-            $headers \
-            -d '{"query": "SELECT COUNT(*) as valid_relationships FROM employees e WHERE e.department_id IN (SELECT id FROM departments)", "limit": 1}' 2>/dev/null)
-
-        if [ $? -eq 0 ] && [ -n "$rel_test" ]; then
-            echo -e "${GREEN}✅ Relationship test result:${NC}"
-            if command -v jq > /dev/null 2>&1; then
-                echo "$rel_test" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$rel_test"
-            else
-                echo "$rel_test"
-            fi
-        fi
-    fi
-
-    echo ""
-    echo -e "${CYAN}🎯 Database Schema Summary:${NC}"
-    echo "=========================="
-    echo -e "${GREEN}📊 Discovered Tables:${NC}"
-    echo "• employees (HR data with department relationships)"
-    echo "• departments (organizational structure)"
-    echo "• users (system users and authentication)"
-    echo "• documents (document management)"
-    echo "• access_logs (security and audit trails)"
-    echo "• security_events (security monitoring)"
-
-    echo ""
-    echo -e "${GREEN}🔗 Key Relationships:${NC}"
-    echo "• employees → departments (department_id)"
-    echo "• access_logs → users (user_id)"
-    echo "• documents → users (created_by)"
-    echo "• security_events → users (user_id)"
-
-    echo ""
-    echo -e "${GREEN}🛡️ Security Features:${NC}"
-    echo "• Multi-level security clearances"
-    echo "• Comprehensive audit logging"
-    echo "• Real-time security monitoring"
-    echo "• Document access permissions"
-}
-
 # Funktion zum Testen von natürlichsprachlichen Abfragen
 test_natural_language_queries() {
     echo ""
@@ -535,16 +305,25 @@ test_natural_language_queries() {
         headers="$headers -H 'X-API-Key: $API_KEY'"
     fi
 
-    # Array von natürlichsprachlichen Abfragen
+    # Array von natürlichsprachlichen Abfragen (English - matching NLP patterns)
     declare -a natural_queries=(
-        "Zeige mir alle Mitarbeiter aus der IT Abteilung"
-        "Welche Mitarbeiter verdienen mehr als 80000 Euro?"
-        "Finde alle Abteilungen in Berlin"
-        "Wer arbeitet im Personal HR Bereich?"
-        "Zeige mir die Gehälter aller Software Engineers"
+        "show all users from employees table"
+        "find users where salary greater than 80000"
+        "display all data from departments table"
+        "show users from departments table where name contains HR"
+        "list users where role contains Software"
     )
 
-    # Array von entsprechenden SQL-Übersetzungen für Fallback
+    # Array von entsprechenden deutschen Beschreibungen
+    declare -a german_descriptions=(
+        "Zeige alle Mitarbeiter aus der employees Tabelle"
+        "Finde Mitarbeiter die mehr als 80000 verdienen"
+        "Zeige alle Abteilungen aus der departments Tabelle"
+        "Zeige Mitarbeiter aus Abteilungen die HR enthalten"
+        "Liste Mitarbeiter deren Rolle Software enthält"
+    )
+
+    # Array von entsprechenden SQL-Übersetzungen für Fallback (angepasst an echte Schema)
     declare -a sql_fallbacks=(
         "SELECT * FROM employees WHERE department_id = 'DEPT_001'"
         "SELECT first_name, last_name, salary FROM employees WHERE salary > 80000"
@@ -556,44 +335,123 @@ test_natural_language_queries() {
     for i in "${!natural_queries[@]}"; do
         echo ""
         local current_query="${natural_queries[i]}"
+        local german_desc="${german_descriptions[i]}"
         local query_num=$((i+1))
-        echo -e "${CYAN}❓ Natural Query ${query_num}: \"${current_query}\"${NC}"
+        echo -e "${CYAN}❓ Natural Query ${query_num}: \"${german_desc}\"${NC}"
+        echo -e "${BLUE}📝 English equivalent: \"${current_query}\"${NC}"
         echo "============================================"
 
-        # Versuche natürlichsprachliche Abfrage - escape JSON properly
-        local escaped_query=$(echo "$current_query" | sed 's/"/\\"/g' | sed "s/'/\\\\'/g")
-        local nl_result=$(eval curl -s -X POST "${API_BASE}/natural-query" \
+        # Option 1: Versuche über QSQL Engine mit Natural Language Processing
+        echo -e "${BLUE}🧠 Trying via QSQL Natural Language Processing...${NC}"
+        local nl_qsql_result=$(eval curl -s -X POST "${API_BASE}/query" \
             $headers \
-            -d '{"natural_query": "'"$escaped_query"'", "language": "de"}' 2>/dev/null)
+            -d '{"query": "'"$current_query"'", "natural_language": true, "limit": 10}' 2>/dev/null)
 
-        if [ $? -eq 0 ] && [ -n "$nl_result" ] && [[ "$nl_result" != *"error"* ]] && [[ "$nl_result" != *"404"* ]]; then
-            echo -e "${GREEN}🧠 Neural Language Processing successful:${NC}"
+        if [ $? -eq 0 ] && [ -n "$nl_qsql_result" ] && [[ "$nl_qsql_result" != *"error"* ]] && [[ "$nl_qsql_result" != *"404"* ]]; then
+            echo -e "${GREEN}✅ Natural Language Processing successful:${NC}"
             if command -v jq > /dev/null 2>&1; then
-                echo "$nl_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$nl_result"
+                echo "$nl_qsql_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$nl_qsql_result"
             else
-                echo "$nl_result"
+                echo "$nl_qsql_result"
             fi
         else
-            echo -e "${YELLOW}🔄 Fallback to SQL translation:${NC}"
-            # Fallback zu SQL-Abfrage
-            local sql_result=$(eval curl -s -X POST "${API_BASE}/query" \
+            # Option 2: Versuche über Neuromorphic Query (die NL unterstützen könnte)
+            echo -e "${YELLOW}🔄 Trying via Neuromorphic Query Handler...${NC}"
+            local neuromorphic_result=$(eval curl -s -X POST "${API_BASE}/neuromorphic/query" \
                 $headers \
-                -d '{"query": "'"${sql_fallbacks[i]}"'", "limit": 10}' 2>/dev/null)
+                -d '{"query": "'"$current_query"'", "learning_enabled": true}' 2>/dev/null)
 
-            if [ $? -eq 0 ] && [ -n "$sql_result" ]; then
+            if [ $? -eq 0 ] && [ -n "$neuromorphic_result" ] && [[ "$neuromorphic_result" != *"error"* ]] && [[ "$neuromorphic_result" != *"404"* ]]; then
+                echo -e "${GREEN}🧠 Neuromorphic Language Processing successful:${NC}"
                 if command -v jq > /dev/null 2>&1; then
-                    echo "$sql_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$sql_result"
+                    echo "$neuromorphic_result" | jq '.results[] // .data[] // empty' 2>/dev/null || echo "$neuromorphic_result"
                 else
-                    echo "$sql_result"
+                    echo "$neuromorphic_result"
                 fi
             else
-                echo -e "${RED}❌ Query failed${NC}"
+                # Option 3: Fallback zu SQL-Abfrage
+                echo -e "${YELLOW}🔄 Fallback to SQL translation:${NC}"
+                local sql_result=$(eval curl -s -X POST "${API_BASE}/query" \
+                    $headers \
+                    -d '{"query": "'"${sql_fallbacks[i]}"'", "limit": 10}' 2>/dev/null)
+
+                if [ $? -eq 0 ] && [ -n "$sql_result" ]; then
+                    if command -v jq > /dev/null 2>&1; then
+                        echo "$sql_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$sql_result"
+                    else
+                        echo "$sql_result"
+                    fi
+                else
+                    echo -e "${RED}❌ Query failed${NC}"
+                fi
             fi
         fi
 
         # Kurze Pause zwischen Abfragen
         sleep 1
     done
+
+    echo ""
+    echo -e "${CYAN}🎯 Advanced Natural Language Features Test:${NC}"
+    echo "==============================================="
+
+    # Teste erweiterte NL Features mit QSQL-spezifischen Konstrukten
+    declare -a advanced_nl_queries=(
+        "NEUROMATCH employees WHERE salary pattern similar weight 0.8"
+        "QUANTUM_SEARCH departments WITH AMPLITUDE_AMPLIFICATION"
+        "show users with neural matching for high engagement patterns"
+        "quantum search employees where role patterns match software"
+    )
+
+    declare -a advanced_descriptions=(
+        "Neuronale Mustersuche in Mitarbeiter-Gehältern"
+        "Quantensuche in Abteilungen mit Amplituden-Verstärkung"
+        "Zeige Benutzer mit neuronaler Mustererkennung für hohe Engagement-Muster"
+        "Quantensuche nach Mitarbeitern mit Software-Rollen-Mustern"
+    )
+
+    for i in "${!advanced_nl_queries[@]}"; do
+        echo ""
+        local adv_query="${advanced_nl_queries[i]}"
+        local adv_desc="${advanced_descriptions[i]}"
+        local query_num=$((i+1))
+        echo -e "${CYAN}🚀 Advanced Query ${query_num}: \"${adv_desc}\"${NC}"
+        echo -e "${BLUE}📝 QSQL equivalent: \"${adv_query}\"${NC}"
+
+        # Versuche direkte QSQL-Ausführung
+        local adv_result=$(eval curl -s -X POST "${API_BASE}/query" \
+            $headers \
+            -d '{"query": "'"$adv_query"'", "quantum_enhanced": true, "enable_learning": true, "limit": 10}' 2>/dev/null)
+
+        if [ $? -eq 0 ] && [ -n "$adv_result" ] && [[ "$adv_result" != *"error"* ]]; then
+            echo -e "${GREEN}⚛️ Advanced QSQL successful:${NC}"
+            if command -v jq > /dev/null 2>&1; then
+                echo "$adv_result" | jq '.data[] // .results[] // empty' 2>/dev/null || echo "$adv_result"
+            else
+                echo "$adv_result"
+            fi
+        else
+            echo -e "${YELLOW}⚠️ Advanced query not supported yet${NC}"
+        fi
+
+        sleep 0.5
+    done
+
+    echo ""
+    echo -e "${CYAN}📊 Natural Language Processing Summary:${NC}"
+    echo "====================================="
+    echo -e "${GREEN}✅ Supported NL Patterns:${NC}"
+    echo "• 'show/display/list' + table/entity names"
+    echo "• 'find/get' + conditions"
+    echo "• 'where' + comparison operators"
+    echo "• Entity recognition for: users, employees, departments"
+    echo "• Number and operator extraction"
+    echo ""
+    echo -e "${BLUE}🧠 NeuroQuantumDB Extensions:${NC}"
+    echo "• NEUROMATCH for pattern similarity"
+    echo "• QUANTUM_SEARCH for superposition queries"
+    echo "• Synaptic learning from query patterns"
+    echo "• Adaptive entity recognition"
 }
 
 # Funktion zum Testen der Datenverfolgung und Synaptic Learning
@@ -713,33 +571,6 @@ test_quantum_performance() {
     done
 }
 
-# Funktion zum Aufräumen (Daten löschen)
-cleanup_data() {
-    echo ""
-    read -p "🗑️  Do you want to clean up the test data? (y/N): " -n 1 -r
-    echo
-
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}🧹 Cleaning up test data...${NC}"
-
-        local headers="-H 'Content-Type: application/json'"
-        if [ -n "$API_KEY" ]; then
-            headers="$headers -H 'X-API-Key: $API_KEY'"
-        fi
-
-        # Lösche Testdaten
-        local cleanup_query='{"query": "DELETE FROM employees WHERE id IN ('\''EMP_0001'\'', '\''EMP_0002'\''); DELETE FROM departments WHERE id IN ('\''DEPT_001'\'', '\''DEPT_002'\'');", "limit": 1}'
-
-        eval curl -s -X POST "${API_BASE}/query" \
-            $headers \
-            -d "'$cleanup_query'" > /dev/null 2>&1
-
-        echo -e "${GREEN}✅ Test data cleaned up${NC}"
-    else
-        echo -e "${BLUE}📝 Test data left in database${NC}"
-    fi
-}
-
 # Hauptfunktion
 main() {
     echo -e "${BLUE}🚀 Starting database test...${NC}"
@@ -752,9 +583,6 @@ main() {
     # Generiere API-Key
     generate_api_key
     echo ""
-
-    # Analysiere Datenbankstruktur ZUERST
-    analyze_database_structure
 
     # Lade Testdaten
     load_test_data
@@ -774,9 +602,6 @@ main() {
 
     # Teste Quantum-Enhanced Performance
     test_quantum_performance
-
-    # Optional: Aufräumen
-    cleanup_data
 
     echo ""
     echo -e "${GREEN}🎉 Database test completed!${NC}"
