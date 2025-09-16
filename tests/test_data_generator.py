@@ -27,12 +27,44 @@ import time
 import asyncio
 import requests
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union, Tuple
 import uuid
 import hashlib
 from faker import Faker
 import argparse
 import logging
+import sys
+import os
+from pathlib import Path
+
+# Modern Python 3.12+ imports
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from collections.abc import Iterable
+import concurrent.futures
+from contextlib import asynccontextmanager
+
+# Enhanced logging with rich formatting
+try:
+    from rich.console import Console
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+    from rich.logging import RichHandler
+    from rich.table import Table
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
+    Console = None
+
+# Performance monitoring
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
+# Configuration with environment variable support
+from dotenv import load_dotenv
+load_dotenv()
 
 # Konfiguration
 BASE_URL = "http://localhost:8080"
@@ -616,6 +648,31 @@ class NeuroQuantumDBDataTester:
             "X-API-Key": self.api_key
         }
 
+        # First, let's check what tables exist in the database
+        try:
+            logger.info("🔍 Checking existing database schema...")
+            schema_query = {
+                "query": "SELECT name FROM sqlite_master WHERE type='table'",
+                "limit": 100
+            }
+
+            response = self.session.post(
+                f"{self.api_base}/query",
+                json=schema_query,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                tables = result.get('data', result.get('results', []))
+                logger.info(f"📊 Existing tables: {[t.get('name', 'unknown') for t in tables]}")
+            else:
+                logger.warning(f"⚠️ Could not check schema: HTTP {response.status_code}")
+                logger.warning(f"   Response: {response.text[:200]}")
+        except Exception as e:
+            logger.warning(f"⚠️ Schema check failed: {str(e)}")
+
         # Lade alle Datensätze
         datasets = [
             "departments", "employees", "documents",
@@ -629,7 +686,11 @@ class NeuroQuantumDBDataTester:
                 with open(f"generated_{dataset}.json", 'r', encoding='utf-8') as f:
                     data = json.load(f)
 
-                logger.info(f"Loading {len(data)} {dataset} records...")
+                logger.info(f"📥 Loading {len(data)} {dataset} records...")
+
+                # Show sample of data being loaded
+                if data:
+                    logger.info(f"📋 Sample record: {data[0]}")
 
                 # Daten in Batches laden
                 for i in range(0, len(data), BATCH_SIZE):
@@ -642,6 +703,9 @@ class NeuroQuantumDBDataTester:
                         "compression": "dna" if len(batch) > 100 else None
                     }
 
+                    logger.info(f"🚀 Sending batch {i//BATCH_SIZE + 1}/{(len(data) + BATCH_SIZE - 1) // BATCH_SIZE} to endpoint: {self.api_base}/data/load")
+                    logger.info(f"📦 Batch size: {len(batch)} records")
+
                     try:
                         response = self.session.post(
                             f"{self.api_base}/data/load",
@@ -650,11 +714,14 @@ class NeuroQuantumDBDataTester:
                             timeout=60
                         )
 
+                        logger.info(f"📡 Response status: {response.status_code}")
+                        logger.info(f"📄 Response content: {response.text[:500]}")
+
                         if response.status_code == 200:
                             logger.info(f"✅ Loaded batch {i//BATCH_SIZE + 1}/{(len(data) + BATCH_SIZE - 1) // BATCH_SIZE} of {dataset}")
                         else:
                             logger.error(f"❌ Failed to load batch {i//BATCH_SIZE + 1} of {dataset}: HTTP {response.status_code}")
-                            logger.error(f"   Response: {response.text[:500]}")
+                            logger.error(f"   Response: {response.text}")
                             load_success = False
 
                     except requests.exceptions.RequestException as e:
@@ -678,6 +745,61 @@ class NeuroQuantumDBDataTester:
             logger.info("✅ All data loaded successfully")
         else:
             logger.warning("⚠️ Some data loading operations failed")
+
+        # After loading, check schema again
+        try:
+            logger.info("🔍 Checking database schema after loading...")
+            schema_query = {
+                "query": "SELECT name FROM sqlite_master WHERE type='table'",
+                "limit": 100
+            }
+
+            response = self.session.post(
+                f"{self.api_base}/query",
+                json=schema_query,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                tables = result.get('data', result.get('results', []))
+                logger.info(f"📊 Tables after loading: {[t.get('name', 'unknown') if isinstance(t, dict) else str(t) for t in tables]}")
+
+                # Also check table info for each expected table
+                for dataset in datasets:
+                    try:
+                        info_query = {
+                            "query": f"PRAGMA table_info({dataset})",
+                            "limit": 50
+                        }
+
+                        response = self.session.post(
+                            f"{self.api_base}/query",
+                            json=info_query,
+                            headers=headers,
+                            timeout=30
+                        )
+
+                        if response.status_code == 200:
+                            result = response.json()
+                            columns = result.get('data', result.get('results', []))
+                            if isinstance(columns, list) and columns:
+                                column_names = [c.get('name', 'unknown') if isinstance(c, dict) else str(c) for c in columns]
+                                logger.info(f"📋 {dataset} table structure: {column_names}")
+                            else:
+                                logger.warning(f"⚠️ No column info returned for {dataset}")
+                        else:
+                            logger.warning(f"⚠️ Could not get info for table {dataset}: HTTP {response.status_code}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Error checking {dataset} table info: {str(e)}")
+
+            else:
+                logger.warning(f"⚠️ Could not check schema after loading: HTTP {response.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️ Post-load schema check failed: {str(e)}")
+            import traceback
+            logger.warning(f"   Traceback: {traceback.format_exc()}")
 
         return load_success
 
@@ -709,6 +831,8 @@ class NeuroQuantumDBDataTester:
                     "limit": 1
                 }
 
+                logger.info(f"🔍 Verifying {dataset} with query: {count_query['query']}")
+
                 response = self.session.post(
                     f"{self.api_base}/query",
                     json=count_query,
@@ -716,31 +840,54 @@ class NeuroQuantumDBDataTester:
                     timeout=30
                 )
 
+                logger.info(f"📡 Response status for {dataset}: {response.status_code}")
+
                 if response.status_code == 200:
                     result = response.json()
+                    logger.info(f"📄 Raw response for {dataset}: {result}")
+
                     count = 0
 
-                    if 'data' in result and len(result['data']) > 0:
-                        count = result['data'][0].get('total_count', 0)
-                    elif 'results' in result and len(result['results']) > 0:
-                        count = result['results'][0].get('total_count', 0)
+                    # Handle different response formats and empty data
+                    if 'data' in result and isinstance(result['data'], list) and len(result['data']) > 0:
+                        first_row = result['data'][0]
+                        if isinstance(first_row, dict):
+                            count = first_row.get('total_count', 0)
+                            logger.info(f"📊 Found count in 'data': {count}")
+                        else:
+                            logger.warning(f"⚠️ {dataset}: First row in 'data' is not a dict: {type(first_row)}")
+                    elif 'results' in result and isinstance(result['results'], list) and len(result['results']) > 0:
+                        first_row = result['results'][0]
+                        if isinstance(first_row, dict):
+                            count = first_row.get('total_count', 0)
+                            logger.info(f"📊 Found count in 'results': {count}")
+                        else:
+                            logger.warning(f"⚠️ {dataset}: First row in 'results' is not a dict: {type(first_row)}")
+                    else:
+                        logger.warning(f"⚠️ {dataset}: No valid data found in response")
+                        logger.warning(f"   Available keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+                        if 'data' in result:
+                            logger.warning(f"   Data type: {type(result['data'])}, length: {len(result['data']) if isinstance(result['data'], (list, dict)) else 'N/A'}")
 
-                    logger.info(f"✅ {dataset}: {count:,} records stored")
-                    self.data_verification_results[dataset] = {
-                        "stored_count": count,
-                        "verification_status": "SUCCESS" if count > 0 else "EMPTY"
-                    }
-
-                    if count == 0:
-                        verification_success = False
-                        logger.warning(f"⚠️ {dataset}: No records found in database!")
-
-                    # Erweiterte Verifikation mit Stichproben
                     if count > 0:
+                        logger.info(f"✅ {dataset}: {count:,} records stored")
+                        self.data_verification_results[dataset] = {
+                            "stored_count": count,
+                            "verification_status": "SUCCESS"
+                        }
+                        # Erweiterte Verifikation mit Stichproben
                         self._verify_data_samples(dataset, headers)
+                    else:
+                        logger.error(f"❌ {dataset}: 0 records found - data was not stored!")
+                        self.data_verification_results[dataset] = {
+                            "stored_count": 0,
+                            "verification_status": "EMPTY"
+                        }
+                        verification_success = False
 
                 else:
                     logger.error(f"❌ {dataset}: Query failed with status {response.status_code}")
+                    logger.error(f"   Response text: {response.text[:500]}")
                     self.data_verification_results[dataset] = {
                         "stored_count": 0,
                         "verification_status": "QUERY_FAILED",
@@ -750,6 +897,8 @@ class NeuroQuantumDBDataTester:
 
             except Exception as e:
                 logger.error(f"❌ {dataset}: Verification error - {str(e)}")
+                import traceback
+                logger.error(f"   Full traceback: {traceback.format_exc()}")
                 self.data_verification_results[dataset] = {
                     "stored_count": 0,
                     "verification_status": "ERROR",
