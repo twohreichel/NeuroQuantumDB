@@ -13,6 +13,12 @@ Autor: NeuroQuantumDB Team
 Version: 1.0.0
 """
 
+# Suppress urllib3 OpenSSL warnings on macOS
+import warnings
+import urllib3
+warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL 1.1.1+')
+urllib3.disable_warnings(urllib3.exceptions.NotOpenSSLWarning)
+
 import random
 import string
 import json
