@@ -906,6 +906,10 @@ class NeuroQuantumDBDataTester:
                     result = response.json()
                     data = result.get('data', result.get('results', []))
 
+                    # Ensure data is a list before any operations
+                    if not isinstance(data, list):
+                        data = []
+
                     test_result = {
                         "name": query_test["name"],
                         "status": "SUCCESS",
@@ -1064,13 +1068,17 @@ class NeuroQuantumDBDataTester:
                     result = response.json()
                     data = result.get('data', result.get('results', []))
 
+                    # Ensure data is a list before slicing
+                    if not isinstance(data, list):
+                        data = []
+
                     search_result = {
                         "name": search_test["name"],
                         "search_type": search_test["search_type"],
                         "status": "SUCCESS",
                         "results_count": len(data),
                         "execution_time_ms": round(execution_time * 1000, 2),
-                        "sample_results": data[:2] if data else []
+                        "sample_results": list(data[:2]) if data else []
                     }
 
                     logger.info(f"  ✅ Found {len(data)} results in {execution_time*1000:.2f}ms")
@@ -1411,13 +1419,17 @@ class NeuroQuantumDBDataTester:
                     result = response.json()
                     data = result.get('data', result.get('results', []))
 
+                    # Ensure data is a list before slicing
+                    if not isinstance(data, list):
+                        data = []
+
                     test_result = {
                         "name": query_test["name"],
                         "status": "SUCCESS",
                         "neuromorphic_features": query_test["neuromorphic_features"],
                         "rows_returned": len(data),
                         "execution_time_ms": round(execution_time * 1000, 2),
-                        "neural_insights": data[:3] if data else []
+                        "neural_insights": list(data[:3]) if data else []
                     }
 
                     logger.info(f"  ✅ Neural analysis complete: {len(data)} patterns detected in {execution_time*1000:.2f}ms")
@@ -1508,13 +1520,17 @@ class NeuroQuantumDBDataTester:
                     result = response.json()
                     data = result.get('data', result.get('results', []))
 
+                    # Ensure data is a list before slicing
+                    if not isinstance(data, list):
+                        data = []
+
                     test_result = {
                         "name": query_test["name"],
                         "status": "SUCCESS",
                         "quantum_features": query_test["quantum_features"],
                         "rows_returned": len(data),
                         "execution_time_ms": round(execution_time * 1000, 2),
-                        "quantum_insights": data[:3] if data else []
+                        "quantum_insights": list(data[:3]) if data else []
                     }
 
                     logger.info(f"  ✅ Quantum computation complete: {len(data)} states analyzed in {execution_time*1000:.2f}ms")
@@ -1603,13 +1619,17 @@ class NeuroQuantumDBDataTester:
                     result = response.json()
                     data = result.get('data', result.get('results', []))
 
+                    # Ensure data is a list before slicing
+                    if not isinstance(data, list):
+                        data = []
+
                     test_result = {
                         "name": test_config["name"],
                         "status": "SUCCESS",
                         "dna_features": test_config["dna_features"],
                         "rows_returned": len(data),
                         "execution_time_ms": round(execution_time * 1000, 2),
-                        "biological_data": data[:2] if data else []
+                        "biological_data": list(data[:2]) if data else []
                     }
 
                     logger.info(f"  ✅ DNA analysis complete: {len(data)} sequences processed in {execution_time*1000:.2f}ms")
@@ -1701,6 +1721,10 @@ class NeuroQuantumDBDataTester:
                     result = response.json()
                     data = result.get('data', result.get('results', []))
 
+                    # Ensure data is a list before slicing
+                    if not isinstance(data, list):
+                        data = []
+
                     test_result = {
                         "name": query_test["name"],
                         "status": "SUCCESS",
@@ -1738,7 +1762,7 @@ class NeuroQuantumDBDataTester:
         return successful_tests > 0
 
     def run_training_scenarios(self):
-        """🎓 Führe Trainingsszenarios für ML-Modelle aus"""
+        """🎓 Führe Trainingsszenarien für ML-Modelle aus"""
         logger.info("Running training scenarios for machine learning models...")
 
         if not self.api_key:

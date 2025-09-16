@@ -76,3 +76,4 @@ lerna-debug.log*
 .pnpm-debug.log**
 .env
 docker/production/monitoring/grafana-*
+neuroquantum_test_report_*
