@@ -217,6 +217,9 @@ impl ApiServer {
                         .route("/load", web::post().to(handlers::load_data))
                 )
 
+                // General Query endpoint
+                .route("/api/v1/query", web::post().to(handlers::execute_query))
+
                 // WebSocket endpoint for real-time communication
                 .route("/api/v1/realtime", web::get().to(websocket_handler))
         })
