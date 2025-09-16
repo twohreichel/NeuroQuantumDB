@@ -547,28 +547,61 @@ class NeuroQuantumDBDataTester:
         """🔌 API-Verbindung einrichten"""
         logger.info("Setting up API connection...")
 
+        # First, test basic connectivity
+        try:
+            logger.info(f"Testing connection to {self.base_url}...")
+            health_response = self.session.get(
+                f"{self.base_url}/health",
+                timeout=10
+            )
+            if health_response.status_code != 200:
+                logger.warning(f"Health check failed: HTTP {health_response.status_code}")
+                # Try alternative health endpoints
+                try:
+                    alt_response = self.session.get(f"{self.base_url}/", timeout=10)
+                    logger.info(f"Alternative endpoint response: HTTP {alt_response.status_code}")
+                except Exception as e:
+                    logger.error(f"No response from database server at {self.base_url}: {str(e)}")
+                    return False
+            else:
+                logger.info("✅ Database server is reachable")
+        except Exception as e:
+            logger.error(f"❌ Cannot connect to database server at {self.base_url}: {str(e)}")
+            logger.error("Please ensure NeuroQuantumDB is running on the specified URL")
+            return False
+
         # API-Key generieren
         data = {
             "name": "enterprise-data-tester",
             "permissions": ["read", "write", "admin"]
         }
 
-        response = self.session.post(
-            f"{self.api_base}/auth/generate-key",
-            json=data,
-            headers={"Content-Type": "application/json"},
-            timeout=30
-        )
+        try:
+            response = self.session.post(
+                f"{self.api_base}/auth/generate-key",
+                json=data,
+                headers={"Content-Type": "application/json"},
+                timeout=30
+            )
 
-        if response.status_code == 200:
-            result = response.json()
-            self.api_key = result.get("api_key") or result.get("data", {}).get("api_key")
-            if self.api_key:
-                logger.info(f"API key generated: {self.api_key[:20]}...")
-                return True
+            if response.status_code == 200:
+                result = response.json()
+                self.api_key = result.get("api_key") or result.get("data", {}).get("api_key")
+                if self.api_key:
+                    logger.info(f"✅ API key generated: {self.api_key[:20]}...")
+                    return True
+                else:
+                    logger.error("❌ API key not found in response")
+                    logger.error(f"Response: {result}")
+                    return False
+            else:
+                logger.error(f"❌ Failed to generate API key: HTTP {response.status_code}")
+                logger.error(f"Response: {response.text[:500]}")
+                return False
 
-        logger.error("Failed to generate API key")
-        return False
+        except Exception as e:
+            logger.error(f"❌ Error generating API key: {str(e)}")
+            return False
 
     def load_data_to_database(self):
         """📥 Lade generierte Daten in die NeuroQuantumDB"""
@@ -589,6 +622,8 @@ class NeuroQuantumDBDataTester:
             "document_permissions", "access_logs", "security_events"
         ]
 
+        load_success = True
+
         for dataset in datasets:
             try:
                 with open(f"generated_{dataset}.json", 'r', encoding='utf-8') as f:
@@ -607,23 +642,44 @@ class NeuroQuantumDBDataTester:
                         "compression": "dna" if len(batch) > 100 else None
                     }
 
-                    response = self.session.post(
-                        f"{self.api_base}/data/load",
-                        json=load_data,
-                        headers=headers,
-                        timeout=60
-                    )
+                    try:
+                        response = self.session.post(
+                            f"{self.api_base}/data/load",
+                            json=load_data,
+                            headers=headers,
+                            timeout=60
+                        )
 
-                    if response.status_code == 200:
-                        logger.info(f"Loaded batch {i//BATCH_SIZE + 1} of {dataset}")
-                    else:
-                        logger.error(f"Failed to load batch {i//BATCH_SIZE + 1} of {dataset}")
+                        if response.status_code == 200:
+                            logger.info(f"✅ Loaded batch {i//BATCH_SIZE + 1}/{(len(data) + BATCH_SIZE - 1) // BATCH_SIZE} of {dataset}")
+                        else:
+                            logger.error(f"❌ Failed to load batch {i//BATCH_SIZE + 1} of {dataset}: HTTP {response.status_code}")
+                            logger.error(f"   Response: {response.text[:500]}")
+                            load_success = False
+
+                    except requests.exceptions.RequestException as e:
+                        logger.error(f"❌ Network error loading batch {i//BATCH_SIZE + 1} of {dataset}: {str(e)}")
+                        load_success = False
 
             except FileNotFoundError:
-                logger.warning(f"File generated_{dataset}.json not found")
+                logger.warning(f"⚠️ File generated_{dataset}.json not found")
+                load_success = False
+                continue
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ Failed to parse JSON for {dataset}: {str(e)}")
+                load_success = False
+                continue
+            except Exception as e:
+                logger.error(f"❌ Unexpected error loading {dataset}: {str(e)}")
+                load_success = False
                 continue
 
-        return True
+        if load_success:
+            logger.info("✅ All data loaded successfully")
+        else:
+            logger.warning("⚠️ Some data loading operations failed")
+
+        return load_success
 
     def verify_data_storage(self):
         """📊 Verifiziere dass Daten erfolgreich gespeichert wurden"""
