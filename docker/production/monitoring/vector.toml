@@ -1,0 +1,85 @@
+# Vector configuration for NeuroQuantumDB log aggregation
+data_dir = "/var/lib/vector"
+
+# Sources - where Vector reads logs from
+[sources.docker_logs]
+type = "docker_logs"
+include_containers = ["neuroquantumdb-main", "neuroquantum-prometheus", "neuroquantum-grafana", "neuroquantum-jaeger", "neuroquantum-lb"]
+
+[sources.system_logs]
+type = "file"
+include = ["/var/log/syslog", "/var/log/messages"]
+ignore_older_secs = 86400  # 1 day
+
+[sources.neuroquantum_app_logs]
+type = "file"
+include = ["/var/log/neuroquantumdb/*.log"]
+ignore_older_secs = 3600  # 1 hour
+
+# Transforms - process and enrich logs
+[transforms.parse_neuroquantum_logs]
+type = "remap"
+inputs = ["neuroquantum_app_logs"]
+source = '''
+. = parse_json!(.message)
+.timestamp = now()
+.service = "neuroquantumdb"
+.environment = "production"
+'''
+
+[transforms.filter_errors]
+type = "filter"
+inputs = ["docker_logs"]
+condition = '''
+.level == "ERROR" || .level == "WARN" || .level == "error" || .level == "warning"
+'''
+
+[transforms.add_metadata]
+type = "remap"
+inputs = ["docker_logs", "system_logs"]
+source = '''
+.hostname = get_hostname!()
+.timestamp = now()
+.source_type = "vector"
+.environment = "production"
+
+# Extract container name if available
+if exists(.container_name) {
+  .service = .container_name
+} else {
+  .service = "system"
+}
+'''
+
+# Sinks - where Vector sends processed logs
+[sinks.console_output]
+type = "console"
+inputs = ["add_metadata", "parse_neuroquantum_logs"]
+encoding.codec = "json"
+
+[sinks.file_output]
+type = "file"
+inputs = ["add_metadata", "parse_neuroquantum_logs", "filter_errors"]
+path = "/var/log/vector/neuroquantum-%Y-%m-%d.log"
+encoding.codec = "json"
+
+# Optional: Send to external log aggregation service
+# [sinks.elasticsearch]
+# type = "elasticsearch"
+# inputs = ["add_metadata", "parse_neuroquantum_logs"]
+# endpoints = ["http://elasticsearch:9200"]
+# index = "neuroquantum-logs-%Y.%m.%d"
+
+# [sinks.prometheus_metrics]
+# type = "prometheus_exporter"
+# inputs = ["add_metadata"]
+# address = "0.0.0.0:9598"
+
+# Vector internal metrics
+[sinks.vector_metrics]
+type = "prometheus_exporter"
+inputs = ["internal_metrics"]
+address = "0.0.0.0:9090"
+
+[sources.internal_metrics]
+type = "internal_metrics"
