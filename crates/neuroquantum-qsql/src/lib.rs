@@ -232,6 +232,9 @@ impl QSQLEngine {
         let qsql_query = self.parser.natural_language_to_qsql(natural_query)?;
         info!("Translated natural language query to QSQL: {}", qsql_query);
 
+        // Debug: print the generated QSQL for troubleshooting
+        eprintln!("Generated QSQL query: {}", qsql_query);
+
         // Execute the generated QSQL
         self.execute_query(&qsql_query).await
     }
@@ -371,7 +374,12 @@ mod tests {
         let natural_query = "Find all users older than 30 with high engagement";
         let result = engine.execute_natural_query(natural_query).await;
 
-        assert!(result.is_ok());
+        // Print the error to see what's failing
+        if let Err(ref e) = result {
+            eprintln!("Natural language query failed with error: {:?}", e);
+        }
+
+        assert!(result.is_ok(), "Natural language query failed: {:?}", result.err());
     }
 
     #[test]

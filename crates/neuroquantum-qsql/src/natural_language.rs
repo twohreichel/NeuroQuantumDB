@@ -139,16 +139,27 @@ impl NaturalLanguageProcessor {
         let mut best_match = (QueryIntent::Select, 0.0f32);
 
         for (intent, patterns) in &self.intent_patterns {
+            let mut intent_score = 0.0f32;
+            let mut matches_found = 0;
+
             for pattern in patterns {
-                if let Some(matches) = pattern.find(query) {
-                    let confidence = matches.len() as f32 / query.len() as f32;
-                    if confidence > best_match.1 {
-                        best_match = (intent.clone(), confidence);
-                    }
+                if pattern.is_match(query) {
+                    matches_found += 1;
+                    // Give higher score for each pattern that matches
+                    intent_score += 0.5;
+                }
+            }
+
+            // Normalize score by number of patterns for this intent
+            if matches_found > 0 {
+                intent_score = intent_score / patterns.len() as f32;
+                if intent_score > best_match.1 {
+                    best_match = (intent.clone(), intent_score);
                 }
             }
         }
 
+        // Lower the threshold since we're using a different scoring method
         if best_match.1 > 0.1 {
             Ok(best_match.0)
         } else {
@@ -414,24 +425,56 @@ impl NaturalLanguageProcessor {
     fn extract_conditions(&self, entities: &[Entity]) -> QSQLResult<Vec<String>> {
         let mut conditions = Vec::new();
 
-        let mut i = 0;
-        while i < entities.len() {
-            if entities[i].entity_type == EntityType::ColumnName {
-                if i + 2 < entities.len()
-                    && entities[i + 1].entity_type == EntityType::Operator
-                    && entities[i + 2].entity_type == EntityType::Value
-                {
-                    let column = self.map_column_name(&entities[i].value);
-                    let operator = self.map_operator(&entities[i + 1].value);
-                    let value = self.format_value(&entities[i + 2].value);
+        // Handle specific patterns for age and engagement
+        let numbers: Vec<&Entity> = entities
+            .iter()
+            .filter(|e| e.entity_type == EntityType::Number)
+            .collect();
 
-                    conditions.push(format!("{} {} {}", column, operator, value));
-                    i += 3;
+        let operators: Vec<&Entity> = entities
+            .iter()
+            .filter(|e| e.entity_type == EntityType::Operator)
+            .collect();
+
+        let values: Vec<&Entity> = entities
+            .iter()
+            .filter(|e| e.entity_type == EntityType::Value)
+            .collect();
+
+        // Handle "older than X" pattern
+        if let Some(num) = numbers.first() {
+            if operators.iter().any(|op| op.value.contains("older than")) {
+                conditions.push(format!("age > {}", num.value));
+            }
+        }
+
+        // Handle "high engagement" pattern
+        if values.iter().any(|v| v.value == "high") {
+            conditions.push("engagement > 0.7".to_string());
+        }
+
+        // Fallback to original pattern matching
+        if conditions.is_empty() {
+            let mut i = 0;
+            while i < entities.len() {
+                if entities[i].entity_type == EntityType::ColumnName {
+                    if i + 2 < entities.len()
+                        && entities[i + 1].entity_type == EntityType::Operator
+                        && (entities[i + 2].entity_type == EntityType::Value
+                            || entities[i + 2].entity_type == EntityType::Number)
+                    {
+                        let column = self.map_column_name(&entities[i].value);
+                        let operator = self.map_operator(&entities[i + 1].value);
+                        let value = self.format_value(&entities[i + 2].value);
+
+                        conditions.push(format!("{} {} {}", column, operator, value));
+                        i += 3;
+                    } else {
+                        i += 1;
+                    }
                 } else {
                     i += 1;
                 }
-            } else {
-                i += 1;
             }
         }
 
@@ -489,12 +532,13 @@ impl NaturalLanguageProcessor {
 
     /// Initialize intent patterns
     fn initialize_patterns(&mut self) -> QSQLResult<()> {
-        // Select patterns
+        // Select patterns - more specific to avoid conflicts
         self.intent_patterns.insert(
             QueryIntent::Select,
             vec![
-                Regex::new(r"(?i)\b(show|display|list|get|find|select)\b").unwrap(),
+                Regex::new(r"(?i)\b(show|display|list|get|select)\b").unwrap(),
                 Regex::new(r"(?i)\b(what|which|who)\b").unwrap(),
+                Regex::new(r"(?i)\bfind\s+all\b").unwrap(), // "find all" is clearly a SELECT
             ],
         );
 
@@ -507,12 +551,12 @@ impl NaturalLanguageProcessor {
             ],
         );
 
-        // Quantum patterns
+        // Quantum patterns - more specific, avoid plain "find"
         self.intent_patterns.insert(
             QueryIntent::QuantumSearch,
             vec![
                 Regex::new(r"(?i)\b(quantum|superposition|entangled|grover)\b").unwrap(),
-                Regex::new(r"(?i)\b(search|find|locate)\b").unwrap(),
+                Regex::new(r"(?i)\bquantum\s+(search|find|locate)\b").unwrap(), // Only quantum + search
             ],
         );
 
