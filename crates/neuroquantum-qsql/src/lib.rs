@@ -25,7 +25,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, warn};
 
 // Import types from modules to avoid duplicates
 use optimizer::{ExecutionStrategy, NeuromorphicOptimizer, OptimizationMetadata, OptimizerConfig};

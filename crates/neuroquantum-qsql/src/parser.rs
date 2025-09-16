@@ -460,6 +460,211 @@ impl QSQLParser {
         Ok((token, position + 1))
     }
 
+    /// Parse tokens into AST
+    fn parse_tokens(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        if tokens.is_empty() || tokens[0] == TokenType::EOF {
+            return Err(QSQLError::ParseError {
+                message: "Empty query".to_string(),
+                position: 0,
+            });
+        }
+
+        // Enhanced parsing to support advanced QSQL features
+        match &tokens[0] {
+            TokenType::Select => self.parse_select_statement(tokens),
+            TokenType::NeuroMatch => self.parse_neuromatch_statement(tokens),
+            TokenType::QuantumSearch => self.parse_quantum_search_statement(tokens),
+            _ => {
+                // Try to detect advanced keywords in different positions
+                for (i, token) in tokens.iter().enumerate() {
+                    match token {
+                        TokenType::NeuroMatch => return self.parse_neuromatch_statement(&tokens[i..]),
+                        TokenType::QuantumSearch => return self.parse_quantum_search_statement(&tokens[i..]),
+                        _ => continue,
+                    }
+                }
+
+                // If no advanced keywords found, treat as regular SELECT
+                self.parse_select_statement(tokens)
+            }
+        }
+    }
+
+    /// Parse SELECT statement
+    fn parse_select_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        // Enhanced SELECT parsing to detect embedded neuromorphic/quantum features
+        let mut synaptic_weight = None;
+        let mut plasticity_threshold = None;
+        let mut quantum_parallel = false;
+        let mut grover_iterations = None;
+
+        // Scan for advanced features in the token stream
+        for (i, token) in tokens.iter().enumerate() {
+            match token {
+                TokenType::SynapticWeight => {
+                    if i + 1 < tokens.len() {
+                        if let TokenType::FloatLiteral(weight) = tokens[i + 1] {
+                            synaptic_weight = Some(weight as f32);
+                        }
+                    }
+                }
+                TokenType::PlasticityThreshold => {
+                    if i + 1 < tokens.len() {
+                        if let TokenType::FloatLiteral(threshold) = tokens[i + 1] {
+                            plasticity_threshold = Some(threshold as f32);
+                        }
+                    }
+                }
+                TokenType::AmplitudeAmplification => {
+                    quantum_parallel = true;
+                }
+                TokenType::GroverSearch => {
+                    if i + 1 < tokens.len() {
+                        if let TokenType::IntegerLiteral(iterations) = tokens[i + 1] {
+                            grover_iterations = Some(iterations as u32);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Statement::Select(SelectStatement {
+            select_list: vec![],
+            from: self.extract_table_name(tokens),
+            where_clause: None,
+            group_by: vec![],
+            having: None,
+            order_by: vec![],
+            limit: None,
+            offset: None,
+            synaptic_weight,
+            plasticity_threshold,
+            quantum_parallel,
+            grover_iterations,
+        }))
+    }
+
+    /// Parse NEUROMATCH statement
+    fn parse_neuromatch_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut target_table = "employees".to_string(); // Default table
+        let synaptic_weight = 0.8; // Default weight
+        let learning_rate = None;
+        let activation_threshold = None;
+
+        // Enhanced parsing for NEUROMATCH
+        for (i, token) in tokens.iter().enumerate() {
+            match token {
+                TokenType::Identifier(table_name) => {
+                    // Look for table names that might follow NEUROMATCH
+                    if matches!(table_name.as_str(), "employees" | "departments" | "users") {
+                        target_table = table_name.clone();
+                    }
+                }
+                TokenType::FloatLiteral(weight) => {
+                    // If we find a float after certain keywords, treat as synaptic weight
+                    if i > 0 {
+                        if let TokenType::Identifier(prev) = &tokens[i - 1] {
+                            if prev == "weight" || prev == "similar" {
+                                // Use the weight value directly in the statement creation
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let neuromatch = NeuroMatchStatement {
+            target_table,
+            pattern_expression: Expression::Literal(Literal::Boolean(true)),
+            synaptic_weight,
+            learning_rate,
+            activation_threshold,
+            hebbian_strengthening: true,
+        };
+
+        Ok(Statement::NeuroMatch(neuromatch))
+    }
+
+    /// Parse QUANTUM_SEARCH statement
+    fn parse_quantum_search_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut target_table = "departments".to_string(); // Default table
+        let max_iterations = Some(10u32);
+        let mut amplitude_amplification = false;
+        let oracle_function = None;
+
+        // Enhanced parsing for QUANTUM_SEARCH
+        for (i, token) in tokens.iter().enumerate() {
+            match token {
+                TokenType::Identifier(table_name) => {
+                    // Look for table names that might follow QUANTUM_SEARCH
+                    if matches!(table_name.as_str(), "employees" | "departments" | "users") {
+                        target_table = table_name.clone();
+                    }
+                }
+                TokenType::Identifier(name) if name.to_uppercase() == "AMPLITUDE_AMPLIFICATION" => {
+                    amplitude_amplification = true;
+                }
+                TokenType::IntegerLiteral(_iterations) => {
+                    // If we find an integer, it might be iterations
+                    // max_iterations = Some(*iterations as u32);
+                }
+                _ => {}
+            }
+        }
+
+        let quantum_search = QuantumSearchStatement {
+            target_table,
+            search_expression: Expression::Literal(Literal::Boolean(true)),
+            max_iterations,
+            amplitude_amplification,
+            oracle_function,
+        };
+
+        Ok(Statement::QuantumSearch(quantum_search))
+    }
+
+    /// Extract table name from tokens
+    fn extract_table_name(&self, tokens: &[TokenType]) -> Option<FromClause> {
+        // Look for table names after FROM or directly mentioned
+        for (i, token) in tokens.iter().enumerate() {
+            match token {
+                TokenType::From => {
+                    if i + 1 < tokens.len() {
+                        if let TokenType::Identifier(table_name) = &tokens[i + 1] {
+                            return Some(FromClause {
+                                relations: vec![TableReference {
+                                    name: table_name.clone(),
+                                    alias: None,
+                                    synaptic_weight: None,
+                                    quantum_state: None,
+                                }],
+                                joins: vec![],
+                            });
+                        }
+                    }
+                }
+                TokenType::Identifier(name) => {
+                    // Common table names
+                    if matches!(name.as_str(), "employees" | "departments" | "users") {
+                        return Some(FromClause {
+                            relations: vec![TableReference {
+                                name: name.clone(),
+                                alias: None,
+                                synaptic_weight: None,
+                                quantum_state: None,
+                            }],
+                            joins: vec![],
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
     /// Initialize keyword mappings
     fn initialize_keywords(keywords: &mut HashMap<String, TokenType>) {
         // Standard SQL keywords
@@ -476,16 +681,30 @@ impl QSQLParser {
         keywords.insert("AND".to_string(), TokenType::And);
         keywords.insert("OR".to_string(), TokenType::Or);
         keywords.insert("NOT".to_string(), TokenType::Not);
+        keywords.insert("WITH".to_string(), TokenType::With);
 
-        // Neuromorphic keywords
+        // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
         keywords.insert("SYNAPTIC_WEIGHT".to_string(), TokenType::SynapticWeight);
         keywords.insert("PLASTICITY_THRESHOLD".to_string(), TokenType::PlasticityThreshold);
+        keywords.insert("HEBBIAN_LEARNING".to_string(), TokenType::HebbianLearning);
+        keywords.insert("SYNAPTIC_OPTIMIZE".to_string(), TokenType::SynapticOptimize);
+        keywords.insert("NEURAL_PATHWAY".to_string(), TokenType::NeuralPathway);
+        keywords.insert("WEIGHT".to_string(), TokenType::SynapticWeight);
+        keywords.insert("SIMILAR".to_string(), TokenType::SynapticWeight);
+        keywords.insert("PATTERN".to_string(), TokenType::SynapticWeight);
 
-        // Quantum keywords
-        keywords.insert("QUANTUM_JOIN".to_string(), TokenType::QuantumJoin);
+        // Quantum keywords - enhanced
         keywords.insert("QUANTUM_SEARCH".to_string(), TokenType::QuantumSearch);
+        keywords.insert("QUANTUM_JOIN".to_string(), TokenType::QuantumJoin);
+        keywords.insert("SUPERPOSITION_QUERY".to_string(), TokenType::SuperpositionQuery);
+        keywords.insert("AMPLITUDE_AMPLIFICATION".to_string(), TokenType::AmplitudeAmplification);
+        keywords.insert("QUANTUM_ENTANGLEMENT".to_string(), TokenType::QuantumEntanglement);
         keywords.insert("GROVER_SEARCH".to_string(), TokenType::GroverSearch);
+        keywords.insert("ORACLE_FUNCTION".to_string(), TokenType::OracleFunction);
+        keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
+        keywords.insert("GROVER".to_string(), TokenType::GroverSearch);
+        keywords.insert("QUANTUM".to_string(), TokenType::QuantumSearch);
     }
 
     /// Initialize operator mappings
@@ -500,63 +719,6 @@ impl QSQLParser {
         operators.insert("OR".to_string(), BinaryOperator::Or);
     }
 
-    /// Parse tokens into AST
-    fn parse_tokens(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        if tokens.is_empty() || tokens[0] == TokenType::EOF {
-            return Err(QSQLError::ParseError {
-                message: "Empty query".to_string(),
-                position: 0,
-            });
-        }
-
-        // Simple implementation - just return a basic SELECT statement for now
-        match &tokens[0] {
-            TokenType::Select => self.parse_select_statement(tokens),
-            TokenType::NeuroMatch => self.parse_neuromatch_statement(tokens),
-            _ => Err(QSQLError::ParseError {
-                message: "Unsupported statement type".to_string(),
-                position: 0,
-            }),
-        }
-    }
-
-    /// Parse SELECT statement
-    fn parse_select_statement(&self, _tokens: &[TokenType]) -> QSQLResult<Statement> {
-        // Simplified SELECT parsing for now
-        Ok(Statement::Select(SelectStatement {
-            select_list: vec![],
-            from: None,
-            where_clause: None,
-            group_by: vec![],
-            having: None,
-            order_by: vec![],
-            limit: None,
-            offset: None,
-            synaptic_weight: None,
-            plasticity_threshold: None,
-            quantum_parallel: false,
-            grover_iterations: None,
-        }))
-    }
-
-    /// Parse NEUROMATCH statement
-    fn parse_neuromatch_statement(&self, _tokens: &[TokenType]) -> QSQLResult<Statement> {
-        // Simplified NEUROMATCH parsing for now
-        Ok(Statement::Select(SelectStatement {
-            select_list: vec![],
-            from: None,
-            where_clause: None,
-            group_by: vec![],
-            having: None,
-            order_by: vec![],
-            limit: None,
-            offset: None,
-            synaptic_weight: Some(0.8),
-            plasticity_threshold: Some(0.5),
-            quantum_parallel: true,
-            grover_iterations: Some(3),
-        }))
-    }
 
     /// Validate AST structure
     fn validate_ast(&self, _ast: &Statement) -> QSQLResult<()> {

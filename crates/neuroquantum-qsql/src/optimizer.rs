@@ -194,31 +194,41 @@ impl NeuromorphicOptimizer {
 
     /// Create optimizer with custom configuration
     pub fn with_config(config: OptimizerConfig) -> QSQLResult<Self> {
-        let synaptic_network =
-            SynapticNetwork::new(1000, config.activation_threshold).map_err(|e| {
+        let synaptic_network = if config.enable_synaptic_optimization {
+            Some(SynapticNetwork::new(1000, config.activation_threshold).map_err(|e| {
                 QSQLError::NeuromorphicError {
                     message: format!("Failed to create synaptic network: {}", e),
                 }
-            })?;
+            })?)
+        } else {
+            None
+        };
 
-        let plasticity_matrix =
-            PlasticityMatrix::new(1000, config.activation_threshold).map_err(|e| {
+        let plasticity_matrix = if config.enable_plasticity_adaptation {
+            Some(PlasticityMatrix::new(100, config.learning_rate).map_err(|e| {
                 QSQLError::NeuromorphicError {
                     message: format!("Failed to create plasticity matrix: {}", e),
                 }
-            })?;
+            })?)
+        } else {
+            None
+        };
 
-        let hebbian_learner = HebbianLearningEngine::new(config.learning_rate).map_err(|e| {
-            QSQLError::NeuromorphicError {
-                message: format!("Failed to create Hebbian learner: {}", e),
-            }
-        })?;
+        let hebbian_learner = if config.enable_hebbian_learning {
+            Some(HebbianLearningEngine::new(config.learning_rate).map_err(|e| {
+                QSQLError::NeuromorphicError {
+                    message: format!("Failed to create Hebbian learner: {}", e),
+                }
+            })?)
+        } else {
+            None
+        };
 
         Ok(Self {
             config,
-            synaptic_network: Some(synaptic_network),
-            plasticity_matrix: Some(plasticity_matrix),
-            hebbian_learner: Some(hebbian_learner),
+            synaptic_network,
+            plasticity_matrix,
+            hebbian_learner,
             query_patterns: HashMap::new(),
             optimization_stats: OptimizationStats::default(),
         })
@@ -464,6 +474,112 @@ impl NeuromorphicOptimizer {
     /// Reset optimization statistics
     pub fn reset_stats(&mut self) {
         self.optimization_stats = OptimizationStats::default();
+    }
+
+    /// Optimize query with neuromorphic features
+    #[instrument(skip(self, ast))]
+    pub async fn optimize_with_neuromorphic_features(&mut self, ast: &Statement) -> QSQLResult<QueryPlan> {
+        debug!("Optimizing with neuromorphic features");
+
+        let mut plan = self.create_base_plan(ast)?;
+
+        // Add neuromorphic-specific optimizations
+        match ast {
+            Statement::NeuroMatch(neuromatch) => {
+                plan.synaptic_pathways.push(SynapticPathway {
+                    pathway_id: "neuromatch_primary".to_string(),
+                    source_node: neuromatch.target_table.clone(),
+                    target_node: "pattern_matcher".to_string(),
+                    strength: neuromatch.synaptic_weight,
+                    access_pattern: AccessPattern::Clustered,
+                    optimization_hint: OptimizationHint::PreferMemory,
+                });
+
+                plan.execution_strategy = ExecutionStrategy::SynapticPipeline;
+            }
+            _ => {
+                // Apply general neuromorphic optimizations
+                plan.synaptic_pathways.push(SynapticPathway {
+                    pathway_id: "general_optimization".to_string(),
+                    source_node: "input".to_string(),
+                    target_node: "output".to_string(),
+                    strength: 0.7,
+                    access_pattern: AccessPattern::Sequential,
+                    optimization_hint: OptimizationHint::Vectorize,
+                });
+            }
+        }
+
+        self.optimization_stats.queries_optimized += 1;
+        Ok(plan)
+    }
+
+    /// Optimize query with quantum features
+    #[instrument(skip(self, ast))]
+    pub async fn optimize_with_quantum_features(&mut self, ast: &Statement) -> QSQLResult<QueryPlan> {
+        debug!("Optimizing with quantum features");
+
+        let mut plan = self.create_base_plan(ast)?;
+
+        // Add quantum-specific optimizations
+        match ast {
+            Statement::QuantumSearch(quantum_search) => {
+                let mut params = HashMap::new();
+                params.insert("iterations".to_string(), quantum_search.max_iterations.unwrap_or(10) as f64);
+                params.insert("amplitude_boost".to_string(), if quantum_search.amplitude_amplification { 1.5 } else { 1.0 });
+
+                plan.quantum_optimizations.push(QuantumOptimization {
+                    optimization_type: if quantum_search.amplitude_amplification {
+                        QuantumOptimizationType::AmplitudeAmplification
+                    } else {
+                        QuantumOptimizationType::GroverSearch
+                    },
+                    target_operation: quantum_search.target_table.clone(),
+                    parameters: params,
+                    expected_speedup: 4.0, // Quadratic speedup from Grover's algorithm
+                });
+
+                plan.execution_strategy = ExecutionStrategy::QuantumInspired;
+            }
+            _ => {
+                // Apply general quantum optimizations
+                let mut params = HashMap::new();
+                params.insert("superposition_factor".to_string(), 2.0);
+
+                plan.quantum_optimizations.push(QuantumOptimization {
+                    optimization_type: QuantumOptimizationType::SuperpositionJoin,
+                    target_operation: "join_operation".to_string(),
+                    parameters: params,
+                    expected_speedup: 2.0,
+                });
+            }
+        }
+
+        plan.execution_strategy = ExecutionStrategy::HybridNeuralQuantum;
+        self.optimization_stats.queries_optimized += 1;
+        Ok(plan)
+    }
+
+    /// Create base query plan
+    fn create_base_plan(&self, ast: &Statement) -> QSQLResult<QueryPlan> {
+        let start_time = std::time::Instant::now();
+
+        let plan = QueryPlan {
+            statement: ast.clone(),
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: Vec::new(),
+            quantum_optimizations: Vec::new(),
+            estimated_cost: 100.0, // Base cost estimate
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: start_time.elapsed(),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        Ok(plan)
     }
 }
 
