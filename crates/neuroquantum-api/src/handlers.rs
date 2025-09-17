@@ -670,40 +670,92 @@ pub async fn update_config(
     )))
 }
 
-/// 📊 General Query endpoints
+/// 🧬 DNA Query Handler (missing implementation)
+#[utoipa::path(
+    post,
+    path = "/api/v1/dna/query",
+    request_body = QueryRequest,
+    responses(
+        (status = 200, description = "DNA query executed successfully", body = QueryResponse),
+        (status = 400, description = "Invalid query", body = ApiError)
+    ),
+    tag = "DNA Storage"
+)]
+pub async fn dna_query(
+    _db: web::Data<NeuroQuantumDB>,
+    request: web::Json<QueryRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    info!("Processing DNA storage query: {}", request.query);
+
+    // Mock DNA query execution
+    let response = QueryResponse {
+        status: "success".to_string(),
+        execution_time_us: start.elapsed().as_micros() as f64,
+        data: vec![
+            serde_json::json!({
+                "sequence_id": "SEQ_001",
+                "dna_data": "ATCGATCGTAGCTAAGCTTAGC",
+                "compression_ratio": 1180,
+                "storage_density": "1.8_bits_per_nucleotide"
+            })
+        ],
+        metadata: QueryMetadata {
+            query_type: "dna_storage".to_string(),
+            records_found: 1,
+            natural_language_parsed: false,
+            qsql_translation: None,
+        },
+    };
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        response,
+        ResponseMetadata::new(start.elapsed(), "DNA query executed successfully"),
+    )))
+}
+
+/// 🔍 Query endpoints
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct QueryRequest {
     pub query: String,
+    pub natural_language: Option<bool>,
+    pub quantum_enhanced: Option<bool>,
+    pub enable_learning: Option<bool>,
     pub limit: Option<u32>,
-    pub parameters: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct QueryResponse {
     pub status: String,
-    pub execution_time_ms: f64,
-    pub rows_affected: Option<u64>,
+    pub execution_time_us: f64,
     pub data: Vec<serde_json::Value>,
-    pub results: Vec<serde_json::Value>, // Alternative field name for compatibility
-}
-
-/// 💾 Data Load endpoints
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct LoadDataRequest {
-    pub table: String,
-    pub data: Vec<serde_json::Value>,
-    pub mode: Option<String>,
-    pub compression: Option<String>,
+    pub metadata: QueryMetadata,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct LoadDataResponse {
-    pub status: String,
-    pub records_loaded: u64,
-    pub execution_time_ms: f64,
+pub struct QueryMetadata {
+    pub query_type: String,
+    pub records_found: u32,
+    pub natural_language_parsed: bool,
+    pub qsql_translation: Option<String>,
 }
 
-/// 📊 General SQL Query Handler
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DataLoadRequest {
+    pub table: String,
+    pub data: Vec<serde_json::Value>,
+    pub mode: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DataLoadResponse {
+    pub status: String,
+    pub records_loaded: u32,
+    pub table: String,
+}
+
+/// 🔍 Main Query Handler with Natural Language Support
 #[utoipa::path(
     post,
     path = "/api/v1/query",
@@ -720,17 +772,38 @@ pub async fn execute_query(
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    info!("Processing SQL query: {}", request.query);
+    info!("Processing query: {}", request.query);
 
-    // Simulate database query execution with realistic mock data
-    let mock_data = generate_mock_query_results(&request.query);
+    let mut qsql_translation = None;
+    let mut natural_language_parsed = false;
+
+    // Check if this is a natural language query
+    if request.natural_language.unwrap_or(false) || is_natural_language(&request.query) {
+        match translate_natural_language(&request.query) {
+            Ok(translated) => {
+                qsql_translation = Some(translated.clone());
+                natural_language_parsed = true;
+                info!("Translated to QSQL: {}", translated);
+            }
+            Err(e) => {
+                info!("Natural language translation failed: {:?}, falling back to SQL", e);
+            }
+        }
+    }
+
+    // Execute the query (mock implementation)
+    let results = execute_mock_query(&request.query, &request)?;
 
     let response = QueryResponse {
         status: "success".to_string(),
-        execution_time_ms: start.elapsed().as_secs_f64() * 1000.0,
-        rows_affected: Some(mock_data.len() as u64),
-        data: mock_data.clone(),
-        results: mock_data, // Duplicate for compatibility
+        execution_time_us: start.elapsed().as_micros() as f64,
+        data: results.clone(),
+        metadata: QueryMetadata {
+            query_type: if natural_language_parsed { "natural_language".to_string() } else { "sql".to_string() },
+            records_found: results.len() as u32,
+            natural_language_parsed,
+            qsql_translation,
+        },
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
@@ -739,32 +812,32 @@ pub async fn execute_query(
     )))
 }
 
-/// 💾 Data Load Handler
+/// 📥 Data Loading Handler
 #[utoipa::path(
     post,
     path = "/api/v1/data/load",
-    request_body = LoadDataRequest,
+    request_body = DataLoadRequest,
     responses(
-        (status = 200, description = "Data loaded successfully", body = LoadDataResponse),
-        (status = 400, description = "Invalid data format", body = ApiError)
+        (status = 200, description = "Data loaded successfully", body = DataLoadResponse),
+        (status = 400, description = "Invalid data", body = ApiError)
     ),
-    tag = "Data Management"
+    tag = "Data"
 )]
 pub async fn load_data(
     _db: web::Data<NeuroQuantumDB>,
-    request: web::Json<LoadDataRequest>,
+    request: web::Json<DataLoadRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    info!("Loading data into table: {} ({} records)", request.table, request.data.len());
+    info!("Loading data into table: {}", request.table);
 
-    // Simulate data loading
-    let records_loaded = request.data.len() as u64;
+    // Mock data loading
+    let records_loaded = request.data.len() as u32;
 
-    let response = LoadDataResponse {
+    let response = DataLoadResponse {
         status: "success".to_string(),
         records_loaded,
-        execution_time_ms: start.elapsed().as_secs_f64() * 1000.0,
+        table: request.table.clone(),
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
@@ -773,180 +846,109 @@ pub async fn load_data(
     )))
 }
 
-/// 🧬 DNA Query Handler
-#[utoipa::path(
-    post,
-    path = "/api/v1/dna/query",
-    request_body = QueryRequest,
-    responses(
-        (status = 200, description = "DNA query executed successfully", body = QueryResponse),
-        (status = 400, description = "Invalid DNA query", body = ApiError)
-    ),
-    tag = "DNA Storage"
-)]
-pub async fn dna_query(
-    _db: web::Data<NeuroQuantumDB>,
-    request: web::Json<QueryRequest>,
-) -> ActixResult<HttpResponse, ApiError> {
-    let start = Instant::now();
+/// Check if query appears to be natural language
+fn is_natural_language(query: &str) -> bool {
+    let natural_patterns = [
+        "show", "display", "list", "find", "get", "what", "which", "who", "how many"
+    ];
 
-    info!("Processing DNA storage query: {}", request.query);
-
-    let mock_data = generate_mock_query_results(&request.query);
-
-    let response = QueryResponse {
-        status: "success".to_string(),
-        execution_time_ms: start.elapsed().as_secs_f64() * 1000.0,
-        rows_affected: Some(mock_data.len() as u64),
-        data: mock_data.clone(),
-        results: mock_data,
-    };
-
-    Ok(HttpResponse::Ok().json(ApiResponse::success(
-        response,
-        ResponseMetadata::new(start.elapsed(), "DNA query executed successfully"),
-    )))
+    let query_lower = query.to_lowercase();
+    natural_patterns.iter().any(|&pattern| query_lower.contains(pattern)) &&
+        !query_lower.starts_with("select") &&
+        !query_lower.starts_with("insert") &&
+        !query_lower.starts_with("update") &&
+        !query_lower.starts_with("delete")
 }
 
-// Helper function to generate realistic mock data based on query
-fn generate_mock_query_results(query: &str) -> Vec<serde_json::Value> {
+/// Translate natural language to QSQL
+fn translate_natural_language(query: &str) -> Result<String, Box<dyn std::error::Error>> {
+    // Temporarily use a simplified translation until proper integration
+    // TODO: Integrate with neuroquantum_qsql once dependency is resolved
+
     let query_lower = query.to_lowercase();
 
-    if query_lower.contains("count(*)") {
-        // Count queries
-        if query_lower.contains("departments") {
-            vec![serde_json::json!({"total_count": 25})]
-        } else if query_lower.contains("employees") {
-            vec![serde_json::json!({"total_count": 800})]
-        } else if query_lower.contains("documents") {
-            vec![serde_json::json!({"total_count": 150000})]
-        } else if query_lower.contains("access_logs") {
-            vec![serde_json::json!({"total_count": 200000})]
-        } else if query_lower.contains("security_events") {
-            vec![serde_json::json!({"total_count": 15000})]
-        } else if query_lower.contains("document_permissions") {
-            vec![serde_json::json!({"total_count": 50000})]
-        } else {
-            vec![serde_json::json!({"total_count": 0})]
-        }
-    } else if query_lower.contains("departments") && query_lower.contains("join") {
-        // Department analysis queries
-        vec![
+    // Simple pattern matching for common natural language patterns
+    if query_lower.contains("show") && query_lower.contains("employees") {
+        Ok("SELECT * FROM employees".to_string())
+    } else if query_lower.contains("show") && query_lower.contains("departments") {
+        Ok("SELECT * FROM departments".to_string())
+    } else if query_lower.contains("find") && query_lower.contains("salary") && query_lower.contains("80000") {
+        Ok("SELECT * FROM employees WHERE salary > 80000".to_string())
+    } else if query_lower.contains("software") {
+        Ok("SELECT * FROM employees WHERE role LIKE '%Software%'".to_string())
+    } else if query_lower.contains("hr") {
+        Ok("SELECT e.* FROM employees e JOIN departments d ON e.department_id = d.id WHERE d.name LIKE '%HR%'".to_string())
+    } else {
+        // Fallback: return the original query
+        Ok(query.to_string())
+    }
+}
+
+/// Execute mock query for testing
+fn execute_mock_query(query: &str, request: &QueryRequest) -> Result<Vec<serde_json::Value>, ApiError> {
+    let query_lower = query.to_lowercase();
+    let limit = request.limit.unwrap_or(100) as usize;
+
+    // Mock data based on query patterns
+    if query_lower.contains("employees") || query_lower.contains("mitarbeiter") {
+        Ok(vec![
             serde_json::json!({
-                "department_name": "IT_Digitalisierung",
-                "security_level": "VERTRAULICH",
-                "employee_count": 45,
-                "document_security_types": 3,
-                "avg_salary": 75000.0
+                "id": "EMP_0001",
+                "employee_number": "EN000001",
+                "first_name": "Max",
+                "last_name": "Mustermann",
+                "email": "max.mustermann@neuroquantum-corp.de",
+                "department_id": "DEPT_001",
+                "role": "Software_Engineer",
+                "security_clearance": "VERTRAULICH",
+                "hire_date": "2023-06-15",
+                "salary": 75000,
+                "active": true
             }),
             serde_json::json!({
-                "department_name": "Forschung_Entwicklung",
-                "security_level": "GEHEIM",
-                "employee_count": 38,
-                "document_security_types": 4,
-                "avg_salary": 82000.0
-            })
-        ]
-    } else if query_lower.contains("access_logs") && query_lower.contains("documents") {
-        // Document access queries
-        vec![
-            serde_json::json!({
-                "document_title": "Strategische Pläne - Innovative solutions",
-                "security_classification": "GEHEIM",
-                "first_name": "Hans",
-                "last_name": "Müller",
-                "action": "VIEW",
-                "timestamp": "2025-09-15T14:30:00Z",
-                "result": "SUCCESS"
-            }),
-            serde_json::json!({
-                "document_title": "Finanzberichte - Revolutionary methodology",
-                "security_classification": "STRENG_GEHEIM",
+                "id": "EMP_0002",
+                "employee_number": "EN000002",
                 "first_name": "Anna",
                 "last_name": "Schmidt",
-                "action": "DOWNLOAD",
-                "timestamp": "2025-09-15T13:45:00Z",
-                "result": "SUCCESS"
+                "email": "anna.schmidt@neuroquantum-corp.de",
+                "department_id": "DEPT_002",
+                "role": "HR_Manager",
+                "security_clearance": "GEHEIM",
+                "hire_date": "2022-03-01",
+                "salary": 85000,
+                "active": true
             })
-        ]
-    } else if query_lower.contains("employees") && query_lower.contains("suspicious") {
-        // Suspicious activity queries
-        vec![
+        ].into_iter().take(limit).collect())
+    } else if query_lower.contains("departments") || query_lower.contains("abteilungen") {
+        Ok(vec![
             serde_json::json!({
-                "first_name": "Klaus",
-                "last_name": "Weber",
-                "department_id": "DEPT_014",
-                "total_accesses": 127,
-                "external_accesses": 15,
-                "download_actions": 45,
-                "security_events": 2
-            })
-        ]
-    } else if query_lower.contains("document_type") && query_lower.contains("group by") {
-        // Document permission analysis
-        vec![
-            serde_json::json!({
-                "document_type": "Verträge",
-                "security_classification": "VERTRAULICH",
-                "authorized_users": 25,
-                "actual_users": 18,
-                "total_accesses": 342,
-                "avg_size_mb": 2.5
+                "id": "DEPT_001",
+                "name": "IT_Abteilung",
+                "description": "Informationstechnologie",
+                "security_level": "VERTRAULICH",
+                "budget": 500000,
+                "employee_count": 25,
+                "location": "Berlin"
             }),
             serde_json::json!({
-                "document_type": "Finanzberichte",
-                "security_classification": "GEHEIM",
-                "authorized_users": 12,
-                "actual_users": 8,
-                "total_accesses": 156,
-                "avg_size_mb": 8.7
+                "id": "DEPT_002",
+                "name": "Personal_HR",
+                "description": "Human Resources",
+                "security_level": "GEHEIM",
+                "budget": 300000,
+                "employee_count": 15,
+                "location": "München"
             })
-        ]
-    } else if query_lower.contains("date(") {
-        // Time-based analysis
-        vec![
+        ].into_iter().take(limit).collect())
+    } else if query_lower.contains("salary") && query_lower.contains("80000") {
+        Ok(vec![
             serde_json::json!({
-                "access_date": "2025-09-15",
-                "total_accesses": 1247,
-                "successful_accesses": 1189,
-                "denied_accesses": 58,
-                "unique_users": 156,
-                "unique_documents": 1203
-            }),
-            serde_json::json!({
-                "access_date": "2025-09-14",
-                "total_accesses": 1156,
-                "successful_accesses": 1098,
-                "denied_accesses": 58,
-                "unique_users": 142,
-                "unique_documents": 1087
+                "first_name": "Anna",
+                "last_name": "Schmidt",
+                "salary": 85000
             })
-        ]
-    } else if query_lower.contains("select") && query_lower.contains("from") {
-        // Generic select queries - return sample data based on table
-        if query_lower.contains("departments") {
-            vec![
-                serde_json::json!({
-                    "id": "DEPT_001",
-                    "name": "Geschäftsführung",
-                    "security_level": "STRENG_GEHEIM"
-                })
-            ]
-        } else if query_lower.contains("employees") {
-            vec![
-                serde_json::json!({
-                    "id": "EMP_0001",
-                    "first_name": "Max",
-                    "last_name": "Mustermann",
-                    "department_id": "DEPT_001",
-                    "security_clearance": "VERTRAULICH"
-                })
-            ]
-        } else {
-            vec![serde_json::json!({"message": "Query executed successfully"})]
-        }
+        ].into_iter().take(limit).collect())
     } else {
-        // Default response
-        vec![serde_json::json!({"message": "Query executed successfully", "rows": 0})]
+        Ok(vec![serde_json::json!({"message": "Query executed", "pattern": "generic"})])
     }
 }
