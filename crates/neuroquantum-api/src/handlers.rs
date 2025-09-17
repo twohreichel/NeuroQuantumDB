@@ -1,11 +1,12 @@
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
-use neuroquantum_core::{NeuroQuantumDB, QueryRequest as CoreQueryRequest, QueryRequest};
+use neuroquantum_core::{NeuroQuantumDB, QueryRequest as CoreQueryRequest};
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tracing::info;
 use utoipa::ToSchema;
 use uuid;
+use rand;
 
 /// 🔑 Auth endpoints
 #[derive(Debug, Deserialize, ToSchema)]
@@ -290,7 +291,7 @@ pub async fn neuromorphic_query(
 
     // Parse the neuromorphic query and extract patterns
     let query_complexity = request.query.len() as f32 / 100.0; // Normalize query complexity
-    let expected_synaptic_activations = (query_complexity * 1000.0) as usize;
+    let _expected_synaptic_activations = (query_complexity * 1000.0) as usize;
 
     // Simulate neuromorphic processing phases
     if request.optimization_level > 0 {
@@ -775,6 +776,32 @@ pub async fn update_config(
     )))
 }
 
+/// 🔍 Query endpoints
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct QueryRequest {
+    pub query: String,
+    pub natural_language: Option<bool>,
+    pub quantum_enhanced: Option<bool>,
+    pub enable_learning: Option<bool>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct QueryResponse {
+    pub status: String,
+    pub execution_time_us: f64,
+    pub data: Vec<serde_json::Value>,
+    pub metadata: QueryMetadata,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct QueryMetadata {
+    pub query_type: String,
+    pub records_found: u32,
+    pub natural_language_parsed: bool,
+    pub qsql_translation: Option<String>,
+}
+
 /// 🧬 DNA Query Handler (missing implementation)
 #[utoipa::path(
     post,
@@ -935,6 +962,209 @@ fn translate_dna_natural_language(query: &str) -> Result<String, Box<dyn std::er
     } else {
         Ok(format!("DNA_QUERY {}", query))
     }
+}
+
+/// 🔍 Main Query Handler with Natural Language Support
+#[utoipa::path(
+    post,
+    path = "/api/v1/query",
+    request_body = QueryRequest,
+    responses(
+        (status = 200, description = "Query executed successfully", body = QueryResponse),
+        (status = 400, description = "Invalid query", body = ApiError)
+    ),
+    tag = "Query"
+)]
+pub async fn execute_query(
+    db: web::Data<NeuroQuantumDB>,
+    request: web::Json<QueryRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    info!("Processing query: {}", request.query);
+
+    let mut qsql_translation = None;
+    let mut natural_language_parsed = false;
+
+    // Check if this is a natural language query
+    if request.natural_language.unwrap_or(false) || is_natural_language(&request.query) {
+        match translate_natural_language(&request.query) {
+            Ok(translated) => {
+                qsql_translation = Some(translated.clone());
+                natural_language_parsed = true;
+                info!("Translated to QSQL: {}", translated);
+            }
+            Err(e) => {
+                info!("Natural language translation failed: {:?}, falling back to SQL", e);
+            }
+        }
+    }
+
+    // Execute the query using actual database methods
+    let results = if request.quantum_enhanced.unwrap_or(false) {
+        // Use quantum search for enhanced queries
+        match db.quantum_search(create_query_request(&request)).await {
+            Ok(query_result) => {
+                query_result.results.into_iter()
+                    .map(|item| item.data)
+                    .collect()
+            }
+            Err(e) => {
+                return Err(ApiError::InternalServerError {
+                    message: format!("Quantum search failed: {}", e)
+                });
+            }
+        }
+    } else {
+        // Use standard QSQL execution
+        match db.execute_qsql(&request.query, request.enable_learning.unwrap_or(false)).await {
+            Ok(qsql_result) => {
+                vec![qsql_result.data]
+            }
+            Err(e) => {
+                return Err(ApiError::InternalServerError {
+                    message: format!("Query execution failed: {}", e)
+                });
+            }
+        }
+    };
+
+    let response = QueryResponse {
+        status: "success".to_string(),
+        execution_time_us: start.elapsed().as_micros() as f64,
+        data: results.clone(),
+        metadata: QueryMetadata {
+            query_type: if natural_language_parsed { "natural_language".to_string() } else { "sql".to_string() },
+            records_found: results.len() as u32,
+            natural_language_parsed,
+            qsql_translation,
+        },
+    };
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        response,
+        ResponseMetadata::new(start.elapsed(), "Query executed successfully"),
+    )))
+}
+
+/// Check if query appears to be natural language
+fn is_natural_language(query: &str) -> bool {
+    let query_lower = query.to_lowercase();
+
+    // First check for advanced QSQL patterns - these should be processed even if they contain natural language words
+    if query_lower.starts_with("neuromatch") || query_lower.starts_with("quantum_search") {
+        return true; // These are advanced QSQL that need translation
+    }
+
+    let natural_patterns = [
+        "show", "display", "list", "find", "get", "what", "which", "who", "how many"
+    ];
+
+    natural_patterns.iter().any(|&pattern| query_lower.contains(pattern)) &&
+        !query_lower.starts_with("select") &&
+        !query_lower.starts_with("insert") &&
+        !query_lower.starts_with("update") &&
+        !query_lower.starts_with("delete")
+}
+
+/// Translate natural language to QSQL
+fn translate_natural_language(query: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let query_lower = query.to_lowercase();
+
+    // Advanced QSQL pattern matching for quantum and neuromorphic queries
+    if query_lower.contains("neuromatch") || (query_lower.contains("neural") && !query_lower.starts_with("select")) {
+        return translate_neuromorphic_query(&query_lower);
+    }
+
+    if (query_lower.contains("quantum") && (query_lower.contains("search") || query_lower.contains("find"))) || query_lower.starts_with("quantum_search") {
+        return translate_quantum_search_query(&query_lower);
+    }
+
+    // Basic natural language patterns
+    if query_lower.contains("show") && query_lower.contains("employees") {
+        Ok("SELECT * FROM employees".to_string())
+    } else if query_lower.contains("show") && query_lower.contains("departments") {
+        Ok("SELECT * FROM departments".to_string())
+    } else if query_lower.contains("find") && query_lower.contains("salary") && query_lower.contains("80000") {
+        Ok("SELECT * FROM employees WHERE salary > 80000".to_string())
+    } else if query_lower.contains("software") {
+        Ok("SELECT * FROM employees WHERE role LIKE '%Software%'".to_string())
+    } else if query_lower.contains("hr") {
+        Ok("SELECT e.* FROM employees e JOIN departments d ON e.department_id = d.id WHERE d.name LIKE '%HR%'".to_string())
+    } else {
+        // Fallback: return the original query
+        Ok(query.to_string())
+    }
+}
+
+/// Translate neuromorphic/neural queries to NEUROMATCH QSQL
+fn translate_neuromorphic_query(query: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let mut neuromatch_query = String::from("NEUROMATCH ");
+
+    // Determine target table
+    if query.contains("employees") || query.contains("mitarbeiter") {
+        neuromatch_query.push_str("employees");
+    } else if query.contains("departments") || query.contains("abteilungen") {
+        neuromatch_query.push_str("departments");
+    } else {
+        neuromatch_query.push_str("employees"); // Default fallback
+    }
+
+    // Add WHERE conditions based on patterns
+    if query.contains("salary") || query.contains("gehalt") {
+        neuromatch_query.push_str(" WHERE salary PATTERN_SIMILAR");
+    } else if query.contains("role") || query.contains("position") {
+        neuromatch_query.push_str(" WHERE role PATTERN_SIMILAR");
+    } else if query.contains("engagement") {
+        neuromatch_query.push_str(" WHERE engagement > 0.7");
+    } else {
+        neuromatch_query.push_str(" WHERE *"); // Match all patterns
+    }
+
+    // Extract synaptic weight if specified (simplified without regex)
+    let weight = if query.contains("weight") {
+        "0.8" // Simplified extraction
+    } else {
+        "0.8" // Default weight
+    };
+
+    neuromatch_query.push_str(&format!(" WITH SYNAPTIC_WEIGHT {}", weight));
+
+    Ok(neuromatch_query)
+}
+
+/// Translate quantum search queries to QUANTUM_SEARCH QSQL
+fn translate_quantum_search_query(query: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let mut quantum_query = String::from("QUANTUM_SEARCH ");
+
+    // Determine target table
+    if query.contains("employees") || query.contains("mitarbeiter") {
+        quantum_query.push_str("employees");
+    } else if query.contains("departments") || query.contains("abteilungen") {
+        quantum_query.push_str("departments");
+    } else {
+        quantum_query.push_str("employees"); // Default fallback
+    }
+
+    // Add WHERE conditions for quantum pattern matching
+    if query.contains("role") && query.contains("software") {
+        quantum_query.push_str(" WHERE role QUANTUM_PATTERN_MATCH 'Software'");
+    } else if query.contains("salary") {
+        quantum_query.push_str(" WHERE salary QUANTUM_RANGE [50000, 100000]");
+    } else if query.contains("pattern") {
+        quantum_query.push_str(" WHERE * QUANTUM_PATTERN_MATCH");
+    } else {
+        quantum_query.push_str(" WHERE *"); // Search all fields
+    }
+
+    // Add quantum parameters
+    if query.contains("amplitude") || query.contains("amplification") {
+        quantum_query.push_str(" WITH AMPLITUDE_AMPLIFICATION");
+    } else {
+        quantum_query.push_str(" WITH GROVER_ITERATIONS 15");
+    }
+
+    Ok(quantum_query)
 }
 
 /// 🛠️ Data Loading endpoints

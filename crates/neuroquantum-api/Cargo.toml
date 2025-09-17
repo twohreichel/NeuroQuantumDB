@@ -43,6 +43,7 @@ utoipa = { version = "5.4.0", features = ["actix_extras"] }
 # Configuration
 toml = "0.9.6"
 regex = "1.11.2"
+rand = "0.10.0-rc.0"
 
 [features]
 default = []
