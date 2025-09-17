@@ -848,11 +848,17 @@ pub async fn load_data(
 
 /// Check if query appears to be natural language
 fn is_natural_language(query: &str) -> bool {
+    let query_lower = query.to_lowercase();
+
+    // First check for advanced QSQL patterns - these should be processed even if they contain natural language words
+    if query_lower.starts_with("neuromatch") || query_lower.starts_with("quantum_search") {
+        return true; // These are advanced QSQL that need translation
+    }
+
     let natural_patterns = [
         "show", "display", "list", "find", "get", "what", "which", "who", "how many"
     ];
 
-    let query_lower = query.to_lowercase();
     natural_patterns.iter().any(|&pattern| query_lower.contains(pattern)) &&
         !query_lower.starts_with("select") &&
         !query_lower.starts_with("insert") &&
@@ -865,11 +871,11 @@ fn translate_natural_language(query: &str) -> Result<String, Box<dyn std::error:
     let query_lower = query.to_lowercase();
 
     // Advanced QSQL pattern matching for quantum and neuromorphic queries
-    if query_lower.contains("neuromatch") || query_lower.contains("neural") {
+    if query_lower.contains("neuromatch") || (query_lower.contains("neural") && !query_lower.starts_with("select")) {
         return translate_neuromorphic_query(&query_lower);
     }
 
-    if query_lower.contains("quantum") && (query_lower.contains("search") || query_lower.contains("find")) {
+    if (query_lower.contains("quantum") && (query_lower.contains("search") || query_lower.contains("find"))) || query_lower.starts_with("quantum_search") {
         return translate_quantum_search_query(&query_lower);
     }
 
