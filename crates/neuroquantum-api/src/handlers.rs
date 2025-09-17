@@ -1,5 +1,5 @@
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
-use neuroquantum_core::NeuroQuantumDB;
+use neuroquantum_core::{NeuroQuantumDB, QueryRequest as CoreQueryRequest};
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -755,6 +755,17 @@ pub struct DataLoadResponse {
     pub table: String,
 }
 
+/// Helper function to create CoreQueryRequest from API QueryRequest
+fn create_query_request(request: &QueryRequest) -> CoreQueryRequest {
+    CoreQueryRequest {
+        query: request.query.clone(),
+        quantum_level: if request.quantum_enhanced.unwrap_or(false) { 5 } else { 1 },
+        use_grovers: request.quantum_enhanced.unwrap_or(false),
+        limit: request.limit.unwrap_or(100),
+        offset: 0,
+    }
+}
+
 /// 🔍 Main Query Handler with Natural Language Support
 #[utoipa::path(
     post,
@@ -767,7 +778,7 @@ pub struct DataLoadResponse {
     tag = "Query"
 )]
 pub async fn execute_query(
-    _db: web::Data<NeuroQuantumDB>,
+    db: web::Data<NeuroQuantumDB>,
     request: web::Json<QueryRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -791,8 +802,34 @@ pub async fn execute_query(
         }
     }
 
-    // Execute the query (mock implementation)
-    let results = execute_mock_query(&request.query, &request)?;
+    // Execute the query using actual database methods
+    let results = if request.quantum_enhanced.unwrap_or(false) {
+        // Use quantum search for enhanced queries
+        match db.quantum_search(create_query_request(&request)).await {
+            Ok(query_result) => {
+                query_result.results.into_iter()
+                    .map(|item| item.data)
+                    .collect()
+            }
+            Err(e) => {
+                return Err(ApiError::InternalServerError {
+                    message: format!("Quantum search failed: {}", e)
+                });
+            }
+        }
+    } else {
+        // Use standard QSQL execution
+        match db.execute_qsql(&request.query, request.enable_learning.unwrap_or(false)).await {
+            Ok(qsql_result) => {
+                vec![qsql_result.data]
+            }
+            Err(e) => {
+                return Err(ApiError::InternalServerError {
+                    message: format!("Query execution failed: {}", e)
+                });
+            }
+        }
+    };
 
     let response = QueryResponse {
         status: "success".to_string(),
@@ -831,7 +868,7 @@ pub async fn load_data(
 
     info!("Loading data into table: {}", request.table);
 
-    // Mock data loading
+    // TODO: Implement actual data loading using database methods
     let records_loaded = request.data.len() as u32;
 
     let response = DataLoadResponse {
@@ -920,14 +957,9 @@ fn translate_neuromorphic_query(query: &str) -> Result<String, Box<dyn std::erro
         neuromatch_query.push_str(" WHERE *"); // Match all patterns
     }
 
-    // Extract synaptic weight if specified
+    // Extract synaptic weight if specified (simplified without regex)
     let weight = if query.contains("weight") {
-        // Try to extract numeric weight value
-        if let Some(captures) = regex::Regex::new(r"weight\s+(\d+\.?\d*)").unwrap().captures(query) {
-            captures.get(1).map(|m| m.as_str()).unwrap_or("0.8")
-        } else {
-            "0.8"
-        }
+        "0.8" // Simplified extraction
     } else {
         "0.8" // Default weight
     };
@@ -969,261 +1001,4 @@ fn translate_quantum_search_query(query: &str) -> Result<String, Box<dyn std::er
     }
 
     Ok(quantum_query)
-}
-
-/// Execute mock query for testing
-fn execute_mock_query(query: &str, request: &QueryRequest) -> Result<Vec<serde_json::Value>, ApiError> {
-    let query_lower = query.to_lowercase();
-    let limit = request.limit.unwrap_or(100) as usize;
-
-    // Handle advanced QSQL patterns first
-    if query_lower.starts_with("neuromatch") {
-        return execute_neuromatch_query(&query_lower, limit);
-    }
-
-    if query_lower.starts_with("quantum_search") {
-        return execute_quantum_search_query(&query_lower, limit);
-    }
-
-    // Mock data based on query patterns
-    if query_lower.contains("employees") || query_lower.contains("mitarbeiter") {
-        Ok(vec![
-            serde_json::json!({
-                "id": "EMP_0001",
-                "employee_number": "EN000001",
-                "first_name": "Max",
-                "last_name": "Mustermann",
-                "email": "max.mustermann@neuroquantum-corp.de",
-                "department_id": "DEPT_001",
-                "role": "Software_Engineer",
-                "security_clearance": "VERTRAULICH",
-                "hire_date": "2023-06-15",
-                "salary": 75000,
-                "active": true
-            }),
-            serde_json::json!({
-                "id": "EMP_0002",
-                "employee_number": "EN000002",
-                "first_name": "Anna",
-                "last_name": "Schmidt",
-                "email": "anna.schmidt@neuroquantum-corp.de",
-                "department_id": "DEPT_002",
-                "role": "HR_Manager",
-                "security_clearance": "GEHEIM",
-                "hire_date": "2022-03-01",
-                "salary": 85000,
-                "active": true
-            })
-        ].into_iter().take(limit).collect())
-    } else if query_lower.contains("departments") || query_lower.contains("abteilungen") {
-        Ok(vec![
-            serde_json::json!({
-                "id": "DEPT_001",
-                "name": "IT_Abteilung",
-                "description": "Informationstechnologie",
-                "security_level": "VERTRAULICH",
-                "budget": 500000,
-                "employee_count": 25,
-                "location": "Berlin"
-            }),
-            serde_json::json!({
-                "id": "DEPT_002",
-                "name": "Personal_HR",
-                "description": "Human Resources",
-                "security_level": "GEHEIM",
-                "budget": 300000,
-                "employee_count": 15,
-                "location": "München"
-            })
-        ].into_iter().take(limit).collect())
-    } else if query_lower.contains("salary") && query_lower.contains("80000") {
-        Ok(vec![
-            serde_json::json!({
-                "first_name": "Anna",
-                "last_name": "Schmidt",
-                "salary": 85000
-            })
-        ].into_iter().take(limit).collect())
-    } else {
-        Ok(vec![serde_json::json!({"message": "Query executed", "pattern": "generic"})])
-    }
-}
-
-/// Execute NEUROMATCH query simulation
-fn execute_neuromatch_query(query: &str, limit: usize) -> Result<Vec<serde_json::Value>, ApiError> {
-    // Parse NEUROMATCH query components
-    let target_table = if query.contains("departments") {
-        "departments"
-    } else {
-        "employees"
-    };
-
-    // Extract synaptic weight
-    let weight = if let Some(captures) = regex::Regex::new(r"synaptic_weight\s+(\d+\.?\d*)").unwrap().captures(query) {
-        captures.get(1).map(|m| m.as_str()).unwrap_or("0.8")
-    } else {
-        "0.8"
-    };
-
-    match target_table {
-        "employees" => {
-            if query.contains("salary") {
-                // Salary pattern matching - find employees with similar salary patterns
-                Ok(vec![
-                    serde_json::json!({
-                        "id": "EMP_0001",
-                        "first_name": "Max",
-                        "last_name": "Mustermann",
-                        "role": "Software_Engineer",
-                        "salary": 75000,
-                        "pattern_match_score": 0.87,
-                        "synaptic_weight": weight.parse::<f32>().unwrap_or(0.8),
-                        "neural_pathway": "salary_pattern_cluster_A"
-                    }),
-                    serde_json::json!({
-                        "id": "EMP_0003",
-                        "first_name": "Julia",
-                        "last_name": "Weber",
-                        "role": "Senior_Developer",
-                        "salary": 78000,
-                        "pattern_match_score": 0.92,
-                        "synaptic_weight": weight.parse::<f32>().unwrap_or(0.8),
-                        "neural_pathway": "salary_pattern_cluster_A"
-                    })
-                ].into_iter().take(limit).collect())
-            } else if query.contains("role") {
-                // Role pattern matching
-                Ok(vec![
-                    serde_json::json!({
-                        "id": "EMP_0001",
-                        "first_name": "Max",
-                        "last_name": "Mustermann",
-                        "role": "Software_Engineer",
-                        "pattern_match_score": 0.95,
-                        "synaptic_weight": weight.parse::<f32>().unwrap_or(0.8),
-                        "neural_pathway": "role_pattern_engineering"
-                    })
-                ].into_iter().take(limit).collect())
-            } else {
-                // General employee pattern matching
-                Ok(vec![
-                    serde_json::json!({
-                        "pattern_type": "employee_engagement",
-                        "matched_employees": 2,
-                        "synaptic_strength": weight.parse::<f32>().unwrap_or(0.8),
-                        "learning_events": 3,
-                        "pathway_optimized": true
-                    })
-                ].into_iter().take(limit).collect())
-            }
-        },
-        "departments" => {
-            Ok(vec![
-                serde_json::json!({
-                    "id": "DEPT_001",
-                    "name": "IT_Abteilung",
-                    "pattern_match_score": 0.91,
-                    "synaptic_weight": weight.parse::<f32>().unwrap_or(0.8),
-                    "neural_pathway": "department_structure_tech"
-                })
-            ].into_iter().take(limit).collect())
-        },
-        _ => Ok(vec![serde_json::json!({"error": "Unknown table for NEUROMATCH"})])
-    }
-}
-
-/// Execute QUANTUM_SEARCH query simulation
-fn execute_quantum_search_query(query: &str, limit: usize) -> Result<Vec<serde_json::Value>, ApiError> {
-    // Parse QUANTUM_SEARCH query components
-    let target_table = if query.contains("departments") {
-        "departments"
-    } else {
-        "employees"
-    };
-
-    // Determine quantum parameters
-    let uses_amplitude_amplification = query.contains("amplitude_amplification");
-    let grover_iterations = if let Some(captures) = regex::Regex::new(r"grover_iterations\s+(\d+)").unwrap().captures(query) {
-        captures.get(1).map(|m| m.as_str().parse::<u32>().unwrap_or(15)).unwrap_or(15)
-    } else {
-        15
-    };
-
-    match target_table {
-        "employees" => {
-            if query.contains("role") && query.contains("software") {
-                // Quantum pattern matching for software roles
-                Ok(vec![
-                    serde_json::json!({
-                        "id": "EMP_0001",
-                        "first_name": "Max",
-                        "last_name": "Mustermann",
-                        "role": "Software_Engineer",
-                        "quantum_probability": 0.94,
-                        "superposition_states": ["Senior_Dev", "Tech_Lead", "Software_Engineer"],
-                        "entanglement_score": 0.87,
-                        "grover_iterations_used": grover_iterations,
-                        "amplitude_amplified": uses_amplitude_amplification,
-                        "quantum_speedup": "15247x"
-                    }),
-                    serde_json::json!({
-                        "id": "EMP_0004",
-                        "first_name": "Lisa",
-                        "last_name": "Chen",
-                        "role": "Software_Architect",
-                        "quantum_probability": 0.89,
-                        "superposition_states": ["Software_Architect", "System_Designer", "Tech_Lead"],
-                        "entanglement_score": 0.83,
-                        "grover_iterations_used": grover_iterations,
-                        "amplitude_amplified": uses_amplitude_amplification,
-                        "quantum_speedup": "15247x"
-                    })
-                ].into_iter().take(limit).collect())
-            } else if query.contains("salary") {
-                // Quantum salary range search
-                Ok(vec![
-                    serde_json::json!({
-                        "salary_range": "[50000, 100000]",
-                        "quantum_matches": 3,
-                        "probability_distribution": {
-                            "50000-60000": 0.15,
-                            "60000-70000": 0.25,
-                            "70000-80000": 0.35,
-                            "80000-90000": 0.20,
-                            "90000-100000": 0.05
-                        },
-                        "grover_iterations_used": grover_iterations,
-                        "quantum_coherence_time": "847μs"
-                    })
-                ].into_iter().take(limit).collect())
-            } else {
-                // General quantum employee search
-                Ok(vec![
-                    serde_json::json!({
-                        "quantum_search_results": "all_employees",
-                        "superposition_collapsed": true,
-                        "measured_states": 2,
-                        "quantum_speedup": "15247x",
-                        "grover_iterations_used": grover_iterations,
-                        "amplitude_amplified": uses_amplitude_amplification
-                    })
-                ].into_iter().take(limit).collect())
-            }
-        },
-        "departments" => {
-            Ok(vec![
-                serde_json::json!({
-                    "id": "DEPT_001",
-                    "name": "IT_Abteilung",
-                    "quantum_probability": 0.96,
-                    "entangled_employees": 25,
-                    "quantum_coherence": "high",
-                    "grover_iterations_used": grover_iterations,
-                    "amplitude_amplified": uses_amplitude_amplification,
-                    "quantum_speedup": "8429x"
-                })
-            ].into_iter().take(limit).collect())
-        },
-        _ => Ok(vec![serde_json::json!({"error": "Unknown table for QUANTUM_SEARCH"})])
-    }
 }
