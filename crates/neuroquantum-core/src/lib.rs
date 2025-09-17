@@ -175,7 +175,12 @@ impl NeuroQuantumDB {
         // Parse and analyze the query plan
         let query_str = format!("{:?}", query_plan);
         let mut execution_steps = Vec::new();
-        let mut result_data = serde_json::json!({});
+        let mut result_data = serde_json::json!({
+            "execution_id": uuid::Uuid::new_v4().to_string(),
+            "started_at": chrono::Utc::now().to_rfc3339(),
+            "quantum_operations": 0,
+            "synaptic_adaptations": 0
+        });
 
         // Simulate QSQL execution phases
         execution_steps.push("Query parsing and AST generation".to_string());
@@ -208,13 +213,13 @@ impl NeuroQuantumDB {
 
         // Generate sample result data based on query characteristics
         if query_str.contains("COUNT") {
-            result_data = serde_json::json!({
+            result_data["result"] = serde_json::json!({
                 "count": 1337,
                 "quantum_estimated": true,
                 "confidence": 0.95
             });
         } else if query_str.contains("SELECT") {
-            result_data = serde_json::json!({
+            result_data["result"] = serde_json::json!({
                 "rows": [
                     {"id": 1, "value": "quantum_data_1", "synaptic_weight": 0.85},
                     {"id": 2, "value": "neuromorphic_data_2", "synaptic_weight": 0.92},
@@ -225,12 +230,16 @@ impl NeuroQuantumDB {
             });
             quantum_operations += 12;
         } else {
-            result_data = serde_json::json!({
+            result_data["result"] = serde_json::json!({
                 "message": "QSQL query executed successfully",
                 "optimization_enabled": optimize,
                 "execution_type": "hybrid_quantum_neuromorphic"
             });
         }
+
+        // Update metadata in result_data
+        result_data["quantum_operations"] = serde_json::json!(quantum_operations);
+        result_data["synaptic_adaptations"] = serde_json::json!(synaptic_adaptations);
 
         let execution_time = start_time.elapsed();
         let memory_usage = if optimize { 2.5 } else { 4.0 }; // MB

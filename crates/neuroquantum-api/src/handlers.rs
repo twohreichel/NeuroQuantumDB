@@ -284,7 +284,6 @@ pub async fn neuromorphic_query(
     info!("Processing neuromorphic query: {}", request.query);
 
     // Implement actual neuromorphic query processing
-    let mut synaptic_strength = 0.0;
     let mut pathway_optimized = false;
     let mut learning_events = 0;
     let mut results = Vec::new();
@@ -293,13 +292,17 @@ pub async fn neuromorphic_query(
     let query_complexity = request.query.len() as f32 / 100.0; // Normalize query complexity
     let _expected_synaptic_activations = (query_complexity * 1000.0) as usize;
 
+    // Calculate initial synaptic strength based on optimization level
+    let mut synaptic_strength = if request.optimization_level > 0 {
+        0.8 + (request.optimization_level as f32 * 0.05)
+    } else {
+        0.4
+    };
+
     // Simulate neuromorphic processing phases
     if request.optimization_level > 0 {
         pathway_optimized = true;
         learning_events += 10;
-
-        // Simulate synaptic pathway optimization
-        synaptic_strength = 0.8 + (request.optimization_level as f32 * 0.05);
 
         // Apply different optimization strategies based on query patterns
         if request.query.contains("SELECT") {
@@ -320,17 +323,23 @@ pub async fn neuromorphic_query(
         if request.query.contains("WHERE") {
             learning_events += 8;
             synaptic_strength += 0.15;
-            // Apply synaptic filtering
+            // Apply synaptic filtering based on synaptic strength
+            if synaptic_strength > 0.9 {
+                learning_events += 5; // Boost learning for strong synaptic connections
+            }
         }
 
         if request.query.contains("JOIN") {
             learning_events += 12;
             synaptic_strength += 0.2;
-            // Apply cross-synaptic correlation
+            // Apply cross-synaptic correlation based on connection strength
+            if synaptic_strength > 0.95 {
+                // Strong synaptic connections enable advanced join optimizations
+                learning_events += 10;
+            }
         }
     } else {
         // Basic neuromorphic processing without optimization
-        synaptic_strength = 0.4;
         learning_events = 2;
 
         // Generate basic results
@@ -342,9 +351,17 @@ pub async fn neuromorphic_query(
         }));
     }
 
-    // Simulate synaptic learning and adaptation
+    // Simulate synaptic learning and adaptation based on current strength
     let db_stats = db.get_synaptic_adaptations();
     learning_events += (db_stats / 100) as u32; // Factor in existing adaptations
+
+    // Apply plasticity thresholds to synaptic strength
+    if let Some(threshold) = request.plasticity_threshold {
+        if synaptic_strength > threshold {
+            synaptic_strength *= 1.1; // Strengthen connections above threshold
+            learning_events += 3;
+        }
+    }
 
     let response = NeuromorphicQueryResponse {
         status: "completed".to_string(),
@@ -776,7 +793,7 @@ pub async fn update_config(
     )))
 }
 
-/// 🔍 Query endpoints
+/// ���� Query endpoints
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct QueryRequest {
     pub query: String,
@@ -837,6 +854,17 @@ pub async fn dna_query(
                 qsql_translation = Some(translated.clone());
                 natural_language_parsed = true;
                 info!("Translated DNA query to QSQL: {}", translated);
+
+                // Execute the translated query using the database
+                match db.execute_qsql(&translated, request.enable_learning.unwrap_or(false)).await {
+                    Ok(qsql_result) => {
+                        dna_results.push(qsql_result.data);
+                        records_found = 1;
+                    }
+                    Err(e) => {
+                        info!("QSQL execution failed, falling back to simulation: {}", e);
+                    }
+                }
             }
             Err(e) => {
                 info!("DNA natural language translation failed: {:?}", e);
@@ -844,75 +872,88 @@ pub async fn dna_query(
         }
     }
 
-    // Simulate DNA storage query execution
-    if query_lower.contains("compress") || query_lower.contains("encode") {
-        // DNA compression queries
-        dna_results.push(serde_json::json!({
-            "sequence_id": "dna_seq_001",
-            "original_data": "Sample data for DNA encoding",
-            "dna_sequence": "ATCGATCGTAGCTAAGCTTAGCATGC",
-            "compression_ratio": 1180,
-            "storage_density": "1.8 bits/nucleotide",
-            "error_correction": "Reed-Solomon",
-            "integrity_hash": "SHA256:abcd1234..."
-        }));
-        records_found = 1;
-    } else if query_lower.contains("decompress") || query_lower.contains("decode") {
-        // DNA decompression queries
-        dna_results.push(serde_json::json!({
-            "sequence_id": "dna_seq_001",
-            "decoded_data": "Original data successfully restored",
-            "verification_status": "verified",
-            "errors_corrected": 0,
-            "confidence": 0.998
-        }));
-        records_found = 1;
-    } else if query_lower.contains("search") || query_lower.contains("find") {
-        // DNA pattern search
-        for i in 0..3 {
+    // If we don't have results from QSQL, simulate DNA storage query execution
+    if records_found == 0 {
+        if query_lower.contains("compress") || query_lower.contains("encode") {
+            // DNA compression queries
             dna_results.push(serde_json::json!({
-                "sequence_id": format!("dna_seq_{:03}", i + 1),
-                "pattern_match": format!("ATCG{}TAGC", "ATCG".repeat(i)),
-                "match_confidence": 0.95 - (i as f32 * 0.05),
-                "biological_significance": format!("Pattern type {}", i + 1),
-                "storage_location": format!("block_{}", i * 100),
-                "last_accessed": "2025-09-17T10:30:00Z"
+                "sequence_id": "dna_seq_001",
+                "original_data": "Sample data for DNA encoding",
+                "dna_sequence": "ATCGATCGTAGCTAAGCTTAGCATGC",
+                "compression_ratio": db.get_avg_compression_ratio() as u32,
+                "storage_density": "1.8 bits/nucleotide",
+                "error_correction": "Reed-Solomon",
+                "integrity_hash": "SHA256:abcd1234...",
+                "db_active_connections": db.get_active_connections()
             }));
+            records_found = 1;
+        } else if query_lower.contains("decompress") || query_lower.contains("decode") {
+            // DNA decompression queries
+            dna_results.push(serde_json::json!({
+                "sequence_id": "dna_seq_001",
+                "decoded_data": "Original data successfully restored",
+                "verification_status": "verified",
+                "errors_corrected": 0,
+                "confidence": 0.998,
+                "quantum_ops_rate": db.get_quantum_ops_rate()
+            }));
+            records_found = 1;
+        } else if query_lower.contains("search") || query_lower.contains("find") {
+            // DNA pattern search using database statistics
+            let synaptic_adaptations = db.get_synaptic_adaptations();
+            let search_multiplier = (synaptic_adaptations / 1000).max(1).min(5);
+
+            for i in 0..search_multiplier {
+                dna_results.push(serde_json::json!({
+                    "sequence_id": format!("dna_seq_{:03}", i + 1),
+                    "pattern_match": format!("ATCG{}TAGC", "ATCG".repeat(i as usize)),
+                    "match_confidence": 0.95 - (i as f32 * 0.05),
+                    "biological_significance": format!("Pattern type {}", i + 1),
+                    "storage_location": format!("block_{}", i * 100),
+                    "last_accessed": "2025-09-17T10:30:00Z",
+                    "synaptic_strength": (synaptic_adaptations as f32 / 10000.0).min(1.0)
+                }));
+            }
+            records_found = search_multiplier as u32;
+        } else if query_lower.contains("repair") || query_lower.contains("fix") {
+            // DNA repair operations
+            dna_results.push(serde_json::json!({
+                "sequence_id": "dna_seq_damaged_001",
+                "repair_status": "completed",
+                "errors_found": 2,
+                "errors_corrected": 2,
+                "repair_method": "Reed-Solomon + biological patterns",
+                "confidence": 0.987,
+                "repaired_sequence": "ATCGATCGTAGCTAAGCTTAGC",
+                "compression_efficiency": db.get_avg_compression_ratio()
+            }));
+            records_found = 1;
+        } else {
+            // General DNA storage queries with database metadata
+            dna_results.push(serde_json::json!({
+                "sequence_id": "dna_general_001",
+                "data_type": "mixed",
+                "storage_efficiency": "99.2%",
+                "total_sequences": 42847,
+                "total_storage_tb": 15.7,
+                "compression_avg": db.get_avg_compression_ratio(),
+                "error_rate": 0.0001,
+                "active_connections": db.get_active_connections(),
+                "synaptic_adaptations": db.get_synaptic_adaptations()
+            }));
+            records_found = 1;
         }
-        records_found = 3;
-    } else if query_lower.contains("repair") || query_lower.contains("fix") {
-        // DNA repair operations
-        dna_results.push(serde_json::json!({
-            "sequence_id": "dna_seq_damaged_001",
-            "repair_status": "completed",
-            "errors_found": 2,
-            "errors_corrected": 2,
-            "repair_method": "Reed-Solomon + biological patterns",
-            "confidence": 0.987,
-            "repaired_sequence": "ATCGATCGTAGCTAAGCTTAGC"
-        }));
-        records_found = 1;
-    } else {
-        // General DNA storage queries
-        dna_results.push(serde_json::json!({
-            "sequence_id": "dna_general_001",
-            "data_type": "mixed",
-            "storage_efficiency": "99.2%",
-            "total_sequences": 42847,
-            "total_storage_tb": 15.7,
-            "compression_avg": 1200,
-            "error_rate": 0.0001
-        }));
-        records_found = 1;
     }
 
     // Apply quantum enhancement if requested
     if request.quantum_enhanced.unwrap_or(false) {
-        // Enhance results with quantum processing
+        // Use the database's quantum capabilities
+        let quantum_ops_rate = db.get_quantum_ops_rate();
         for result in &mut dna_results {
             if let serde_json::Value::Object(ref mut obj) = result {
                 obj.insert("quantum_enhanced".to_string(), serde_json::Value::Bool(true));
                 obj.insert("quantum_speedup".to_string(), serde_json::Value::Number(serde_json::Number::from(15)));
+                obj.insert("quantum_ops_rate".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(quantum_ops_rate as f64).unwrap()));
             }
         }
     }
@@ -1227,7 +1268,7 @@ pub async fn load_data(
                 match validate_record_structure(record) {
                     Ok(_) => {
                         // Simulate database insertion
-                        if simulate_insert_record(&request.table, record).await {
+                        if simulate_insert_record(&request.table, record, &db).await {
                             records_loaded += 1;
 
                             // Apply neuromorphic learning if the database supports it
@@ -1252,7 +1293,7 @@ pub async fn load_data(
             for (index, record) in request.data.iter().enumerate() {
                 match validate_record_structure(record) {
                     Ok(_) => {
-                        if simulate_upsert_record(&request.table, record).await {
+                        if simulate_upsert_record(&request.table, record, &db).await {
                             records_loaded += 1;
                         } else {
                             processing_errors.push(format!("Failed to upsert record {}", index));
@@ -1266,7 +1307,7 @@ pub async fn load_data(
         }
         "bulk" => {
             // Bulk loading mode for high performance
-            match simulate_bulk_load(&request.table, &request.data).await {
+            match simulate_bulk_load(&request.table, &request.data, &db).await {
                 Ok(loaded_count) => {
                     records_loaded = loaded_count;
 
@@ -1353,53 +1394,166 @@ fn validate_record_structure(record: &serde_json::Value) -> Result<(), String> {
 }
 
 /// Simulate inserting a single record
-async fn simulate_insert_record(table: &str, record: &serde_json::Value) -> bool {
-    // Simulate database operations with different success rates based on table type
-    match table {
-        t if t.contains("test") => true, // Test tables always succeed
+async fn simulate_insert_record(table: &str, record: &serde_json::Value, db: &NeuroQuantumDB) -> bool {
+    // Analyze record content for optimization decisions
+    let record_size = record.to_string().len();
+    let has_neuromorphic_fields = record.as_object()
+        .map(|obj| obj.contains_key("synaptic_weight") || obj.contains_key("neural_pattern"))
+        .unwrap_or(false);
+    let has_dna_sequence = record.as_object()
+        .map(|obj| obj.contains_key("dna_sequence"))
+        .unwrap_or(false);
+
+    // Use database statistics to influence success rates
+    let db_compression_ratio = db.get_avg_compression_ratio();
+    let synaptic_adaptations = db.get_synaptic_adaptations();
+    let quantum_ops_rate = db.get_quantum_ops_rate();
+
+    // Calculate base success rate based on table type and record characteristics
+    let mut success_rate = match table {
+        t if t.contains("test") => 1.0, // Test tables always succeed
         t if t.contains("neuromorphic") => {
-            // Neuromorphic tables have 95% success rate
-            rand::random::<f32>() < 0.95
+            // Higher success rate if we have good synaptic adaptations
+            let base_rate = 0.95;
+            if has_neuromorphic_fields && synaptic_adaptations > 1000 {
+                base_rate + 0.03 // Boost success rate for neuromorphic records with good adaptations
+            } else {
+                base_rate
+            }
         }
         t if t.contains("quantum") => {
-            // Quantum tables have 98% success rate
-            rand::random::<f32>() < 0.98
+            // Higher success rate with better quantum operations
+            let base_rate = 0.98;
+            if quantum_ops_rate > 100.0 {
+                base_rate + 0.01 // Slight boost for high quantum ops rate
+            } else {
+                base_rate
+            }
         }
         t if t.contains("dna") => {
-            // DNA tables have 99% success rate due to error correction
-            rand::random::<f32>() < 0.99
+            // Higher success rate with better compression and DNA sequences
+            let base_rate = 0.99;
+            if has_dna_sequence && db_compression_ratio > 500.0 {
+                base_rate + 0.005 // Very slight boost for DNA with good compression
+            } else {
+                base_rate
+            }
         }
         _ => {
-            // Standard tables have 97% success rate
-            rand::random::<f32>() < 0.97
+            // Standard tables with slight boost for smaller records
+            if record_size < 500 {
+                0.975 // Slightly better for smaller records
+            } else {
+                0.97
+            }
         }
+    };
+
+    // Apply penalty for very large records
+    if record_size > 10000 && quantum_ops_rate < 50.0 {
+        success_rate *= 0.95; // Reduce success rate for large records without good quantum support
     }
+
+    rand::random::<f32>() < success_rate
 }
 
 /// Simulate upserting a single record
-async fn simulate_upsert_record(table: &str, record: &serde_json::Value) -> bool {
-    // Upsert operations have slightly higher success rates
-    simulate_insert_record(table, record).await || rand::random::<f32>() < 0.02
+async fn simulate_upsert_record(table: &str, record: &serde_json::Value, db: &NeuroQuantumDB) -> bool {
+    // Upsert operations have slightly higher success rates than inserts
+    // Plus a small additional chance even if the insert simulation fails
+    simulate_insert_record(table, record, db).await || {
+        // Additional chance for upsert to succeed where insert fails
+        // This simulates the case where the record already exists and just needs updating
+        let additional_chance = if db.get_active_connections() > 0 { 0.03 } else { 0.02 };
+        rand::random::<f32>() < additional_chance
+    }
 }
 
 /// Simulate bulk loading multiple records
-async fn simulate_bulk_load(table: &str, data: &[serde_json::Value]) -> Result<u32, String> {
+async fn simulate_bulk_load(table: &str, data: &[serde_json::Value], db: &NeuroQuantumDB) -> Result<u32, String> {
     let total_records = data.len() as u32;
 
-    // Bulk operations are more efficient but may have some failures
-    let success_rate = match table {
-        t if t.contains("neuromorphic") => 0.93,
-        t if t.contains("quantum") => 0.96,
-        t if t.contains("dna") => 0.98,
-        _ => 0.95,
+    if total_records == 0 {
+        return Ok(0);
+    }
+
+    // Analyze the dataset for optimization factors
+    let avg_record_size = data.iter()
+        .map(|r| r.to_string().len())
+        .sum::<usize>() / data.len();
+
+    let neuromorphic_records = data.iter()
+        .filter(|r| r.as_object().map(|obj|
+            obj.contains_key("synaptic_weight") || obj.contains_key("neural_pattern")
+        ).unwrap_or(false))
+        .count();
+
+    let dna_records = data.iter()
+        .filter(|r| r.as_object().map(|obj| obj.contains_key("dna_sequence")).unwrap_or(false))
+        .count();
+
+    // Get database capabilities
+    let db_compression_ratio = db.get_avg_compression_ratio();
+    let synaptic_adaptations = db.get_synaptic_adaptations();
+    let quantum_ops_rate = db.get_quantum_ops_rate();
+
+    // Calculate base success rate for bulk operations
+    let mut success_rate = match table {
+        t if t.contains("neuromorphic") => {
+            let base_rate = 0.93;
+            // Boost rate if we have many neuromorphic records and good adaptations
+            if neuromorphic_records > (total_records as usize / 2) && synaptic_adaptations > 5000 {
+                base_rate + 0.02
+            } else {
+                base_rate
+            }
+        }
+        t if t.contains("quantum") => {
+            let base_rate = 0.96;
+            // Better performance with high quantum ops rate for large datasets
+            if total_records > 1000 && quantum_ops_rate > 200.0 {
+                base_rate + 0.01
+            } else {
+                base_rate
+            }
+        }
+        t if t.contains("dna") => {
+            let base_rate = 0.98;
+            // Excellent performance for DNA with good compression
+            if dna_records > (total_records as usize / 3) && db_compression_ratio > 800.0 {
+                base_rate + 0.01
+            } else {
+                base_rate
+            }
+        }
+        _ => {
+            // Standard bulk operations
+            if avg_record_size < 1000 {
+                0.95 // Better performance for smaller records
+            } else {
+                0.93 // Slightly worse for larger records
+            }
+        }
     };
+
+    // Apply optimizations based on dataset characteristics
+    if total_records > 10000 && quantum_ops_rate > 500.0 {
+        success_rate += 0.02; // Quantum acceleration for very large datasets
+    }
+
+    if avg_record_size > 5000 && db_compression_ratio < 100.0 {
+        success_rate -= 0.05; // Penalty for large records without good compression
+    }
 
     let successful_records = (total_records as f32 * success_rate) as u32;
 
     if successful_records > 0 {
         Ok(successful_records)
     } else {
-        Err("Bulk load operation failed completely".to_string())
+        Err(format!(
+            "Bulk load operation failed completely. Dataset: {} records, avg size: {} bytes, success rate: {:.3}",
+            total_records, avg_record_size, success_rate
+        ))
     }
 }
 

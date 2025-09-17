@@ -22,6 +22,7 @@ rand_distr = "0.6.0-rc.0"
 async-trait = "0.1"
 lru = "0.16.1"
 uuid = { version = "1.18.1", features = ["v4"] }
+chrono = { workspace = true, features = ["serde"] }
 
 [features]
 default = ["neon-optimizations"]
