@@ -547,19 +547,16 @@ impl QSQLParser {
 
     /// Parse NEUROMATCH statement
     fn parse_neuromatch_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut target_table = "employees".to_string(); // Default table
+        let target_table = String::new(); // No default table - must be specified by user
         let synaptic_weight = 0.8; // Default weight
         let learning_rate = None;
         let activation_threshold = None;
 
-        // Enhanced parsing for NEUROMATCH
+        // Enhanced parsing for NEUROMATCH - no hardcoded table names
         for (_i, token) in tokens.iter().enumerate() {
             match token {
-                TokenType::Identifier(table_name) => {
-                    // Look for table names that might follow NEUROMATCH
-                    if matches!(table_name.as_str(), "employees" | "departments" | "users") {
-                        target_table = table_name.clone();
-                    }
+                TokenType::Identifier(_table_name) => {
+                    // Table names are now dynamic - no fixed validation
                 }
                 TokenType::FloatLiteral(_weight) => {
                     // Placeholder for future weight parsing implementation
@@ -583,23 +580,16 @@ impl QSQLParser {
 
     /// Parse QUANTUM_SEARCH statement
     fn parse_quantum_search_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut target_table = "departments".to_string(); // Default table
+        let target_table = String::new(); // No default table - must be specified by user
         let max_iterations = Some(10u32);
         let mut amplitude_amplification = false;
         let oracle_function = None;
 
-        // Enhanced parsing for QUANTUM_SEARCH
+        // Enhanced parsing for QUANTUM_SEARCH - no hardcoded table names
         for token in tokens.iter() {
             match token {
-                TokenType::Identifier(table_name) => {
-                    // Look for table names that might follow QUANTUM_SEARCH
-                    if matches!(table_name.as_str(), "employees" | "departments" | "users") {
-                        target_table = table_name.clone();
-                    }
-                    // Check for AMPLITUDE_AMPLIFICATION as an identifier
-                    else if table_name.to_uppercase() == "AMPLITUDE_AMPLIFICATION" {
-                        amplitude_amplification = true;
-                    }
+                TokenType::Identifier(_table_name) => {
+                    // Table names are now dynamic - no fixed validation
                 }
                 TokenType::AmplitudeAmplification => {
                     amplitude_amplification = true;
@@ -644,18 +634,16 @@ impl QSQLParser {
                     }
                 }
                 TokenType::Identifier(name) => {
-                    // Common table names
-                    if matches!(name.as_str(), "employees" | "departments" | "users") {
-                        return Some(FromClause {
-                            relations: vec![TableReference {
-                                name: name.clone(),
-                                alias: None,
-                                synaptic_weight: None,
-                                quantum_state: None,
-                            }],
-                            joins: vec![],
-                        });
-                    }
+                    // Accept any table name dynamically - no hardcoded restrictions
+                    return Some(FromClause {
+                        relations: vec![TableReference {
+                            name: name.clone(),
+                            alias: None,
+                            synaptic_weight: None,
+                            quantum_state: None,
+                        }],
+                        joins: vec![],
+                    });
                 }
                 _ => {}
             }

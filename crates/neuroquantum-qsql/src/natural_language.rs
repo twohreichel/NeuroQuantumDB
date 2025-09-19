@@ -81,8 +81,6 @@ impl NaturalLanguageProcessor {
         };
 
         processor.initialize_patterns()?;
-        processor.initialize_synonyms();
-        processor.initialize_mappings();
         processor.initialize_entity_extractors()?;
 
         Ok(processor)
@@ -583,16 +581,16 @@ impl NaturalLanguageProcessor {
 
     /// Initialize entity extractors
     fn initialize_entity_extractors(&mut self) -> QSQLResult<()> {
-        // Table name patterns - erweitert für echtes Schema
+        // Generic patterns - no hardcoded table or field names
         self.entity_extractors.insert(
             EntityType::TableName,
-            Regex::new(r"(?i)\b(users|employees|mitarbeiter|departments|abteilungen|products|orders|customers|items|data)\b").unwrap(),
+            Regex::new(r"(?i)\b([a-z_][a-z0-9_]*)\b").unwrap(),
         );
 
-        // Column name patterns - erweitert für echtes Schema
+        // Generic column patterns - no fixed column names
         self.entity_extractors.insert(
             EntityType::ColumnName,
-            Regex::new(r"(?i)\b(name|first_name|last_name|employee_number|age|price|id|email|status|date|amount|salary|gehalt|role|department_id|security_clearance|hire_date|budget|location|description|security_level)\b").unwrap(),
+            Regex::new(r"(?i)\b([a-z_][a-z0-9_]*)\b").unwrap(),
         );
 
         // Number patterns
@@ -615,95 +613,6 @@ impl NaturalLanguageProcessor {
         );
 
         Ok(())
-    }
-
-    /// Initialize synonyms
-    fn initialize_synonyms(&mut self) {
-        // Englische Synonyme
-        self.synonym_map.insert("people".to_string(), "employees".to_string());
-        self.synonym_map.insert("users".to_string(), "employees".to_string());
-        self.synonym_map.insert("workers".to_string(), "employees".to_string());
-        self.synonym_map.insert("staff".to_string(), "employees".to_string());
-        
-        // Deutsche Synonyme
-        self.synonym_map.insert("mitarbeiter".to_string(), "employees".to_string());
-        self.synonym_map.insert("angestellte".to_string(), "employees".to_string());
-        self.synonym_map.insert("personal".to_string(), "employees".to_string());
-        self.synonym_map.insert("belegschaft".to_string(), "employees".to_string());
-        
-        // Abteilungs-Synonyme
-        self.synonym_map.insert("abteilungen".to_string(), "departments".to_string());
-        self.synonym_map.insert("bereiche".to_string(), "departments".to_string());
-        self.synonym_map.insert("divisionen".to_string(), "departments".to_string());
-        
-        // Gehalt-Synonyme
-        self.synonym_map.insert("gehalt".to_string(), "salary".to_string());
-        self.synonym_map.insert("lohn".to_string(), "salary".to_string());
-        self.synonym_map.insert("verdienst".to_string(), "salary".to_string());
-        
-        // Legacy Synonyme
-        self.synonym_map.insert("customers".to_string(), "users".to_string());
-        self.synonym_map.insert("items".to_string(), "products".to_string());
-        self.synonym_map.insert("goods".to_string(), "products".to_string());
-        self.synonym_map.insert("purchases".to_string(), "orders".to_string());
-        self.synonym_map.insert("transactions".to_string(), "orders".to_string());
-    }
-
-    /// Initialize table and column mappings
-    fn initialize_mappings(&mut self) {
-        // Table mappings - erweitert für echtes Schema
-        self.table_mappings.insert("people".to_string(), "employees".to_string());
-        self.table_mappings.insert("users".to_string(), "employees".to_string());
-        self.table_mappings.insert("mitarbeiter".to_string(), "employees".to_string());
-        self.table_mappings.insert("angestellte".to_string(), "employees".to_string());
-        self.table_mappings.insert("personal".to_string(), "employees".to_string());
-        self.table_mappings.insert("belegschaft".to_string(), "employees".to_string());
-        self.table_mappings.insert("workers".to_string(), "employees".to_string());
-        self.table_mappings.insert("staff".to_string(), "employees".to_string());
-        
-        self.table_mappings.insert("abteilungen".to_string(), "departments".to_string());
-        self.table_mappings.insert("bereiche".to_string(), "departments".to_string());
-        self.table_mappings.insert("divisionen".to_string(), "departments".to_string());
-        
-        // Legacy table mappings
-        self.table_mappings.insert("customers".to_string(), "users".to_string());
-        self.table_mappings.insert("items".to_string(), "products".to_string());
-
-        // Column mappings - erweitert für echtes Schema
-        self.column_mappings.insert("full name".to_string(), "first_name".to_string());
-        self.column_mappings.insert("vorname".to_string(), "first_name".to_string());
-        self.column_mappings.insert("nachname".to_string(), "last_name".to_string());
-        self.column_mappings.insert("familienname".to_string(), "last_name".to_string());
-        self.column_mappings.insert("mitarbeiternummer".to_string(), "employee_number".to_string());
-        self.column_mappings.insert("personalnummer".to_string(), "employee_number".to_string());
-        
-        self.column_mappings.insert("gehalt".to_string(), "salary".to_string());
-        self.column_mappings.insert("lohn".to_string(), "salary".to_string());
-        self.column_mappings.insert("verdienst".to_string(), "salary".to_string());
-        
-        self.column_mappings.insert("rolle".to_string(), "role".to_string());
-        self.column_mappings.insert("position".to_string(), "role".to_string());
-        self.column_mappings.insert("funktion".to_string(), "role".to_string());
-        self.column_mappings.insert("job".to_string(), "role".to_string());
-        
-        self.column_mappings.insert("abteilung".to_string(), "department_id".to_string());
-        self.column_mappings.insert("bereich".to_string(), "department_id".to_string());
-        
-        self.column_mappings.insert("sicherheitsstufe".to_string(), "security_clearance".to_string());
-        self.column_mappings.insert("clearance".to_string(), "security_clearance".to_string());
-        
-        self.column_mappings.insert("einstellungsdatum".to_string(), "hire_date".to_string());
-        self.column_mappings.insert("startdatum".to_string(), "hire_date".to_string());
-        
-        self.column_mappings.insert("ort".to_string(), "location".to_string());
-        self.column_mappings.insert("standort".to_string(), "location".to_string());
-        
-        self.column_mappings.insert("beschreibung".to_string(), "description".to_string());
-        self.column_mappings.insert("budget".to_string(), "budget".to_string());
-        
-        // Legacy column mappings
-        self.column_mappings.insert("cost".to_string(), "price".to_string());
-        self.column_mappings.insert("value".to_string(), "amount".to_string());
     }
 }
 

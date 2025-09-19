@@ -1121,53 +1121,17 @@ fn translate_natural_language(query: &str) -> Result<String, Box<dyn std::error:
         return translate_quantum_search_query(&query_lower);
     }
 
-    // Basic natural language patterns
-    if query_lower.contains("show") && query_lower.contains("employees") {
-        Ok("SELECT * FROM employees".to_string())
-    } else if query_lower.contains("show") && query_lower.contains("departments") {
-        Ok("SELECT * FROM departments".to_string())
-    } else if query_lower.contains("find") && query_lower.contains("salary") && query_lower.contains("80000") {
-        Ok("SELECT * FROM employees WHERE salary > 80000".to_string())
-    } else if query_lower.contains("software") {
-        Ok("SELECT * FROM employees WHERE role LIKE '%Software%'".to_string())
-    } else if query_lower.contains("hr") {
-        Ok("SELECT e.* FROM employees e JOIN departments d ON e.department_id = d.id WHERE d.name LIKE '%HR%'".to_string())
-    } else {
-        // Fallback: return the original query
-        Ok(query.to_string())
-    }
+    // No fixed patterns - return the original query for dynamic processing
+    Ok(query.to_string())
 }
 
 /// Translate neuromorphic/neural queries to NEUROMATCH QSQL
 fn translate_neuromorphic_query(query: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let mut neuromatch_query = String::from("NEUROMATCH ");
+    // Return generic NEUROMATCH query without hardcoded table or field references
+    let mut neuromatch_query = String::from("NEUROMATCH");
 
-    // Determine target table
-    if query.contains("employees") || query.contains("mitarbeiter") {
-        neuromatch_query.push_str("employees");
-    } else if query.contains("departments") || query.contains("abteilungen") {
-        neuromatch_query.push_str("departments");
-    } else {
-        neuromatch_query.push_str("employees"); // Default fallback
-    }
-
-    // Add WHERE conditions based on patterns
-    if query.contains("salary") || query.contains("gehalt") {
-        neuromatch_query.push_str(" WHERE salary PATTERN_SIMILAR");
-    } else if query.contains("role") || query.contains("position") {
-        neuromatch_query.push_str(" WHERE role PATTERN_SIMILAR");
-    } else if query.contains("engagement") {
-        neuromatch_query.push_str(" WHERE engagement > 0.7");
-    } else {
-        neuromatch_query.push_str(" WHERE *"); // Match all patterns
-    }
-
-    // Extract synaptic weight if specified (simplified without regex)
-    let weight = if query.contains("weight") {
-        "0.8" // Simplified extraction
-    } else {
-        "0.8" // Default weight
-    };
+    // Extract weight if specified, otherwise use default
+    let weight = "0.8"; // Default weight
 
     neuromatch_query.push_str(&format!(" WITH SYNAPTIC_WEIGHT {}", weight));
 
@@ -1176,36 +1140,8 @@ fn translate_neuromorphic_query(query: &str) -> Result<String, Box<dyn std::erro
 
 /// Translate quantum search queries to QUANTUM_SEARCH QSQL
 fn translate_quantum_search_query(query: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let mut quantum_query = String::from("QUANTUM_SEARCH ");
-
-    // Determine target table
-    if query.contains("employees") || query.contains("mitarbeiter") {
-        quantum_query.push_str("employees");
-    } else if query.contains("departments") || query.contains("abteilungen") {
-        quantum_query.push_str("departments");
-    } else {
-        quantum_query.push_str("employees"); // Default fallback
-    }
-
-    // Add WHERE conditions for quantum pattern matching
-    if query.contains("role") && query.contains("software") {
-        quantum_query.push_str(" WHERE role QUANTUM_PATTERN_MATCH 'Software'");
-    } else if query.contains("salary") {
-        quantum_query.push_str(" WHERE salary QUANTUM_RANGE [50000, 100000]");
-    } else if query.contains("pattern") {
-        quantum_query.push_str(" WHERE * QUANTUM_PATTERN_MATCH");
-    } else {
-        quantum_query.push_str(" WHERE *"); // Search all fields
-    }
-
-    // Add quantum parameters
-    if query.contains("amplitude") || query.contains("amplification") {
-        quantum_query.push_str(" WITH AMPLITUDE_AMPLIFICATION");
-    } else {
-        quantum_query.push_str(" WITH GROVER_ITERATIONS 15");
-    }
-
-    Ok(quantum_query)
+    // Return generic QUANTUM_SEARCH query without hardcoded table references
+    Ok("QUANTUM_SEARCH".to_string())
 }
 
 /// 🛠️ Data Loading endpoints
