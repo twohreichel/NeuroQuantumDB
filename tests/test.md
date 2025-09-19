@@ -1,7 +1,3 @@
-Basierend auf deiner Ultimative Prompt Guideline erstelle ich dir einen strukturierten Prompt für ein Database-Testskript. Hier ist der Prompt nach dem REIZBAR Framework:
-
-***
-
 ## Database Testing Shell Script Prompt
 
 ### **R - Role (Rolle)**
@@ -19,8 +15,7 @@ Create a production-ready shell script that meets enterprise-grade standards:
 
 ### **I - Information Detail (Inhalt detaillieren)**
 **Technical Specifications:**
-- Programming language: Bash shell script (compatible with Linux/Unix systems)
-- Database support: Multiple database engines (MySQL, PostgreSQL, SQLite, etc.)
+- Programming language: Bash shell script (compatible with Linux/Unix/MAC systems)
 - Architecture: Modular testing framework with separate test categories
 - Logging: Structured output with timestamps, severity levels, and categorization
 - Performance: Measure query response times, connection pooling, and resource usage
