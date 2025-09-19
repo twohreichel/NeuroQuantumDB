@@ -35,7 +35,10 @@ tracing-subscriber.workspace = true
 
 # UUID and time
 uuid.workspace = true
-chrono.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+
+# Security
+bcrypt = "0.15"
 
 # API documentation
 utoipa = { version = "5.4.0", features = ["actix_extras"] }

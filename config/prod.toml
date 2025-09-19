@@ -1,52 +1,56 @@
+# NeuroQuantumDB Production Configuration
+# CRITICAL: Change default values before production deployment!
+
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"  # SECURITY: Only bind to localhost, use reverse proxy for external access
 port = 8080
 workers = 4
-keep_alive = 300
-client_timeout = 30
+keep_alive = 30
+client_timeout = 60
 shutdown_timeout = 30
 
 [database]
-connection_string = "neuroquantum://production:5432/neuroquantumdb"
-max_connections = 50
-connection_timeout = 10
-query_timeout = 30
+connection_string = "neuroquantum://localhost:5432/neuroquantum_prod"
+max_connections = 100
+connection_timeout = 30
+query_timeout = 120
 
 [database.neuromorphic_config]
 synaptic_strength_threshold = 0.7
-learning_rate = 0.005
-plasticity_decay = 0.01
-max_synaptic_connections = 5000
-hebbian_window_ms = 500
+learning_rate = 0.015
+plasticity_decay = 0.001
+max_synaptic_connections = 10000000
+hebbian_window_ms = 50
 
 [database.quantum_config]
-default_quantum_level = 192
-grovers_iterations = 1500
-annealing_temperature = 0.8
-superposition_depth = 12
+default_quantum_level = 5
+grovers_iterations = 15
+annealing_temperature = 0.01
+superposition_depth = 8
 quantum_error_correction = true
 
 [database.dna_config]
-target_compression_ratio = 1000.0
-error_correction_redundancy = 5
-quaternary_encoding_block_size = 2048
-protein_folding_levels = 6
-cache_size_mb = 64
+target_compression_ratio = 1200.0
+error_correction_redundancy = 3
+quaternary_encoding_block_size = 256
+protein_folding_levels = 4
+cache_size_mb = 1024
 
 [auth]
-jwt_secret = "${NEUROQUANTUM_JWT_SECRET}"
-token_expiry_seconds = 1800
-quantum_level = 192
-kyber_key_size = 1184
-dilithium_signature_size = 1952
-password_hash_cost = 14
+# SECURITY WARNING: Change this secret key immediately!
+jwt_secret = "CHANGE_THIS_IN_PRODUCTION_neuroquantum_$(openssl rand -hex 32)"
+token_expiry_seconds = 3600  # 1 hour
+quantum_level = 4
+kyber_key_size = 1024
+dilithium_signature_size = 2420
+password_hash_cost = 12
 
 [metrics]
 enabled = true
 port = 9090
 path = "/metrics"
 collection_interval_ms = 5000
-retention_hours = 168
+retention_hours = 168  # 7 days
 export_format = "prometheus"
 
 [security]

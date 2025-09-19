@@ -101,11 +101,11 @@ impl Default for ApiConfig {
             },
             auth: AuthConfig {
                 jwt_secret: "neuroquantum-secret-key".to_string(),
-                token_expiry_seconds: None,
-                quantum_level: None,
-                kyber_key_size: None,
-                dilithium_signature_size: None,
-                password_hash_cost: None,
+                token_expiry_seconds: Some(3600), // 1 hour
+                quantum_level: Some(4),
+                kyber_key_size: Some(1024),
+                dilithium_signature_size: Some(2420),
+                password_hash_cost: Some(12),
             },
             metrics: MetricsConfig {
                 enabled: true,

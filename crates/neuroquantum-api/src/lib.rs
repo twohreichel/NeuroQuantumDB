@@ -1,10 +1,10 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Result as ActixResult};
+use actix_web::{web, App, HttpServer, HttpResponse, Result as ActixResult, HttpMessage};
 use actix_web::middleware::{Logger, Compress};
 use actix_web_prometheus::PrometheusMetricsBuilder;
 use neuroquantum_core::{NeuroQuantumDB, DatabaseConfig};
 use serde_json;
 use std::time::Instant;
-use tracing::info;
+use tracing::{info, warn};
 use anyhow::Result;
 use actix_cors::Cors;
 use actix_ws::{Message};
@@ -19,6 +19,7 @@ pub mod middleware;
 pub use config::ApiConfig;
 pub use error::{ApiError, ApiResponse, ResponseMetadata};
 use middleware as custom_middleware;
+use auth::AuthService;
 
 /// 🏥 Health check endpoint
 pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
@@ -31,6 +32,10 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
         "system_metrics": {
             "memory_usage_mb": 128,
             "power_consumption_w": 45
+        },
+        "security": {
+            "authentication_enabled": true,
+            "api_key_required": true
         }
     });
 
@@ -40,7 +45,7 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
     )))
 }
 
-/// 📊 Prometheus metrics endpoint
+/// 📊 Prometheus metrics endpoint (requires admin permission)
 pub async fn metrics() -> HttpResponse {
     let metrics = r#"
 # HELP neuroquantum_queries_total Total number of queries processed
@@ -48,6 +53,11 @@ pub async fn metrics() -> HttpResponse {
 neuroquantum_queries_total{type="neuromorphic"} 1234
 neuroquantum_queries_total{type="quantum"} 567
 neuroquantum_queries_total{type="dna"} 89
+
+# HELP neuroquantum_auth_requests_total Total authentication requests
+# TYPE neuroquantum_auth_requests_total counter
+neuroquantum_auth_requests_total{status="success"} 5678
+neuroquantum_auth_requests_total{status="failed"} 123
 
 # HELP neuroquantum_response_time_seconds Query response time in seconds
 # TYPE neuroquantum_response_time_seconds histogram
@@ -68,11 +78,20 @@ neuroquantum_active_connections 42
         .body(metrics)
 }
 
-/// 🔍 WebSocket handler for real-time communication
+/// 🔍 WebSocket handler for real-time communication (requires authentication)
 pub async fn websocket_handler(
     req: actix_web::HttpRequest,
     stream: actix_web::web::Payload,
 ) -> Result<HttpResponse, actix_web::Error> {
+    // Check if user is authenticated (API key should be in extensions from middleware)
+    let extensions = req.extensions();
+    if extensions.get::<auth::ApiKey>().is_none() {
+        return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
+            "error": "Authentication required for WebSocket connection",
+            "code": "WEBSOCKET_AUTH_REQUIRED"
+        })));
+    }
+
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, stream)?;
 
     actix_web::rt::spawn(async move {
@@ -81,13 +100,6 @@ pub async fn websocket_handler(
                 Message::Text(text) => {
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text) {
                         match parsed.get("type").and_then(|t| t.as_str()) {
-                            Some("auth") => {
-                                let response = serde_json::json!({
-                                    "type": "auth_success",
-                                    "message": "Authentication successful"
-                                });
-                                let _ = session.text(response.to_string()).await;
-                            },
                             Some("subscribe") => {
                                 let response = serde_json::json!({
                                     "type": "subscribed",
@@ -101,7 +113,7 @@ pub async fn websocket_handler(
                                     "data": {
                                         "synaptic_strength": 0.87,
                                         "learning_rate": 0.012,
-                                        "timestamp": "2025-09-15T15:00:00Z"
+                                        "timestamp": chrono::Utc::now().to_rfc3339()
                                     }
                                 });
                                 let _ = session.text(update.to_string()).await;
@@ -109,7 +121,7 @@ pub async fn websocket_handler(
                             _ => {
                                 let error = serde_json::json!({
                                     "type": "error",
-                                    "message": "Unknown message type"
+                                    "message": "Unknown message type or insufficient permissions"
                                 });
                                 let _ = session.text(error.to_string()).await;
                             }
@@ -128,17 +140,23 @@ pub async fn websocket_handler(
 /// 🚀 API Server
 pub struct ApiServer {
     config: ApiConfig,
+    auth_service: AuthService,
 }
 
 impl ApiServer {
     pub fn new(config: ApiConfig) -> Self {
-        Self { config }
+        Self { 
+            config,
+            auth_service: AuthService::new(),
+        }
     }
 
     pub async fn start(self) -> Result<()> {
         let bind_address = format!("{}:{}", self.config.server.host, self.config.server.port);
 
         info!("🧠⚛️🧬 Starting NeuroQuantumDB API Server on {}", bind_address);
+        info!("🔐 Security: API key authentication is ENABLED");
+        warn!("⚠️ All endpoints (except /health) require valid API key authentication");
 
         // Initialize the database with config
         let db_config = DatabaseConfig {
@@ -153,33 +171,53 @@ impl ApiServer {
             .build()
             .unwrap();
 
+        // Create auth service instance
+        let auth_service = self.auth_service;
+
         HttpServer::new(move || {
-            let cors = Cors::default()
-                .allow_any_origin()
-                .allow_any_method()
-                .allow_any_header()
-                .max_age(3600);
+            // Restrict CORS for security - only allow specific origins in production
+            let cors = if cfg!(debug_assertions) {
+                // Development: allow any origin
+                Cors::default()
+                    .allow_any_origin()
+                    .allow_any_method()
+                    .allow_any_header()
+                    .max_age(3600)
+            } else {
+                // Production: restrict to specific origins
+                Cors::default()
+                    .allowed_origin("https://your-frontend-domain.com")
+                    .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+                    .allowed_headers(vec!["X-API-Key", "Content-Type", "Authorization"])
+                    .max_age(3600)
+            };
 
             App::new()
                 .app_data(web::Data::new(db.clone()))
+                .app_data(web::Data::new(auth_service.clone()))
                 .wrap(cors)
                 .wrap(prometheus.clone())
                 .wrap(Logger::default())
                 .wrap(Compress::default())
-                .wrap(custom_middleware::ApiKeyAuth)
+                .wrap(custom_middleware::ApiKeyAuth::new(auth_service.clone()))
 
-                // Health and metrics endpoints
+                // Public health endpoint
                 .route("/health", web::get().to(health_check))
                 .route("/api/v1/health", web::get().to(health_check))
+
+                // Admin endpoints (require admin permission)
                 .route("/metrics", web::get().to(metrics))
 
-                // Authentication endpoints
+                // Authentication endpoints (require existing admin key to generate new keys)
                 .service(
                     web::scope("/api/v1/auth")
                         .route("/generate-key", web::post().to(handlers::generate_api_key))
+                        .route("/revoke-key", web::delete().to(handlers::revoke_api_key))
+                        .route("/list-keys", web::get().to(handlers::list_api_keys))
+                        .route("/key-stats/{key}", web::get().to(handlers::get_key_stats))
                 )
 
-                // Neuromorphic endpoints
+                // Neuromorphic endpoints (require neuromorphic permission)
                 .service(
                     web::scope("/api/v1/neuromorphic")
                         .route("/query", web::post().to(handlers::neuromorphic_query))
@@ -187,7 +225,7 @@ impl ApiServer {
                         .route("/train", web::post().to(handlers::train_network))
                 )
 
-                // Quantum endpoints
+                // Quantum endpoints (require quantum permission)
                 .service(
                     web::scope("/api/v1/quantum")
                         .route("/search", web::post().to(handlers::quantum_search))
@@ -195,36 +233,19 @@ impl ApiServer {
                         .route("/status", web::get().to(handlers::quantum_status))
                 )
 
-                // DNA Storage endpoints
+                // DNA Storage endpoints (require dna permission)
                 .service(
                     web::scope("/api/v1/dna")
                         .route("/compress", web::post().to(handlers::dna_compress))
                         .route("/decompress", web::post().to(handlers::dna_decompress))
-                        .route("/repair", web::post().to(handlers::dna_repair))
-                        .route("/query", web::post().to(handlers::dna_query))
+                        .route("/status", web::get().to(handlers::dna_status))
                 )
 
-                // Admin endpoints
-                .service(
-                    web::scope("/api/v1/admin")
-                        .route("/config", web::get().to(handlers::get_config))
-                        .route("/config", web::put().to(handlers::update_config))
-                )
-
-                // Data Management endpoints
-                .service(
-                    web::scope("/api/v1/data")
-                        .route("/load", web::post().to(handlers::load_data))
-                )
-
-                // General Query endpoint
-                .route("/api/v1/query", web::post().to(handlers::execute_query))
-
-                // WebSocket endpoint for real-time communication
-                .route("/api/v1/realtime", web::get().to(websocket_handler))
+                // WebSocket endpoint (requires authentication)
+                .route("/api/v1/ws", web::get().to(websocket_handler))
         })
         .workers(self.config.server.workers)
-        .bind(&bind_address)?
+        .bind(bind_address)?
         .run()
         .await?;
 

@@ -6,14 +6,17 @@ use thiserror::Error;
 /// API-specific error types for NeuroQuantumDB REST interface
 #[derive(Error, Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum ApiError {
-    #[error("Authentication failed: {message}")]
-    AuthenticationFailed { message: String },
+    #[error("Authentication failed: {0}")]
+    Unauthorized(String),
 
-    #[error("Authorization denied: {resource}")]
-    AuthorizationDenied { resource: String },
+    #[error("Access forbidden: {0}")]
+    Forbidden(String),
 
-    #[error("Bad request: {message}")]
-    BadRequest { message: String },
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+
+    #[error("Resource not found: {0}")]
+    NotFound(String),
 
     #[error("Internal server error: {message}")]
     InternalServerError { message: String },
@@ -29,12 +32,6 @@ pub enum ApiError {
 
     #[error("Rate limit exceeded: {limit} requests per {window}")]
     RateLimitExceeded { limit: u32, window: String },
-
-    #[error("Resource not found: {resource_type}")]
-    ResourceNotFound { resource_type: String },
-
-    #[error("Internal server error: {context}")]
-    InternalError { context: String },
 
     #[error("Validation error: {field} - {message}")]
     ValidationError { field: String, message: String },
@@ -98,20 +95,16 @@ impl ResponseError for ApiError {
             request_id: uuid::Uuid::new_v4().to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
             response_time_ms: 0.0,
-            message: String::new(),
+            message: self.to_string(),
         };
 
         let response = ApiResponse::<()>::error(self.clone(), metadata);
 
         match self {
-            ApiError::AuthenticationFailed { .. } => HttpResponse::Unauthorized().json(response),
-            ApiError::AuthorizationDenied { .. } => HttpResponse::Forbidden().json(response),
-            ApiError::InvalidQuery { .. } => HttpResponse::BadRequest().json(response),
-            ApiError::ValidationError { .. } => HttpResponse::BadRequest().json(response),
-            ApiError::ResourceNotFound { .. } => HttpResponse::NotFound().json(response),
-            ApiError::RateLimitExceeded { .. } => HttpResponse::TooManyRequests().json(response),
-            ApiError::BadRequest { .. } => HttpResponse::BadRequest().json(response),
-            ApiError::InternalServerError { .. } => HttpResponse::InternalServerError().json(response),
+            ApiError::Unauthorized(_) => HttpResponse::Unauthorized().json(response),
+            ApiError::Forbidden(_) => HttpResponse::Forbidden().json(response),
+            ApiError::BadRequest(_) => HttpResponse::BadRequest().json(response),
+            ApiError::NotFound(_) => HttpResponse::NotFound().json(response),
             _ => HttpResponse::InternalServerError().json(response),
         }
     }
@@ -127,17 +120,16 @@ where
         } else {
             let mut status = match &response.error {
                 Some(ApiError::ValidationError { .. }) => HttpResponse::BadRequest(),
-                Some(ApiError::AuthenticationFailed { .. }) => HttpResponse::Unauthorized(),
-                Some(ApiError::AuthorizationDenied { .. }) => HttpResponse::Forbidden(),
+                Some(ApiError::Unauthorized(_)) => HttpResponse::Unauthorized(),
+                Some(ApiError::Forbidden(_)) => HttpResponse::Forbidden(),
+                Some(ApiError::BadRequest(_)) => HttpResponse::BadRequest(),
+                Some(ApiError::NotFound(_)) => HttpResponse::NotFound(),
                 Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
                 Some(ApiError::QuantumOperationFailed { .. }) => HttpResponse::InternalServerError(),
                 Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
-                Some(ApiError::InternalError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::ResourceNotFound { .. }) => HttpResponse::NotFound(),
-                Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::BadRequest { .. }) => HttpResponse::BadRequest(),
                 Some(ApiError::InternalServerError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
                 None => HttpResponse::InternalServerError(),
             };
             status.json(response)
