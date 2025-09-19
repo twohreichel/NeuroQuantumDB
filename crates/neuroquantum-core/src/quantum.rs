@@ -151,12 +151,13 @@ impl GroverSearch {
 
         // Oracle function - marks target states
         let oracle = |data: &[u8], query: &str| -> Vec<bool> {
-            if data.len() < query.len() {
-                return vec![false; data.len()];
+            if data.is_empty() || query.is_empty() || data.len() < query.len() {
+                return vec![false; data.len().max(1)]; // Ensure at least one element
             }
             let mut marks = vec![false; data.len()];
+            let query_bytes = query.as_bytes();
             for i in 0..=(data.len() - query.len()) {
-                if &data[i..i + query.len()] == query.as_bytes() {
+                if &data[i..i + query.len()] == query_bytes {
                     marks[i] = true;
                 }
             }

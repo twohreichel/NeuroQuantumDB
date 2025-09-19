@@ -143,6 +143,17 @@ pub struct SynapticNetwork {
 impl SynapticNetwork {
     /// Create a new synaptic network
     pub fn new(max_nodes: usize, activation_threshold: f32) -> CoreResult<Self> {
+        // Validate parameters
+        if max_nodes == 0 {
+            return Err(CoreError::InvalidConfig("max_nodes must be greater than 0".to_string()));
+        }
+
+        if activation_threshold < 0.0 || activation_threshold > 1.0 {
+            return Err(CoreError::InvalidConfig(
+                "activation_threshold must be between 0.0 and 1.0".to_string()
+            ));
+        }
+
         let neon_optimizer = if cfg!(target_arch = "aarch64") {
             Some(NeonOptimizer::new()?)
         } else {
