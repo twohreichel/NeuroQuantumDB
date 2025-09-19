@@ -30,7 +30,7 @@ superposition_depth = 8
 quantum_error_correction = true
 
 [database.dna_config]
-target_compression_ratio = 1200.0
+target_compression_ratio = 999.0
 error_correction_redundancy = 3
 quaternary_encoding_block_size = 256
 protein_folding_levels = 4
