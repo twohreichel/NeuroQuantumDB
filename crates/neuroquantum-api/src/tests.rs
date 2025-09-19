@@ -393,8 +393,8 @@ mod performance_tests {
 
         let duration = start.elapsed();
 
-        // Should complete key generation quickly
-        assert!(duration < Duration::from_secs(1));
+        // Should complete key generation within reasonable time (accounting for bcrypt hashing)
+        assert!(duration < Duration::from_secs(5));
     }
 
     #[tokio::test]

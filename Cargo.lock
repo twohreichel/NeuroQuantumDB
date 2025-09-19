@@ -1213,6 +1213,7 @@ dependencies = [
  "anyhow",
  "md5",
  "neuroquantum-core",
+ "proptest",
  "regex",
  "serde",
  "serde_json",

@@ -21,6 +21,9 @@ pub mod optimizer;
 pub mod parser;
 pub mod query_plan;
 
+#[cfg(test)]
+pub mod tests;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -333,61 +336,3 @@ pub use ast::*;
 pub use error::*;
 pub use natural_language::NaturalLanguageProcessor;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_basic_qsql_execution() {
-        let mut engine = QSQLEngine::new().unwrap();
-
-        let query = "SELECT * FROM users WHERE age > 25";
-        let result = engine.execute_query(query).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_neuromorphic_query() {
-        let mut engine = QSQLEngine::new().unwrap();
-
-        let query = "NEUROMATCH products WHERE price < 100 WITH SYNAPTIC_WEIGHT 0.8";
-        let result = engine.execute_query(query).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_quantum_join() {
-        let mut engine = QSQLEngine::new().unwrap();
-
-        let query = "SELECT u.name, o.total FROM users u QUANTUM_JOIN orders o ON u.id = o.user_id";
-        let result = engine.execute_query(query).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_natural_language_query() {
-        let mut engine = QSQLEngine::new().unwrap();
-
-        let natural_query = "Find all users older than 30 with high engagement";
-        let result = engine.execute_natural_query(natural_query).await;
-
-        // Print the error to see what's failing
-        if let Err(ref e) = result {
-            eprintln!("Natural language query failed with error: {:?}", e);
-        }
-
-        assert!(result.is_ok(), "Natural language query failed: {:?}", result.err());
-    }
-
-    #[test]
-    fn test_synaptic_optimization() {
-        let mut engine = QSQLEngine::new().unwrap();
-
-        let result = engine.optimize_synaptic_pathways();
-        assert!(result.is_ok());
-        assert!(engine.metrics().neuromorphic_optimizations > 0);
-    }
-}

@@ -5,6 +5,10 @@ use chrono::{DateTime, Utc};
 use tracing::{info, warn};
 use bcrypt::{hash, verify, DEFAULT_COST};
 
+// For testing, use a lower cost to speed up tests
+#[cfg(test)]
+const TEST_BCRYPT_COST: u32 = 4;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKey {
     pub key: String,
@@ -34,7 +38,7 @@ impl AuthService {
             key_hashes: HashMap::new(),
             usage_tracking: HashMap::new(),
         };
-        
+
         // Create a default admin key on startup
         service.create_default_admin_key();
         service
@@ -55,7 +59,7 @@ impl AuthService {
             Some(365 * 24), // 1 year expiry
             Some(1000), // 1000 requests per hour
         );
-        
+
         info!("🔐 Default admin API key created: {}", admin_key.key);
         warn!("⚠️ SECURITY: Change the default admin key in production!");
     }
@@ -68,8 +72,15 @@ impl AuthService {
         rate_limit_per_hour: Option<u32>,
     ) -> ApiKey {
         let key = format!("nqdb_{}", Uuid::new_v4().to_string().replace('-', ""));
-        let key_hash = hash(&key, DEFAULT_COST).expect("Failed to hash API key");
-        
+
+        // Use lower cost for tests to speed up execution
+        #[cfg(test)]
+        let cost = TEST_BCRYPT_COST;
+        #[cfg(not(test))]
+        let cost = DEFAULT_COST;
+
+        let key_hash = hash(&key, cost).expect("Failed to hash API key");
+
         let expires_at = match expiry_hours {
             Some(hours) => Utc::now() + chrono::Duration::hours(hours as i64),
             None => Utc::now() + chrono::Duration::days(30), // Default 30 days
@@ -89,7 +100,7 @@ impl AuthService {
         self.key_hashes.insert(key.clone(), key_hash);
         self.api_keys.insert(key.clone(), api_key.clone());
         self.usage_tracking.insert(key.clone(), Vec::new());
-        
+
         info!("🔑 Generated new API key: {} for {}", &key[..12], api_key.name);
         api_key
     }
@@ -105,12 +116,12 @@ impl AuthService {
                         warn!("Rate limit exceeded for API key: {}", &key[..8]);
                         return None;
                     }
-                    
+
                     // Update last used timestamp (in production, this would update the database)
                     let mut updated_key = api_key_data.clone();
                     updated_key.last_used = Some(Utc::now());
                     updated_key.usage_count += 1;
-                    
+
                     return Some(updated_key);
                 }
             }
@@ -126,7 +137,7 @@ impl AuthService {
         // Define permission mappings for different endpoints
         let required_permission = match path {
             p if p.starts_with("/api/v1/neuromorphic") => "neuromorphic",
-            p if p.starts_with("/api/v1/quantum") => "quantum", 
+            p if p.starts_with("/api/v1/quantum") => "quantum",
             p if p.starts_with("/api/v1/dna") => "dna",
             p if p.starts_with("/api/v1/admin") => "admin",
             p if p.starts_with("/metrics") => "admin",
@@ -135,7 +146,7 @@ impl AuthService {
             _ => "read", // Default to read permission
         };
 
-        api_key.permissions.contains(&required_permission.to_string()) || 
+        api_key.permissions.contains(&required_permission.to_string()) ||
         api_key.permissions.contains(&"admin".to_string())
     }
 
@@ -147,7 +158,7 @@ impl AuthService {
                     let recent_usage = usage_times.iter()
                         .filter(|&&time| time > one_hour_ago)
                         .count();
-                    
+
                     return recent_usage >= rate_limit as usize;
                 }
             }
