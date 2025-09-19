@@ -13,7 +13,6 @@ use tracing::{debug, instrument};
 pub struct NaturalLanguageProcessor {
     intent_patterns: HashMap<QueryIntent, Vec<Regex>>,
     entity_extractors: HashMap<EntityType, Regex>,
-    synonym_map: HashMap<String, String>,
     table_mappings: HashMap<String, String>,
     column_mappings: HashMap<String, String>,
 }
@@ -75,7 +74,6 @@ impl NaturalLanguageProcessor {
         let mut processor = Self {
             intent_patterns: HashMap::new(),
             entity_extractors: HashMap::new(),
-            synonym_map: HashMap::new(),
             table_mappings: HashMap::new(),
             column_mappings: HashMap::new(),
         };

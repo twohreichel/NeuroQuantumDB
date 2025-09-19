@@ -1,5 +1,5 @@
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
-use crate::auth::{AuthService, ApiKey, ApiKeyStats};
+use crate::auth::{AuthService, ApiKey};
 use neuroquantum_core::NeuroQuantumDB;
 use actix_web::{web, HttpResponse, Result as ActixResult, HttpRequest, HttpMessage};
 use serde::{Deserialize, Serialize};

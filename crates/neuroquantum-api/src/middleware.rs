@@ -1,6 +1,6 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpResponse, HttpMessage,
+    Error, HttpMessage,
 };
 use futures_util::future::LocalBoxFuture;
 use std::{
@@ -142,11 +142,6 @@ where
 
                     // Authentication failed
                     warn!("Unauthorized access attempt to {} from {}", path, client_ip);
-                    let error_response = HttpResponse::Unauthorized()
-                        .json(serde_json::json!({
-                            "error": "Authentication failed",
-                            "code": "UNAUTHORIZED"
-                        }));
 
                     // Use actix_web's error handling instead of complex generics
                     Err(actix_web::error::ErrorUnauthorized("Authentication required"))
