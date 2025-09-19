@@ -24,6 +24,9 @@ lru = "0.16.1"
 uuid = { version = "1.18.1", features = ["v4"] }
 chrono = { workspace = true, features = ["serde"] }
 
+[dev-dependencies]
+proptest = "1.0"
+
 [features]
 default = ["neon-optimizations"]
 neon-optimizations = []

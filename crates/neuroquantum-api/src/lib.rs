@@ -263,3 +263,6 @@ pub fn init_observability(_config: &ApiConfig) -> Result<()> {
     info!("Observability initialized");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
