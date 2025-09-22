@@ -521,7 +521,6 @@ impl QSQLParser {
         }
 
         // Parse SELECT list
-        let mut found_from = false;
         while i < tokens.len() {
             match &tokens[i] {
                 TokenType::Identifier(name) => {
@@ -549,7 +548,6 @@ impl QSQLParser {
                     }
                 }
                 TokenType::From => {
-                    found_from = true;
                     break;
                 }
                 _ => i += 1,
@@ -920,7 +918,7 @@ impl QSQLParser {
         if i < tokens.len() {
             if let TokenType::Identifier(table_name) = &tokens[i] {
                 target_table = table_name.clone();
-                i += 1;
+                // No need to increment i here since we're done parsing
             }
         }
 
@@ -961,13 +959,10 @@ impl QSQLParser {
 
         // Check for amplitude amplification
         while i < tokens.len() {
-            match &tokens[i] {
-                TokenType::AmplitudeAmplification => {
-                    amplitude_amplification = true;
-                    i += 1;
-                }
-                _ => i += 1,
+            if matches!(tokens[i], TokenType::AmplitudeAmplification) {
+                amplitude_amplification = true;
             }
+            i += 1;
         }
 
         let quantum_search = QuantumSearchStatement {

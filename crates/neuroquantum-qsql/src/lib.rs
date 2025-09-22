@@ -242,9 +242,6 @@ impl QSQLEngine {
         let qsql_query = self.parser.natural_language_to_qsql(natural_query)?;
         info!("Translated natural language query to QSQL: {}", qsql_query);
 
-        // Debug: print the generated QSQL for troubleshooting
-        eprintln!("Generated QSQL query: {}", qsql_query);
-
         // Execute the generated QSQL
         self.execute_query(&qsql_query).await
     }
