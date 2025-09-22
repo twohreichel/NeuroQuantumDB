@@ -138,9 +138,12 @@ impl MetricsCollector {
     /// Update system metrics
     pub async fn update_system_metrics(&self) {
         let mut metrics = self.system_metrics.write().await;
-        // In a real implementation, these would collect actual system metrics
-        metrics.memory_usage_mb = 100.0; // Placeholder
-        metrics.cpu_utilization = 50.0; // Placeholder
+
+        // Use the helper methods to collect actual system metrics
+        metrics.memory_usage_mb = self.get_memory_usage().await;
+        metrics.power_consumption_w = self.get_power_consumption().await;
+        metrics.cpu_utilization = self.get_cpu_utilization().await;
+        metrics.neon_utilization = self.get_neon_utilization().await;
         metrics.uptime_seconds = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
