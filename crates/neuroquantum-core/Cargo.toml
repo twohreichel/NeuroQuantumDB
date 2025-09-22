@@ -9,7 +9,7 @@ description = "Neuromorphic computing core for NeuroQuantumDB"
 
 [dependencies]
 # Workspace dependencies
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "fs"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
@@ -21,11 +21,13 @@ rand = "0.10.0-rc.0"
 rand_distr = "0.6.0-rc.0"
 async-trait = "0.1"
 lru = "0.16.1"
-uuid = { version = "1.18.1", features = ["v4"] }
+uuid = { version = "1.18.1", features = ["v4", "serde"] }
 chrono = { workspace = true, features = ["serde"] }
+base64 = "0.22"
 
 [dev-dependencies]
 proptest = "1.0"
+tempfile = "3.8"
 
 [features]
 default = ["neon-optimizations"]

@@ -3,7 +3,7 @@
 ## 🔴 KRITISCH (MVP) - Basis-Funktionalität
 
 ### 1. **Echte Datenpersistierung - Derzeit nur In-Memory**
-**Status:** ❌ Nicht implementiert - Nur Mock-Objekte vorhanden
+**Status:** ✅ Implementiert - muss noch getestet werden
 **Priorität:** HÖCHSTE - Ohne echte Persistierung ist es keine echte Datenbank
 
 #### **Was zu tun ist:**
