@@ -515,8 +515,7 @@ jobs:
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
             g++-aarch64-linux-gnu \
-            libc6-dev-arm64-cross \
-            pkg-config
+            libc6-dev-arm64-cross
 
       # Pre-build Rust binaries um Docker Build zu beschleunigen
       - name: Pre-build Rust artifacts for Docker
