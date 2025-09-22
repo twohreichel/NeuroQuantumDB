@@ -142,8 +142,13 @@ mod unit_tests {
     #[test]
     fn test_synaptic_network_creation() {
         let network = SynapticNetwork::new(100, 0.5).unwrap();
-        // Test that network was created successfully
-        assert_eq!(network.node_count(), 100);
+        // Test that network was created successfully with no nodes initially
+        assert_eq!(network.node_count(), 0);
+
+        // Test adding a node
+        let node = SynapticNode::new(1);
+        network.add_node(node).unwrap();
+        assert_eq!(network.node_count(), 1);
     }
 
     #[test]
