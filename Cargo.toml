@@ -43,6 +43,108 @@ config = "0.15.16"
 rand = "0.10.0-rc.0"
 reqwest = { version = "0.11", features = ["json"] }
 
+# Linting and development tools
+cargo-deny = "0.14.24"
+cargo-machete = "0.6.2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_qualifications = "warn"
+variant_size_differences = "warn"
+
+[workspace.lints.clippy]
+# Import all clippy rules from Cargo.toml.clippy
+all = "warn"
+pedantic = "warn"
+nursery = "warn"
+cargo = "warn"
+
+# Performance lints
+needless_collect = "deny"
+single_char_lifetime_names = "deny"
+string_to_string = "deny"
+string_slice_to_string = "deny"
+clone_on_ref_ptr = "deny"
+
+# Correctness lints
+float_cmp = "deny"
+mem_forget = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+
+# Style lints for better readability
+explicit_iter_loop = "deny"
+manual_let_else = "deny"
+needless_bool = "deny"
+redundant_closure_for_method_calls = "deny"
+semicolon_if_nothing_returned = "deny"
+single_match_else = "deny"
+
+# Complexity lints
+cognitive_complexity = "warn"
+too_many_arguments = "warn"
+type_complexity = "warn"
+
+# Allow some pedantic lints that might be too strict
+module_name_repetitions = "allow"
+similar_names = "allow"
+struct_excessive_bools = "allow"
+fn_params_excessive_bools = "allow"
+
+# Pedantic lints for high code quality
+cast_lossless = "warn"
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_precision_loss = "warn"
+cast_sign_loss = "warn"
+checked_conversions = "warn"
+copy_iterator = "warn"
+default_trait_access = "warn"
+explicit_deref_methods = "warn"
+explicit_into_iter_loop = "warn"
+filter_map_next = "warn"
+flat_map_option = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+items_after_statements = "warn"
+large_stack_arrays = "warn"
+large_types_passed_by_value = "warn"
+manual_ok_or = "warn"
+map_flatten = "warn"
+map_unwrap_or = "warn"
+match_wildcard_for_single_variants = "warn"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+must_use_candidate = "warn"
+needless_bitwise_bool = "warn"
+needless_continue = "warn"
+needless_for_each = "warn"
+needless_pass_by_value = "warn"
+no_effect_underscore_binding = "warn"
+option_option = "warn"
+range_minus_one = "warn"
+range_plus_one = "warn"
+redundant_else = "warn"
+ref_binding_to_reference = "warn"
+ref_option_ref = "warn"
+same_functions_in_if_condition = "warn"
+similar_names = "warn"
+trivially_copy_pass_by_ref = "warn"
+unicode_not_nfc = "warn"
+unnecessary_wraps = "warn"
+unused_self = "warn"
+used_underscore_binding = "warn"
+
+# Nursery lints (experimental but useful)
+empty_line_after_outer_attr = "warn"
+equatable_if_let = "warn"
+mutex_integer = "warn"
+redundant_pub_crate = "warn"
+
 [profile.dev]
 opt-level = 0
 debug = true

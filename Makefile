@@ -1,7 +1,7 @@
 # NeuroQuantumDB Production-Ready Makefile
 # Target: ARM64 (Raspberry Pi 4) with enterprise standards
 
-.PHONY: help build test test-full check security benchmark docker docker-build docker-run docker-clean clean install dev prod build-release build-arm64 monitor memory-profile power-monitor monitoring docker-security
+.PHONY: help build test test-full check security benchmark docker docker-build docker-run docker-clean clean install dev prod build-release build-arm64 monitor memory-profile power-monitor monitoring docker-security lint lint-fix lint-all format format-check
 
 # Default target
 help: ## Show this help message
@@ -33,19 +33,69 @@ test: ## Run comprehensive test suite (80%+ coverage required)
 
 test-full: test ## Alias for comprehensive test suite
 
-check: ## Static analysis and linting
-	@echo "🔍 Running static analysis..."
+# Linting and formatting targets
+lint: ## Run all linting checks
+	@echo "🔍 Running comprehensive linting checks..."
+	@echo "  📝 Checking code formatting..."
 	cargo fmt --all -- --check
+	@echo "  🔍 Running Clippy analysis..."
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
+	@echo "  🛡️ Running security audit..."
 	cargo audit
+	@echo "  📋 Running cargo-deny checks..."
 	cargo deny check
+	@echo "  🧹 Checking for unused dependencies..."
+	cargo machete
+	@echo "✅ All linting checks completed!"
+
+lint-fix: ## Fix automatically fixable linting issues
+	@echo "🔧 Fixing automatically fixable linting issues..."
+	cargo fmt --all
+	cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged
+	@echo "✅ Auto-fixes applied!"
+
+lint-all: lint ## Comprehensive linting (alias for lint)
+
+format: ## Format all code
+	@echo "📝 Formatting all Rust code..."
+	cargo fmt --all
+	@echo "✅ Code formatting completed!"
+
+format-check: ## Check if code is properly formatted
+	@echo "📝 Checking code formatting..."
+	cargo fmt --all -- --check
+	@echo "✅ Code formatting check completed!"
+
+check: lint ## Static analysis and linting (comprehensive)
+	@echo "🔍 Running static analysis..."
+	@$(MAKE) lint
 
 security: ## Security audit and vulnerability assessment
 	@echo "🔒 Running security audit..."
 	cargo audit
 	cargo deny check licenses
+	cargo deny check advisories
+	cargo deny check bans
+	cargo deny check sources
 	@echo "🛡️ Checking for unsafe code blocks..."
 	@! grep -r "unsafe" crates/ --include="*.rs" || (echo "❌ Unsafe code detected! Remove all unsafe blocks." && exit 1)
+	@echo "🔐 Checking for potential security issues..."
+	cargo clippy --workspace --all-targets --all-features -- -W clippy::unwrap_used -W clippy::expect_used -W clippy::panic -W clippy::unimplemented -W clippy::todo
+
+# Pre-commit hook simulation
+pre-commit: ## Run all checks that should pass before committing
+	@echo "🚀 Running pre-commit checks..."
+	@$(MAKE) format-check
+	@$(MAKE) lint
+	@$(MAKE) test
+	@$(MAKE) security
+	@echo "✅ All pre-commit checks passed!"
+
+# Continuous Integration target
+ci: ## Run all CI checks
+	@echo "🏗️ Running CI pipeline..."
+	@$(MAKE) pre-commit
+	@echo "✅ CI pipeline completed successfully!"
 
 # Production targets
 build: ## Build optimized release for ARM64 (Raspberry Pi 4)
