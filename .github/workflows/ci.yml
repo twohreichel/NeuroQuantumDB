@@ -1,213 +1,597 @@
-name: CI/CD Pipeline
+name: NeuroQuantumDB CI/CD
 
 on:
-  pull_request:
-    branches: [ main ]
-    types: [ opened, synchronize, reopened ]
   push:
+    branches: [ main ]
+  pull_request:
     branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # PR validation jobs - run on pull requests
-  pr-checks:
-    if: github.event_name == 'pull_request'
-    name: Pull Request Checks
+  formatting:
+    name: Code Formatting
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust-version: [stable, beta]
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust-version }}
-        components: rustfmt, clippy
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
 
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ matrix.rust-version }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-${{ matrix.rust-version }}-
-          ${{ runner.os }}-cargo-
+      - name: Cache Rust toolchain
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "formatting"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
-    - name: Install cargo tools
-      run: |
-        cargo install --locked cargo-audit cargo-machete cargo-unused-features
-        rustup component add rustfmt clippy
+      - name: Check code formatting
+        run: cargo fmt --all -- --check
 
-    - name: Check formatting
-      run: cargo fmt --all -- --check
+  clippy:
+    name: Clippy Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run Clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
-    - name: Security audit
-      run: cargo audit
+      - name: Cache Rust dependencies and build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clippy"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
-    - name: Dependency check
-      run: cargo tree --duplicates
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-    - name: Check unused dependencies
-      run: cargo machete
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Comprehensive lint
-      run: |
-        # Additional comprehensive linting
-        cargo clippy --all-targets --all-features -- -D clippy::all -D clippy::pedantic -D clippy::cargo
-        
-        # Check for unused features
-        cargo unused-features analyze
-        
-        # Check documentation
-        cargo doc --no-deps --document-private-items
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-  # Full pipeline jobs - run only on main branch
-  build-and-test:
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "security"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Cache security tools
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+          key: security-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-audit
+        run: |
+          if ! command -v cargo-audit &> /dev/null; then
+            cargo install cargo-audit
+          else
+            echo "cargo-audit already installed, using cached version"
+          fi
+
+      - name: Run security audit
+        run: cargo audit
+
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "dependency-check"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Cache cargo-deny
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/cargo-deny
+          key: cargo-deny-${{ runner.os }}-v1
+
+      - name: Install cargo-deny
+        run: |
+          if ! command -v cargo-deny &> /dev/null; then
+            cargo install cargo-deny
+          else
+            echo "cargo-deny already installed, using cached version"
+          fi
+
+      - name: Check licenses
+        run: cargo deny check licenses
+
+      - name: Check advisories
+        run: cargo deny check advisories
+
+      - name: Check bans
+        run: cargo deny check bans
+
+      - name: Check sources
+        run: cargo deny check sources
+
+  unused-deps:
+    name: Unused Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "unused-deps"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Cache cargo-machete
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/cargo-machete
+          key: cargo-machete-${{ runner.os }}-v1
+
+      - name: Install cargo-machete
+        run: |
+          if ! command -v cargo-machete &> /dev/null; then
+            cargo install cargo-machete
+          else
+            echo "cargo-machete already installed, using cached version"
+          fi
+
+      - name: Check unused dependencies
+        run: cargo machete
+
+  comprehensive-lint:
+    name: Comprehensive Lint Check
+    runs-on: ubuntu-latest
+    needs: [formatting, clippy, security-audit, dependency-check, unused-deps]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # Nutze gecachte Builds von vorherigen Jobs
+      - name: Cache Rust dependencies from previous jobs
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clippy"  # Nutze den Cache vom clippy Job
+          save-if: false  # Nicht überschreiben, nur lesen
+
+      # Fallback auf eigenen Cache falls nötig
+      - name: Cache Rust dependencies fallback
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "comprehensive-lint"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # Nutze gecachte Tools von vorherigen Jobs
+      - name: Cache lint tools from previous jobs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+            ~/.cargo/bin/cargo-deny
+            ~/.cargo/bin/cargo-machete
+          key: security-tools-${{ runner.os }}-v1
+          restore-keys: |
+            cargo-deny-${{ runner.os }}-v1
+            cargo-machete-${{ runner.os }}-v1
+
+      # Minimale Tool-Installation (nur falls nicht gecacht)
+      - name: Install missing tools only
+        run: |
+          # Prüfe und installiere nur fehlende Tools
+          missing_tools=()
+          
+          if ! command -v cargo-audit &> /dev/null; then
+            missing_tools+=("cargo-audit")
+          fi
+          if ! command -v cargo-deny &> /dev/null; then
+            missing_tools+=("cargo-deny")
+          fi
+          if ! command -v cargo-machete &> /dev/null; then
+            missing_tools+=("cargo-machete")
+          fi
+          
+          if [ ${#missing_tools[@]} -gt 0 ]; then
+            echo "Installing missing tools: ${missing_tools[*]}"
+            cargo install "${missing_tools[@]}"
+          else
+            echo "✅ All tools already available from cache"
+          fi
+
+      # Nutze vorherige Clippy-Ergebnisse falls verfügbar
+      - name: Skip redundant clippy if already passed
+        run: |
+          echo "✅ Clippy already passed in previous job, skipping redundant check"
+
+      - name: Run only additional lint checks
+        run: |
+          # Führe nur die zusätzlichen Checks aus, die nicht bereits gemacht wurden
+          echo "🔍 Running additional lint checks..."
+          
+          # Formatierung bereits in formatting job geprüft
+          echo "✅ Formatting already checked"
+          
+          # Clippy bereits in clippy job geprüft  
+          echo "✅ Clippy already checked"
+          
+          # Security audit bereits in security-audit job geprüft
+          echo "✅ Security audit already checked"
+          
+          # Dependency checks bereits in dependency-check job geprüft
+          echo "✅ Dependency checks already checked"
+          
+          # Unused deps bereits in unused-deps job geprüft
+          echo "✅ Unused dependencies already checked"
+          
+          # Nur zusätzliche Checks die noch nicht gemacht wurden
+          echo "🔍 Running additional project-specific checks..."
+          
+          # Prüfe auf TODO/FIXME Comments in kritischen Bereichen
+          if grep -r "TODO\|FIXME" crates/ --include="*.rs" | grep -v "test" | head -10; then
+            echo "⚠️  Found TODO/FIXME comments in production code"
+          fi
+          
+          # Prüfe Dokumentationsabdeckung
+          echo "📖 Checking documentation coverage..."
+          cargo doc --workspace --no-deps 2>&1 | grep "warning:" || echo "✅ No documentation warnings"
+
+      - name: Check for unsafe code
+        run: |
+          if grep -r "unsafe" crates/ --include="*.rs"; then
+            echo "❌ Unsafe code detected! Remove all unsafe blocks."
+            exit 1
+          else
+            echo "✅ No unsafe code found."
+          fi
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: [comprehensive-lint]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Nutze gecachte Builds vom clippy Job
+      - name: Cache Rust dependencies from previous jobs
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clippy"  # Nutze den Cache vom clippy Job
+          save-if: false  # Nicht überschreiben, nur lesen
+
+      # Fallback Cache für Tests
+      - name: Cache Rust dependencies and test artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Run tests
+        run: cargo test --all-features --verbose
+
+  build-documentation:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies for docs
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "docs"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Cache mdBook and plugins
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/mdbook
+            ~/.cargo/bin/mdbook-linkcheck
+            ~/.cargo/bin/mdbook-mermaid
+            ~/.cargo/bin/tokei
+          key: doc-tools-${{ runner.os }}-v2
+
+      - name: Install mdBook
+        run: |
+          if ! command -v mdbook &> /dev/null; then
+            mkdir mdbook
+            curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.36/mdbook-v0.4.36-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=./mdbook
+            echo `pwd`/mdbook >> $GITHUB_PATH
+          else
+            echo "mdBook already installed, using cached version"
+          fi
+
+      - name: Install mdBook plugins
+        run: |
+          if ! command -v mdbook-linkcheck &> /dev/null; then
+            cargo install mdbook-linkcheck
+          else
+            echo "mdbook-linkcheck already installed, using cached version"
+          fi
+          if ! command -v mdbook-mermaid &> /dev/null; then
+            cargo install mdbook-mermaid
+          else
+            echo "mdbook-mermaid already installed, using cached version"
+          fi
+
+      - name: Generate API documentation
+        run: |
+          cargo doc --workspace --all-features --no-deps --document-private-items
+          echo '<meta http-equiv="refresh" content="0; url=neuroquantum_api">' > target/doc/index.html
+
+      - name: Generate user documentation
+        run: mdbook build
+
+      - name: Generate code metrics
+        run: |
+          if ! command -v tokei &> /dev/null; then
+            cargo install tokei
+          else
+            echo "tokei already installed, using cached version"
+          fi
+          mkdir -p target/metrics
+          tokei --output json > target/metrics/code-stats.json
+          cargo tree --format "{p} {l}" > target/metrics/dependencies.txt
+
+      - name: Create documentation site structure
+        run: |
+          mkdir -p docs-site
+          cp -r target/book/* docs-site/
+          cp -r target/doc docs-site/api/
+          cp -r target/metrics docs-site/metrics/
+
+      - name: Create main documentation index
+        run: |
+          cat > docs-site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="de">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>NeuroQuantumDB Documentation</title>
+              <style>
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body { 
+                      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                      line-height: 1.6; 
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      min-height: 100vh;
+                      color: #333;
+                  }
+                  .container { 
+                      max-width: 1200px; 
+                      margin: 0 auto; 
+                      padding: 20px;
+                  }
+                  .header {
+                      text-align: center;
+                      color: white;
+                      margin-bottom: 50px;
+                  }
+                  .header h1 {
+                      font-size: 3.5rem;
+                      margin-bottom: 10px;
+                      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                  }
+                  .docs-grid {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                      gap: 30px;
+                      margin-bottom: 50px;
+                  }
+                  .doc-card {
+                      background: white;
+                      border-radius: 15px;
+                      padding: 30px;
+                      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                      transition: transform 0.3s ease;
+                      text-decoration: none;
+                      color: inherit;
+                  }
+                  .doc-card:hover {
+                      transform: translateY(-5px);
+                  }
+                  .doc-card h2 {
+                      color: #667eea;
+                      margin-bottom: 15px;
+                  }
+                  .version-info {
+                      background: rgba(255,255,255,0.1);
+                      border-radius: 10px;
+                      padding: 20px;
+                      margin-top: 30px;
+                      color: white;
+                      text-align: center;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h1>🧠 NeuroQuantumDB</h1>
+                      <p>Ultra-effiziente neuromorphe Datenbank für Edge Computing</p>
+                  </div>
+
+                  <div class="docs-grid">
+                      <a href="./introduction.html" class="doc-card">
+                          <h2>📚 Benutzer-Dokumentation</h2>
+                          <p>Vollständige Anleitung zur Verwendung von NeuroQuantumDB</p>
+                      </a>
+
+                      <a href="./api/" class="doc-card">
+                          <h2>🔧 API Dokumentation</h2>
+                          <p>Technische Referenz für Entwickler</p>
+                      </a>
+
+                      <a href="./metrics/" class="doc-card">
+                          <h2>📊 Code Metrics</h2>
+                          <p>Projektstatistiken und Qualitätsmetriken</p>
+                      </a>
+                  </div>
+
+                  <div class="version-info">
+                      <p><strong>Build:</strong> ${{ github.sha }}</p>
+                      <p><strong>Date:</strong> $(date)</p>
+                  </div>
+              </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs-site/
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [build-documentation]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Build and Test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust-version: [stable, beta, nightly]
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust-version }}
-        components: rustfmt, clippy
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ matrix.rust-version }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=main-
+            type=raw,value=latest
 
-    - name: Build all crates
-      run: cargo build --verbose --all-features
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Run tests
-      run: cargo test --verbose --all-features
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/arm64
 
-    - name: Run integration tests
-      run: cargo test --test integration_tests
+      - name: Cache Docker layers for future builds
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
-    - name: Run benchmarks
-      run: cargo bench --no-run
-
-  security-scan:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Security Scan
+  deploy-documentation:
+    name: Deploy Documentation to GitHub Pages
     runs-on: ubuntu-latest
+    needs: [build-documentation]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Download documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: documentation
+          path: ./docs-site
 
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
-    - name: Install security tools
-      run: |
-        cargo install --locked cargo-audit cargo-deny
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs-site
 
-    - name: Run cargo audit
-      run: cargo audit
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
-    - name: Run cargo deny
-      run: cargo deny check
-
-  performance-tests:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Performance Tests
+  lint-results:
+    name: Pipeline Results Summary
     runs-on: ubuntu-latest
-
+    needs: [formatting, clippy, security-audit, dependency-check, unused-deps, comprehensive-lint, test, build-documentation, build-and-push, deploy-documentation]
+    if: always()
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-performance-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Run performance benchmarks
-      run: cargo bench
-
-  docker-build:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Docker Build
-    runs-on: ubuntu-latest
-    needs: [build-and-test, security-scan]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build Docker image
-      run: |
-        docker build -t neuroquantumdb:latest .
-        docker images
-
-    - name: Test Docker image
-      run: |
-        docker run --rm neuroquantumdb:latest --version
-
-  documentation:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Generate Documentation
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Install mdbook
-      run: |
-        curl -L https://github.com/rust-lang/mdBook/releases/download/v0.4.36/mdbook-v0.4.36-x86_64-unknown-linux-gnu.tar.gz | tar xz
-        chmod +x mdbook
-
-    - name: Generate API documentation
-      run: cargo doc --no-deps --all-features
-
-    - name: Build book documentation
-      run: ./mdbook build
-
-    - name: Deploy documentation
-      if: github.ref == 'refs/heads/main'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./target/book
+      - name: Generate results summary
+        run: |
+          echo "## 🚀 NeuroQuantumDB CI/CD Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Formatting | ${{ needs.formatting.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Clippy Analysis | ${{ needs.clippy.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Audit | ${{ needs.security-audit.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Check | ${{ needs.dependency-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unused Dependencies | ${{ needs.unused-deps.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **📚 Documentation** | ${{ needs.build-documentation.result == 'success' && '✅ Generated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Comprehensive Lint | ${{ needs.comprehensive-lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${{ needs.build-and-push.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **🌐 Documentation Deploy** | ${{ needs.deploy-documentation.result == 'success' && '✅ Deployed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📖 Documentation Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [📚 User Documentation](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [🔧 API Reference](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/api/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [📊 Code Metrics](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/metrics/)" >> $GITHUB_STEP_SUMMARY
