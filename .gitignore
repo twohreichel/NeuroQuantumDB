@@ -60,7 +60,7 @@ http-client.private.env.json
 .idea/.cache/.Apifox_Helper
 .idea/ApifoxUploaderProjectSetting.xml
 
-.vscode/
+.vscode
 .history/
 *.code-workspace
 .terraform/
@@ -78,3 +78,7 @@ lerna-debug.log*
 .venv
 docker/production/monitoring/grafana-*
 neuroquantum_test_report_*
+
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/settings.json

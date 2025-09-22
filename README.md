@@ -13,7 +13,96 @@
 
 ---
 
-## ��� Was ist NeuroQuantumDB?
+## ⚡ Quick Start für Entwickler
+
+### 🚀 Automatisches Setup (Empfohlen)
+
+Nach dem Klonen des Repositories führen Sie einfach aus:
+
+```bash
+# Repository klonen
+git clone https://github.com/neuroquantumdb/neuroquantumdb.git
+cd neuroquantumdb
+
+# Automatisches Development Setup
+./scripts/setup-dev.sh
+```
+
+Das Setup-Script installiert automatisch:
+- ✅ Alle erforderlichen Rust-Tools (cargo-audit, cargo-deny, cargo-machete)
+- ✅ Pre-commit Hooks für Code-Qualität
+- ✅ Git-Konfiguration für optimalen Workflow
+- ✅ Post-merge Hooks für Dependency-Updates
+- ✅ Commit-Message Validation
+
+### 🔧 Manuelles Setup
+
+Falls Sie das manuelle Setup bevorzugen:
+
+```bash
+# Rust Tools installieren
+cargo install cargo-audit cargo-deny cargo-machete cargo-tarpaulin
+
+# Git Hooks installieren
+cp hooks/pre-commit .git/hooks/pre-commit
+cp hooks/post-merge .git/hooks/post-merge  
+cp hooks/commit-msg .git/hooks/commit-msg
+chmod +x .git/hooks/*
+
+# Erste Code-Quality Prüfung
+make lint
+```
+
+## 📋 Development Workflow
+
+Nach dem Setup haben Sie folgende Kommandos zur Verfügung:
+
+```bash
+# Code formatieren
+make format
+
+# Alle Linting-Checks ausführen
+make lint
+
+# Automatische Fixes anwenden
+make lint-fix
+
+# Sicherheits-Audit
+make security
+
+# Pre-commit Simulation
+make pre-commit
+
+# Vollständige CI-Pipeline
+make ci
+```
+
+### 🎯 Pre-commit Hooks
+
+Die pre-commit Hooks werden **automatisch** bei jedem Commit ausgeführt und prüfen:
+
+- ✅ Code-Formatierung (rustfmt)
+- ✅ Linting-Regeln (clippy mit 60+ Regeln)
+- ✅ Sicherheits-Audit (cargo-audit)
+- ✅ Lizenz-Compliance (cargo-deny)
+- ✅ Ungenutzte Dependencies (cargo-machete)
+- ✅ Verbot von `unsafe` Code
+- ✅ Schnelle Test-Validierung
+
+### 📝 Commit-Message Format
+
+Verwenden Sie das Conventional Commits Format:
+
+```
+<type>[optional scope]: <description>
+
+Examples:
+feat(core): add quantum optimization algorithm
+fix(api): resolve memory leak in synaptic processing
+docs: update installation guide
+```
+
+## 🧠 Was ist NeuroQuantumDB?
 
 NeuroQuantumDB ist eine **revolutionäre Datenbank**, die drei bahnbrechende Technologien kombiniert:
 

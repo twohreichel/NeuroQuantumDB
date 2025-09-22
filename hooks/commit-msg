@@ -1,0 +1,29 @@
+#!/bin/bash
+# Commit message hook for NeuroQuantumDB
+# This script validates commit message format according to conventional commits
+
+commit_regex='^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,50}'
+
+error_msg="Aborting commit. Your commit message is malformed.
+Commit message format should be:
+<type>[optional scope]: <description>
+
+Example: feat(core): add quantum optimization algorithm
+
+Types:
+- feat: A new feature
+- fix: A bug fix
+- docs: Documentation only changes
+- style: Changes that do not affect the meaning of the code
+- refactor: A code change that neither fixes a bug nor adds a feature
+- test: Adding missing tests or correcting existing tests
+- chore: Changes to the build process or auxiliary tools
+- perf: A code change that improves performance
+- ci: Changes to CI configuration files and scripts
+- build: Changes that affect the build system or dependencies
+- revert: Reverts a previous commit"
+
+if ! grep -qE "$commit_regex" "$1"; then
+    echo "$error_msg" >&2
+    exit 1
+fi
