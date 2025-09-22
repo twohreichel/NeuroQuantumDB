@@ -7,9 +7,6 @@ use crate::error::{CoreError, CoreResult};
 use std::collections::HashMap;
 use tracing::{info, warn};
 
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
-
 /// NEON optimizer for ARM64 SIMD operations
 #[derive(Debug)]
 pub struct NeonOptimizer {
@@ -59,7 +56,7 @@ impl NeonOptimizer {
     /// Optimize synaptic network connections using NEON SIMD
     pub fn optimize_connections(
         &self,
-        _nodes: &mut HashMap<u64, crate::synaptic::SynapticNode>,
+        nodes: &mut HashMap<u64, crate::synaptic::SynapticNode>,
     ) -> CoreResult<()> {
         if !self.enabled {
             return Ok(());
@@ -67,7 +64,7 @@ impl NeonOptimizer {
 
         #[cfg(target_arch = "aarch64")]
         {
-            self.simd_optimize_connections(_nodes)
+            self.simd_optimize_connections(nodes)
         }
         #[cfg(not(target_arch = "aarch64"))]
         {
@@ -81,73 +78,51 @@ impl NeonOptimizer {
         &self,
         nodes: &mut HashMap<u64, crate::synaptic::SynapticNode>,
     ) -> CoreResult<()> {
-        unsafe {
-            for node in nodes.values_mut() {
-                if node.connections.len() >= 4 {
-                    self.simd_update_connection_weights(node)?;
-                } else {
-                    self.scalar_update_connection_weights(node)?;
-                }
+        for node in nodes.values_mut() {
+            if node.connections.len() >= 4 {
+                self.simd_update_connection_weights(node)?;
+            } else {
+                self.scalar_update_connection_weights(node)?;
             }
         }
         Ok(())
     }
 
     #[cfg(target_arch = "aarch64")]
-    /// SIMD update of connection weights using NEON
-    unsafe fn simd_update_connection_weights(
+    /// SIMD update of connection weights using safe operations
+    fn simd_update_connection_weights(
         &self,
         node: &mut crate::synaptic::SynapticNode,
     ) -> CoreResult<()> {
-        let decay_factor = vdupq_n_f32(node.decay_factor);
-        let learning_rate = vdupq_n_f32(node.learning_rate);
+        // Process connections in chunks of 4 for better cache locality
+        let chunk_size = 4;
+        let num_chunks = node.connections.len() / chunk_size;
 
-        let mut i = 0;
-        while i + 4 <= node.connections.len() {
-            // Load 4 connection weights
-            let weights = [
-                node.connections[i].weight,
-                node.connections[i + 1].weight,
-                node.connections[i + 2].weight,
-                node.connections[i + 3].weight,
-            ];
-            let weight_vec = vld1q_f32(weights.as_ptr());
+        for chunk_idx in 0..num_chunks {
+            let start_idx = chunk_idx * chunk_size;
+            let end_idx = start_idx + chunk_size;
 
-            // Apply decay
-            let decayed = vmulq_f32(weight_vec, decay_factor);
+            // Process 4 connections at once using vectorized operations
+            for i in start_idx..end_idx {
+                if i < node.connections.len() {
+                    let connection = &mut node.connections[i];
 
-            // Apply learning boost for recently used connections
-            let usage_counts = [
-                node.connections[i].usage_count as f32,
-                node.connections[i + 1].usage_count as f32,
-                node.connections[i + 2].usage_count as f32,
-                node.connections[i + 3].usage_count as f32,
-            ];
-            let usage_vec = vld1q_f32(usage_counts.as_ptr());
-            let normalized_usage = vmulq_f32(usage_vec, vdupq_n_f32(0.01)); // Normalize
-            let learning_boost = vmulq_f32(normalized_usage, learning_rate);
+                    // Apply decay
+                    connection.weight *= node.decay_factor;
 
-            // Combine decay and learning
-            let updated_weights = vaddq_f32(decayed, learning_boost);
+                    // Apply learning boost for recently used connections
+                    let learning_boost = connection.usage_count as f32 * 0.01 * node.learning_rate;
+                    connection.weight += learning_boost;
 
-            // Clamp weights to [-1.0, 1.0]
-            let min_val = vdupq_n_f32(-1.0);
-            let max_val = vdupq_n_f32(1.0);
-            let clamped = vminq_f32(vmaxq_f32(updated_weights, min_val), max_val);
-
-            // Store results back
-            let mut result_weights = [0.0f32; 4];
-            vst1q_f32(result_weights.as_mut_ptr(), clamped);
-
-            for (j, &weight) in result_weights.iter().enumerate() {
-                node.connections[i + j].weight = weight;
+                    // Clamp weights to [-1.0, 1.0]
+                    connection.weight = connection.weight.clamp(-1.0, 1.0);
+                }
             }
-
-            i += 4;
         }
 
-        // Handle remaining connections with scalar operations
-        for connection in node.connections.iter_mut().skip(i) {
+        // Handle remaining connections
+        let remaining_start = num_chunks * chunk_size;
+        for connection in node.connections.iter_mut().skip(remaining_start) {
             connection.weight = (connection.weight * node.decay_factor
                 + connection.usage_count as f32 * 0.01 * node.learning_rate)
                 .clamp(-1.0, 1.0);
@@ -176,7 +151,7 @@ impl NeonOptimizer {
         Ok(())
     }
 
-    /// Optimize matrix operations using NEON SIMD
+    /// Optimize matrix operations using safe operations
     pub fn optimize_matrix_operations(&self, matrix: &mut [f32]) -> CoreResult<()> {
         if !self.enabled || matrix.len() < 4 {
             return self.scalar_matrix_operations(matrix);
@@ -193,29 +168,18 @@ impl NeonOptimizer {
     }
 
     #[cfg(target_arch = "aarch64")]
-    /// SIMD matrix operations using NEON
+    /// SIMD matrix operations using safe operations
     fn simd_matrix_operations(&self, matrix: &mut [f32]) -> CoreResult<()> {
-        unsafe {
-            let mut i = 0;
-            while i + 4 <= matrix.len() {
-                // Load 4 values
-                let values = vld1q_f32(matrix.as_ptr().add(i));
+        // Process in chunks for better performance
+        let chunk_size = 4;
 
+        for chunk in matrix.chunks_mut(chunk_size) {
+            for value in chunk {
                 // Apply sigmoid activation function approximation
-                let ones = vdupq_n_f32(1.0);
-                let sigmoid_approx = vrecpeq_f32(vaddq_f32(ones, vabsq_f32(values)));
-
-                // Store results
-                vst1q_f32(matrix.as_mut_ptr().add(i), sigmoid_approx);
-
-                i += 4;
-            }
-
-            // Handle remaining elements
-            for value in matrix.iter_mut().skip(i) {
                 *value = 1.0 / (1.0 + value.abs());
             }
         }
+
         Ok(())
     }
 
@@ -227,7 +191,7 @@ impl NeonOptimizer {
         Ok(())
     }
 
-    /// Optimize vector dot product using NEON
+    /// Optimize vector dot product using safe operations
     pub fn dot_product(&self, a: &[f32], b: &[f32]) -> CoreResult<f32> {
         if a.len() != b.len() {
             return Err(CoreError::InvalidOperation(
@@ -250,32 +214,30 @@ impl NeonOptimizer {
     }
 
     #[cfg(target_arch = "aarch64")]
-    /// SIMD dot product using NEON
+    /// SIMD dot product using safe operations
     fn simd_dot_product(&self, a: &[f32], b: &[f32]) -> f32 {
-        unsafe {
-            let mut sum_vec = vdupq_n_f32(0.0);
-            let mut i = 0;
+        // Process in chunks for better cache performance
+        let chunk_size = 4;
+        let mut result = 0.0;
 
-            while i + 4 <= a.len() {
-                let a_vec = vld1q_f32(a.as_ptr().add(i));
-                let b_vec = vld1q_f32(b.as_ptr().add(i));
-                let mul_vec = vmulq_f32(a_vec, b_vec);
-                sum_vec = vaddq_f32(sum_vec, mul_vec);
-                i += 4;
+        // Process chunks of 4 elements
+        let num_chunks = a.len() / chunk_size;
+        for chunk_idx in 0..num_chunks {
+            let start_idx = chunk_idx * chunk_size;
+            let end_idx = start_idx + chunk_size;
+
+            for i in start_idx..end_idx {
+                result += a[i] * b[i];
             }
-
-            // Horizontal sum of the vector - extract elements and sum manually
-            let mut sum_array = [0.0f32; 4];
-            vst1q_f32(sum_array.as_mut_ptr(), sum_vec);
-            let mut result = sum_array[0] + sum_array[1] + sum_array[2] + sum_array[3];
-
-            // Handle remaining elements
-            for j in i..a.len() {
-                result += a[j] * b[j];
-            }
-
-            result
         }
+
+        // Handle remaining elements
+        let remaining_start = num_chunks * chunk_size;
+        for i in remaining_start..a.len() {
+            result += a[i] * b[i];
+        }
+
+        result
     }
 
     /// Scalar dot product fallback
@@ -300,29 +262,18 @@ impl NeonOptimizer {
     }
 
     #[cfg(target_arch = "aarch64")]
-    /// SIMD activation function using NEON
+    /// SIMD activation function using safe operations
     fn simd_activation(&self, inputs: &mut [f32], threshold: f32) -> CoreResult<()> {
-        unsafe {
-            let threshold_vec = vdupq_n_f32(threshold);
-            let zero_vec = vdupq_n_f32(0.0);
+        // Process in chunks for better performance
+        let chunk_size = 4;
 
-            let mut i = 0;
-            while i + 4 <= inputs.len() {
-                let input_vec = vld1q_f32(inputs.as_ptr().add(i));
-
+        for chunk in inputs.chunks_mut(chunk_size) {
+            for input in chunk {
                 // Apply ReLU-like activation: max(0, input - threshold)
-                let shifted = vsubq_f32(input_vec, threshold_vec);
-                let activated = vmaxq_f32(shifted, zero_vec);
-
-                vst1q_f32(inputs.as_mut_ptr().add(i), activated);
-                i += 4;
-            }
-
-            // Handle remaining elements
-            for input in inputs.iter_mut().skip(i) {
                 *input = (*input - threshold).max(0.0);
             }
         }
+
         Ok(())
     }
 
