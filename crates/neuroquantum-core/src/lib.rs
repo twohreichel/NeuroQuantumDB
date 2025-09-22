@@ -16,10 +16,14 @@ pub mod plasticity;
 pub mod quantum;
 pub mod query;
 pub mod security;
+pub mod storage;
 pub mod synaptic;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod storage_tests;
 
 /// Core NeuroQuantumDB engine
 #[derive(Clone)]

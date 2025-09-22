@@ -26,6 +26,7 @@ WORKDIR /app
 
 # Copy workspace configuration and create production version without tests
 COPY Cargo.toml ./Cargo.toml.full
+COPY Cargo.lock ./Cargo.lock
 COPY crates/ crates/
 
 # Create production Cargo.toml without tests workspace member
@@ -33,7 +34,6 @@ RUN sed '/^[[:space:]]*"tests"/d' Cargo.toml.full > Cargo.toml
 
 # Generate a compatible lock file and build with correct features
 RUN rustup target add aarch64-unknown-linux-gnu
-RUN cargo generate-lockfile
 RUN cargo build --release --target aarch64-unknown-linux-gnu \
     --features neon-optimizations,neuromorphic,quantum,natural-language \
     --bin neuroquantum-api

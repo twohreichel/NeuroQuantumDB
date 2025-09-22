@@ -4,7 +4,6 @@
 # Build artifacts
 target/
 **/target/
-Cargo.lock
 
 # Development files
 .git/
@@ -42,7 +41,7 @@ deny.toml
 rustfmt.toml
 
 # Docker files (avoid recursive copying)
-Dockerfile*
+Dockerfile
 docker-compose*.yml
 .dockerignore
 
