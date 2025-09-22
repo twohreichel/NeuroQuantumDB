@@ -56,7 +56,7 @@ impl NeonOptimizer {
     /// Optimize synaptic network connections using NEON SIMD
     pub fn optimize_connections(
         &self,
-        nodes: &mut HashMap<u64, crate::synaptic::SynapticNode>,
+        _nodes: &mut HashMap<u64, crate::synaptic::SynapticNode>,
     ) -> CoreResult<()> {
         if !self.enabled {
             return Ok(());
@@ -64,7 +64,7 @@ impl NeonOptimizer {
 
         #[cfg(target_arch = "aarch64")]
         {
-            self.simd_optimize_connections(nodes)
+            self.simd_optimize_connections(_nodes)
         }
         #[cfg(not(target_arch = "aarch64"))]
         {
