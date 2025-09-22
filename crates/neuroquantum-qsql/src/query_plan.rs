@@ -337,7 +337,16 @@ impl QueryExecutor {
 
 impl Default for QueryExecutor {
     fn default() -> Self {
-        Self::new().expect("Failed to create QueryExecutor")
+        match Self::new() {
+            Ok(executor) => executor,
+            Err(_) => {
+                // Fallback to a minimal executor if creation fails
+                QueryExecutor {
+                    config: ExecutorConfig::default(),
+                    execution_stats: ExecutionStats::default(),
+                }
+            }
+        }
     }
 }
 

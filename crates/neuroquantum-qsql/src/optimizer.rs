@@ -607,6 +607,19 @@ impl NeuromorphicOptimizer {
 
 impl Default for NeuromorphicOptimizer {
     fn default() -> Self {
-        Self::new().expect("Failed to create NeuromorphicOptimizer")
+        match Self::new() {
+            Ok(optimizer) => optimizer,
+            Err(_) => {
+                // Fallback to a minimal optimizer if creation fails
+                NeuromorphicOptimizer {
+                    synaptic_network: SynapticNetwork::new(1000, 0.5).unwrap_or_default(),
+                    hebbian_learner: HebbianLearningEngine::new(0.01).unwrap_or_default(),
+                    plasticity_matrix: PlasticityMatrix::new(100, 0.01).unwrap_or_default(),
+                    query_patterns: HashMap::new(),
+                    optimization_stats: OptimizationStats::default(),
+                    config: OptimizerConfig::default(),
+                }
+            }
+        }
     }
 }

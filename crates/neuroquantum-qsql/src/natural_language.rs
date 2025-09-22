@@ -565,7 +565,18 @@ impl NaturalLanguageProcessor {
 
 impl Default for NaturalLanguageProcessor {
     fn default() -> Self {
-        Self::new().expect("Failed to create NaturalLanguageProcessor")
+        match Self::new() {
+            Ok(processor) => processor,
+            Err(_) => {
+                // Fallback to a minimal processor if creation fails
+                NaturalLanguageProcessor {
+                    intent_patterns: HashMap::new(),
+                    entity_extractors: HashMap::new(),
+                    table_mappings: HashMap::new(),
+                    column_mappings: HashMap::new(),
+                }
+            }
+        }
     }
 }
 

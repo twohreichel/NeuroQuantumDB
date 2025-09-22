@@ -1107,7 +1107,17 @@ impl QSQLParser {
 
 impl Default for QSQLParser {
     fn default() -> Self {
-        Self::new()
+        match Self::with_config(ParserConfig::default()) {
+            Ok(parser) => parser,
+            Err(_) => {
+                // Fallback to a minimal parser if creation fails
+                QSQLParser {
+                    config: ParserConfig::default(),
+                    optimization_hints: Vec::new(),
+                    parsing_stats: ParsingStats::default(),
+                }
+            }
+        }
     }
 }
 

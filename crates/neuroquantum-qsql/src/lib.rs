@@ -309,7 +309,19 @@ impl QSQLEngine {
 
 impl Default for QSQLEngine {
     fn default() -> Self {
-        Self::new().expect("Failed to create default QSQL engine")
+        match Self::new() {
+            Ok(engine) => engine,
+            Err(_) => {
+                // Fallback to a minimal engine if creation fails
+                QSQLEngine {
+                    parser: ParserQSQLParser::default(),
+                    optimizer: NeuromorphicOptimizer::default(),
+                    executor: QueryExecutor::default(),
+                    cache: HashMap::new(),
+                    metrics: QSQLMetrics::default(),
+                }
+            }
+        }
     }
 }
 

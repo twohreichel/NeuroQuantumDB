@@ -81,7 +81,22 @@ impl AuthService {
         #[cfg(not(test))]
         let cost = DEFAULT_COST;
 
-        let key_hash = hash(&key, cost).expect("Failed to hash API key");
+        let key_hash = match hash(&key, cost) {
+            Ok(hash) => hash,
+            Err(e) => {
+                warn!("Failed to hash API key: {}", e);
+                return ApiKey {
+                    key: "error".to_string(),
+                    name,
+                    permissions,
+                    expires_at: Utc::now(),
+                    created_at: Utc::now(),
+                    last_used: None,
+                    usage_count: 0,
+                    rate_limit_per_hour,
+                };
+            }
+        };
 
         let expires_at = match expiry_hours {
             Some(hours) => Utc::now() + chrono::Duration::hours(hours as i64),

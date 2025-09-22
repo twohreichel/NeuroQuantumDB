@@ -171,7 +171,7 @@ impl ApiServer {
         let prometheus = PrometheusMetricsBuilder::new("neuroquantum")
             .endpoint("/metrics")
             .build()
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Failed to build Prometheus metrics: {}", e))?;
 
         // Create auth service instance
         let auth_service = self.auth_service;
