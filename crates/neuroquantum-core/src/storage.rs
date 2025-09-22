@@ -2,13 +2,13 @@
 //! Provides persistent file-based storage with DNA compression, B+ tree indexes,
 //! and ACID transaction support for production deployment
 
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
-use serde::{Serialize, Deserialize};
-use anyhow::{Result, anyhow};
-use tracing::{info, debug};
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::dna::{DNACompressor, EncodedData};
@@ -152,11 +152,28 @@ pub struct Transaction {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operation {
-    Insert { table: String, row_id: RowId, data: Row },
-    Update { table: String, row_id: RowId, old_data: Row, new_data: Row },
-    Delete { table: String, row_id: RowId, data: Row },
-    CreateTable { schema: TableSchema },
-    DropTable { table: String },
+    Insert {
+        table: String,
+        row_id: RowId,
+        data: Row,
+    },
+    Update {
+        table: String,
+        row_id: RowId,
+        old_data: Row,
+        new_data: Row,
+    },
+    Delete {
+        table: String,
+        row_id: RowId,
+        data: Row,
+    },
+    CreateTable {
+        schema: TableSchema,
+    },
+    DropTable {
+        table: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -307,20 +324,28 @@ impl StorageEngine {
         self.validate_schema(&schema)?;
 
         // Create table file
-        let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", schema.name));
+        let table_path = self
+            .data_dir
+            .join("tables")
+            .join(format!("{}.nqdb", schema.name));
         fs::File::create(&table_path).await?;
 
         // Create primary key index
-        let index_path = self.data_dir.join("indexes").join(format!("{}_{}.idx", schema.name, schema.primary_key));
+        let index_path = self
+            .data_dir
+            .join("indexes")
+            .join(format!("{}_{}.idx", schema.name, schema.primary_key));
         fs::File::create(&index_path).await?;
 
         // Add to metadata
-        self.metadata.tables.insert(schema.name.clone(), schema.clone());
+        self.metadata
+            .tables
+            .insert(schema.name.clone(), schema.clone());
 
         // Create index in memory
         self.indexes.insert(
             format!("{}_{}", schema.name, schema.primary_key),
-            BTreeMap::new()
+            BTreeMap::new(),
         );
 
         // Log operation
@@ -339,7 +364,10 @@ impl StorageEngine {
         debug!("➕ Inserting row into table: {}", table);
 
         // Get table schema
-        let schema = self.metadata.tables.get(table)
+        let schema = self
+            .metadata
+            .tables
+            .get(table)
             .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
             .clone();
 
@@ -382,7 +410,10 @@ impl StorageEngine {
         debug!("🔍 Selecting rows from table: {}", query.table);
 
         // Get table schema - unused but kept for future optimization
-        let _schema = self.metadata.tables.get(&query.table)
+        let _schema = self
+            .metadata
+            .tables
+            .get(&query.table)
             .ok_or_else(|| anyhow!("Table '{}' does not exist", query.table))?;
 
         // Load all rows for the table (in a real implementation, this would be optimized)
@@ -471,7 +502,8 @@ impl StorageEngine {
 
         // Rewrite table file with updated data
         if updated_count > 0 {
-            self.rewrite_table_file_with_updates(&query.table, &updated_rows).await?;
+            self.rewrite_table_file_with_updates(&query.table, &updated_rows)
+                .await?;
         }
 
         debug!("✅ Updated {} rows", updated_count);
@@ -521,7 +553,8 @@ impl StorageEngine {
 
         // Rewrite table file without deleted rows
         if deleted_count > 0 {
-            self.rewrite_table_file_with_deletions(&query.table, &deleted_row_ids).await?;
+            self.rewrite_table_file_with_deletions(&query.table, &deleted_row_ids)
+                .await?;
         }
 
         debug!("✅ Deleted {} rows", deleted_count);
@@ -582,9 +615,15 @@ impl StorageEngine {
         }
 
         // Check if primary key exists in columns
-        let pk_exists = schema.columns.iter().any(|col| col.name == schema.primary_key);
+        let pk_exists = schema
+            .columns
+            .iter()
+            .any(|col| col.name == schema.primary_key);
         if !pk_exists {
-            return Err(anyhow!("Primary key '{}' not found in columns", schema.primary_key));
+            return Err(anyhow!(
+                "Primary key '{}' not found in columns",
+                schema.primary_key
+            ));
         }
 
         Ok(())
@@ -609,7 +648,9 @@ impl StorageEngine {
                 if !valid_type {
                     return Err(anyhow!(
                         "Type mismatch for column '{}': expected {:?}, got {:?}",
-                        column.name, column.data_type, value
+                        column.name,
+                        column.data_type,
+                        value
                     ));
                 }
             } else if !column.nullable && column.default_value.is_none() {
@@ -672,9 +713,9 @@ impl StorageEngine {
             Value::Boolean(b) => b.to_string(),
             Value::Timestamp(ts) => ts.to_rfc3339(),
             Value::Binary(b) => {
-                use base64::{Engine as _, engine::general_purpose};
+                use base64::{engine::general_purpose, Engine as _};
                 general_purpose::STANDARD.encode(b)
-            },
+            }
             Value::Null => "NULL".to_string(),
         }
     }
@@ -699,7 +740,11 @@ impl StorageEngine {
 
             for condition in &where_clause.conditions {
                 if let Some(field_value) = row.fields.get(&condition.field) {
-                    let condition_matches = self.evaluate_condition(field_value, &condition.operator, &condition.value)?;
+                    let condition_matches = self.evaluate_condition(
+                        field_value,
+                        &condition.operator,
+                        &condition.value,
+                    )?;
                     if !condition_matches {
                         matches = false;
                         break;
@@ -719,25 +764,40 @@ impl StorageEngine {
     }
 
     /// Evaluate a single condition
-    fn evaluate_condition(&self, field_value: &Value, operator: &ComparisonOperator, condition_value: &Value) -> Result<bool> {
+    fn evaluate_condition(
+        &self,
+        field_value: &Value,
+        operator: &ComparisonOperator,
+        condition_value: &Value,
+    ) -> Result<bool> {
         match operator {
             ComparisonOperator::Equal => Ok(field_value == condition_value),
             ComparisonOperator::NotEqual => Ok(field_value != condition_value),
-            ComparisonOperator::LessThan => self.compare_values(field_value, condition_value).map(|ord| ord.is_lt()),
-            ComparisonOperator::LessThanOrEqual => self.compare_values(field_value, condition_value).map(|ord| ord.is_le()),
-            ComparisonOperator::GreaterThan => self.compare_values(field_value, condition_value).map(|ord| ord.is_gt()),
-            ComparisonOperator::GreaterThanOrEqual => self.compare_values(field_value, condition_value).map(|ord| ord.is_ge()),
+            ComparisonOperator::LessThan => self
+                .compare_values(field_value, condition_value)
+                .map(|ord| ord.is_lt()),
+            ComparisonOperator::LessThanOrEqual => self
+                .compare_values(field_value, condition_value)
+                .map(|ord| ord.is_le()),
+            ComparisonOperator::GreaterThan => self
+                .compare_values(field_value, condition_value)
+                .map(|ord| ord.is_gt()),
+            ComparisonOperator::GreaterThanOrEqual => self
+                .compare_values(field_value, condition_value)
+                .map(|ord| ord.is_ge()),
             ComparisonOperator::Like => {
-                if let (Value::Text(field_text), Value::Text(pattern)) = (field_value, condition_value) {
+                if let (Value::Text(field_text), Value::Text(pattern)) =
+                    (field_value, condition_value)
+                {
                     Ok(field_text.contains(pattern))
                 } else {
                     Ok(false)
                 }
-            },
+            }
             ComparisonOperator::In => {
                 // For simplicity, treating this as equality for now
                 Ok(field_value == condition_value)
-            },
+            }
         }
     }
 
@@ -763,12 +823,14 @@ impl StorageEngine {
 
             match (a_value, b_value) {
                 (Some(a_val), Some(b_val)) => {
-                    let cmp = self.compare_values(a_val, b_val).unwrap_or(std::cmp::Ordering::Equal);
+                    let cmp = self
+                        .compare_values(a_val, b_val)
+                        .unwrap_or(std::cmp::Ordering::Equal);
                     match order_by.direction {
                         SortDirection::Ascending => cmp,
                         SortDirection::Descending => cmp.reverse(),
                     }
-                },
+                }
                 (Some(_), None) => std::cmp::Ordering::Less,
                 (None, Some(_)) => std::cmp::Ordering::Greater,
                 (None, None) => std::cmp::Ordering::Equal,
@@ -840,7 +902,11 @@ impl StorageEngine {
     }
 
     /// Rewrite table file with updated rows
-    async fn rewrite_table_file_with_updates(&mut self, table: &str, updated_rows: &[Row]) -> Result<()> {
+    async fn rewrite_table_file_with_updates(
+        &mut self,
+        table: &str,
+        updated_rows: &[Row],
+    ) -> Result<()> {
         let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
 
         // Create a HashMap of updated rows for quick lookup
@@ -875,7 +941,11 @@ impl StorageEngine {
     }
 
     /// Rewrite table file with deleted rows
-    async fn rewrite_table_file_with_deletions(&mut self, table: &str, deleted_row_ids: &[RowId]) -> Result<()> {
+    async fn rewrite_table_file_with_deletions(
+        &mut self,
+        table: &str,
+        deleted_row_ids: &[RowId],
+    ) -> Result<()> {
         let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
 
         // Create a temporary file
@@ -962,7 +1032,10 @@ impl StorageEngine {
     /// Save indexes to disk
     async fn save_indexes(&self) -> Result<()> {
         for (index_name, index_data) in &self.indexes {
-            let index_path = self.data_dir.join("indexes").join(format!("{}.idx", index_name));
+            let index_path = self
+                .data_dir
+                .join("indexes")
+                .join(format!("{}.idx", index_name));
             let content = serde_json::to_string_pretty(index_data)?;
             fs::write(&index_path, content).await?;
         }
@@ -999,7 +1072,10 @@ impl StorageEngine {
 
     /// Save compressed blocks to disk
     async fn save_compressed_blocks(&self) -> Result<()> {
-        let blocks_path = self.data_dir.join("quantum").join("compressed_blocks.qdata");
+        let blocks_path = self
+            .data_dir
+            .join("quantum")
+            .join("compressed_blocks.qdata");
         let content = serde_json::to_string_pretty(&self.compressed_blocks)?;
         fs::write(&blocks_path, content).await?;
 
@@ -1008,7 +1084,10 @@ impl StorageEngine {
 
     /// Load compressed blocks from disk
     async fn load_compressed_blocks(&mut self) -> Result<()> {
-        let blocks_path = self.data_dir.join("quantum").join("compressed_blocks.qdata");
+        let blocks_path = self
+            .data_dir
+            .join("quantum")
+            .join("compressed_blocks.qdata");
 
         if blocks_path.exists() {
             let content = fs::read_to_string(&blocks_path).await?;
@@ -1058,7 +1137,10 @@ pub fn create_test_row(id: i64, name: &str) -> Row {
     let mut fields = HashMap::new();
     fields.insert("id".to_string(), Value::Integer(id));
     fields.insert("name".to_string(), Value::Text(name.to_string()));
-    fields.insert("created_at".to_string(), Value::Timestamp(chrono::Utc::now()));
+    fields.insert(
+        "created_at".to_string(),
+        Value::Timestamp(chrono::Utc::now()),
+    );
 
     Row {
         id: id as RowId,
