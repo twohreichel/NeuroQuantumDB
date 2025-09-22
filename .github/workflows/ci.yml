@@ -508,8 +508,29 @@ jobs:
         with:
           targets: aarch64-unknown-linux-gnu
 
+      # Install cross-compilation toolchain
+      - name: Install cross-compilation toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
       # Pre-build Rust binaries um Docker Build zu beschleunigen
       - name: Pre-build Rust artifacts for Docker
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+          AR_aarch64_unknown_linux_gnu: aarch64-linux-gnu-ar
+          STRIP_aarch64_unknown_linux_gnu: aarch64-linux-gnu-strip
+          PKG_CONFIG_ALLOW_CROSS: 1
+          RUSTFLAGS: "-C target-feature=+neon"
+          CC: aarch64-linux-gnu-gcc
+          CXX: aarch64-linux-gnu-g++
+          AR: aarch64-linux-gnu-ar
+          STRIP: aarch64-linux-gnu-strip
         run: |
           # Nutze gecachte Dependencies für schnelleren Build
           cargo build --release --target aarch64-unknown-linux-gnu \
