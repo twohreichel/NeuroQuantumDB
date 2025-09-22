@@ -352,7 +352,7 @@ impl NeuromorphicQueryProcessor {
                 confidence += avg_connection_strength * 0.3;
 
                 // Normalize to [0, 1]
-                confidence = confidence.min(1.0).max(0.0);
+                confidence = confidence.clamp(0.0, 1.0);
                 scores.push(confidence);
             } else {
                 scores.push(0.0);

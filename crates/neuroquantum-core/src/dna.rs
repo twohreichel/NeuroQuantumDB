@@ -608,9 +608,9 @@ impl ReedSolomonCorrector {
     fn calculate_syndrome(&self, data: &[u8]) -> Vec<u8> {
         let mut syndrome = vec![0; self.correction_capability * 2];
 
-        for i in 0..syndrome.len() {
+        for (i, syndrome_item) in syndrome.iter_mut().enumerate() {
             for &byte in data {
-                syndrome[i] = self.gf_multiply(syndrome[i], self.gf_exp[i + 1]) ^ byte;
+                *syndrome_item = self.gf_multiply(*syndrome_item, self.gf_exp[i + 1]) ^ byte;
             }
         }
 

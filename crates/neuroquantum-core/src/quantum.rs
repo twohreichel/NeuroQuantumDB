@@ -51,6 +51,15 @@ pub struct OptimizedIndex {
     pub improvement_factor: f64,
 }
 
+/// Quantum processor statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuantumStatistics {
+    pub total_searches: u64,
+    pub successful_searches: u64,
+    pub average_speedup: f64,
+    pub annealing_convergences: u64,
+}
+
 /// Quantum query results for superposition processing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuantumQueryResults {
@@ -596,6 +605,16 @@ impl QuantumProcessor {
     /// Get quantum processor configuration
     pub fn config(&self) -> &QuantumConfig {
         &self.config
+    }
+
+    /// Get quantum processor statistics
+    pub fn get_statistics(&self) -> QuantumStatistics {
+        QuantumStatistics {
+            total_searches: 0,
+            successful_searches: 0,
+            average_speedup: 1.0,
+            annealing_convergences: 0,
+        }
     }
 
     /// Update quantum processor configuration

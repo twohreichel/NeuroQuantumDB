@@ -57,10 +57,10 @@ variant_size_differences = "warn"
 
 [workspace.lints.clippy]
 # Import all clippy rules from Cargo.toml.clippy
-all = "warn"
-pedantic = "warn"
-nursery = "warn"
-cargo = "warn"
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
 
 # Performance lints
 needless_collect = "deny"

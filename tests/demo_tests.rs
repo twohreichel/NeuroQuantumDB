@@ -133,7 +133,7 @@ impl MockNeuroQuantumDB {
 }
 
 #[cfg(test)]
-mod demo_tests {
+mod tests {
     use super::*;
     use crate::test_data::{ExpectedResults, TestDataFactory};
 

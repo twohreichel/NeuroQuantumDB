@@ -384,6 +384,11 @@ impl SynapticNetwork {
         base_score * (1.0 + node.strength) // Boost by node strength
     }
 
+    /// Get the number of nodes in the network
+    pub fn node_count(&self) -> usize {
+        self.nodes.read().unwrap().len()
+    }
+
     /// Get a reference to a node
     pub fn get_node(&self, node_id: u64) -> Option<SynapticNode> {
         self.nodes.read().unwrap().get(&node_id).cloned()

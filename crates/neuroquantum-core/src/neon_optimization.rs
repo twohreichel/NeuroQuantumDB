@@ -139,16 +139,15 @@ impl NeonOptimizer {
             let mut result_weights = [0.0f32; 4];
             vst1q_f32(result_weights.as_mut_ptr(), clamped);
 
-            for j in 0..4 {
-                node.connections[i + j].weight = result_weights[j];
+            for (j, &weight) in result_weights.iter().enumerate() {
+                node.connections[i + j].weight = weight;
             }
 
             i += 4;
         }
 
         // Handle remaining connections with scalar operations
-        for j in i..node.connections.len() {
-            let connection = &mut node.connections[j];
+        for connection in node.connections.iter_mut().skip(i) {
             connection.weight = (connection.weight * node.decay_factor
                 + connection.usage_count as f32 * 0.01 * node.learning_rate)
                 .clamp(-1.0, 1.0);

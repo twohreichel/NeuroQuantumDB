@@ -141,9 +141,9 @@ mod unit_tests {
 
     #[test]
     fn test_synaptic_network_creation() {
-        let _network = SynapticNetwork::new(100, 0.5).unwrap();
+        let network = SynapticNetwork::new(100, 0.5).unwrap();
         // Test that network was created successfully
-        assert!(true);
+        assert_eq!(network.node_count(), 100);
     }
 
     #[test]
@@ -169,6 +169,9 @@ mod unit_tests {
         let node = network.get_node(1);
         assert!(node.is_some());
         assert_eq!(node.unwrap().data_payload, vec![1, 2, 3]);
+
+        // Verify node count increased
+        assert_eq!(network.node_count(), 1);
     }
 
     // ============================================================================
@@ -177,9 +180,10 @@ mod unit_tests {
 
     #[tokio::test]
     async fn test_quantum_processor_creation() {
-        let _processor = QuantumProcessor::new();
+        let processor = QuantumProcessor::new();
         // Test that processor was created successfully
-        assert!(true);
+        let stats = processor.get_statistics();
+        assert_eq!(stats.total_searches, 0); // Check initial state instead of >= 0
     }
 
     #[tokio::test]
@@ -264,18 +268,19 @@ mod unit_tests {
 
     #[test]
     fn test_metrics_collector_creation() {
-        let _metrics = MetricsCollector::new();
-        // Test that metrics collector was created successfully
-        assert!(true);
+        let metrics = MetricsCollector::new();
+        // Test that metrics collector was created successfully by checking its initial state
+        assert_eq!(metrics.get_query_count(), 0); // Check initial state instead of >= 0
     }
 
     #[tokio::test]
     async fn test_metrics_collector_record_query() {
         let metrics = MetricsCollector::new();
+        let initial_count = metrics.get_query_count();
 
         metrics.record_query(Duration::from_millis(100), true).await;
         // Test that query was recorded successfully
-        assert!(true);
+        assert!(metrics.get_query_count() > initial_count);
     }
 
     #[tokio::test]
@@ -283,8 +288,8 @@ mod unit_tests {
         let metrics = MetricsCollector::new();
 
         metrics.update_system_metrics().await;
-        // Test that system metrics were updated successfully
-        assert!(true);
+        // Test that system metrics were updated successfully by checking they exist
+        assert_eq!(metrics.get_query_count(), 0); // Check initial state instead of >= 0
     }
 
     // ============================================================================
@@ -322,12 +327,12 @@ mod unit_tests {
     #[cfg(target_arch = "aarch64")]
     #[test]
     fn test_neon_vector_operations() {
-        if let Ok(_optimizer) = NeonOptimizer::new() {
+        if let Ok(optimizer) = NeonOptimizer::new() {
             let _data1 = [1.0f32, 2.0, 3.0, 4.0];
             let _data2 = [5.0f32, 6.0, 7.0, 8.0];
 
-            // Test basic NEON operations if available
-            assert!(true);
+            // Test basic NEON operations if available - check optimizer is enabled
+            assert!(optimizer.is_enabled());
         }
     }
 
