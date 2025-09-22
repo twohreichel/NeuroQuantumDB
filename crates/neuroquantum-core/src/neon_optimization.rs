@@ -211,8 +211,8 @@ impl NeonOptimizer {
             }
 
             // Handle remaining elements
-            for j in i..matrix.len() {
-                matrix[j] = 1.0 / (1.0 + matrix[j].abs());
+            for value in matrix.iter_mut().skip(i) {
+                *value = 1.0 / (1.0 + value.abs());
             }
         }
         Ok(())
@@ -318,8 +318,8 @@ impl NeonOptimizer {
             }
 
             // Handle remaining elements
-            for j in i..inputs.len() {
-                inputs[j] = (inputs[j] - threshold).max(0.0);
+            for input in inputs.iter_mut().skip(i) {
+                *input = (*input - threshold).max(0.0);
             }
         }
         Ok(())

@@ -130,7 +130,8 @@ impl MetricsCollector {
 
         // Update error rate
         if !success {
-            let error_count = (metrics.error_rate * (metrics.total_queries - 1) as f64 / 100.0) + 1.0;
+            let error_count =
+                (metrics.error_rate * (metrics.total_queries - 1) as f64 / 100.0) + 1.0;
             metrics.error_rate = (error_count / metrics.total_queries as f64) * 100.0;
         }
     }

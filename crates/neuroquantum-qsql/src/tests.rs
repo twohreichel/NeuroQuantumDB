@@ -23,7 +23,10 @@ mod parser_tests {
         let parser = QSQLParser::new();
         // QSQLParser::new() returns the parser directly, not a Result
         // Test that parser was created successfully by checking it's functional
-        assert!(parser.parse("SELECT * FROM test").is_ok() || parser.parse("SELECT * FROM test").is_err());
+        assert!(
+            parser.parse("SELECT * FROM test").is_ok()
+                || parser.parse("SELECT * FROM test").is_err()
+        );
     }
 
     #[test]
