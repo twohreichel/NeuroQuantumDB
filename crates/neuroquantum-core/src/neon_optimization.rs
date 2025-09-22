@@ -59,7 +59,7 @@ impl NeonOptimizer {
     /// Optimize synaptic network connections using NEON SIMD
     pub fn optimize_connections(
         &self,
-        nodes: &mut HashMap<u64, crate::synaptic::SynapticNode>,
+        _nodes: &mut HashMap<u64, crate::synaptic::SynapticNode>,
     ) -> CoreResult<()> {
         if !self.enabled {
             return Ok(());
@@ -67,7 +67,7 @@ impl NeonOptimizer {
 
         #[cfg(target_arch = "aarch64")]
         {
-            self.simd_optimize_connections(nodes)
+            self.simd_optimize_connections(_nodes)
         }
         #[cfg(not(target_arch = "aarch64"))]
         {
@@ -157,6 +157,7 @@ impl NeonOptimizer {
     }
 
     /// Scalar fallback for connection weight updates
+    #[allow(dead_code)] // Used in SIMD code path but not detected by Clippy
     fn scalar_update_connection_weights(
         &self,
         node: &mut crate::synaptic::SynapticNode,
@@ -263,10 +264,10 @@ impl NeonOptimizer {
                 i += 4;
             }
 
-            // Horizontal sum of the vector
-            let sum_pair = vpadd_f32(vget_low_f32(sum_vec), vget_high_f32(sum_vec));
-            let final_sum = vpadd_f32(sum_pair, sum_pair);
-            let mut result = vget_lane_f32(final_sum, 0);
+            // Horizontal sum of the vector - extract elements and sum manually
+            let mut sum_array = [0.0f32; 4];
+            vst1q_f32(sum_array.as_mut_ptr(), sum_vec);
+            let mut result = sum_array[0] + sum_array[1] + sum_array[2] + sum_array[3];
 
             // Handle remaining elements
             for j in i..a.len() {
