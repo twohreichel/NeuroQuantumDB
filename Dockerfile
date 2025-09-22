@@ -24,9 +24,12 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 
 WORKDIR /app
 
-# Copy workspace configuration
-COPY Cargo.toml ./
+# Copy workspace configuration and create production version without tests
+COPY Cargo.toml ./Cargo.toml.full
 COPY crates/ crates/
+
+# Create production Cargo.toml without tests workspace member
+RUN sed '/^[[:space:]]*"tests"/d' Cargo.toml.full > Cargo.toml
 
 # Generate a compatible lock file and build with correct features
 RUN rustup target add aarch64-unknown-linux-gnu
