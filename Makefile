@@ -1,7 +1,7 @@
 # NeuroQuantumDB Production-Ready Makefile
 # Target: ARM64 (Raspberry Pi 4) with enterprise standards
 
-.PHONY: help build test test-full check security benchmark docker docker-build docker-run docker-clean clean install dev prod build-release build-arm64 monitor memory-profile power-monitor monitoring docker-security lint lint-fix lint-all format format-check
+.PHONY: help build test test-full check security benchmark docker docker-build docker-run docker-clean clean install dev prod build-release build-arm64 monitor memory-profile power-monitor monitoring docker-security lint lint-fix lint-all format format-check docs docs-api docs-user docs-serve docs-clean
 
 # Default target
 help: ## Show this help message
@@ -32,6 +32,37 @@ test: ## Run comprehensive test suite (80%+ coverage required)
 	cargo tarpaulin --workspace --out Html --output-dir target/coverage
 
 test-full: test ## Alias for comprehensive test suite
+
+# Documentation targets
+docs: docs-api docs-user ## Generate all documentation (API + User)
+
+docs-api: ## Generate Rust API documentation
+	@echo "📚 Generating API documentation..."
+	@cargo doc --workspace --all-features --no-deps --document-private-items
+	@echo '<meta http-equiv="refresh" content="0; url=neuroquantum_api">' > target/doc/index.html
+	@echo "✅ API documentation generated in target/doc/"
+
+docs-user: ## Generate user documentation with mdBook
+	@echo "📖 Generating user documentation..."
+	@command -v mdbook >/dev/null 2>&1 || { echo "❌ mdbook not found. Install with: cargo install mdbook"; exit 1; }
+	@mdbook build
+	@echo "✅ User documentation generated in target/book/"
+
+docs-serve: docs-user ## Serve documentation locally
+	@echo "🌐 Starting documentation server..."
+	@mdbook serve --open
+
+docs-clean: ## Clean generated documentation
+	@echo "🧹 Cleaning documentation artifacts..."
+	@rm -rf target/doc target/book
+	@echo "✅ Documentation cleaned!"
+
+docs-check: ## Check documentation for broken links and issues
+	@echo "🔍 Checking documentation..."
+	@command -v mdbook >/dev/null 2>&1 || { echo "❌ mdbook not found. Install with: cargo install mdbook"; exit 1; }
+	@mdbook test
+	@cargo doc --workspace --all-features --no-deps --document-private-items 2>/dev/null || { echo "❌ API documentation has issues"; exit 1; }
+	@echo "✅ Documentation check passed!"
 
 # Linting and formatting targets
 lint: ## Run all linting checks
