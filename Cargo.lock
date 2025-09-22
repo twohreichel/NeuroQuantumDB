@@ -1285,8 +1285,6 @@ dependencies = [
  "chrono",
  "futures-util",
  "neuroquantum-core",
- "rand 0.10.0-rc.0",
- "regex",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
