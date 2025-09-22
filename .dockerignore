@@ -1,0 +1,56 @@
+# Docker ignore file for NeuroQuantumDB
+# Reduces build context size by ~90%
+
+# Build artifacts
+target/
+**/target/
+Cargo.lock
+
+# Development files
+.git/
+.gitignore
+.github/
+hooks/
+
+# Documentation
+docs/
+target/book/
+target/doc/
+*.md
+book.toml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and coverage files
+target/coverage/
+target/criterion/
+tests/
+
+# Scripts and tools
+scripts/
+Makefile
+deny.toml
+rustfmt.toml
+
+# Docker files (avoid recursive copying)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Development configs
+config/dev.toml
