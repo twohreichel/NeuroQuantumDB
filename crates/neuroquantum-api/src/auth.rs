@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use tracing::{info, warn};
-use bcrypt::{hash, verify, DEFAULT_COST};
+use bcrypt::{hash, verify};
+#[cfg(not(test))]
+use bcrypt::DEFAULT_COST;
 
 // For testing, use a lower cost to speed up tests
 #[cfg(test)]

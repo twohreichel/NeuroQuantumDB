@@ -27,9 +27,16 @@ mod auth_tests {
     #[tokio::test]
     async fn test_auth_service_creation() {
         let auth_service = AuthService::new();
-        // Check that we can create the service (api_keys field is private, so we can't access it directly)
-        // Instead, we'll verify the service works by testing its methods
-        assert!(true); // Service creation successful
+        // Check that we can create the service and verify it has some API keys
+        let api_keys = auth_service.list_api_keys();
+        assert!(!api_keys.is_empty(), "AuthService should create a default admin key");
+
+        // Verify the default admin key exists and has correct permissions
+        let admin_key = api_keys.iter().find(|k| k.name == "default-admin");
+        assert!(admin_key.is_some(), "Default admin key should exist");
+
+        let admin_key = admin_key.unwrap();
+        assert!(admin_key.permissions.contains(&"admin".to_string()));
     }
 
     #[tokio::test]
