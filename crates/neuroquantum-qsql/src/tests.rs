@@ -11,13 +11,7 @@
 use std::time::{Duration, Instant};
 
 use crate::{
-    ast::*,
-    error::*,
-    natural_language::*,
-    optimizer::*,
-    parser::*,
-    query_plan::*,
-    QSQLEngine,
+    ast::*, error::*, natural_language::*, optimizer::*, parser::*, query_plan::*, QSQLEngine,
 };
 
 #[cfg(test)]
@@ -77,7 +71,7 @@ mod parser_tests {
         assert!(result.is_err());
 
         match result.unwrap_err() {
-            QSQLError::ParseError { .. } => {}, // Expected
+            QSQLError::ParseError { .. } => {} // Expected
             _ => panic!("Expected ParseError"),
         }
     }
@@ -148,7 +142,7 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Insert(_) => {}, // Expected
+            Statement::Insert(_) => {} // Expected
             _ => panic!("Expected INSERT statement"),
         }
     }
@@ -162,7 +156,7 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Update(_) => {}, // Expected
+            Statement::Update(_) => {} // Expected
             _ => panic!("Expected UPDATE statement"),
         }
     }
@@ -176,7 +170,7 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Delete(_) => {}, // Expected
+            Statement::Delete(_) => {} // Expected
             _ => panic!("Expected DELETE statement"),
         }
     }
@@ -533,8 +527,9 @@ mod natural_language_tests {
         assert!(result.is_ok());
 
         let sql = result.unwrap();
-        assert!(sql.to_lowercase().contains("neuromatch") ||
-                sql.to_lowercase().contains("similarity"));
+        assert!(
+            sql.to_lowercase().contains("neuromatch") || sql.to_lowercase().contains("similarity")
+        );
     }
 }
 
@@ -555,7 +550,9 @@ mod error_tests {
 
     #[test]
     fn test_qsql_error_display() {
-        let error = QSQLError::ExecutionError { message: "table not found".to_string() };
+        let error = QSQLError::ExecutionError {
+            message: "table not found".to_string(),
+        };
         let error_string = format!("{}", error);
         assert!(error_string.contains("table not found"));
     }
@@ -566,7 +563,7 @@ mod error_tests {
         let qsql_error = QSQLError::from(io_error);
 
         match qsql_error {
-            QSQLError::IOError { source: _ } => {}, // Expected
+            QSQLError::IOError { source: _ } => {} // Expected
             _ => panic!("Expected IOError variant"),
         }
     }
@@ -755,12 +752,10 @@ mod integration_tests {
         let mut engine = QSQLEngine::new().unwrap();
 
         // Test query with potential timeout
-        let complex_query = "SELECT * FROM large_table ORDER BY complex_calculation(column) LIMIT 1000000";
+        let complex_query =
+            "SELECT * FROM large_table ORDER BY complex_calculation(column) LIMIT 1000000";
 
-        let result = timeout(
-            Duration::from_secs(10),
-            engine.execute_query(complex_query)
-        ).await;
+        let result = timeout(Duration::from_secs(10), engine.execute_query(complex_query)).await;
 
         assert!(result.is_ok()); // Should not timeout
     }
@@ -779,7 +774,7 @@ mod property_tests {
 
         for input in inputs {
             // Parser should not panic on any input
-            let _result = parser.parse_query(&input);
+            let _result = parser.parse_query(input);
             // We don't assert success/failure as arbitrary input may be valid or invalid
         }
     }

@@ -528,6 +528,12 @@ pub struct QuantumProcessor {
     config: QuantumConfig,
 }
 
+impl Default for QuantumProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QuantumProcessor {
     /// Create a new quantum processor with the given synaptic network
     pub fn new() -> Self {
@@ -560,7 +566,11 @@ impl QuantumProcessor {
     /// Perform classical search for comparison/fallback
     pub async fn classical_search(&self, query: &str) -> CoreResult<Vec<usize>> {
         // Simple classical search implementation
-        let network_data = self.grover_search.synaptic_network.get_serialized_data().await?;
+        let network_data = self
+            .grover_search
+            .synaptic_network
+            .get_serialized_data()
+            .await?;
         let query_bytes = query.as_bytes();
         let mut indices = Vec::new();
 

@@ -195,31 +195,37 @@ impl NeuromorphicOptimizer {
     /// Create optimizer with custom configuration
     pub fn with_config(config: OptimizerConfig) -> QSQLResult<Self> {
         let synaptic_network = if config.enable_synaptic_optimization {
-            Some(SynapticNetwork::new(1000, config.activation_threshold).map_err(|e| {
-                QSQLError::NeuromorphicError {
-                    message: format!("Failed to create synaptic network: {}", e),
-                }
-            })?)
+            Some(
+                SynapticNetwork::new(1000, config.activation_threshold).map_err(|e| {
+                    QSQLError::NeuromorphicError {
+                        message: format!("Failed to create synaptic network: {}", e),
+                    }
+                })?,
+            )
         } else {
             None
         };
 
         let plasticity_matrix = if config.enable_plasticity_adaptation {
-            Some(PlasticityMatrix::new(100, config.learning_rate).map_err(|e| {
-                QSQLError::NeuromorphicError {
-                    message: format!("Failed to create plasticity matrix: {}", e),
-                }
-            })?)
+            Some(
+                PlasticityMatrix::new(100, config.learning_rate).map_err(|e| {
+                    QSQLError::NeuromorphicError {
+                        message: format!("Failed to create plasticity matrix: {}", e),
+                    }
+                })?,
+            )
         } else {
             None
         };
 
         let hebbian_learner = if config.enable_hebbian_learning {
-            Some(HebbianLearningEngine::new(config.learning_rate).map_err(|e| {
-                QSQLError::NeuromorphicError {
-                    message: format!("Failed to create Hebbian learner: {}", e),
-                }
-            })?)
+            Some(
+                HebbianLearningEngine::new(config.learning_rate).map_err(|e| {
+                    QSQLError::NeuromorphicError {
+                        message: format!("Failed to create Hebbian learner: {}", e),
+                    }
+                })?,
+            )
         } else {
             None
         };
@@ -381,7 +387,7 @@ impl NeuromorphicOptimizer {
         &mut self,
         cache: &HashMap<String, crate::CachedQueryPlan>,
     ) -> QSQLResult<()> {
-        for (_query, cached_plan) in cache {
+        for cached_plan in cache.values() {
             let pattern_hash = self.generate_pattern_hash(&cached_plan.plan.statement)?;
 
             // Clone the pattern_hash to avoid borrowing issues
@@ -478,7 +484,10 @@ impl NeuromorphicOptimizer {
 
     /// Optimize query with neuromorphic features
     #[instrument(skip(self, ast))]
-    pub async fn optimize_with_neuromorphic_features(&mut self, ast: &Statement) -> QSQLResult<QueryPlan> {
+    pub async fn optimize_with_neuromorphic_features(
+        &mut self,
+        ast: &Statement,
+    ) -> QSQLResult<QueryPlan> {
         debug!("Optimizing with neuromorphic features");
 
         let mut plan = self.create_base_plan(ast)?;
@@ -516,7 +525,10 @@ impl NeuromorphicOptimizer {
 
     /// Optimize query with quantum features
     #[instrument(skip(self, ast))]
-    pub async fn optimize_with_quantum_features(&mut self, ast: &Statement) -> QSQLResult<QueryPlan> {
+    pub async fn optimize_with_quantum_features(
+        &mut self,
+        ast: &Statement,
+    ) -> QSQLResult<QueryPlan> {
         debug!("Optimizing with quantum features");
 
         let mut plan = self.create_base_plan(ast)?;
@@ -525,8 +537,18 @@ impl NeuromorphicOptimizer {
         match ast {
             Statement::QuantumSearch(quantum_search) => {
                 let mut params = HashMap::new();
-                params.insert("iterations".to_string(), quantum_search.max_iterations.unwrap_or(10) as f64);
-                params.insert("amplitude_boost".to_string(), if quantum_search.amplitude_amplification { 1.5 } else { 1.0 });
+                params.insert(
+                    "iterations".to_string(),
+                    quantum_search.max_iterations.unwrap_or(10) as f64,
+                );
+                params.insert(
+                    "amplitude_boost".to_string(),
+                    if quantum_search.amplitude_amplification {
+                        1.5
+                    } else {
+                        1.0
+                    },
+                );
 
                 plan.quantum_optimizations.push(QuantumOptimization {
                     optimization_type: if quantum_search.amplitude_amplification {

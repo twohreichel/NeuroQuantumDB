@@ -80,9 +80,8 @@ impl NeuroQuantumDB {
 
         // Implement actual quantum search algorithm using Grover's algorithm simulation
         let search_space_size = request.filters.len().max(1);
-        let optimal_iterations = ((std::f64::consts::PI / 4.0)
-            * (search_space_size as f64).sqrt())
-            .ceil() as usize;
+        let optimal_iterations =
+            ((std::f64::consts::PI / 4.0) * (search_space_size as f64).sqrt()).ceil() as usize;
 
         // Simulate quantum superposition and amplitude amplification
         let mut amplitudes = vec![1.0 / (search_space_size as f64).sqrt(); search_space_size];
@@ -149,22 +148,23 @@ impl NeuroQuantumDB {
         // Simulate quantum measurement and filter evaluation
         if let Some(condition) = filter.as_str() {
             // Simple pattern matching for demonstration
-            condition.contains("quantum") || condition.contains("neuro") || condition.contains("dna")
+            condition.contains("quantum")
+                || condition.contains("neuro")
+                || condition.contains("dna")
         } else {
             false
         }
     }
 
     /// Execute QSQL query with optional neuromorphic optimization
-    pub async fn execute_qsql<T>(
-        &self,
-        query_plan: T,
-        optimize: bool,
-    ) -> Result<QSQLResult>
+    pub async fn execute_qsql<T>(&self, query_plan: T, optimize: bool) -> Result<QSQLResult>
     where
         T: std::fmt::Debug + Send + Sync,
     {
-        info!("Executing QSQL with neuromorphic optimization: {}", optimize);
+        info!(
+            "Executing QSQL with neuromorphic optimization: {}",
+            optimize
+        );
         info!("Query plan: {:?}", query_plan);
 
         // Implement actual QSQL execution engine
@@ -251,8 +251,8 @@ impl NeuroQuantumDB {
             execution_time_us: execution_time.as_micros() as u64,
             memory_usage_mb: memory_usage,
             power_consumption_mw: power_consumption,
-            quantum_operations: quantum_operations,
-            synaptic_adaptations: synaptic_adaptations,
+            quantum_operations,
+            synaptic_adaptations,
         })
     }
 

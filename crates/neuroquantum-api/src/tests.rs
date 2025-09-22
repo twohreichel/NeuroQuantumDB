@@ -6,14 +6,13 @@
 use std::time::{Duration, Instant};
 
 use actix_web::{
-    test, web, App, ResponseError,
     http::{header, StatusCode},
+    test, web, App, ResponseError,
 };
 use serde_json::json;
-use tokio;
 
 use crate::{
-    auth::{AuthService, ApiKey},
+    auth::{ApiKey, AuthService},
     config::ApiConfig,
     error::{ApiError, ApiResponse, ResponseMetadata},
     handlers::*,
@@ -29,7 +28,10 @@ mod auth_tests {
         let auth_service = AuthService::new();
         // Check that we can create the service and verify it has some API keys
         let api_keys = auth_service.list_api_keys();
-        assert!(!api_keys.is_empty(), "AuthService should create a default admin key");
+        assert!(
+            !api_keys.is_empty(),
+            "AuthService should create a default admin key"
+        );
 
         // Verify the default admin key exists and has correct permissions
         let admin_key = api_keys.iter().find(|k| k.name == "default-admin");
@@ -170,8 +172,9 @@ mod handler_tests {
         let app = test::init_service(
             App::new()
                 .app_data(auth_service.clone())
-                .route("/api/keys/generate", web::post().to(generate_api_key))
-        ).await;
+                .route("/api/keys/generate", web::post().to(generate_api_key)),
+        )
+        .await;
 
         let request_body = json!({
             "name": "unauthorized_key",
@@ -219,7 +222,9 @@ mod error_tests {
 
     #[::std::prelude::v1::test]
     fn test_api_response_error() {
-        let error = ApiError::InternalServerError { message: "Database connection failed".to_string() };
+        let error = ApiError::InternalServerError {
+            message: "Database connection failed".to_string(),
+        };
         let metadata = ResponseMetadata::new(Duration::from_millis(100), "Error operation");
         let response: ApiResponse<()> = ApiResponse::error(error, metadata);
 
@@ -244,7 +249,9 @@ mod error_tests {
             ApiError::Unauthorized("No token provided".to_string()),
             ApiError::Forbidden("Insufficient permissions".to_string()),
             ApiError::NotFound("Resource not found".to_string()),
-            ApiError::InternalServerError { message: "Database error".to_string() },
+            ApiError::InternalServerError {
+                message: "Database error".to_string(),
+            },
         ];
 
         for error in errors {
@@ -286,16 +293,15 @@ mod integration_tests {
         let auth_service = web::Data::new(AuthService::new());
 
         let app = test::init_service(
-            App::new()
-                .app_data(auth_service.clone())
-                .service(
-                    web::scope("/api")
-                        .route("/health", web::get().to(health_check))
-                        .route("/metrics", web::get().to(metrics))
-                        .route("/keys/generate", web::post().to(generate_api_key))
-                        .route("/keys/revoke", web::post().to(revoke_api_key))
-                )
-        ).await;
+            App::new().app_data(auth_service.clone()).service(
+                web::scope("/api")
+                    .route("/health", web::get().to(health_check))
+                    .route("/metrics", web::get().to(metrics))
+                    .route("/keys/generate", web::post().to(generate_api_key))
+                    .route("/keys/revoke", web::post().to(revoke_api_key)),
+            ),
+        )
+        .await;
 
         // Test health endpoint
         let req = test::TestRequest::get().uri("/api/health").to_request();
@@ -315,8 +321,9 @@ mod integration_tests {
         let app = test::init_service(
             App::new()
                 .app_data(auth_service.clone())
-                .route("/api/health", web::get().to(health_check))
-        ).await;
+                .route("/api/health", web::get().to(health_check)),
+        )
+        .await;
 
         // Test multiple sequential requests instead of concurrent ones due to actix-web test limitations
         for _ in 0..10 {
@@ -333,17 +340,30 @@ mod integration_tests {
         let app = test::init_service(
             App::new()
                 .app_data(auth_service.clone())
-                .route("/api/keys/generate", web::post().to(generate_api_key))
-        ).await;
+                .route("/api/keys/generate", web::post().to(generate_api_key)),
+        )
+        .await;
 
         // Test various error conditions
         let error_scenarios = vec![
             // Missing authorization header
-            (None, json!({"name": "test", "permissions": ["read"]}), StatusCode::UNAUTHORIZED),
+            (
+                None,
+                json!({"name": "test", "permissions": ["read"]}),
+                StatusCode::UNAUTHORIZED,
+            ),
             // Invalid authorization header
-            (Some("Bearer invalid_token"), json!({"name": "test", "permissions": ["read"]}), StatusCode::UNAUTHORIZED),
+            (
+                Some("Bearer invalid_token"),
+                json!({"name": "test", "permissions": ["read"]}),
+                StatusCode::UNAUTHORIZED,
+            ),
             // Missing required fields
-            (Some("Bearer valid_token"), json!({}), StatusCode::BAD_REQUEST),
+            (
+                Some("Bearer valid_token"),
+                json!({}),
+                StatusCode::BAD_REQUEST,
+            ),
         ];
 
         for (auth_header, body, expected_status) in error_scenarios {
@@ -368,10 +388,8 @@ mod performance_tests {
 
     #[actix_web::test]
     async fn test_response_time_benchmarks() {
-        let app = test::init_service(
-            App::new()
-                .route("/api/health", web::get().to(health_check))
-        ).await;
+        let app =
+            test::init_service(App::new().route("/api/health", web::get().to(health_check))).await;
 
         let start = Instant::now();
         let req = test::TestRequest::get().uri("/api/health").to_request();

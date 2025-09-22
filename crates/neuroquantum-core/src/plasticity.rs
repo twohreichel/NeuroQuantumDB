@@ -118,7 +118,7 @@ impl PlasticityMatrix {
         self.access_patterns
             .temporal_locality_secs
             .entry(node_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(access_time_secs);
 
         // Keep only recent accesses within temporal window
@@ -153,7 +153,7 @@ impl PlasticityMatrix {
         self.access_patterns
             .spatial_locality
             .entry(source_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(target_id);
 
         // Keep track of frequently accessed neighbors
@@ -348,7 +348,9 @@ impl PlasticityMatrix {
         for (&node_id, access_times) in &self.access_patterns.temporal_locality_secs {
             let recent_accesses = access_times
                 .iter()
-                .filter(|&&time| current_time.saturating_sub(time) <= self.params.temporal_window_secs)
+                .filter(|&&time| {
+                    current_time.saturating_sub(time) <= self.params.temporal_window_secs
+                })
                 .count();
 
             if recent_accesses >= self.params.min_access_count as usize {
@@ -367,21 +369,24 @@ impl PlasticityMatrix {
         for (node_id, access_count) in &hot_nodes {
             // Increase plasticity score for frequently accessed nodes
             let plasticity_score = (*access_count as f32) / (self.params.min_access_count as f32);
-            self.plasticity_scores.insert(*node_id, plasticity_score.min(1.0));
+            self.plasticity_scores
+                .insert(*node_id, plasticity_score.min(1.0));
 
             // Update cluster assignments for spatial locality
             if let Some(&cluster_id) = self.cluster_assignments.get(node_id) {
                 // Find related nodes that should be in the same cluster
                 if let Some(neighbors) = self.access_patterns.spatial_locality.get(node_id) {
-                    for &neighbor_id in neighbors.iter().take(5) { // Limit to top 5 neighbors
-                        if !self.cluster_assignments.contains_key(&neighbor_id) {
-                            self.cluster_assignments.insert(neighbor_id, cluster_id);
-                        }
+                    for &neighbor_id in neighbors.iter().take(5) {
+                        // Limit to top 5 neighbors
+                        self.cluster_assignments
+                            .entry(neighbor_id)
+                            .or_insert(cluster_id);
                     }
                 }
             } else {
                 // Assign to a new cluster
-                self.cluster_assignments.insert(*node_id, self.next_cluster_id);
+                self.cluster_assignments
+                    .insert(*node_id, self.next_cluster_id);
                 self.next_cluster_id += 1;
             }
 
@@ -393,13 +398,16 @@ impl PlasticityMatrix {
                     } else {
                         (neighbor_id, *node_id)
                     };
-                    
-                    let current_usage = self.access_patterns.connection_usage
+
+                    let current_usage = self
+                        .access_patterns
+                        .connection_usage
                         .get(&connection_key)
                         .unwrap_or(&0);
-                    
+
                     // Boost connection usage for frequently accessed node pairs
-                    self.access_patterns.connection_usage
+                    self.access_patterns
+                        .connection_usage
                         .insert(connection_key, current_usage + (*access_count as u64));
                 }
             }
@@ -432,35 +440,40 @@ impl PlasticityMatrix {
         // and optimizing their memory access patterns
         for &(node_id, frequency) in &top_nodes {
             // Calculate boost factor based on frequency ranking
-            let frequency_percentile = (*frequency as f32) / 
-                (nodes_by_frequency.first().map(|(_, f)| *f).unwrap_or(1) as f32);
-            
+            let frequency_percentile = (*frequency as f32)
+                / (nodes_by_frequency.first().map(|(_, f)| *f).unwrap_or(1) as f32);
+
             // Update plasticity score with frequency boost
             let current_score = self.plasticity_scores.get(node_id).unwrap_or(&0.0);
             let boosted_score = (current_score + frequency_percentile * 0.3).min(1.0);
             self.plasticity_scores.insert(*node_id, boosted_score);
 
             // Create priority clusters for high-frequency nodes
-            if frequency_percentile > 0.8 { // Top 20% of nodes
+            if frequency_percentile > 0.8 {
+                // Top 20% of nodes
                 // Assign to priority cluster (cluster 0 reserved for high-frequency nodes)
                 self.cluster_assignments.insert(*node_id, 0);
-                
+
                 // Boost related connections
                 if let Some(neighbors) = self.access_patterns.spatial_locality.get(node_id) {
-                    for &neighbor_id in neighbors.iter().take(3) { // Top 3 neighbors
+                    for &neighbor_id in neighbors.iter().take(3) {
+                        // Top 3 neighbors
                         let connection_key = if *node_id < neighbor_id {
                             (*node_id, neighbor_id)
                         } else {
                             (neighbor_id, *node_id)
                         };
-                        
-                        let current_usage = self.access_patterns.connection_usage
+
+                        let current_usage = self
+                            .access_patterns
+                            .connection_usage
                             .get(&connection_key)
                             .unwrap_or(&0);
-                        
+
                         // Boost connection weight for high-frequency node connections
                         let boosted_usage = current_usage + (*frequency / 10).max(1);
-                        self.access_patterns.connection_usage
+                        self.access_patterns
+                            .connection_usage
                             .insert(connection_key, boosted_usage);
                     }
                 }
@@ -470,8 +483,11 @@ impl PlasticityMatrix {
         // Implement memory optimization for frequently accessed nodes
         // This would involve cache pre-loading and memory layout optimization
         let optimization_count = top_nodes.len().min(20); // Limit optimizations per cycle
-        
-        info!("Performed frequency-based optimization on {} high-frequency nodes", optimization_count);
+
+        info!(
+            "Performed frequency-based optimization on {} high-frequency nodes",
+            optimization_count
+        );
 
         Ok(optimization_count > 0)
     }

@@ -1,7 +1,7 @@
+use crate::auth::{ApiKey, AuthService};
 use crate::error::{ApiError, ApiResponse, ResponseMetadata};
-use crate::auth::{AuthService, ApiKey};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
 use neuroquantum_core::NeuroQuantumDB;
-use actix_web::{web, HttpResponse, Result as ActixResult, HttpRequest, HttpMessage};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tracing::{info, warn};
@@ -42,25 +42,29 @@ pub async fn generate_api_key(
 
     // Verify admin permissions from middleware - fix borrowing issue
     let extensions = req.extensions();
-    let requesting_key = extensions.get::<ApiKey>()
+    let requesting_key = extensions
+        .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Admin authentication required".to_string()))?;
 
     if !requesting_key.permissions.contains(&"admin".to_string()) {
-        warn!("Non-admin user attempted to generate API key: {}", requesting_key.name);
-        return Err(ApiError::Forbidden("Admin permission required to generate API keys".to_string()));
+        warn!(
+            "Non-admin user attempted to generate API key: {}",
+            requesting_key.name
+        );
+        return Err(ApiError::Forbidden(
+            "Admin permission required to generate API keys".to_string(),
+        ));
     }
 
     // Validate permissions
-    let valid_permissions = vec![
-        "admin", "neuromorphic", "quantum", "dna", "read", "write"
-    ];
-    
+    let valid_permissions = vec!["admin", "neuromorphic", "quantum", "dna", "read", "write"];
+
     for permission in &key_request.permissions {
         if !valid_permissions.contains(&permission.as_str()) {
-            return Err(ApiError::BadRequest(
-                format!("Invalid permission: {}. Valid permissions are: {:?}", 
-                        permission, valid_permissions)
-            ));
+            return Err(ApiError::BadRequest(format!(
+                "Invalid permission: {}. Valid permissions are: {:?}",
+                permission, valid_permissions
+            )));
         }
     }
 
@@ -73,7 +77,10 @@ pub async fn generate_api_key(
         key_request.rate_limit_per_hour,
     );
 
-    info!("🔑 Admin {} generated new API key for: {}", requesting_key.name, new_key.name);
+    info!(
+        "🔑 Admin {} generated new API key for: {}",
+        requesting_key.name, new_key.name
+    );
 
     let response = GenerateKeyResponse {
         api_key: new_key.key.clone(),
@@ -101,23 +108,32 @@ pub async fn revoke_api_key(
 
     // Verify admin permissions - fix borrowing issue
     let extensions = req.extensions();
-    let requesting_key = extensions.get::<ApiKey>()
+    let requesting_key = extensions
+        .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Admin authentication required".to_string()))?;
 
     if !requesting_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden("Admin permission required to revoke API keys".to_string()));
+        return Err(ApiError::Forbidden(
+            "Admin permission required to revoke API keys".to_string(),
+        ));
     }
 
     // Don't allow users to revoke their own key
     if requesting_key.key == revoke_request.api_key {
-        return Err(ApiError::BadRequest("Cannot revoke your own API key".to_string()));
+        return Err(ApiError::BadRequest(
+            "Cannot revoke your own API key".to_string(),
+        ));
     }
 
     let mut auth_service_mut = auth_service.as_ref().clone();
     let revoked = auth_service_mut.revoke_api_key(&revoke_request.api_key);
 
     if revoked {
-        info!("🗑️ Admin {} revoked API key: {}", requesting_key.name, &revoke_request.api_key[..8]);
+        info!(
+            "🗑️ Admin {} revoked API key: {}",
+            requesting_key.name,
+            &revoke_request.api_key[..8]
+        );
         Ok(HttpResponse::Ok().json(ApiResponse::success(
             serde_json::json!({"revoked": true, "key": &revoke_request.api_key[..8]}),
             ResponseMetadata::new(start.elapsed(), "API key revoked successfully"),
@@ -136,29 +152,35 @@ pub async fn list_api_keys(
 
     // Verify admin permissions - fix borrowing issue
     let extensions = req.extensions();
-    let requesting_key = extensions.get::<ApiKey>()
+    let requesting_key = extensions
+        .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Admin authentication required".to_string()))?;
 
     if !requesting_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden("Admin permission required to list API keys".to_string()));
+        return Err(ApiError::Forbidden(
+            "Admin permission required to list API keys".to_string(),
+        ));
     }
 
     let api_keys = auth_service.list_api_keys();
-    
+
     // Don't expose full API keys, only metadata
-    let safe_keys: Vec<serde_json::Value> = api_keys.iter().map(|key| {
-        serde_json::json!({
-            "key_prefix": &key.key[..12],
-            "name": key.name,
-            "permissions": key.permissions,
-            "expires_at": key.expires_at.to_rfc3339(),
-            "created_at": key.created_at.to_rfc3339(),
-            "last_used": key.last_used.map(|t| t.to_rfc3339()),
-            "usage_count": key.usage_count,
-            "rate_limit_per_hour": key.rate_limit_per_hour,
-            "is_expired": auth_service.is_key_expired(key)
+    let safe_keys: Vec<serde_json::Value> = api_keys
+        .iter()
+        .map(|key| {
+            serde_json::json!({
+                "key_prefix": &key.key[..12],
+                "name": key.name,
+                "permissions": key.permissions,
+                "expires_at": key.expires_at.to_rfc3339(),
+                "created_at": key.created_at.to_rfc3339(),
+                "last_used": key.last_used.map(|t| t.to_rfc3339()),
+                "usage_count": key.usage_count,
+                "rate_limit_per_hour": key.rate_limit_per_hour,
+                "is_expired": auth_service.is_key_expired(key)
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         serde_json::json!({"api_keys": safe_keys, "total": safe_keys.len()}),
@@ -177,21 +199,22 @@ pub async fn get_key_stats(
 
     // Verify admin permissions - fix borrowing issue
     let extensions = req.extensions();
-    let requesting_key = extensions.get::<ApiKey>()
+    let requesting_key = extensions
+        .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Admin authentication required".to_string()))?;
 
     if !requesting_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden("Admin permission required to view API key stats".to_string()));
+        return Err(ApiError::Forbidden(
+            "Admin permission required to view API key stats".to_string(),
+        ));
     }
 
     match auth_service.get_api_key_stats(&key_to_check) {
-        Some(stats) => {
-            Ok(HttpResponse::Ok().json(ApiResponse::success(
-                stats,
-                ResponseMetadata::new(start.elapsed(), "API key stats retrieved successfully"),
-            )))
-        }
-        None => Err(ApiError::NotFound("API key not found".to_string()))
+        Some(stats) => Ok(HttpResponse::Ok().json(ApiResponse::success(
+            stats,
+            ResponseMetadata::new(start.elapsed(), "API key stats retrieved successfully"),
+        ))),
+        None => Err(ApiError::NotFound("API key not found".to_string())),
     }
 }
 
@@ -199,7 +222,7 @@ pub async fn get_key_stats(
 pub async fn dna_status(_db: web::Data<NeuroQuantumDB>) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
     let response = serde_json::json!({
-        "status": "operational", 
+        "status": "operational",
         "compression_ratio": 1200,
         "active_sequences": 42847
     });

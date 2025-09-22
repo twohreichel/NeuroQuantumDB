@@ -3,10 +3,9 @@
 //! Diese Datei enthält realistische Datensätze, die die volle Komplexität
 //! der Datenbank demonstrieren und echte Anwendungsszenarien abbilden.
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use rand::Rng;
 
 /// IoT Sensor-Daten für Edge Computing Szenarien
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,7 +140,7 @@ pub struct TestDataFactory;
 impl TestDataFactory {
     /// Generiert IoT Sensor-Daten für verschiedene Standorte
     pub fn generate_iot_data(count: usize) -> Vec<IoTSensorData> {
-        let locations = vec![
+        let locations = [
             ("Berlin", 52.5200, 13.4050),
             ("Hamburg", 53.5511, 9.9937),
             ("München", 48.1351, 11.5820),
@@ -207,30 +206,24 @@ impl TestDataFactory {
                         let num_symptoms = 1 + rand::random::<usize>() % 3; // Mindestens 1 Symptom
                         symptom_pool.into_iter().take(num_symptoms).collect()
                     },
-                    medical_history: vec![
-                        MedicalEvent {
-                            date: Utc::now() - chrono::Duration::days(rand::random::<i64>() % 3650),
-                            event_type: "Routine Checkup".to_string(),
-                            severity: 1 + rand::random::<u8>() % 3,
-                            description: "Jährliche Untersuchung".to_string(),
-                        }
-                    ],
-                    genomic_markers: vec![
-                        GenomicMarker {
-                            gene_id: "APOE".to_string(),
-                            variant: "ε3/ε3".to_string(),
-                            risk_score: rand::random::<f32>(),
-                        }
-                    ],
+                    medical_history: vec![MedicalEvent {
+                        date: Utc::now() - chrono::Duration::days(rand::random::<i64>() % 3650),
+                        event_type: "Routine Checkup".to_string(),
+                        severity: 1 + rand::random::<u8>() % 3,
+                        description: "Jährliche Untersuchung".to_string(),
+                    }],
+                    genomic_markers: vec![GenomicMarker {
+                        gene_id: "APOE".to_string(),
+                        variant: "ε3/ε3".to_string(),
+                        risk_score: rand::random::<f32>(),
+                    }],
                     brain_activity: BrainActivity {
                         eeg_data: (0..256).map(|_| rand::random::<f32>() * 100.0).collect(),
-                        neural_patterns: vec![
-                            NeuralPattern {
-                                frequency_band: "Alpha".to_string(),
-                                amplitude: rand::random::<f32>() * 50.0,
-                                coherence: rand::random::<f32>(),
-                            }
-                        ],
+                        neural_patterns: vec![NeuralPattern {
+                            frequency_band: "Alpha".to_string(),
+                            amplitude: rand::random::<f32>() * 50.0,
+                            coherence: rand::random::<f32>(),
+                        }],
                         cognitive_load: rand::random::<f32>(),
                     },
                 }
@@ -240,7 +233,7 @@ impl TestDataFactory {
 
     /// Generiert Finanzmarkt-Daten
     pub fn generate_financial_data(count: usize) -> Vec<FinancialData> {
-        let symbols = vec!["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN", "META", "NVDA"];
+        let symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN", "META", "NVDA"];
 
         (0..count)
             .map(|i| {
@@ -279,33 +272,27 @@ impl TestDataFactory {
         vec![
             // Basis SQL-Kompatibilität
             "SELECT * FROM sensors WHERE temperature > 25.0",
-
             // Neuromorphic Extensions
             "SELECT * FROM patients NEUROMATCH symptoms LIKE '%Kopfschmerzen%'
              WITH PLASTICITY 0.8 SYNAPTIC_THRESHOLD 0.6",
-
             // Quantum-inspired Joins
             "SELECT s.sensor_id, p.patient_id
              FROM sensors s QUANTUM_JOIN patients p
              ON SUPERPOSITION(s.location, p.location)
              WHERE ENTANGLEMENT_STRENGTH > 0.7",
-
             // DNA-based Compression Query
             "SELECT COMPRESS_DNA(symptoms) as compressed_symptoms
              FROM patients
              WHERE age BETWEEN 30 AND 50
              GROUP BY genomic_markers",
-
             // Natural Language Query
             "FIND all sensors in Berlin with high temperature and low battery",
-
             // Complex Neuromorphic Learning
             "LEARN PATTERN brain_activity
              FROM patients
              WHERE symptoms CONTAINS 'Schwindel'
              ADAPT SYNAPTIC_WEIGHTS WITH HEBBIAN_RULE
              STORE IN neural_patterns_cache",
-
             // Quantum Search with Grover's Algorithm
             "QUANTUM_SEARCH financial_data
              WHERE symbol IN ('AAPL', 'GOOGL')

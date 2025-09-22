@@ -97,10 +97,7 @@ impl Clone for QSQLError {
                 source: std::io::Error::new(source.kind(), format!("{}", source)),
             },
             QSQLError::SerializationError { source } => QSQLError::SerializationError {
-                source: serde_json::Error::io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("{}", source),
-                )),
+                source: serde_json::Error::io(std::io::Error::other(format!("{}", source))),
             },
         }
     }

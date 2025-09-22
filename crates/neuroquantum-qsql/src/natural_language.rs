@@ -143,16 +143,26 @@ impl NaturalLanguageProcessor {
         let mut best_match = (QueryIntent::Select, 0.0f32);
 
         // First check if this looks like completely invalid text
-        if query.contains("not a valid database query") ||
-           query.contains("invalid") ||
-           (!query.contains("select") && !query.contains("show") && !query.contains("find") &&
-            !query.contains("get") && !query.contains("list") && !query.contains("display") &&
-            !query.contains("neuromatch") && !query.contains("quantum") &&
-            !query.contains("count") && !query.contains("sum") && !query.contains("users") &&
-            !query.contains("data") && !query.contains("records")) {
+        if query.contains("not a valid database query")
+            || query.contains("invalid")
+            || (!query.contains("select")
+                && !query.contains("show")
+                && !query.contains("find")
+                && !query.contains("get")
+                && !query.contains("list")
+                && !query.contains("display")
+                && !query.contains("neuromatch")
+                && !query.contains("quantum")
+                && !query.contains("count")
+                && !query.contains("sum")
+                && !query.contains("users")
+                && !query.contains("data")
+                && !query.contains("records"))
+        {
             return Err(NLPError::IntentRecognitionFailed {
                 text: query.to_string(),
-            }.into());
+            }
+            .into());
         }
 
         for (intent, patterns) in &self.intent_patterns {
@@ -169,7 +179,7 @@ impl NaturalLanguageProcessor {
 
             // Normalize score by number of patterns for this intent
             if matches_found > 0 {
-                intent_score = intent_score / patterns.len() as f32;
+                intent_score /= patterns.len() as f32;
                 if intent_score > best_match.1 {
                     best_match = (intent.clone(), intent_score);
                 }
@@ -182,7 +192,8 @@ impl NaturalLanguageProcessor {
         } else {
             Err(NLPError::IntentRecognitionFailed {
                 text: query.to_string(),
-            }.into())
+            }
+            .into())
         }
     }
 
@@ -263,7 +274,7 @@ impl NaturalLanguageProcessor {
             .collect();
 
         if columns.is_empty() {
-            query.push_str("*");
+            query.push('*');
         } else {
             let column_names: Vec<String> = columns
                 .iter()
@@ -374,7 +385,10 @@ impl NaturalLanguageProcessor {
 
         if !numbers.is_empty() {
             let limit_number = numbers[0].value.clone();
-            query = format!("SELECT * FROM users ORDER BY post_count DESC LIMIT {}", limit_number);
+            query = format!(
+                "SELECT * FROM users ORDER BY post_count DESC LIMIT {}",
+                limit_number
+            );
         }
 
         Ok(query)
@@ -436,44 +450,55 @@ impl NaturalLanguageProcessor {
     fn initialize_patterns(&mut self) -> QSQLResult<()> {
         // Select patterns
         let select_patterns = vec![
-            Regex::new(r"show|find|get|select|list|display").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+            Regex::new(r"show|find|get|select|list|display").map_err(|e| {
+                QSQLError::ConfigError {
+                    message: format!("Failed to compile regex: {}", e),
+                }
             })?,
             Regex::new(r"all|users|records|data").map_err(|e| QSQLError::ConfigError {
                 message: format!("Failed to compile regex: {}", e),
             })?,
-            Regex::new(r"older than|greater than|more than|above").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+            Regex::new(r"older than|greater than|more than|above").map_err(|e| {
+                QSQLError::ConfigError {
+                    message: format!("Failed to compile regex: {}", e),
+                }
             })?,
         ];
-        self.intent_patterns.insert(QueryIntent::Select, select_patterns);
+        self.intent_patterns
+            .insert(QueryIntent::Select, select_patterns);
 
         // NeuroMatch patterns
         let neuromatch_patterns = vec![
-            Regex::new(r"similar|match|pattern|neuromatch").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+            Regex::new(r"similar|match|pattern|neuromatch").map_err(|e| {
+                QSQLError::ConfigError {
+                    message: format!("Failed to compile regex: {}", e),
+                }
             })?,
             Regex::new(r"memory|remember|neural").map_err(|e| QSQLError::ConfigError {
                 message: format!("Failed to compile regex: {}", e),
             })?,
         ];
-        self.intent_patterns.insert(QueryIntent::NeuroMatch, neuromatch_patterns);
+        self.intent_patterns
+            .insert(QueryIntent::NeuroMatch, neuromatch_patterns);
 
         // QuantumSearch patterns
-        let quantum_patterns = vec![
-            Regex::new(r"quantum|search|superposition").map_err(|e| QSQLError::ConfigError {
+        let quantum_patterns = vec![Regex::new(r"quantum|search|superposition").map_err(|e| {
+            QSQLError::ConfigError {
                 message: format!("Failed to compile regex: {}", e),
-            })?,
-        ];
-        self.intent_patterns.insert(QueryIntent::QuantumSearch, quantum_patterns);
+            }
+        })?];
+        self.intent_patterns
+            .insert(QueryIntent::QuantumSearch, quantum_patterns);
 
         // Aggregate patterns
-        let aggregate_patterns = vec![
-            Regex::new(r"count|sum|average|total|top \d+").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
-            })?,
-        ];
-        self.intent_patterns.insert(QueryIntent::Aggregate, aggregate_patterns);
+        let aggregate_patterns =
+            vec![Regex::new(r"count|sum|average|total|top \d+").map_err(|e| {
+                QSQLError::ConfigError {
+                    message: format!("Failed to compile regex: {}", e),
+                }
+            })?];
+        self.intent_patterns
+            .insert(QueryIntent::Aggregate, aggregate_patterns);
 
         Ok(())
     }
@@ -483,17 +508,21 @@ impl NaturalLanguageProcessor {
         // Table name extractor
         self.entity_extractors.insert(
             EntityType::TableName,
-            Regex::new(r"\b(users|posts|articles|memories|data|table)\b").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+            Regex::new(r"\b(users|posts|articles|memories|data|table)\b").map_err(|e| {
+                QSQLError::ConfigError {
+                    message: format!("Failed to compile regex: {}", e),
+                }
             })?,
         );
 
         // Column name extractor
         self.entity_extractors.insert(
             EntityType::ColumnName,
-            Regex::new(r"\b(id|name|age|email|title|content|created_at|updated_at)\b").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
-            })?,
+            Regex::new(r"\b(id|name|age|email|title|content|created_at|updated_at)\b").map_err(
+                |e| QSQLError::ConfigError {
+                    message: format!("Failed to compile regex: {}", e),
+                },
+            )?,
         );
 
         // Number extractor
@@ -507,20 +536,28 @@ impl NaturalLanguageProcessor {
         // Operator extractor
         self.entity_extractors.insert(
             EntityType::Operator,
-            Regex::new(r"(>|<|=|>=|<=|!=|older than|greater than|less than|equal to)").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
-            })?,
+            Regex::new(r"(>|<|=|>=|<=|!=|older than|greater than|less than|equal to)").map_err(
+                |e| QSQLError::ConfigError {
+                    message: format!("Failed to compile regex: {}", e),
+                },
+            )?,
         );
 
         // Initialize table mappings
-        self.table_mappings.insert("users".to_string(), "users".to_string());
-        self.table_mappings.insert("people".to_string(), "users".to_string());
-        self.table_mappings.insert("posts".to_string(), "posts".to_string());
-        self.table_mappings.insert("articles".to_string(), "posts".to_string());
+        self.table_mappings
+            .insert("users".to_string(), "users".to_string());
+        self.table_mappings
+            .insert("people".to_string(), "users".to_string());
+        self.table_mappings
+            .insert("posts".to_string(), "posts".to_string());
+        self.table_mappings
+            .insert("articles".to_string(), "posts".to_string());
 
         // Initialize column mappings
-        self.column_mappings.insert("age".to_string(), "age".to_string());
-        self.column_mappings.insert("name".to_string(), "name".to_string());
+        self.column_mappings
+            .insert("age".to_string(), "age".to_string());
+        self.column_mappings
+            .insert("name".to_string(), "name".to_string());
 
         Ok(())
     }

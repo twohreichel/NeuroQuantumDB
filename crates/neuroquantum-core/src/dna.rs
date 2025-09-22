@@ -245,6 +245,12 @@ pub struct QuaternaryEncoder {
     metrics: Arc<RwLock<PerformanceMetrics>>,
 }
 
+impl Default for QuaternaryEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QuaternaryEncoder {
     /// Create new quaternary encoder with biological optimization
     pub fn new() -> Self {
@@ -367,7 +373,7 @@ impl QuaternaryEncoder {
     pub fn decode(&mut self, sequence: &[DNABase]) -> CompressionResult<Vec<u8>> {
         let start_time = Instant::now();
 
-        if sequence.len() % 4 != 0 {
+        if !sequence.len().is_multiple_of(4) {
             return Err(CompressionError::InvalidFormat(
                 "DNA sequence length must be multiple of 4".to_string(),
             ));
@@ -645,6 +651,12 @@ pub struct SpatialParameters {
     max_cluster_distance: f32,
     /// Energy function coefficients
     energy_coefficients: Vec<f32>,
+}
+
+impl Default for ProteinFolder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ProteinFolder {
@@ -954,6 +966,12 @@ impl Default for CompressionConfig {
             performance_target_us: 1,
             memory_limit_bytes: 100 * 1024 * 1024, // 100MB
         }
+    }
+}
+
+impl Default for DNACompressor {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

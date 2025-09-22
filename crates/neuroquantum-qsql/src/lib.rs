@@ -190,7 +190,9 @@ impl QSQLEngine {
 
         // Parse query - convert parsing errors to anyhow errors for proper propagation
         let parse_start = Instant::now();
-        let ast = self.parser.parse_query(query)
+        let ast = self
+            .parser
+            .parse_query(query)
             .map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
         self.metrics.average_parse_time = Self::update_average(
             self.metrics.average_parse_time,
@@ -201,7 +203,9 @@ impl QSQLEngine {
 
         // Optimize with neuromorphic intelligence
         let opt_start = Instant::now();
-        let plan = self.optimizer.optimize(ast)
+        let plan = self
+            .optimizer
+            .optimize(ast)
             .map_err(|e| anyhow::anyhow!("Optimization error: {}", e))?;
         self.metrics.average_optimization_time = Self::update_average(
             self.metrics.average_optimization_time,
@@ -260,7 +264,7 @@ impl QSQLEngine {
     #[instrument(skip(self))]
     pub fn optimize_synaptic_pathways(&mut self) -> Result<()> {
         // Strengthen frequently used query patterns
-        for (_query, cached_plan) in &mut self.cache {
+        for cached_plan in self.cache.values_mut() {
             if cached_plan.execution_count > 10 {
                 cached_plan.synaptic_strength = (cached_plan.synaptic_strength * 1.1).min(1.0);
                 debug!("Strengthened synaptic pathway for query pattern");
@@ -297,7 +301,7 @@ impl QSQLEngine {
             new
         } else {
             Duration::from_nanos(
-                ((current.as_nanos() as u64 * count + new.as_nanos() as u64) / (count + 1)) as u64,
+                (current.as_nanos() as u64 * count + new.as_nanos() as u64) / (count + 1),
             )
         }
     }
@@ -339,4 +343,3 @@ impl Default for QSQLConfig {
 pub use ast::*;
 pub use error::*;
 pub use natural_language::NaturalLanguageProcessor;
-

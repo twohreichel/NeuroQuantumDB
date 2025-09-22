@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
-use std::fs;
+use serde::{Deserialize, Serialize};
 use std::env;
+use std::fs;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ApiConfig {
@@ -122,8 +122,8 @@ impl Default for ApiConfig {
 impl ApiConfig {
     pub fn load() -> Result<Self> {
         // Check for config file path from environment variable or use default
-        let config_path = env::var("NEUROQUANTUM_CONFIG")
-            .unwrap_or_else(|_| "config/prod.toml".to_string());
+        let config_path =
+            env::var("NEUROQUANTUM_CONFIG").unwrap_or_else(|_| "config/prod.toml".to_string());
 
         // Try to load from file first
         if let Ok(content) = fs::read_to_string(&config_path) {
@@ -158,7 +158,9 @@ impl ApiConfig {
 
         if let Some(neuromorphic) = &self.database.neuromorphic_config {
             if neuromorphic.learning_rate <= 0.0 || neuromorphic.learning_rate > 1.0 {
-                return Err(anyhow::anyhow!("Neuromorphic learning rate must be between 0.0 and 1.0"));
+                return Err(anyhow::anyhow!(
+                    "Neuromorphic learning rate must be between 0.0 and 1.0"
+                ));
             }
         }
 
@@ -171,10 +173,14 @@ impl ApiConfig {
         if let Some(dna) = &self.database.dna_config {
             if let Some(compression_ratio) = dna.target_compression_ratio {
                 if compression_ratio > 1000.0 {
-                    return Err(anyhow::anyhow!("DNA target compression ratio cannot exceed 1000:1"));
+                    return Err(anyhow::anyhow!(
+                        "DNA target compression ratio cannot exceed 1000:1"
+                    ));
                 }
                 if compression_ratio < 1.0 {
-                    return Err(anyhow::anyhow!("DNA target compression ratio must be at least 1:1"));
+                    return Err(anyhow::anyhow!(
+                        "DNA target compression ratio must be at least 1:1"
+                    ));
                 }
             }
         }

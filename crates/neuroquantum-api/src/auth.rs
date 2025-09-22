@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use tracing::{info, warn};
-use bcrypt::{hash, verify};
 #[cfg(not(test))]
 use bcrypt::DEFAULT_COST;
+use bcrypt::{hash, verify};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use tracing::{info, warn};
+use uuid::Uuid;
 
 // For testing, use a lower cost to speed up tests
 #[cfg(test)]
@@ -59,7 +59,7 @@ impl AuthService {
                 "write".to_string(),
             ],
             Some(365 * 24), // 1 year expiry
-            Some(1000), // 1000 requests per hour
+            Some(1000),     // 1000 requests per hour
         );
 
         info!("🔐 Default admin API key created: {}", admin_key.key);
@@ -103,7 +103,11 @@ impl AuthService {
         self.api_keys.insert(key.clone(), api_key.clone());
         self.usage_tracking.insert(key.clone(), Vec::new());
 
-        info!("🔑 Generated new API key: {} for {}", &key[..12], api_key.name);
+        info!(
+            "🔑 Generated new API key: {} for {}",
+            &key[..12],
+            api_key.name
+        );
         api_key
     }
 
@@ -144,12 +148,16 @@ impl AuthService {
             p if p.starts_with("/api/v1/admin") => "admin",
             p if p.starts_with("/metrics") => "admin",
             p if p.contains("/query") || p.contains("/search") => "read",
-            p if p.contains("/train") || p.contains("/optimize") || p.contains("/compress") => "write",
+            p if p.contains("/train") || p.contains("/optimize") || p.contains("/compress") => {
+                "write"
+            }
             _ => "read", // Default to read permission
         };
 
-        api_key.permissions.contains(&required_permission.to_string()) ||
-        api_key.permissions.contains(&"admin".to_string())
+        api_key
+            .permissions
+            .contains(&required_permission.to_string())
+            || api_key.permissions.contains(&"admin".to_string())
     }
 
     fn is_rate_limited(&self, key: &str) -> bool {
@@ -157,7 +165,8 @@ impl AuthService {
             if let Some(rate_limit) = api_key.rate_limit_per_hour {
                 if let Some(usage_times) = self.usage_tracking.get(key) {
                     let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
-                    let recent_usage = usage_times.iter()
+                    let recent_usage = usage_times
+                        .iter()
                         .filter(|&&time| time > one_hour_ago)
                         .count();
 
@@ -184,7 +193,8 @@ impl AuthService {
         if let Some(api_key) = self.api_keys.get(key) {
             let usage_times = self.usage_tracking.get(key)?;
             let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
-            let recent_usage = usage_times.iter()
+            let recent_usage = usage_times
+                .iter()
                 .filter(|&&time| time > one_hour_ago)
                 .count();
 

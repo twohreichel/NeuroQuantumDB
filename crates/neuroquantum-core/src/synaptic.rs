@@ -145,12 +145,14 @@ impl SynapticNetwork {
     pub fn new(max_nodes: usize, activation_threshold: f32) -> CoreResult<Self> {
         // Validate parameters
         if max_nodes == 0 {
-            return Err(CoreError::InvalidConfig("max_nodes must be greater than 0".to_string()));
+            return Err(CoreError::InvalidConfig(
+                "max_nodes must be greater than 0".to_string(),
+            ));
         }
 
-        if activation_threshold < 0.0 || activation_threshold > 1.0 {
+        if !(0.0..=1.0).contains(&activation_threshold) {
             return Err(CoreError::InvalidConfig(
-                "activation_threshold must be between 0.0 and 1.0".to_string()
+                "activation_threshold must be between 0.0 and 1.0".to_string(),
             ));
         }
 
@@ -273,7 +275,10 @@ impl SynapticNetwork {
         // Group removals by node to minimize lock overhead
         let mut removals_by_node: HashMap<u64, Vec<usize>> = HashMap::new();
         for &(node_id, connection_idx) in connections_to_remove {
-            removals_by_node.entry(node_id).or_default().push(connection_idx);
+            removals_by_node
+                .entry(node_id)
+                .or_default()
+                .push(connection_idx);
         }
 
         let mut nodes = self.nodes.write().unwrap();
@@ -388,7 +393,11 @@ impl SynapticNetwork {
     pub fn get_node_mut(&self, node_id: u64) -> Option<()> {
         // For thread safety, we can't return a mutable reference directly
         // Instead, we provide a way to check if the node exists
-        self.nodes.read().unwrap().contains_key(&node_id).then(|| ())
+        self.nodes
+            .read()
+            .unwrap()
+            .contains_key(&node_id)
+            .then_some(())
     }
 
     /// Optimize query using neuromorphic principles

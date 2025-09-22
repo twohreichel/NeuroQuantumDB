@@ -323,7 +323,11 @@ impl QSQLParser {
     }
 
     /// Parse numeric literal (integer or float)
-    fn parse_numeric_literal(&self, chars: &[char], position: usize) -> QSQLResult<(TokenType, usize)> {
+    fn parse_numeric_literal(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
         let mut new_pos = position;
         let mut value = String::new();
         let mut has_dot = false;
@@ -363,7 +367,11 @@ impl QSQLParser {
         }
 
         // Check for DNA: prefix
-        chars[position..position + 4].iter().collect::<String>().to_uppercase() == "DNA:"
+        chars[position..position + 4]
+            .iter()
+            .collect::<String>()
+            .to_uppercase()
+            == "DNA:"
     }
 
     /// Parse DNA sequence literal
@@ -392,7 +400,11 @@ impl QSQLParser {
     }
 
     /// Parse identifier or keyword
-    fn parse_identifier_or_keyword(&self, chars: &[char], position: usize) -> QSQLResult<(TokenType, usize)> {
+    fn parse_identifier_or_keyword(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
         let mut new_pos = position;
         let mut value = String::new();
 
@@ -420,7 +432,11 @@ impl QSQLParser {
     }
 
     /// Parse operator or punctuation
-    fn parse_operator_or_punctuation(&self, chars: &[char], position: usize) -> QSQLResult<(TokenType, usize)> {
+    fn parse_operator_or_punctuation(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
         let ch = chars[position];
 
         // Two-character operators
@@ -489,12 +505,10 @@ impl QSQLParser {
                 // Try to parse as a basic select if it contains identifiers
                 self.parse_select_statement(tokens)
             }
-            _ => {
-                Err(QSQLError::ParseError {
-                    message: "Unrecognized statement type".to_string(),
-                    position: 0,
-                })
-            }
+            _ => Err(QSQLError::ParseError {
+                message: "Unrecognized statement type".to_string(),
+                position: 0,
+            }),
         }
     }
 
@@ -598,7 +612,9 @@ impl QSQLParser {
             i += 1;
             // Simple where clause parsing - look for basic comparisons
             if i + 2 < tokens.len() {
-                if let (TokenType::Identifier(col), op_token, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+                if let (TokenType::Identifier(col), op_token, value_token) =
+                    (&tokens[i], &tokens[i + 1], &tokens[i + 2])
+                {
                     let operator = match op_token {
                         TokenType::GreaterThan => BinaryOperator::GreaterThan,
                         TokenType::LessThan => BinaryOperator::LessThan,
@@ -610,9 +626,13 @@ impl QSQLParser {
                     };
 
                     let right = match value_token {
-                        TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
+                        TokenType::IntegerLiteral(val) => {
+                            Expression::Literal(Literal::Integer(*val))
+                        }
                         TokenType::FloatLiteral(val) => Expression::Literal(Literal::Float(*val)),
-                        TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
+                        TokenType::StringLiteral(val) => {
+                            Expression::Literal(Literal::String(val.clone()))
+                        }
                         TokenType::Identifier(val) => Expression::Identifier(val.clone()),
                         _ => Expression::Literal(Literal::Boolean(true)),
                     };
@@ -740,9 +760,15 @@ impl QSQLParser {
             let mut row_values = Vec::new();
             while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
                 match &tokens[i] {
-                    TokenType::StringLiteral(val) => row_values.push(Expression::Literal(Literal::String(val.clone()))),
-                    TokenType::IntegerLiteral(val) => row_values.push(Expression::Literal(Literal::Integer(*val))),
-                    TokenType::FloatLiteral(val) => row_values.push(Expression::Literal(Literal::Float(*val))),
+                    TokenType::StringLiteral(val) => {
+                        row_values.push(Expression::Literal(Literal::String(val.clone())))
+                    }
+                    TokenType::IntegerLiteral(val) => {
+                        row_values.push(Expression::Literal(Literal::Integer(*val)))
+                    }
+                    TokenType::FloatLiteral(val) => {
+                        row_values.push(Expression::Literal(Literal::Float(*val)))
+                    }
                     _ => {}
                 }
                 i += 1;
@@ -787,10 +813,14 @@ impl QSQLParser {
 
         // Parse assignments
         while i + 2 < tokens.len() && !matches!(tokens[i], TokenType::Where) {
-            if let (TokenType::Identifier(col), TokenType::Equal, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+            if let (TokenType::Identifier(col), TokenType::Equal, value_token) =
+                (&tokens[i], &tokens[i + 1], &tokens[i + 2])
+            {
                 let value = match value_token {
                     TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
-                    TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
+                    TokenType::StringLiteral(val) => {
+                        Expression::Literal(Literal::String(val.clone()))
+                    }
                     TokenType::FloatLiteral(val) => Expression::Literal(Literal::Float(*val)),
                     _ => Expression::Literal(Literal::Boolean(true)),
                 };
@@ -809,7 +839,9 @@ impl QSQLParser {
         if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
             i += 1;
             if i + 2 < tokens.len() {
-                if let (TokenType::Identifier(col), op_token, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+                if let (TokenType::Identifier(col), op_token, value_token) =
+                    (&tokens[i], &tokens[i + 1], &tokens[i + 2])
+                {
                     let operator = match op_token {
                         TokenType::Equal => BinaryOperator::Equal,
                         TokenType::GreaterThan => BinaryOperator::GreaterThan,
@@ -818,8 +850,12 @@ impl QSQLParser {
                     };
 
                     let right = match value_token {
-                        TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
-                        TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
+                        TokenType::StringLiteral(val) => {
+                            Expression::Literal(Literal::String(val.clone()))
+                        }
+                        TokenType::IntegerLiteral(val) => {
+                            Expression::Literal(Literal::Integer(*val))
+                        }
                         _ => Expression::Literal(Literal::Boolean(true)),
                     };
 
@@ -869,7 +905,9 @@ impl QSQLParser {
         if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
             i += 1;
             if i + 2 < tokens.len() {
-                if let (TokenType::Identifier(col), op_token, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+                if let (TokenType::Identifier(col), op_token, value_token) =
+                    (&tokens[i], &tokens[i + 1], &tokens[i + 2])
+                {
                     let operator = match op_token {
                         TokenType::LessThan => BinaryOperator::LessThan,
                         TokenType::GreaterThan => BinaryOperator::GreaterThan,
@@ -878,8 +916,12 @@ impl QSQLParser {
                     };
 
                     let right = match value_token {
-                        TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
-                        TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
+                        TokenType::IntegerLiteral(val) => {
+                            Expression::Literal(Literal::Integer(*val))
+                        }
+                        TokenType::StringLiteral(val) => {
+                            Expression::Literal(Literal::String(val.clone()))
+                        }
                         _ => Expression::Literal(Literal::Boolean(true)),
                     };
 
@@ -996,8 +1038,14 @@ impl QSQLParser {
 
         // Added missing keywords for INSERT, UPDATE, DELETE
         keywords.insert("INSERT".to_string(), TokenType::Insert);
-        keywords.insert("INTO".to_string(), TokenType::Identifier("INTO".to_string()));
-        keywords.insert("VALUES".to_string(), TokenType::Identifier("VALUES".to_string()));
+        keywords.insert(
+            "INTO".to_string(),
+            TokenType::Identifier("INTO".to_string()),
+        );
+        keywords.insert(
+            "VALUES".to_string(),
+            TokenType::Identifier("VALUES".to_string()),
+        );
         keywords.insert("UPDATE".to_string(), TokenType::Update);
         keywords.insert("SET".to_string(), TokenType::Identifier("SET".to_string()));
         keywords.insert("DELETE".to_string(), TokenType::Delete);
@@ -1005,7 +1053,10 @@ impl QSQLParser {
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
         keywords.insert("SYNAPTIC_WEIGHT".to_string(), TokenType::SynapticWeight);
-        keywords.insert("PLASTICITY_THRESHOLD".to_string(), TokenType::PlasticityThreshold);
+        keywords.insert(
+            "PLASTICITY_THRESHOLD".to_string(),
+            TokenType::PlasticityThreshold,
+        );
         keywords.insert("HEBBIAN_LEARNING".to_string(), TokenType::HebbianLearning);
         keywords.insert("SYNAPTIC_OPTIMIZE".to_string(), TokenType::SynapticOptimize);
         keywords.insert("NEURAL_PATHWAY".to_string(), TokenType::NeuralPathway);
@@ -1016,9 +1067,18 @@ impl QSQLParser {
         // Quantum keywords - enhanced
         keywords.insert("QUANTUM_SEARCH".to_string(), TokenType::QuantumSearch);
         keywords.insert("QUANTUM_JOIN".to_string(), TokenType::QuantumJoin);
-        keywords.insert("SUPERPOSITION_QUERY".to_string(), TokenType::SuperpositionQuery);
-        keywords.insert("AMPLITUDE_AMPLIFICATION".to_string(), TokenType::AmplitudeAmplification);
-        keywords.insert("QUANTUM_ENTANGLEMENT".to_string(), TokenType::QuantumEntanglement);
+        keywords.insert(
+            "SUPERPOSITION_QUERY".to_string(),
+            TokenType::SuperpositionQuery,
+        );
+        keywords.insert(
+            "AMPLITUDE_AMPLIFICATION".to_string(),
+            TokenType::AmplitudeAmplification,
+        );
+        keywords.insert(
+            "QUANTUM_ENTANGLEMENT".to_string(),
+            TokenType::QuantumEntanglement,
+        );
         keywords.insert("GROVER_SEARCH".to_string(), TokenType::GroverSearch);
         keywords.insert("ORACLE_FUNCTION".to_string(), TokenType::OracleFunction);
         keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
@@ -1037,7 +1097,6 @@ impl QSQLParser {
         operators.insert("AND".to_string(), BinaryOperator::And);
         operators.insert("OR".to_string(), BinaryOperator::Or);
     }
-
 
     /// Validate AST structure
     fn validate_ast(&self, _ast: &Statement) -> QSQLResult<()> {

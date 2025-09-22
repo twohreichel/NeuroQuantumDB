@@ -86,6 +86,12 @@ pub struct DNAMetrics {
     pub storage_density: f64,
 }
 
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsCollector {
     /// Initialize production metrics collector
     pub fn new() -> Self {
@@ -113,7 +119,7 @@ impl MetricsCollector {
         if !success {
             metrics.error_rate = (metrics.error_rate * 0.95) + (5.0);
         } else {
-            metrics.error_rate = metrics.error_rate * 0.99;
+            metrics.error_rate *= 0.99;
         }
 
         // Log performance target compliance

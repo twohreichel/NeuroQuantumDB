@@ -1,5 +1,5 @@
-use neuroquantum_api::{ApiServer, ApiConfig, init_observability};
 use anyhow::Result;
+use neuroquantum_api::{init_observability, ApiConfig, ApiServer};
 use tracing::info;
 
 #[tokio::main]
@@ -20,9 +20,7 @@ async fn main() -> Result<()> {
 
     info!(
         "Configuration loaded - Host: {}, Port: {}, Workers: {}",
-        config.server.host,
-        config.server.port,
-        config.server.workers
+        config.server.host, config.server.port, config.server.workers
     );
 
     // Create and start the API server

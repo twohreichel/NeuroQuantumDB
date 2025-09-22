@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, ResponseError};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use thiserror::Error;
+use utoipa::ToSchema;
 
 /// API-specific error types for NeuroQuantumDB REST interface
 #[derive(Error, Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -125,7 +125,9 @@ where
                 Some(ApiError::BadRequest(_)) => HttpResponse::BadRequest(),
                 Some(ApiError::NotFound(_)) => HttpResponse::NotFound(),
                 Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
-                Some(ApiError::QuantumOperationFailed { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::QuantumOperationFailed { .. }) => {
+                    HttpResponse::InternalServerError()
+                }
                 Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
                 Some(ApiError::InternalServerError { .. }) => HttpResponse::InternalServerError(),
                 Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
@@ -149,10 +151,10 @@ where
 /// Authentication token structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthToken {
-    pub sub: String,        // Subject (user ID)
-    pub exp: usize,         // Expiration time
-    pub iat: usize,         // Issued at
-    pub quantum_level: u8,  // Quantum security level (0-255)
+    pub sub: String,       // Subject (user ID)
+    pub exp: usize,        // Expiration time
+    pub iat: usize,        // Issued at
+    pub quantum_level: u8, // Quantum security level (0-255)
     pub permissions: Vec<String>,
 }
 

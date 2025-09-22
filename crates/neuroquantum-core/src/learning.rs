@@ -122,7 +122,8 @@ impl HebbianLearningEngine {
                         connection.weight = connection.weight.clamp(-2.0, 2.0);
 
                         // Update plasticity factor based on recent activity
-                        connection.plasticity_factor = (connection.plasticity_factor * 0.95 + 0.05).clamp(0.1, 2.0);
+                        connection.plasticity_factor =
+                            (connection.plasticity_factor * 0.95 + 0.05).clamp(0.1, 2.0);
                         connection.last_strengthened = Instant::now();
                         connection.usage_count += 1;
 
@@ -145,7 +146,10 @@ impl HebbianLearningEngine {
                 }
 
                 // Connection not found - this is not an error in neuromorphic networks
-                debug!("Connection {}->{} not found for strengthening", source_id, target_id);
+                debug!(
+                    "Connection {}->{} not found for strengthening",
+                    source_id, target_id
+                );
                 Ok(())
             })
             .unwrap_or(Ok(()))?;
@@ -175,11 +179,8 @@ impl HebbianLearningEngine {
             // Calculate variance in recent weight changes
             let recent: Vec<f32> = history.iter().rev().take(10).cloned().collect();
             let mean = recent.iter().sum::<f32>() / recent.len() as f32;
-            let variance = recent
-                .iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f32>()
-                / recent.len() as f32;
+            let variance =
+                recent.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / recent.len() as f32;
 
             // Reduce learning rate for highly variable connections
             let stability_factor = 1.0 / (1.0 + variance);
@@ -398,9 +399,7 @@ mod tests {
             .unwrap();
 
         // Test strengthening
-        engine
-            .strengthen_connection(&network, 1, 2, 0.8)
-            .unwrap();
+        engine.strengthen_connection(&network, 1, 2, 0.8).unwrap();
 
         // Note: Can't easily check stats since we fixed the threading issues
         // This test mainly verifies the method doesn't panic

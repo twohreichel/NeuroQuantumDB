@@ -1,25 +1,24 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Result as ActixResult, HttpMessage};
-use actix_web::middleware::{Logger, Compress};
+use actix_cors::Cors;
+use actix_web::middleware::{Compress, Logger};
+use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
 use actix_web_prometheus::PrometheusMetricsBuilder;
-use neuroquantum_core::{NeuroQuantumDB, DatabaseConfig};
-use serde_json;
+use actix_ws::Message;
+use anyhow::Result;
+use futures_util::StreamExt;
+use neuroquantum_core::{DatabaseConfig, NeuroQuantumDB};
 use std::time::Instant;
 use tracing::{info, warn};
-use anyhow::Result;
-use actix_cors::Cors;
-use actix_ws::{Message};
-use futures_util::StreamExt;
 
-pub mod handlers;
-pub mod error;
-pub mod config;
 pub mod auth;
+pub mod config;
+pub mod error;
+pub mod handlers;
 pub mod middleware;
 
+use auth::AuthService;
 pub use config::ApiConfig;
 pub use error::{ApiError, ApiResponse, ResponseMetadata};
 use middleware as custom_middleware;
-use auth::AuthService;
 
 /// 🏥 Health check endpoint
 pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
@@ -117,7 +116,7 @@ pub async fn websocket_handler(
                                     }
                                 });
                                 let _ = session.text(update.to_string()).await;
-                            },
+                            }
                             _ => {
                                 let error = serde_json::json!({
                                     "type": "error",
@@ -127,7 +126,7 @@ pub async fn websocket_handler(
                             }
                         }
                     }
-                },
+                }
                 Message::Close(_) => break,
                 _ => {}
             }
@@ -145,7 +144,7 @@ pub struct ApiServer {
 
 impl ApiServer {
     pub fn new(config: ApiConfig) -> Self {
-        Self { 
+        Self {
             config,
             auth_service: AuthService::new(),
         }
@@ -154,14 +153,17 @@ impl ApiServer {
     pub async fn start(self) -> Result<()> {
         let bind_address = format!("{}:{}", self.config.server.host, self.config.server.port);
 
-        info!("🧠⚛️🧬 Starting NeuroQuantumDB API Server on {}", bind_address);
+        info!(
+            "🧠⚛️🧬 Starting NeuroQuantumDB API Server on {}",
+            bind_address
+        );
         info!("🔐 Security: API key authentication is ENABLED");
         warn!("⚠️ All endpoints (except /health) require valid API key authentication");
 
         // Initialize the database with config
         let db_config = DatabaseConfig {
             connection_string: "neuroquantum://localhost".to_string(),
-            max_connections: self.config.database.max_connections.unwrap_or(1000) as u32,
+            max_connections: self.config.database.max_connections.unwrap_or(1000),
         };
         let db = NeuroQuantumDB::new(&db_config).await?;
 

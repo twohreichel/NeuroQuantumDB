@@ -11,14 +11,14 @@
 use std::time::{Duration, Instant};
 
 use crate::{
-    dna::{DNACompressor, DNABase},
-    error::{CoreError},
-    monitoring::{MetricsCollector},
+    dna::{DNABase, DNACompressor},
+    error::CoreError,
+    monitoring::MetricsCollector,
     neon_optimization::NeonOptimizer,
-    quantum::{QuantumProcessor},
-    security::{SecurityManager, SecurityConfig},
+    quantum::QuantumProcessor,
+    security::{SecurityConfig, SecurityManager},
     synaptic::{SynapticNetwork, SynapticNode},
-    NeuroQuantumDB, DatabaseConfig,
+    DatabaseConfig, NeuroQuantumDB,
 };
 
 #[cfg(test)]
@@ -323,8 +323,8 @@ mod unit_tests {
     #[test]
     fn test_neon_vector_operations() {
         if let Ok(_optimizer) = NeonOptimizer::new() {
-            let _data1 = vec![1.0f32, 2.0, 3.0, 4.0];
-            let _data2 = vec![5.0f32, 6.0, 7.0, 8.0];
+            let _data1 = [1.0f32, 2.0, 3.0, 4.0];
+            let _data2 = [5.0f32, 6.0, 7.0, 8.0];
 
             // Test basic NEON operations if available
             assert!(true);
@@ -491,10 +491,7 @@ mod integration_tests {
         let quantum = QuantumProcessor::new();
 
         // Test that operations complete within timeout
-        let result = timeout(
-            Duration::from_secs(5),
-            quantum.grover_search("test query")
-        ).await;
+        let result = timeout(Duration::from_secs(5), quantum.grover_search("test query")).await;
 
         assert!(result.is_ok());
     }

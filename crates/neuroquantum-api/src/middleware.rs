@@ -84,13 +84,8 @@ where
             debug!("Access attempt: {} {} from {}", method, path, client_ip);
 
             // Define public endpoints that don't require authentication
-            let public_endpoints: HashSet<&str> = [
-                "/health",
-                "/api/v1/health",
-            ]
-            .iter()
-            .cloned()
-            .collect();
+            let public_endpoints: HashSet<&str> =
+                ["/health", "/api/v1/health"].iter().cloned().collect();
 
             // Check if this is a public endpoint
             if public_endpoints.contains(path) {
@@ -98,10 +93,7 @@ where
             }
 
             // All other endpoints require API key authentication
-            let api_key = req
-                .headers()
-                .get("X-API-Key")
-                .and_then(|h| h.to_str().ok());
+            let api_key = req.headers().get("X-API-Key").and_then(|h| h.to_str().ok());
 
             match api_key {
                 Some(key) => {
@@ -109,11 +101,14 @@ where
                     if let Some(api_key_data) = auth_service.validate_api_key(key).await {
                         if !auth_service.is_key_expired(&api_key_data) {
                             // Check basic permissions
-                            let has_permission = if path.starts_with("/api/v1/auth") || path.starts_with("/metrics")
+                            let has_permission = if path.starts_with("/api/v1/auth")
+                                || path.starts_with("/metrics")
                             {
                                 api_key_data.permissions.contains(&"admin".to_string())
                             } else if path.starts_with("/api/v1/neuromorphic") {
-                                api_key_data.permissions.contains(&"neuromorphic".to_string())
+                                api_key_data
+                                    .permissions
+                                    .contains(&"neuromorphic".to_string())
                                     || api_key_data.permissions.contains(&"admin".to_string())
                             } else if path.starts_with("/api/v1/quantum") {
                                 api_key_data.permissions.contains(&"quantum".to_string())
@@ -144,7 +139,9 @@ where
                     warn!("Unauthorized access attempt to {} from {}", path, client_ip);
 
                     // Use actix_web's error handling instead of complex generics
-                    Err(actix_web::error::ErrorUnauthorized("Authentication required"))
+                    Err(actix_web::error::ErrorUnauthorized(
+                        "Authentication required",
+                    ))
                 }
                 None => {
                     warn!("No API key provided for {} from {}", path, client_ip);

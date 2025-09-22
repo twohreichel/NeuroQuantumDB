@@ -3,9 +3,9 @@
 //! Diese Tests demonstrieren die Kernfunktionalitäten mit Mock-Implementierungen
 //! und zeigen, wie die vollständige Test Suite funktionieren würde.
 
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
 use serde_json::json;
+use std::collections::HashMap;
+use std::time::Instant;
 
 // Mock-Strukturen für Demo-Zwecke
 #[derive(Debug, Clone)]
@@ -65,14 +65,21 @@ impl MockNeuroQuantumDB {
         })
     }
 
-    pub async fn store_with_dna_compression(&mut self, key: &str, data: &[u8]) -> anyhow::Result<Vec<u8>> {
+    pub async fn store_with_dna_compression(
+        &mut self,
+        key: &str,
+        data: &[u8],
+    ) -> anyhow::Result<Vec<u8>> {
         // Simuliere DNA-Kompression
         let compressed = self.simulate_dna_compression(data);
         self.data.insert(key.to_string(), compressed.clone());
         Ok(compressed)
     }
 
-    pub async fn quantum_search(&mut self, request: MockQueryRequest) -> anyhow::Result<MockQueryResult> {
+    pub async fn quantum_search(
+        &mut self,
+        request: MockQueryRequest,
+    ) -> anyhow::Result<MockQueryResult> {
         let start_time = Instant::now();
 
         // Simuliere Quantum Search mit Grover's Algorithmus
@@ -102,12 +109,14 @@ impl MockNeuroQuantumDB {
         // Simuliere Quantum Search-Ergebnisse
         let result_count = request.limit.unwrap_or(10).min(50);
         (0..result_count)
-            .map(|i| json!({
-                "id": format!("result_{}", i),
-                "quantum_probability": 0.95,
-                "classical_probability": 0.45,
-                "data": format!("Mock result for: {}", request.query)
-            }))
+            .map(|i| {
+                json!({
+                    "id": format!("result_{}", i),
+                    "quantum_probability": 0.95,
+                    "classical_probability": 0.45,
+                    "data": format!("Mock result for: {}", request.query)
+                })
+            })
             .collect()
     }
 }
@@ -115,7 +124,7 @@ impl MockNeuroQuantumDB {
 #[cfg(test)]
 mod demo_tests {
     use super::*;
-    use crate::test_data::{TestDataFactory, ExpectedResults};
+    use crate::test_data::{ExpectedResults, TestDataFactory};
 
     #[tokio::test]
     async fn demo_iot_edge_computing() -> anyhow::Result<()> {
@@ -132,10 +141,9 @@ mod demo_tests {
         // 3. Teste DNA-Kompression
         let sensor = &iot_data[0];
         let sensor_bytes = serde_json::to_vec(sensor)?;
-        let compressed = db.store_with_dna_compression(
-            &sensor.sensor_id.to_string(),
-            &sensor_bytes
-        ).await?;
+        let compressed = db
+            .store_with_dna_compression(&sensor.sensor_id.to_string(), &sensor_bytes)
+            .await?;
 
         let compression_ratio = sensor_bytes.len() as f32 / compressed.len() as f32;
         println!("✅ DNA compression ratio: {:.2}:1", compression_ratio);
@@ -143,23 +151,32 @@ mod demo_tests {
 
         // 4. Teste Quantum Search
         let search_start = Instant::now();
-        let results = db.quantum_search(MockQueryRequest {
-            query: "temperature > 30 AND battery_level < 20".to_string(),
-            filters: vec![
-                json!({"field": "temperature", "operator": ">", "value": 30}),
-                json!({"field": "battery_level", "operator": "<", "value": 20})
-            ],
-            limit: Some(10),
-            quantum_optimization: true,
-        }).await?;
+        let results = db
+            .quantum_search(MockQueryRequest {
+                query: "temperature > 30 AND battery_level < 20".to_string(),
+                filters: vec![
+                    json!({"field": "temperature", "operator": ">", "value": 30}),
+                    json!({"field": "battery_level", "operator": "<", "value": 20}),
+                ],
+                limit: Some(10),
+                quantum_optimization: true,
+            })
+            .await?;
         let search_time = search_start.elapsed();
 
-        println!("✅ Quantum search: {} results in {:?}", results.results.len(), search_time);
+        println!(
+            "✅ Quantum search: {} results in {:?}",
+            results.results.len(),
+            search_time
+        );
         println!("✅ Quantum speedup: {:.1}x", results.quantum_speedup);
 
         // 5. Performance Validierung
         let metrics = db.get_performance_metrics().await?;
-        println!("✅ ARM64 NEON utilization: {:.1}%", metrics.arm64_neon_utilization * 100.0);
+        println!(
+            "✅ ARM64 NEON utilization: {:.1}%",
+            metrics.arm64_neon_utilization * 100.0
+        );
         assert!(metrics.arm64_neon_utilization > 0.7);
 
         println!("🎉 IoT Edge Computing demo completed successfully!\n");
@@ -180,19 +197,30 @@ mod demo_tests {
         // Simuliere neuromorphe Mustererkennnung
         let patient = &patients[0];
         println!("✅ Patient symptoms: {:?}", patient.symptoms);
-        println!("✅ EEG data points: {}", patient.brain_activity.eeg_data.len());
-        println!("✅ Neural patterns: {}", patient.brain_activity.neural_patterns.len());
+        println!(
+            "✅ EEG data points: {}",
+            patient.brain_activity.eeg_data.len()
+        );
+        println!(
+            "✅ Neural patterns: {}",
+            patient.brain_activity.neural_patterns.len()
+        );
 
         // Teste Symptom-Pattern Matching
         let pattern_query = format!("NEUROMATCH symptoms LIKE '%{}%'", patient.symptoms[0]);
-        let pattern_results = db.quantum_search(MockQueryRequest {
-            query: pattern_query,
-            filters: vec![],
-            limit: Some(5),
-            quantum_optimization: true,
-        }).await?;
+        let pattern_results = db
+            .quantum_search(MockQueryRequest {
+                query: pattern_query,
+                filters: vec![],
+                limit: Some(5),
+                quantum_optimization: true,
+            })
+            .await?;
 
-        println!("✅ Pattern matching found {} similar cases", pattern_results.results.len());
+        println!(
+            "✅ Pattern matching found {} similar cases",
+            pattern_results.results.len()
+        );
 
         println!("🎉 Medical Diagnosis demo completed successfully!\n");
         Ok(())
@@ -210,25 +238,33 @@ mod demo_tests {
         println!("✅ Generated {} financial records", financial_data.len());
 
         // Teste Quantum Portfolio Optimization
-        let portfolio_query = "QUANTUM_SEARCH WHERE symbol IN ('AAPL', 'GOOGL') AND quantum_momentum > 0.5";
-        let portfolio_results = db.quantum_search(MockQueryRequest {
-            query: portfolio_query.to_string(),
-            filters: vec![],
-            limit: Some(20),
-            quantum_optimization: true,
-        }).await?;
+        let portfolio_query =
+            "QUANTUM_SEARCH WHERE symbol IN ('AAPL', 'GOOGL') AND quantum_momentum > 0.5";
+        let portfolio_results = db
+            .quantum_search(MockQueryRequest {
+                query: portfolio_query.to_string(),
+                filters: vec![],
+                limit: Some(20),
+                quantum_optimization: true,
+            })
+            .await?;
 
-        println!("✅ Portfolio optimization: {} optimal assets", portfolio_results.results.len());
+        println!(
+            "✅ Portfolio optimization: {} optimal assets",
+            portfolio_results.results.len()
+        );
 
         // Simuliere HFT Latenz-Test
         let hft_start = Instant::now();
         for _ in 0..10 {
-            let _quote = db.quantum_search(MockQueryRequest {
-                query: "SELECT price FROM market WHERE symbol='AAPL'".to_string(),
-                filters: vec![],
-                limit: Some(1),
-                quantum_optimization: true,
-            }).await?;
+            let _quote = db
+                .quantum_search(MockQueryRequest {
+                    query: "SELECT price FROM market WHERE symbol='AAPL'".to_string(),
+                    filters: vec![],
+                    limit: Some(1),
+                    quantum_optimization: true,
+                })
+                .await?;
         }
         let hft_time = hft_start.elapsed();
         let avg_latency_micros = hft_time.as_micros() / 10;
@@ -250,18 +286,24 @@ mod demo_tests {
         // Teste verschiedene QSQL Query-Typen
         let test_queries = TestDataFactory::get_test_queries();
 
-        for (i, query) in test_queries.iter().take(3).enumerate() { // Nur erste 3 für Demo
+        for (i, query) in test_queries.iter().take(3).enumerate() {
+            // Nur erste 3 für Demo
             println!("Testing QSQL Query {}: {}", i + 1, query);
 
-            let result = db.quantum_search(MockQueryRequest {
-                query: query.to_string(),
-                filters: vec![],
-                limit: Some(5),
-                quantum_optimization: true,
-            }).await?;
+            let result = db
+                .quantum_search(MockQueryRequest {
+                    query: query.to_string(),
+                    filters: vec![],
+                    limit: Some(5),
+                    quantum_optimization: true,
+                })
+                .await?;
 
-            println!("✅ Query executed: {} results in {}ms",
-                     result.results.len(), result.execution_time_ms);
+            println!(
+                "✅ Query executed: {} results in {}ms",
+                result.results.len(),
+                result.execution_time_ms
+            );
         }
 
         println!("🎉 QSQL Language demo completed successfully!\n");
@@ -280,7 +322,9 @@ mod demo_tests {
         let test_data = TestDataFactory::generate_iot_data(100);
         for (i, sensor) in test_data.iter().enumerate() {
             let data = serde_json::to_vec(sensor)?;
-            let _compressed = db.store_with_dna_compression(&format!("sensor_{}", i), &data).await?;
+            let _compressed = db
+                .store_with_dna_compression(&format!("sensor_{}", i), &data)
+                .await?;
         }
         let throughput_time = start_time.elapsed();
         let throughput = test_data.len() as f64 / throughput_time.as_secs_f64();
@@ -290,12 +334,14 @@ mod demo_tests {
         // Query Performance Test
         let query_start = Instant::now();
         for _ in 0..10 {
-            let _result = db.quantum_search(MockQueryRequest {
-                query: "SELECT * FROM sensors WHERE temperature > 25".to_string(),
-                filters: vec![],
-                limit: Some(10),
-                quantum_optimization: true,
-            }).await?;
+            let _result = db
+                .quantum_search(MockQueryRequest {
+                    query: "SELECT * FROM sensors WHERE temperature > 25".to_string(),
+                    filters: vec![],
+                    limit: Some(10),
+                    quantum_optimization: true,
+                })
+                .await?;
         }
         let query_time = query_start.elapsed();
         let query_throughput = 10.0 / query_time.as_secs_f64();
@@ -304,8 +350,14 @@ mod demo_tests {
 
         // Performance Metriken
         let metrics = db.get_performance_metrics().await?;
-        println!("✅ ARM64 optimization: {:.1}%", metrics.arm64_neon_utilization * 100.0);
-        println!("✅ DNA compression: {:.1}:1 ratio", metrics.compression_ratio);
+        println!(
+            "✅ ARM64 optimization: {:.1}%",
+            metrics.arm64_neon_utilization * 100.0
+        );
+        println!(
+            "✅ DNA compression: {:.1}:1 ratio",
+            metrics.compression_ratio
+        );
 
         println!("🎉 Performance benchmarks completed successfully!\n");
         Ok(())
