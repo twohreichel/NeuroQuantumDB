@@ -486,7 +486,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: [build-documentation]
+    needs: [test]  # Entferne dependency auf build-documentation
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -495,6 +495,31 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Wiederverwendung der Rust Builds aus Test Job
+      - name: Restore Rust cache from test job
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests"  # Nutze den Cache vom Test Job
+          save-if: false  # Nur lesen, nicht überschreiben
+
+      - name: Install Rust toolchain for Docker context
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      # Pre-build Rust binaries um Docker Build zu beschleunigen
+      - name: Pre-build Rust artifacts for Docker
+        run: |
+          # Nutze gecachte Dependencies für schnelleren Build
+          cargo build --release --target aarch64-unknown-linux-gnu \
+            --features neon-optimizations,neuromorphic,quantum,natural-language \
+            --bin neuroquantum-api
+          
+          # Kopiere Binary für Docker Context
+          mkdir -p docker-context/target/aarch64-unknown-linux-gnu/release/
+          cp target/aarch64-unknown-linux-gnu/release/neuroquantum-api \
+             docker-context/target/aarch64-unknown-linux-gnu/release/
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -515,25 +540,31 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.0
+            network=host
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/arm64
-
-      - name: Cache Docker layers for future builds
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+          platforms: linux/amd64,linux/arm64  # Multi-platform für besseres Caching
+          cache-from: |
+            type=gha,scope=docker-build
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache
+          cache-to: |
+            type=gha,mode=max,scope=docker-build
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+            CARGO_INCREMENTAL=0
+            CARGO_NET_RETRY=10
+            RUST_BACKTRACE=1
 
   deploy-documentation:
     name: Deploy Documentation to GitHub Pages
