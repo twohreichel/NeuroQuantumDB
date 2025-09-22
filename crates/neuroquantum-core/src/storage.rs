@@ -379,7 +379,7 @@ impl StorageEngine {
         self.validate_row(&schema, &row)?;
 
         // Compress row data using DNA compression
-        let compressed_data = self.compress_row(&mut row).await?;
+        let compressed_data = self.compress_row(&row).await?;
 
         // Store compressed data
         self.compressed_blocks.insert(row.id, compressed_data);
@@ -816,7 +816,7 @@ impl StorageEngine {
     }
 
     /// Apply ORDER BY to sort rows
-    fn apply_order_by(&self, rows: &mut Vec<Row>, order_by: &OrderBy) -> Result<()> {
+    fn apply_order_by(&self, rows: &mut [Row], order_by: &OrderBy) -> Result<()> {
         rows.sort_by(|a, b| {
             let a_value = a.fields.get(&order_by.field);
             let b_value = b.fields.get(&order_by.field);
