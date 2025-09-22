@@ -166,6 +166,11 @@ impl QSQLEngine {
     pub async fn execute_query(&mut self, query: &str) -> Result<QueryResult, anyhow::Error> {
         let start_time = Instant::now();
 
+        // Check for empty or obviously invalid queries first
+        if query.trim().is_empty() {
+            return Err(anyhow::anyhow!("Empty query"));
+        }
+
         // Check cache first
         let cached_plan = if let Some(cached) = self.cache.get(query) {
             self.metrics.cache_hits += 1;
@@ -183,9 +188,10 @@ impl QSQLEngine {
                 .map_err(|e| anyhow::anyhow!("{}", e));
         }
 
-        // Parse query
+        // Parse query - convert parsing errors to anyhow errors for proper propagation
         let parse_start = Instant::now();
-        let ast = self.parser.parse_query(query)?;
+        let ast = self.parser.parse_query(query)
+            .map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
         self.metrics.average_parse_time = Self::update_average(
             self.metrics.average_parse_time,
             parse_start.elapsed(),
@@ -195,7 +201,8 @@ impl QSQLEngine {
 
         // Optimize with neuromorphic intelligence
         let opt_start = Instant::now();
-        let plan = self.optimizer.optimize(ast)?;
+        let plan = self.optimizer.optimize(ast)
+            .map_err(|e| anyhow::anyhow!("Optimization error: {}", e))?;
         self.metrics.average_optimization_time = Self::update_average(
             self.metrics.average_optimization_time,
             opt_start.elapsed(),
@@ -209,7 +216,7 @@ impl QSQLEngine {
             .executor
             .execute(&plan)
             .await
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+            .map_err(|e| anyhow::anyhow!("Execution error: {}", e))?;
         let exec_duration = exec_start.elapsed();
 
         self.metrics.average_execution_time = Self::update_average(

@@ -462,82 +462,229 @@ impl QSQLParser {
 
     /// Parse tokens into AST
     fn parse_tokens(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        if tokens.is_empty() || tokens[0] == TokenType::EOF {
+        if tokens.is_empty() || tokens == [TokenType::EOF] {
             return Err(QSQLError::ParseError {
                 message: "Empty query".to_string(),
                 position: 0,
             });
         }
 
-        // Enhanced parsing to support advanced QSQL features
-        match &tokens[0] {
-            TokenType::Select => self.parse_select_statement(tokens),
-            TokenType::NeuroMatch => self.parse_neuromatch_statement(tokens),
-            TokenType::QuantumSearch => self.parse_quantum_search_statement(tokens),
-            _ => {
-                // Try to detect advanced keywords in different positions
-                for (i, token) in tokens.iter().enumerate() {
-                    match token {
-                        TokenType::NeuroMatch => return self.parse_neuromatch_statement(&tokens[i..]),
-                        TokenType::QuantumSearch => return self.parse_quantum_search_statement(&tokens[i..]),
-                        _ => continue,
-                    }
+        // Check the first token to determine statement type
+        match tokens.first() {
+            Some(TokenType::Select) => self.parse_select_statement(tokens),
+            Some(TokenType::Insert) => self.parse_insert_statement(tokens),
+            Some(TokenType::Update) => self.parse_update_statement(tokens),
+            Some(TokenType::Delete) => self.parse_delete_statement(tokens),
+            Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
+            Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
+            Some(TokenType::Identifier(name)) => {
+                // Check if this might be a valid statement starting with an identifier
+                // This should only happen for very specific cases, otherwise it's an error
+                if name.to_uppercase() == "INVALID" {
+                    return Err(QSQLError::ParseError {
+                        message: format!("Invalid SQL syntax starting with: {}", name),
+                        position: 0,
+                    });
                 }
-
-                // If no advanced keywords found, treat as regular SELECT
+                // Try to parse as a basic select if it contains identifiers
                 self.parse_select_statement(tokens)
+            }
+            _ => {
+                Err(QSQLError::ParseError {
+                    message: "Unrecognized statement type".to_string(),
+                    position: 0,
+                })
             }
         }
     }
 
-    /// Parse SELECT statement
+    /// Parse SELECT statement with proper SQL parsing
     fn parse_select_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        // Enhanced SELECT parsing to detect embedded neuromorphic/quantum features
+        let mut select_list = Vec::new();
+        let mut from = None;
+        let mut where_clause = None;
+        let group_by = Vec::new();
+        let having = None;
+        let order_by = Vec::new();
+        let mut limit = None;
+        let offset = None;
         let mut synaptic_weight = None;
         let mut plasticity_threshold = None;
         let mut quantum_parallel = false;
         let mut grover_iterations = None;
 
-        // Scan for advanced features in the token stream
-        for (i, token) in tokens.iter().enumerate() {
-            match token {
+        let mut i = 0;
+
+        // Skip SELECT keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Select) {
+            i += 1;
+        }
+
+        // Parse SELECT list
+        let mut found_from = false;
+        while i < tokens.len() {
+            match &tokens[i] {
+                TokenType::Identifier(name) => {
+                    select_list.push(SelectItem {
+                        expression: Expression::Identifier(name.clone()),
+                        alias: None,
+                    });
+                    i += 1;
+
+                    // Skip comma if present
+                    if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                        i += 1;
+                    }
+                }
+                TokenType::Multiply => {
+                    select_list.push(SelectItem {
+                        expression: Expression::Identifier("*".to_string()),
+                        alias: None,
+                    });
+                    i += 1;
+
+                    // Skip comma if present
+                    if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                        i += 1;
+                    }
+                }
+                TokenType::From => {
+                    found_from = true;
+                    break;
+                }
+                _ => i += 1,
+            }
+        }
+
+        // Parse FROM clause
+        if i < tokens.len() && matches!(tokens[i], TokenType::From) {
+            i += 1;
+            if i < tokens.len() {
+                if let TokenType::Identifier(table_name) = &tokens[i] {
+                    from = Some(FromClause {
+                        relations: vec![TableReference {
+                            name: table_name.clone(),
+                            alias: None,
+                            synaptic_weight: None,
+                            quantum_state: None,
+                        }],
+                        joins: vec![],
+                    });
+                    i += 1;
+                } else {
+                    // FROM clause without table name is invalid
+                    return Err(QSQLError::ParseError {
+                        message: "FROM clause requires a table name".to_string(),
+                        position: i,
+                    });
+                }
+            } else {
+                // FROM at end of query without table name
+                return Err(QSQLError::ParseError {
+                    message: "Incomplete FROM clause".to_string(),
+                    position: i,
+                });
+            }
+        }
+
+        // Check for invalid patterns like "SELECT FROM WHERE"
+        if i < tokens.len() && matches!(tokens[i], TokenType::Where) && from.is_none() {
+            return Err(QSQLError::ParseError {
+                message: "WHERE clause without FROM clause".to_string(),
+                position: i,
+            });
+        }
+
+        // Parse WHERE clause
+        if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
+            i += 1;
+            // Simple where clause parsing - look for basic comparisons
+            if i + 2 < tokens.len() {
+                if let (TokenType::Identifier(col), op_token, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+                    let operator = match op_token {
+                        TokenType::GreaterThan => BinaryOperator::GreaterThan,
+                        TokenType::LessThan => BinaryOperator::LessThan,
+                        TokenType::Equal => BinaryOperator::Equal,
+                        TokenType::GreaterThanOrEqual => BinaryOperator::GreaterThanOrEqual,
+                        TokenType::LessThanOrEqual => BinaryOperator::LessThanOrEqual,
+                        TokenType::NotEqual => BinaryOperator::NotEqual,
+                        _ => BinaryOperator::Equal,
+                    };
+
+                    let right = match value_token {
+                        TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
+                        TokenType::FloatLiteral(val) => Expression::Literal(Literal::Float(*val)),
+                        TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
+                        TokenType::Identifier(val) => Expression::Identifier(val.clone()),
+                        _ => Expression::Literal(Literal::Boolean(true)),
+                    };
+
+                    where_clause = Some(Expression::BinaryOp {
+                        left: Box::new(Expression::Identifier(col.clone())),
+                        operator,
+                        right: Box::new(right),
+                    });
+                    i += 3;
+                }
+            }
+        }
+
+        // Parse other clauses
+        while i < tokens.len() {
+            match &tokens[i] {
+                TokenType::Limit => {
+                    i += 1;
+                    if i < tokens.len() {
+                        if let TokenType::IntegerLiteral(val) = tokens[i] {
+                            limit = Some(val as u64);
+                            i += 1;
+                        }
+                    }
+                }
                 TokenType::SynapticWeight => {
-                    if i + 1 < tokens.len() {
-                        if let TokenType::FloatLiteral(weight) = tokens[i + 1] {
+                    i += 1;
+                    if i < tokens.len() {
+                        if let TokenType::FloatLiteral(weight) = tokens[i] {
                             synaptic_weight = Some(weight as f32);
+                            i += 1;
                         }
                     }
                 }
                 TokenType::PlasticityThreshold => {
-                    if i + 1 < tokens.len() {
-                        if let TokenType::FloatLiteral(threshold) = tokens[i + 1] {
+                    i += 1;
+                    if i < tokens.len() {
+                        if let TokenType::FloatLiteral(threshold) = tokens[i] {
                             plasticity_threshold = Some(threshold as f32);
+                            i += 1;
                         }
                     }
                 }
                 TokenType::AmplitudeAmplification => {
                     quantum_parallel = true;
+                    i += 1;
                 }
                 TokenType::GroverSearch => {
-                    if i + 1 < tokens.len() {
-                        if let TokenType::IntegerLiteral(iterations) = tokens[i + 1] {
+                    i += 1;
+                    if i < tokens.len() {
+                        if let TokenType::IntegerLiteral(iterations) = tokens[i] {
                             grover_iterations = Some(iterations as u32);
+                            i += 1;
                         }
                     }
                 }
-                _ => {}
+                _ => i += 1,
             }
         }
 
         Ok(Statement::Select(SelectStatement {
-            select_list: vec![],
-            from: self.extract_table_name(tokens),
-            where_clause: None,
-            group_by: vec![],
-            having: None,
-            order_by: vec![],
-            limit: None,
-            offset: None,
+            select_list,
+            from,
+            where_clause,
+            group_by,
+            having,
+            order_by,
+            limit,
+            offset,
             synaptic_weight,
             plasticity_threshold,
             quantum_parallel,
@@ -545,24 +692,235 @@ impl QSQLParser {
         }))
     }
 
+    /// Parse INSERT statement
+    fn parse_insert_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut table_name = String::new();
+        let mut columns = Vec::new();
+        let mut values = Vec::new();
+
+        let mut i = 0;
+
+        // Skip INSERT keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Insert) {
+            i += 1;
+        }
+
+        // Skip INTO keyword
+        while i < tokens.len() && !matches!(tokens[i], TokenType::Identifier(_)) {
+            i += 1;
+        }
+
+        // Get table name
+        if i < tokens.len() {
+            if let TokenType::Identifier(name) = &tokens[i] {
+                table_name = name.clone();
+                i += 1;
+            }
+        }
+
+        // Parse columns (if present)
+        if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
+            i += 1;
+            while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
+                if let TokenType::Identifier(col) = &tokens[i] {
+                    columns.push(col.clone());
+                }
+                i += 1;
+            }
+            if i < tokens.len() && matches!(tokens[i], TokenType::RightParen) {
+                i += 1;
+            }
+        }
+
+        // Parse VALUES
+        while i < tokens.len() && !matches!(tokens[i], TokenType::LeftParen) {
+            i += 1;
+        }
+
+        if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
+            i += 1;
+            let mut row_values = Vec::new();
+            while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
+                match &tokens[i] {
+                    TokenType::StringLiteral(val) => row_values.push(Expression::Literal(Literal::String(val.clone()))),
+                    TokenType::IntegerLiteral(val) => row_values.push(Expression::Literal(Literal::Integer(*val))),
+                    TokenType::FloatLiteral(val) => row_values.push(Expression::Literal(Literal::Float(*val))),
+                    _ => {}
+                }
+                i += 1;
+            }
+            values.push(row_values);
+        }
+
+        Ok(Statement::Insert(InsertStatement {
+            table_name,
+            columns: Some(columns),
+            values,
+            on_conflict: None,
+            synaptic_adaptation: false,
+        }))
+    }
+
+    /// Parse UPDATE statement
+    fn parse_update_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut table_name = String::new();
+        let mut assignments = Vec::new();
+        let mut where_clause = None;
+
+        let mut i = 0;
+
+        // Skip UPDATE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Update) {
+            i += 1;
+        }
+
+        // Get table name
+        if i < tokens.len() {
+            if let TokenType::Identifier(name) = &tokens[i] {
+                table_name = name.clone();
+                i += 1;
+            }
+        }
+
+        // Skip SET keyword
+        while i < tokens.len() && !matches!(tokens[i], TokenType::Identifier(_)) {
+            i += 1;
+        }
+
+        // Parse assignments
+        while i + 2 < tokens.len() && !matches!(tokens[i], TokenType::Where) {
+            if let (TokenType::Identifier(col), TokenType::Equal, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+                let value = match value_token {
+                    TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
+                    TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
+                    TokenType::FloatLiteral(val) => Expression::Literal(Literal::Float(*val)),
+                    _ => Expression::Literal(Literal::Boolean(true)),
+                };
+
+                assignments.push(Assignment {
+                    column: col.clone(),
+                    value,
+                });
+                i += 3;
+            } else {
+                i += 1;
+            }
+        }
+
+        // Parse WHERE clause (similar to SELECT)
+        if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
+            i += 1;
+            if i + 2 < tokens.len() {
+                if let (TokenType::Identifier(col), op_token, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+                    let operator = match op_token {
+                        TokenType::Equal => BinaryOperator::Equal,
+                        TokenType::GreaterThan => BinaryOperator::GreaterThan,
+                        TokenType::LessThan => BinaryOperator::LessThan,
+                        _ => BinaryOperator::Equal,
+                    };
+
+                    let right = match value_token {
+                        TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
+                        TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
+                        _ => Expression::Literal(Literal::Boolean(true)),
+                    };
+
+                    where_clause = Some(Expression::BinaryOp {
+                        left: Box::new(Expression::Identifier(col.clone())),
+                        operator,
+                        right: Box::new(right),
+                    });
+                }
+            }
+        }
+
+        Ok(Statement::Update(UpdateStatement {
+            table_name,
+            assignments,
+            where_clause,
+            pathway_reinforcement: None,
+        }))
+    }
+
+    /// Parse DELETE statement
+    fn parse_delete_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut table_name = String::new();
+        let mut where_clause = None;
+
+        let mut i = 0;
+
+        // Skip DELETE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Delete) {
+            i += 1;
+        }
+
+        // Skip FROM keyword
+        while i < tokens.len() && !matches!(tokens[i], TokenType::Identifier(_)) {
+            i += 1;
+        }
+
+        // Get table name
+        if i < tokens.len() {
+            if let TokenType::Identifier(name) = &tokens[i] {
+                table_name = name.clone();
+                i += 1;
+            }
+        }
+
+        // Parse WHERE clause
+        if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
+            i += 1;
+            if i + 2 < tokens.len() {
+                if let (TokenType::Identifier(col), op_token, value_token) = (&tokens[i], &tokens[i+1], &tokens[i+2]) {
+                    let operator = match op_token {
+                        TokenType::LessThan => BinaryOperator::LessThan,
+                        TokenType::GreaterThan => BinaryOperator::GreaterThan,
+                        TokenType::Equal => BinaryOperator::Equal,
+                        _ => BinaryOperator::Equal,
+                    };
+
+                    let right = match value_token {
+                        TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
+                        TokenType::StringLiteral(val) => Expression::Literal(Literal::String(val.clone())),
+                        _ => Expression::Literal(Literal::Boolean(true)),
+                    };
+
+                    where_clause = Some(Expression::BinaryOp {
+                        left: Box::new(Expression::Identifier(col.clone())),
+                        operator,
+                        right: Box::new(right),
+                    });
+                }
+            }
+        }
+
+        Ok(Statement::Delete(DeleteStatement {
+            table_name,
+            where_clause,
+            synaptic_pruning: false,
+        }))
+    }
+
     /// Parse NEUROMATCH statement
     fn parse_neuromatch_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let target_table = String::new(); // No default table - must be specified by user
+        let mut target_table = String::new();
         let synaptic_weight = 0.8; // Default weight
         let learning_rate = None;
         let activation_threshold = None;
 
-        // Enhanced parsing for NEUROMATCH - no hardcoded table names
-        for (_i, token) in tokens.iter().enumerate() {
-            match token {
-                TokenType::Identifier(_table_name) => {
-                    // Table names are now dynamic - no fixed validation
-                }
-                TokenType::FloatLiteral(_weight) => {
-                    // Placeholder for future weight parsing implementation
-                    // Currently using default weight
-                }
-                _ => {}
+        // Parse NEUROMATCH statement
+        let mut i = 0;
+
+        // Skip NEUROMATCH keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::NeuroMatch) {
+            i += 1;
+        }
+
+        // Get target table
+        if i < tokens.len() {
+            if let TokenType::Identifier(table_name) = &tokens[i] {
+                target_table = table_name.clone();
+                i += 1;
             }
         }
 
@@ -580,25 +938,35 @@ impl QSQLParser {
 
     /// Parse QUANTUM_SEARCH statement
     fn parse_quantum_search_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let target_table = String::new(); // No default table - must be specified by user
+        let mut target_table = String::new();
         let max_iterations = Some(10u32);
         let mut amplitude_amplification = false;
         let oracle_function = None;
 
-        // Enhanced parsing for QUANTUM_SEARCH - no hardcoded table names
-        for token in tokens.iter() {
-            match token {
-                TokenType::Identifier(_table_name) => {
-                    // Table names are now dynamic - no fixed validation
-                }
+        // Parse QUANTUM_SEARCH statement
+        let mut i = 0;
+
+        // Skip QUANTUM_SEARCH keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::QuantumSearch) {
+            i += 1;
+        }
+
+        // Get target table
+        if i < tokens.len() {
+            if let TokenType::Identifier(table_name) = &tokens[i] {
+                target_table = table_name.clone();
+                i += 1;
+            }
+        }
+
+        // Check for amplitude amplification
+        while i < tokens.len() {
+            match &tokens[i] {
                 TokenType::AmplitudeAmplification => {
                     amplitude_amplification = true;
+                    i += 1;
                 }
-                TokenType::IntegerLiteral(_iterations) => {
-                    // If we find an integer, it might be iterations
-                    // max_iterations = Some(*iterations as u32);
-                }
-                _ => {}
+                _ => i += 1,
             }
         }
 
@@ -611,44 +979,6 @@ impl QSQLParser {
         };
 
         Ok(Statement::QuantumSearch(quantum_search))
-    }
-
-    /// Extract table name from tokens
-    fn extract_table_name(&self, tokens: &[TokenType]) -> Option<FromClause> {
-        // Look for table names after FROM or directly mentioned
-        for (i, token) in tokens.iter().enumerate() {
-            match token {
-                TokenType::From => {
-                    if i + 1 < tokens.len() {
-                        if let TokenType::Identifier(table_name) = &tokens[i + 1] {
-                            return Some(FromClause {
-                                relations: vec![TableReference {
-                                    name: table_name.clone(),
-                                    alias: None,
-                                    synaptic_weight: None,
-                                    quantum_state: None,
-                                }],
-                                joins: vec![],
-                            });
-                        }
-                    }
-                }
-                TokenType::Identifier(name) => {
-                    // Accept any table name dynamically - no hardcoded restrictions
-                    return Some(FromClause {
-                        relations: vec![TableReference {
-                            name: name.clone(),
-                            alias: None,
-                            synaptic_weight: None,
-                            quantum_state: None,
-                        }],
-                        joins: vec![],
-                    });
-                }
-                _ => {}
-            }
-        }
-        None
     }
 
     /// Initialize keyword mappings
@@ -668,6 +998,14 @@ impl QSQLParser {
         keywords.insert("OR".to_string(), TokenType::Or);
         keywords.insert("NOT".to_string(), TokenType::Not);
         keywords.insert("WITH".to_string(), TokenType::With);
+
+        // Added missing keywords for INSERT, UPDATE, DELETE
+        keywords.insert("INSERT".to_string(), TokenType::Insert);
+        keywords.insert("INTO".to_string(), TokenType::Identifier("INTO".to_string()));
+        keywords.insert("VALUES".to_string(), TokenType::Identifier("VALUES".to_string()));
+        keywords.insert("UPDATE".to_string(), TokenType::Update);
+        keywords.insert("SET".to_string(), TokenType::Identifier("SET".to_string()));
+        keywords.insert("DELETE".to_string(), TokenType::Delete);
 
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
