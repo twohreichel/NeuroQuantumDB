@@ -37,3 +37,4 @@ Das Setup-Script installiert automatisch:
 
 ---
 
+Have a look at the [Wiki](https://twoh-me.github.io/NeuroQuantumDB/) for more information.
