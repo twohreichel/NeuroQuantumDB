@@ -9,12 +9,14 @@ use std::time::Instant;
 
 // Mock-Strukturen für Demo-Zwecke
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MockNeuroQuantumDB {
     data: HashMap<String, Vec<u8>>,
     performance_metrics: MockMetrics,
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MockMetrics {
     pub arm64_neon_utilization: f32,
     pub compression_ratio: f32,
@@ -22,6 +24,7 @@ pub struct MockMetrics {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MockQueryRequest {
     pub query: String,
     pub filters: Vec<serde_json::Value>,
@@ -30,6 +33,7 @@ pub struct MockQueryRequest {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MockQueryResult {
     pub results: Vec<serde_json::Value>,
     pub execution_time_ms: u64,
@@ -37,6 +41,7 @@ pub struct MockQueryResult {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MockDatabaseConfig {
     pub enable_quantum: bool,
     pub enable_neuromorphic: bool,
@@ -54,6 +59,7 @@ impl Default for MockDatabaseConfig {
 }
 
 impl MockNeuroQuantumDB {
+    #[allow(dead_code)]
     pub async fn new(_config: &MockDatabaseConfig) -> anyhow::Result<Self> {
         Ok(Self {
             data: HashMap::new(),
@@ -65,6 +71,7 @@ impl MockNeuroQuantumDB {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn store_with_dna_compression(
         &mut self,
         key: &str,
@@ -76,6 +83,7 @@ impl MockNeuroQuantumDB {
         Ok(compressed)
     }
 
+    #[allow(dead_code)]
     pub async fn quantum_search(
         &mut self,
         request: MockQueryRequest,
@@ -95,16 +103,19 @@ impl MockNeuroQuantumDB {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn get_performance_metrics(&self) -> anyhow::Result<MockMetrics> {
         Ok(self.performance_metrics.clone())
     }
 
+    #[allow(dead_code)]
     fn simulate_dna_compression(&self, data: &[u8]) -> Vec<u8> {
         // Simuliere DNA-Kompression (vereinfacht)
         let compressed_size = (data.len() as f32 / 4.2) as usize; // 4.2:1 Verhältnis
         vec![0u8; compressed_size.max(1)]
     }
 
+    #[allow(dead_code)]
     fn simulate_grovers_search(&self, request: &MockQueryRequest) -> Vec<serde_json::Value> {
         // Simuliere Quantum Search-Ergebnisse
         let result_count = request.limit.unwrap_or(10).min(50);

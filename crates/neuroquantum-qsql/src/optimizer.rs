@@ -611,10 +611,15 @@ impl Default for NeuromorphicOptimizer {
             Ok(optimizer) => optimizer,
             Err(_) => {
                 // Fallback to a minimal optimizer if creation fails
+                // Create minimal neuromorphic components with basic parameters
+                let synaptic_network = SynapticNetwork::new(100, 0.5).ok();
+                let hebbian_learner = HebbianLearningEngine::new(0.01).ok();
+                let plasticity_matrix = PlasticityMatrix::new(50, 0.01).ok();
+
                 NeuromorphicOptimizer {
-                    synaptic_network: SynapticNetwork::new(1000, 0.5).unwrap_or_default(),
-                    hebbian_learner: HebbianLearningEngine::new(0.01).unwrap_or_default(),
-                    plasticity_matrix: PlasticityMatrix::new(100, 0.01).unwrap_or_default(),
+                    synaptic_network,
+                    hebbian_learner,
+                    plasticity_matrix,
                     query_patterns: HashMap::new(),
                     optimization_stats: OptimizationStats::default(),
                     config: OptimizerConfig::default(),

@@ -304,24 +304,29 @@ impl TestDataFactory {
 }
 
 /// Erwartete Ergebnisse für Validierung
+#[allow(dead_code)]
 pub struct ExpectedResults;
 
 impl ExpectedResults {
+    #[allow(dead_code)]
     pub fn quantum_search_speedup() -> f32 {
         // Erwartete quadratische Beschleunigung bei Quantum Search
         2.0
     }
 
+    #[allow(dead_code)]
     pub fn dna_compression_ratio() -> f32 {
         // Erwartete DNA-Kompressionsrate
         4.0
     }
 
+    #[allow(dead_code)]
     pub fn neuromorphic_learning_accuracy() -> f32 {
         // Erwartete Lerngenauigkeit
         0.85
     }
 
+    #[allow(dead_code)]
     pub fn api_response_time_ms() -> u64 {
         // Maximale akzeptable API-Antwortzeit
         500

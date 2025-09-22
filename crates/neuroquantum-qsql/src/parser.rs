@@ -1113,8 +1113,9 @@ impl Default for QSQLParser {
                 // Fallback to a minimal parser if creation fails
                 QSQLParser {
                     config: ParserConfig::default(),
-                    optimization_hints: Vec::new(),
-                    parsing_stats: ParsingStats::default(),
+                    natural_language_processor: None,
+                    keywords: HashMap::new(),
+                    operators: HashMap::new(),
                 }
             }
         }
