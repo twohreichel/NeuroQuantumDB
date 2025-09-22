@@ -432,6 +432,7 @@ impl StorageEngine {
 
         let existing_rows = self.select_rows(&select_query).await?;
         let mut updated_count = 0;
+        let mut updated_rows = Vec::new();
 
         for mut row in existing_rows {
             let old_row = row.clone();
@@ -447,11 +448,14 @@ impl StorageEngine {
             self.validate_row(schema, &row)?;
 
             // Update compressed data
-            let compressed_data = self.compress_row(&mut row).await?;
+            let compressed_data = self.compress_row(&row).await?;
             self.compressed_blocks.insert(row.id, compressed_data);
 
             // Update cache
             self.add_to_cache(row.clone());
+
+            // Keep track of updated rows for file rewrite
+            updated_rows.push(row.clone());
 
             // Log operation
             let operation = Operation::Update {
@@ -465,9 +469,9 @@ impl StorageEngine {
             updated_count += 1;
         }
 
-        // Rewrite table file
+        // Rewrite table file with updated data
         if updated_count > 0 {
-            self.rewrite_table_file(&query.table).await?;
+            self.rewrite_table_file_with_updates(&query.table, &updated_rows).await?;
         }
 
         debug!("✅ Updated {} rows", updated_count);
@@ -490,8 +494,12 @@ impl StorageEngine {
 
         let rows_to_delete = self.select_rows(&select_query).await?;
         let deleted_count = rows_to_delete.len();
+        let mut deleted_row_ids = Vec::new();
 
         for row in rows_to_delete {
+            // Keep track of deleted row IDs
+            deleted_row_ids.push(row.id);
+
             // Remove from compressed blocks
             self.compressed_blocks.remove(&row.id);
 
@@ -511,9 +519,9 @@ impl StorageEngine {
             self.log_operation(operation).await?;
         }
 
-        // Rewrite table file
+        // Rewrite table file without deleted rows
         if deleted_count > 0 {
-            self.rewrite_table_file(&query.table).await?;
+            self.rewrite_table_file_with_deletions(&query.table, &deleted_row_ids).await?;
         }
 
         debug!("✅ Deleted {} rows", deleted_count);
@@ -831,22 +839,66 @@ impl StorageEngine {
         Ok(())
     }
 
-    /// Rewrite entire table file (for updates/deletes)
-    async fn rewrite_table_file(&mut self, table: &str) -> Result<()> {
+    /// Rewrite table file with updated rows
+    async fn rewrite_table_file_with_updates(&mut self, table: &str, updated_rows: &[Row]) -> Result<()> {
         let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
 
-        // Collect all current rows for this table by loading from file instead of compressed blocks
-        // This avoids the borrow checker issue with decompress_row
-        let current_rows = self.load_table_rows(table).await?;
+        // Create a HashMap of updated rows for quick lookup
+        let updated_map: HashMap<RowId, &Row> = updated_rows.iter().map(|r| (r.id, r)).collect();
 
-        // Write all rows to file
-        let mut content = String::new();
-        for row in current_rows {
-            content.push_str(&serde_json::to_string(&row)?);
-            content.push('\n');
+        // Load all existing rows
+        let existing_rows = self.load_table_rows(table).await?;
+
+        // Create a temporary file
+        let temp_path = table_path.with_extension("tmp");
+        let mut temp_file = fs::File::create(&temp_path).await?;
+
+        // Write all rows to temporary file (updated ones with new data, others as-is)
+        for existing_row in existing_rows {
+            let row_to_write = if let Some(updated_row) = updated_map.get(&existing_row.id) {
+                updated_row
+            } else {
+                &existing_row
+            };
+
+            let row_json = serde_json::to_string(row_to_write)?;
+            temp_file.write_all(row_json.as_bytes()).await?;
+            temp_file.write_all(b"\n").await?;
         }
 
-        fs::write(&table_path, content).await?;
+        temp_file.flush().await?;
+
+        // Replace the original file with the temporary file
+        fs::rename(&temp_path, &table_path).await?;
+
+        Ok(())
+    }
+
+    /// Rewrite table file with deleted rows
+    async fn rewrite_table_file_with_deletions(&mut self, table: &str, deleted_row_ids: &[RowId]) -> Result<()> {
+        let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
+
+        // Create a temporary file
+        let temp_path = table_path.with_extension("tmp");
+        let mut temp_file = fs::File::create(&temp_path).await?;
+
+        // Load existing rows
+        let existing_rows = self.load_table_rows(table).await?;
+
+        // Write rows that are not deleted to temporary file
+        for row in existing_rows {
+            if !deleted_row_ids.contains(&row.id) {
+                let row_json = serde_json::to_string(&row)?;
+                temp_file.write_all(row_json.as_bytes()).await?;
+                temp_file.write_all(b"\n").await?;
+            }
+        }
+
+        temp_file.flush().await?;
+
+        // Replace the original file with the temporary file
+        fs::rename(&temp_path, &table_path).await?;
+
         Ok(())
     }
 

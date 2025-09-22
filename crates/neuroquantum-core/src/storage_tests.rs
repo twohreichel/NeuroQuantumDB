@@ -6,7 +6,6 @@ use tokio;
 use tempfile::TempDir;
 
 use crate::storage::*;
-use crate::dna::DNACompressor;
 
 #[tokio::test]
 async fn test_storage_engine_initialization() {
@@ -15,7 +14,7 @@ async fn test_storage_engine_initialization() {
 
     assert!(storage.is_ok(), "Storage engine should initialize successfully");
 
-    let storage = storage.unwrap();
+    let _storage = storage.unwrap();
     // Verify directory structure was created
     assert!(temp_dir.path().join("tables").exists());
     assert!(temp_dir.path().join("indexes").exists());
