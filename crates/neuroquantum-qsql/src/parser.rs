@@ -494,16 +494,23 @@ impl QSQLParser {
             Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
             Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
             Some(TokenType::Identifier(name)) => {
-                // Check if this might be a valid statement starting with an identifier
-                // This should only happen for very specific cases, otherwise it's an error
-                if name.to_uppercase() == "INVALID" {
-                    return Err(QSQLError::ParseError {
-                        message: format!("Invalid SQL syntax starting with: {}", name),
-                        position: 0,
-                    });
+                // Only allow specific known SQL keywords that might start statements
+                match name.to_uppercase().as_str() {
+                    "WITH" | "CTE" => {
+                        // Could be extended to support WITH clauses in the future
+                        Err(QSQLError::ParseError {
+                            message: format!("Unsupported statement type: {}", name),
+                            position: 0,
+                        })
+                    }
+                    _ => {
+                        // Any other identifier starting a statement is invalid SQL
+                        Err(QSQLError::ParseError {
+                            message: format!("Invalid SQL syntax starting with: {}", name),
+                            position: 0,
+                        })
+                    }
                 }
-                // Try to parse as a basic select if it contains identifiers
-                self.parse_select_statement(tokens)
             }
             _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
@@ -521,11 +528,11 @@ impl QSQLParser {
         let mut having = None;
         let mut order_by = Vec::new();
         let mut limit = None;
-        let offset = None; // Remove mut - not modified in current implementation
-        let synaptic_weight = None; // Remove mut - not modified in current implementation
-        let plasticity_threshold = None; // Remove mut - not modified in current implementation
-        let quantum_parallel = false; // Remove mut - not modified in current implementation
-        let grover_iterations = None; // Remove mut - not modified in current implementation
+        let offset = None;
+        let synaptic_weight = None;
+        let plasticity_threshold = None;
+        let quantum_parallel = false;
+        let grover_iterations = None;
 
         let mut i = 0;
 
@@ -560,6 +567,14 @@ impl QSQLParser {
                 }
                 _ => break,
             }
+        }
+
+        // Validate that we have at least one column in SELECT list
+        if select_list.is_empty() {
+            return Err(QSQLError::ParseError {
+                message: "SELECT statement must specify at least one column".to_string(),
+                position: i,
+            });
         }
 
         // Parse FROM clause
