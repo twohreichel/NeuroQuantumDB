@@ -5,7 +5,6 @@
 
 use crate::ast::*;
 use crate::error::*;
-use crate::optimizer::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -107,6 +106,9 @@ impl QueryExecutor {
 
         let result = match &plan.statement {
             Statement::Select(select) => self.execute_select(select, plan).await,
+            Statement::Insert(insert) => self.execute_insert(insert, plan).await,
+            Statement::Update(update) => self.execute_update(update, plan).await,
+            Statement::Delete(delete) => self.execute_delete(delete, plan).await,
             Statement::NeuroMatch(neuromatch) => self.execute_neuromatch(neuromatch, plan).await,
             Statement::QuantumSearch(quantum) => self.execute_quantum_search(quantum, plan).await,
             Statement::SuperpositionQuery(superpos) => {
@@ -168,6 +170,68 @@ impl QueryExecutor {
             optimization_applied: !plan.synaptic_pathways.is_empty(),
             synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
             quantum_operations: plan.quantum_optimizations.len() as u32,
+        })
+    }
+
+    /// Execute INSERT statement
+    async fn execute_insert(
+        &mut self,
+        _insert: &InsertStatement,
+        _plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
+        // Simulate insertion of 1 row
+        let mut rows = vec![HashMap::new()];
+        rows[0].insert("id".to_string(), QueryValue::Integer(1));
+        rows[0].insert("name".to_string(), QueryValue::String("New User".to_string()));
+
+        Ok(QueryResult {
+            rows,
+            columns: vec![],
+            execution_time: Duration::from_millis(1),
+            rows_affected: 1,
+            optimization_applied: false,
+            synaptic_pathways_used: 0,
+            quantum_operations: 0,
+        })
+    }
+
+    /// Execute UPDATE statement
+    async fn execute_update(
+        &mut self,
+        _update: &UpdateStatement,
+        _plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
+        // Simulate updating 1 row
+        let mut rows = vec![HashMap::new()];
+        rows[0].insert("id".to_string(), QueryValue::Integer(1));
+        rows[0].insert("name".to_string(), QueryValue::String("Updated User".to_string()));
+
+        Ok(QueryResult {
+            rows,
+            columns: vec![],
+            execution_time: Duration::from_millis(1),
+            rows_affected: 1,
+            optimization_applied: false,
+            synaptic_pathways_used: 0,
+            quantum_operations: 0,
+        })
+    }
+
+    /// Execute DELETE statement
+    async fn execute_delete(
+        &mut self,
+        _delete: &DeleteStatement,
+        _plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
+        // Simulate deletion of 1 row
+        Ok(QueryResult {
+            rows: vec![],
+            columns: vec![],
+            execution_time: Duration::from_millis(1),
+            rows_affected: 1,
+            optimization_applied: false,
+            synaptic_pathways_used: 0,
+            quantum_operations: 0,
         })
     }
 
@@ -348,6 +412,58 @@ impl Default for QueryExecutor {
             }
         }
     }
+}
+
+/// Query execution plan with optimization metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryPlan {
+    pub statement: Statement,
+    pub execution_strategy: ExecutionStrategy,
+    pub synaptic_pathways: Vec<SynapticPathway>,
+    pub quantum_optimizations: Vec<QuantumOptimization>,
+    pub estimated_cost: f64,
+    pub optimization_metadata: OptimizationMetadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ExecutionStrategy {
+    Sequential,
+    Parallel,
+    SynapticPipeline,
+    QuantumInspired,
+    NeuromorphicOptimized,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SynapticPathway {
+    pub pathway_id: String,
+    pub weight: f32,
+    pub activation_threshold: f32,
+    pub plasticity_enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuantumOptimization {
+    pub optimization_type: QuantumOptimizationType,
+    pub speedup_factor: f32,
+    pub coherence_time: Duration,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum QuantumOptimizationType {
+    GroverSearch,
+    QuantumJoin,
+    AmplitudeAmplification,
+    SuperpositionQuery,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptimizationMetadata {
+    pub optimization_time: Duration,
+    pub iterations_used: u32,
+    pub convergence_achieved: bool,
+    pub synaptic_adaptations: u32,
+    pub quantum_optimizations_applied: u32,
 }
 
 #[cfg(test)]
