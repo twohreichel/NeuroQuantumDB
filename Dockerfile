@@ -8,14 +8,15 @@ ARG TARGETPLATFORM=linux/arm64
 # Stage 1: Rust builder
 FROM rust:latest AS rust-builder
 
-# Install build dependencies including cross-compilation tools
-RUN apt-get update && apt-get install -y \
+# Configure multiarch support and ARM64 repositories
+RUN dpkg --add-architecture arm64 && \
+    apt-get update && \
+    apt-get install -y \
     pkg-config \
     libssl-dev \
     gcc-aarch64-linux-gnu \
     g++-aarch64-linux-gnu \
     libc6-dev-arm64-cross \
-    libssl-dev:arm64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up comprehensive cross-compilation environment
