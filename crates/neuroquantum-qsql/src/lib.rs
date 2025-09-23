@@ -176,6 +176,43 @@ impl QSQLEngine {
             return Err(anyhow::anyhow!("Empty query"));
         }
 
+        // Check cache first
+        if let Some(cached_plan) = self.cache.get(query) {
+            self.metrics.cache_hits += 1;
+
+            // Clone the plan to avoid borrowing issues
+            let plan_clone = cached_plan.plan.clone();
+            let execution_count = cached_plan.execution_count;
+
+            // Use the cached plan execution method
+            let exec_start = Instant::now();
+            let result = self.execute_cached_plan(&plan_clone).await?;
+            let exec_duration = exec_start.elapsed();
+
+            // Update cached plan statistics after execution
+            if let Some(cached_plan) = self.cache.get_mut(query) {
+                cached_plan.execution_count += 1;
+                cached_plan.last_accessed = Instant::now();
+                cached_plan.average_duration = Self::update_average(
+                    cached_plan.average_duration,
+                    exec_duration,
+                    execution_count,
+                );
+            }
+
+            self.metrics.average_execution_time = Self::update_average(
+                self.metrics.average_execution_time,
+                exec_duration,
+                self.metrics.queries_executed,
+            );
+            self.metrics.queries_executed += 1;
+
+            debug!("Query executed from cache in {:?}", start_time.elapsed());
+            return Ok(result);
+        }
+
+        self.metrics.cache_misses += 1;
+
         // Parse query - convert parsing errors to anyhow errors for proper propagation
         let parse_start = Instant::now();
         let ast = self

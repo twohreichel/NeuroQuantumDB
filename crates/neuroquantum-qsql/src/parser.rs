@@ -521,11 +521,11 @@ impl QSQLParser {
         let mut having = None;
         let mut order_by = Vec::new();
         let mut limit = None;
-        let mut offset = None;
-        let mut synaptic_weight = None;
-        let mut plasticity_threshold = None;
-        let mut quantum_parallel = false;
-        let mut grover_iterations = None;
+        let offset = None; // Remove mut - not modified in current implementation
+        let synaptic_weight = None; // Remove mut - not modified in current implementation
+        let plasticity_threshold = None; // Remove mut - not modified in current implementation
+        let quantum_parallel = false; // Remove mut - not modified in current implementation
+        let grover_iterations = None; // Remove mut - not modified in current implementation
 
         let mut i = 0;
 
@@ -635,7 +635,6 @@ impl QSQLParser {
             if i < tokens.len() {
                 if let TokenType::IntegerLiteral(n) = tokens[i] {
                     limit = Some(n as u64);
-                    i += 1;
                 }
             }
         }
