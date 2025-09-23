@@ -494,16 +494,23 @@ impl QSQLParser {
             Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
             Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
             Some(TokenType::Identifier(name)) => {
-                // Check if this might be a valid statement starting with an identifier
-                // This should only happen for very specific cases, otherwise it's an error
-                if name.to_uppercase() == "INVALID" {
-                    return Err(QSQLError::ParseError {
-                        message: format!("Invalid SQL syntax starting with: {}", name),
-                        position: 0,
-                    });
+                // Only allow specific known SQL keywords that might start statements
+                match name.to_uppercase().as_str() {
+                    "WITH" | "CTE" => {
+                        // Could be extended to support WITH clauses in the future
+                        Err(QSQLError::ParseError {
+                            message: format!("Unsupported statement type: {}", name),
+                            position: 0,
+                        })
+                    }
+                    _ => {
+                        // Any other identifier starting a statement is invalid SQL
+                        Err(QSQLError::ParseError {
+                            message: format!("Invalid SQL syntax starting with: {}", name),
+                            position: 0,
+                        })
+                    }
                 }
-                // Try to parse as a basic select if it contains identifiers
-                self.parse_select_statement(tokens)
             }
             _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
@@ -517,15 +524,15 @@ impl QSQLParser {
         let mut select_list = Vec::new();
         let mut from = None;
         let mut where_clause = None;
-        let group_by = Vec::new();
-        let having = None;
-        let order_by = Vec::new();
+        let mut group_by = Vec::new();
+        let mut having = None;
+        let mut order_by = Vec::new();
         let mut limit = None;
         let offset = None;
-        let mut synaptic_weight = None;
-        let mut plasticity_threshold = None;
-        let mut quantum_parallel = false;
-        let mut grover_iterations = None;
+        let synaptic_weight = None;
+        let plasticity_threshold = None;
+        let quantum_parallel = false;
+        let grover_iterations = None;
 
         let mut i = 0;
 
@@ -535,7 +542,11 @@ impl QSQLParser {
         }
 
         // Parse SELECT list
-        while i < tokens.len() {
+        loop {
+            if i >= tokens.len() || matches!(tokens[i], TokenType::From | TokenType::EOF) {
+                break;
+            }
+
             match &tokens[i] {
                 TokenType::Identifier(name) => {
                     select_list.push(SelectItem {
@@ -543,11 +554,6 @@ impl QSQLParser {
                         alias: None,
                     });
                     i += 1;
-
-                    // Skip comma if present
-                    if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
-                        i += 1;
-                    }
                 }
                 TokenType::Multiply => {
                     select_list.push(SelectItem {
@@ -555,17 +561,20 @@ impl QSQLParser {
                         alias: None,
                     });
                     i += 1;
-
-                    // Skip comma if present
-                    if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
-                        i += 1;
-                    }
                 }
-                TokenType::From => {
-                    break;
+                TokenType::Comma => {
+                    i += 1; // Skip comma and continue
                 }
-                _ => i += 1,
+                _ => break,
             }
+        }
+
+        // Validate that we have at least one column in SELECT list
+        if select_list.is_empty() {
+            return Err(QSQLError::ParseError {
+                message: "SELECT statement must specify at least one column".to_string(),
+                position: i,
+            });
         }
 
         // Parse FROM clause
@@ -583,114 +592,70 @@ impl QSQLParser {
                         joins: vec![],
                     });
                     i += 1;
-                } else {
-                    // FROM clause without table name is invalid
-                    return Err(QSQLError::ParseError {
-                        message: "FROM clause requires a table name".to_string(),
-                        position: i,
-                    });
                 }
-            } else {
-                // FROM at end of query without table name
-                return Err(QSQLError::ParseError {
-                    message: "Incomplete FROM clause".to_string(),
-                    position: i,
-                });
             }
-        }
-
-        // Check for invalid patterns like "SELECT FROM WHERE"
-        if i < tokens.len() && matches!(tokens[i], TokenType::Where) && from.is_none() {
-            return Err(QSQLError::ParseError {
-                message: "WHERE clause without FROM clause".to_string(),
-                position: i,
-            });
         }
 
         // Parse WHERE clause
         if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
             i += 1;
-            // Simple where clause parsing - look for basic comparisons
-            if i + 2 < tokens.len() {
-                if let (TokenType::Identifier(col), op_token, value_token) =
-                    (&tokens[i], &tokens[i + 1], &tokens[i + 2])
+            where_clause = Some(self.parse_expression(tokens, &mut i)?);
+        }
+
+        // Parse GROUP BY clause
+        if i + 1 < tokens.len() && matches!(tokens[i], TokenType::GroupBy) {
+            i += 2; // Skip "GROUP BY"
+            loop {
+                if i >= tokens.len()
+                    || matches!(
+                        tokens[i],
+                        TokenType::Having | TokenType::OrderBy | TokenType::Limit | TokenType::EOF
+                    )
                 {
-                    let operator = match op_token {
-                        TokenType::GreaterThan => BinaryOperator::GreaterThan,
-                        TokenType::LessThan => BinaryOperator::LessThan,
-                        TokenType::Equal => BinaryOperator::Equal,
-                        TokenType::GreaterThanOrEqual => BinaryOperator::GreaterThanOrEqual,
-                        TokenType::LessThanOrEqual => BinaryOperator::LessThanOrEqual,
-                        TokenType::NotEqual => BinaryOperator::NotEqual,
-                        _ => BinaryOperator::Equal,
-                    };
-
-                    let right = match value_token {
-                        TokenType::IntegerLiteral(val) => {
-                            Expression::Literal(Literal::Integer(*val))
-                        }
-                        TokenType::FloatLiteral(val) => Expression::Literal(Literal::Float(*val)),
-                        TokenType::StringLiteral(val) => {
-                            Expression::Literal(Literal::String(val.clone()))
-                        }
-                        TokenType::Identifier(val) => Expression::Identifier(val.clone()),
-                        _ => Expression::Literal(Literal::Boolean(true)),
-                    };
-
-                    where_clause = Some(Expression::BinaryOp {
-                        left: Box::new(Expression::Identifier(col.clone())),
-                        operator,
-                        right: Box::new(right),
-                    });
-                    i += 3;
+                    break;
+                }
+                group_by.push(self.parse_expression(tokens, &mut i)?);
+                if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                    i += 1;
+                } else {
+                    break;
                 }
             }
         }
 
-        // Parse other clauses
-        while i < tokens.len() {
-            match &tokens[i] {
-                TokenType::Limit => {
-                    i += 1;
-                    if i < tokens.len() {
-                        if let TokenType::IntegerLiteral(val) = tokens[i] {
-                            limit = Some(val as u64);
-                            i += 1;
-                        }
-                    }
+        // Parse HAVING clause
+        if i < tokens.len() && matches!(tokens[i], TokenType::Having) {
+            i += 1;
+            having = Some(self.parse_expression(tokens, &mut i)?);
+        }
+
+        // Parse ORDER BY clause
+        if i + 1 < tokens.len() && matches!(tokens[i], TokenType::OrderBy) {
+            i += 2; // Skip "ORDER BY"
+            loop {
+                if i >= tokens.len() || matches!(tokens[i], TokenType::Limit | TokenType::EOF) {
+                    break;
                 }
-                TokenType::SynapticWeight => {
+                let expr = self.parse_expression(tokens, &mut i)?;
+                order_by.push(OrderByItem {
+                    expression: expr,
+                    ascending: true, // Default to ASC
+                });
+                if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
                     i += 1;
-                    if i < tokens.len() {
-                        if let TokenType::FloatLiteral(weight) = tokens[i] {
-                            synaptic_weight = Some(weight as f32);
-                            i += 1;
-                        }
-                    }
+                } else {
+                    break;
                 }
-                TokenType::PlasticityThreshold => {
-                    i += 1;
-                    if i < tokens.len() {
-                        if let TokenType::FloatLiteral(threshold) = tokens[i] {
-                            plasticity_threshold = Some(threshold as f32);
-                            i += 1;
-                        }
-                    }
+            }
+        }
+
+        // Parse LIMIT clause
+        if i < tokens.len() && matches!(tokens[i], TokenType::Limit) {
+            i += 1;
+            if i < tokens.len() {
+                if let TokenType::IntegerLiteral(n) = tokens[i] {
+                    limit = Some(n as u64);
                 }
-                TokenType::AmplitudeAmplification => {
-                    quantum_parallel = true;
-                    i += 1;
-                }
-                TokenType::GroverSearch => {
-                    i += 1;
-                    if i < tokens.len() {
-                        if let TokenType::IntegerLiteral(iterations) = tokens[i] {
-                            grover_iterations = Some(iterations as u32);
-                            i += 1;
-                        }
-                    }
-                }
-                _ => i += 1,
             }
         }
 
@@ -712,10 +677,6 @@ impl QSQLParser {
 
     /// Parse INSERT statement
     fn parse_insert_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut table_name = String::new();
-        let mut columns = Vec::new();
-        let mut values = Vec::new();
-
         let mut i = 0;
 
         // Skip INSERT keyword
@@ -723,62 +684,141 @@ impl QSQLParser {
             i += 1;
         }
 
-        // Skip INTO keyword
-        while i < tokens.len() && !matches!(tokens[i], TokenType::Identifier(_)) {
-            i += 1;
-        }
-
-        // Get table name
+        // Skip INTO keyword (optional in some SQL dialects)
         if i < tokens.len() {
+            if let TokenType::Identifier(ref name) = tokens[i] {
+                if name.to_uppercase() == "INTO" {
+                    i += 1;
+                }
+            }
+        }
+
+        // Parse table name
+        let table_name = if i < tokens.len() {
             if let TokenType::Identifier(name) = &tokens[i] {
-                table_name = name.clone();
                 i += 1;
+                name.clone()
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected table name after INSERT".to_string(),
+                    position: i,
+                });
             }
-        }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Incomplete INSERT statement".to_string(),
+                position: i,
+            });
+        };
 
-        // Parse columns (if present)
+        // Parse column list (optional)
+        let mut columns = None;
         if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
-            i += 1;
-            while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
-                if let TokenType::Identifier(col) = &tokens[i] {
-                    columns.push(col.clone());
+            i += 1; // Skip '('
+            let mut col_list = Vec::new();
+
+            loop {
+                if i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Unclosed column list".to_string(),
+                        position: i,
+                    });
                 }
-                i += 1;
+
+                if matches!(tokens[i], TokenType::RightParen) {
+                    i += 1; // Skip ')'
+                    break;
+                }
+
+                if let TokenType::Identifier(col_name) = &tokens[i] {
+                    col_list.push(col_name.clone());
+                    i += 1;
+
+                    if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                        i += 1; // Skip ','
+                    }
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected column name".to_string(),
+                        position: i,
+                    });
+                }
             }
-            if i < tokens.len() && matches!(tokens[i], TokenType::RightParen) {
-                i += 1;
-            }
+
+            columns = Some(col_list);
         }
 
-        // Parse VALUES
-        while i < tokens.len() && !matches!(tokens[i], TokenType::LeftParen) {
-            i += 1;
+        // Parse VALUES clause
+        if i < tokens.len() {
+            if let TokenType::Identifier(ref name) = tokens[i] {
+                if name.to_uppercase() == "VALUES" {
+                    i += 1;
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected VALUES clause".to_string(),
+                        position: i,
+                    });
+                }
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected VALUES clause".to_string(),
+                    position: i,
+                });
+            }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected VALUES clause".to_string(),
+                position: i,
+            });
         }
 
-        if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
-            i += 1;
-            let mut row_values = Vec::new();
-            while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
-                match &tokens[i] {
-                    TokenType::StringLiteral(val) => {
-                        row_values.push(Expression::Literal(Literal::String(val.clone())))
-                    }
-                    TokenType::IntegerLiteral(val) => {
-                        row_values.push(Expression::Literal(Literal::Integer(*val)))
-                    }
-                    TokenType::FloatLiteral(val) => {
-                        row_values.push(Expression::Literal(Literal::Float(*val)))
-                    }
-                    _ => {}
-                }
-                i += 1;
+        let mut values = Vec::new();
+
+        // Parse value lists
+        loop {
+            if i >= tokens.len() || matches!(tokens[i], TokenType::EOF) {
+                break;
             }
-            values.push(row_values);
+
+            if matches!(tokens[i], TokenType::LeftParen) {
+                i += 1; // Skip '('
+                let mut value_list = Vec::new();
+
+                loop {
+                    if i >= tokens.len() {
+                        return Err(QSQLError::ParseError {
+                            message: "Unclosed value list".to_string(),
+                            position: i,
+                        });
+                    }
+
+                    if matches!(tokens[i], TokenType::RightParen) {
+                        i += 1; // Skip ')'
+                        break;
+                    }
+
+                    value_list.push(self.parse_expression(tokens, &mut i)?);
+
+                    if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                        i += 1; // Skip ','
+                    }
+                }
+
+                values.push(value_list);
+
+                if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                    i += 1; // Skip ',' between value lists
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
         }
 
         Ok(Statement::Insert(InsertStatement {
             table_name,
-            columns: Some(columns),
+            columns,
             values,
             on_conflict: None,
             synaptic_adaptation: false,
@@ -787,10 +827,6 @@ impl QSQLParser {
 
     /// Parse UPDATE statement
     fn parse_update_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut table_name = String::new();
-        let mut assignments = Vec::new();
-        let mut where_clause = None;
-
         let mut i = 0;
 
         // Skip UPDATE keyword
@@ -798,89 +834,103 @@ impl QSQLParser {
             i += 1;
         }
 
-        // Get table name
-        if i < tokens.len() {
+        // Parse table name
+        let table_name = if i < tokens.len() {
             if let TokenType::Identifier(name) = &tokens[i] {
-                table_name = name.clone();
                 i += 1;
-            }
-        }
-
-        // Skip SET keyword
-        while i < tokens.len() && !matches!(tokens[i], TokenType::Identifier(_)) {
-            i += 1;
-        }
-
-        // Parse assignments
-        while i + 2 < tokens.len() && !matches!(tokens[i], TokenType::Where) {
-            if let (TokenType::Identifier(col), TokenType::Equal, value_token) =
-                (&tokens[i], &tokens[i + 1], &tokens[i + 2])
-            {
-                let value = match value_token {
-                    TokenType::IntegerLiteral(val) => Expression::Literal(Literal::Integer(*val)),
-                    TokenType::StringLiteral(val) => {
-                        Expression::Literal(Literal::String(val.clone()))
-                    }
-                    TokenType::FloatLiteral(val) => Expression::Literal(Literal::Float(*val)),
-                    _ => Expression::Literal(Literal::Boolean(true)),
-                };
-
-                assignments.push(Assignment {
-                    column: col.clone(),
-                    value,
-                });
-                i += 3;
+                name.clone()
             } else {
-                i += 1;
+                return Err(QSQLError::ParseError {
+                    message: "Expected table name after UPDATE".to_string(),
+                    position: i,
+                });
             }
-        }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Incomplete UPDATE statement".to_string(),
+                position: i,
+            });
+        };
 
-        // Parse WHERE clause (similar to SELECT)
-        if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
-            i += 1;
-            if i + 2 < tokens.len() {
-                if let (TokenType::Identifier(col), op_token, value_token) =
-                    (&tokens[i], &tokens[i + 1], &tokens[i + 2])
-                {
-                    let operator = match op_token {
-                        TokenType::Equal => BinaryOperator::Equal,
-                        TokenType::GreaterThan => BinaryOperator::GreaterThan,
-                        TokenType::LessThan => BinaryOperator::LessThan,
-                        _ => BinaryOperator::Equal,
-                    };
-
-                    let right = match value_token {
-                        TokenType::StringLiteral(val) => {
-                            Expression::Literal(Literal::String(val.clone()))
-                        }
-                        TokenType::IntegerLiteral(val) => {
-                            Expression::Literal(Literal::Integer(*val))
-                        }
-                        _ => Expression::Literal(Literal::Boolean(true)),
-                    };
-
-                    where_clause = Some(Expression::BinaryOp {
-                        left: Box::new(Expression::Identifier(col.clone())),
-                        operator,
-                        right: Box::new(right),
+        // Parse SET clause
+        if i < tokens.len() {
+            if let TokenType::Identifier(ref name) = tokens[i] {
+                if name.to_uppercase() == "SET" {
+                    i += 1;
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected SET clause".to_string(),
+                        position: i,
                     });
                 }
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected SET clause".to_string(),
+                    position: i,
+                });
             }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected SET clause".to_string(),
+                position: i,
+            });
+        }
+
+        let mut assignments = Vec::new();
+
+        // Parse column = value assignments
+        loop {
+            if i >= tokens.len() || matches!(tokens[i], TokenType::Where | TokenType::EOF) {
+                break;
+            }
+
+            if let TokenType::Identifier(col_name) = &tokens[i] {
+                i += 1;
+
+                if i < tokens.len() && matches!(tokens[i], TokenType::Equal) {
+                    i += 1;
+                    let value = self.parse_expression(tokens, &mut i)?;
+                    assignments.push(Assignment {
+                        column: col_name.clone(),
+                        value,
+                    });
+
+                    if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                        i += 1; // Skip ','
+                    } else {
+                        break;
+                    }
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected '=' after column name".to_string(),
+                        position: i,
+                    });
+                }
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected column name in SET clause".to_string(),
+                    position: i,
+                });
+            }
+        }
+
+        // Parse WHERE clause
+        let mut where_clause = None;
+        if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
+            i += 1;
+            where_clause = Some(self.parse_expression(tokens, &mut i)?);
         }
 
         Ok(Statement::Update(UpdateStatement {
             table_name,
             assignments,
             where_clause,
-            pathway_reinforcement: None,
+            plasticity_adaptation: None,
         }))
     }
 
     /// Parse DELETE statement
     fn parse_delete_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut table_name = String::new();
-        let mut where_clause = None;
-
         let mut i = 0;
 
         // Skip DELETE keyword
@@ -889,49 +939,38 @@ impl QSQLParser {
         }
 
         // Skip FROM keyword
-        while i < tokens.len() && !matches!(tokens[i], TokenType::Identifier(_)) {
+        if i < tokens.len() && matches!(tokens[i], TokenType::From) {
             i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected FROM after DELETE".to_string(),
+                position: i,
+            });
         }
 
-        // Get table name
-        if i < tokens.len() {
+        // Parse table name
+        let table_name = if i < tokens.len() {
             if let TokenType::Identifier(name) = &tokens[i] {
-                table_name = name.clone();
                 i += 1;
+                name.clone()
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected table name after FROM".to_string(),
+                    position: i,
+                });
             }
-        }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Incomplete DELETE statement".to_string(),
+                position: i,
+            });
+        };
 
         // Parse WHERE clause
+        let mut where_clause = None;
         if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
             i += 1;
-            if i + 2 < tokens.len() {
-                if let (TokenType::Identifier(col), op_token, value_token) =
-                    (&tokens[i], &tokens[i + 1], &tokens[i + 2])
-                {
-                    let operator = match op_token {
-                        TokenType::LessThan => BinaryOperator::LessThan,
-                        TokenType::GreaterThan => BinaryOperator::GreaterThan,
-                        TokenType::Equal => BinaryOperator::Equal,
-                        _ => BinaryOperator::Equal,
-                    };
-
-                    let right = match value_token {
-                        TokenType::IntegerLiteral(val) => {
-                            Expression::Literal(Literal::Integer(*val))
-                        }
-                        TokenType::StringLiteral(val) => {
-                            Expression::Literal(Literal::String(val.clone()))
-                        }
-                        _ => Expression::Literal(Literal::Boolean(true)),
-                    };
-
-                    where_clause = Some(Expression::BinaryOp {
-                        left: Box::new(Expression::Identifier(col.clone())),
-                        operator,
-                        right: Box::new(right),
-                    });
-                }
-            }
+            where_clause = Some(self.parse_expression(tokens, &mut i)?);
         }
 
         Ok(Statement::Delete(DeleteStatement {
@@ -1102,6 +1141,47 @@ impl QSQLParser {
     fn validate_ast(&self, _ast: &Statement) -> QSQLResult<()> {
         // Basic validation - could be expanded
         Ok(())
+    }
+
+    /// Parse expression (simplified for now)
+    fn parse_expression(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<Expression> {
+        if *i >= tokens.len() {
+            return Err(QSQLError::ParseError {
+                message: "Unexpected end of expression".to_string(),
+                position: *i,
+            });
+        }
+
+        match &tokens[*i] {
+            TokenType::Identifier(name) => {
+                *i += 1;
+                Ok(Expression::Identifier(name.clone()))
+            }
+            TokenType::StringLiteral(s) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::String(s.clone())))
+            }
+            TokenType::IntegerLiteral(n) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::Integer(*n)))
+            }
+            TokenType::FloatLiteral(f) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::Float(*f)))
+            }
+            TokenType::BooleanLiteral(b) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::Boolean(*b)))
+            }
+            TokenType::DNALiteral(dna) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::DNA(dna.clone())))
+            }
+            _ => {
+                *i += 1; // Skip unknown token for now
+                Ok(Expression::Identifier("unknown".to_string()))
+            }
+        }
     }
 }
 

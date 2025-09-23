@@ -105,7 +105,7 @@ pub struct UpdateStatement {
     pub assignments: Vec<Assignment>,
     pub where_clause: Option<Expression>,
     // Neuromorphic extensions
-    pub pathway_reinforcement: Option<f32>,
+    pub plasticity_adaptation: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -204,60 +204,51 @@ pub enum Expression {
         args: Vec<Expression>,
     },
 
-    // Neuromorphic operators
+    // Subqueries
+    Subquery(Box<Statement>),
+
+    // Neuromorphic expressions
+    NeuroPattern {
+        pattern: String,
+        similarity_threshold: f32,
+    },
+    SynapticActivation {
+        source: Box<Expression>,
+        weight: f32,
+    },
     SynapticMatch {
         pattern: Box<Expression>,
         weight: f32,
         threshold: Option<f32>,
     },
-
-    HebbianStrength {
-        source: Box<Expression>,
-        target: Box<Expression>,
+    PlasticityFunction {
+        input: Box<Expression>,
+        learning_rate: f32,
     },
 
-    PlasticityAdaptation {
-        base: Box<Expression>,
-        adaptation_rate: f32,
-    },
-
-    // Quantum operators
+    // Quantum expressions
     QuantumSuperposition {
         states: Vec<Expression>,
     },
-
+    QuantumMeasurement {
+        target: Box<Expression>,
+        basis: String,
+    },
     AmplitudeAmplification {
         target: Box<Expression>,
-        amplification_factor: f32,
-    },
-
-    QuantumEntanglement {
-        left: Box<Expression>,
-        right: Box<Expression>,
-    },
-
-    // Subqueries
-    Subquery(Box<Statement>),
-
-    // Case expressions
-    Case {
-        operand: Option<Box<Expression>>,
-        when_branches: Vec<(Expression, Expression)>,
-        else_branch: Option<Box<Expression>>,
+        oracle: String,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Literal {
-    Null,
-    Boolean(bool),
+    String(String),
     Integer(i64),
     Float(f64),
-    String(String),
-    Blob(Vec<u8>),
-    // DNA-inspired literals
-    DNASequence(String),   // ATGC sequence
-    QuantumBit(bool, f64), // Value and probability amplitude
+    Boolean(bool),
+    Null,
+    DNA(String),
+    QuantumBit(bool, f64), // state, amplitude
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -281,38 +272,36 @@ pub enum BinaryOperator {
     And,
     Or,
 
-    // Pattern matching
+    // String operations
     Like,
     NotLike,
-    ILike,
-    NotILike,
 
     // Set operations
     In,
     NotIn,
 
     // Neuromorphic operators
-    SynapticStrength,
-    PlasticityFlow,
-    HebbianCorrelation,
+    SynapticSimilarity,
+    PlasticityUpdate,
+    HebbianStrengthening,
 
     // Quantum operators
-    QuantumCorrelation,
-    SuperpositionMerge,
-    EntanglementBond,
+    QuantumEntanglement,
+    SuperpositionCollapse,
+    AmplitudeInterference,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UnaryOperator {
     Not,
-    Plus,
     Minus,
-    // Neuromorphic operators
-    SynapticActivation,
-    PlasticityDecay,
-    // Quantum operators
-    QuantumMeasurement,
-    AmplitudeCollapse,
+    Plus,
+    // Neuromorphic
+    ActivationFunction,
+    SynapticNormalization,
+    // Quantum
+    QuantumMeasure,
+    PhaseFactor,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -324,17 +313,7 @@ pub struct SelectItem {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OrderByItem {
     pub expression: Expression,
-    pub direction: OrderDirection,
-    pub nulls_first: Option<bool>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum OrderDirection {
-    Ascending,
-    Descending,
-    // Neuromorphic ordering
-    SynapticStrength,
-    PlasticityGradient,
+    pub ascending: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -354,36 +333,34 @@ pub struct ColumnDefinition {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DataType {
-    // Standard types
-    Boolean,
-    TinyInt,
-    SmallInt,
+    // Standard SQL types
     Integer,
     BigInt,
+    SmallInt,
     Real,
     Double,
-    Char(Option<u32>),
-    VarChar(Option<u32>),
+    Decimal(u8, u8),      // precision, scale
+    VarChar(Option<u32>), // Variable length with optional max length
+    Varchar(u32),
+    Char(u32),
     Text,
-    Blob,
+    Boolean,
     Date,
     Time,
     Timestamp,
+    Blob,
 
     // Neuromorphic types
+    DNASequence,
     SynapticWeight,
+    NeuralPattern,
     PlasticityMatrix,
-    NeuralActivation,
 
     // Quantum types
     QuantumBit,
+    QuantumRegister(u32), // number of qubits
     SuperpositionState,
     EntanglementPair,
-
-    // DNA-inspired types
-    DNASequence,
-    ProteinStructure,
-    QuaternaryEncoding,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -391,20 +368,12 @@ pub enum ColumnConstraint {
     NotNull,
     Unique,
     PrimaryKey,
-    ForeignKey {
-        references_table: String,
-        references_column: String,
-    },
+    ForeignKey { table: String, column: String },
     Check(Expression),
     Default(Expression),
     // Neuromorphic constraints
-    SynapticRange {
-        min: f32,
-        max: f32,
-    },
-    PlasticityBounds {
-        threshold: f32,
-    },
+    SynapticRange { min: f32, max: f32 },
+    PlasticityThreshold(f32),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -412,33 +381,32 @@ pub enum TableConstraint {
     PrimaryKey(Vec<String>),
     ForeignKey {
         columns: Vec<String>,
-        references_table: String,
-        references_columns: Vec<String>,
+        referenced_table: String,
+        referenced_columns: Vec<String>,
     },
     Unique(Vec<String>),
     Check(Expression),
     // Neuromorphic constraints
-    SynapticNetwork {
-        nodes: Vec<String>,
-        connections: Vec<(String, String, f32)>,
+    SynapticCoherence {
+        columns: Vec<String>,
+        threshold: f32,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SynapticProperties {
-    pub initial_weight: f32,
+    pub weight_range: (f32, f32),
+    pub plasticity_enabled: bool,
     pub learning_rate: f32,
     pub decay_factor: f32,
-    pub activation_threshold: f32,
-    pub plasticity_enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlasticityConfig {
     pub global_learning_rate: f32,
-    pub hebbian_enabled: bool,
-    pub spike_timing_dependent: bool,
-    pub homeostatic_scaling: bool,
+    pub hebbian_strengthening: bool,
+    pub synaptic_pruning: bool,
+    pub adaptation_threshold: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -446,8 +414,11 @@ pub enum ConflictResolution {
     Ignore,
     Replace,
     Update(Vec<Assignment>),
-    // Neuromorphic resolution
-    SynapticAdaptation,
+    // Neuromorphic conflict resolution
+    SynapticAdaptation {
+        learning_rate: f32,
+        adaptation_strategy: String,
+    },
 }
 
 // Display implementations for better debugging and logging

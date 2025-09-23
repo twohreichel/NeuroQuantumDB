@@ -574,13 +574,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64  # Multi-platform für besseres Caching
-          cache-from: |
-            type=gha,scope=docker-build
-            type=registry,ref=${{ env.REGISTRY }}/${{ github.repository_owner }}/neuroquantumdb:cache
-          cache-to: |
-            type=gha,mode=max,scope=docker-build
-            type=registry,ref=${{ env.REGISTRY }}/${{ github.repository_owner }}/neuroquantumdb:cache,mode=max
+          platforms: linux/amd64,linux/arm64
+          # Simplified cache strategy - only use GHA cache to avoid registry issues
+          cache-from: type=gha,scope=docker-build
+          cache-to: type=gha,mode=max,scope=docker-build
           build-args: |
             BUILDKIT_INLINE_CACHE=1
             CARGO_INCREMENTAL=0
