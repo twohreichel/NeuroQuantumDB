@@ -12,7 +12,7 @@ use neuroquantum_core::synaptic::SynapticNetwork;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
-use tracing::{debug, instrument, info};
+use tracing::{debug, info, instrument};
 
 /// Neuromorphic query optimizer with synaptic learning
 pub struct NeuromorphicOptimizer {
@@ -383,15 +383,23 @@ impl NeuromorphicOptimizer {
     }
 
     /// Update synaptic weights based on learned query patterns
-    pub fn update_synaptic_weights(&mut self, cache: &HashMap<String, crate::CachedQueryPlan>) -> Result<(), QSQLError> {
-        debug!("Updating synaptic weights from {} cached patterns", cache.len());
+    pub fn update_synaptic_weights(
+        &mut self,
+        cache: &HashMap<String, crate::CachedQueryPlan>,
+    ) -> Result<(), QSQLError> {
+        debug!(
+            "Updating synaptic weights from {} cached patterns",
+            cache.len()
+        );
 
         // For now, we'll just log the update - in a full implementation this would
         // adjust the synaptic weights based on query execution patterns
         for (query, cached_plan) in cache {
             if cached_plan.execution_count > 5 {
-                info!("Strong synaptic pattern detected for query type: {}",
-                      query.chars().take(50).collect::<String>());
+                info!(
+                    "Strong synaptic pattern detected for query type: {}",
+                    query.chars().take(50).collect::<String>()
+                );
             }
         }
 

@@ -606,7 +606,12 @@ impl QSQLParser {
         if i + 1 < tokens.len() && matches!(tokens[i], TokenType::GroupBy) {
             i += 2; // Skip "GROUP BY"
             loop {
-                if i >= tokens.len() || matches!(tokens[i], TokenType::Having | TokenType::OrderBy | TokenType::Limit | TokenType::EOF) {
+                if i >= tokens.len()
+                    || matches!(
+                        tokens[i],
+                        TokenType::Having | TokenType::OrderBy | TokenType::Limit | TokenType::EOF
+                    )
+                {
                     break;
                 }
                 group_by.push(self.parse_expression(tokens, &mut i)?);

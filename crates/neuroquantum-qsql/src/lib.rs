@@ -25,7 +25,6 @@ pub mod query_plan;
 #[cfg(test)]
 pub mod sql_engine_tests;
 
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -33,12 +32,11 @@ use std::time::{Duration, Instant};
 use tracing::{debug, info, instrument, warn};
 
 // Import types from modules to avoid duplicates
+use optimizer::{NeuromorphicOptimizer, OptimizerConfig};
 use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
 use query_plan::{
-    ExecutorConfig, QueryExecutor, QueryResult, QueryPlan,
-    ExecutionStrategy, OptimizationMetadata
+    ExecutionStrategy, ExecutorConfig, OptimizationMetadata, QueryExecutor, QueryPlan, QueryResult,
 };
-use optimizer::{NeuromorphicOptimizer, OptimizerConfig};
 
 // Use the QueryPlan from query_plan module (what the executor expects)
 // pub use query_plan::QueryPlan; // Commented out to avoid duplicate definition

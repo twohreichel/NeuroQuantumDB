@@ -347,7 +347,9 @@ mod sql_engine_tests {
         // Test complete CRUD operations
 
         // 1. INSERT
-        let insert_ast = parser.parse("INSERT INTO users (name, age) VALUES ('Test User', 25)").unwrap();
+        let insert_ast = parser
+            .parse("INSERT INTO users (name, age) VALUES ('Test User', 25)")
+            .unwrap();
         let insert_plan = create_basic_plan(insert_ast);
         let insert_result = executor.execute(&insert_plan).await.unwrap();
         assert_eq!(insert_result.rows_affected, 1);
@@ -359,7 +361,9 @@ mod sql_engine_tests {
         assert!(select_result.rows_affected > 0);
 
         // 3. UPDATE
-        let update_ast = parser.parse("UPDATE users SET age = 26 WHERE name = 'Test User'").unwrap();
+        let update_ast = parser
+            .parse("UPDATE users SET age = 26 WHERE name = 'Test User'")
+            .unwrap();
         let update_plan = create_basic_plan(update_ast);
         let update_result = executor.execute(&update_plan).await.unwrap();
         assert_eq!(update_result.rows_affected, 1);
@@ -431,28 +435,44 @@ mod sql_engine_demo {
         let select_ast = parser.parse("SELECT * FROM users").unwrap();
         let select_plan = create_demo_plan(select_ast);
         let result = executor.execute(&select_plan).await.unwrap();
-        println!("   ✓ Executed in {:?}, {} rows affected", result.execution_time, result.rows_affected);
+        println!(
+            "   ✓ Executed in {:?}, {} rows affected",
+            result.execution_time, result.rows_affected
+        );
 
         // INSERT
         println!("   Parsing: INSERT INTO users VALUES ('Alice', 30)");
-        let insert_ast = parser.parse("INSERT INTO users VALUES ('Alice', 30)").unwrap();
+        let insert_ast = parser
+            .parse("INSERT INTO users VALUES ('Alice', 30)")
+            .unwrap();
         let insert_plan = create_demo_plan(insert_ast);
         let result = executor.execute(&insert_plan).await.unwrap();
-        println!("   ✓ Executed in {:?}, {} rows affected", result.execution_time, result.rows_affected);
+        println!(
+            "   ✓ Executed in {:?}, {} rows affected",
+            result.execution_time, result.rows_affected
+        );
 
         // UPDATE
         println!("   Parsing: UPDATE users SET age = 31 WHERE name = 'Alice'");
-        let update_ast = parser.parse("UPDATE users SET age = 31 WHERE name = 'Alice'").unwrap();
+        let update_ast = parser
+            .parse("UPDATE users SET age = 31 WHERE name = 'Alice'")
+            .unwrap();
         let update_plan = create_demo_plan(update_ast);
         let result = executor.execute(&update_plan).await.unwrap();
-        println!("   ✓ Executed in {:?}, {} rows affected", result.execution_time, result.rows_affected);
+        println!(
+            "   ✓ Executed in {:?}, {} rows affected",
+            result.execution_time, result.rows_affected
+        );
 
         // DELETE
         println!("   Parsing: DELETE FROM users WHERE age > 100");
         let delete_ast = parser.parse("DELETE FROM users WHERE age > 100").unwrap();
         let delete_plan = create_demo_plan(delete_ast);
         let result = executor.execute(&delete_plan).await.unwrap();
-        println!("   ✓ Executed in {:?}, {} rows affected", result.execution_time, result.rows_affected);
+        println!(
+            "   ✓ Executed in {:?}, {} rows affected",
+            result.execution_time, result.rows_affected
+        );
 
         // 2. Neuromorphic Features
         println!("\n2. Testing Neuromorphic Features:");
@@ -479,8 +499,14 @@ mod sql_engine_demo {
             },
         };
         let result = executor.execute(&neuromatch_plan).await.unwrap();
-        println!("   ✓ Neuromorphic match executed in {:?}", result.execution_time);
-        println!("   ✓ Synaptic pathways used: {}", result.synaptic_pathways_used);
+        println!(
+            "   ✓ Neuromorphic match executed in {:?}",
+            result.execution_time
+        );
+        println!(
+            "   ✓ Synaptic pathways used: {}",
+            result.synaptic_pathways_used
+        );
 
         // 3. Quantum Features
         println!("\n3. Testing Quantum Features:");
@@ -506,7 +532,10 @@ mod sql_engine_demo {
             },
         };
         let result = executor.execute(&quantum_plan).await.unwrap();
-        println!("   ✓ Quantum search executed in {:?}", result.execution_time);
+        println!(
+            "   ✓ Quantum search executed in {:?}",
+            result.execution_time
+        );
         println!("   ✓ Quantum operations: {}", result.quantum_operations);
 
         // 4. Performance Summary
@@ -514,9 +543,16 @@ mod sql_engine_demo {
         let stats = executor.get_stats();
         println!("   Total queries executed: {}", stats.queries_executed);
         println!("   Total execution time: {:?}", stats.total_execution_time);
-        println!("   Average query time: {:?}",
-                 Duration::from_nanos(stats.total_execution_time.as_nanos() as u64 / stats.queries_executed.max(1)));
-        println!("   Synaptic optimizations: {}", stats.synaptic_optimizations);
+        println!(
+            "   Average query time: {:?}",
+            Duration::from_nanos(
+                stats.total_execution_time.as_nanos() as u64 / stats.queries_executed.max(1)
+            )
+        );
+        println!(
+            "   Synaptic optimizations: {}",
+            stats.synaptic_optimizations
+        );
         println!("   Quantum operations: {}", stats.quantum_operations);
 
         println!("\n=== Demo Complete ===");

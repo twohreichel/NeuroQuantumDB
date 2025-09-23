@@ -182,7 +182,10 @@ impl QueryExecutor {
         // Simulate insertion of 1 row
         let mut rows = vec![HashMap::new()];
         rows[0].insert("id".to_string(), QueryValue::Integer(1));
-        rows[0].insert("name".to_string(), QueryValue::String("New User".to_string()));
+        rows[0].insert(
+            "name".to_string(),
+            QueryValue::String("New User".to_string()),
+        );
 
         Ok(QueryResult {
             rows,
@@ -204,7 +207,10 @@ impl QueryExecutor {
         // Simulate updating 1 row
         let mut rows = vec![HashMap::new()];
         rows[0].insert("id".to_string(), QueryValue::Integer(1));
-        rows[0].insert("name".to_string(), QueryValue::String("Updated User".to_string()));
+        rows[0].insert(
+            "name".to_string(),
+            QueryValue::String("Updated User".to_string()),
+        );
 
         Ok(QueryResult {
             rows,

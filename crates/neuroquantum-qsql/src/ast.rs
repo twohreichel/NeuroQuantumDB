@@ -339,7 +339,7 @@ pub enum DataType {
     SmallInt,
     Real,
     Double,
-    Decimal(u8, u8), // precision, scale
+    Decimal(u8, u8),      // precision, scale
     VarChar(Option<u32>), // Variable length with optional max length
     Varchar(u32),
     Char(u32),
@@ -368,17 +368,11 @@ pub enum ColumnConstraint {
     NotNull,
     Unique,
     PrimaryKey,
-    ForeignKey {
-        table: String,
-        column: String,
-    },
+    ForeignKey { table: String, column: String },
     Check(Expression),
     Default(Expression),
     // Neuromorphic constraints
-    SynapticRange {
-        min: f32,
-        max: f32,
-    },
+    SynapticRange { min: f32, max: f32 },
     PlasticityThreshold(f32),
 }
 
