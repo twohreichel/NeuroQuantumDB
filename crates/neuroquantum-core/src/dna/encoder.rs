@@ -207,9 +207,19 @@ impl QuaternaryEncoder {
             while i + 16 <= chunk.len() {
                 let bytes = vld1q_u8(chunk.as_ptr().add(i));
                 
-                // Extract 2-bit pairs and convert to bases
-                for lane in 0..16 {
-                    let byte = vgetq_lane_u8(bytes, lane);
+                // Extract 2-bit pairs and convert to bases using const lane indices
+                let byte_values = [
+                    vgetq_lane_u8(bytes, 0), vgetq_lane_u8(bytes, 1),
+                    vgetq_lane_u8(bytes, 2), vgetq_lane_u8(bytes, 3),
+                    vgetq_lane_u8(bytes, 4), vgetq_lane_u8(bytes, 5),
+                    vgetq_lane_u8(bytes, 6), vgetq_lane_u8(bytes, 7),
+                    vgetq_lane_u8(bytes, 8), vgetq_lane_u8(bytes, 9),
+                    vgetq_lane_u8(bytes, 10), vgetq_lane_u8(bytes, 11),
+                    vgetq_lane_u8(bytes, 12), vgetq_lane_u8(bytes, 13),
+                    vgetq_lane_u8(bytes, 14), vgetq_lane_u8(bytes, 15),
+                ];
+                
+                for byte in byte_values {
                     for shift in (0..8).step_by(2).rev() {
                         let two_bits = (byte >> shift) & 0b11;
                         let base = DNABase::from_bits(two_bits)?;

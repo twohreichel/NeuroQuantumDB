@@ -465,7 +465,7 @@ impl GroverSearch {
     /// Initialize random state for annealing
     fn initialize_random_state(&self, size: usize) -> Vec<i32> {
         let mut rng = thread_rng();
-        (0..size).map(|_| rng.random_range(-1..=1)).collect()
+        (0..size).map(|_| rng.gen_range(-1..=1)).collect()
     }
 
     /// Calculate energy function for annealing
@@ -498,7 +498,7 @@ impl GroverSearch {
         let flip_prob = (temperature / self.config.annealing_temperature).min(1.0);
 
         for spin in state.iter_mut() {
-            if rng.random::<f64>() < flip_prob {
+            if rng.gen::<f64>() < flip_prob {
                 // Quantum tunneling-inspired flip
                 *spin = if normal.sample(rng) > 0.0 { 1 } else { -1 };
             }
