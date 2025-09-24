@@ -1,3 +1,4 @@
+use actix_web::body::MessageBody;
 use actix_cors::Cors;
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
@@ -226,7 +227,7 @@ pub fn configure_app(app_state: AppState) -> App<
     impl actix_web::dev::ServiceFactory<
         actix_web::dev::ServiceRequest,
         Config = (),
-        Response = actix_web::dev::ServiceResponse,
+        Response = actix_web::dev::ServiceResponse<impl MessageBody>,
         Error = actix_web::Error,
         InitError = (),
     >,
