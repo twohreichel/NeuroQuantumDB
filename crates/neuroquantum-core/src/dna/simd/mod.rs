@@ -1,0 +1,358 @@
+//! SIMD optimizations for DNA compression
+//!
+//! This module provides SIMD-optimized implementations for DNA compression operations
+//! targeting ARM64 NEON and x86_64 AVX2 instruction sets.
+
+use crate::dna::{DNABase, DNAError};
+
+pub mod arm64_neon;
+pub mod x86_avx2;
+
+/// SIMD capability detection and dispatch
+#[derive(Debug, Clone)]
+pub struct SimdCapabilities {
+    pub has_neon: bool,
+    pub has_avx2: bool,
+    pub has_sse42: bool,
+    pub vector_width: usize,
+}
+
+impl SimdCapabilities {
+    /// Detect available SIMD capabilities on the current CPU
+    pub fn detect() -> Self {
+        let mut caps = Self {
+            has_neon: false,
+            has_avx2: false,
+            has_sse42: false,
+            vector_width: 1,
+        };
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            caps.has_neon = std::arch::is_aarch64_feature_detected!("neon");
+            if caps.has_neon {
+                caps.vector_width = 16; // 128-bit NEON vectors
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            caps.has_avx2 = is_x86_feature_detected!("avx2");
+            caps.has_sse42 = is_x86_feature_detected!("sse4.2");
+
+            if caps.has_avx2 {
+                caps.vector_width = 32; // 256-bit AVX2 vectors
+            } else if caps.has_sse42 {
+                caps.vector_width = 16; // 128-bit SSE vectors
+            }
+        }
+
+        caps
+    }
+
+    /// Get the optimal chunk size for SIMD operations
+    pub fn optimal_chunk_size(&self) -> usize {
+        self.vector_width * 4 // Process multiple vectors per chunk
+    }
+}
+
+/// SIMD-optimized DNA encoding operations
+pub struct SimdEncoder {
+    capabilities: SimdCapabilities,
+}
+
+impl SimdEncoder {
+    /// Create a new SIMD encoder
+    pub fn new() -> Self {
+        Self {
+            capabilities: SimdCapabilities::detect(),
+        }
+    }
+
+    /// Encode bytes to DNA bases using SIMD when available
+    pub fn encode_bytes_to_bases(&self, input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
+        if input.is_empty() {
+            return Ok(());
+        }
+
+        let chunk_size = self.capabilities.optimal_chunk_size();
+
+        // Process large chunks with SIMD
+        for chunk in input.chunks(chunk_size) {
+            if chunk.len() == chunk_size {
+                self.encode_chunk_simd(chunk, output)?;
+            } else {
+                // Handle remainder with scalar code
+                self.encode_chunk_scalar(chunk, output)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// SIMD-optimized chunk encoding
+    fn encode_chunk_simd(&self, chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
+        #[cfg(target_arch = "aarch64")]
+        {
+            if self.capabilities.has_neon {
+                return arm64_neon::encode_chunk_neon(chunk, output);
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if self.capabilities.has_avx2 {
+                return x86_avx2::encode_chunk_avx2(chunk, output);
+            }
+        }
+
+        // Fallback to scalar implementation
+        self.encode_chunk_scalar(chunk, output)
+    }
+
+    /// Scalar fallback for chunk encoding
+    fn encode_chunk_scalar(&self, chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
+        for &byte in chunk {
+            for shift in (0..8).step_by(2).rev() {
+                let two_bits = (byte >> shift) & 0b11;
+                let base = DNABase::from_bits(two_bits)?;
+                output.push(base);
+            }
+        }
+        Ok(())
+    }
+
+    /// Batch convert multiple bytes to bases with maximum SIMD utilization
+    pub fn batch_encode(&self, input: &[u8]) -> Result<Vec<DNABase>, DNAError> {
+        let mut output = Vec::with_capacity(input.len() * 4);
+        self.encode_bytes_to_bases(input, &mut output)?;
+        Ok(output)
+    }
+}
+
+/// SIMD-optimized DNA decoding operations
+pub struct SimdDecoder {
+    capabilities: SimdCapabilities,
+}
+
+impl SimdDecoder {
+    /// Create a new SIMD decoder
+    pub fn new() -> Self {
+        Self {
+            capabilities: SimdCapabilities::detect(),
+        }
+    }
+
+    /// Decode DNA bases to bytes using SIMD when available
+    pub fn decode_bases_to_bytes(&self, input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
+        if input.is_empty() {
+            return Ok(());
+        }
+
+        if input.len() % 4 != 0 {
+            return Err(DNAError::LengthMismatch {
+                expected: (input.len() / 4) * 4,
+                actual: input.len(),
+            });
+        }
+
+        let chunk_size = self.capabilities.optimal_chunk_size() * 4; // 4 bases per byte
+
+        // Process large chunks with SIMD
+        for chunk in input.chunks(chunk_size) {
+            if chunk.len() == chunk_size {
+                self.decode_chunk_simd(chunk, output)?;
+            } else {
+                // Handle remainder with scalar code
+                self.decode_chunk_scalar(chunk, output)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// SIMD-optimized chunk decoding
+    fn decode_chunk_simd(&self, chunk: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
+        #[cfg(target_arch = "aarch64")]
+        {
+            if self.capabilities.has_neon {
+                return arm64_neon::decode_chunk_neon(chunk, output);
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if self.capabilities.has_avx2 {
+                return x86_avx2::decode_chunk_avx2(chunk, output);
+            }
+        }
+
+        // Fallback to scalar implementation
+        self.decode_chunk_scalar(chunk, output)
+    }
+
+    /// Scalar fallback for chunk decoding
+    fn decode_chunk_scalar(&self, chunk: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
+        for bases in chunk.chunks_exact(4) {
+            let mut byte = 0u8;
+            for (i, &base) in bases.iter().enumerate() {
+                let shift = 6 - (i * 2);
+                byte |= (base.to_bits()) << shift;
+            }
+            output.push(byte);
+        }
+        Ok(())
+    }
+
+    /// Batch convert multiple bases to bytes with maximum SIMD utilization
+    pub fn batch_decode(&self, input: &[DNABase]) -> Result<Vec<u8>, DNAError> {
+        let mut output = Vec::with_capacity(input.len() / 4);
+        self.decode_bases_to_bytes(input, &mut output)?;
+        Ok(output)
+    }
+}
+
+/// SIMD-optimized pattern matching for dictionary compression
+pub struct SimdPatternMatcher {
+    capabilities: SimdCapabilities,
+}
+
+impl SimdPatternMatcher {
+    /// Create a new SIMD pattern matcher
+    pub fn new() -> Self {
+        Self {
+            capabilities: SimdCapabilities::detect(),
+        }
+    }
+
+    /// Find pattern occurrences using SIMD string matching
+    pub fn find_pattern_occurrences(&self, haystack: &[u8], needle: &[u8]) -> Vec<usize> {
+        if needle.is_empty() || haystack.len() < needle.len() {
+            return Vec::new();
+        }
+
+        let mut matches = Vec::new();
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            if self.capabilities.has_neon && needle.len() <= 16 {
+                return arm64_neon::find_pattern_neon(haystack, needle);
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if self.capabilities.has_avx2 && needle.len() <= 32 {
+                return x86_avx2::find_pattern_avx2(haystack, needle);
+            }
+        }
+
+        // Fallback to scalar implementation
+        self.find_pattern_scalar(haystack, needle, &mut matches);
+        matches
+    }
+
+    /// Scalar pattern matching fallback
+    fn find_pattern_scalar(&self, haystack: &[u8], needle: &[u8], matches: &mut Vec<usize>) {
+        for i in 0..=haystack.len().saturating_sub(needle.len()) {
+            if haystack[i..i + needle.len()] == *needle {
+                matches.push(i);
+            }
+        }
+    }
+}
+
+/// SIMD utilities and helper functions
+pub mod utils {
+    use super::*;
+
+    /// Convert DNA bases to packed binary representation for SIMD processing
+    pub fn pack_bases(bases: &[DNABase]) -> Vec<u64> {
+        let mut packed = Vec::new();
+
+        for chunk in bases.chunks(32) { // 32 bases = 64 bits
+            let mut value = 0u64;
+            for (i, &base) in chunk.iter().enumerate() {
+                value |= (base.to_bits() as u64) << (62 - i * 2);
+            }
+            packed.push(value);
+        }
+
+        packed
+    }
+
+    /// Unpack binary representation back to DNA bases
+    pub fn unpack_bases(packed: &[u64], expected_count: usize) -> Vec<DNABase> {
+        let mut bases = Vec::with_capacity(expected_count);
+
+        for &value in packed {
+            for i in 0..32 {
+                if bases.len() >= expected_count {
+                    break;
+                }
+                let shift = 62 - i * 2;
+                let two_bits = ((value >> shift) & 0b11) as u8;
+                if let Ok(base) = DNABase::from_bits(two_bits) {
+                    bases.push(base);
+                }
+            }
+        }
+
+        bases.truncate(expected_count);
+        bases
+    }
+
+    /// Transpose bytes for more efficient SIMD processing
+    pub fn transpose_bytes(input: &[u8]) -> Vec<u8> {
+        // This is a placeholder for byte transposition algorithms
+        // In practice, this would reorganize data for better SIMD access patterns
+        input.to_vec()
+    }
+
+    /// Calculate Hamming distance between DNA sequences using SIMD
+    pub fn hamming_distance_simd(seq1: &[DNABase], seq2: &[DNABase]) -> Result<usize, DNAError> {
+        if seq1.len() != seq2.len() {
+            return Err(DNAError::LengthMismatch {
+                expected: seq1.len(),
+                actual: seq2.len(),
+            });
+        }
+
+        let capabilities = SimdCapabilities::detect();
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            if capabilities.has_neon {
+                return arm64_neon::hamming_distance_neon(seq1, seq2);
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if capabilities.has_avx2 {
+                return x86_avx2::hamming_distance_avx2(seq1, seq2);
+            }
+        }
+
+        // Scalar fallback
+        Ok(seq1.iter().zip(seq2.iter()).filter(|(a, b)| a != b).count())
+    }
+}
+
+impl Default for SimdEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for SimdDecoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for SimdPatternMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}

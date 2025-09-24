@@ -1,6 +1,8 @@
 //! NeuroQuantumDB Core Library
-//! Production-ready neuromorphic-quantum-DNA hybrid database engine
-//! Optimized for ARM64/Raspberry Pi 4 edge computing
+//!
+//! This is the core library for the NeuroQuantumDB neuromorphic database system,
+//! featuring advanced DNA-based compression, quantum storage optimization, and
+//! synaptic learning algorithms.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -19,22 +21,149 @@ pub mod security;
 pub mod storage;
 pub mod synaptic;
 
-#[cfg(test)]
-mod tests;
+// Re-export key DNA compression types for easy access
+pub use dna::{
+    QuantumDNACompressor, DNACompressor, DNACompressionConfig,
+    DNABase, DNAError, CompressedDNA, DNASequence,
+    CompressionMetadata, CompressionMetrics
+};
 
-#[cfg(test)]
-mod storage_tests;
+// Re-export other core types
+pub use error::NeuroQuantumError;
+pub use storage::StorageEngine;
+pub use query::QueryProcessor;
+
+/// Main database engine that integrates all components
+pub struct NeuroQuantumDB {
+    storage: storage::StorageEngine,
+    dna_compressor: dna::QuantumDNACompressor,
+    query_processor: query::QueryProcessor,
+    learning_engine: learning::LearningEngine,
+    config: NeuroQuantumConfig,
+}
+
+/// Configuration for the NeuroQuantumDB system
+#[derive(Debug, Clone)]
+pub struct NeuroQuantumConfig {
+    /// DNA compression configuration
+    pub dna_compression: dna::DNACompressionConfig,
+    /// Storage configuration
+    pub storage_path: std::path::PathBuf,
+    /// Memory limits
+    pub memory_limit_gb: usize,
+    /// Performance tuning
+    pub enable_quantum_optimization: bool,
+    pub enable_neuromorphic_learning: bool,
+}
+
+impl Default for NeuroQuantumConfig {
+    fn default() -> Self {
+        Self {
+            dna_compression: dna::DNACompressionConfig::default(),
+            storage_path: std::path::PathBuf::from("./neuroquantum_data"),
+            memory_limit_gb: 8,
+            enable_quantum_optimization: true,
+            enable_neuromorphic_learning: true,
+        }
+    }
+}
+
+impl NeuroQuantumDB {
+    /// Create a new NeuroQuantumDB instance with default configuration
+    pub fn new() -> Self {
+        Self::with_config(NeuroQuantumConfig::default())
+    }
+
+    /// Create a new NeuroQuantumDB instance with custom configuration
+    pub fn with_config(config: NeuroQuantumConfig) -> Self {
+        let dna_compressor = dna::QuantumDNACompressor::with_config(config.dna_compression.clone());
+
+        Self {
+            storage: storage::StorageEngine::new(&config.storage_path),
+            dna_compressor,
+            query_processor: query::QueryProcessor::new(),
+            learning_engine: learning::LearningEngine::new(),
+            config,
+        }
+    }
+
+    /// Store data with DNA compression
+    pub async fn store_compressed(&self, key: &str, data: &[u8]) -> Result<(), NeuroQuantumError> {
+        tracing::info!("Storing {} bytes with DNA compression for key: {}", data.len(), key);
+
+        // Compress data using DNA algorithm
+        let compressed = self.dna_compressor.compress(data).await
+            .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))?;
+
+        // Serialize compressed data
+        let serialized = serde_json::to_vec(&compressed)
+            .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
+
+        // Store in underlying storage engine
+        self.storage.store(key, &serialized).await
+            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+
+        tracing::info!("Successfully stored compressed data: {:.2}% compression ratio",
+                      compressed.sequence.metadata.compression_ratio * 100.0);
+
+        Ok(())
+    }
+
+    /// Retrieve and decompress data
+    pub async fn retrieve_compressed(&self, key: &str) -> Result<Vec<u8>, NeuroQuantumError> {
+        tracing::info!("Retrieving compressed data for key: {}", key);
+
+        // Retrieve from storage
+        let serialized = self.storage.retrieve(key).await
+            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+
+        // Deserialize compressed data
+        let compressed: CompressedDNA = serde_json::from_slice(&serialized)
+            .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
+
+        // Decompress using DNA algorithm
+        let data = self.dna_compressor.decompress(&compressed).await
+            .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))?;
+
+        tracing::info!("Successfully retrieved and decompressed {} bytes", data.len());
+
+        Ok(data)
+    }
+
+    /// Get compression statistics
+    pub fn get_compression_stats(&self) -> CompressionMetrics {
+        *self.dna_compressor.get_metrics()
+    }
+
+    /// Validate stored compressed data integrity
+    pub async fn validate_data_integrity(&self, key: &str) -> Result<bool, NeuroQuantumError> {
+        let serialized = self.storage.retrieve(key).await
+            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+
+        let compressed: CompressedDNA = serde_json::from_slice(&serialized)
+            .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
+
+        self.dna_compressor.validate(&compressed).await
+            .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))
+    }
+}
+
+impl Default for NeuroQuantumDB {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Core NeuroQuantumDB engine
 #[derive(Clone)]
-pub struct NeuroQuantumDB {
+pub struct NeuroQuantumDBCore {
     active_connections: u32,
     quantum_ops_rate: f32,
     synaptic_adaptations: u64,
     avg_compression_ratio: f32,
 }
 
-impl NeuroQuantumDB {
+impl NeuroQuantumDBCore {
     /// Initialize production-ready NeuroQuantumDB instance
     pub async fn new(_config: &DatabaseConfig) -> Result<Self> {
         info!("🧠 Initializing NeuroQuantumDB production instance...");

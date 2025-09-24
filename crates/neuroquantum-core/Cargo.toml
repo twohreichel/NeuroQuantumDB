@@ -5,31 +5,57 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Neuromorphic computing core for NeuroQuantumDB"
+description = "Core neuromorphic database engine with DNA compression"
+keywords = ["database", "neuromorphic", "dna-compression", "bioinformatics", "simd"]
 
 [dependencies]
 # Workspace dependencies
-tokio = { workspace = true, features = ["macros", "fs"] }
-serde = { workspace = true }
-serde_json = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+chrono.workspace = true
 
-# Core-specific dependencies
-rand = "0.10.0-rc.0"
-rand_distr = "0.6.0-rc.0"
-async-trait = "0.1"
-lru = "0.16.1"
-uuid = { version = "1.18.1", features = ["v4", "serde"] }
-chrono = { workspace = true, features = ["serde"] }
+# DNA compression specific dependencies
+reed-solomon-erasure = "6.0"
+rayon = "1.8"
+bytemuck = { version = "1.14", features = ["derive"] }
+bitvec = "1.0"
+hashbrown = "0.14"
+crc32fast = "1.3"
+
+# Missing dependencies for existing modules
+rand = "0.8"
+rand_distr = "0.4"
 base64 = "0.22"
 
+# SIMD and performance
+wide = "0.7"
+criterion = { version = "0.7.0", features = ["html_reports"], optional = true }
+
+# Async traits
+async-trait = "0.1"
+
+# Compression algorithms for comparison
+flate2 = "1.0"
+lz4_flex = "0.11"
+
 [dev-dependencies]
-proptest = "1.0"
+proptest = "1.4"
+rand.workspace = true
 tempfile = "3.8"
+tokio-test = "0.4"
 
 [features]
-default = ["neon-optimizations"]
+default = ["simd"]
+simd = []
+benchmarks = ["criterion"]
 neon-optimizations = []
-debug-synaptic = []
+
+[[bench]]
+name = "dna_compression"
+harness = false
+required-features = ["benchmarks"]
