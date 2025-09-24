@@ -195,7 +195,8 @@ impl ReedSolomonCorrector {
         }
     }
 
-    /// Detect errors in shards using parity check
+    /// Detect errors in Reed-Solomon encoded data
+    #[allow(dead_code)]
     fn detect_errors(&self, _shards: &[Vec<u8>]) -> usize {
         // Simple error detection - in a real implementation, this would be more sophisticated
         // For now, we'll assume no errors detected by default (RS library handles this internally)

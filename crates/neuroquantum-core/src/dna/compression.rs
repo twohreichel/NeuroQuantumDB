@@ -501,7 +501,7 @@ impl HuffmanTree {
 }
 
 /// Bit stream for Huffman decoding
-struct BitStream<'a> {
+pub struct BitStream<'a> {
     data: &'a [u8],
     byte_pos: usize,
     bit_pos: u8,

@@ -6,7 +6,7 @@ use actix_web_prometheus::PrometheusMetricsBuilder;
 use actix_ws::Message;
 use anyhow::Result;
 use futures_util::StreamExt;
-use neuroquantum_core::{DatabaseConfig as CoreDatabaseConfig, NeuroQuantumDB};
+use neuroquantum_core::NeuroQuantumDB;
 use std::time::Instant;
 use tracing::{info, warn};
 use utoipa::OpenApi;

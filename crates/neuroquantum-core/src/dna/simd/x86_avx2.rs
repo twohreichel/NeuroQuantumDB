@@ -272,6 +272,7 @@ pub unsafe fn memcpy_avx2(dst: *mut u8, src: *const u8, len: usize) {
 
 // Helper functions for scalar fallbacks (same as NEON version)
 
+#[allow(dead_code)]
 fn encode_partial_chunk(chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
     for &byte in chunk {
         for shift in (0..8).step_by(2).rev() {
@@ -283,6 +284,7 @@ fn encode_partial_chunk(chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), D
     Ok(())
 }
 
+#[allow(dead_code)]
 fn decode_partial_chunk(chunk: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
     for bases in chunk.chunks_exact(4) {
         let mut byte = 0u8;
@@ -295,6 +297,7 @@ fn decode_partial_chunk(chunk: &[DNABase], output: &mut Vec<u8>) -> Result<(), D
     Ok(())
 }
 
+#[allow(dead_code)]
 fn bases_to_bytes(bases: &[DNABase]) -> Vec<u8> {
     bases.iter().map(|&base| base as u8).collect()
 }

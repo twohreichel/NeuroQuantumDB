@@ -5,8 +5,11 @@
 
 #[cfg(feature = "benchmarks")]
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+#[cfg(feature = "benchmarks")]
 use crate::dna::{QuantumDNACompressor, DNACompressor, DNACompressionConfig};
+#[cfg(feature = "benchmarks")]
 use rand::prelude::*;
+#[cfg(feature = "benchmarks")]
 use std::time::Duration;
 
 // Only compile benchmarks when the feature is enabled

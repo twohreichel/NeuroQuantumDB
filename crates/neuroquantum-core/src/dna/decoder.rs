@@ -1,5 +1,5 @@
 //! Quaternary decoder for DNA compression
-//! 
+//!
 //! This module implements the decoding phase of DNA compression, converting DNA base
 //! sequences back to binary data with dictionary decompression support.
 
@@ -57,13 +57,13 @@ impl QuaternaryDecoder {
     fn decode_sequential(&self, bases: &[DNABase], data: &mut Vec<u8>) -> Result<(), DNAError> {
         for chunk in bases.chunks_exact(4) {
             let mut byte = 0u8;
-            
+
             // Combine 4 bases (2 bits each) into 1 byte
             for (i, &base) in chunk.iter().enumerate() {
                 let shift = 6 - (i * 2); // Start from most significant bits
                 byte |= (base.to_bits()) << shift;
             }
-            
+
             data.push(byte);
         }
         Ok(())
@@ -72,7 +72,7 @@ impl QuaternaryDecoder {
     /// Parallel SIMD-optimized decoding
     async fn decode_parallel_simd(&self, bases: &[DNABase], data: &mut Vec<u8>) -> Result<(), DNAError> {
         let chunk_size = ((bases.len() / 4) / self.config.thread_count).max(1024) * 4; // Keep 4-base alignment
-        
+
         // Process chunks in parallel
         let results: Result<Vec<_>, DNAError> = bases
             .par_chunks(chunk_size)
@@ -80,7 +80,7 @@ impl QuaternaryDecoder {
             .collect();
 
         let chunk_results = results?;
-        
+
         // Combine results
         for chunk_data in chunk_results {
             data.extend(chunk_data);
@@ -121,30 +121,26 @@ impl QuaternaryDecoder {
 
     #[cfg(target_arch = "aarch64")]
     fn decode_chunk_neon(&self, chunk: &[DNABase]) -> Result<Vec<u8>, DNAError> {
-        use std::arch::aarch64::*;
-        
         let mut result = Vec::with_capacity(chunk.len() / 4);
         let mut i = 0;
 
-        unsafe {
-            // Process 64 bases (16 bytes) at a time with NEON
-            while i + 64 <= chunk.len() {
-                // Convert bases to bytes in groups of 4
-                for group in 0..16 {
-                    let base_offset = i + group * 4;
-                    let mut byte = 0u8;
-                    
-                    for j in 0..4 {
-                        let base = chunk[base_offset + j];
-                        let shift = 6 - (j * 2);
-                        byte |= base.to_bits() << shift;
-                    }
-                    
-                    result.push(byte);
+        // Process 64 bases (16 bytes) at a time with NEON
+        while i + 64 <= chunk.len() {
+            // Convert bases to bytes in groups of 4
+            for group in 0..16 {
+                let base_offset = i + group * 4;
+                let mut byte = 0u8;
+
+                for j in 0..4 {
+                    let base = chunk[base_offset + j];
+                    let shift = 6 - (j * 2);
+                    byte |= base.to_bits() << shift;
                 }
-                
-                i += 64;
+
+                result.push(byte);
             }
+
+            i += 64;
         }
 
         // Handle remaining bases
@@ -165,7 +161,7 @@ impl QuaternaryDecoder {
     #[cfg(target_arch = "x86_64")]
     fn decode_chunk_avx2(&self, chunk: &[DNABase]) -> Result<Vec<u8>, DNAError> {
         use std::arch::x86_64::*;
-        
+
         let mut result = Vec::with_capacity(chunk.len() / 4);
         let mut i = 0;
 
@@ -176,16 +172,16 @@ impl QuaternaryDecoder {
                 for group in 0..32 {
                     let base_offset = i + group * 4;
                     let mut byte = 0u8;
-                    
+
                     for j in 0..4 {
                         let base = chunk[base_offset + j];
                         let shift = 6 - (j * 2);
                         byte |= base.to_bits() << shift;
                     }
-                    
+
                     result.push(byte);
                 }
-                
+
                 i += 128;
             }
         }
@@ -208,8 +204,8 @@ impl QuaternaryDecoder {
     /// Apply dictionary decompression to restore original patterns
     #[instrument(skip(self, data, dictionary))]
     pub async fn decompress_with_dictionary(
-        &self, 
-        data: &[u8], 
+        &self,
+        data: &[u8],
         dictionary: &HashMap<Vec<u8>, u16>
     ) -> Result<Vec<u8>, DNAError> {
         if dictionary.is_empty() || data.is_empty() {
@@ -231,7 +227,7 @@ impl QuaternaryDecoder {
             if data[i] == 0xFF && i + 2 < data.len() {
                 // Dictionary reference: [0xFF][dict_id_high][dict_id_low]
                 let dict_id = ((data[i + 1] as u16) << 8) | (data[i + 2] as u16);
-                
+
                 if let Some(pattern) = reverse_dict.get(&dict_id) {
                     decompressed.extend_from_slice(pattern);
                     i += 3;
@@ -262,7 +258,7 @@ impl QuaternaryDecoder {
 
         // All bases should be valid (this is guaranteed by the enum type system,
         // but we can add additional biological validation here if needed)
-        
+
         // Check for biological plausibility (optional)
         if self.config.enable_dictionary {
             self.validate_biological_patterns(bases)?;
@@ -295,9 +291,9 @@ impl QuaternaryDecoder {
         let gc_count = bases.iter()
             .filter(|&&base| matches!(base, DNABase::Guanine | DNABase::Cytosine))
             .count();
-        
+
         let gc_ratio = gc_count as f64 / bases.len() as f64;
-        
+
         // Warn if GC content is extremely skewed (could indicate poor compression)
         if gc_ratio < 0.1 || gc_ratio > 0.9 {
             debug!("Warning: Extreme GC content detected: {:.2}%", gc_ratio * 100.0);
@@ -310,15 +306,15 @@ impl QuaternaryDecoder {
     pub fn get_decoding_stats(&self, bases: &[DNABase]) -> DecodingStats {
         let total_bases = bases.len();
         let expected_bytes = total_bases / 4;
-        
+
         // Count base frequencies
         let mut base_counts = [0usize; 4];
         for &base in bases {
             base_counts[base as usize] += 1;
         }
 
-        let gc_content = (base_counts[DNABase::Guanine as usize] + 
-                         base_counts[DNABase::Cytosine as usize]) as f64 / 
+        let gc_content = (base_counts[DNABase::Guanine as usize] +
+                         base_counts[DNABase::Cytosine as usize]) as f64 /
                          total_bases as f64;
 
         DecodingStats {

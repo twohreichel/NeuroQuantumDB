@@ -12,7 +12,6 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::dna::{QuantumDNACompressor, EncodedData, DNACompressor};
-use crate::error::NeuroQuantumError;
 
 /// Unique identifier for database rows
 pub type RowId = u64;
