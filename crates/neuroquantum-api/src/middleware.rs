@@ -3,8 +3,8 @@ use crate::error::ApiError;
 use crate::jwt::JwtService;
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage,
     http::header::{HeaderName, HeaderValue},
+    Error, HttpMessage,
 };
 use futures_util::future::LocalBoxFuture;
 use std::{
@@ -47,10 +47,15 @@ where
                 if let Ok(auth_str) = auth_header.to_str() {
                     if let Some(token) = auth_str.strip_prefix("Bearer ") {
                         // Extract JWT service from app data
-                        if let Some(jwt_service) = req.app_data::<actix_web::web::Data<JwtService>>() {
+                        if let Some(jwt_service) =
+                            req.app_data::<actix_web::web::Data<JwtService>>()
+                        {
                             match jwt_service.validate_token(token) {
                                 Ok(claims) => {
-                                    debug!("✅ JWT authentication successful for user: {}", claims.sub);
+                                    debug!(
+                                        "✅ JWT authentication successful for user: {}",
+                                        claims.sub
+                                    );
                                     req.extensions_mut().insert(claims);
                                     return service.call(req).await;
                                 }
@@ -66,7 +71,8 @@ where
             // Try API key authentication
             if let Some(api_key_header) = req.headers().get("X-API-Key") {
                 if let Ok(api_key_str) = api_key_header.to_str() {
-                    if let Some(auth_service) = req.app_data::<actix_web::web::Data<AuthService>>() {
+                    if let Some(auth_service) = req.app_data::<actix_web::web::Data<AuthService>>()
+                    {
                         if let Some(api_key) = auth_service.validate_api_key(api_key_str).await {
                             debug!("✅ API key authentication successful for: {}", api_key.name);
                             req.extensions_mut().insert(api_key);
@@ -81,7 +87,9 @@ where
             // No valid authentication found - return proper error
             warn!("🚫 Authentication required for endpoint: {}", path);
 
-            let auth_error = ApiError::Unauthorized("Authentication required. Please provide a valid JWT token or API key.".to_string());
+            let auth_error = ApiError::Unauthorized(
+                "Authentication required. Please provide a valid JWT token or API key.".to_string(),
+            );
             Err(actix_web::Error::from(auth_error))
         })
     }
@@ -111,13 +119,14 @@ where
 
 /// Helper function to determine if an endpoint is public
 fn is_public_endpoint(path: &str) -> bool {
-    matches!(path,
-        "/health" |
-        "/metrics" |
-        "/api-docs" |
-        "/api-docs/" |
-        "/api/v1/auth/login" |
-        "/api/v1/auth/refresh"
+    matches!(
+        path,
+        "/health"
+            | "/metrics"
+            | "/api-docs"
+            | "/api-docs/"
+            | "/api/v1/auth/login"
+            | "/api/v1/auth/refresh"
     ) || path.starts_with("/api-docs/")
 }
 
@@ -248,7 +257,10 @@ where
                 if let Ok(length_str) = content_length.to_str() {
                     if let Ok(length) = length_str.parse::<usize>() {
                         if length > max_payload_size {
-                            warn!("🚫 Request payload too large: {} bytes (max: {})", length, max_payload_size);
+                            warn!(
+                                "🚫 Request payload too large: {} bytes (max: {})",
+                                length, max_payload_size
+                            );
                             let error = ApiError::BadRequest(format!(
                                 "Payload too large. Maximum size: {} bytes, provided: {} bytes",
                                 max_payload_size, length
@@ -275,7 +287,9 @@ where
                     }
                 } else {
                     warn!("🚫 Missing content type header for {} request", method);
-                    let error = ApiError::BadRequest("Content-Type header required for POST/PUT/PATCH requests".to_string());
+                    let error = ApiError::BadRequest(
+                        "Content-Type header required for POST/PUT/PATCH requests".to_string(),
+                    );
                     return Err(actix_web::Error::from(error));
                 }
             }
@@ -315,7 +329,9 @@ where
     }
 }
 
-pub fn request_validation_middleware(max_payload_size: usize) -> RequestValidationMiddlewareFactory {
+pub fn request_validation_middleware(
+    max_payload_size: usize,
+) -> RequestValidationMiddlewareFactory {
     RequestValidationMiddlewareFactory::new(max_payload_size)
 }
 
@@ -376,7 +392,10 @@ impl CircuitBreaker {
                     let mut state = self.state.lock().unwrap();
                     *state = CircuitBreakerState::HalfOpen;
                     drop(state);
-                    info!("🔄 Circuit breaker transitioning to half-open for service: {}", service_name);
+                    info!(
+                        "🔄 Circuit breaker transitioning to half-open for service: {}",
+                        service_name
+                    );
                 } else {
                     warn!("⚡ Circuit breaker is open for service: {}", service_name);
                     return Err(ApiError::CircuitBreakerOpen {
@@ -386,11 +405,17 @@ impl CircuitBreaker {
             }
             CircuitBreakerState::HalfOpen => {
                 // Allow limited requests through
-                info!("🟡 Circuit breaker half-open, allowing request for service: {}", service_name);
+                info!(
+                    "🟡 Circuit breaker half-open, allowing request for service: {}",
+                    service_name
+                );
             }
             CircuitBreakerState::Closed => {
                 // Normal operation
-                debug!("🟢 Circuit breaker closed, allowing request for service: {}", service_name);
+                debug!(
+                    "🟢 Circuit breaker closed, allowing request for service: {}",
+                    service_name
+                );
             }
         }
 
@@ -427,7 +452,10 @@ impl CircuitBreaker {
             if success_count >= self.success_threshold {
                 let mut state = self.state.lock().unwrap();
                 *state = CircuitBreakerState::Closed;
-                info!("✅ Circuit breaker closed after {} successful requests", success_count);
+                info!(
+                    "✅ Circuit breaker closed after {} successful requests",
+                    success_count
+                );
             }
         }
     }
@@ -443,7 +471,10 @@ impl CircuitBreaker {
         if failure_count >= self.failure_threshold {
             let mut state = self.state.lock().unwrap();
             *state = CircuitBreakerState::Open;
-            warn!("🔴 Circuit breaker opened due to {} failures", failure_count);
+            warn!(
+                "🔴 Circuit breaker opened due to {} failures",
+                failure_count
+            );
         }
     }
 }

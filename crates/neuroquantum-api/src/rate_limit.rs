@@ -1,6 +1,6 @@
 use crate::error::ApiError;
 use actix_web::{dev::ServiceRequest, Error, HttpMessage, HttpResponse, ResponseError};
-use redis::{AsyncCommands, Client as RedisClient, cmd};
+use redis::{cmd, AsyncCommands, Client as RedisClient};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -122,7 +122,10 @@ impl RateLimitService {
                             Some(client)
                         }
                         Err(e) => {
-                            warn!("Failed to connect to Redis: {}. Falling back to memory store.", e);
+                            warn!(
+                                "Failed to connect to Redis: {}. Falling back to memory store.",
+                                e
+                            );
                             if !config.fallback_to_memory {
                                 return Err(ApiError::ConnectionPoolError {
                                     details: format!("Redis connection failed: {}", e),
@@ -167,26 +170,27 @@ impl RateLimitService {
         client: &RedisClient,
         key: &str,
     ) -> Result<RateLimitResult, ApiError> {
-        let mut conn = client.get_multiplexed_async_connection().await.map_err(|e| {
-            ApiError::ConnectionPoolError {
+        let mut conn = client
+            .get_multiplexed_async_connection()
+            .await
+            .map_err(|e| ApiError::ConnectionPoolError {
                 details: format!("Redis connection failed: {}", e),
-            }
-        })?;
+            })?;
 
         let redis_key = format!("rate_limit:{}", key);
         let bucket_key = format!("{}:bucket", redis_key);
 
         // Get or create bucket
-        let bucket_data: Option<String> = conn.get(&bucket_key).await.map_err(|e| {
-            ApiError::InternalServerError {
-                message: format!("Redis GET failed: {}", e),
-            }
-        })?;
+        let bucket_data: Option<String> =
+            conn.get(&bucket_key)
+                .await
+                .map_err(|e| ApiError::InternalServerError {
+                    message: format!("Redis GET failed: {}", e),
+                })?;
 
         let mut bucket = if let Some(ref data) = bucket_data {
-            serde_json::from_str(data).unwrap_or_else(|_| {
-                RateLimitBucket::new(self.config.requests_per_window)
-            })
+            serde_json::from_str(data)
+                .unwrap_or_else(|_| RateLimitBucket::new(self.config.requests_per_window))
         } else {
             RateLimitBucket::new(self.config.requests_per_window)
         };
@@ -194,13 +198,17 @@ impl RateLimitService {
         let allowed = bucket.try_consume(&self.config);
 
         // Store updated bucket
-        let bucket_json = serde_json::to_string(&bucket).map_err(|e| {
-            ApiError::InternalServerError {
+        let bucket_json =
+            serde_json::to_string(&bucket).map_err(|e| ApiError::InternalServerError {
                 message: format!("Bucket serialization failed: {}", e),
-            }
-        })?;
+            })?;
 
-        let _: () = conn.set_ex(&bucket_key, bucket_json, self.config.window_size_seconds as u64)
+        let _: () = conn
+            .set_ex(
+                &bucket_key,
+                bucket_json,
+                self.config.window_size_seconds as u64,
+            )
             .await
             .map_err(|e| ApiError::InternalServerError {
                 message: format!("Redis SET failed: {}", e),
@@ -245,23 +253,24 @@ impl RateLimitService {
         client: &RedisClient,
         key: &str,
     ) -> Result<RateLimitResult, ApiError> {
-        let mut conn = client.get_multiplexed_async_connection().await.map_err(|e| {
-            ApiError::ConnectionPoolError {
+        let mut conn = client
+            .get_multiplexed_async_connection()
+            .await
+            .map_err(|e| ApiError::ConnectionPoolError {
                 details: format!("Redis connection failed: {}", e),
-            }
-        })?;
+            })?;
 
         let redis_key = format!("rate_limit:{}:bucket", key);
-        let bucket_data: Option<String> = conn.get(&redis_key).await.map_err(|e| {
-            ApiError::InternalServerError {
-                message: format!("Redis GET failed: {}", e),
-            }
-        })?;
+        let bucket_data: Option<String> =
+            conn.get(&redis_key)
+                .await
+                .map_err(|e| ApiError::InternalServerError {
+                    message: format!("Redis GET failed: {}", e),
+                })?;
 
         let bucket = if let Some(ref data) = bucket_data {
-            serde_json::from_str(data).unwrap_or_else(|_| {
-                RateLimitBucket::new(self.config.requests_per_window)
-            })
+            serde_json::from_str(data)
+                .unwrap_or_else(|_| RateLimitBucket::new(self.config.requests_per_window))
         } else {
             RateLimitBucket::new(self.config.requests_per_window)
         };
@@ -297,18 +306,20 @@ impl RateLimitService {
     /// Reset rate limit for a specific key (admin function)
     pub async fn reset_rate_limit(&self, key: &str) -> Result<(), ApiError> {
         if let Some(ref client) = self.redis_client {
-            let mut conn = client.get_multiplexed_async_connection().await.map_err(|e| {
-                ApiError::ConnectionPoolError {
+            let mut conn = client
+                .get_multiplexed_async_connection()
+                .await
+                .map_err(|e| ApiError::ConnectionPoolError {
                     details: format!("Redis connection failed: {}", e),
-                }
-            })?;
+                })?;
 
             let redis_key = format!("rate_limit:{}:bucket", key);
-            let _: () = conn.del(&redis_key).await.map_err(|e| {
-                ApiError::InternalServerError {
+            let _: () = conn
+                .del(&redis_key)
+                .await
+                .map_err(|e| ApiError::InternalServerError {
                     message: format!("Redis DEL failed: {}", e),
-                }
-            })?;
+                })?;
         } else {
             let mut store = self.memory_store.write().await;
             store.remove(key);
@@ -330,7 +341,10 @@ impl RateLimitService {
                 bucket.window_start + self.config.window_size_seconds as u64 > now
             });
 
-            debug!("Cleaned up expired rate limit entries. Remaining: {}", store.len());
+            debug!(
+                "Cleaned up expired rate limit entries. Remaining: {}",
+                store.len()
+            );
         }
     }
 }
@@ -374,7 +388,10 @@ impl RateLimitMiddleware {
             if let Some(auth_token) = req.extensions().get::<crate::error::AuthToken>() {
                 format!("user:{}", auth_token.sub)
             } else {
-                format!("ip:{}", req.connection_info().peer_addr().unwrap_or("unknown"))
+                format!(
+                    "ip:{}",
+                    req.connection_info().peer_addr().unwrap_or("unknown")
+                )
             }
         })
     }
@@ -385,7 +402,10 @@ impl RateLimitMiddleware {
             if let Some(api_key) = req.extensions().get::<crate::auth::ApiKey>() {
                 format!("api_key:{}", api_key.key)
             } else {
-                format!("ip:{}", req.connection_info().peer_addr().unwrap_or("unknown"))
+                format!(
+                    "ip:{}",
+                    req.connection_info().peer_addr().unwrap_or("unknown")
+                )
             }
         })
     }
@@ -394,10 +414,10 @@ impl RateLimitMiddleware {
 impl<S, B> actix_web::dev::Transform<S, ServiceRequest> for RateLimitMiddleware
 where
     S: actix_web::dev::Service<
-        ServiceRequest,
-        Response = actix_web::dev::ServiceResponse<B>,
-        Error = Error,
-    > + 'static,
+            ServiceRequest,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = Error,
+        > + 'static,
     S::Future: 'static,
     B: 'static,
 {
@@ -425,16 +445,17 @@ pub struct RateLimitMiddlewareService<S> {
 impl<S, B> actix_web::dev::Service<ServiceRequest> for RateLimitMiddlewareService<S>
 where
     S: actix_web::dev::Service<
-        ServiceRequest,
-        Response = actix_web::dev::ServiceResponse<B>,
-        Error = Error,
-    > + 'static,
+            ServiceRequest,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = Error,
+        > + 'static,
     S::Future: 'static,
     B: 'static,
 {
     type Response = actix_web::dev::ServiceResponse<B>;
     type Error = Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future =
+        std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
     fn poll_ready(
         &self,
@@ -457,15 +478,26 @@ where
                         let headers = response.headers_mut();
                         headers.insert(
                             actix_web::http::header::HeaderName::from_static("x-ratelimit-limit"),
-                            actix_web::http::header::HeaderValue::from_str(&result.limit.to_string()).unwrap(),
+                            actix_web::http::header::HeaderValue::from_str(
+                                &result.limit.to_string(),
+                            )
+                            .unwrap(),
                         );
                         headers.insert(
-                            actix_web::http::header::HeaderName::from_static("x-ratelimit-remaining"),
-                            actix_web::http::header::HeaderValue::from_str(&result.remaining.to_string()).unwrap(),
+                            actix_web::http::header::HeaderName::from_static(
+                                "x-ratelimit-remaining",
+                            ),
+                            actix_web::http::header::HeaderValue::from_str(
+                                &result.remaining.to_string(),
+                            )
+                            .unwrap(),
                         );
                         headers.insert(
                             actix_web::http::header::HeaderName::from_static("x-ratelimit-reset"),
-                            actix_web::http::header::HeaderValue::from_str(&result.reset_time.to_string()).unwrap(),
+                            actix_web::http::header::HeaderValue::from_str(
+                                &result.reset_time.to_string(),
+                            )
+                            .unwrap(),
                         );
                         Ok(response)
                     } else {

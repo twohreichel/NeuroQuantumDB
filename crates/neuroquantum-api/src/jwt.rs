@@ -1,5 +1,5 @@
 use crate::error::{ApiError, AuthToken, QuantumAuthClaims};
-use actix_web::{dev::ServiceRequest, Error, HttpMessage, error::ErrorUnauthorized};
+use actix_web::{dev::ServiceRequest, error::ErrorUnauthorized, Error, HttpMessage};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::future::{ready, Ready};
@@ -76,9 +76,18 @@ impl JwtService {
         let _quantum_claims = QuantumAuthClaims {
             user_id: user_id.to_string(),
             session_id: session_id.to_string(),
-            quantum_signature: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("quantum_sig_{}", user_id)),
-            kyber_public_key: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("kyber_key_{}", user_id)),
-            dilithium_signature: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("dilithium_sig_{}", session_id)),
+            quantum_signature: base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                format!("quantum_sig_{}", user_id),
+            ),
+            kyber_public_key: base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                format!("kyber_key_{}", user_id),
+            ),
+            dilithium_signature: base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                format!("dilithium_sig_{}", session_id),
+            ),
         };
 
         let now = chrono::Utc::now();
@@ -108,7 +117,9 @@ impl JwtService {
         // Check if token is close to expiration (within 1 hour)
         let now = chrono::Utc::now().timestamp() as usize;
         if claims.exp.saturating_sub(now) > 3600 {
-            return Err(ApiError::BadRequest("Token not eligible for refresh".to_string()));
+            return Err(ApiError::BadRequest(
+                "Token not eligible for refresh".to_string(),
+            ));
         }
 
         self.generate_token(&claims.sub, claims.permissions, claims.quantum_level)
@@ -129,10 +140,10 @@ impl JwtAuth {
 impl<S, B> actix_web::dev::Transform<S, ServiceRequest> for JwtAuth
 where
     S: actix_web::dev::Service<
-        ServiceRequest,
-        Response = actix_web::dev::ServiceResponse<B>,
-        Error = Error,
-    > + 'static,
+            ServiceRequest,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = Error,
+        > + 'static,
     S::Future: 'static,
     B: 'static,
 {
@@ -158,16 +169,17 @@ pub struct JwtAuthMiddleware<S> {
 impl<S, B> actix_web::dev::Service<ServiceRequest> for JwtAuthMiddleware<S>
 where
     S: actix_web::dev::Service<
-        ServiceRequest,
-        Response = actix_web::dev::ServiceResponse<B>,
-        Error = Error,
-    > + 'static,
+            ServiceRequest,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = Error,
+        > + 'static,
     S::Future: 'static,
     B: 'static,
 {
     type Response = actix_web::dev::ServiceResponse<B>;
     type Error = Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future =
+        std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
     fn poll_ready(
         &self,
@@ -193,10 +205,13 @@ where
                             }
                             Err(e) => {
                                 warn!("JWT validation failed: {:?}", e);
-                                return Err(ErrorUnauthorized(serde_json::json!({
-                                    "error": "Invalid or expired token",
-                                    "code": "JWT_INVALID"
-                                }).to_string()));
+                                return Err(ErrorUnauthorized(
+                                    serde_json::json!({
+                                        "error": "Invalid or expired token",
+                                        "code": "JWT_INVALID"
+                                    })
+                                    .to_string(),
+                                ));
                             }
                         }
                     }
@@ -204,10 +219,13 @@ where
             }
 
             // No valid token found
-            Err(ErrorUnauthorized(serde_json::json!({
-                "error": "Authentication required",
-                "code": "AUTH_REQUIRED"
-            }).to_string()))
+            Err(ErrorUnauthorized(
+                serde_json::json!({
+                    "error": "Authentication required",
+                    "code": "AUTH_REQUIRED"
+                })
+                .to_string(),
+            ))
         })
     }
 }
@@ -243,11 +261,13 @@ mod tests {
         let secret = b"test_secret_key_32_bytes_minimum!!";
         let service = JwtService::new(secret);
 
-        let token = service.generate_token(
-            "test_user",
-            vec!["read".to_string(), "write".to_string()],
-            128,
-        ).unwrap();
+        let token = service
+            .generate_token(
+                "test_user",
+                vec!["read".to_string(), "write".to_string()],
+                128,
+            )
+            .unwrap();
 
         let claims = service.validate_token(&token).unwrap();
         assert_eq!(claims.sub, "test_user");
@@ -260,12 +280,16 @@ mod tests {
         let secret = b"test_secret_key_32_bytes_minimum!!";
         let service = JwtService::new(secret);
 
-        let token = service.generate_quantum_token("quantum_user", "session_123").unwrap();
+        let token = service
+            .generate_quantum_token("quantum_user", "session_123")
+            .unwrap();
         let claims = service.validate_token(&token).unwrap();
 
         assert_eq!(claims.sub, "quantum_user");
         assert_eq!(claims.quantum_level, 255);
-        assert!(claims.permissions.contains(&"quantum_authenticated".to_string()));
+        assert!(claims
+            .permissions
+            .contains(&"quantum_authenticated".to_string()));
     }
 
     #[test]

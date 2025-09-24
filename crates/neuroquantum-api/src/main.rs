@@ -67,11 +67,9 @@ async fn main() -> Result<()> {
 
 /// Initialize logging based on environment
 fn init_logging() -> Result<()> {
-    let log_level = env::var("NEUROQUANTUM_LOG_LEVEL")
-        .unwrap_or_else(|_| "info".to_string());
+    let log_level = env::var("NEUROQUANTUM_LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
 
-    let log_format = env::var("NEUROQUANTUM_LOG_FORMAT")
-        .unwrap_or_else(|_| "json".to_string());
+    let log_format = env::var("NEUROQUANTUM_LOG_FORMAT").unwrap_or_else(|_| "json".to_string());
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .or_else(|_| tracing_subscriber::EnvFilter::try_new(&log_level))?;
@@ -84,7 +82,7 @@ fn init_logging() -> Result<()> {
                     tracing_subscriber::fmt::layer()
                         .json()
                         .with_current_span(false)
-                        .with_span_list(true)
+                        .with_span_list(true),
                 )
                 .init();
         }
@@ -96,7 +94,7 @@ fn init_logging() -> Result<()> {
                         .pretty()
                         .with_target(true)
                         .with_thread_ids(true)
-                        .with_line_number(true)
+                        .with_line_number(true),
                 )
                 .init();
         }
@@ -106,7 +104,7 @@ fn init_logging() -> Result<()> {
                 .with(
                     tracing_subscriber::fmt::layer()
                         .compact()
-                        .with_target(false)
+                        .with_target(false),
                 )
                 .init();
         }
@@ -153,8 +151,10 @@ fn validate_environment(config: &ApiConfig) -> Result<()> {
     if config.server.port < 1024 {
         let user = env::var("USER").unwrap_or_else(|_| "unknown".to_string());
         if user != "root" {
-            warn!("⚠️  Attempting to bind to privileged port {} as non-root user '{}'",
-                  config.server.port, user);
+            warn!(
+                "⚠️  Attempting to bind to privileged port {} as non-root user '{}'",
+                config.server.port, user
+            );
             warn!("   This may fail. Consider using a port >= 1024 or running as root.");
         }
     }
@@ -195,7 +195,10 @@ fn validate_environment(config: &ApiConfig) -> Result<()> {
     // Validate TLS configuration if enabled
     if let Some(tls_config) = &config.server.tls {
         if !std::path::Path::new(&tls_config.cert_file).exists() {
-            error!("❌ TLS certificate file not found: {}", tls_config.cert_file);
+            error!(
+                "❌ TLS certificate file not found: {}",
+                tls_config.cert_file
+            );
             return Err(anyhow::anyhow!("TLS certificate file missing"));
         }
         if !std::path::Path::new(&tls_config.key_file).exists() {
@@ -243,7 +246,14 @@ fn print_system_info() {
     info!("   OS: {}", env::consts::OS);
     info!("   Architecture: {}", env::consts::ARCH);
     let rust_version = env!("CARGO_PKG_RUST_VERSION");
-    info!("   Rust version: {}", if rust_version.is_empty() { "1.70+" } else { rust_version });
+    info!(
+        "   Rust version: {}",
+        if rust_version.is_empty() {
+            "1.70+"
+        } else {
+            rust_version
+        }
+    );
 
     if let Ok(hostname) = env::var("HOSTNAME") {
         info!("   Hostname: {}", hostname);
@@ -282,23 +292,32 @@ fn print_system_info() {
 /// Handle panic with proper logging
 fn setup_panic_handler() {
     std::panic::set_hook(Box::new(|panic_info| {
-        let location = panic_info.location().unwrap_or_else(|| {
-            std::panic::Location::caller()
-        });
+        let location = panic_info
+            .location()
+            .unwrap_or_else(|| std::panic::Location::caller());
 
         let msg = match panic_info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
             None => match panic_info.payload().downcast_ref::<String>() {
                 Some(s) => &s[..],
                 None => "Box<dyn Any>",
-            }
+            },
         };
 
-        error!("💥 PANIC occurred at {}:{}: {}",
-               location.file(), location.line(), msg);
+        error!(
+            "💥 PANIC occurred at {}:{}: {}",
+            location.file(),
+            location.line(),
+            msg
+        );
 
         // In production, you might want to send this to an error tracking service
-        eprintln!("💥 PANIC: {} at {}:{}", msg, location.file(), location.line());
+        eprintln!(
+            "💥 PANIC: {} at {}:{}",
+            msg,
+            location.file(),
+            location.line()
+        );
 
         std::process::exit(1);
     }));

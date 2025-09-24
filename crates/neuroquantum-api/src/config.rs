@@ -21,7 +21,7 @@ impl Default for DatabaseConfig {
 }
 
 /// Main API configuration structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ApiConfig {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
@@ -32,22 +32,6 @@ pub struct ApiConfig {
     pub monitoring: MonitoringConfig,
     pub redis: Option<RedisConfig>,
     pub logging: LoggingConfig,
-}
-
-impl Default for ApiConfig {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            database: DatabaseConfig::default(),
-            jwt: JwtConfig::default(),
-            rate_limit: RateLimitConfig::default(),
-            cors: CorsConfig::default(),
-            security: SecurityConfig::default(),
-            monitoring: MonitoringConfig::default(),
-            redis: None,
-            logging: LoggingConfig::default(),
-        }
-    }
 }
 
 /// Server configuration
@@ -409,7 +393,9 @@ impl ApiConfig {
 
         // Validate Redis URL if provided
         if let Some(redis_config) = &self.redis {
-            if !redis_config.url.starts_with("redis://") && !redis_config.url.starts_with("rediss://") {
+            if !redis_config.url.starts_with("redis://")
+                && !redis_config.url.starts_with("rediss://")
+            {
                 return Err(anyhow::anyhow!(
                     "Invalid Redis URL format. Must start with redis:// or rediss://"
                 ));
@@ -431,7 +417,11 @@ impl ApiConfig {
 
     /// Get the base URL for the API
     pub fn base_url(&self) -> String {
-        let protocol = if self.is_tls_enabled() { "https" } else { "http" };
+        let protocol = if self.is_tls_enabled() {
+            "https"
+        } else {
+            "http"
+        };
         format!("{}://{}", protocol, self.bind_address())
     }
 

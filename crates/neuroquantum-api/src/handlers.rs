@@ -155,16 +155,22 @@ pub async fn login(
     let start = Instant::now();
 
     // Validate request
-    login_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "request".to_string(),
-        message: e.to_string(),
-    })?;
+    login_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "request".to_string(),
+            message: e.to_string(),
+        })?;
 
     // In a real implementation, verify credentials against database
     // For now, we'll simulate authentication
     let user_id = format!("user_{}", uuid::Uuid::new_v4());
     let permissions = vec!["read".to_string(), "write".to_string()];
-    let quantum_level = if login_req.quantum_enabled.unwrap_or(false) { 255 } else { 128 };
+    let quantum_level = if login_req.quantum_enabled.unwrap_or(false) {
+        255
+    } else {
+        128
+    };
 
     // Simulate JWT token generation (would use actual JWT service in real implementation)
     let access_token = format!("jwt_token_{}", uuid::Uuid::new_v4());
@@ -180,7 +186,10 @@ pub async fn login(
         quantum_level,
     };
 
-    info!("🔐 User login successful with quantum_level: {}", quantum_level);
+    info!(
+        "🔐 User login successful with quantum_level: {}",
+        quantum_level
+    );
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
@@ -363,10 +372,12 @@ pub async fn create_table(
     let start = Instant::now();
 
     // Validate request
-    create_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "schema".to_string(),
-        message: e.to_string(),
-    })?;
+    create_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "schema".to_string(),
+            message: e.to_string(),
+        })?;
 
     // Check permissions
     let extensions = req.extensions();
@@ -374,7 +385,9 @@ pub async fn create_table(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"write".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
+    if !api_key.permissions.contains(&"write".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
         return Err(ApiError::Forbidden("Write permission required".to_string()));
     }
 
@@ -382,7 +395,11 @@ pub async fn create_table(
     let table_id = uuid::Uuid::new_v4().to_string();
     let table_name = create_req.schema.name.clone();
 
-    info!("🗃️ Creating table '{}' with {} columns", table_name, create_req.schema.columns.len());
+    info!(
+        "🗃️ Creating table '{}' with {} columns",
+        table_name,
+        create_req.schema.columns.len()
+    );
 
     // Validate column definitions
     for column in &create_req.schema.columns {
@@ -403,7 +420,10 @@ pub async fn create_table(
 
     Ok(HttpResponse::Created().json(ApiResponse::success(
         response,
-        ResponseMetadata::new(start.elapsed(), &format!("Table '{}' created successfully", table_name)),
+        ResponseMetadata::new(
+            start.elapsed(),
+            &format!("Table '{}' created successfully", table_name),
+        ),
     )))
 }
 
@@ -432,10 +452,12 @@ pub async fn insert_data(
     let table_name = path.into_inner();
 
     // Validate request
-    insert_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "request".to_string(),
-        message: e.to_string(),
-    })?;
+    insert_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "request".to_string(),
+            message: e.to_string(),
+        })?;
 
     // Check permissions
     let extensions = req.extensions();
@@ -443,25 +465,31 @@ pub async fn insert_data(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"write".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
+    if !api_key.permissions.contains(&"write".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
         return Err(ApiError::Forbidden("Write permission required".to_string()));
     }
 
     if insert_req.records.is_empty() {
-        return Err(ApiError::BadRequest("No records provided for insertion".to_string()));
+        return Err(ApiError::BadRequest(
+            "No records provided for insertion".to_string(),
+        ));
     }
 
     let batch_size = insert_req.batch_size.unwrap_or(1000);
     let total_records = insert_req.records.len();
 
-    info!("📝 Inserting {} records into table '{}' with batch size {}",
-          total_records, table_name, batch_size);
+    info!(
+        "📝 Inserting {} records into table '{}' with batch size {}",
+        total_records, table_name, batch_size
+    );
 
     // Simulate batch insertion
     let mut inserted_ids = Vec::new();
     let mut failed_count = 0;
 
-    for (_i, record) in insert_req.records.iter().enumerate() {
+    for record in insert_req.records.iter() {
         // Simulate validation and insertion
         if record.is_empty() {
             failed_count += 1;
@@ -487,7 +515,10 @@ pub async fn insert_data(
 
     Ok(HttpResponse::Created().json(ApiResponse::success(
         response,
-        ResponseMetadata::new(start.elapsed(), &format!("Inserted {} records into '{}'", inserted_count, table_name)),
+        ResponseMetadata::new(
+            start.elapsed(),
+            &format!("Inserted {} records into '{}'", inserted_count, table_name),
+        ),
     )))
 }
 
@@ -516,10 +547,12 @@ pub async fn query_data(
     let table_name = path.into_inner();
 
     // Validate request
-    query_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "query".to_string(),
-        message: e.to_string(),
-    })?;
+    query_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "query".to_string(),
+            message: e.to_string(),
+        })?;
 
     // Check permissions
     let extensions = req.extensions();
@@ -527,22 +560,37 @@ pub async fn query_data(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"read".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
+    if !api_key.permissions.contains(&"read".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
         return Err(ApiError::Forbidden("Read permission required".to_string()));
     }
 
     let limit = query_req.limit.unwrap_or(100);
     let offset = query_req.offset.unwrap_or(0);
 
-    info!("🔍 Querying table '{}' with limit {} offset {}", table_name, limit, offset);
+    info!(
+        "🔍 Querying table '{}' with limit {} offset {}",
+        table_name, limit, offset
+    );
 
     // Simulate query execution
     let mut mock_records = Vec::new();
-    for i in 0..limit.min(50) { // Simulate up to 50 records
+    for i in 0..limit.min(50) {
+        // Simulate up to 50 records
         let mut record = HashMap::new();
-        record.insert("id".to_string(), serde_json::Value::String(uuid::Uuid::new_v4().to_string()));
-        record.insert("created_at".to_string(), serde_json::Value::String(chrono::Utc::now().to_rfc3339()));
-        record.insert("data".to_string(), serde_json::Value::String(format!("Sample data {}", i + offset)));
+        record.insert(
+            "id".to_string(),
+            serde_json::Value::String(uuid::Uuid::new_v4().to_string()),
+        );
+        record.insert(
+            "created_at".to_string(),
+            serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
+        );
+        record.insert(
+            "data".to_string(),
+            serde_json::Value::String(format!("Sample data {}", i + offset)),
+        );
         mock_records.push(record);
     }
 
@@ -565,7 +613,10 @@ pub async fn query_data(
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
-        ResponseMetadata::new(start.elapsed(), &format!("Query executed on table '{}'", table_name)),
+        ResponseMetadata::new(
+            start.elapsed(),
+            &format!("Query executed on table '{}'", table_name),
+        ),
     )))
 }
 
@@ -595,10 +646,12 @@ pub async fn update_data(
     let table_name = path.into_inner();
 
     // Validate request
-    update_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "update".to_string(),
-        message: e.to_string(),
-    })?;
+    update_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "update".to_string(),
+            message: e.to_string(),
+        })?;
 
     // Check permissions
     let extensions = req.extensions();
@@ -606,7 +659,9 @@ pub async fn update_data(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"write".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
+    if !api_key.permissions.contains(&"write".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
         return Err(ApiError::Forbidden("Write permission required".to_string()));
     }
 
@@ -614,12 +669,16 @@ pub async fn update_data(
         return Err(ApiError::BadRequest("No updates provided".to_string()));
     }
 
-    info!("✏️ Updating data in table '{}' with {} filters and {} updates",
-          table_name, update_req.filters.len(), update_req.updates.len());
+    info!(
+        "✏️ Updating data in table '{}' with {} filters and {} updates",
+        table_name,
+        update_req.filters.len(),
+        update_req.updates.len()
+    );
 
     // Simulate update operation
     let updated_count = 42; // Mock value
-    let matched_count = 45;  // Mock value
+    let matched_count = 45; // Mock value
     let new_version = update_req.optimistic_lock_version.map(|v| v + 1);
 
     let response = UpdateDataResponse {
@@ -630,7 +689,13 @@ pub async fn update_data(
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
-        ResponseMetadata::new(start.elapsed(), &format!("Updated {} records in table '{}'", updated_count, table_name)),
+        ResponseMetadata::new(
+            start.elapsed(),
+            &format!(
+                "Updated {} records in table '{}'",
+                updated_count, table_name
+            ),
+        ),
     )))
 }
 
@@ -659,10 +724,12 @@ pub async fn delete_data(
     let table_name = path.into_inner();
 
     // Validate request
-    delete_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "delete".to_string(),
-        message: e.to_string(),
-    })?;
+    delete_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "delete".to_string(),
+            message: e.to_string(),
+        })?;
 
     // Check permissions
     let extensions = req.extensions();
@@ -670,15 +737,19 @@ pub async fn delete_data(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"write".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
+    if !api_key.permissions.contains(&"write".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
         return Err(ApiError::Forbidden("Write permission required".to_string()));
     }
 
     let cascade = delete_req.cascade.unwrap_or(false);
     let soft_delete = delete_req.soft_delete.unwrap_or(false);
 
-    info!("🗑️ Deleting data from table '{}' (cascade: {}, soft: {})",
-          table_name, cascade, soft_delete);
+    info!(
+        "🗑️ Deleting data from table '{}' (cascade: {}, soft: {})",
+        table_name, cascade, soft_delete
+    );
 
     // Simulate delete operation
     let deleted_count = 15; // Mock value
@@ -698,7 +769,13 @@ pub async fn delete_data(
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
-        ResponseMetadata::new(start.elapsed(), &format!("Deleted {} records from table '{}'", deleted_count, table_name)),
+        ResponseMetadata::new(
+            start.elapsed(),
+            &format!(
+                "Deleted {} records from table '{}'",
+                deleted_count, table_name
+            ),
+        ),
     )))
 }
 
@@ -730,18 +807,27 @@ pub async fn train_neural_network(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"neuromorphic".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden("Neuromorphic permission required".to_string()));
+    if !api_key.permissions.contains(&"neuromorphic".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
+        return Err(ApiError::Forbidden(
+            "Neuromorphic permission required".to_string(),
+        ));
     }
 
     if train_req.training_data.is_empty() {
-        return Err(ApiError::BadRequest("No training data provided".to_string()));
+        return Err(ApiError::BadRequest(
+            "No training data provided".to_string(),
+        ));
     }
 
     let network_id = uuid::Uuid::new_v4().to_string();
 
-    info!("🧠 Starting neural network training '{}' with {} examples",
-          train_req.network_name, train_req.training_data.len());
+    info!(
+        "🧠 Starting neural network training '{}' with {} examples",
+        train_req.network_name,
+        train_req.training_data.len()
+    );
 
     // Simulate training initiation
     let response = TrainNeuralNetworkResponse {
@@ -749,7 +835,9 @@ pub async fn train_neural_network(
         training_status: TrainingStatus::Queued,
         initial_loss: Some(0.85),
         training_started_at: chrono::Utc::now().to_rfc3339(),
-        estimated_completion: Some((chrono::Utc::now() + chrono::Duration::minutes(30)).to_rfc3339()),
+        estimated_completion: Some(
+            (chrono::Utc::now() + chrono::Duration::minutes(30)).to_rfc3339(),
+        ),
     };
 
     Ok(HttpResponse::Accepted().json(ApiResponse::success(
@@ -791,7 +879,9 @@ pub async fn get_training_status(
         training_status: TrainingStatus::Running,
         initial_loss: Some(0.85),
         training_started_at: chrono::Utc::now().to_rfc3339(),
-        estimated_completion: Some((chrono::Utc::now() + chrono::Duration::minutes(15)).to_rfc3339()),
+        estimated_completion: Some(
+            (chrono::Utc::now() + chrono::Duration::minutes(15)).to_rfc3339(),
+        ),
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
@@ -819,10 +909,12 @@ pub async fn quantum_search(
     let start = Instant::now();
 
     // Validate request
-    search_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "search".to_string(),
-        message: e.to_string(),
-    })?;
+    search_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "search".to_string(),
+            message: e.to_string(),
+        })?;
 
     // Check permissions
     let extensions = req.extensions();
@@ -830,23 +922,38 @@ pub async fn quantum_search(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"quantum".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden("Quantum permission required".to_string()));
+    if !api_key.permissions.contains(&"quantum".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
+        return Err(ApiError::Forbidden(
+            "Quantum permission required".to_string(),
+        ));
     }
 
     if search_req.query_vector.is_empty() {
-        return Err(ApiError::BadRequest("Query vector cannot be empty".to_string()));
+        return Err(ApiError::BadRequest(
+            "Query vector cannot be empty".to_string(),
+        ));
     }
 
-    info!("⚛️ Performing quantum search on table '{}' with {} dimensions",
-          search_req.table_name, search_req.query_vector.len());
+    info!(
+        "⚛️ Performing quantum search on table '{}' with {} dimensions",
+        search_req.table_name,
+        search_req.query_vector.len()
+    );
 
     // Simulate quantum search
     let mut results = Vec::new();
     for i in 0..search_req.max_results.unwrap_or(10).min(20) {
         let mut record = HashMap::new();
-        record.insert("id".to_string(), serde_json::Value::String(uuid::Uuid::new_v4().to_string()));
-        record.insert("quantum_data".to_string(), serde_json::Value::String(format!("Quantum result {}", i)));
+        record.insert(
+            "id".to_string(),
+            serde_json::Value::String(uuid::Uuid::new_v4().to_string()),
+        );
+        record.insert(
+            "quantum_data".to_string(),
+            serde_json::Value::String(format!("Quantum result {}", i)),
+        );
 
         results.push(QuantumSearchResult {
             record,
@@ -893,10 +1000,12 @@ pub async fn compress_dna(
     let start = Instant::now();
 
     // Validate request
-    compress_req.validate().map_err(|e| ApiError::ValidationError {
-        field: "compression".to_string(),
-        message: e.to_string(),
-    })?;
+    compress_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "compression".to_string(),
+            message: e.to_string(),
+        })?;
 
     // Check permissions
     let extensions = req.extensions();
@@ -904,16 +1013,23 @@ pub async fn compress_dna(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"dna".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
+    if !api_key.permissions.contains(&"dna".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
         return Err(ApiError::Forbidden("DNA permission required".to_string()));
     }
 
     if compress_req.sequences.is_empty() {
-        return Err(ApiError::BadRequest("No DNA sequences provided".to_string()));
+        return Err(ApiError::BadRequest(
+            "No DNA sequences provided".to_string(),
+        ));
     }
 
-    info!("🧬 Compressing {} DNA sequences using {:?} algorithm",
-          compress_req.sequences.len(), compress_req.algorithm);
+    info!(
+        "🧬 Compressing {} DNA sequences using {:?} algorithm",
+        compress_req.sequences.len(),
+        compress_req.algorithm
+    );
 
     // Simulate DNA compression
     let mut compressed_sequences = Vec::new();
@@ -922,14 +1038,23 @@ pub async fn compress_dna(
 
     for (i, sequence) in compress_req.sequences.iter().enumerate() {
         // Validate DNA sequence (should only contain A, T, G, C)
-        if !sequence.chars().all(|c| matches!(c, 'A' | 'T' | 'G' | 'C' | 'a' | 't' | 'g' | 'c')) {
+        if !sequence
+            .chars()
+            .all(|c| matches!(c, 'A' | 'T' | 'G' | 'C' | 'a' | 't' | 'g' | 'c'))
+        {
             return Err(ApiError::CompressionError {
-                reason: format!("Invalid DNA sequence at index {}: contains non-ATGC characters", i),
+                reason: format!(
+                    "Invalid DNA sequence at index {}: contains non-ATGC characters",
+                    i
+                ),
             });
         }
 
         let original_length = sequence.len();
-        let compressed_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("compressed_{}", sequence));
+        let compressed_data = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            format!("compressed_{}", sequence),
+        );
         let compression_ratio = original_length as f32 / compressed_data.len() as f32;
 
         total_input_size += original_length;
@@ -975,9 +1100,7 @@ pub async fn compress_dna(
     ),
     tag = "Monitoring"
 )]
-pub async fn get_metrics(
-    req: HttpRequest,
-) -> ActixResult<HttpResponse, ApiError> {
+pub async fn get_metrics(req: HttpRequest) -> ActixResult<HttpResponse, ApiError> {
     // Check permissions
     let extensions = req.extensions();
     let api_key = extensions
@@ -985,7 +1108,9 @@ pub async fn get_metrics(
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
     if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden("Admin permission required for metrics".to_string()));
+        return Err(ApiError::Forbidden(
+            "Admin permission required for metrics".to_string(),
+        ));
     }
 
     let metrics = r#"
@@ -1055,7 +1180,9 @@ pub async fn get_performance_stats(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"read".to_string()) && !api_key.permissions.contains(&"admin".to_string()) {
+    if !api_key.permissions.contains(&"read".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
         return Err(ApiError::Forbidden("Read permission required".to_string()));
     }
 

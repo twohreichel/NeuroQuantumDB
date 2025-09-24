@@ -1,5 +1,5 @@
-use actix_web::body::MessageBody;
 use actix_cors::Cors;
+use actix_web::body::MessageBody;
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
 use actix_web_prometheus::PrometheusMetricsBuilder;
@@ -137,7 +137,8 @@ pub async fn websocket_handler(
 ) -> Result<HttpResponse, actix_web::Error> {
     // Check if user is authenticated (JWT token should be in extensions from middleware)
     let extensions = req.extensions();
-    if extensions.get::<error::AuthToken>().is_none() && extensions.get::<auth::ApiKey>().is_none() {
+    if extensions.get::<error::AuthToken>().is_none() && extensions.get::<auth::ApiKey>().is_none()
+    {
         return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
             "error": "Authentication required for WebSocket connection",
             "code": "WEBSOCKET_AUTH_REQUIRED"
@@ -153,7 +154,10 @@ pub async fn websocket_handler(
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text) {
                         match parsed.get("type").and_then(|t| t.as_str()) {
                             Some("subscribe") => {
-                                let channel = parsed.get("channel").and_then(|c| c.as_str()).unwrap_or("general");
+                                let channel = parsed
+                                    .get("channel")
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("general");
                                 info!("📡 Client subscribed to channel: {}", channel);
 
                                 let response = serde_json::json!({
@@ -177,7 +181,10 @@ pub async fn websocket_handler(
                                 }
                             }
                             Some("query_status") => {
-                                let query_id = parsed.get("query_id").and_then(|q| q.as_str()).unwrap_or("unknown");
+                                let query_id = parsed
+                                    .get("query_id")
+                                    .and_then(|q| q.as_str())
+                                    .unwrap_or("unknown");
 
                                 let status = serde_json::json!({
                                     "type": "query_status",
@@ -192,7 +199,10 @@ pub async fn websocket_handler(
                                 }
                             }
                             Some("neural_training_status") => {
-                                let network_id = parsed.get("network_id").and_then(|n| n.as_str()).unwrap_or("unknown");
+                                let network_id = parsed
+                                    .get("network_id")
+                                    .and_then(|n| n.as_str())
+                                    .unwrap_or("unknown");
 
                                 let status = serde_json::json!({
                                     "type": "neural_training_status",
@@ -223,7 +233,9 @@ pub async fn websocket_handler(
 }
 
 /// Configure application routes and middleware
-pub fn configure_app(app_state: AppState) -> App<
+pub fn configure_app(
+    app_state: AppState,
+) -> App<
     impl actix_web::dev::ServiceFactory<
         actix_web::dev::ServiceRequest,
         Config = (),
@@ -352,8 +364,14 @@ pub async fn start_server(config: ApiConfig) -> Result<()> {
     let app_state = AppState::new(config.clone()).await?;
 
     info!("🚀 Starting NeuroQuantumDB API Server on {}", bind_address);
-    info!("📖 API Documentation available at: http://{}/api-docs/", bind_address);
-    info!("🏥 Health check available at: http://{}/health", bind_address);
+    info!(
+        "📖 API Documentation available at: http://{}/api-docs/",
+        bind_address
+    );
+    info!(
+        "🏥 Health check available at: http://{}/health",
+        bind_address
+    );
     info!("📊 Metrics available at: http://{}/metrics", bind_address);
 
     HttpServer::new(move || configure_app(app_state.clone()))
@@ -371,9 +389,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_health_check() {
-        let app = test::init_service(
-            App::new().route("/health", web::get().to(health_check))
-        ).await;
+        let app =
+            test::init_service(App::new().route("/health", web::get().to(health_check))).await;
 
         let req = test::TestRequest::get().uri("/health").to_request();
         let resp = test::call_service(&app, req).await;
@@ -383,9 +400,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_metrics_endpoint() {
-        let app = test::init_service(
-            App::new().route("/metrics", web::get().to(metrics))
-        ).await;
+        let app = test::init_service(App::new().route("/metrics", web::get().to(metrics))).await;
 
         let req = test::TestRequest::get().uri("/metrics").to_request();
         let resp = test::call_service(&app, req).await;
