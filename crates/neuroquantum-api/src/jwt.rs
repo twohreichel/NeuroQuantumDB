@@ -1,11 +1,10 @@
 use crate::error::{ApiError, AuthToken, QuantumAuthClaims};
-use actix_web::{dev::ServiceRequest, Error, HttpMessage};
-use actix_web_lab::middleware::Next;
+use actix_web::{dev::ServiceRequest, Error, HttpMessage, HttpResponse, error::ErrorUnauthorized};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::future::{ready, Ready};
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 /// JWT authentication service with quantum-resistant features
 #[derive(Clone)]
@@ -74,12 +73,12 @@ impl JwtService {
     ) -> Result<String, ApiError> {
         // In a real implementation, this would use post-quantum cryptography
         // For now, we'll simulate with enhanced claims
-        let quantum_claims = QuantumAuthClaims {
+        let _quantum_claims = QuantumAuthClaims {
             user_id: user_id.to_string(),
             session_id: session_id.to_string(),
-            quantum_signature: base64::encode(format!("quantum_sig_{}", user_id)),
-            kyber_public_key: base64::encode(format!("kyber_key_{}", user_id)),
-            dilithium_signature: base64::encode(format!("dilithium_sig_{}", session_id)),
+            quantum_signature: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("quantum_sig_{}", user_id)),
+            kyber_public_key: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("kyber_key_{}", user_id)),
+            dilithium_signature: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("dilithium_sig_{}", session_id)),
         };
 
         let now = chrono::Utc::now();
@@ -133,7 +132,7 @@ where
         ServiceRequest,
         Response = actix_web::dev::ServiceResponse<B>,
         Error = Error,
-    >,
+    > + 'static,
     S::Future: 'static,
     B: 'static,
 {
@@ -162,7 +161,7 @@ where
         ServiceRequest,
         Response = actix_web::dev::ServiceResponse<B>,
         Error = Error,
-    >,
+    > + 'static,
     S::Future: 'static,
     B: 'static,
 {
@@ -178,7 +177,7 @@ where
     }
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let service = self.service.clone();
+        let service = Arc::clone(&self.service);
         let jwt_service = self.jwt_service.clone();
 
         Box::pin(async move {
@@ -194,13 +193,10 @@ where
                             }
                             Err(e) => {
                                 warn!("JWT validation failed: {:?}", e);
-                                return Ok(req.error_response(
-                                    actix_web::HttpResponse::Unauthorized()
-                                        .json(serde_json::json!({
-                                            "error": "Invalid or expired token",
-                                            "code": "JWT_INVALID"
-                                        }))
-                                ));
+                                return Err(ErrorUnauthorized(serde_json::json!({
+                                    "error": "Invalid or expired token",
+                                    "code": "JWT_INVALID"
+                                }).to_string()));
                             }
                         }
                     }
@@ -208,12 +204,10 @@ where
             }
 
             // No valid token found
-            Ok(req.error_response(
-                actix_web::HttpResponse::Unauthorized().json(serde_json::json!({
-                    "error": "Authentication required",
-                    "code": "AUTH_REQUIRED"
-                }))
-            ))
+            Err(ErrorUnauthorized(serde_json::json!({
+                "error": "Authentication required",
+                "code": "AUTH_REQUIRED"
+            }).to_string()))
         })
     }
 }

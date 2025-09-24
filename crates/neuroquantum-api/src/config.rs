@@ -1,9 +1,26 @@
 use anyhow::Result;
-use neuroquantum_core::DatabaseConfig;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::Path;
+
+// Create a simple database config wrapper that's compatible
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseConfig {
+    pub data_path: String,
+    pub max_connections: u32,
+    pub connection_timeout_seconds: u64,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            data_path: "./data".to_string(),
+            max_connections: 100,
+            connection_timeout_seconds: 30,
+        }
+    }
+}
 
 /// Main API configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]

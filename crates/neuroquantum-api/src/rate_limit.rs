@@ -1,6 +1,6 @@
 use crate::error::ApiError;
-use actix_web::{dev::ServiceRequest, Error, HttpMessage};
-use redis::{AsyncCommands, Client as RedisClient};
+use actix_web::{dev::ServiceRequest, Error, HttpMessage, HttpResponse, ResponseError};
+use redis::{AsyncCommands, Client as RedisClient, cmd};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -45,7 +45,7 @@ impl RateLimitBucket {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         Self {
             tokens: max_tokens,
             last_refill: now,
@@ -70,9 +70,9 @@ impl RateLimitBucket {
         // Refill tokens based on time elapsed
         let time_elapsed = now - self.last_refill;
         if time_elapsed > 0 {
-            let tokens_to_add = (time_elapsed * config.requests_per_window as u64 
+            let tokens_to_add = (time_elapsed * config.requests_per_window as u64
                 / config.window_size_seconds as u64) as u32;
-            
+
             self.tokens = (self.tokens + tokens_to_add).min(config.requests_per_window);
             self.last_refill = now;
         }
@@ -96,7 +96,7 @@ impl RateLimitBucket {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         (self.window_start + config.window_size_seconds as u64).saturating_sub(now)
     }
 }
@@ -115,9 +115,10 @@ impl RateLimitService {
             match RedisClient::open(redis_url.as_str()) {
                 Ok(client) => {
                     // Test connection
-                    match client.get_async_connection().await {
+                    match client.get_multiplexed_async_connection().await {
                         Ok(mut conn) => {
-                            let _: Result<String, _> = conn.ping().await;
+                            // Use cmd for ping command
+                            let _: Result<String, _> = cmd("PING").query_async(&mut conn).await;
                             Some(client)
                         }
                         Err(e) => {
@@ -166,7 +167,7 @@ impl RateLimitService {
         client: &RedisClient,
         key: &str,
     ) -> Result<RateLimitResult, ApiError> {
-        let mut conn = client.get_async_connection().await.map_err(|e| {
+        let mut conn = client.get_multiplexed_async_connection().await.map_err(|e| {
             ApiError::ConnectionPoolError {
                 details: format!("Redis connection failed: {}", e),
             }
@@ -182,8 +183,8 @@ impl RateLimitService {
             }
         })?;
 
-        let mut bucket = if let Some(data) = bucket_data {
-            serde_json::from_str(&data).unwrap_or_else(|_| {
+        let mut bucket = if let Some(ref data) = bucket_data {
+            serde_json::from_str(data).unwrap_or_else(|_| {
                 RateLimitBucket::new(self.config.requests_per_window)
             })
         } else {
@@ -199,7 +200,7 @@ impl RateLimitService {
             }
         })?;
 
-        conn.set_ex(&bucket_key, bucket_json, self.config.window_size_seconds as u64)
+        let _: () = conn.set_ex(&bucket_key, bucket_json, self.config.window_size_seconds as u64)
             .await
             .map_err(|e| ApiError::InternalServerError {
                 message: format!("Redis SET failed: {}", e),
@@ -215,7 +216,7 @@ impl RateLimitService {
 
     async fn check_rate_limit_memory(&self, key: &str) -> Result<RateLimitResult, ApiError> {
         let mut store = self.memory_store.write().await;
-        
+
         let bucket = store
             .entry(key.to_string())
             .or_insert_with(|| RateLimitBucket::new(self.config.requests_per_window));
@@ -244,7 +245,7 @@ impl RateLimitService {
         client: &RedisClient,
         key: &str,
     ) -> Result<RateLimitResult, ApiError> {
-        let mut conn = client.get_async_connection().await.map_err(|e| {
+        let mut conn = client.get_multiplexed_async_connection().await.map_err(|e| {
             ApiError::ConnectionPoolError {
                 details: format!("Redis connection failed: {}", e),
             }
@@ -257,8 +258,8 @@ impl RateLimitService {
             }
         })?;
 
-        let bucket = if let Some(data) = bucket_data {
-            serde_json::from_str(&data).unwrap_or_else(|_| {
+        let bucket = if let Some(ref data) = bucket_data {
+            serde_json::from_str(data).unwrap_or_else(|_| {
                 RateLimitBucket::new(self.config.requests_per_window)
             })
         } else {
@@ -275,7 +276,7 @@ impl RateLimitService {
 
     async fn get_rate_limit_status_memory(&self, key: &str) -> Result<RateLimitResult, ApiError> {
         let store = self.memory_store.read().await;
-        
+
         if let Some(bucket) = store.get(key) {
             Ok(RateLimitResult {
                 allowed: true,
@@ -296,7 +297,7 @@ impl RateLimitService {
     /// Reset rate limit for a specific key (admin function)
     pub async fn reset_rate_limit(&self, key: &str) -> Result<(), ApiError> {
         if let Some(ref client) = self.redis_client {
-            let mut conn = client.get_async_connection().await.map_err(|e| {
+            let mut conn = client.get_multiplexed_async_connection().await.map_err(|e| {
                 ApiError::ConnectionPoolError {
                     details: format!("Redis connection failed: {}", e),
                 }
@@ -346,17 +347,14 @@ pub struct RateLimitResult {
 /// Rate limiting middleware
 pub struct RateLimitMiddleware {
     service: RateLimitService,
-    key_extractor: Box<dyn Fn(&ServiceRequest) -> String + Send + Sync>,
+    key_extractor: fn(&ServiceRequest) -> String,
 }
 
 impl RateLimitMiddleware {
-    pub fn new<F>(service: RateLimitService, key_extractor: F) -> Self
-    where
-        F: Fn(&ServiceRequest) -> String + Send + Sync + 'static,
-    {
+    pub fn new(service: RateLimitService, key_extractor: fn(&ServiceRequest) -> String) -> Self {
         Self {
             service,
-            key_extractor: Box::new(key_extractor),
+            key_extractor,
         }
     }
 
@@ -413,7 +411,7 @@ where
         std::future::ready(Ok(RateLimitMiddlewareService {
             service: std::rc::Rc::new(service),
             rate_limit_service: self.service.clone(),
-            key_extractor: self.key_extractor.as_ref(),
+            key_extractor: self.key_extractor,
         }))
     }
 }
@@ -421,7 +419,7 @@ where
 pub struct RateLimitMiddlewareService<S> {
     service: std::rc::Rc<S>,
     rate_limit_service: RateLimitService,
-    key_extractor: &'static (dyn Fn(&ServiceRequest) -> String + Send + Sync),
+    key_extractor: fn(&ServiceRequest) -> String,
 }
 
 impl<S, B> actix_web::dev::Service<ServiceRequest> for RateLimitMiddlewareService<S>
@@ -430,7 +428,7 @@ where
         ServiceRequest,
         Response = actix_web::dev::ServiceResponse<B>,
         Error = Error,
-    >,
+    > + 'static,
     S::Future: 'static,
     B: 'static,
 {
@@ -454,37 +452,30 @@ where
             match rate_limit_service.check_rate_limit(&key).await {
                 Ok(result) => {
                     if result.allowed {
-                        // Add rate limit headers
+                        // Add rate limit headers to successful response
                         let mut response = service.call(req).await?;
                         let headers = response.headers_mut();
                         headers.insert(
                             actix_web::http::header::HeaderName::from_static("x-ratelimit-limit"),
-                            actix_web::http::HeaderValue::from_str(&result.limit.to_string()).unwrap(),
+                            actix_web::http::header::HeaderValue::from_str(&result.limit.to_string()).unwrap(),
                         );
                         headers.insert(
                             actix_web::http::header::HeaderName::from_static("x-ratelimit-remaining"),
-                            actix_web::http::HeaderValue::from_str(&result.remaining.to_string()).unwrap(),
+                            actix_web::http::header::HeaderValue::from_str(&result.remaining.to_string()).unwrap(),
                         );
                         headers.insert(
                             actix_web::http::header::HeaderName::from_static("x-ratelimit-reset"),
-                            actix_web::http::HeaderValue::from_str(&result.reset_time.to_string()).unwrap(),
+                            actix_web::http::header::HeaderValue::from_str(&result.reset_time.to_string()).unwrap(),
                         );
                         Ok(response)
                     } else {
-                        Ok(req.error_response(
-                            actix_web::HttpResponse::TooManyRequests()
-                                .insert_header(("x-ratelimit-limit", result.limit.to_string()))
-                                .insert_header(("x-ratelimit-remaining", result.remaining.to_string()))
-                                .insert_header(("x-ratelimit-reset", result.reset_time.to_string()))
-                                .insert_header(("retry-after", result.reset_time.to_string()))
-                                .json(serde_json::json!({
-                                    "error": "Rate limit exceeded",
-                                    "code": "RATE_LIMIT_EXCEEDED",
-                                    "limit": result.limit,
-                                    "remaining": result.remaining,
-                                    "reset_in_seconds": result.reset_time
-                                }))
-                        ))
+                        // Return rate limit error
+                        let rate_limit_error = RateLimitError {
+                            limit: result.limit,
+                            remaining: result.remaining,
+                            reset_time: result.reset_time,
+                        };
+                        Err(Error::from(rate_limit_error))
                     }
                 }
                 Err(e) => {
@@ -494,6 +485,37 @@ where
                 }
             }
         })
+    }
+}
+
+// Rate limit error type for middleware
+#[derive(Debug)]
+struct RateLimitError {
+    limit: u32,
+    remaining: u32,
+    reset_time: u64,
+}
+
+impl std::fmt::Display for RateLimitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Rate limit exceeded")
+    }
+}
+
+impl ResponseError for RateLimitError {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::TooManyRequests()
+            .insert_header(("x-ratelimit-limit", self.limit.to_string()))
+            .insert_header(("x-ratelimit-remaining", self.remaining.to_string()))
+            .insert_header(("x-ratelimit-reset", self.reset_time.to_string()))
+            .insert_header(("retry-after", self.reset_time.to_string()))
+            .json(serde_json::json!({
+                "error": "Rate limit exceeded",
+                "code": "RATE_LIMIT_EXCEEDED",
+                "limit": self.limit,
+                "remaining": self.remaining,
+                "reset_in_seconds": self.reset_time
+            }))
     }
 }
 
@@ -539,7 +561,7 @@ mod tests {
         // Consume all tokens
         service.check_rate_limit("test_reset").await.unwrap();
         service.check_rate_limit("test_reset").await.unwrap();
-        
+
         let result = service.check_rate_limit("test_reset").await.unwrap();
         assert!(!result.allowed);
 
@@ -557,7 +579,7 @@ mod tests {
         // Different keys should have independent limits
         let result1 = service.check_rate_limit("user1").await.unwrap();
         let result2 = service.check_rate_limit("user2").await.unwrap();
-        
+
         assert!(result1.allowed);
         assert!(result2.allowed);
         assert_eq!(result1.remaining, result2.remaining);

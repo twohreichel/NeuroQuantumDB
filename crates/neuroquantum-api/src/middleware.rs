@@ -78,17 +78,11 @@ where
                 }
             }
 
-            // No valid authentication found
+            // No valid authentication found - return proper error
             warn!("🚫 Authentication required for endpoint: {}", path);
 
-            // Return proper error response
-            let response = HttpResponse::Unauthorized().json(serde_json::json!({
-                "error": "Authentication required",
-                "code": "AUTH_REQUIRED",
-                "message": "Please provide a valid JWT token or API key"
-            }));
-
-            Ok(req.into_response(response))
+            let auth_error = ApiError::Unauthorized("Authentication required. Please provide a valid JWT token or API key.".to_string());
+            Err(actix_web::Error::from(auth_error))
         })
     }
 }
@@ -255,14 +249,11 @@ where
                     if let Ok(length) = length_str.parse::<usize>() {
                         if length > max_payload_size {
                             warn!("🚫 Request payload too large: {} bytes (max: {})", length, max_payload_size);
-                            return Ok(req.error_response(
-                                HttpResponse::PayloadTooLarge().json(serde_json::json!({
-                                    "error": "Payload too large",
-                                    "code": "PAYLOAD_TOO_LARGE",
-                                    "max_size_bytes": max_payload_size,
-                                    "provided_size_bytes": length
-                                }))
+                            let error = ApiError::BadRequest(format!(
+                                "Payload too large. Maximum size: {} bytes, provided: {} bytes",
+                                max_payload_size, length
                             ));
+                            return Err(actix_web::Error::from(error));
                         }
                     }
                 }
@@ -275,24 +266,17 @@ where
                     if let Ok(content_type_str) = content_type.to_str() {
                         if !content_type_str.starts_with("application/json") {
                             warn!("🚫 Invalid content type: {}", content_type_str);
-                            return Ok(req.error_response(
-                                HttpResponse::UnsupportedMediaType().json(serde_json::json!({
-                                    "error": "Unsupported media type",
-                                    "code": "UNSUPPORTED_MEDIA_TYPE",
-                                    "expected": "application/json",
-                                    "provided": content_type_str
-                                }))
+                            let error = ApiError::BadRequest(format!(
+                                "Unsupported media type. Expected: application/json, provided: {}",
+                                content_type_str
                             ));
+                            return Err(actix_web::Error::from(error));
                         }
                     }
                 } else {
                     warn!("🚫 Missing content type header for {} request", method);
-                    return Ok(req.error_response(
-                        HttpResponse::BadRequest().json(serde_json::json!({
-                            "error": "Content-Type header required",
-                            "code": "MISSING_CONTENT_TYPE"
-                        }))
-                    ));
+                    let error = ApiError::BadRequest("Content-Type header required for POST/PUT/PATCH requests".to_string());
+                    return Err(actix_web::Error::from(error));
                 }
             }
 
@@ -471,12 +455,12 @@ mod tests {
         let cb = CircuitBreaker::new(3, 2, Duration::from_secs(30));
 
         // Test successful calls
-        let result = cb.call_service("test", || Ok("success"));
+        let result: Result<&str, ApiError> = cb.call_service("test", || Ok("success"));
         assert!(result.is_ok());
 
         // Test failure threshold
         for _ in 0..3 {
-            let _ = cb.call_service("test", || {
+            let _: Result<&str, ApiError> = cb.call_service("test", || {
                 Err(ApiError::ServiceUnavailable {
                     service: "test".to_string(),
                     reason: "test failure".to_string(),
@@ -485,7 +469,7 @@ mod tests {
         }
 
         // Circuit should be open now
-        let result = cb.call_service("test", || Ok("should fail"));
+        let result: Result<&str, ApiError> = cb.call_service("test", || Ok("should fail"));
         assert!(matches!(result, Err(ApiError::CircuitBreakerOpen { .. })));
     }
 }

@@ -43,7 +43,7 @@ impl AppState {
         let db = NeuroQuantumDB::new(&core_db_config).await?;
         let auth_service = AuthService::new();
         let jwt_service = JwtService::new(config.jwt.secret.as_bytes());
-        
+
         let rate_limit_config = RateLimitConfig {
             requests_per_window: config.rate_limit.requests_per_hour,
             window_size_seconds: 3600,
@@ -154,13 +154,13 @@ pub async fn websocket_handler(
                             Some("subscribe") => {
                                 let channel = parsed.get("channel").and_then(|c| c.as_str()).unwrap_or("general");
                                 info!("📡 Client subscribed to channel: {}", channel);
-                                
+
                                 let response = serde_json::json!({
                                     "type": "subscription_confirmed",
                                     "channel": channel,
                                     "timestamp": chrono::Utc::now().to_rfc3339()
                                 });
-                                
+
                                 if session.text(response.to_string()).await.is_err() {
                                     break;
                                 }
@@ -170,14 +170,14 @@ pub async fn websocket_handler(
                                     "type": "pong",
                                     "timestamp": chrono::Utc::now().to_rfc3339()
                                 });
-                                
-                                if session.text(pong.to_string()).await is_err() {
+
+                                if session.text(pong.to_string()).await.is_err() {
                                     break;
                                 }
                             }
                             Some("query_status") => {
                                 let query_id = parsed.get("query_id").and_then(|q| q.as_str()).unwrap_or("unknown");
-                                
+
                                 let status = serde_json::json!({
                                     "type": "query_status",
                                     "query_id": query_id,
@@ -185,14 +185,14 @@ pub async fn websocket_handler(
                                     "progress": 75,
                                     "estimated_completion": "2024-01-01T12:35:00Z"
                                 });
-                                
+
                                 if session.text(status.to_string()).await.is_err() {
                                     break;
                                 }
                             }
                             Some("neural_training_status") => {
                                 let network_id = parsed.get("network_id").and_then(|n| n.as_str()).unwrap_or("unknown");
-                                
+
                                 let status = serde_json::json!({
                                     "type": "neural_training_status",
                                     "network_id": network_id,
@@ -201,7 +201,7 @@ pub async fn websocket_handler(
                                     "current_loss": 0.023,
                                     "accuracy": 0.94
                                 });
-                                
+
                                 if session.text(status.to_string()).await.is_err() {
                                     break;
                                 }
@@ -229,13 +229,15 @@ pub fn configure_app(app_state: AppState) -> App<
         Response = actix_web::dev::ServiceResponse,
         Error = actix_web::Error,
         InitError = (),
-    >
+    >,
 > {
     // Create Prometheus metrics
     let prometheus = PrometheusMetricsBuilder::new("neuroquantum_api")
         .endpoint("/internal/metrics")
         .build()
         .unwrap();
+
+    let cors_origins = app_state.config.cors.allowed_origins.clone();
 
     App::new()
         // Add application state
@@ -249,12 +251,17 @@ pub fn configure_app(app_state: AppState) -> App<
         .wrap(prometheus.clone())
         .wrap(Logger::default())
         .wrap(Compress::default())
-        .wrap(
-            Cors::default()
+        .wrap({
+            let mut cors = Cors::default()
                 .allowed_origin("http://localhost:3000")
-                .allowed_origin("http://localhost:8080")
-                .allowed_origins(&app_state.config.cors.allowed_origins)
-                .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+                .allowed_origin("http://localhost:8080");
+
+            // Add configured origins
+            for origin in &cors_origins {
+                cors = cors.allowed_origin(origin);
+            }
+
+            cors.allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
                 .allowed_headers(vec![
                     "Authorization",
                     "Content-Type",
@@ -264,11 +271,11 @@ pub fn configure_app(app_state: AppState) -> App<
                 ])
                 .expose_headers(vec![
                     "X-RateLimit-Limit",
-                    "X-RateLimit-Remaining", 
+                    "X-RateLimit-Remaining",
                     "X-RateLimit-Reset"
                 ])
                 .max_age(3600)
-        )
+        })
 
         // OpenAPI Documentation
         .service(
@@ -289,18 +296,21 @@ pub fn configure_app(app_state: AppState) -> App<
                     web::scope("/auth")
                         .route("/login", web::post().to(handlers::login))
                         .route("/refresh", web::post().to(handlers::refresh_token))
-                        // Protected admin routes
+                )
+
+                // Protected admin routes
+                .service(
+                    web::scope("/auth")
                         .wrap(middleware::auth_middleware())
                         .route("/generate-key", web::post().to(handlers::generate_api_key))
                         .route("/revoke-key", web::post().to(handlers::revoke_api_key))
                 )
-                
+
                 // Protected API routes (require authentication)
                 .service(
                     web::scope("")
                         .wrap(middleware::auth_middleware())
-                        .wrap(rate_limit::RateLimitMiddleware::by_user(app_state.rate_limit_service.clone()))
-                        
+
                         // CRUD Operations
                         .service(
                             web::scope("/tables")
@@ -310,7 +320,7 @@ pub fn configure_app(app_state: AppState) -> App<
                                 .route("/{table_name}/data", web::put().to(handlers::update_data))
                                 .route("/{table_name}/data", web::delete().to(handlers::delete_data))
                         )
-                        
+
                         // Advanced Features
                         .service(
                             web::scope("/neural")
@@ -325,7 +335,7 @@ pub fn configure_app(app_state: AppState) -> App<
                             web::scope("/dna")
                                 .route("/compress", web::post().to(handlers::compress_dna))
                         )
-                        
+
                         // Monitoring
                         .service(
                             web::scope("/stats")
@@ -339,16 +349,13 @@ pub fn configure_app(app_state: AppState) -> App<
 pub async fn start_server(config: ApiConfig) -> Result<()> {
     let bind_address = format!("{}:{}", config.server.host, config.server.port);
     let app_state = AppState::new(config.clone()).await?;
-    
+
     info!("🚀 Starting NeuroQuantumDB API Server on {}", bind_address);
     info!("📖 API Documentation available at: http://{}/api-docs/", bind_address);
     info!("🏥 Health check available at: http://{}/health", bind_address);
     info!("📊 Metrics available at: http://{}/metrics", bind_address);
 
-    // Clone app_state for the closure
-    let app_state_clone = app_state.clone();
-
-    HttpServer::new(move || configure_app(app_state_clone.clone()))
+    HttpServer::new(move || configure_app(app_state.clone()))
         .bind(&bind_address)?
         .run()
         .await?;
@@ -369,7 +376,7 @@ mod tests {
 
         let req = test::TestRequest::get().uri("/health").to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         assert!(resp.status().is_success());
     }
 
@@ -381,7 +388,7 @@ mod tests {
 
         let req = test::TestRequest::get().uri("/metrics").to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         assert!(resp.status().is_success());
     }
 }

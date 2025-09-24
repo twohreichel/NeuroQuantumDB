@@ -203,7 +203,7 @@ pub struct QuantumConfig {
 /// CRUD Operation DTOs
 #[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 pub struct CreateTableRequest {
-    #[validate]
+    #[validate(nested)]
     pub schema: TableSchema,
     pub if_not_exists: Option<bool>,
 }
@@ -606,6 +606,7 @@ where
                 Some(ApiError::Forbidden(_)) => HttpResponse::Forbidden(),
                 Some(ApiError::BadRequest(_)) => HttpResponse::BadRequest(),
                 Some(ApiError::NotFound(_)) => HttpResponse::NotFound(),
+                Some(ApiError::Conflict(_)) => HttpResponse::Conflict(),
                 Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
                 Some(ApiError::QuantumOperationFailed { .. }) => {
                     HttpResponse::InternalServerError()
@@ -614,6 +615,11 @@ where
                 Some(ApiError::InternalServerError { .. }) => HttpResponse::InternalServerError(),
                 Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
                 Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::NeuralNetworkError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::TableError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::ConnectionPoolError { .. }) => HttpResponse::InternalServerError(),
+                Some(ApiError::CircuitBreakerOpen { .. }) => HttpResponse::ServiceUnavailable(),
+                Some(ApiError::ServiceUnavailable { .. }) => HttpResponse::ServiceUnavailable(),
                 None => HttpResponse::InternalServerError(),
             };
             status.json(response)
@@ -661,6 +667,7 @@ mod tests {
             timestamp: chrono::Utc::now().to_rfc3339(),
             response_time_ms: 500.0,
             message: "Success".to_string(),
+            version: "1.0.0".to_string(),
         };
         let response = ApiResponse::success("test data", metadata);
         assert!(response.success);
@@ -679,6 +686,7 @@ mod tests {
             timestamp: chrono::Utc::now().to_rfc3339(),
             response_time_ms: 100.0,
             message: "Error".to_string(),
+            version: "1.0.0".to_string(),
         };
         let response = ApiResponse::<()>::error(error, metadata);
         assert!(!response.success);
