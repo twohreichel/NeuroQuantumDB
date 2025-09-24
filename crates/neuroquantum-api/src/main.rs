@@ -7,11 +7,17 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Set up panic handler first
+    setup_panic_handler();
+
     // Initialize logging first
     init_logging()?;
 
     // Print startup banner
     print_banner();
+
+    // Print system information for debugging
+    print_system_info();
 
     // Load configuration
     let config = match ApiConfig::load() {
@@ -170,7 +176,7 @@ fn validate_environment(config: &ApiConfig) -> Result<()> {
     }
 
     // Check disk space
-    if let Ok(metadata) = std::fs::metadata(".") {
+    if let Ok(_metadata) = std::fs::metadata(".") {
         // This is a simplified check - in production you'd use statvfs or similar
         info!("💿 Current directory accessible");
     }
@@ -236,7 +242,8 @@ fn print_system_info() {
     info!("🖥️  System Information:");
     info!("   OS: {}", env::consts::OS);
     info!("   Architecture: {}", env::consts::ARCH);
-    info!("   Rust version: {}", env!("RUSTC_VERSION"));
+    let rust_version = env!("CARGO_PKG_RUST_VERSION");
+    info!("   Rust version: {}", if rust_version.is_empty() { "1.70+" } else { rust_version });
 
     if let Ok(hostname) = env::var("HOSTNAME") {
         info!("   Hostname: {}", hostname);

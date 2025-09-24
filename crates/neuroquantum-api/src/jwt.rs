@@ -1,5 +1,5 @@
 use crate::error::{ApiError, AuthToken, QuantumAuthClaims};
-use actix_web::{dev::ServiceRequest, Error, HttpMessage, HttpResponse, error::ErrorUnauthorized};
+use actix_web::{dev::ServiceRequest, Error, HttpMessage, error::ErrorUnauthorized};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::future::{ready, Ready};

@@ -1,9 +1,9 @@
-use crate::auth::{ApiKey, AuthService};
-use crate::error::{ApiError, AuthToken};
+use crate::auth::AuthService;
+use crate::error::ApiError;
 use crate::jwt::JwtService;
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse,
+    Error, HttpMessage,
     http::header::{HeaderName, HeaderValue},
 };
 use futures_util::future::LocalBoxFuture;
@@ -326,6 +326,7 @@ pub struct CircuitBreaker {
     success_threshold: u64,
     timeout: Duration,
     failure_count: Rc<AtomicU64>,
+    success_count: Rc<AtomicU64>,
     last_failure_time: Rc<std::sync::Mutex<Option<Instant>>>,
     state: Rc<std::sync::Mutex<CircuitBreakerState>>,
 }
@@ -344,6 +345,7 @@ impl CircuitBreaker {
             success_threshold,
             timeout,
             failure_count: Rc::new(AtomicU64::new(0)),
+            success_count: Rc::new(AtomicU64::new(0)),
             last_failure_time: Rc::new(std::sync::Mutex::new(None)),
             state: Rc::new(std::sync::Mutex::new(CircuitBreakerState::Closed)),
         }
@@ -417,6 +419,16 @@ impl CircuitBreaker {
             let mut state = self.state.lock().unwrap();
             *state = CircuitBreakerState::Closed;
             info!("✅ Circuit breaker closed after successful recovery");
+        } else {
+            // Increment success count
+            let success_count = self.success_count.fetch_add(1, Ordering::SeqCst) + 1;
+
+            // Check if we should transition to closed
+            if success_count >= self.success_threshold {
+                let mut state = self.state.lock().unwrap();
+                *state = CircuitBreakerState::Closed;
+                info!("✅ Circuit breaker closed after {} successful requests", success_count);
+            }
         }
     }
 

@@ -1,7 +1,5 @@
-use anyhow::Result;
+use anyhow;
 use serde::{Deserialize, Serialize};
-use std::env;
-use std::fs;
 use std::path::Path;
 
 // Create a simple database config wrapper that's compatible
