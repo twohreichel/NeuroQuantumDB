@@ -95,14 +95,14 @@ impl SimdEncoder {
         #[cfg(target_arch = "aarch64")]
         {
             if self.capabilities.has_neon {
-                return arm64_neon::encode_chunk_neon(chunk, output);
+                return unsafe { arm64_neon::encode_chunk_neon(chunk, output) };
             }
         }
 
         #[cfg(target_arch = "x86_64")]
         {
             if self.capabilities.has_avx2 {
-                return x86_avx2::encode_chunk_avx2(chunk, output);
+                return unsafe { x86_avx2::encode_chunk_avx2(chunk, output) };
             }
         }
 
@@ -176,14 +176,14 @@ impl SimdDecoder {
         #[cfg(target_arch = "aarch64")]
         {
             if self.capabilities.has_neon {
-                return arm64_neon::decode_chunk_neon(chunk, output);
+                return unsafe { arm64_neon::decode_chunk_neon(chunk, output) };
             }
         }
 
         #[cfg(target_arch = "x86_64")]
         {
             if self.capabilities.has_avx2 {
-                return x86_avx2::decode_chunk_avx2(chunk, output);
+                return unsafe { x86_avx2::decode_chunk_avx2(chunk, output) };
             }
         }
 
@@ -236,14 +236,14 @@ impl SimdPatternMatcher {
         #[cfg(target_arch = "aarch64")]
         {
             if self.capabilities.has_neon && needle.len() <= 16 {
-                return arm64_neon::find_pattern_neon(haystack, needle);
+                return unsafe { arm64_neon::find_pattern_neon(haystack, needle) };
             }
         }
 
         #[cfg(target_arch = "x86_64")]
         {
             if self.capabilities.has_avx2 && needle.len() <= 32 {
-                return x86_avx2::find_pattern_avx2(haystack, needle);
+                return unsafe { x86_avx2::find_pattern_avx2(haystack, needle) };
             }
         }
 
@@ -323,14 +323,14 @@ pub mod utils {
         #[cfg(target_arch = "aarch64")]
         {
             if capabilities.has_neon {
-                return arm64_neon::hamming_distance_neon(seq1, seq2);
+                return unsafe { arm64_neon::hamming_distance_neon(seq1, seq2) };
             }
         }
 
         #[cfg(target_arch = "x86_64")]
         {
             if capabilities.has_avx2 {
-                return x86_avx2::hamming_distance_avx2(seq1, seq2);
+                return unsafe { x86_avx2::hamming_distance_avx2(seq1, seq2) };
             }
         }
 

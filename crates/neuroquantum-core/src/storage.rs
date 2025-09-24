@@ -11,7 +11,8 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::dna::{DNACompressor, EncodedData};
+use crate::dna::{QuantumDNACompressor, EncodedData};
+use crate::error::NeuroQuantumError;
 
 /// Unique identifier for database rows
 pub type RowId = u64;
@@ -212,7 +213,7 @@ pub struct StorageEngine {
     metadata: DatabaseMetadata,
 
     /// DNA compressor for data compression
-    dna_compressor: DNACompressor,
+    dna_compressor: QuantumDNACompressor,
 
     /// Next available row ID
     next_row_id: RowId,
@@ -238,7 +239,7 @@ impl StorageEngine {
         Self::create_directory_structure(&data_dir).await?;
 
         // Initialize DNA compressor
-        let dna_compressor = DNACompressor::new();
+        let dna_compressor = QuantumDNACompressor::new();
 
         // Load existing metadata or create new
         let metadata = Self::load_or_create_metadata(&data_dir).await?;

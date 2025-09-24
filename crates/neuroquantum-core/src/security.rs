@@ -99,8 +99,8 @@ impl SecurityManager {
         }
 
         // Use cryptographically secure random number generator
-        use rand::RngCore;
-        let mut rng = rand::rng();
+        use rand::{thread_rng, RngCore};
+        let mut rng = thread_rng();
         let mut key = vec![0u8; 32]; // 256-bit key
         rng.fill_bytes(&mut key);
 

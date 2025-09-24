@@ -31,14 +31,11 @@ pub use dna::{
 // Re-export other core types
 pub use error::NeuroQuantumError;
 pub use storage::StorageEngine;
-pub use query::QueryProcessor;
 
 /// Main database engine that integrates all components
 pub struct NeuroQuantumDB {
     storage: storage::StorageEngine,
     dna_compressor: dna::QuantumDNACompressor,
-    query_processor: query::QueryProcessor,
-    learning_engine: learning::LearningEngine,
     config: NeuroQuantumConfig,
 }
 
@@ -78,17 +75,36 @@ impl NeuroQuantumDB {
     pub fn with_config(config: NeuroQuantumConfig) -> Self {
         let dna_compressor = dna::QuantumDNACompressor::with_config(config.dna_compression.clone());
 
+        // Create storage engine synchronously for now
+        let storage = storage::StorageEngine {
+            data_dir: config.storage_path.clone(),
+            indexes: std::collections::HashMap::new(),
+            transaction_log: Vec::new(),
+            compressed_blocks: std::collections::HashMap::new(),
+            metadata: storage::DatabaseMetadata {
+                version: "1.0.0".to_string(),
+                created_at: chrono::Utc::now(),
+                last_backup: None,
+                tables: std::collections::HashMap::new(),
+                next_row_id: 1,
+                next_lsn: 1,
+            },
+            dna_compressor: dna::QuantumDNACompressor::new(),
+            next_row_id: 1,
+            next_lsn: 1,
+            row_cache: std::collections::HashMap::new(),
+            cache_limit: 10000,
+        };
+
         Self {
-            storage: storage::StorageEngine::new(&config.storage_path),
+            storage,
             dna_compressor,
-            query_processor: query::QueryProcessor::new(),
-            learning_engine: learning::LearningEngine::new(),
             config,
         }
     }
 
     /// Store data with DNA compression
-    pub async fn store_compressed(&self, key: &str, data: &[u8]) -> Result<(), NeuroQuantumError> {
+    pub async fn store_compressed(&mut self, key: &str, data: &[u8]) -> Result<(), NeuroQuantumError> {
         tracing::info!("Storing {} bytes with DNA compression for key: {}", data.len(), key);
 
         // Compress data using DNA algorithm
@@ -132,7 +148,7 @@ impl NeuroQuantumDB {
 
     /// Get compression statistics
     pub fn get_compression_stats(&self) -> CompressionMetrics {
-        *self.dna_compressor.get_metrics()
+        self.dna_compressor.get_metrics().clone()
     }
 
     /// Validate stored compressed data integrity

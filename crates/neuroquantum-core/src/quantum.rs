@@ -7,7 +7,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::query::{Query, QueryResult};
 use crate::synaptic::SynapticNetwork;
 use async_trait::async_trait;
-use rand::{rng, Rng};
+use rand::{thread_rng, Rng};
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -311,7 +311,7 @@ impl QuantumSearch for GroverSearch {
         let mut best_energy = current_energy;
         let mut iterations = 0;
 
-        let mut rng = rng();
+        let mut rng = thread_rng();
         let normal = Normal::new(0.0, 1.0).unwrap();
 
         debug!(
@@ -338,7 +338,7 @@ impl QuantumSearch for GroverSearch {
                     * self.quantum_tunneling_factor(delta_energy, temperature)
             };
 
-            if rng.random::<f64>() < acceptance_prob {
+            if rng.gen::<f64>() < acceptance_prob {
                 current_state = new_state;
                 current_energy = new_energy;
 
@@ -464,7 +464,7 @@ impl GroverSearch {
 
     /// Initialize random state for annealing
     fn initialize_random_state(&self, size: usize) -> Vec<i32> {
-        let mut rng = rng();
+        let mut rng = thread_rng();
         (0..size).map(|_| rng.random_range(-1..=1)).collect()
     }
 
