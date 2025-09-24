@@ -75,32 +75,22 @@ impl NeuroQuantumDB {
     pub fn with_config(config: NeuroQuantumConfig) -> Self {
         let dna_compressor = dna::QuantumDNACompressor::with_config(config.dna_compression.clone());
 
-        // Create storage engine synchronously for now
-        let storage = storage::StorageEngine {
-            data_dir: config.storage_path.clone(),
-            indexes: std::collections::HashMap::new(),
-            transaction_log: Vec::new(),
-            compressed_blocks: std::collections::HashMap::new(),
-            metadata: storage::DatabaseMetadata {
-                version: "1.0.0".to_string(),
-                created_at: chrono::Utc::now(),
-                last_backup: None,
-                tables: std::collections::HashMap::new(),
-                next_row_id: 1,
-                next_lsn: 1,
-            },
-            dna_compressor: dna::QuantumDNACompressor::new(),
-            next_row_id: 1,
-            next_lsn: 1,
-            row_cache: std::collections::HashMap::new(),
-            cache_limit: 10000,
-        };
+        // Create a placeholder storage engine - will be properly initialized in async init method
+        let storage = storage::StorageEngine::new_placeholder(&config.storage_path);
 
         Self {
             storage,
             dna_compressor,
             config,
         }
+    }
+
+    /// Initialize the database asynchronously (call this after construction)
+    pub async fn init(&mut self) -> Result<(), NeuroQuantumError> {
+        // Properly initialize the storage engine
+        self.storage = storage::StorageEngine::new(&self.config.storage_path).await
+            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+        Ok(())
     }
 
     /// Store data with DNA compression
@@ -133,8 +123,14 @@ impl NeuroQuantumDB {
         let serialized = self.storage.retrieve(key).await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
 
+        // Check if data exists
+        let data = match serialized {
+            Some(data) => data,
+            None => return Err(NeuroQuantumError::NotFound(format!("Key '{}' not found", key))),
+        };
+
         // Deserialize compressed data
-        let compressed: CompressedDNA = serde_json::from_slice(&serialized)
+        let compressed: CompressedDNA = serde_json::from_slice(&data)
             .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
 
         // Decompress using DNA algorithm
@@ -156,7 +152,13 @@ impl NeuroQuantumDB {
         let serialized = self.storage.retrieve(key).await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
 
-        let compressed: CompressedDNA = serde_json::from_slice(&serialized)
+        // Check if data exists
+        let data = match serialized {
+            Some(data) => data,
+            None => return Err(NeuroQuantumError::NotFound(format!("Key '{}' not found", key))),
+        };
+
+        let compressed: CompressedDNA = serde_json::from_slice(&data)
             .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
 
         self.dna_compressor.validate(&compressed).await

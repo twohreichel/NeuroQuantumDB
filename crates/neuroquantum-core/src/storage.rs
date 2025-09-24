@@ -11,7 +11,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::dna::{QuantumDNACompressor, EncodedData};
+use crate::dna::{QuantumDNACompressor, EncodedData, DNACompressor};
 use crate::error::NeuroQuantumError;
 
 /// Unique identifier for database rows
@@ -229,6 +229,32 @@ pub struct StorageEngine {
 }
 
 impl StorageEngine {
+    /// Create a placeholder storage engine for synchronous construction
+    /// This should be followed by proper async initialization
+    pub fn new_placeholder(data_dir: &std::path::Path) -> Self {
+        let metadata = DatabaseMetadata {
+            version: "1.0.0".to_string(),
+            created_at: chrono::Utc::now(),
+            last_backup: None,
+            tables: HashMap::new(),
+            next_row_id: 1,
+            next_lsn: 1,
+        };
+
+        Self {
+            data_dir: data_dir.to_path_buf(),
+            indexes: HashMap::new(),
+            transaction_log: Vec::new(),
+            compressed_blocks: HashMap::new(),
+            metadata,
+            dna_compressor: QuantumDNACompressor::new(),
+            next_row_id: 1,
+            next_lsn: 1,
+            row_cache: HashMap::new(),
+            cache_limit: 10000,
+        }
+    }
+
     /// Create new storage engine instance
     pub async fn new<P: AsRef<Path>>(data_dir: P) -> Result<Self> {
         let data_dir = data_dir.as_ref().to_path_buf();
@@ -603,6 +629,83 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Store data with a key (used by the main API)
+    pub async fn store(&mut self, key: &str, data: &[u8]) -> Result<()> {
+        // Create a simple row structure for generic storage
+        let mut fields = HashMap::new();
+        fields.insert("key".to_string(), Value::Text(key.to_string()));
+        fields.insert("data".to_string(), Value::Binary(data.to_vec()));
+
+        let row = Row {
+            id: self.next_row_id,
+            fields,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        // Ensure we have a generic storage table
+        if !self.metadata.tables.contains_key("_storage") {
+            let schema = TableSchema {
+                name: "_storage".to_string(),
+                columns: vec![
+                    ColumnDefinition {
+                        name: "id".to_string(),
+                        data_type: DataType::Integer,
+                        nullable: false,
+                        default_value: None,
+                    },
+                    ColumnDefinition {
+                        name: "key".to_string(),
+                        data_type: DataType::Text,
+                        nullable: false,
+                        default_value: None,
+                    },
+                    ColumnDefinition {
+                        name: "data".to_string(),
+                        data_type: DataType::Binary,
+                        nullable: false,
+                        default_value: None,
+                    },
+                ],
+                primary_key: "id".to_string(),
+                created_at: chrono::Utc::now(),
+                version: 1,
+            };
+            self.create_table(schema).await?;
+        }
+
+        self.insert_row("_storage", row).await?;
+        Ok(())
+    }
+
+    /// Retrieve data by key (used by the main API)
+    pub async fn retrieve(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        // Query for the key in the generic storage table
+        let query = SelectQuery {
+            table: "_storage".to_string(),
+            columns: vec!["data".to_string()],
+            where_clause: Some(WhereClause {
+                conditions: vec![Condition {
+                    field: "key".to_string(),
+                    operator: ComparisonOperator::Equal,
+                    value: Value::Text(key.to_string()),
+                }],
+            }),
+            order_by: None,
+            limit: Some(1),
+            offset: None,
+        };
+
+        let rows = self.select_rows(&query).await?;
+        if let Some(row) = rows.first() {
+            if let Some(Value::Binary(data)) = row.fields.get("data") {
+                return Ok(Some(data.clone()));
+            }
+        }
+
+        Ok(None)
+    }
+
     // === PRIVATE HELPER METHODS ===
 
     /// Validate table schema
@@ -665,14 +768,14 @@ impl StorageEngine {
     /// Compress row data using DNA compression
     async fn compress_row(&mut self, row: &Row) -> Result<EncodedData> {
         let serialized = serde_json::to_vec(row)?;
-        let compressed = self.dna_compressor.compress(&serialized)?;
+        let compressed = self.dna_compressor.compress(&serialized).await?;
         Ok(compressed)
     }
 
     /// Decompress row data from DNA compression
     #[allow(dead_code)]
     async fn decompress_row(&mut self, encoded: &EncodedData) -> Result<Row> {
-        let decompressed = self.dna_compressor.decompress(encoded)?;
+        let decompressed = self.dna_compressor.decompress(encoded).await?;
         let row: Row = serde_json::from_slice(&decompressed)?;
         Ok(row)
     }

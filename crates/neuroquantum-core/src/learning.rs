@@ -141,7 +141,7 @@ impl HebbianLearningEngine {
                             source_id, target_id, old_weight, connection.weight, weight_change
                         );
 
-                        return Ok(());
+                        return Ok::<(), crate::error::NeuroQuantumError>(());
                     }
                 }
 

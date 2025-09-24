@@ -6,7 +6,6 @@
 use crate::dna::{DNABase, DNAError, DNACompressionConfig};
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
-use rayon::prelude::*;
 use tracing::{debug, instrument};
 
 /// Advanced compression engine for DNA sequences
@@ -110,11 +109,11 @@ impl DNACompressionEngine {
     }
 
     /// Optimize complementary base pairs
-    fn optimize_complementary_pairs(&self, bases: &mut [DNABase]) -> usize {
+    fn optimize_complementary_pairs(&self, bases: &[DNABase]) -> usize {
         let mut savings = 0;
         
         // Look for Watson-Crick base pairs and encode them more efficiently
-        for window in bases.windows_mut(2) {
+        for window in bases.windows(2) {
             if let [base1, base2] = window {
                 if self.biological_patterns.are_complementary(*base1, *base2) {
                     // Mark complementary pairs for special encoding
@@ -391,7 +390,7 @@ pub struct HuffmanTree {
     codes: [Vec<bool>; 4],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum HuffmanNode {
     Leaf { base: DNABase },
     Internal { left: Box<HuffmanNode>, right: Box<HuffmanNode> },
