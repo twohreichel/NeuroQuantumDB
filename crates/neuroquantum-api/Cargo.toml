@@ -16,6 +16,7 @@ actix-web = "4.11.0"
 actix-cors = "0.7.1"
 actix-ws = "0.3.0"
 actix-web-prometheus = "0.1.2"
+actix-web-lab = "0.24.3"
 futures-util = "0.3.31"
 
 # Async runtime
@@ -37,14 +38,29 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 
-# Security
-bcrypt = "0.15"
+# Security and authentication
+bcrypt = "0.17.1"
+jsonwebtoken = "9.3.1"
+validator = { version = "0.19.0", features = ["derive"] }
 
-# API documentation
-utoipa = { version = "5.4.0", features = ["actix_extras"] }
+# API documentation and OpenAPI
+utoipa = { version = "5.4.0", features = ["actix_extras", "chrono", "uuid"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
+
+# Rate limiting and caching
+redis = { version = "0.32.1", features = ["tokio-comp", "connection-manager"] }
 
 # Configuration
-toml = "0.9.6"
+config = "0.15.16"
+toml = "0.9.7"
+
+# JSON schema validation
+jsonschema = "0.33.0"
+
+# Additional utilities
+mime = "0.3.17"
+base64 = "0.22.1"
+num_cpus = "1.17.0"
 
 [features]
 default = []

@@ -1,65 +1,55 @@
+# NeuroQuantumDB API Development Configuration
+
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 8080
-workers = 4
-keep_alive = 300
-client_timeout = 30
-shutdown_timeout = 30
+workers = 2
+max_connections = 1000
 
 [database]
-connection_string = "neuroquantum://localhost:5432/neuroquantumdb"
-max_connections = 100
-connection_timeout = 30
-query_timeout = 60
+# Using default core database configuration
 
-[database.neuromorphic_config]
-synaptic_strength_threshold = 0.5
-learning_rate = 0.01
-plasticity_decay = 0.001
-max_synaptic_connections = 10000
-hebbian_window_ms = 1000
+[jwt]
+secret = "dev-secret-key-32-characters-long!"
+expiration_hours = 24
+quantum_enabled = false
+algorithm = "HS256"
+issuer = "neuroquantum-db"
+audience = "neuroquantum-api"
 
-[database.quantum_config]
-default_quantum_level = 128
-grovers_iterations = 1000
-annealing_temperature = 1.0
-superposition_depth = 8
-quantum_error_correction = true
-
-[database.dna_config]
-target_compression_ratio = 999.0
-error_correction_redundancy = 3
-quaternary_encoding_block_size = 1024
-protein_folding_levels = 4
-cache_size_mb = 100
-
-[auth]
-jwt_secret = "quantum_resistant_secret_key_change_in_production"
-token_expiry_seconds = 3600
-quantum_level = 128
-kyber_key_size = 1184
-dilithium_signature_size = 1952
-password_hash_cost = 12
-
-[metrics]
+[rate_limit]
+requests_per_hour = 1000
 enabled = true
-port = 9090
-path = "/metrics"
-collection_interval_ms = 1000
-retention_hours = 24
-export_format = "prometheus"
+strategy = "TokenBucket"
+
+[cors]
+allowed_origins = ["http://localhost:3000", "http://localhost:8080"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+allowed_headers = ["Authorization", "Content-Type", "X-API-Key"]
+max_age = 3600
+allow_credentials = true
 
 [security]
-quantum_resistant_encryption = true
-tls_enabled = false
-cors_origins = ["http://localhost:3000", "https://neuroquantumdb.org"]
-rate_limit_requests_per_minute = 1000
-max_request_size_mb = 10
+max_payload_size = 16777216  # 16MB
+request_timeout_seconds = 30
+security_headers = true
+quantum_encryption = false
 
-[performance]
-arm64_neon_enabled = true
-power_management_enabled = true
-max_power_consumption_mw = 2000.0
-cpu_frequency_scaling = true
-memory_pool_size_mb = 512
-gc_threshold_mb = 100
+[security.circuit_breaker]
+failure_threshold = 5
+success_threshold = 3
+timeout_seconds = 60
+enabled = true
+
+[monitoring]
+metrics_enabled = true
+prometheus_endpoint = "/metrics"
+health_check_endpoint = "/health"
+performance_stats = true
+detailed_logging = true
+websocket_enabled = true
+
+[logging]
+level = "debug"
+format = "Plain"
+structured_logging = false
