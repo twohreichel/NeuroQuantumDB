@@ -126,7 +126,7 @@
   8. Error Handling für SQL-Syntax-Fehler
 
 ### 3. **REST API Server - Grundfunktionalität vorhanden, aber unvollständig**
-**Status:** 🟡 Teilweise implementiert - HTTP Endpoints fehlen
+**Status:** ✅ Implementiert - muss noch getestet werden
 **Priorität:** HOCH - Wichtig für Client-Zugriff
 
 #### **Was zu tun ist:**
@@ -151,32 +151,7 @@
   async fn get_performance_stats(req: HttpRequest) -> Result<HttpResponse>
   ```
 
-- **API Dokumentation mit OpenAPI/Swagger:**
-  ```yaml
-  # api-spec.yaml
-  openapi: 3.0.0
-  info:
-    title: NeuroQuantumDB API
-    version: 1.0.0
-  paths:
-    /api/v1/tables:
-      post:
-        summary: Create new table
-        requestBody:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CreateTableRequest'
-    /api/v1/query:
-      post:
-        summary: Execute QSQL query
-        requestBody:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueryRequest'
-  ```
-
+- **API Dokumentation mit Swagger UI for utoipa:**
 - **Konkrete Implementierungsschritte:**
   1. Request/Response DTOs für alle Endpoints definieren
   2. Middleware für Authentication/Authorization
