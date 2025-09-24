@@ -40,8 +40,11 @@ pub struct AppState {
 impl AppState {
     pub async fn new(config: ApiConfig) -> Result<Self> {
         // Convert our API config database config to the core database config
-        let core_db_config = CoreDatabaseConfig::default(); // Using default for now
-        let db = NeuroQuantumDB::new(&core_db_config).await?;
+        let mut db = NeuroQuantumDB::new();
+        
+        // Initialize the database asynchronously
+        db.init().await.map_err(|e| anyhow::anyhow!("Failed to initialize database: {}", e))?;
+        
         let auth_service = AuthService::new();
         let jwt_service = JwtService::new(config.jwt.secret.as_bytes());
 

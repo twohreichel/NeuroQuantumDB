@@ -33,6 +33,7 @@ pub use error::NeuroQuantumError;
 pub use storage::StorageEngine;
 
 /// Main database engine that integrates all components
+#[derive(Clone)]
 pub struct NeuroQuantumDB {
     storage: storage::StorageEngine,
     dna_compressor: dna::QuantumDNACompressor,

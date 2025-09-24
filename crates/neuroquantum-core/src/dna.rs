@@ -225,7 +225,7 @@ pub trait DNACompressor: Send + Sync {
 }
 
 /// High-performance DNA compressor implementation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct QuantumDNACompressor {
     config: DNACompressionConfig,
     metrics: Arc<std::sync::Mutex<CompressionMetrics>>,

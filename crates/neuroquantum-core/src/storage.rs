@@ -185,7 +185,7 @@ pub enum TransactionStatus {
 }
 
 /// Database metadata
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseMetadata {
     pub version: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -196,6 +196,7 @@ pub struct DatabaseMetadata {
 }
 
 /// Main storage engine providing persistent file-based storage
+#[derive(Clone)]
 pub struct StorageEngine {
     /// Base directory for all database files
     data_dir: PathBuf,
