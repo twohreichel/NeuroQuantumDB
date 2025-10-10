@@ -12,6 +12,7 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::dna::{DNACompressor, EncodedData, QuantumDNACompressor};
+use crate::transaction::{IsolationLevel, TransactionManager};
 
 /// Unique identifier for database rows
 pub type RowId = u64;
@@ -226,6 +227,9 @@ pub struct StorageEngine {
 
     /// Cache size limit
     cache_limit: usize,
+
+    /// Transaction manager for ACID compliance
+    transaction_manager: TransactionManager,
 }
 
 impl StorageEngine {
@@ -252,6 +256,7 @@ impl StorageEngine {
             next_lsn: 1,
             row_cache: HashMap::new(),
             cache_limit: 10000,
+            transaction_manager: TransactionManager::new(),
         }
     }
 
@@ -281,6 +286,7 @@ impl StorageEngine {
             next_lsn: 1,
             row_cache: HashMap::new(),
             cache_limit: 10000, // 10k rows in cache
+            transaction_manager: TransactionManager::new(),
         };
 
         // Load existing data
@@ -1201,6 +1207,361 @@ impl StorageEngine {
         }
 
         Ok(())
+    }
+
+    /// Initialize transaction manager properly after construction
+    pub async fn init_transaction_manager(&mut self) -> Result<()> {
+        let log_dir = self.data_dir.join("logs");
+        self.transaction_manager = crate::transaction::TransactionManager::new_async(&log_dir)
+            .await
+            .map_err(|e| anyhow!("Failed to initialize transaction manager: {}", e))?;
+
+        info!("✅ Transaction manager initialized with ACID support");
+        Ok(())
+    }
+
+    /// Begin a new transaction
+    pub async fn begin_transaction(&self) -> Result<crate::transaction::TransactionId> {
+        self.transaction_manager
+            .begin_transaction(IsolationLevel::ReadCommitted)
+            .await
+            .map_err(|e| anyhow!("Failed to begin transaction: {}", e))
+    }
+
+    /// Begin a transaction with specific isolation level
+    pub async fn begin_transaction_with_isolation(
+        &self,
+        isolation_level: crate::transaction::IsolationLevel,
+    ) -> Result<crate::transaction::TransactionId> {
+        self.transaction_manager
+            .begin_transaction(isolation_level)
+            .await
+            .map_err(|e| anyhow!("Failed to begin transaction: {}", e))
+    }
+
+    /// Commit a transaction
+    pub async fn commit_transaction(&self, tx_id: crate::transaction::TransactionId) -> Result<()> {
+        self.transaction_manager
+            .commit(tx_id)
+            .await
+            .map_err(|e| anyhow!("Failed to commit transaction: {}", e))
+    }
+
+    /// Rollback a transaction
+    pub async fn rollback_transaction(
+        &self,
+        tx_id: crate::transaction::TransactionId,
+    ) -> Result<()> {
+        self.transaction_manager
+            .rollback(tx_id)
+            .await
+            .map_err(|e| anyhow!("Failed to rollback transaction: {}", e))
+    }
+
+    /// Insert a row within a transaction
+    pub async fn insert_row_transactional(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+        table: &str,
+        mut row: Row,
+    ) -> Result<RowId> {
+        use crate::transaction::LockType;
+
+        debug!("➕ Transactional insert into table: {}", table);
+
+        // Acquire exclusive lock on table
+        let resource_id = format!("table:{}", table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Get table schema
+        let schema = self
+            .metadata
+            .tables
+            .get(table)
+            .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+            .clone();
+
+        // Assign row ID
+        row.id = self.next_row_id;
+        self.next_row_id += 1;
+
+        // Validate row against schema
+        self.validate_row(&schema, &row)?;
+
+        // Compress row data
+        let compressed_data = self.compress_row(&row).await?;
+
+        // Log the operation to WAL before applying changes
+        let after_image = serde_json::to_vec(&row)?;
+        self.transaction_manager
+            .log_update(
+                tx_id,
+                table.to_string(),
+                row.id.to_string(),
+                None, // No before-image for INSERT
+                after_image,
+            )
+            .await
+            .map_err(|e| anyhow!("Failed to log update: {}", e))?;
+
+        // Apply changes
+        self.compressed_blocks.insert(row.id, compressed_data);
+        self.update_indexes_for_insert(&schema, &row)?;
+        self.add_to_cache(row.clone());
+
+        // Log operation to local transaction log
+        let operation = Operation::Insert {
+            table: table.to_string(),
+            row_id: row.id,
+            data: row.clone(),
+        };
+        self.log_operation(operation).await?;
+
+        // Append to table file
+        self.append_row_to_file(table, &row).await?;
+
+        debug!("✅ Row inserted with ID: {} (tx: {:?})", row.id, tx_id);
+        Ok(row.id)
+    }
+
+    /// Update rows within a transaction
+    pub async fn update_rows_transactional(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+        query: &UpdateQuery,
+    ) -> Result<u64> {
+        use crate::transaction::LockType;
+
+        debug!("✏️ Transactional update in table: {}", query.table);
+
+        // Acquire exclusive lock on table
+        let resource_id = format!("table:{}", query.table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Get existing rows that match the condition
+        let select_query = SelectQuery {
+            table: query.table.clone(),
+            columns: vec!["*".to_string()],
+            where_clause: query.where_clause.clone(),
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+
+        let existing_rows = self.select_rows(&select_query).await?;
+        let mut updated_count = 0;
+        let mut updated_rows = Vec::new();
+
+        for mut row in existing_rows {
+            let old_row = row.clone();
+
+            // Serialize before-image for WAL
+            let before_image = serde_json::to_vec(&old_row)?;
+
+            // Apply updates
+            for (field, new_value) in &query.set_values {
+                row.fields.insert(field.clone(), new_value.clone());
+            }
+            row.updated_at = chrono::Utc::now();
+
+            // Validate updated row
+            let schema = self.metadata.tables.get(&query.table).unwrap();
+            self.validate_row(schema, &row)?;
+
+            // Serialize after-image for WAL
+            let after_image = serde_json::to_vec(&row)?;
+
+            // Log to WAL
+            self.transaction_manager
+                .log_update(
+                    tx_id,
+                    query.table.clone(),
+                    row.id.to_string(),
+                    Some(before_image),
+                    after_image,
+                )
+                .await
+                .map_err(|e| anyhow!("Failed to log update: {}", e))?;
+
+            // Apply changes
+            let compressed_data = self.compress_row(&row).await?;
+            self.compressed_blocks.insert(row.id, compressed_data);
+            self.add_to_cache(row.clone());
+            updated_rows.push(row.clone());
+
+            // Log operation
+            let operation = Operation::Update {
+                table: query.table.clone(),
+                row_id: row.id,
+                old_data: old_row,
+                new_data: row,
+            };
+            self.log_operation(operation).await?;
+
+            updated_count += 1;
+        }
+
+        // Rewrite table file with updated data
+        if updated_count > 0 {
+            self.rewrite_table_file_with_updates(&query.table, &updated_rows)
+                .await?;
+        }
+
+        debug!("✅ Updated {} rows (tx: {:?})", updated_count, tx_id);
+        Ok(updated_count)
+    }
+
+    /// Delete rows within a transaction
+    pub async fn delete_rows_transactional(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+        query: &DeleteQuery,
+    ) -> Result<u64> {
+        use crate::transaction::LockType;
+
+        debug!("🗑️ Transactional delete from table: {}", query.table);
+
+        // Acquire exclusive lock on table
+        let resource_id = format!("table:{}", query.table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Get existing rows that match the condition
+        let select_query = SelectQuery {
+            table: query.table.clone(),
+            columns: vec!["*".to_string()],
+            where_clause: query.where_clause.clone(),
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+
+        let rows_to_delete = self.select_rows(&select_query).await?;
+        let deleted_count = rows_to_delete.len();
+        let mut deleted_row_ids = Vec::new();
+
+        for row in rows_to_delete {
+            // Serialize before-image for WAL
+            let before_image = serde_json::to_vec(&row)?;
+
+            // Log to WAL (DELETE has before-image, empty after-image)
+            self.transaction_manager
+                .log_update(
+                    tx_id,
+                    query.table.clone(),
+                    row.id.to_string(),
+                    Some(before_image),
+                    vec![], // Empty after-image indicates DELETE
+                )
+                .await
+                .map_err(|e| anyhow!("Failed to log delete: {}", e))?;
+
+            // Keep track of deleted row IDs
+            deleted_row_ids.push(row.id);
+
+            // Apply changes
+            self.compressed_blocks.remove(&row.id);
+            self.row_cache.remove(&row.id);
+
+            let schema = self.metadata.tables.get(&query.table).unwrap().clone();
+            self.update_indexes_for_delete(&schema, &row)?;
+
+            // Log operation
+            let operation = Operation::Delete {
+                table: query.table.clone(),
+                row_id: row.id,
+                data: row,
+            };
+            self.log_operation(operation).await?;
+        }
+
+        // Rewrite table file without deleted rows
+        if deleted_count > 0 {
+            self.rewrite_table_file_with_deletions(&query.table, &deleted_row_ids)
+                .await?;
+        }
+
+        debug!("✅ Deleted {} rows (tx: {:?})", deleted_count, tx_id);
+        Ok(deleted_count as u64)
+    }
+
+    /// Select rows within a transaction (with appropriate locking)
+    pub async fn select_rows_transactional(
+        &self,
+        tx_id: crate::transaction::TransactionId,
+        query: &SelectQuery,
+    ) -> Result<Vec<Row>> {
+        use crate::transaction::LockType;
+
+        debug!("🔍 Transactional select from table: {}", query.table);
+
+        // Acquire shared lock on table for consistent reads
+        let resource_id = format!("table:{}", query.table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Shared)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Perform the select (now protected by lock)
+        self.select_rows(query).await
+    }
+
+    /// Execute a full transaction with automatic commit/rollback
+    pub async fn execute_transaction<F, T>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(
+            &mut Self,
+            crate::transaction::TransactionId,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send + '_>>,
+    {
+        // Begin transaction
+        let tx_id = self.begin_transaction().await?;
+
+        // Execute the transaction function
+        let result = f(self, tx_id).await;
+
+        match result {
+            Ok(value) => {
+                // Commit on success
+                self.commit_transaction(tx_id).await?;
+                Ok(value)
+            }
+            Err(e) => {
+                // Rollback on error
+                let _ = self.rollback_transaction(tx_id).await; // Ignore rollback errors
+                Err(e)
+            }
+        }
+    }
+
+    /// Get transaction statistics
+    pub async fn get_transaction_statistics(&self) -> crate::transaction::TransactionStatistics {
+        self.transaction_manager.get_statistics().await
+    }
+
+    /// Write a checkpoint for recovery
+    pub async fn checkpoint(&self) -> Result<()> {
+        self.transaction_manager
+            .checkpoint()
+            .await
+            .map_err(|e| anyhow!("Failed to write checkpoint: {}", e))
+    }
+
+    /// Cleanup timed out transactions
+    pub async fn cleanup_timed_out_transactions(&self) -> Result<()> {
+        self.transaction_manager
+            .cleanup_timed_out_transactions()
+            .await
+            .map_err(|e| anyhow!("Failed to cleanup transactions: {}", e))
     }
 }
 

@@ -31,7 +31,7 @@ hashbrown = "0.14"
 crc32fast = "1.3"
 
 # Missing dependencies for existing modules
-rand = "0.8"
+rand.workspace = true
 rand_distr = "0.4"
 base64 = "0.22"
 

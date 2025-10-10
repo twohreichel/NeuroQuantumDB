@@ -361,7 +361,7 @@ mod stress_tests {
         // Test 100 different random patterns
         for _ in 0..100 {
             let size = rng.gen_range(1..1000);
-            let data: Vec<u8> = (0..size).map(|_| rng.gen()).collect();
+            let data: Vec<u8> = (0..size).map(|_| rng.gen::<u8>()).collect();
 
             let compressed = compressor.compress(&data).await.unwrap();
             let decompressed = compressor.decompress(&compressed).await.unwrap();

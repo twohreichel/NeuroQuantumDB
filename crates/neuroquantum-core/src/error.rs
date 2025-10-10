@@ -59,6 +59,18 @@ pub enum NeuroQuantumError {
     #[error("Not found: {0}")]
     NotFound(String),
 
+    #[error("Transaction error: {0}")]
+    TransactionError(String),
+
+    #[error("Deadlock detected: {0}")]
+    DeadlockDetected(String),
+
+    #[error("Isolation violation: {0}")]
+    IsolationViolation(String),
+
+    #[error("Concurrent modification detected: {0}")]
+    ConcurrentModification(String),
+
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 

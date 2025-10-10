@@ -20,6 +20,7 @@ pub mod query;
 pub mod security;
 pub mod storage;
 pub mod synaptic;
+pub mod transaction;
 
 // Re-export key DNA compression types for easy access
 pub use dna::{
@@ -31,7 +32,13 @@ pub use dna::{
 pub use error::NeuroQuantumError;
 pub use storage::StorageEngine;
 
-/// Main database engine that integrates all components
+// Re-export transaction management types
+pub use transaction::{
+    IsolationLevel, LockManager, LockType, LogManager, RecoveryManager, Transaction, TransactionId,
+    TransactionManager, TransactionStatistics, TransactionStatus, LSN,
+};
+
+// Main database engine that integrates all components
 #[derive(Clone)]
 pub struct NeuroQuantumDB {
     storage: storage::StorageEngine,
