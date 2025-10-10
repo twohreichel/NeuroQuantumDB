@@ -3,26 +3,26 @@
 //! This module implements a biologically-inspired compression algorithm using quaternary encoding
 //! (4 DNA bases: A, T, G, C) with Reed-Solomon error correction and SIMD optimizations.
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 use thiserror::Error;
 use tracing::{debug, info, instrument, warn};
 
-pub mod encoder;
-pub mod decoder;
-pub mod error_correction;
-pub mod compression;
-pub mod simd;
 pub mod benchmarks;
+pub mod compression;
+pub mod decoder;
+pub mod encoder;
+pub mod error_correction;
+pub mod simd;
 
 #[cfg(test)]
 pub mod tests;
 
 // Re-export types for easier access
-pub use encoder::QuaternaryEncoder;
 pub use decoder::QuaternaryDecoder;
+pub use encoder::QuaternaryEncoder;
 pub use error_correction::ReedSolomonCorrector;
 
 // Type alias for backward compatibility
@@ -160,7 +160,7 @@ pub struct CompressedDNA {
 }
 
 /// Performance metrics collected during compression/decompression
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CompressionMetrics {
     /// Time taken for compression in microseconds
     pub compression_time_us: u64,
@@ -195,7 +195,7 @@ impl Default for DNACompressionConfig {
             error_correction_strength: 32, // Can correct up to 32 byte errors
             enable_simd: true,
             enable_dictionary: true,
-            max_dictionary_size: 65536, // 64KB dictionary
+            max_dictionary_size: 65536,       // 64KB dictionary
             memory_limit: 1024 * 1024 * 1024, // 1GB limit
             thread_count: rayon::current_num_threads(),
         }
@@ -246,10 +246,7 @@ impl QuantumDNACompressor {
             errors_corrected: 0,
         }));
 
-        Self {
-            config,
-            metrics,
-        }
+        Self { config, metrics }
     }
 
     /// Update configuration
@@ -268,9 +265,11 @@ impl DNACompressor for QuantumDNACompressor {
 
         // Check memory limits
         if data.len() * 2 > self.config.memory_limit {
-            return Err(DNAError::MemoryError(
-                format!("Data size {} exceeds memory limit {}", data.len() * 2, self.config.memory_limit)
-            ));
+            return Err(DNAError::MemoryError(format!(
+                "Data size {} exceeds memory limit {}",
+                data.len() * 2,
+                self.config.memory_limit
+            )));
         }
 
         // Create encoder and corrector
@@ -329,8 +328,11 @@ impl DNACompressor for QuantumDNACompressor {
             *stored_metrics = metrics.clone();
         }
 
-        info!("DNA compression completed: {:.2}% ratio, {} μs",
-              compression_ratio * 100.0, elapsed.as_micros());
+        info!(
+            "DNA compression completed: {:.2}% ratio, {} μs",
+            compression_ratio * 100.0,
+            elapsed.as_micros()
+        );
 
         Ok(CompressedDNA {
             sequence,
@@ -343,11 +345,16 @@ impl DNACompressor for QuantumDNACompressor {
     async fn decompress(&self, compressed: &CompressedDNA) -> Result<Vec<u8>, DNAError> {
         let start_time = std::time::Instant::now();
 
-        info!("Starting DNA decompression for {} compressed bytes", compressed.compressed_size);
+        info!(
+            "Starting DNA decompression for {} compressed bytes",
+            compressed.compressed_size
+        );
 
         // Validate version compatibility
         if compressed.sequence.metadata.version != 1 {
-            return Err(DNAError::InvalidVersion(compressed.sequence.metadata.version));
+            return Err(DNAError::InvalidVersion(
+                compressed.sequence.metadata.version,
+            ));
         }
 
         // Create decoder and corrector
@@ -356,12 +363,14 @@ impl DNACompressor for QuantumDNACompressor {
 
         // Step 1: Decode DNA bases to binary
         debug!("Decoding DNA bases to binary");
-        let mut decoded_data = decoder.decode_from_bases(&compressed.sequence.bases).await?;
+        let mut decoded_data = decoder
+            .decode_from_bases(&compressed.sequence.bases)
+            .await?;
 
         // Step 2: Apply Reed-Solomon error correction
         debug!("Applying Reed-Solomon error correction");
-        let (corrected_data, errors_corrected) = error_corrector
-            .correct_errors(&decoded_data, &compressed.sequence.parity)?;
+        let (corrected_data, errors_corrected) =
+            error_corrector.correct_errors(&decoded_data, &compressed.sequence.parity)?;
 
         if errors_corrected > 0 {
             warn!("Corrected {} errors during decompression", errors_corrected);
@@ -380,7 +389,9 @@ impl DNACompressor for QuantumDNACompressor {
         // Step 4: Apply dictionary decompression if needed
         let final_data = if let Some(ref dictionary) = compressed.sequence.metadata.dictionary {
             debug!("Applying dictionary decompression");
-            decoder.decompress_with_dictionary(&decoded_data, dictionary).await?
+            decoder
+                .decompress_with_dictionary(&decoded_data, dictionary)
+                .await?
         } else {
             decoded_data
         };
@@ -401,14 +412,19 @@ impl DNACompressor for QuantumDNACompressor {
             metrics.errors_corrected = errors_corrected;
         }
 
-        info!("DNA decompression completed: {} bytes restored, {} μs, {} errors corrected",
-              final_data.len(), elapsed.as_micros(), errors_corrected);
+        info!(
+            "DNA decompression completed: {} bytes restored, {} μs, {} errors corrected",
+            final_data.len(),
+            elapsed.as_micros(),
+            errors_corrected
+        );
 
         Ok(final_data)
     }
 
     fn compression_ratio(&self) -> f64 {
-        self.metrics.lock()
+        self.metrics
+            .lock()
             .map(|m| m.compression_time_us as f64 / (m.decompression_time_us.unwrap_or(1) as f64))
             .unwrap_or(1.0)
     }
@@ -418,9 +434,7 @@ impl DNACompressor for QuantumDNACompressor {
     }
 
     fn get_metrics(&self) -> CompressionMetrics {
-        self.metrics.lock()
-            .map(|m| m.clone())
-            .unwrap_or_default()
+        self.metrics.lock().map(|m| m.clone()).unwrap_or_default()
     }
 
     async fn validate(&self, compressed: &CompressedDNA) -> Result<bool, DNAError> {
@@ -438,7 +452,8 @@ impl DNACompressor for QuantumDNACompressor {
 
         // Verify Reed-Solomon parity length
         let error_corrector = ReedSolomonCorrector::new(self.config.error_correction_strength);
-        let expected_parity_len = error_corrector.calculate_parity_length(compressed.compressed_size);
+        let expected_parity_len =
+            error_corrector.calculate_parity_length(compressed.compressed_size);
         if compressed.sequence.parity.len() != expected_parity_len {
             return Ok(false);
         }
@@ -450,16 +465,5 @@ impl DNACompressor for QuantumDNACompressor {
 impl Default for QuantumDNACompressor {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Default for CompressionMetrics {
-    fn default() -> Self {
-        Self {
-            compression_time_us: 0,
-            decompression_time_us: None,
-            peak_memory_bytes: 0,
-            errors_corrected: 0,
-        }
     }
 }

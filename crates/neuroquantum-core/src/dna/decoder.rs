@@ -3,9 +3,9 @@
 //! This module implements the decoding phase of DNA compression, converting DNA base
 //! sequences back to binary data with dictionary decompression support.
 
-use crate::dna::{DNABase, DNAError, DNACompressionConfig};
-use std::collections::HashMap;
+use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 use rayon::prelude::*;
+use std::collections::HashMap;
 use tracing::{debug, instrument};
 
 /// Quaternary decoder that converts DNA bases back to binary data
@@ -32,7 +32,7 @@ impl QuaternaryDecoder {
         debug!("Decoding {} DNA bases to binary", bases.len());
 
         // Each group of 4 bases represents 1 byte
-        if bases.len() % 4 != 0 {
+        if !bases.len().is_multiple_of(4) {
             return Err(DNAError::LengthMismatch {
                 expected: (bases.len() / 4) * 4,
                 actual: bases.len(),
@@ -70,7 +70,11 @@ impl QuaternaryDecoder {
     }
 
     /// Parallel SIMD-optimized decoding
-    async fn decode_parallel_simd(&self, bases: &[DNABase], data: &mut Vec<u8>) -> Result<(), DNAError> {
+    async fn decode_parallel_simd(
+        &self,
+        bases: &[DNABase],
+        data: &mut Vec<u8>,
+    ) -> Result<(), DNAError> {
         let chunk_size = ((bases.len() / 4) / self.config.thread_count).max(1024) * 4; // Keep 4-base alignment
 
         // Process chunks in parallel
@@ -91,7 +95,7 @@ impl QuaternaryDecoder {
 
     /// Decode a single chunk using SIMD operations where available
     fn decode_chunk_simd(&self, chunk: &[DNABase]) -> Result<Vec<u8>, DNAError> {
-        if chunk.len() % 4 != 0 {
+        if !chunk.len().is_multiple_of(4) {
             return Err(DNAError::LengthMismatch {
                 expected: (chunk.len() / 4) * 4,
                 actual: chunk.len(),
@@ -206,13 +210,16 @@ impl QuaternaryDecoder {
     pub async fn decompress_with_dictionary(
         &self,
         data: &[u8],
-        dictionary: &HashMap<Vec<u8>, u16>
+        dictionary: &HashMap<Vec<u8>, u16>,
     ) -> Result<Vec<u8>, DNAError> {
         if dictionary.is_empty() || data.is_empty() {
             return Ok(data.to_vec());
         }
 
-        debug!("Applying dictionary decompression with {} patterns", dictionary.len());
+        debug!(
+            "Applying dictionary decompression with {} patterns",
+            dictionary.len()
+        );
 
         // Build reverse lookup table
         let reverse_dict: HashMap<u16, Vec<u8>> = dictionary
@@ -232,9 +239,10 @@ impl QuaternaryDecoder {
                     decompressed.extend_from_slice(pattern);
                     i += 3;
                 } else {
-                    return Err(DNAError::DecompressionFailed(
-                        format!("Invalid dictionary reference: {}", dict_id)
-                    ));
+                    return Err(DNAError::DecompressionFailed(format!(
+                        "Invalid dictionary reference: {}",
+                        dict_id
+                    )));
                 }
             } else {
                 // Literal byte
@@ -249,7 +257,7 @@ impl QuaternaryDecoder {
     /// Validate DNA base sequence integrity
     pub fn validate_bases(&self, bases: &[DNABase]) -> Result<(), DNAError> {
         // Check that the sequence length is a multiple of 4
-        if bases.len() % 4 != 0 {
+        if !bases.len().is_multiple_of(4) {
             return Err(DNAError::LengthMismatch {
                 expected: (bases.len() / 4) * 4,
                 actual: bases.len(),
@@ -288,15 +296,19 @@ impl QuaternaryDecoder {
         }
 
         // Check GC content (should be roughly balanced for good compression)
-        let gc_count = bases.iter()
+        let gc_count = bases
+            .iter()
             .filter(|&&base| matches!(base, DNABase::Guanine | DNABase::Cytosine))
             .count();
 
         let gc_ratio = gc_count as f64 / bases.len() as f64;
 
         // Warn if GC content is extremely skewed (could indicate poor compression)
-        if gc_ratio < 0.1 || gc_ratio > 0.9 {
-            debug!("Warning: Extreme GC content detected: {:.2}%", gc_ratio * 100.0);
+        if !(0.1..=0.9).contains(&gc_ratio) {
+            debug!(
+                "Warning: Extreme GC content detected: {:.2}%",
+                gc_ratio * 100.0
+            );
         }
 
         Ok(())
@@ -313,9 +325,9 @@ impl QuaternaryDecoder {
             base_counts[base as usize] += 1;
         }
 
-        let gc_content = (base_counts[DNABase::Guanine as usize] +
-                         base_counts[DNABase::Cytosine as usize]) as f64 /
-                         total_bases as f64;
+        let gc_content = (base_counts[DNABase::Guanine as usize]
+            + base_counts[DNABase::Cytosine as usize]) as f64
+            / total_bases as f64;
 
         DecodingStats {
             total_bases,

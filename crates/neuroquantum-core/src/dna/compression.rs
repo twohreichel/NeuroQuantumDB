@@ -1,11 +1,11 @@
 //! Advanced compression algorithms for DNA data optimization
-//! 
+//!
 //! This module implements additional compression layers including dictionary compression,
 //! Huffman coding, and biological pattern-specific optimizations.
 
-use crate::dna::{DNABase, DNAError, DNACompressionConfig};
-use std::collections::{BinaryHeap, HashMap};
+use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
 use tracing::{debug, instrument};
 
 /// Advanced compression engine for DNA sequences
@@ -30,7 +30,10 @@ impl DNACompressionEngine {
 
     /// Compress DNA sequence using multiple algorithms
     #[instrument(skip(self, bases))]
-    pub async fn compress_sequence(&mut self, bases: &[DNABase]) -> Result<CompressedSequence, DNAError> {
+    pub async fn compress_sequence(
+        &mut self,
+        bases: &[DNABase],
+    ) -> Result<CompressedSequence, DNAError> {
         if bases.is_empty() {
             return Ok(CompressedSequence::empty());
         }
@@ -55,13 +58,19 @@ impl DNACompressionEngine {
         }
 
         // Step 2: Dictionary compression for repeated sequences
-        let (dict_compressed, dict_savings) = self.apply_dictionary_compression(&current_bases).await?;
+        let (dict_compressed, dict_savings) =
+            self.apply_dictionary_compression(&current_bases).await?;
         current_bases = dict_compressed;
         compression_steps.push(CompressionStep {
             algorithm: "Dictionary".to_string(),
-            size_before: compression_steps.last().map_or(original_size, |s| s.size_after),
+            size_before: compression_steps
+                .last()
+                .map_or(original_size, |s| s.size_after),
             size_after: current_bases.len(),
-            compression_ratio: current_bases.len() as f64 / compression_steps.last().map_or(original_size, |s| s.size_after) as f64,
+            compression_ratio: current_bases.len() as f64
+                / compression_steps
+                    .last()
+                    .map_or(original_size, |s| s.size_after) as f64,
             savings_bytes: dict_savings,
         });
 
@@ -90,7 +99,10 @@ impl DNACompressionEngine {
     }
 
     /// Optimize biological patterns in DNA sequences
-    async fn optimize_biological_patterns(&mut self, bases: &[DNABase]) -> Result<(Vec<DNABase>, usize), DNAError> {
+    async fn optimize_biological_patterns(
+        &mut self,
+        bases: &[DNABase],
+    ) -> Result<(Vec<DNABase>, usize), DNAError> {
         debug!("Optimizing biological patterns");
 
         let mut optimized = bases.to_vec();
@@ -111,7 +123,7 @@ impl DNACompressionEngine {
     /// Optimize complementary base pairs
     fn optimize_complementary_pairs(&self, bases: &[DNABase]) -> usize {
         let mut savings = 0;
-        
+
         // Look for Watson-Crick base pairs and encode them more efficiently
         for window in bases.windows(2) {
             if let [base1, base2] = window {
@@ -127,7 +139,10 @@ impl DNACompressionEngine {
     }
 
     /// Optimize repetitive DNA motifs
-    async fn optimize_repetitive_motifs(&mut self, bases: &mut Vec<DNABase>) -> Result<usize, DNAError> {
+    async fn optimize_repetitive_motifs(
+        &mut self,
+        bases: &mut Vec<DNABase>,
+    ) -> Result<usize, DNAError> {
         let mut savings = 0;
         let motif_sizes = [3, 6, 9, 12]; // Common biological motif sizes
 
@@ -144,13 +159,15 @@ impl DNACompressionEngine {
     }
 
     /// Find and compress repetitive motifs of a specific size
-    async fn find_and_compress_motifs(&mut self, bases: &mut Vec<DNABase>, motif_size: usize) -> Result<usize, DNAError> {
+    async fn find_and_compress_motifs(
+        &mut self,
+        bases: &mut Vec<DNABase>,
+        motif_size: usize,
+    ) -> Result<usize, DNAError> {
         let mut motif_counts = HashMap::new();
-        
+
         // Count motif frequencies in parallel
-        let motifs: Vec<_> = bases.windows(motif_size)
-            .enumerate()
-            .collect();
+        let motifs: Vec<_> = bases.windows(motif_size).enumerate().collect();
 
         for (_, motif) in motifs {
             *motif_counts.entry(motif.to_vec()).or_insert(0) += 1;
@@ -160,7 +177,6 @@ impl DNACompressionEngine {
         let frequent_motifs: Vec<_> = motif_counts
             .into_iter()
             .filter(|(_, count)| *count >= 3)
-            .map(|(motif, count)| (motif, count))
             .collect();
 
         let mut total_savings = 0;
@@ -172,7 +188,7 @@ impl DNACompressionEngine {
 
             let pattern_id = self.pattern_dictionary.len() as u16;
             self.pattern_dictionary.insert(motif.clone(), pattern_id);
-            
+
             // Calculate savings: original motif size * occurrences - encoding overhead
             total_savings += (motif_size * count).saturating_sub(count * 2); // 2 bytes per reference
         }
@@ -185,7 +201,8 @@ impl DNACompressionEngine {
         let mut savings = 0;
 
         // Look for palindromic sequences (reverse complements)
-        for window_size in (4..=16).step_by(2) { // Even sizes for palindromes
+        for window_size in (4..=16).step_by(2) {
+            // Even sizes for palindromes
             if bases.len() < window_size {
                 break;
             }
@@ -204,14 +221,14 @@ impl DNACompressionEngine {
     /// Check if a sequence is a palindrome (reverse complement)
     fn is_palindrome(&self, bases: &[DNABase]) -> bool {
         let len = bases.len();
-        if len % 2 != 0 {
+        if !len.is_multiple_of(2) {
             return false;
         }
 
-        for i in 0..len/2 {
+        for i in 0..len / 2 {
             let left = bases[i];
             let right = bases[len - 1 - i];
-            
+
             if !self.biological_patterns.are_complementary(left, right) {
                 return false;
             }
@@ -221,7 +238,10 @@ impl DNACompressionEngine {
     }
 
     /// Apply dictionary compression to DNA sequence
-    async fn apply_dictionary_compression(&mut self, bases: &[DNABase]) -> Result<(Vec<DNABase>, usize), DNAError> {
+    async fn apply_dictionary_compression(
+        &mut self,
+        bases: &[DNABase],
+    ) -> Result<(Vec<DNABase>, usize), DNAError> {
         debug!("Applying dictionary compression");
 
         if self.pattern_dictionary.is_empty() {
@@ -240,16 +260,22 @@ impl DNACompressionEngine {
             patterns.sort_by_key(|p| std::cmp::Reverse(p.len()));
 
             for pattern in patterns {
-                if i + pattern.len() <= bases.len() && &bases[i..i + pattern.len()] == pattern.as_slice() {
+                if i + pattern.len() <= bases.len()
+                    && &bases[i..i + pattern.len()] == pattern.as_slice()
+                {
                     // Encode pattern reference
                     if let Some(&pattern_id) = self.pattern_dictionary.get(pattern) {
                         compressed.push(DNABase::Adenine); // Special marker
-                        compressed.push(DNABase::from_bits((pattern_id >> 8) as u8 & 0b11).unwrap());
-                        compressed.push(DNABase::from_bits((pattern_id >> 6) as u8 & 0b11).unwrap());
-                        compressed.push(DNABase::from_bits((pattern_id >> 4) as u8 & 0b11).unwrap());
-                        compressed.push(DNABase::from_bits((pattern_id >> 2) as u8 & 0b11).unwrap());
+                        compressed
+                            .push(DNABase::from_bits((pattern_id >> 8) as u8 & 0b11).unwrap());
+                        compressed
+                            .push(DNABase::from_bits((pattern_id >> 6) as u8 & 0b11).unwrap());
+                        compressed
+                            .push(DNABase::from_bits((pattern_id >> 4) as u8 & 0b11).unwrap());
+                        compressed
+                            .push(DNABase::from_bits((pattern_id >> 2) as u8 & 0b11).unwrap());
                         compressed.push(DNABase::from_bits(pattern_id as u8 & 0b11).unwrap());
-                        
+
                         i += pattern.len();
                         savings += pattern.len().saturating_sub(6);
                         matched = true;
@@ -305,18 +331,26 @@ impl DNACompressionEngine {
     }
 
     /// Decompress a compressed DNA sequence
-    pub async fn decompress_sequence(&self, compressed: &CompressedSequence) -> Result<Vec<DNABase>, DNAError> {
+    pub async fn decompress_sequence(
+        &self,
+        compressed: &CompressedSequence,
+    ) -> Result<Vec<DNABase>, DNAError> {
         debug!("Decompressing DNA sequence");
 
         // Step 1: Huffman decompression
         let mut current_bases = if let Some(ref tree) = compressed.huffman_tree {
-            self.huffman_decompress(&compressed.compressed_data, tree, compressed.original_size).await?
+            self.huffman_decompress(&compressed.compressed_data, tree, compressed.original_size)
+                .await?
         } else {
-            return Err(DNAError::DecompressionFailed("Missing Huffman tree".to_string()));
+            return Err(DNAError::DecompressionFailed(
+                "Missing Huffman tree".to_string(),
+            ));
         };
 
         // Step 2: Dictionary decompression (reverse order from compression)
-        current_bases = self.dictionary_decompress(&current_bases, &compressed.pattern_dictionary).await?;
+        current_bases = self
+            .dictionary_decompress(&current_bases, &compressed.pattern_dictionary)
+            .await?;
 
         // Step 3: Biological pattern deoptimization
         current_bases = self.deoptimize_biological_patterns(&current_bases).await?;
@@ -325,10 +359,15 @@ impl DNACompressionEngine {
     }
 
     /// Huffman decompression
-    async fn huffman_decompress(&self, data: &[u8], tree: &HuffmanTree, expected_size: usize) -> Result<Vec<DNABase>, DNAError> {
+    async fn huffman_decompress(
+        &self,
+        data: &[u8],
+        tree: &HuffmanTree,
+        expected_size: usize,
+    ) -> Result<Vec<DNABase>, DNAError> {
         let mut result = Vec::with_capacity(expected_size);
         let mut bit_stream = BitStream::new(data);
-        
+
         while result.len() < expected_size {
             if let Some(base) = tree.decode_next(&mut bit_stream)? {
                 result.push(base);
@@ -341,7 +380,11 @@ impl DNACompressionEngine {
     }
 
     /// Dictionary decompression
-    async fn dictionary_decompress(&self, bases: &[DNABase], dictionary: &HashMap<Vec<DNABase>, u16>) -> Result<Vec<DNABase>, DNAError> {
+    async fn dictionary_decompress(
+        &self,
+        bases: &[DNABase],
+        dictionary: &HashMap<Vec<DNABase>, u16>,
+    ) -> Result<Vec<DNABase>, DNAError> {
         // Build reverse dictionary
         let reverse_dict: HashMap<u16, Vec<DNABase>> = dictionary
             .iter()
@@ -376,7 +419,10 @@ impl DNACompressionEngine {
     }
 
     /// Reverse biological pattern optimizations
-    async fn deoptimize_biological_patterns(&self, bases: &[DNABase]) -> Result<Vec<DNABase>, DNAError> {
+    async fn deoptimize_biological_patterns(
+        &self,
+        bases: &[DNABase],
+    ) -> Result<Vec<DNABase>, DNAError> {
         // This would reverse the biological optimizations
         // For now, return as-is since we didn't modify the structure significantly
         Ok(bases.to_vec())
@@ -392,8 +438,13 @@ pub struct HuffmanTree {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum HuffmanNode {
-    Leaf { base: DNABase },
-    Internal { left: Box<HuffmanNode>, right: Box<HuffmanNode> },
+    Leaf {
+        base: DNABase,
+    },
+    Internal {
+        left: Box<HuffmanNode>,
+        right: Box<HuffmanNode>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -424,7 +475,9 @@ impl HuffmanTree {
             if freq > 0 {
                 heap.push(HuffmanNodeFreq {
                     freq,
-                    node: HuffmanNode::Leaf { base: DNABase::from_bits(i as u8).unwrap() },
+                    node: HuffmanNode::Leaf {
+                        base: DNABase::from_bits(i as u8).unwrap(),
+                    },
                 });
             }
         }
@@ -485,7 +538,11 @@ impl HuffmanTree {
         self.decode_from_node(&self.root, bit_stream)
     }
 
-    fn decode_from_node(&self, node: &HuffmanNode, bit_stream: &mut BitStream) -> Result<Option<DNABase>, DNAError> {
+    fn decode_from_node(
+        &self,
+        node: &HuffmanNode,
+        bit_stream: &mut BitStream,
+    ) -> Result<Option<DNABase>, DNAError> {
         match node {
             HuffmanNode::Leaf { base } => Ok(Some(*base)),
             HuffmanNode::Internal { left, right } => {

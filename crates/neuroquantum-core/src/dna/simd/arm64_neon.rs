@@ -63,7 +63,7 @@ unsafe fn encode_16_bytes_neon(chunk: &[u8], output: &mut Vec<DNABase>) -> Resul
 /// NEON-optimized decoding of DNA bases to bytes
 #[target_feature(enable = "neon")]
 pub unsafe fn decode_chunk_neon(input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
-    if input.len() % 4 != 0 {
+    if !input.len().is_multiple_of(4) {
         return Err(DNAError::LengthMismatch {
             expected: (input.len() / 4) * 4,
             actual: input.len(),
@@ -168,7 +168,9 @@ pub unsafe fn hamming_distance_neon(seq1: &[DNABase], seq2: &[DNABase]) -> Resul
             distance += hamming_distance_16_bytes_neon(chunk1, chunk2);
         } else {
             // Handle remainder with scalar code
-            distance += chunk1.iter().zip(chunk2.iter())
+            distance += chunk1
+                .iter()
+                .zip(chunk2.iter())
                 .filter(|(a, b)| a != b)
                 .count();
         }
@@ -189,14 +191,22 @@ unsafe fn hamming_distance_16_bytes_neon(chunk1: &[u8], chunk2: &[u8]) -> usize 
     // Count non-zero bytes (differences) using const lane indices
     let mut count = 0;
     let lanes = [
-        vgetq_lane_u8(xor_result, 0), vgetq_lane_u8(xor_result, 1),
-        vgetq_lane_u8(xor_result, 2), vgetq_lane_u8(xor_result, 3),
-        vgetq_lane_u8(xor_result, 4), vgetq_lane_u8(xor_result, 5),
-        vgetq_lane_u8(xor_result, 6), vgetq_lane_u8(xor_result, 7),
-        vgetq_lane_u8(xor_result, 8), vgetq_lane_u8(xor_result, 9),
-        vgetq_lane_u8(xor_result, 10), vgetq_lane_u8(xor_result, 11),
-        vgetq_lane_u8(xor_result, 12), vgetq_lane_u8(xor_result, 13),
-        vgetq_lane_u8(xor_result, 14), vgetq_lane_u8(xor_result, 15),
+        vgetq_lane_u8(xor_result, 0),
+        vgetq_lane_u8(xor_result, 1),
+        vgetq_lane_u8(xor_result, 2),
+        vgetq_lane_u8(xor_result, 3),
+        vgetq_lane_u8(xor_result, 4),
+        vgetq_lane_u8(xor_result, 5),
+        vgetq_lane_u8(xor_result, 6),
+        vgetq_lane_u8(xor_result, 7),
+        vgetq_lane_u8(xor_result, 8),
+        vgetq_lane_u8(xor_result, 9),
+        vgetq_lane_u8(xor_result, 10),
+        vgetq_lane_u8(xor_result, 11),
+        vgetq_lane_u8(xor_result, 12),
+        vgetq_lane_u8(xor_result, 13),
+        vgetq_lane_u8(xor_result, 14),
+        vgetq_lane_u8(xor_result, 15),
     ];
 
     for lane_value in lanes {
@@ -266,14 +276,22 @@ unsafe fn count_16_bases_neon(chunk: &[u8], counts: &mut [usize; 4]) {
 
         // Count matches using const lane indices
         let lanes = [
-            vgetq_lane_u8(matches, 0), vgetq_lane_u8(matches, 1),
-            vgetq_lane_u8(matches, 2), vgetq_lane_u8(matches, 3),
-            vgetq_lane_u8(matches, 4), vgetq_lane_u8(matches, 5),
-            vgetq_lane_u8(matches, 6), vgetq_lane_u8(matches, 7),
-            vgetq_lane_u8(matches, 8), vgetq_lane_u8(matches, 9),
-            vgetq_lane_u8(matches, 10), vgetq_lane_u8(matches, 11),
-            vgetq_lane_u8(matches, 12), vgetq_lane_u8(matches, 13),
-            vgetq_lane_u8(matches, 14), vgetq_lane_u8(matches, 15),
+            vgetq_lane_u8(matches, 0),
+            vgetq_lane_u8(matches, 1),
+            vgetq_lane_u8(matches, 2),
+            vgetq_lane_u8(matches, 3),
+            vgetq_lane_u8(matches, 4),
+            vgetq_lane_u8(matches, 5),
+            vgetq_lane_u8(matches, 6),
+            vgetq_lane_u8(matches, 7),
+            vgetq_lane_u8(matches, 8),
+            vgetq_lane_u8(matches, 9),
+            vgetq_lane_u8(matches, 10),
+            vgetq_lane_u8(matches, 11),
+            vgetq_lane_u8(matches, 12),
+            vgetq_lane_u8(matches, 13),
+            vgetq_lane_u8(matches, 14),
+            vgetq_lane_u8(matches, 15),
         ];
 
         for lane_value in lanes {
@@ -319,7 +337,7 @@ pub fn detect_neon_capabilities() -> NeonCapabilities {
         has_neon: std::arch::is_aarch64_feature_detected!("neon"),
         has_crc32: std::arch::is_aarch64_feature_detected!("crc"),
         has_sha2: std::arch::is_aarch64_feature_detected!("sha2"),
-        vector_width: 128, // bits
+        vector_width: 128,  // bits
         parallel_lanes: 16, // bytes
     }
 }

@@ -23,9 +23,8 @@ pub mod synaptic;
 
 // Re-export key DNA compression types for easy access
 pub use dna::{
-    QuantumDNACompressor, DNACompressor, DNACompressionConfig,
-    DNABase, DNAError, CompressedDNA, DNASequence,
-    CompressionMetadata, CompressionMetrics
+    CompressedDNA, CompressionMetadata, CompressionMetrics, DNABase, DNACompressionConfig,
+    DNACompressor, DNAError, DNASequence, QuantumDNACompressor,
 };
 
 // Re-export other core types
@@ -89,17 +88,29 @@ impl NeuroQuantumDB {
     /// Initialize the database asynchronously (call this after construction)
     pub async fn init(&mut self) -> Result<(), NeuroQuantumError> {
         // Properly initialize the storage engine
-        self.storage = storage::StorageEngine::new(&self.config.storage_path).await
+        self.storage = storage::StorageEngine::new(&self.config.storage_path)
+            .await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
         Ok(())
     }
 
     /// Store data with DNA compression
-    pub async fn store_compressed(&mut self, key: &str, data: &[u8]) -> Result<(), NeuroQuantumError> {
-        tracing::info!("Storing {} bytes with DNA compression for key: {}", data.len(), key);
+    pub async fn store_compressed(
+        &mut self,
+        key: &str,
+        data: &[u8],
+    ) -> Result<(), NeuroQuantumError> {
+        tracing::info!(
+            "Storing {} bytes with DNA compression for key: {}",
+            data.len(),
+            key
+        );
 
         // Compress data using DNA algorithm
-        let compressed = self.dna_compressor.compress(data).await
+        let compressed = self
+            .dna_compressor
+            .compress(data)
+            .await
             .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))?;
 
         // Serialize compressed data
@@ -107,11 +118,15 @@ impl NeuroQuantumDB {
             .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
 
         // Store in underlying storage engine
-        self.storage.store(key, &serialized).await
+        self.storage
+            .store(key, &serialized)
+            .await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
 
-        tracing::info!("Successfully stored compressed data: {:.2}% compression ratio",
-                      compressed.sequence.metadata.compression_ratio * 100.0);
+        tracing::info!(
+            "Successfully stored compressed data: {:.2}% compression ratio",
+            compressed.sequence.metadata.compression_ratio * 100.0
+        );
 
         Ok(())
     }
@@ -121,13 +136,21 @@ impl NeuroQuantumDB {
         tracing::info!("Retrieving compressed data for key: {}", key);
 
         // Retrieve from storage
-        let serialized = self.storage.retrieve(key).await
+        let serialized = self
+            .storage
+            .retrieve(key)
+            .await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
 
         // Check if data exists
         let data = match serialized {
             Some(data) => data,
-            None => return Err(NeuroQuantumError::NotFound(format!("Key '{}' not found", key))),
+            None => {
+                return Err(NeuroQuantumError::NotFound(format!(
+                    "Key '{}' not found",
+                    key
+                )))
+            }
         };
 
         // Deserialize compressed data
@@ -135,10 +158,16 @@ impl NeuroQuantumDB {
             .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
 
         // Decompress using DNA algorithm
-        let data = self.dna_compressor.decompress(&compressed).await
+        let data = self
+            .dna_compressor
+            .decompress(&compressed)
+            .await
             .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))?;
 
-        tracing::info!("Successfully retrieved and decompressed {} bytes", data.len());
+        tracing::info!(
+            "Successfully retrieved and decompressed {} bytes",
+            data.len()
+        );
 
         Ok(data)
     }
@@ -150,19 +179,29 @@ impl NeuroQuantumDB {
 
     /// Validate stored compressed data integrity
     pub async fn validate_data_integrity(&self, key: &str) -> Result<bool, NeuroQuantumError> {
-        let serialized = self.storage.retrieve(key).await
+        let serialized = self
+            .storage
+            .retrieve(key)
+            .await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
 
         // Check if data exists
         let data = match serialized {
             Some(data) => data,
-            None => return Err(NeuroQuantumError::NotFound(format!("Key '{}' not found", key))),
+            None => {
+                return Err(NeuroQuantumError::NotFound(format!(
+                    "Key '{}' not found",
+                    key
+                )))
+            }
         };
 
         let compressed: CompressedDNA = serde_json::from_slice(&data)
             .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
 
-        self.dna_compressor.validate(&compressed).await
+        self.dna_compressor
+            .validate(&compressed)
+            .await
             .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))
     }
 }

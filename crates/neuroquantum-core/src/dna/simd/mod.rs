@@ -70,7 +70,11 @@ impl SimdEncoder {
     }
 
     /// Encode bytes to DNA bases using SIMD when available
-    pub fn encode_bytes_to_bases(&self, input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
+    pub fn encode_bytes_to_bases(
+        &self,
+        input: &[u8],
+        output: &mut Vec<DNABase>,
+    ) -> Result<(), DNAError> {
         if input.is_empty() {
             return Ok(());
         }
@@ -144,12 +148,16 @@ impl SimdDecoder {
     }
 
     /// Decode DNA bases to bytes using SIMD when available
-    pub fn decode_bases_to_bytes(&self, input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
+    pub fn decode_bases_to_bytes(
+        &self,
+        input: &[DNABase],
+        output: &mut Vec<u8>,
+    ) -> Result<(), DNAError> {
         if input.is_empty() {
             return Ok(());
         }
 
-        if input.len() % 4 != 0 {
+        if !input.len().is_multiple_of(4) {
             return Err(DNAError::LengthMismatch {
                 expected: (input.len() / 4) * 4,
                 actual: input.len(),
@@ -270,7 +278,8 @@ pub mod utils {
     pub fn pack_bases(bases: &[DNABase]) -> Vec<u64> {
         let mut packed = Vec::new();
 
-        for chunk in bases.chunks(32) { // 32 bases = 64 bits
+        for chunk in bases.chunks(32) {
+            // 32 bases = 64 bits
             let mut value = 0u64;
             for (i, &base) in chunk.iter().enumerate() {
                 value |= (base.to_bits() as u64) << (62 - i * 2);

@@ -207,9 +207,8 @@ impl SynapticNetwork {
         // Create a new node with the encoded data
         let mut node = SynapticNode::new(node_id);
         // Convert DNASequence to Vec<u8> by serializing it
-        node.data_payload = serde_json::to_vec(&data.sequence).map_err(|e| {
-            crate::error::NeuroQuantumError::JsonError(e)
-        })?;
+        node.data_payload = serde_json::to_vec(&data.sequence)
+            .map_err(crate::error::NeuroQuantumError::JsonError)?;
 
         // Add the node to the network
         self.add_node(node)?;

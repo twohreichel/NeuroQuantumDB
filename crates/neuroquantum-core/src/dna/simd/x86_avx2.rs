@@ -161,7 +161,9 @@ pub unsafe fn hamming_distance_avx2(seq1: &[DNABase], seq2: &[DNABase]) -> Resul
             distance += hamming_distance_32_bytes_avx2(chunk1, chunk2);
         } else {
             // Handle remainder with scalar code
-            distance += chunk1.iter().zip(chunk2.iter())
+            distance += chunk1
+                .iter()
+                .zip(chunk2.iter())
                 .filter(|(a, b)| a != b)
                 .count();
         }
@@ -311,7 +313,7 @@ pub fn detect_avx2_capabilities() -> Avx2Capabilities {
             has_avx: is_x86_feature_detected!("avx"),
             has_sse42: is_x86_feature_detected!("sse4.2"),
             has_bmi2: is_x86_feature_detected!("bmi2"),
-            vector_width: 256, // bits
+            vector_width: 256,  // bits
             parallel_lanes: 32, // bytes
         }
     }

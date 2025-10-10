@@ -1,11 +1,11 @@
 //! Quaternary encoder for DNA compression
-//! 
+//!
 //! This module implements the encoding phase of DNA compression, converting binary data
 //! to quaternary DNA base sequences with optional dictionary compression for patterns.
 
-use crate::dna::{DNABase, DNAError, DNACompressionConfig};
-use std::collections::HashMap;
+use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 use rayon::prelude::*;
+use std::collections::HashMap;
 use tracing::{debug, instrument};
 
 /// Quaternary encoder that converts binary data to DNA bases
@@ -32,7 +32,7 @@ impl QuaternaryEncoder {
         }
 
         debug!("Building compression dictionary");
-        
+
         // Build frequency map of byte patterns
         let mut pattern_freq = HashMap::new();
         let min_pattern_len = 4;
@@ -68,7 +68,10 @@ impl QuaternaryEncoder {
         let mut dictionary = HashMap::new();
         let mut dict_id = 256u16; // Start after single-byte values
 
-        for (pattern, _) in frequent_patterns.iter().take(self.config.max_dictionary_size / 32) {
+        for (pattern, _) in frequent_patterns
+            .iter()
+            .take(self.config.max_dictionary_size / 32)
+        {
             if dictionary.len() >= (u16::MAX as usize - 256) {
                 break;
             }
@@ -153,9 +156,13 @@ impl QuaternaryEncoder {
     }
 
     /// Parallel SIMD-optimized encoding
-    async fn encode_parallel_simd(&self, data: &[u8], bases: &mut Vec<DNABase>) -> Result<(), DNAError> {
+    async fn encode_parallel_simd(
+        &self,
+        data: &[u8],
+        bases: &mut Vec<DNABase>,
+    ) -> Result<(), DNAError> {
         let chunk_size = (data.len() / self.config.thread_count).max(1024);
-        
+
         // Process chunks in parallel
         let results: Result<Vec<_>, DNAError> = data
             .par_chunks(chunk_size)
@@ -163,7 +170,7 @@ impl QuaternaryEncoder {
             .collect();
 
         let chunk_results = results?;
-        
+
         // Combine results
         for chunk_bases in chunk_results {
             bases.extend(chunk_bases);
@@ -198,7 +205,7 @@ impl QuaternaryEncoder {
     #[cfg(target_arch = "aarch64")]
     fn encode_chunk_neon(&self, chunk: &[u8]) -> Result<Vec<DNABase>, DNAError> {
         use std::arch::aarch64::*;
-        
+
         let mut result = Vec::with_capacity(chunk.len() * 4);
         let mut i = 0;
 
@@ -206,19 +213,27 @@ impl QuaternaryEncoder {
             // Process 16 bytes at a time with NEON
             while i + 16 <= chunk.len() {
                 let bytes = vld1q_u8(chunk.as_ptr().add(i));
-                
+
                 // Extract 2-bit pairs and convert to bases using const lane indices
                 let byte_values = [
-                    vgetq_lane_u8(bytes, 0), vgetq_lane_u8(bytes, 1),
-                    vgetq_lane_u8(bytes, 2), vgetq_lane_u8(bytes, 3),
-                    vgetq_lane_u8(bytes, 4), vgetq_lane_u8(bytes, 5),
-                    vgetq_lane_u8(bytes, 6), vgetq_lane_u8(bytes, 7),
-                    vgetq_lane_u8(bytes, 8), vgetq_lane_u8(bytes, 9),
-                    vgetq_lane_u8(bytes, 10), vgetq_lane_u8(bytes, 11),
-                    vgetq_lane_u8(bytes, 12), vgetq_lane_u8(bytes, 13),
-                    vgetq_lane_u8(bytes, 14), vgetq_lane_u8(bytes, 15),
+                    vgetq_lane_u8(bytes, 0),
+                    vgetq_lane_u8(bytes, 1),
+                    vgetq_lane_u8(bytes, 2),
+                    vgetq_lane_u8(bytes, 3),
+                    vgetq_lane_u8(bytes, 4),
+                    vgetq_lane_u8(bytes, 5),
+                    vgetq_lane_u8(bytes, 6),
+                    vgetq_lane_u8(bytes, 7),
+                    vgetq_lane_u8(bytes, 8),
+                    vgetq_lane_u8(bytes, 9),
+                    vgetq_lane_u8(bytes, 10),
+                    vgetq_lane_u8(bytes, 11),
+                    vgetq_lane_u8(bytes, 12),
+                    vgetq_lane_u8(bytes, 13),
+                    vgetq_lane_u8(bytes, 14),
+                    vgetq_lane_u8(bytes, 15),
                 ];
-                
+
                 for byte in byte_values {
                     for shift in (0..8).step_by(2).rev() {
                         let two_bits = (byte >> shift) & 0b11;
@@ -226,7 +241,7 @@ impl QuaternaryEncoder {
                         result.push(base);
                     }
                 }
-                
+
                 i += 16;
             }
         }
@@ -248,7 +263,7 @@ impl QuaternaryEncoder {
     #[cfg(target_arch = "x86_64")]
     fn encode_chunk_avx2(&self, chunk: &[u8]) -> Result<Vec<DNABase>, DNAError> {
         use std::arch::x86_64::*;
-        
+
         let mut result = Vec::with_capacity(chunk.len() * 4);
         let mut i = 0;
 
@@ -256,7 +271,7 @@ impl QuaternaryEncoder {
             // Process 32 bytes at a time with AVX2
             while i + 32 <= chunk.len() {
                 let bytes = _mm256_loadu_si256(chunk.as_ptr().add(i) as *const __m256i);
-                
+
                 // Extract bytes and convert
                 let bytes_array: [u8; 32] = std::mem::transmute(bytes);
                 for &byte in &bytes_array {
@@ -266,7 +281,7 @@ impl QuaternaryEncoder {
                         result.push(base);
                     }
                 }
-                
+
                 i += 32;
             }
         }
@@ -298,7 +313,7 @@ impl QuaternaryEncoder {
 
         // Base quaternary encoding: 1 byte -> 4 bases -> 1 byte (no compression from this step)
         let base_size = data.len();
-        
+
         // Estimate dictionary compression savings
         let dict_savings = if self.config.enable_dictionary {
             self.estimate_dictionary_savings(data)
@@ -309,14 +324,15 @@ impl QuaternaryEncoder {
         // Account for Reed-Solomon parity overhead
         let parity_overhead = (self.config.error_correction_strength as f64 / 255.0) * 0.2;
 
-        let effective_ratio = (base_size as f64 - dict_savings) / data.len() as f64 + parity_overhead;
+        let effective_ratio =
+            (base_size as f64 - dict_savings) / data.len() as f64 + parity_overhead;
         effective_ratio.max(0.1) // Minimum 10% of original size
     }
 
     fn estimate_dictionary_savings(&self, data: &[u8]) -> f64 {
         // Quick heuristic: count repeated 4-byte patterns
         let mut pattern_count = HashMap::new();
-        
+
         for window in data.windows(4) {
             *pattern_count.entry(window).or_insert(0) += 1;
         }

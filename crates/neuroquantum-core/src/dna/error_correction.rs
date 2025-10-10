@@ -3,8 +3,8 @@
 //! This module implements Reed-Solomon error correction codes specifically optimized
 //! for DNA compression scenarios, taking into account biological error patterns.
 
-use crate::dna::{DNAError, DNABase};
-use reed_solomon_erasure::{ReedSolomon, galois_8::Field as GF8, Error as RSError};
+use crate::dna::{DNABase, DNAError};
+use reed_solomon_erasure::{galois_8::Field as GF8, Error as RSError, ReedSolomon};
 use tracing::{debug, instrument, warn};
 
 /// Reed-Solomon error corrector optimized for DNA data
@@ -27,8 +27,8 @@ impl ReedSolomonCorrector {
         let parity_shards = (error_correction_strength as usize).max(1).min(128);
         let data_shards = (parity_shards * 4).max(16).min(223); // Ensure valid RS parameters
 
-        let rs_codec = ReedSolomon::new(data_shards, parity_shards)
-            .expect("Invalid Reed-Solomon parameters");
+        let rs_codec =
+            ReedSolomon::new(data_shards, parity_shards).expect("Invalid Reed-Solomon parameters");
 
         let max_correctable_errors = parity_shards / 2;
 
@@ -80,8 +80,9 @@ impl ReedSolomonCorrector {
         }
 
         // Generate Reed-Solomon parity
-        self.rs_codec.encode(&mut shards)
-            .map_err(|e| DNAError::ErrorCorrectionFailed(format!("Reed-Solomon encoding failed: {:?}", e)))?;
+        self.rs_codec.encode(&mut shards).map_err(|e| {
+            DNAError::ErrorCorrectionFailed(format!("Reed-Solomon encoding failed: {:?}", e))
+        })?;
 
         // Extract parity data
         let parity: Vec<u8> = shards[self.data_shards..]
@@ -99,7 +100,11 @@ impl ReedSolomonCorrector {
             return Ok((Vec::new(), 0));
         }
 
-        debug!("Correcting errors in {} bytes with {} parity bytes", data.len(), parity.len());
+        debug!(
+            "Correcting errors in {} bytes with {} parity bytes",
+            data.len(),
+            parity.len()
+        );
 
         let mut corrected_data = Vec::with_capacity(data.len());
         let mut total_errors_corrected = 0;
@@ -111,10 +116,11 @@ impl ReedSolomonCorrector {
         for chunk in data.chunks(self.data_shards) {
             let parity_end = parity_offset + expected_parity_per_block;
             if parity_end > parity.len() {
-                return Err(DNAError::ErrorCorrectionFailed(
-                    format!("Insufficient parity data: need {} bytes, have {}",
-                           parity_end, parity.len())
-                ));
+                return Err(DNAError::ErrorCorrectionFailed(format!(
+                    "Insufficient parity data: need {} bytes, have {}",
+                    parity_end,
+                    parity.len()
+                )));
             }
 
             let block_parity = &parity[parity_offset..parity_end];
@@ -136,14 +142,19 @@ impl ReedSolomonCorrector {
     }
 
     /// Correct errors in a single data block
-    fn correct_errors_block(&self, data_block: &[u8], parity_block: &[u8]) -> Result<(Vec<u8>, usize), DNAError> {
+    fn correct_errors_block(
+        &self,
+        data_block: &[u8],
+        parity_block: &[u8],
+    ) -> Result<(Vec<u8>, usize), DNAError> {
         // Pad block to data_shards size if necessary
         let mut padded_data = data_block.to_vec();
         padded_data.resize(self.data_shards, 0);
 
         // Reconstruct shards using Option<Vec<u8>> format for Reed-Solomon
-        let mut shards: Vec<Option<Vec<u8>>> = Vec::with_capacity(self.data_shards + self.parity_shards);
-        
+        let mut shards: Vec<Option<Vec<u8>>> =
+            Vec::with_capacity(self.data_shards + self.parity_shards);
+
         // Fill data shards
         for &byte in padded_data.iter() {
             shards.push(Some(vec![byte]));
@@ -161,13 +172,13 @@ impl ReedSolomonCorrector {
 
         // Detect and correct errors - simplified for now
         let errors_detected = 0; // Placeholder - RS library handles detection internally
-        
+
         if errors_detected > 0 {
             // Attempt Reed-Solomon reconstruction
             match self.rs_codec.reconstruct(&mut shards) {
                 Ok(_) => {
                     debug!("Successfully corrected {} errors in block", errors_detected);
-                    
+
                     // Extract corrected data
                     let corrected: Vec<u8> = shards[0..self.data_shards]
                         .iter()
@@ -175,19 +186,16 @@ impl ReedSolomonCorrector {
                         .flat_map(|shard| shard.iter().cloned())
                         .take(data_block.len())
                         .collect();
-                    
+
                     Ok((corrected, errors_detected))
                 }
-                Err(RSError::TooFewShardsPresent) => {
-                    Err(DNAError::ErrorCorrectionFailed(
-                        "Too many errors to correct".to_string()
-                    ))
-                }
-                Err(e) => {
-                    Err(DNAError::ErrorCorrectionFailed(
-                        format!("Reed-Solomon reconstruction failed: {:?}", e)
-                    ))
-                }
+                Err(RSError::TooFewShardsPresent) => Err(DNAError::ErrorCorrectionFailed(
+                    "Too many errors to correct".to_string(),
+                )),
+                Err(e) => Err(DNAError::ErrorCorrectionFailed(format!(
+                    "Reed-Solomon reconstruction failed: {:?}",
+                    e
+                ))),
             }
         } else {
             // No errors detected, return original data
@@ -205,7 +213,7 @@ impl ReedSolomonCorrector {
 
     /// Calculate the required parity length for a given data size
     pub fn calculate_parity_length(&self, data_size: usize) -> usize {
-        let blocks = (data_size + self.data_shards - 1) / self.data_shards;
+        let blocks = data_size.div_ceil(self.data_shards);
         blocks * self.parity_shards
     }
 
@@ -213,13 +221,13 @@ impl ReedSolomonCorrector {
     pub fn validate_parameters(&self) -> Result<(), DNAError> {
         if self.data_shards == 0 || self.parity_shards == 0 {
             return Err(DNAError::ErrorCorrectionFailed(
-                "Invalid Reed-Solomon parameters: zero shards".to_string()
+                "Invalid Reed-Solomon parameters: zero shards".to_string(),
             ));
         }
 
         if self.data_shards + self.parity_shards > 255 {
             return Err(DNAError::ErrorCorrectionFailed(
-                "Invalid Reed-Solomon parameters: too many shards".to_string()
+                "Invalid Reed-Solomon parameters: too many shards".to_string(),
             ));
         }
 
@@ -312,9 +320,10 @@ impl ReedSolomonCorrector {
 
         // Quick integrity check using Reed-Solomon verification
         // This is more efficient than full error correction
-        for (chunk, parity_chunk) in data.chunks(self.data_shards)
-            .zip(parity.chunks(self.parity_shards)) {
-
+        for (chunk, parity_chunk) in data
+            .chunks(self.data_shards)
+            .zip(parity.chunks(self.parity_shards))
+        {
             if !self.verify_block_integrity(chunk, parity_chunk)? {
                 return Ok(false);
             }
@@ -324,7 +333,11 @@ impl ReedSolomonCorrector {
     }
 
     /// Verify integrity of a single block
-    fn verify_block_integrity(&self, data_block: &[u8], parity_block: &[u8]) -> Result<bool, DNAError> {
+    fn verify_block_integrity(
+        &self,
+        data_block: &[u8],
+        parity_block: &[u8],
+    ) -> Result<bool, DNAError> {
         // Reconstruct the full shard set
         let mut padded_data = data_block.to_vec();
         padded_data.resize(self.data_shards, 0);
