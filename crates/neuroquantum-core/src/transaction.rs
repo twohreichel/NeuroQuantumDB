@@ -257,12 +257,12 @@ impl LockManager {
                 }
 
                 // Check lock compatibility
-                let compatible = match (lock.lock_type, lock_type) {
-                    (LockType::Shared, LockType::Shared) => true,
-                    (LockType::IntentionShared, LockType::Shared) => true,
-                    (LockType::IntentionShared, LockType::IntentionShared) => true,
-                    _ => false,
-                };
+                let compatible = matches!(
+                    (lock.lock_type, lock_type),
+                    (LockType::Shared, LockType::Shared)
+                        | (LockType::IntentionShared, LockType::Shared)
+                        | (LockType::IntentionShared, LockType::IntentionShared)
+                );
 
                 if !compatible {
                     return Ok(false);
@@ -358,11 +358,10 @@ impl LockManager {
         let mut visited = HashSet::new();
         let mut stack = HashSet::new();
 
-        self.dfs_cycle_check(wait_for, start_tx, &mut visited, &mut stack)
+        Self::dfs_cycle_check(wait_for, start_tx, &mut visited, &mut stack)
     }
 
     fn dfs_cycle_check(
-        &self,
         wait_for: &HashMap<TransactionId, HashSet<TransactionId>>,
         current: &TransactionId,
         visited: &mut HashSet<TransactionId>,
@@ -381,7 +380,7 @@ impl LockManager {
 
         if let Some(waiting_for) = wait_for.get(current) {
             for tx in waiting_for {
-                if self.dfs_cycle_check(wait_for, tx, visited, stack)? {
+                if Self::dfs_cycle_check(wait_for, tx, visited, stack)? {
                     return Ok(true);
                 }
             }
