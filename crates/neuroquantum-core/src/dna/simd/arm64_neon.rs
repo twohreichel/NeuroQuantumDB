@@ -7,6 +7,12 @@ use crate::dna::{DNABase, DNAError};
 use std::arch::aarch64::*;
 
 /// NEON-optimized encoding of bytes to DNA bases
+///
+/// # Safety
+/// This function requires ARM64 NEON support. The caller must ensure:
+/// - The CPU supports NEON instructions (aarch64 target)
+/// - Input slice pointer is valid and aligned
+/// - The function is only called on ARM64 platforms with NEON enabled
 #[target_feature(enable = "neon")]
 pub unsafe fn encode_chunk_neon(input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
     // Process 16 bytes at a time (produces 64 DNA bases)
@@ -22,6 +28,10 @@ pub unsafe fn encode_chunk_neon(input: &[u8], output: &mut Vec<DNABase>) -> Resu
 }
 
 /// Encode exactly 16 bytes using NEON intrinsics
+///
+/// # Safety
+/// This function requires ARM64 NEON support and must only be called
+/// when chunk.len() == 16. The caller must ensure proper alignment.
 #[target_feature(enable = "neon")]
 unsafe fn encode_16_bytes_neon(chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
     // Load 16 bytes into NEON register
@@ -61,6 +71,12 @@ unsafe fn encode_16_bytes_neon(chunk: &[u8], output: &mut Vec<DNABase>) -> Resul
 }
 
 /// NEON-optimized decoding of DNA bases to bytes
+///
+/// # Safety
+/// This function requires ARM64 NEON support. The caller must ensure:
+/// - The CPU supports NEON instructions (aarch64 target)
+/// - Input slice contains a multiple of 4 DNA bases
+/// - The function is only called on ARM64 platforms with NEON enabled
 #[target_feature(enable = "neon")]
 pub unsafe fn decode_chunk_neon(input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
     if !input.len().is_multiple_of(4) {
@@ -104,6 +120,12 @@ unsafe fn decode_64_bases_neon(chunk: &[DNABase], output: &mut Vec<u8>) -> Resul
 }
 
 /// NEON-optimized pattern matching for dictionary compression
+///
+/// # Safety
+/// This function requires ARM64 NEON support. The caller must ensure:
+/// - The CPU supports NEON instructions
+/// - Input slices are valid and properly aligned
+/// - Needle length is <= 16 bytes
 #[target_feature(enable = "neon")]
 pub unsafe fn find_pattern_neon(haystack: &[u8], needle: &[u8]) -> Vec<usize> {
     let mut matches = Vec::new();
@@ -147,6 +169,12 @@ pub unsafe fn find_pattern_neon(haystack: &[u8], needle: &[u8]) -> Vec<usize> {
 }
 
 /// Calculate Hamming distance between DNA sequences using NEON
+///
+/// # Safety
+/// This function requires ARM64 NEON support. The caller must ensure:
+/// - The CPU supports NEON instructions
+/// - Both input slices have the same length
+/// - Input slices are valid
 #[target_feature(enable = "neon")]
 pub unsafe fn hamming_distance_neon(seq1: &[DNABase], seq2: &[DNABase]) -> Result<usize, DNAError> {
     if seq1.len() != seq2.len() {
@@ -219,6 +247,11 @@ unsafe fn hamming_distance_16_bytes_neon(chunk1: &[u8], chunk2: &[u8]) -> usize 
 }
 
 /// NEON-optimized CRC32 calculation for checksums
+///
+/// # Safety
+/// This function requires ARM64 NEON and CRC support. The caller must ensure:
+/// - The CPU supports both NEON and CRC instructions
+/// - Input slice is valid
 #[target_feature(enable = "neon,crc")]
 pub unsafe fn crc32_neon(data: &[u8]) -> u32 {
     let mut crc = 0u32;
@@ -240,6 +273,11 @@ pub unsafe fn crc32_neon(data: &[u8]) -> u32 {
 }
 
 /// NEON-optimized base frequency counting
+///
+/// # Safety
+/// This function requires ARM64 NEON support. The caller must ensure:
+/// - The CPU supports NEON instructions
+/// - Input slice contains valid DNABase values
 #[target_feature(enable = "neon")]
 pub unsafe fn count_base_frequencies_neon(bases: &[DNABase]) -> [usize; 4] {
     let mut counts = [0usize; 4];

@@ -109,7 +109,7 @@ impl DNACompressionEngine {
         let mut total_savings = 0;
 
         // Optimize complementary base pairs (A-T, G-C)
-        total_savings += self.optimize_complementary_pairs(&mut optimized);
+        total_savings += self.optimize_complementary_pairs(&optimized);
 
         // Optimize repetitive motifs
         total_savings += self.optimize_repetitive_motifs(&mut optimized).await?;
@@ -141,7 +141,7 @@ impl DNACompressionEngine {
     /// Optimize repetitive DNA motifs
     async fn optimize_repetitive_motifs(
         &mut self,
-        bases: &mut Vec<DNABase>,
+        bases: &mut [DNABase],
     ) -> Result<usize, DNAError> {
         let mut savings = 0;
         let motif_sizes = [3, 6, 9, 12]; // Common biological motif sizes
@@ -161,7 +161,7 @@ impl DNACompressionEngine {
     /// Find and compress repetitive motifs of a specific size
     async fn find_and_compress_motifs(
         &mut self,
-        bases: &mut Vec<DNABase>,
+        bases: &[DNABase],
         motif_size: usize,
     ) -> Result<usize, DNAError> {
         let mut motif_counts = HashMap::new();
@@ -535,23 +535,22 @@ impl HuffmanTree {
 
     /// Decode next base from bit stream
     pub fn decode_next(&self, bit_stream: &mut BitStream) -> Result<Option<DNABase>, DNAError> {
-        self.decode_from_node(&self.root, bit_stream)
+        decode_from_node(&self.root, bit_stream)
     }
+}
 
-    fn decode_from_node(
-        &self,
-        node: &HuffmanNode,
-        bit_stream: &mut BitStream,
-    ) -> Result<Option<DNABase>, DNAError> {
-        match node {
-            HuffmanNode::Leaf { base } => Ok(Some(*base)),
-            HuffmanNode::Internal { left, right } => {
-                if let Some(bit) = bit_stream.next_bit() {
-                    let child = if bit { right } else { left };
-                    self.decode_from_node(child, bit_stream)
-                } else {
-                    Ok(None)
-                }
+fn decode_from_node(
+    node: &HuffmanNode,
+    bit_stream: &mut BitStream,
+) -> Result<Option<DNABase>, DNAError> {
+    match node {
+        HuffmanNode::Leaf { base } => Ok(Some(*base)),
+        HuffmanNode::Internal { left, right } => {
+            if let Some(bit) = bit_stream.next_bit() {
+                let child = if bit { right } else { left };
+                decode_from_node(child, bit_stream)
+            } else {
+                Ok(None)
             }
         }
     }

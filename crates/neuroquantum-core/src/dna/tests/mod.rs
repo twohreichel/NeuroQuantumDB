@@ -467,10 +467,11 @@ mod error_tests {
 
         let result = compressor.decompress(&compressed).await;
         // Should still work but may report errors corrected or fail validation
-        match result {
-            Ok(_) => {}  // Might succeed with error correction
-            Err(_) => {} // Or might fail - both are acceptable
+        // Both Ok and Err are acceptable outcomes
+        if result.is_ok() {
+            // Might succeed with error correction
         }
+        // Or might fail - both are acceptable
     }
 
     #[tokio::test]

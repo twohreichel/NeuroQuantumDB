@@ -29,6 +29,7 @@ yanked = "warn"
 ignore = [
     # Allow unmaintained crates that are still functional
     "RUSTSEC-2020-0168", # mach crate - unmaintained but functional
+    "RUSTSEC-2024-0384", # instant crate - unmaintained but comes from reed-solomon-erasure dependency
 ]
 
 [licenses]

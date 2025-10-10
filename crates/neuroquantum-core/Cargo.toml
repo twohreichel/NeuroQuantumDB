@@ -8,6 +8,10 @@ repository.workspace = true
 description = "Core neuromorphic database engine with DNA compression"
 keywords = ["database", "neuromorphic", "dna-compression", "bioinformatics", "simd"]
 
+[package.metadata.cargo-machete]
+# These dependencies are used conditionally or reserved for future features
+ignored = ["bitvec", "bytemuck", "flate2", "hashbrown", "lz4_flex", "wide"]
+
 [dependencies]
 # Workspace dependencies
 tokio.workspace = true
@@ -22,7 +26,6 @@ chrono.workspace = true
 # DNA compression specific dependencies
 reed-solomon-erasure = "6.0"
 rayon = "1.8"
-bytemuck = { version = "1.14", features = ["derive"] }
 bitvec = "1.0"
 hashbrown = "0.14"
 crc32fast = "1.3"
