@@ -35,6 +35,9 @@ rand.workspace = true
 rand_distr = "0.4"
 base64 = "0.22"
 
+# Quantum computing - complex numbers for state vectors
+num-complex = "0.4"
+
 # SIMD and performance
 wide = "0.7"
 criterion = { version = "0.7.0", features = ["html_reports"], optional = true }
@@ -60,5 +63,10 @@ neon-optimizations = []
 
 [[bench]]
 name = "dna_compression"
+harness = false
+required-features = ["benchmarks"]
+
+[[bench]]
+name = "grover_search"
 harness = false
 required-features = ["benchmarks"]

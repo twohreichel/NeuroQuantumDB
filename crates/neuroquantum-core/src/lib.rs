@@ -16,6 +16,7 @@ pub mod monitoring;
 pub mod neon_optimization;
 pub mod plasticity;
 pub mod quantum;
+pub mod quantum_processor; // New: True Grover's algorithm implementation
 pub mod query;
 pub mod security;
 pub mod storage;
@@ -570,4 +571,79 @@ pub struct CompressionStats {
     pub compressed_size_bytes: u64,
     pub compression_ratio: f32,
     pub dna_encoded_blocks: u64,
+}
+
+// Tests module
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_neuro_quantum_db() {
+        let mut db = NeuroQuantumDB::new();
+        db.init().await.unwrap();
+
+        let key = "test_key";
+        let data = b"Hello, NeuroQuantumDB!";
+
+        // Store compressed data
+        db.store_compressed(key, data.as_ref()).await.unwrap();
+
+        // Retrieve and decompress data
+        let retrieved_data = db.retrieve_compressed(key).await.unwrap();
+        assert_eq!(&retrieved_data, data);
+
+        // Validate data integrity
+        let is_valid = db.validate_data_integrity(key).await.unwrap();
+        assert!(is_valid);
+
+        // Get compression stats
+        let stats = db.get_compression_stats();
+        assert!(stats.compression_time_us > 0);
+    }
+
+    #[tokio::test]
+    async fn test_quantum_search() {
+        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+
+        let request = QueryRequest {
+            query: "quantum search test".to_string(),
+            quantum_level: 2,
+            use_grovers: true,
+            limit: 10,
+            offset: 0,
+            filters: vec![serde_json::json!("quantum"), serde_json::json!("search")],
+        };
+
+        let result = db_core.quantum_search(request).await.unwrap();
+        assert!(result.total_count > 0);
+        assert!(result.quantum_speedup > 1.0);
+    }
+
+    #[tokio::test]
+    async fn test_execute_qsql() {
+        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+
+        let query_plan = vec![
+            "SCAN users",
+            "FILTER age > 30",
+            "JOIN orders ON user_id",
+            "AGGREGATE COUNT(*)",
+        ];
+
+        let result = db_core.execute_qsql(query_plan, true).await.unwrap();
+
+        assert!(result.data.get("result").is_some());
+        assert!(result.execution_plan.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_schema_info() {
+        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+
+        let schema_info = db_core.get_schema_info().await.unwrap();
+        assert!(schema_info.tables.is_empty());
+        assert!(schema_info.synaptic_networks.is_empty());
+        assert!(schema_info.quantum_indexes.is_empty());
+    }
 }

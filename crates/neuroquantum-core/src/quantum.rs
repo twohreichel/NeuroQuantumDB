@@ -531,7 +531,7 @@ impl GroverSearch {
 }
 
 /// Main quantum processor that integrates all quantum algorithms
-/// This is the main struct that gets imported in lib.rs
+/// This struct wraps the GroverSearch and provides a unified interface
 pub struct QuantumProcessor {
     grover_search: GroverSearch,
     config: QuantumConfig,

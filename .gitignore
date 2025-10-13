@@ -78,6 +78,7 @@ lerna-debug.log*
 .venv
 docker/production/monitoring/grafana-*
 neuroquantum_test_report_*
+neuroquantum_data
 
 !.vscode/tasks.json
 !.vscode/launch.json
