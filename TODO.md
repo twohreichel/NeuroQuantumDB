@@ -1,55 +1,5 @@
 ### 🛠️ Was implementiert werden muss:
 
-### 7. **Neuromorphic Networks - Synaptic Learning implementieren**
-**Status:** 🟡 Grundstrukturen vorhanden - Kein echtes Learning
-**Priorität:** MITTEL - Wichtig für adaptive Performance
-
-#### **Was zu tun ist:**
-- **Hebbian Learning implementieren:**
-  ```rust
-  // In crates/neuroquantum-core/src/synaptic.rs
-  struct SynapticNetwork {
-      neurons: Vec<Neuron>,
-      synapses: Vec<Synapse>,
-      learning_rate: f32,
-      plasticity_threshold: f32,
-  }
-  
-  impl SynapticNetwork {
-      fn hebbian_update(&mut self, input_pattern: &[f32], target_output: &[f32]) -> Result<()> {
-          // "Neurons that fire together, wire together"
-          for synapse in &mut self.synapses {
-              let pre_activity = self.neurons[synapse.pre_neuron].activation;
-              let post_activity = self.neurons[synapse.post_neuron].activation;
-              
-              // Hebbian rule: Δw = η × pre × post
-              let weight_change = self.learning_rate * pre_activity * post_activity;
-              synapse.weight += weight_change;
-              
-              // Synaptic plasticity: strengthen used connections
-              if weight_change.abs() > self.plasticity_threshold {
-                  synapse.plasticity_factor *= 1.1;
-              }
-          }
-          Ok(())
-      }
-      
-      fn adapt_query_pattern(&mut self, query_embedding: &[f32], performance_metric: f32) -> Result<()> {
-          // Learn from query patterns to optimize future queries
-      }
-  }
-  ```
-
-- **Konkrete Implementierungsschritte:**
-  1. Neuron Activation Functions (Sigmoid, ReLU, Tanh)
-  2. Synaptic Weight Matrices
-  3. Hebbian Learning Rule Implementation
-  4. Long-Term Potentiation (LTP) Simulation
-  5. Query Pattern Recognition
-  6. Adaptive Index Selection
-  7. Performance Feedback Loop
-  8. Memory Consolidation Algorithms
-
 ### 8. **QSQL Parser/Executor - Brain-inspired Syntax funktionsfähig**
 **Status:** 🟡 Parser-Grundlagen - Executor unvollständig
 **Priorität:** MITTEL - Einzigartiges Feature der Datenbank
