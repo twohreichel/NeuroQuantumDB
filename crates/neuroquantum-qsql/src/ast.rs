@@ -7,6 +7,52 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
+/// Learning algorithms for pattern learning
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum LearningAlgorithm {
+    HebbianLearning,
+    STDP, // Spike-Timing Dependent Plasticity
+    BackPropagation,
+    ReinforcementLearning,
+    UnsupervisedClustering,
+}
+
+/// Learning rules for weight adaptation
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum LearningRule {
+    Hebbian,
+    AntiHebbian,
+    OjasRule,
+    BCM, // Bienenstock-Cooper-Munro
+    STDP,
+}
+
+/// Neuromorphic extension statements
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum NeuroExtension {
+    NeuroMatch {
+        field: String,
+        pattern: String,
+        synaptic_weight: f32,
+        plasticity_threshold: Option<f32>,
+    },
+    QuantumJoin {
+        left_table: String,
+        right_table: String,
+        entanglement_condition: String,
+        superposition_fields: Vec<String>,
+    },
+    LearnPattern {
+        pattern_name: String,
+        training_data: String,
+        learning_algorithm: LearningAlgorithm,
+    },
+    AdaptWeights {
+        rule: LearningRule,
+        learning_rate: f32,
+    },
+}
+
 /// Root AST node representing a complete QSQL query
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Statement {
@@ -19,9 +65,12 @@ pub enum Statement {
     // Neuromorphic extensions
     NeuroMatch(NeuroMatchStatement),
     SynapticOptimize(SynapticOptimizeStatement),
+    LearnPattern(LearnPatternStatement),
+    AdaptWeights(AdaptWeightsStatement),
     // Quantum extensions
     QuantumSearch(QuantumSearchStatement),
     SuperpositionQuery(SuperpositionQueryStatement),
+    QuantumJoin(QuantumJoinStatement),
 }
 
 /// Standard SQL SELECT with neuromorphic and quantum extensions
@@ -419,6 +468,35 @@ pub enum ConflictResolution {
         learning_rate: f32,
         adaptation_strategy: String,
     },
+}
+
+/// LEARN PATTERN statement for ML integration
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LearnPatternStatement {
+    pub target_table: String,
+    pub pattern_expression: Option<Expression>,
+    pub learning_rate: Option<f64>,
+    pub epochs: Option<u64>,
+    pub algorithm: Option<String>,
+}
+
+/// ADAPT SYNAPTIC_WEIGHTS statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AdaptWeightsStatement {
+    pub target_table: String,
+    pub weight_expression: Option<Expression>,
+    pub plasticity_threshold: Option<f64>,
+    pub hebbian_strengthening: bool,
+}
+
+/// QUANTUM_JOIN statement for entangled table operations
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QuantumJoinStatement {
+    pub left_table: String,
+    pub right_table: String,
+    pub on_condition: Option<Expression>,
+    pub using_columns: Vec<String>,
+    pub quantum_state: Option<String>,
 }
 
 // Display implementations for better debugging and logging

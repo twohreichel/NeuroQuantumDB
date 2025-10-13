@@ -91,6 +91,16 @@ pub enum TokenType {
     NeuralPathway,
     PlasticityMatrix,
     ActivationThreshold,
+    Learn,
+    Pattern,
+    Adapt,
+    Weights,
+    Algorithm,
+    Epochs,
+    LearningRate,
+    Rule,
+    TrainingData,
+    Features,
 
     // Quantum keywords
     QuantumSearch,
@@ -101,6 +111,11 @@ pub enum TokenType {
     GroverSearch,
     OracleFunction,
     QuantumAnnealing,
+    Entangle,
+    Superposition,
+    Coherence,
+    Using,
+    QuantumState,
 
     // Operators and punctuation
     Equal,
@@ -493,6 +508,9 @@ impl QSQLParser {
             Some(TokenType::Delete) => self.parse_delete_statement(tokens),
             Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
             Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
+            Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
+            Some(TokenType::Adapt) => self.parse_adapt_weights_statement(tokens),
+            Some(TokenType::QuantumJoin) => self.parse_quantum_join_statement(tokens),
             Some(TokenType::Identifier(name)) => {
                 // Only allow specific known SQL keywords that might start statements
                 match name.to_uppercase().as_str() {
@@ -1057,6 +1075,229 @@ impl QSQLParser {
         Ok(Statement::QuantumSearch(quantum_search))
     }
 
+    /// Parse LEARN PATTERN statement
+    fn parse_learn_pattern_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut target_table = String::new();
+        let pattern_expression = None;
+        let mut learning_rate = None;
+        let mut epochs = None;
+        let mut algorithm = None;
+
+        // Parse LEARN PATTERN statement
+        let mut i = 0;
+
+        // Skip LEARN PATTERN keywords
+        if i < tokens.len() && matches!(tokens[i], TokenType::Learn) {
+            i += 1;
+        }
+        if i < tokens.len() && matches!(tokens[i], TokenType::Pattern) {
+            i += 1;
+        }
+
+        // Get target table
+        if i < tokens.len() {
+            if let TokenType::Identifier(table_name) = &tokens[i] {
+                target_table = table_name.clone();
+                i += 1;
+            }
+        }
+
+        // Parse optional learning parameters
+        while i < tokens.len() {
+            match &tokens[i] {
+                TokenType::LearningRate => {
+                    i += 1;
+                    if i < tokens.len() {
+                        if let TokenType::FloatLiteral(rate) = &tokens[i] {
+                            learning_rate = Some(*rate);
+                            i += 1;
+                        }
+                    }
+                }
+                TokenType::Epochs => {
+                    i += 1;
+                    if i < tokens.len() {
+                        if let TokenType::IntegerLiteral(e) = &tokens[i] {
+                            epochs = Some(*e as u64);
+                            i += 1;
+                        }
+                    }
+                }
+                TokenType::Algorithm => {
+                    i += 1;
+                    if i < tokens.len() {
+                        if let TokenType::Identifier(alg) = &tokens[i] {
+                            algorithm = Some(alg.clone());
+                            i += 1;
+                        }
+                    }
+                }
+                _ => break, // Exit on unexpected token
+            }
+        }
+
+        let learn_pattern = LearnPatternStatement {
+            target_table,
+            pattern_expression,
+            learning_rate,
+            epochs,
+            algorithm,
+        };
+
+        Ok(Statement::LearnPattern(learn_pattern))
+    }
+
+    /// Parse ADAPT WEIGHTS statement
+    fn parse_adapt_weights_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut target_table = String::new();
+        let mut weight_expression = None;
+        let mut plasticity_threshold = None;
+        let mut hebbian_strengthening = false;
+
+        // Parse ADAPT WEIGHTS statement
+        let mut i = 0;
+
+        // Skip ADAPT WEIGHTS keywords
+        if i < tokens.len() && matches!(tokens[i], TokenType::Adapt) {
+            i += 1;
+        }
+        if i < tokens.len() && matches!(tokens[i], TokenType::Weights) {
+            i += 1;
+        }
+
+        // Get target table
+        if i < tokens.len() {
+            if let TokenType::Identifier(table_name) = &tokens[i] {
+                target_table = table_name.clone();
+                i += 1;
+            }
+        }
+
+        // Parse optional weight expression
+        if i < tokens.len() {
+            weight_expression = Some(self.parse_expression(tokens, &mut i)?);
+        }
+
+        // Parse optional plasticity threshold
+        if i < tokens.len() && matches!(tokens[i], TokenType::PlasticityThreshold) {
+            i += 1;
+            if i < tokens.len() {
+                if let TokenType::FloatLiteral(threshold) = &tokens[i] {
+                    plasticity_threshold = Some(*threshold);
+                    i += 1;
+                }
+            }
+        }
+
+        // Check for optional HEBBIAN_LEARNING keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::HebbianLearning) {
+            hebbian_strengthening = true;
+        }
+
+        let adapt_weights = AdaptWeightsStatement {
+            target_table,
+            weight_expression,
+            plasticity_threshold,
+            hebbian_strengthening,
+        };
+
+        Ok(Statement::AdaptWeights(adapt_weights))
+    }
+
+    /// Parse QUANTUM_JOIN statement
+    fn parse_quantum_join_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut left_table = String::new();
+        let mut right_table = String::new();
+        let mut on_condition = None;
+        let mut using_columns = Vec::new();
+        let mut quantum_state = None;
+
+        // Parse QUANTUM_JOIN statement
+        let mut i = 0;
+
+        // Skip QUANTUM_JOIN keywords
+        if i < tokens.len() && matches!(tokens[i], TokenType::QuantumJoin) {
+            i += 1;
+        }
+
+        // Parse LEFT table
+        if i < tokens.len() {
+            if let TokenType::Identifier(table_name) = &tokens[i] {
+                left_table = table_name.clone();
+                i += 1;
+            }
+        }
+
+        // Parse RIGHT table
+        if i < tokens.len() {
+            if let TokenType::Identifier(table_name) = &tokens[i] {
+                right_table = table_name.clone();
+                i += 1;
+            }
+        }
+
+        // Parse ON condition (optional)
+        if i < tokens.len() && matches!(tokens[i], TokenType::On) {
+            i += 1;
+            on_condition = Some(self.parse_expression(tokens, &mut i)?);
+        }
+
+        // Parse USING columns (optional)
+        if i < tokens.len() && matches!(tokens[i], TokenType::Using) {
+            i += 1;
+            if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
+                i += 1; // Skip '('
+                loop {
+                    if i >= tokens.len() {
+                        return Err(QSQLError::ParseError {
+                            message: "Unclosed USING column list".to_string(),
+                            position: i,
+                        });
+                    }
+
+                    if matches!(tokens[i], TokenType::RightParen) {
+                        i += 1; // Skip ')'
+                        break;
+                    }
+
+                    if let TokenType::Identifier(col_name) = &tokens[i] {
+                        using_columns.push(col_name.clone());
+                        i += 1;
+
+                        if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                            i += 1; // Skip ','
+                        }
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in USING clause".to_string(),
+                            position: i,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Parse optional quantum state
+        if i < tokens.len() && matches!(tokens[i], TokenType::QuantumState) {
+            i += 1;
+            if i < tokens.len() {
+                if let TokenType::Identifier(state_name) = &tokens[i] {
+                    quantum_state = Some(state_name.clone());
+                }
+            }
+        }
+
+        let quantum_join = QuantumJoinStatement {
+            left_table,
+            right_table,
+            on_condition,
+            using_columns,
+            quantum_state,
+        };
+
+        Ok(Statement::QuantumJoin(quantum_join))
+    }
+
     /// Initialize keyword mappings
     fn initialize_keywords(keywords: &mut HashMap<String, TokenType>) {
         // Standard SQL keywords
@@ -1102,6 +1343,23 @@ impl QSQLParser {
         keywords.insert("WEIGHT".to_string(), TokenType::SynapticWeight);
         keywords.insert("SIMILAR".to_string(), TokenType::SynapticWeight);
         keywords.insert("PATTERN".to_string(), TokenType::SynapticWeight);
+        keywords.insert("LEARN".to_string(), TokenType::Learn);
+        keywords.insert("ADAPT".to_string(), TokenType::Adapt);
+        keywords.insert("EPOCHS".to_string(), TokenType::Epochs);
+        keywords.insert("ALGORITHM".to_string(), TokenType::Algorithm);
+        keywords.insert(
+            "TRAINING_DATA".to_string(),
+            TokenType::Identifier("TRAINING_DATA".to_string()),
+        );
+        keywords.insert(
+            "FEATURES".to_string(),
+            TokenType::Identifier("FEATURES".to_string()),
+        );
+        keywords.insert("LEARNING_RATE".to_string(), TokenType::LearningRate);
+        keywords.insert(
+            "RULE".to_string(),
+            TokenType::Identifier("RULE".to_string()),
+        );
 
         // Quantum keywords - enhanced
         keywords.insert("QUANTUM_SEARCH".to_string(), TokenType::QuantumSearch);
