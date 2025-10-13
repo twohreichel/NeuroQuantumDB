@@ -639,6 +639,7 @@ impl StorageEngine {
     pub async fn store(&mut self, key: &str, data: &[u8]) -> Result<()> {
         // Create a simple row structure for generic storage
         let mut fields = HashMap::new();
+        fields.insert("id".to_string(), Value::Integer(self.next_row_id as i64));
         fields.insert("key".to_string(), Value::Text(key.to_string()));
         fields.insert("data".to_string(), Value::Binary(data.to_vec()));
 
