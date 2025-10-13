@@ -2,8 +2,9 @@
 //!
 //! Compares quantum search performance vs classical search
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use neuroquantum_core::quantum_processor::{create_byte_search_processor, QuantumProcessorConfig};
+use std::hint::black_box;
 
 /// Classical linear search for comparison
 fn classical_search(data: &[u8], pattern: &[u8]) -> Option<usize> {
