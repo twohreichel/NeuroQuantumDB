@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Instant;
-use tracing::{debug, instrument, warn};
+use tracing::{debug, info, instrument, warn};
 
 /// Types of synaptic connections
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,6 +17,173 @@ pub enum ConnectionType {
     Excitatory,
     Inhibitory,
     Modulatory,
+}
+
+/// Neuron activation functions for neuromorphic processing
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ActivationFunction {
+    Sigmoid,
+    ReLU,
+    Tanh,
+    Linear,
+    LeakyReLU,
+}
+
+impl ActivationFunction {
+    /// Apply the activation function to an input value
+    pub fn activate(&self, x: f32) -> f32 {
+        match self {
+            ActivationFunction::Sigmoid => 1.0 / (1.0 + (-x).exp()),
+            ActivationFunction::ReLU => x.max(0.0),
+            ActivationFunction::Tanh => x.tanh(),
+            ActivationFunction::Linear => x,
+            ActivationFunction::LeakyReLU => {
+                if x > 0.0 {
+                    x
+                } else {
+                    0.01 * x
+                }
+            }
+        }
+    }
+
+    /// Derivative of the activation function for backpropagation
+    pub fn derivative(&self, x: f32) -> f32 {
+        match self {
+            ActivationFunction::Sigmoid => {
+                let s = self.activate(x);
+                s * (1.0 - s)
+            }
+            ActivationFunction::ReLU => {
+                if x > 0.0 {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            ActivationFunction::Tanh => 1.0 - x.tanh().powi(2),
+            ActivationFunction::Linear => 1.0,
+            ActivationFunction::LeakyReLU => {
+                if x > 0.0 {
+                    1.0
+                } else {
+                    0.01
+                }
+            }
+        }
+    }
+}
+
+/// Advanced neuron structure with full activation capabilities
+#[derive(Debug, Clone)]
+pub struct Neuron {
+    pub id: u64,
+    pub activation: f32,
+    pub bias: f32,
+    pub activation_function: ActivationFunction,
+    pub input_sum: f32,
+    pub output: f32,
+    pub last_spike_time: Option<Instant>,
+    pub refractory_period_ms: u64,
+    pub threshold: f32,
+    pub learning_rate: f32,
+}
+
+impl Neuron {
+    /// Create a new neuron with specified activation function
+    pub fn new(id: u64, activation_function: ActivationFunction) -> Self {
+        Self {
+            id,
+            activation: 0.0,
+            bias: 0.0,
+            activation_function,
+            input_sum: 0.0,
+            output: 0.0,
+            last_spike_time: None,
+            refractory_period_ms: 5,
+            threshold: 0.5,
+            learning_rate: 0.01,
+        }
+    }
+
+    /// Calculate neuron output based on inputs
+    pub fn activate(&mut self, weighted_inputs: f32) -> f32 {
+        self.input_sum = weighted_inputs + self.bias;
+        self.activation = self.input_sum;
+        self.output = self.activation_function.activate(self.input_sum);
+        self.output
+    }
+
+    /// Check if neuron can fire (not in refractory period)
+    pub fn can_fire(&self) -> bool {
+        if let Some(last_spike) = self.last_spike_time {
+            let elapsed = Instant::now().duration_since(last_spike);
+            elapsed.as_millis() > self.refractory_period_ms as u128
+        } else {
+            true
+        }
+    }
+
+    /// Fire the neuron if threshold is exceeded
+    pub fn fire(&mut self) -> bool {
+        if self.output > self.threshold && self.can_fire() {
+            self.last_spike_time = Some(Instant::now());
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Synapse structure with full plasticity support
+#[derive(Debug, Clone)]
+pub struct Synapse {
+    pub pre_neuron: u64,
+    pub post_neuron: u64,
+    pub weight: f32,
+    pub plasticity_factor: f32,
+    pub eligibility_trace: f32,
+    pub last_update: Instant,
+    pub connection_type: ConnectionType,
+}
+
+impl Synapse {
+    /// Create a new synapse
+    pub fn new(pre_neuron: u64, post_neuron: u64, initial_weight: f32) -> Self {
+        Self {
+            pre_neuron,
+            post_neuron,
+            weight: initial_weight,
+            plasticity_factor: 1.0,
+            eligibility_trace: 0.0,
+            last_update: Instant::now(),
+            connection_type: ConnectionType::Excitatory,
+        }
+    }
+
+    /// Update synaptic weight using Hebbian rule
+    pub fn hebbian_update(&mut self, pre_activity: f32, post_activity: f32, learning_rate: f32) {
+        // "Neurons that fire together, wire together"
+        let weight_change = learning_rate * pre_activity * post_activity * self.plasticity_factor;
+        self.weight += weight_change;
+
+        // Bound weights to prevent explosion
+        self.weight = self.weight.clamp(-2.0, 2.0);
+
+        // Update plasticity factor based on usage
+        if weight_change.abs() > 0.01 {
+            self.plasticity_factor = (self.plasticity_factor * 1.05).min(2.0);
+        } else {
+            self.plasticity_factor = (self.plasticity_factor * 0.99).max(0.1);
+        }
+
+        self.last_update = Instant::now();
+    }
+
+    /// Update eligibility trace for temporal credit assignment
+    pub fn update_eligibility_trace(&mut self, pre_activity: f32, post_activity: f32, decay: f32) {
+        self.eligibility_trace = self.eligibility_trace * decay + pre_activity * post_activity;
+    }
 }
 
 /// Individual synaptic node representing a data point or index entry
@@ -132,12 +299,29 @@ impl SynapticNode {
 #[derive(Debug)]
 pub struct SynapticNetwork {
     nodes: RwLock<HashMap<u64, SynapticNode>>,
+    neurons: RwLock<HashMap<u64, Neuron>>,
+    synapses: RwLock<Vec<Synapse>>,
     max_nodes: usize,
     activation_threshold: f32,
+    learning_rate: f32,
+    plasticity_threshold: f32,
     total_connections: RwLock<usize>,
     memory_usage: RwLock<usize>,
-    #[allow(dead_code)] // Used for ARM64/NEON optimizations on Raspberry Pi
+    query_patterns: RwLock<HashMap<String, QueryPattern>>,
+    #[allow(dead_code)]
     neon_optimizer: Option<NeonOptimizer>,
+}
+
+/// Query pattern structure for learning and optimization
+#[derive(Debug, Clone)]
+pub struct QueryPattern {
+    pub pattern_hash: String,
+    pub access_count: u64,
+    pub avg_execution_time_ms: f32,
+    pub optimal_neurons: Vec<u64>,
+    pub synaptic_pathway: Vec<u64>,
+    pub performance_score: f32,
+    pub last_accessed: Instant,
 }
 
 impl SynapticNetwork {
@@ -164,12 +348,285 @@ impl SynapticNetwork {
 
         Ok(Self {
             nodes: RwLock::new(HashMap::with_capacity(max_nodes.min(1000))),
+            neurons: RwLock::new(HashMap::new()),
+            synapses: RwLock::new(Vec::new()),
             max_nodes,
             activation_threshold,
+            learning_rate: 0.01,
+            plasticity_threshold: 0.1,
             total_connections: RwLock::new(0),
             memory_usage: RwLock::new(0),
+            query_patterns: RwLock::new(HashMap::new()),
             neon_optimizer,
         })
+    }
+
+    /// Hebbian learning update - "Neurons that fire together, wire together"
+    pub fn hebbian_update(&self, _input_pattern: &[f32], _target_output: &[f32]) -> CoreResult<()> {
+        let mut synapses = self.synapses.write().unwrap();
+        let neurons = self.neurons.read().unwrap();
+
+        for synapse in synapses.iter_mut() {
+            if let (Some(pre_neuron), Some(post_neuron)) = (
+                neurons.get(&synapse.pre_neuron),
+                neurons.get(&synapse.post_neuron),
+            ) {
+                let pre_activity = pre_neuron.activation;
+                let post_activity = post_neuron.activation;
+
+                synapse.hebbian_update(pre_activity, post_activity, self.learning_rate);
+
+                // Apply synaptic plasticity strengthening
+                let weight_change = self.learning_rate * pre_activity * post_activity;
+                if weight_change.abs() > self.plasticity_threshold {
+                    synapse.plasticity_factor *= 1.1;
+                    synapse.plasticity_factor = synapse.plasticity_factor.min(2.0);
+                }
+            }
+        }
+
+        debug!("Hebbian update applied to {} synapses", synapses.len());
+        Ok(())
+    }
+
+    /// Adapt query pattern recognition based on performance feedback
+    pub fn adapt_query_pattern(
+        &self,
+        query_embedding: &[f32],
+        performance_metric: f32,
+    ) -> CoreResult<()> {
+        let query_hash = self.hash_query_pattern(query_embedding);
+        let mut patterns = self.query_patterns.write().unwrap();
+
+        let pattern = patterns
+            .entry(query_hash.clone())
+            .or_insert_with(|| QueryPattern {
+                pattern_hash: query_hash.clone(),
+                access_count: 0,
+                avg_execution_time_ms: 0.0,
+                optimal_neurons: Vec::new(),
+                synaptic_pathway: Vec::new(),
+                performance_score: 0.0,
+                last_accessed: Instant::now(),
+            });
+
+        // Update pattern statistics
+        pattern.access_count += 1;
+        pattern.performance_score = (pattern.performance_score * 0.9) + (performance_metric * 0.1);
+        pattern.last_accessed = Instant::now();
+
+        // Find optimal neurons for this pattern
+        pattern.optimal_neurons = self.find_optimal_neurons_for_pattern(query_embedding)?;
+
+        // Strengthen synaptic pathways that perform well
+        if performance_metric > 0.7 {
+            self.strengthen_pathway(&pattern.optimal_neurons)?;
+        }
+
+        debug!(
+            "Adapted query pattern {} with performance score {}",
+            query_hash, pattern.performance_score
+        );
+
+        Ok(())
+    }
+
+    /// Hash query pattern for tracking
+    fn hash_query_pattern(&self, embedding: &[f32]) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        for &val in embedding {
+            ((val * 1000.0) as i32).hash(&mut hasher);
+        }
+        format!("{:x}", hasher.finish())
+    }
+
+    /// Find optimal neurons for a query pattern
+    fn find_optimal_neurons_for_pattern(&self, embedding: &[f32]) -> CoreResult<Vec<u64>> {
+        let neurons = self.neurons.read().unwrap();
+        let mut scored_neurons: Vec<(u64, f32)> = Vec::new();
+
+        for (id, neuron) in neurons.iter() {
+            // Calculate activation score based on embedding
+            let score = self.calculate_neuron_activation_score(neuron, embedding);
+            if score > self.activation_threshold {
+                scored_neurons.push((*id, score));
+            }
+        }
+
+        // Sort by score and take top neurons
+        scored_neurons.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        Ok(scored_neurons.iter().take(10).map(|(id, _)| *id).collect())
+    }
+
+    /// Calculate neuron activation score for pattern matching
+    fn calculate_neuron_activation_score(&self, neuron: &Neuron, embedding: &[f32]) -> f32 {
+        // Simple dot product with neuron's current state
+        let base_score = neuron.activation * embedding.iter().sum::<f32>() / embedding.len() as f32;
+        base_score.abs()
+    }
+
+    /// Strengthen synaptic pathway for frequently used routes
+    fn strengthen_pathway(&self, neuron_ids: &[u64]) -> CoreResult<()> {
+        let mut synapses = self.synapses.write().unwrap();
+
+        for window in neuron_ids.windows(2) {
+            let (pre_id, post_id) = (window[0], window[1]);
+
+            // Find and strengthen synapses in this pathway
+            for synapse in synapses.iter_mut() {
+                if synapse.pre_neuron == pre_id && synapse.post_neuron == post_id {
+                    synapse.weight *= 1.1;
+                    synapse.weight = synapse.weight.min(2.0);
+                    synapse.plasticity_factor = (synapse.plasticity_factor * 1.05).min(2.0);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Add a neuron to the network
+    pub fn add_neuron(&self, neuron: Neuron) -> CoreResult<()> {
+        let mut neurons = self.neurons.write().unwrap();
+
+        if neurons.contains_key(&neuron.id) {
+            return Err(CoreError::InvalidOperation(format!(
+                "Neuron with ID {} already exists",
+                neuron.id
+            )));
+        }
+
+        neurons.insert(neuron.id, neuron);
+        Ok(())
+    }
+
+    /// Add a synapse connecting two neurons
+    pub fn add_synapse(&self, synapse: Synapse) -> CoreResult<()> {
+        let mut synapses = self.synapses.write().unwrap();
+        let mut total_connections = self.total_connections.write().unwrap();
+
+        synapses.push(synapse);
+        *total_connections += 1;
+
+        Ok(())
+    }
+
+    /// Forward propagation through the network
+    pub fn forward_propagate(&self, inputs: &[f32]) -> CoreResult<Vec<f32>> {
+        let mut neurons = self.neurons.write().unwrap();
+        let synapses = self.synapses.read().unwrap();
+
+        // Reset neuron inputs
+        for neuron in neurons.values_mut() {
+            neuron.input_sum = 0.0;
+        }
+
+        // Set input layer activations
+        for (i, &input_val) in inputs.iter().enumerate() {
+            if let Some(neuron) = neurons.get_mut(&(i as u64)) {
+                neuron.activation = input_val;
+                neuron.output = input_val;
+            }
+        }
+
+        // Propagate through synapses
+        for synapse in synapses.iter() {
+            if let Some(pre_neuron) = neurons.get(&synapse.pre_neuron) {
+                let weighted_input = pre_neuron.output * synapse.weight;
+
+                if let Some(post_neuron) = neurons.get_mut(&synapse.post_neuron) {
+                    post_neuron.input_sum += weighted_input;
+                }
+            }
+        }
+
+        // Apply activation functions
+        let mut outputs = Vec::new();
+        for neuron in neurons.values_mut() {
+            neuron.output = neuron.activation_function.activate(neuron.input_sum);
+            neuron.activation = neuron.output;
+            outputs.push(neuron.output);
+        }
+
+        Ok(outputs)
+    }
+
+    /// Select optimal index based on learned patterns
+    pub fn select_adaptive_index(&self, query_embedding: &[f32]) -> CoreResult<Option<String>> {
+        let patterns = self.query_patterns.read().unwrap();
+        let query_hash = self.hash_query_pattern(query_embedding);
+
+        // Check if we have learned an optimal pattern for this query
+        if let Some(pattern) = patterns.get(&query_hash) {
+            if pattern.performance_score > 0.7 {
+                // Return suggested index based on optimal neurons
+                let index_name = format!(
+                    "neuro_index_{}",
+                    pattern.optimal_neurons.first().unwrap_or(&0)
+                );
+                debug!("Selected adaptive index: {}", index_name);
+                return Ok(Some(index_name));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Implement long-term potentiation for memory consolidation
+    pub fn apply_long_term_potentiation(
+        &self,
+        activation_pairs: &[(u64, u64, f32)],
+    ) -> CoreResult<()> {
+        let mut synapses = self.synapses.write().unwrap();
+
+        for &(pre_id, post_id, correlation) in activation_pairs {
+            for synapse in synapses.iter_mut() {
+                if synapse.pre_neuron == pre_id && synapse.post_neuron == post_id {
+                    // LTP: Strengthen frequently co-activated connections
+                    let ltp_factor = 1.5;
+                    synapse.weight += correlation * ltp_factor * self.learning_rate;
+                    synapse.weight = synapse.weight.clamp(-2.0, 2.0);
+                    synapse.plasticity_factor = (synapse.plasticity_factor * 1.2).min(2.0);
+
+                    debug!(
+                        "Applied LTP to synapse {}->{}: weight = {:.3}",
+                        pre_id, post_id, synapse.weight
+                    );
+                }
+            }
+        }
+
+        info!(
+            "Applied long-term potentiation to {} synaptic pairs",
+            activation_pairs.len()
+        );
+        Ok(())
+    }
+
+    /// Consolidate memory by strengthening important pathways
+    pub fn consolidate_memory(&self, importance_threshold: f32) -> CoreResult<()> {
+        let patterns = self.query_patterns.read().unwrap();
+        let mut ltp_pairs = Vec::new();
+
+        // Identify important patterns for consolidation
+        for pattern in patterns.values() {
+            if pattern.performance_score > importance_threshold {
+                // Create LTP pairs from optimal pathway
+                for window in pattern.optimal_neurons.windows(2) {
+                    ltp_pairs.push((window[0], window[1], pattern.performance_score));
+                }
+            }
+        }
+
+        // Apply LTP to consolidate these patterns
+        self.apply_long_term_potentiation(&ltp_pairs)?;
+
+        info!("Consolidated {} important memory patterns", patterns.len());
+
+        Ok(())
     }
 
     /// Add a node to the network
