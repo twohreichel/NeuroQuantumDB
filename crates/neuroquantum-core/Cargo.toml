@@ -49,6 +49,16 @@ async-trait = "0.1"
 flate2 = "1.0"
 lz4_flex = "0.11"
 
+# Post-quantum cryptography and security
+pqcrypto-kyber = "0.8"
+pqcrypto-dilithium = "0.5"
+pqcrypto-traits = "0.3"
+sha3 = "0.10"
+argon2 = "0.5"
+aes-gcm = "0.10"
+chacha20poly1305 = "0.10"
+zeroize = { version = "1.7", features = ["derive"] }
+
 [dev-dependencies]
 proptest = "1.4"
 rand.workspace = true
