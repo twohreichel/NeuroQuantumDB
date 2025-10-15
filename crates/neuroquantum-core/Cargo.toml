@@ -50,8 +50,8 @@ flate2 = "1.0"
 lz4_flex = "0.11"
 
 # Post-quantum cryptography and security
-pqcrypto-kyber = "0.8"
-pqcrypto-dilithium = "0.5"
+pqcrypto-mlkem = "0.1"
+pqcrypto-mldsa = "0.1"
 pqcrypto-traits = "0.3"
 sha3 = "0.10"
 argon2 = "0.5"

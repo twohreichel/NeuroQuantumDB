@@ -9,8 +9,8 @@ use aes_gcm::{
 };
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use pqcrypto_dilithium::dilithium5;
-use pqcrypto_kyber::kyber1024;
+use pqcrypto_mldsa::mldsa87;
+use pqcrypto_mlkem::mlkem1024;
 use pqcrypto_traits::kem::{
     Ciphertext, PublicKey as KemPublicKey, SecretKey as KemSecretKey, SharedSecret,
 };
@@ -45,10 +45,10 @@ pub struct SecurityConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuantumEncryptionConfig {
-    /// Use Kyber-1024 for key encapsulation
-    pub kyber_enabled: bool,
-    /// Use Dilithium-5 for digital signatures
-    pub dilithium_enabled: bool,
+    /// Use ML-KEM-1024 (FIPS 203) for key encapsulation
+    pub mlkem_enabled: bool,
+    /// Use ML-DSA-87 (FIPS 204) for digital signatures
+    pub mldsa_enabled: bool,
     /// Key rotation interval in seconds
     pub key_rotation_interval: u64,
     /// Encryption strength level (1-5)
@@ -125,14 +125,14 @@ pub enum BiometricFeatureMethod {
 /// Quantum-safe cryptographic keys with automatic zeroing on drop
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct QuantumKeys {
-    /// Kyber KEM keys for key exchange
-    kyber_public: Vec<u8>,
+    /// ML-KEM keys for key exchange
+    mlkem_public: Vec<u8>,
     #[zeroize(skip)]
-    kyber_secret: Vec<u8>,
-    /// Dilithium signature keys
-    dilithium_public: Vec<u8>,
+    mlkem_secret: Vec<u8>,
+    /// ML-DSA signature keys
+    mldsa_public: Vec<u8>,
     #[zeroize(skip)]
-    dilithium_secret: Vec<u8>,
+    mldsa_secret: Vec<u8>,
     /// AES-256-GCM symmetric key for data encryption
     #[zeroize(skip)]
     symmetric_key: [u8; 32],
@@ -146,11 +146,11 @@ impl QuantumKeys {
     pub fn generate() -> Result<Self, SecurityError> {
         info!("🔐 Generating quantum-safe cryptographic keys...");
 
-        // Generate Kyber-1024 keys for KEM
-        let (kyber_pk, kyber_sk) = kyber1024::keypair();
+        // Generate ML-KEM-1024 keys for KEM
+        let (mlkem_pk, mlkem_sk) = mlkem1024::keypair();
 
-        // Generate Dilithium-5 keys for signatures
-        let (dilithium_pk, dilithium_sk) = dilithium5::keypair();
+        // Generate ML-DSA-87 keys for signatures
+        let (mldsa_pk, mldsa_sk) = mldsa87::keypair();
 
         // Generate symmetric key for AES-256-GCM
         let mut symmetric_key = [0u8; 32];
@@ -158,10 +158,10 @@ impl QuantumKeys {
         rand::thread_rng().fill_bytes(&mut symmetric_key);
 
         Ok(Self {
-            kyber_public: kyber_pk.as_bytes().to_vec(),
-            kyber_secret: kyber_sk.as_bytes().to_vec(),
-            dilithium_public: dilithium_pk.as_bytes().to_vec(),
-            dilithium_secret: dilithium_sk.as_bytes().to_vec(),
+            mlkem_public: mlkem_pk.as_bytes().to_vec(),
+            mlkem_secret: mlkem_sk.as_bytes().to_vec(),
+            mldsa_public: mldsa_pk.as_bytes().to_vec(),
+            mldsa_secret: mldsa_sk.as_bytes().to_vec(),
             symmetric_key,
             created_at: SystemTime::now(),
         })
@@ -194,7 +194,7 @@ impl QuantumCrypto {
 
     /// Encrypt data using quantum-resistant encryption
     pub async fn quantum_encrypt(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-        if !self.config.kyber_enabled {
+        if !self.config.mlkem_enabled {
             return Err(SecurityError::EncryptionNotEnabled);
         }
 
@@ -208,11 +208,11 @@ impl QuantumCrypto {
         let mut nonce_bytes = [0u8; 12];
         use rand::RngCore;
         rand::thread_rng().fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
+        let nonce = Nonce::from(nonce_bytes);
 
         // Encrypt data
         let ciphertext = cipher
-            .encrypt(nonce, data)
+            .encrypt(&nonce, data)
             .map_err(|e| SecurityError::EncryptionFailed(e.to_string()))?;
 
         // Prepend nonce to ciphertext
@@ -232,7 +232,10 @@ impl QuantumCrypto {
         let keys = self.keys.read().await;
 
         // Extract nonce and ciphertext
-        let nonce = Nonce::from_slice(&encrypted_data[..12]);
+        let nonce_bytes: [u8; 12] = encrypted_data[..12]
+            .try_into()
+            .map_err(|_| SecurityError::InvalidEncryptedData)?;
+        let nonce = Nonce::from(nonce_bytes);
         let ciphertext = &encrypted_data[12..];
 
         // Decrypt using AES-256-GCM
@@ -240,48 +243,48 @@ impl QuantumCrypto {
             .map_err(|e| SecurityError::DecryptionFailed(e.to_string()))?;
 
         let plaintext = cipher
-            .decrypt(nonce, ciphertext)
+            .decrypt(&nonce, ciphertext)
             .map_err(|e| SecurityError::DecryptionFailed(e.to_string()))?;
 
         debug!("✅ Decrypted {} bytes of data", plaintext.len());
         Ok(plaintext)
     }
 
-    /// Sign data using Dilithium post-quantum signature
+    /// Sign data using ML-DSA post-quantum signature
     pub async fn sign_data(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-        if !self.config.dilithium_enabled {
+        if !self.config.mldsa_enabled {
             return Err(SecurityError::SignatureDisabled);
         }
 
         let keys = self.keys.read().await;
 
-        // Reconstruct Dilithium secret key
-        let sk = dilithium5::SecretKey::from_bytes(&keys.dilithium_secret)
+        // Reconstruct ML-DSA secret key
+        let sk = mldsa87::SecretKey::from_bytes(&keys.mldsa_secret)
             .map_err(|e| SecurityError::SignatureFailed(format!("Invalid secret key: {:?}", e)))?;
 
         // Sign the data
-        let signed = dilithium5::sign(data, &sk);
+        let signed = mldsa87::sign(data, &sk);
 
         debug!("✅ Signed {} bytes of data", data.len());
         Ok(signed.as_bytes().to_vec())
     }
 
-    /// Verify Dilithium signature
+    /// Verify ML-DSA signature
     pub async fn verify_signature(&self, signed_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
         let keys = self.keys.read().await;
 
-        // Reconstruct Dilithium public key
-        let pk = dilithium5::PublicKey::from_bytes(&keys.dilithium_public).map_err(|e| {
+        // Reconstruct ML-DSA public key
+        let pk = mldsa87::PublicKey::from_bytes(&keys.mldsa_public).map_err(|e| {
             SecurityError::SignatureVerificationFailed(format!("Invalid public key: {:?}", e))
         })?;
 
         // Reconstruct signed message
-        let signed_msg = dilithium5::SignedMessage::from_bytes(signed_data).map_err(|e| {
+        let signed_msg = mldsa87::SignedMessage::from_bytes(signed_data).map_err(|e| {
             SecurityError::SignatureVerificationFailed(format!("Invalid signature: {:?}", e))
         })?;
 
         // Verify and extract original message
-        let message = dilithium5::open(&signed_msg, &pk).map_err(|e| {
+        let message = mldsa87::open(&signed_msg, &pk).map_err(|e| {
             SecurityError::SignatureVerificationFailed(format!("Verification failed: {:?}", e))
         })?;
 
@@ -289,16 +292,16 @@ impl QuantumCrypto {
         Ok(message.to_vec())
     }
 
-    /// Generate quantum-safe shared secret using Kyber KEM
+    /// Generate quantum-safe shared secret using ML-KEM
     pub async fn generate_shared_secret(
         &self,
         peer_public_key: &[u8],
     ) -> Result<(Vec<u8>, Vec<u8>), SecurityError> {
-        let pk = kyber1024::PublicKey::from_bytes(peer_public_key).map_err(|e| {
+        let pk = mlkem1024::PublicKey::from_bytes(peer_public_key).map_err(|e| {
             SecurityError::KeyExchangeFailed(format!("Invalid public key: {:?}", e))
         })?;
 
-        let (shared_secret, ciphertext) = kyber1024::encapsulate(&pk);
+        let (shared_secret, ciphertext) = mlkem1024::encapsulate(&pk);
 
         Ok((
             shared_secret.as_bytes().to_vec(),
@@ -321,7 +324,7 @@ impl QuantumCrypto {
     /// Get public keys for key exchange
     pub async fn get_public_keys(&self) -> Result<(Vec<u8>, Vec<u8>), SecurityError> {
         let keys = self.keys.read().await;
-        Ok((keys.kyber_public.clone(), keys.dilithium_public.clone()))
+        Ok((keys.mlkem_public.clone(), keys.mldsa_public.clone()))
     }
 }
 
@@ -1336,8 +1339,8 @@ impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
             quantum_encryption: QuantumEncryptionConfig {
-                kyber_enabled: true,
-                dilithium_enabled: true,
+                mlkem_enabled: true,
+                mldsa_enabled: true,
                 key_rotation_interval: 3600,
                 security_level: 5,
                 encrypt_at_rest: true,
@@ -1380,8 +1383,8 @@ mod tests {
     #[tokio::test]
     async fn test_quantum_encryption() {
         let config = QuantumEncryptionConfig {
-            kyber_enabled: true,
-            dilithium_enabled: true,
+            mlkem_enabled: true,
+            mldsa_enabled: true,
             key_rotation_interval: 3600,
             security_level: 5,
             encrypt_at_rest: true,
@@ -1389,7 +1392,7 @@ mod tests {
         };
 
         let crypto = QuantumCrypto::new(config).unwrap();
-        let test_data = b"test quantum encryption with Kyber and Dilithium";
+        let test_data = b"test quantum encryption with ML-KEM and ML-DSA";
 
         let encrypted = crypto.quantum_encrypt(test_data).await.unwrap();
         let decrypted = crypto.quantum_decrypt(&encrypted).await.unwrap();
@@ -1400,8 +1403,8 @@ mod tests {
     #[tokio::test]
     async fn test_digital_signature() {
         let config = QuantumEncryptionConfig {
-            kyber_enabled: true,
-            dilithium_enabled: true,
+            mlkem_enabled: true,
+            mldsa_enabled: true,
             key_rotation_interval: 3600,
             security_level: 5,
             encrypt_at_rest: true,
