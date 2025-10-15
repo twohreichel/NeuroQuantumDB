@@ -10,7 +10,7 @@ keywords = ["database", "neuromorphic", "dna-compression", "bioinformatics", "si
 
 [package.metadata.cargo-machete]
 # These dependencies are used conditionally or reserved for future features
-ignored = ["bitvec", "bytemuck", "flate2", "hashbrown", "lz4_flex", "wide"]
+ignored = ["bitvec", "bytemuck", "flate2", "hashbrown", "lz4_flex", "wide", "chacha20poly1305"]
 
 [dependencies]
 # Workspace dependencies
