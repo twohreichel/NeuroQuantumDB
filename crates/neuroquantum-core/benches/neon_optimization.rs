@@ -3,8 +3,9 @@
 //! This benchmark suite measures the performance gains from NEON SIMD
 //! optimizations compared to scalar implementations.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use neuroquantum_core::neon_optimization::{NeonOptimizer, QuantumOperation};
+use std::hint::black_box;
 
 /// Benchmark DNA compression with varying data sizes
 fn bench_dna_compression(c: &mut Criterion) {
@@ -82,15 +83,13 @@ fn bench_quantum_operations(c: &mut Criterion) {
                 let mut r = real_parts.clone();
                 let mut i = imag_parts.clone();
                 optimizer
-                .quantum_state_operation(
-                    black_box(&mut r),
-                    black_box(&mut i),
-                    QuantumOperation::Normalize,
-                )
-                .unwrap();
-                black_box(
-                    (),
-                );
+                    .quantum_state_operation(
+                        black_box(&mut r),
+                        black_box(&mut i),
+                        QuantumOperation::Normalize,
+                    )
+                    .unwrap();
+                black_box(());
             });
         });
 
@@ -101,15 +100,13 @@ fn bench_quantum_operations(c: &mut Criterion) {
                 let mut r = real_parts.clone();
                 let mut i = imag_parts.clone();
                 optimizer
-                .quantum_state_operation(
-                    black_box(&mut r),
-                    black_box(&mut i),
-                    QuantumOperation::PhaseFlip,
-                )
-                .unwrap();
-                black_box(
-                    (),
-                );
+                    .quantum_state_operation(
+                        black_box(&mut r),
+                        black_box(&mut i),
+                        QuantumOperation::PhaseFlip,
+                    )
+                    .unwrap();
+                black_box(());
             });
         });
 
@@ -120,15 +117,13 @@ fn bench_quantum_operations(c: &mut Criterion) {
                 let mut r = real_parts.clone();
                 let mut i = imag_parts.clone();
                 optimizer
-                .quantum_state_operation(
-                    black_box(&mut r),
-                    black_box(&mut i),
-                    QuantumOperation::Hadamard,
-                )
-                .unwrap();
-                black_box(
-                    (),
-                );
+                    .quantum_state_operation(
+                        black_box(&mut r),
+                        black_box(&mut i),
+                        QuantumOperation::Hadamard,
+                    )
+                    .unwrap();
+                black_box(());
             });
         });
     }
@@ -194,11 +189,9 @@ fn bench_activation_function(c: &mut Criterion) {
             b.iter(|| {
                 let mut input_copy = inputs.clone();
                 optimizer
-                .apply_activation_function(black_box(&mut input_copy), threshold)
-                .unwrap();
-                black_box(
-                    (),
-                );
+                    .apply_activation_function(black_box(&mut input_copy), threshold)
+                    .unwrap();
+                black_box(());
             });
         });
     }
