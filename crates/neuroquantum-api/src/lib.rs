@@ -13,6 +13,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub mod auth;
+pub mod biometric_auth;
 pub mod config;
 pub mod error;
 pub mod handlers;
@@ -352,6 +353,15 @@ pub fn configure_app(
                         .service(
                             web::scope("/dna")
                                 .route("/compress", web::post().to(handlers::compress_dna))
+                        )
+
+                        // Biometric Authentication
+                        .service(
+                            web::scope("/biometric/eeg")
+                                .route("/enroll", web::post().to(handlers::eeg_enroll))
+                                .route("/authenticate", web::post().to(handlers::eeg_authenticate))
+                                .route("/update", web::post().to(handlers::eeg_update_signature))
+                                .route("/users", web::get().to(handlers::eeg_list_users))
                         )
 
                         // Monitoring

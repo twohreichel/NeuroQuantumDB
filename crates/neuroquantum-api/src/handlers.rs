@@ -28,6 +28,10 @@ use validator::Validate;
         compress_dna,
         get_metrics,
         get_performance_stats,
+        eeg_enroll,
+        eeg_authenticate,
+        eeg_update_signature,
+        eeg_list_users,
     ),
     components(
         schemas(
@@ -66,6 +70,12 @@ use validator::Validate;
             NeuralMetrics,
             QuantumMetrics,
 
+            // Biometric Auth DTOs
+            EEGEnrollRequest,
+            EEGEnrollResponse,
+            EEGAuthRequest,
+            EEGAuthResponse,
+
             // Common DTOs
             TableSchema,
             ColumnDefinition,
@@ -79,6 +89,7 @@ use validator::Validate;
         (name = "CRUD Operations", description = "Create, Read, Update, Delete operations"),
         (name = "Advanced Features", description = "Neural networks, quantum search, DNA compression"),
         (name = "Monitoring", description = "Metrics and performance monitoring"),
+        (name = "Biometric Authentication", description = "EEG-based biometric authentication")
     )
 )]
 pub struct ApiDoc;
@@ -1222,5 +1233,276 @@ pub async fn get_performance_stats(
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         stats,
         ResponseMetadata::new(start.elapsed(), "Performance statistics collected"),
+    )))
+}
+
+// =============================================================================
+// EEG BIOMETRIC AUTHENTICATION HANDLERS
+// =============================================================================
+
+/// Request to enroll user with EEG biometric data
+#[derive(Debug, Deserialize, Serialize, ToSchema, Validate)]
+pub struct EEGEnrollRequest {
+    #[validate(length(min = 3, max = 100))]
+    pub user_id: String,
+    pub sampling_rate: f32,
+    pub raw_eeg_data: Vec<f32>,
+    #[serde(default)]
+    pub channel: Option<String>,
+}
+
+/// Response from EEG enrollment
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EEGEnrollResponse {
+    pub user_id: String,
+    pub enrolled: bool,
+    pub signature_quality: f32,
+    pub enrollment_count: usize,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Request to authenticate with EEG data
+#[derive(Debug, Deserialize, Serialize, ToSchema, Validate)]
+pub struct EEGAuthRequest {
+    #[validate(length(min = 3, max = 100))]
+    pub user_id: String,
+    pub sampling_rate: f32,
+    pub raw_eeg_data: Vec<f32>,
+}
+
+/// Response from EEG authentication
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EEGAuthResponse {
+    pub authenticated: bool,
+    pub user_id: String,
+    pub similarity_score: f32,
+    pub threshold: f32,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+/// Enroll a user with EEG biometric signature
+#[utoipa::path(
+    post,
+    path = "/api/v1/biometric/eeg/enroll",
+    request_body = EEGEnrollRequest,
+    responses(
+        (status = 200, description = "User enrolled successfully", body = ApiResponse<EEGEnrollResponse>),
+        (status = 400, description = "Invalid EEG data or poor signal quality", body = ApiResponse<String>),
+        (status = 403, description = "Admin permission required", body = ApiResponse<String>),
+    ),
+    tag = "Biometric Authentication"
+)]
+pub async fn eeg_enroll(
+    req: HttpRequest,
+    body: web::Json<EEGEnrollRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Check permissions - require admin for enrollment
+    let extensions = req.extensions();
+    let api_key = extensions
+        .get::<ApiKey>()
+        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+    if !api_key.permissions.contains(&"admin".to_string()) {
+        return Err(ApiError::Forbidden(
+            "Admin permission required for EEG enrollment".to_string(),
+        ));
+    }
+
+    // Validate request
+    body.validate().map_err(|e| ApiError::ValidationError {
+        field: "enrollment_request".to_string(),
+        message: format!("Invalid enrollment request: {}", e),
+    })?;
+
+    // Create EEG auth service
+    use crate::biometric_auth::EEGAuthService;
+    let mut eeg_service =
+        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
+            message: format!("Failed to initialize EEG service: {}", e),
+        })?;
+
+    // Enroll user
+    let signature = eeg_service
+        .enroll_user(body.user_id.clone(), &body.raw_eeg_data)
+        .map_err(|e| ApiError::BadRequest(format!("EEG enrollment failed: {}", e)))?;
+
+    info!("🧠 EEG enrollment successful for user: {}", body.user_id);
+
+    let response = EEGEnrollResponse {
+        user_id: signature.user_id,
+        enrolled: true,
+        signature_quality: signature.feature_template.signal_quality,
+        enrollment_count: signature.enrollment_count,
+        created_at: signature.created_at,
+    };
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        response,
+        ResponseMetadata::new(
+            start.elapsed(),
+            &format!(
+                "User {} enrolled with EEG biometric signature",
+                body.user_id
+            ),
+        ),
+    )))
+}
+
+/// Authenticate user with EEG biometric data
+#[utoipa::path(
+    post,
+    path = "/api/v1/biometric/eeg/authenticate",
+    request_body = EEGAuthRequest,
+    responses(
+        (status = 200, description = "Authentication result", body = ApiResponse<EEGAuthResponse>),
+        (status = 400, description = "Invalid EEG data", body = ApiResponse<String>),
+        (status = 401, description = "Authentication failed", body = ApiResponse<String>),
+    ),
+    tag = "Biometric Authentication"
+)]
+pub async fn eeg_authenticate(
+    _req: HttpRequest,
+    body: web::Json<EEGAuthRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Validate request
+    body.validate().map_err(|e| ApiError::ValidationError {
+        field: "auth_request".to_string(),
+        message: format!("Invalid auth request: {}", e),
+    })?;
+
+    // Create EEG auth service (in production, this would be shared state)
+    use crate::biometric_auth::EEGAuthService;
+    let eeg_service =
+        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
+            message: format!("Failed to initialize EEG service: {}", e),
+        })?;
+
+    // Authenticate user
+    let auth_result = eeg_service
+        .authenticate(&body.user_id, &body.raw_eeg_data)
+        .map_err(|e| ApiError::Unauthorized(format!("EEG authentication failed: {}", e)))?;
+
+    let response = EEGAuthResponse {
+        authenticated: auth_result.authenticated,
+        user_id: auth_result.user_id,
+        similarity_score: auth_result.similarity_score,
+        threshold: auth_result.threshold,
+        timestamp: auth_result.timestamp,
+    };
+
+    if auth_result.authenticated {
+        info!(
+            "✅ EEG authentication successful for user: {}",
+            body.user_id
+        );
+        Ok(HttpResponse::Ok().json(ApiResponse::success(
+            response,
+            ResponseMetadata::new(start.elapsed(), "EEG authentication successful"),
+        )))
+    } else {
+        warn!("❌ EEG authentication failed for user: {}", body.user_id);
+        Ok(HttpResponse::Unauthorized().json(ApiResponse::<()>::error(
+            ApiError::Unauthorized("EEG authentication failed: signature mismatch".to_string()),
+            ResponseMetadata::new(start.elapsed(), "Authentication rejected"),
+        )))
+    }
+}
+
+/// Update user's EEG signature with additional sample
+#[utoipa::path(
+    post,
+    path = "/api/v1/biometric/eeg/update",
+    request_body = EEGAuthRequest,
+    responses(
+        (status = 200, description = "Signature updated successfully", body = ApiResponse<String>),
+        (status = 400, description = "Invalid EEG data", body = ApiResponse<String>),
+        (status = 403, description = "Admin permission required", body = ApiResponse<String>),
+    ),
+    tag = "Biometric Authentication"
+)]
+pub async fn eeg_update_signature(
+    req: HttpRequest,
+    body: web::Json<EEGAuthRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Check permissions
+    let extensions = req.extensions();
+    let api_key = extensions
+        .get::<ApiKey>()
+        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+    if !api_key.permissions.contains(&"admin".to_string()) {
+        return Err(ApiError::Forbidden(
+            "Admin permission required to update EEG signature".to_string(),
+        ));
+    }
+
+    // Validate request
+    body.validate().map_err(|e| ApiError::ValidationError {
+        field: "update_request".to_string(),
+        message: format!("Invalid update request: {}", e),
+    })?;
+
+    // Create EEG auth service
+    use crate::biometric_auth::EEGAuthService;
+    let mut eeg_service =
+        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
+            message: format!("Failed to initialize EEG service: {}", e),
+        })?;
+
+    // Update signature
+    eeg_service
+        .update_signature(&body.user_id, &body.raw_eeg_data)
+        .map_err(|e| ApiError::BadRequest(format!("Failed to update signature: {}", e)))?;
+
+    info!("🔄 EEG signature updated for user: {}", body.user_id);
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        format!("EEG signature updated for user {}", body.user_id),
+        ResponseMetadata::new(start.elapsed(), "Signature updated successfully"),
+    )))
+}
+
+/// Get list of enrolled EEG users
+#[utoipa::path(
+    get,
+    path = "/api/v1/biometric/eeg/users",
+    responses(
+        (status = 200, description = "List of enrolled users", body = ApiResponse<Vec<String>>),
+        (status = 403, description = "Admin permission required", body = ApiResponse<String>),
+    ),
+    tag = "Biometric Authentication"
+)]
+pub async fn eeg_list_users(req: HttpRequest) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Check permissions
+    let extensions = req.extensions();
+    let api_key = extensions
+        .get::<ApiKey>()
+        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+    if !api_key.permissions.contains(&"admin".to_string()) {
+        return Err(ApiError::Forbidden(
+            "Admin permission required to list EEG users".to_string(),
+        ));
+    }
+
+    // Create EEG auth service
+    use crate::biometric_auth::EEGAuthService;
+    let eeg_service = EEGAuthService::new(256.0).map_err(|e| ApiError::InternalServerError {
+        message: format!("Failed to initialize EEG service: {}", e),
+    })?;
+
+    let users = eeg_service.list_users();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        users,
+        ResponseMetadata::new(start.elapsed(), "EEG enrolled users retrieved"),
     )))
 }
