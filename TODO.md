@@ -1,32 +1,5 @@
 ### 🛠️ Was implementiert werden muss:
 
-### 11. **Biometric Authentication - EEG-basierte Auth**
-**Status:** ❌ Konzept vorhanden - Keine Implementierung
-**Priorität:** NIEDRIG - Innovative aber nicht kritische Funktion
-
-#### **Was zu tun ist:**
-- **EEG Signal Processing:**
-  ```rust
-  struct EEGProcessor {
-      sampling_rate: f32,
-      filters: Vec<DigitalFilter>,
-      feature_extractor: FFTAnalyzer,
-  }
-  
-  impl EEGProcessor {
-      fn process_raw_eeg(&self, raw_data: &[f32]) -> Result<EEGFeatures> {
-          // 1. Noise reduction and filtering
-          // 2. Frequency domain analysis (FFT)
-          // 3. Feature extraction (Alpha, Beta, Gamma waves)
-          // 4. Normalization and standardization
-      }
-      
-      fn extract_user_signature(&self, eeg_features: &EEGFeatures) -> Result<UserSignature> {
-          // Unique brain pattern extraction
-      }
-  }
-  ```
-
 ### 12. **Natural Language Queries - KI-gestützte Interpretation**
 **Status:** ❌ Interface vorhanden - Keine NLP-Implementierung
 **Priorität:** NIEDRIG - Marketing-Feature
