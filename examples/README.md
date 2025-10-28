@@ -113,6 +113,109 @@ cargo run --example neon_optimization_demo --release
 
 ---
 
+### 5. Natural Language Query Demo ⭐ NEW
+
+**File:** `natural_language_demo.rs`
+
+Demonstrates the Natural Language Processing pipeline for translating human language queries into QSQL.
+
+```bash
+cargo run --example natural_language_demo --release
+```
+
+**Features shown:**
+- Tokenization of natural language text
+- Intent classification (SELECT, NEUROMATCH, QUANTUM_SEARCH, etc.)
+- Named entity extraction (tables, columns, values, operators)
+- QSQL query generation from natural language
+- Individual pipeline component demonstrations
+- Real-world IoT monitoring scenarios
+
+**Expected output:**
+```
+🧠 NeuroQuantumDB - Natural Language Query Demo
+
+📝 Demo 1: Basic SELECT Query
+Natural: Show me all users
+   QSQL: SELECT * FROM users
+
+Natural: Display all sensors
+   QSQL: SELECT * FROM sensors
+
+📝 Demo 2: Filtered Queries
+Natural: Show me all sensors where temperature above 25
+   QSQL: SELECT * FROM sensors WHERE temperature > 25
+
+Natural: Find users with age greater than 30
+   QSQL: SELECT * FROM users WHERE age > 30
+
+📝 Demo 3: Neuromorphic Queries
+Natural: Find similar patterns using neural matching
+   QSQL: NEUROMATCH memories
+
+📝 Demo 4: Quantum Queries
+Natural: Quantum search for data
+   QSQL: QUANTUM_SEARCH data
+
+📝 Demo 5: Aggregate Queries
+Natural: Count all users
+   QSQL: SELECT COUNT(*) FROM users
+
+📝 Demo 6: Individual Pipeline Components
+1️⃣ Tokenizer
+   Tokens: ["show", "me", "sensors", "where", "temperature", ">", "25"]
+
+2️⃣ Intent Classifier
+   Intent: Select
+   Confidence: 0.90
+
+3️⃣ Entity Extractor
+   Entities:
+     - TableName: 'sensors'
+     - ColumnName: 'temperature'
+     - Operator: '>'
+     - Number: '25'
+
+4️⃣ Query Generator
+   Generated QSQL: SELECT * FROM sensors WHERE temperature > 25
+
+📝 Demo 7: Real-World IoT Scenarios
+🌡️  Temperature Alert: "Show me all sensors where temperature above 30"
+🔌 Device Status: "Find all devices where status equal to error"
+🧠 Pattern Recognition: "Find similar patterns using neural matching"
+⚛️  Quantum Search: "Quantum search for anomalies in data"
+```
+
+**Supported query types:**
+- **Basic SELECT**: "Show me all users/sensors/data"
+- **Filtered queries**: "Show sensors where temperature > 25"
+- **Neuromorphic**: "Find similar patterns using neural matching"
+- **Quantum**: "Quantum search for data"
+- **Aggregates**: "Count all users", "Sum of temperatures"
+
+**Supported operators (natural language):**
+- `above`, `greater than` → `>`
+- `below`, `less than` → `<`
+- `equal to` → `=`
+- Direct SQL operators: `>`, `<`, `=`, `>=`, `<=`, `!=`
+
+**Example use cases:**
+```
+"Show me all sensors in Berlin with temperature above 25 degrees"
+→ SELECT * FROM sensors WHERE temperature > 25
+
+"Find similar patterns in data using neural matching"
+→ NEUROMATCH data
+
+"Quantum search for anomalies"
+→ QUANTUM_SEARCH data
+
+"Count all users where status equal to active"
+→ SELECT COUNT(*) FROM users WHERE status = active
+```
+
+---
+
 ## Performance Notes
 
 ### ARM64 / Raspberry Pi

@@ -19,6 +19,7 @@
 - [Core Module](./dev/core.md)
 - [API Module](./dev/api.md)
 - [QSQL Module](./dev/qsql.md)
+- [Natural Language Processing](./dev/nlp-architecture.md)
 - [Neuromorphic Computing](./dev/neuromorphic.md)
 - [Quantum Optimizations](./dev/quantum.md)
 - [ARM64 NEON Optimizations](./dev/neon-optimizations.md)
