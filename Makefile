@@ -143,6 +143,16 @@ benchmark: ## Run performance benchmarks
 	cargo bench --workspace --all-features
 	@echo "📈 Benchmark results saved to target/criterion/"
 
+benchmark-neon: ## Run ARM64 NEON-specific benchmarks
+	@echo "🚀 Running NEON SIMD benchmarks..."
+	cargo bench --package neuroquantum-core --features benchmarks neon_optimization
+	@echo "📊 NEON benchmark results in target/criterion/neon_optimization/"
+
+benchmark-compare: ## Compare NEON vs Scalar performance
+	@echo "⚖️  Comparing NEON vs Scalar implementations..."
+	cargo bench --package neuroquantum-core --features benchmarks -- neon_vs_scalar
+	@echo "✅ Comparison results available"
+
 # Docker targets
 docker-build: ## Build production Docker image (<15MB target)
 	@echo "🐳 Building production Docker image..."

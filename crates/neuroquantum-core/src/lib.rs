@@ -33,6 +33,9 @@ pub use dna::{
 pub use error::NeuroQuantumError;
 pub use storage::StorageEngine;
 
+// Re-export NEON optimization types
+pub use neon_optimization::{NeonOptimizer, OptimizationStats, QuantumOperation};
+
 // Re-export transaction management types
 pub use transaction::{
     IsolationLevel, LockManager, LockType, LogManager, RecoveryManager, Transaction, TransactionId,

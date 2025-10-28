@@ -80,3 +80,9 @@ required-features = ["benchmarks"]
 name = "grover_search"
 harness = false
 required-features = ["benchmarks"]
+
+[[bench]]
+name = "neon_optimization"
+harness = false
+required-features = ["benchmarks"]
+

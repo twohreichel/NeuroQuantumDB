@@ -21,6 +21,7 @@
 - [QSQL Module](./dev/qsql.md)
 - [Neuromorphic Computing](./dev/neuromorphic.md)
 - [Quantum Optimizations](./dev/quantum.md)
+- [ARM64 NEON Optimizations](./dev/neon-optimizations.md)
 - [Testing](./dev/testing.md)
 - [Performance](./dev/performance.md)
 - [Contributing](./dev/contributing.md)
