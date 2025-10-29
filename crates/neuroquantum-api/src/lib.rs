@@ -3,12 +3,10 @@ use actix_web::body::MessageBody;
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
 use actix_web_prometheus::PrometheusMetricsBuilder;
-use actix_ws::Message;
 use anyhow::Result;
-use futures_util::StreamExt;
 use neuroquantum_core::NeuroQuantumDB;
 use std::time::Instant;
-use tracing::{info, warn};
+use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -20,6 +18,7 @@ pub mod handlers;
 pub mod jwt;
 pub mod middleware;
 pub mod rate_limit;
+pub mod websocket;
 
 use auth::AuthService;
 pub use config::ApiConfig;
@@ -27,6 +26,8 @@ pub use error::{ApiError, ApiResponse, ResponseMetadata};
 use handlers::ApiDoc;
 use jwt::JwtService;
 use rate_limit::{RateLimitConfig, RateLimitService};
+use std::sync::Arc;
+use websocket::{ConnectionConfig, ConnectionManager, PubSubManager, WebSocketService};
 
 /// Application state shared across handlers
 #[derive(Clone)]
@@ -35,6 +36,7 @@ pub struct AppState {
     pub auth_service: AuthService,
     pub jwt_service: JwtService,
     pub rate_limit_service: RateLimitService,
+    pub websocket_service: Arc<WebSocketService>,
     pub config: ApiConfig,
 }
 
@@ -60,11 +62,18 @@ impl AppState {
         };
         let rate_limit_service = RateLimitService::new(rate_limit_config).await?;
 
+        // Initialize WebSocket service
+        let ws_config = ConnectionConfig::default();
+        let connection_manager = Arc::new(ConnectionManager::new(ws_config));
+        let pubsub_manager = Arc::new(PubSubManager::new());
+        let websocket_service = Arc::new(WebSocketService::new(connection_manager, pubsub_manager));
+
         Ok(Self {
             db,
             auth_service,
             jwt_service,
             rate_limit_service,
+            websocket_service,
             config,
         })
     }
@@ -140,98 +149,52 @@ neuroquantum_active_connections 42
 pub async fn websocket_handler(
     req: actix_web::HttpRequest,
     stream: actix_web::web::Payload,
+    state: web::Data<AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    use tracing::error;
+    use websocket::ConnectionMetadata;
+
     // Check if user is authenticated (JWT token should be in extensions from middleware)
     let extensions = req.extensions();
-    if extensions.get::<error::AuthToken>().is_none() && extensions.get::<auth::ApiKey>().is_none()
-    {
+    let user_id = if let Some(token) = extensions.get::<error::AuthToken>() {
+        Some(token.sub.clone())
+    } else if let Some(api_key) = extensions.get::<auth::ApiKey>() {
+        Some(api_key.name.clone())
+    } else {
         return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
             "error": "Authentication required for WebSocket connection",
             "code": "WEBSOCKET_AUTH_REQUIRED"
         })));
-    }
+    };
 
-    let (response, mut session, mut msg_stream) = actix_ws::handle(&req, stream)?;
+    // Get connection info
+    let remote_addr = req
+        .connection_info()
+        .realip_remote_addr()
+        .unwrap_or("unknown")
+        .to_string();
+    let user_agent = req
+        .headers()
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
 
+    // Create connection metadata
+    let mut metadata = ConnectionMetadata::new(remote_addr);
+    metadata.user_id = user_id;
+    metadata.user_agent = user_agent;
+
+    // Handle WebSocket upgrade
+    let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
+
+    // Spawn handler task
+    let ws_service = state.websocket_service.clone();
     actix_web::rt::spawn(async move {
-        while let Some(Ok(msg)) = msg_stream.next().await {
-            match msg {
-                Message::Text(text) => {
-                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text) {
-                        match parsed.get("type").and_then(|t| t.as_str()) {
-                            Some("subscribe") => {
-                                let channel = parsed
-                                    .get("channel")
-                                    .and_then(|c| c.as_str())
-                                    .unwrap_or("general");
-                                info!("📡 Client subscribed to channel: {}", channel);
-
-                                let response = serde_json::json!({
-                                    "type": "subscription_confirmed",
-                                    "channel": channel,
-                                    "timestamp": chrono::Utc::now().to_rfc3339()
-                                });
-
-                                if session.text(response.to_string()).await.is_err() {
-                                    break;
-                                }
-                            }
-                            Some("ping") => {
-                                let pong = serde_json::json!({
-                                    "type": "pong",
-                                    "timestamp": chrono::Utc::now().to_rfc3339()
-                                });
-
-                                if session.text(pong.to_string()).await.is_err() {
-                                    break;
-                                }
-                            }
-                            Some("query_status") => {
-                                let query_id = parsed
-                                    .get("query_id")
-                                    .and_then(|q| q.as_str())
-                                    .unwrap_or("unknown");
-
-                                let status = serde_json::json!({
-                                    "type": "query_status",
-                                    "query_id": query_id,
-                                    "status": "running",
-                                    "progress": 75,
-                                    "estimated_completion": "2024-01-01T12:35:00Z"
-                                });
-
-                                if session.text(status.to_string()).await.is_err() {
-                                    break;
-                                }
-                            }
-                            Some("neural_training_status") => {
-                                let network_id = parsed
-                                    .get("network_id")
-                                    .and_then(|n| n.as_str())
-                                    .unwrap_or("unknown");
-
-                                let status = serde_json::json!({
-                                    "type": "neural_training_status",
-                                    "network_id": network_id,
-                                    "epoch": 45,
-                                    "total_epochs": 100,
-                                    "current_loss": 0.023,
-                                    "accuracy": 0.94
-                                });
-
-                                if session.text(status.to_string()).await.is_err() {
-                                    break;
-                                }
-                            }
-                            _ => {
-                                warn!("🚨 Unknown WebSocket message type received");
-                            }
-                        }
-                    }
-                }
-                Message::Close(_) => break,
-                _ => {}
-            }
+        if let Err(e) = ws_service
+            .handle_connection(session, msg_stream, metadata)
+            .await
+        {
+            error!("WebSocket connection error: {:?}", e);
         }
     });
 
@@ -260,6 +223,7 @@ pub fn configure_app(
 
     App::new()
         // Add application state
+        .app_data(web::Data::new(app_state.clone()))
         .app_data(web::Data::new(app_state.db.clone()))
         .app_data(web::Data::new(app_state.auth_service.clone()))
         .app_data(web::Data::new(app_state.jwt_service.clone()))

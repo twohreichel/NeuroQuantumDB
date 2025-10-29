@@ -48,6 +48,7 @@ utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 
 # Rate limiting and caching
 redis = { version = "0.32.1", features = ["tokio-comp", "connection-manager"] }
+dashmap = "6.1.0"
 
 # Configuration
 config = "0.15.16"
