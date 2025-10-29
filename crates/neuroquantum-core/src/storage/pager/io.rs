@@ -25,7 +25,7 @@ impl PageIO {
     pub fn new(file: File, config: PagerConfig) -> Self {
         Self {
             file: Arc::new(RwLock::new(file)),
-            config
+            config,
         }
     }
 
@@ -63,8 +63,7 @@ impl PageIO {
             .context(format!("Failed to read page {:?}", page_id))?;
 
         // Deserialize page
-        Page::from_bytes(&buf)
-            .context(format!("Failed to deserialize page {:?}", page_id))
+        Page::from_bytes(&buf).context(format!("Failed to deserialize page {:?}", page_id))
     }
 
     /// Write a page to disk
@@ -75,7 +74,8 @@ impl PageIO {
         debug!("💾 Writing page {:?} at offset {}", page_id, offset);
 
         // Serialize page
-        let buf = page.to_bytes()
+        let buf = page
+            .to_bytes()
             .context(format!("Failed to serialize page {:?}", page_id))?;
 
         let mut file = self.file.write().await;
@@ -99,9 +99,7 @@ impl PageIO {
 
         let file = self.file.write().await;
 
-        file.sync_all()
-            .await
-            .context("Failed to sync file to disk")
+        file.sync_all().await.context("Failed to sync file to disk")
     }
 
     /// Read multiple pages in batch (optimization)
@@ -141,16 +139,17 @@ impl PageIO {
 
         let file = self.file.write().await;
 
-        file.set_len(size)
-            .await
-            .context("Failed to truncate file")
+        file.set_len(size).await.context("Failed to truncate file")
     }
 
     /// Pre-allocate space for pages (optimization)
     pub async fn preallocate(&self, num_pages: u64) -> Result<()> {
         let size = num_pages * PAGE_SIZE as u64;
 
-        debug!("📦 Pre-allocating space for {} pages ({} bytes)", num_pages, size);
+        debug!(
+            "📦 Pre-allocating space for {} pages ({} bytes)",
+            num_pages, size
+        );
 
         self.truncate(size).await
     }
@@ -158,8 +157,8 @@ impl PageIO {
 
 #[cfg(test)]
 mod tests {
+    use super::super::page::PageType;
     use super::*;
-    use super::super::page::{PageType};
     use tempfile::TempDir;
     use tokio::fs::OpenOptions;
 
@@ -318,4 +317,3 @@ mod tests {
         assert!(io.file_size().await.unwrap() >= PAGE_SIZE as u64);
     }
 }
-

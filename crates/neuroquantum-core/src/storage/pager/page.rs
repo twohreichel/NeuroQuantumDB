@@ -437,4 +437,3 @@ mod tests {
         assert_eq!(deserialized.prev_page, Some(PageId(0)));
     }
 }
-

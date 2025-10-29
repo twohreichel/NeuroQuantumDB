@@ -8,20 +8,19 @@
 //! - Async file operations
 
 use anyhow::{anyhow, Context, Result};
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::OpenOptions;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-pub mod page;
 pub mod free_list;
 pub mod io;
+pub mod page;
 
-pub use page::{Page, PageHeader, PageId, PageType, PAGE_SIZE};
 pub use free_list::FreeList;
 pub use io::PageIO;
+pub use page::{Page, PageHeader, PageId, PageType, PAGE_SIZE};
 
 /// Configuration for the page storage manager
 #[derive(Debug, Clone)]
@@ -81,11 +80,15 @@ impl PageStorageManager {
     pub async fn new<P: AsRef<Path>>(file_path: P, config: PagerConfig) -> Result<Self> {
         let file_path = file_path.as_ref().to_path_buf();
 
-        info!("📄 Initializing PageStorageManager at: {}", file_path.display());
+        info!(
+            "📄 Initializing PageStorageManager at: {}",
+            file_path.display()
+        );
 
         // Create parent directory if it doesn't exist
         if let Some(parent) = file_path.parent() {
-            tokio::fs::create_dir_all(parent).await
+            tokio::fs::create_dir_all(parent)
+                .await
                 .context("Failed to create storage directory")?;
         }
 
@@ -103,8 +106,11 @@ impl PageStorageManager {
         // Load or initialize free list
         let (free_list, total_pages) = Self::load_metadata(&io).await?;
 
-        info!("📊 Loaded {} total pages, {} free pages",
-              total_pages, free_list.free_count());
+        info!(
+            "📊 Loaded {} total pages, {} free pages",
+            total_pages,
+            free_list.free_count()
+        );
 
         let manager = Self {
             file_path,
@@ -113,7 +119,7 @@ impl PageStorageManager {
             free_list: Arc::new(RwLock::new(free_list)),
             total_pages: Arc::new(RwLock::new(total_pages)),
             page_cache: Arc::new(RwLock::new(lru::LruCache::new(
-                std::num::NonZeroUsize::new(1000).unwrap()
+                std::num::NonZeroUsize::new(1000).unwrap(),
             ))),
         };
 
@@ -174,12 +180,18 @@ impl PageStorageManager {
         let page_id = PageId(*total_pages);
         *total_pages += 1;
 
-        debug!("📄 Allocating new page: {:?} (type: {:?})", page_id, page_type);
+        debug!(
+            "📄 Allocating new page: {:?} (type: {:?})",
+            page_id, page_type
+        );
 
         // Check file size limit
         let new_size = *total_pages * PAGE_SIZE as u64;
         if new_size > self.config.max_file_size {
-            return Err(anyhow!("Database file size limit exceeded: {} bytes", self.config.max_file_size));
+            return Err(anyhow!(
+                "Database file size limit exceeded: {} bytes",
+                self.config.max_file_size
+            ));
         }
 
         // Initialize the page
@@ -497,9 +509,7 @@ mod tests {
             ..Default::default()
         };
 
-        let manager = PageStorageManager::new(&db_path, config)
-            .await
-            .unwrap();
+        let manager = PageStorageManager::new(&db_path, config).await.unwrap();
 
         let page_id = manager.allocate_page(PageType::Data).await.unwrap();
         let mut page = manager.read_page(page_id).await.unwrap();
@@ -539,4 +549,3 @@ mod tests {
         assert_eq!(stats.used_pages, 4);
     }
 }
-

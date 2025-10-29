@@ -1,5 +1,5 @@
 //! Free page list management
-//! 
+//!
 //! Tracks which pages are free and can be reused
 
 use anyhow::{anyhow, Result};
@@ -54,14 +54,12 @@ impl FreeList {
 
     /// Serialize free list to bytes
     pub fn serialize(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self)
-            .map_err(|e| anyhow!("Failed to serialize free list: {}", e))
+        bincode::serialize(self).map_err(|e| anyhow!("Failed to serialize free list: {}", e))
     }
 
     /// Deserialize free list from bytes
     pub fn deserialize(data: &[u8]) -> Result<Self> {
-        bincode::deserialize(data)
-            .map_err(|e| anyhow!("Failed to deserialize free list: {}", e))
+        bincode::deserialize(data).map_err(|e| anyhow!("Failed to deserialize free list: {}", e))
     }
 
     /// Get all free page IDs (for debugging)
@@ -108,7 +106,7 @@ mod tests {
     #[test]
     fn test_free_list_pop() {
         let mut free_list = FreeList::new();
-        
+
         free_list.add_free_page(PageId(5));
         free_list.add_free_page(PageId(10));
         free_list.add_free_page(PageId(15));
@@ -131,7 +129,10 @@ mod tests {
         let deserialized = FreeList::deserialize(&serialized).unwrap();
 
         assert_eq!(deserialized.free_count(), 3);
-        assert_eq!(deserialized.get_free_pages(), vec![PageId(1), PageId(2), PageId(3)]);
+        assert_eq!(
+            deserialized.get_free_pages(),
+            vec![PageId(1), PageId(2), PageId(3)]
+        );
     }
 
     #[test]
@@ -150,7 +151,7 @@ mod tests {
     #[test]
     fn test_free_list_large() {
         let mut free_list = FreeList::new();
-        
+
         // Add 1000 pages
         for i in 0..1000 {
             free_list.add_free_page(PageId(i));
@@ -166,4 +167,3 @@ mod tests {
         assert!(free_list.is_empty());
     }
 }
-

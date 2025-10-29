@@ -9,7 +9,9 @@ fn bench_page_allocation(c: &mut Criterion) {
     let db_path = temp_dir.path().join("bench.db");
 
     let manager = rt.block_on(async {
-        PageStorageManager::new(&db_path, PagerConfig::default()).await.unwrap()
+        PageStorageManager::new(&db_path, PagerConfig::default())
+            .await
+            .unwrap()
     });
 
     let mut group = c.benchmark_group("page_allocation");
@@ -34,7 +36,9 @@ fn bench_page_read_write(c: &mut Criterion) {
     let db_path = temp_dir.path().join("bench.db");
 
     let (manager, page_id) = rt.block_on(async {
-        let manager = PageStorageManager::new(&db_path, PagerConfig::default()).await.unwrap();
+        let manager = PageStorageManager::new(&db_path, PagerConfig::default())
+            .await
+            .unwrap();
         let page_id = manager.allocate_page(PageType::Data).await.unwrap();
         (manager, page_id)
     });
@@ -45,7 +49,8 @@ fn bench_page_read_write(c: &mut Criterion) {
     group.bench_function("write", |b| {
         b.to_async(&rt).iter(|| async {
             let mut page = manager.read_page(page_id).await.unwrap();
-            page.write_data(0, black_box(b"Test data for benchmark")).unwrap();
+            page.write_data(0, black_box(b"Test data for benchmark"))
+                .unwrap();
             manager.write_page(&page).await.unwrap();
         });
     });
@@ -78,7 +83,9 @@ fn bench_page_cache(c: &mut Criterion) {
     let db_path = temp_dir.path().join("bench.db");
 
     let (manager, page_ids) = rt.block_on(async {
-        let manager = PageStorageManager::new(&db_path, PagerConfig::default()).await.unwrap();
+        let manager = PageStorageManager::new(&db_path, PagerConfig::default())
+            .await
+            .unwrap();
 
         // Allocate 100 pages
         let mut page_ids = Vec::new();
@@ -145,7 +152,8 @@ fn bench_sync_modes(c: &mut Criterion) {
             |b, _| {
                 b.to_async(&rt).iter(|| async {
                     let mut page = manager.read_page(page_id).await.unwrap();
-                    page.write_data(0, black_box(b"Sync mode benchmark")).unwrap();
+                    page.write_data(0, black_box(b"Sync mode benchmark"))
+                        .unwrap();
                     manager.write_page(&page).await.unwrap();
                 });
             },
@@ -161,7 +169,9 @@ fn bench_batch_operations(c: &mut Criterion) {
     let db_path = temp_dir.path().join("bench.db");
 
     let (manager, page_ids) = rt.block_on(async {
-        let manager = PageStorageManager::new(&db_path, PagerConfig::default()).await.unwrap();
+        let manager = PageStorageManager::new(&db_path, PagerConfig::default())
+            .await
+            .unwrap();
 
         // Allocate 100 pages
         let mut page_ids = Vec::new();
@@ -204,7 +214,9 @@ fn bench_free_list_operations(c: &mut Criterion) {
     let db_path = temp_dir.path().join("bench.db");
 
     let manager = rt.block_on(async {
-        PageStorageManager::new(&db_path, PagerConfig::default()).await.unwrap()
+        PageStorageManager::new(&db_path, PagerConfig::default())
+            .await
+            .unwrap()
     });
 
     let mut group = c.benchmark_group("free_list");
@@ -232,4 +244,3 @@ criterion_group!(
 );
 
 criterion_main!(benches);
-

@@ -3,6 +3,7 @@
 //! and ACID transaction support for production deployment
 
 pub mod btree;
+pub mod buffer;
 pub mod pager;
 
 use anyhow::{anyhow, Result};
@@ -15,7 +16,8 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 pub use btree::{BTree, BTreeConfig};
-pub use pager::{PageStorageManager, PagerConfig, SyncMode, StorageStats};
+pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
+pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
 
 use crate::dna::{DNACompressor, EncodedData, QuantumDNACompressor};
 use crate::transaction::{IsolationLevel, TransactionManager};
