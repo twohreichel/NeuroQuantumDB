@@ -2,6 +2,8 @@
 //! Provides persistent file-based storage with DNA compression, B+ tree indexes,
 //! and ACID transaction support for production deployment
 
+pub mod btree;
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -10,6 +12,8 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use uuid::Uuid;
+
+pub use btree::{BTree, BTreeConfig};
 
 use crate::dna::{DNACompressor, EncodedData, QuantumDNACompressor};
 use crate::transaction::{IsolationLevel, TransactionManager};
