@@ -62,8 +62,8 @@ impl Default for BufferPoolConfig {
 /// Manages a pool of page frames with intelligent caching,
 /// eviction policies, and dirty page tracking.
 pub struct BufferPoolManager {
-    /// Configuration
-    config: BufferPoolConfig,
+    /// Configuration (stored for future use)
+    _config: BufferPoolConfig,
     /// Page storage manager
     pager: Arc<PageStorageManager>,
     /// Frame pool
@@ -107,7 +107,7 @@ impl BufferPoolManager {
         };
 
         let manager = Self {
-            config: config.clone(),
+            _config: config.clone(),
             pager,
             frames: Arc::new(RwLock::new(frames)),
             page_table: Arc::new(RwLock::new(HashMap::new())),

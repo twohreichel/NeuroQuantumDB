@@ -171,6 +171,7 @@ mod tests {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&file_path)
             .await
             .unwrap();
@@ -199,6 +200,7 @@ mod tests {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&file_path)
             .await
             .unwrap();
@@ -233,6 +235,7 @@ mod tests {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&file_path)
             .await
             .unwrap();
@@ -258,9 +261,9 @@ mod tests {
         let read_pages = io.read_pages_batch(&page_ids).await.unwrap();
 
         assert_eq!(read_pages.len(), 5);
-        for i in 0..5 {
+        for (i, page) in read_pages.iter().enumerate() {
             let expected = format!("Batch page {}", i).into_bytes();
-            let actual = read_pages[i].read_data(0, expected.len()).unwrap();
+            let actual = page.read_data(0, expected.len()).unwrap();
             assert_eq!(actual, expected.as_slice());
         }
     }
@@ -274,6 +277,7 @@ mod tests {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&file_path)
             .await
             .unwrap();
@@ -300,6 +304,7 @@ mod tests {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&file_path)
             .await
             .unwrap();

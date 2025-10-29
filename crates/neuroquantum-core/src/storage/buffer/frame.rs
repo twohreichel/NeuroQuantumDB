@@ -12,12 +12,15 @@ use super::super::pager::{Page, PageId};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FrameId(pub usize);
 
+/// Type alias for page content stored in a frame
+type PageContent = Arc<RwLock<Option<(PageId, Arc<RwLock<Page>>)>>>;
+
 /// A frame in the buffer pool
 pub struct Frame {
     /// Frame ID
     id: FrameId,
     /// Page stored in this frame (None if empty)
-    page: Arc<RwLock<Option<(PageId, Arc<RwLock<Page>>)>>>,
+    page: PageContent,
     /// Pin count (number of threads using this frame)
     pin_count: Arc<AtomicUsize>,
     /// Dirty flag

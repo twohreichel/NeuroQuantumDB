@@ -8,6 +8,7 @@
 //! - Async file operations
 
 use anyhow::{anyhow, Context, Result};
+use lru::LruCache;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::OpenOptions;
@@ -62,7 +63,7 @@ impl Default for PagerConfig {
 /// and efficient I/O operations.
 pub struct PageStorageManager {
     /// Path to the database file
-    file_path: PathBuf,
+    _file_path: PathBuf,
     /// Configuration
     config: PagerConfig,
     /// Page I/O handler
@@ -72,7 +73,7 @@ pub struct PageStorageManager {
     /// Total number of pages
     total_pages: Arc<RwLock<u64>>,
     /// Page cache (simple LRU)
-    page_cache: Arc<RwLock<lru::LruCache<PageId, Page>>>,
+    page_cache: Arc<RwLock<LruCache<PageId, Page>>>,
 }
 
 impl PageStorageManager {
@@ -97,6 +98,7 @@ impl PageStorageManager {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&file_path)
             .await
             .context("Failed to open database file")?;
@@ -113,12 +115,12 @@ impl PageStorageManager {
         );
 
         let manager = Self {
-            file_path,
+            _file_path: file_path,
             config: config.clone(),
             io,
             free_list: Arc::new(RwLock::new(free_list)),
             total_pages: Arc::new(RwLock::new(total_pages)),
-            page_cache: Arc::new(RwLock::new(lru::LruCache::new(
+            page_cache: Arc::new(RwLock::new(LruCache::new(
                 std::num::NonZeroUsize::new(1000).unwrap(),
             ))),
         };
@@ -440,9 +442,9 @@ mod tests {
             .unwrap();
 
         // Allocate 3 pages
-        let page1 = manager.allocate_page(PageType::Data).await.unwrap();
+        let _page1 = manager.allocate_page(PageType::Data).await.unwrap();
         let page2 = manager.allocate_page(PageType::Data).await.unwrap();
-        let page3 = manager.allocate_page(PageType::Data).await.unwrap();
+        let _page3 = manager.allocate_page(PageType::Data).await.unwrap();
 
         // Deallocate middle page
         manager.deallocate_page(page2).await.unwrap();
@@ -532,11 +534,11 @@ mod tests {
             .unwrap();
 
         // Allocate 5 pages
-        let page1 = manager.allocate_page(PageType::Data).await.unwrap();
+        let _page1 = manager.allocate_page(PageType::Data).await.unwrap();
         let page2 = manager.allocate_page(PageType::Data).await.unwrap();
-        let page3 = manager.allocate_page(PageType::Data).await.unwrap();
+        let _page3 = manager.allocate_page(PageType::Data).await.unwrap();
         let page4 = manager.allocate_page(PageType::Data).await.unwrap();
-        let page5 = manager.allocate_page(PageType::Data).await.unwrap();
+        let _page5 = manager.allocate_page(PageType::Data).await.unwrap();
 
         // Deallocate 2 pages
         manager.deallocate_page(page2).await.unwrap();
