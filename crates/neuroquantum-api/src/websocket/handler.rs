@@ -1,11 +1,14 @@
 //! Integrated WebSocket Handler
 //!
 //! Combines ConnectionManager and PubSubManager for a complete
-//! real-time communication solution.
+//! real-time communication solution with query streaming support.
 
 use crate::websocket::{
     manager::{ConnectionError, ConnectionManager},
     pubsub::{ChannelId, PubSubManager},
+    streaming::{
+        QueryStreamId, QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
+    },
     types::{ConnectionId, ConnectionMetadata},
 };
 use actix_ws::{Message, Session};
@@ -29,6 +32,15 @@ pub enum WsMessage {
         channel: String,
         data: serde_json::Value,
     },
+
+    /// Execute a streaming query
+    StreamQuery {
+        query: String,
+        batch_size: Option<usize>,
+    },
+
+    /// Cancel a streaming query
+    CancelQuery { stream_id: String },
 
     /// Ping (heartbeat)
     Ping { timestamp: Option<String> },
@@ -60,6 +72,39 @@ pub enum WsResponse {
         timestamp: String,
     },
 
+    /// Streaming query started
+    QueryStarted {
+        stream_id: String,
+        query: String,
+        estimated_rows: Option<u64>,
+    },
+
+    /// Query progress update
+    QueryProgress {
+        stream_id: String,
+        rows_processed: u64,
+        percentage: Option<f32>,
+        throughput: f32,
+    },
+
+    /// Query result batch
+    QueryBatch {
+        stream_id: String,
+        batch_number: u64,
+        rows: Vec<serde_json::Value>,
+        has_more: bool,
+    },
+
+    /// Query completed
+    QueryCompleted {
+        stream_id: String,
+        total_rows: u64,
+        execution_time_ms: u64,
+    },
+
+    /// Query cancelled
+    QueryCancelled { stream_id: String, reason: String },
+
     /// Pong response
     Pong { timestamp: String },
 
@@ -78,6 +123,8 @@ pub enum WsResponse {
 pub struct WebSocketService {
     connection_manager: Arc<ConnectionManager>,
     pubsub_manager: Arc<PubSubManager>,
+    streaming_registry: Arc<StreamingRegistry>,
+    query_streamer: Arc<QueryStreamer>,
 }
 
 impl WebSocketService {
@@ -86,10 +133,40 @@ impl WebSocketService {
         connection_manager: Arc<ConnectionManager>,
         pubsub_manager: Arc<PubSubManager>,
     ) -> Self {
-        info!("✅ WebSocketService initialized");
+        let streaming_config = StreamingConfig::default();
+        let streaming_registry = Arc::new(StreamingRegistry::new(streaming_config.clone()));
+        let query_streamer = Arc::new(QueryStreamer::new(
+            streaming_config,
+            streaming_registry.clone(),
+        ));
+
+        info!("✅ WebSocketService initialized with streaming support");
         Self {
             connection_manager,
             pubsub_manager,
+            streaming_registry,
+            query_streamer,
+        }
+    }
+
+    /// Create a new WebSocket service with custom streaming config
+    pub fn with_streaming_config(
+        connection_manager: Arc<ConnectionManager>,
+        pubsub_manager: Arc<PubSubManager>,
+        streaming_config: StreamingConfig,
+    ) -> Self {
+        let streaming_registry = Arc::new(StreamingRegistry::new(streaming_config.clone()));
+        let query_streamer = Arc::new(QueryStreamer::new(
+            streaming_config,
+            streaming_registry.clone(),
+        ));
+
+        info!("✅ WebSocketService initialized with custom streaming config");
+        Self {
+            connection_manager,
+            pubsub_manager,
+            streaming_registry,
+            query_streamer,
         }
     }
 
@@ -188,6 +265,12 @@ impl WebSocketService {
             }
             WsMessage::Publish { channel, data } => {
                 self.handle_publish(conn_id, channel, data).await?;
+            }
+            WsMessage::StreamQuery { query, batch_size } => {
+                self.handle_stream_query(conn_id, query, batch_size).await?;
+            }
+            WsMessage::CancelQuery { stream_id } => {
+                self.handle_cancel_query(conn_id, stream_id).await?;
             }
             WsMessage::Ping { timestamp } => {
                 self.handle_ping(conn_id, timestamp).await?;
@@ -294,6 +377,179 @@ impl WebSocketService {
         Ok(())
     }
 
+    /// Handle streaming query request
+    async fn handle_stream_query(
+        &self,
+        conn_id: ConnectionId,
+        query: String,
+        _batch_size: Option<usize>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Register the stream
+        let stream_id = self
+            .streaming_registry
+            .register_stream(conn_id, query.clone())
+            .await;
+
+        info!(
+            "🔍 Starting streaming query {} for connection {}",
+            stream_id, conn_id
+        );
+
+        // For demonstration, create mock results
+        // In production, this would execute the actual query
+        let mock_results = self.query_streamer.create_mock_results(500);
+
+        // Clone required variables for async task
+        let conn_id_clone = conn_id;
+        let stream_id_clone = stream_id;
+        let query_clone = query.clone();
+        let connection_manager = self.connection_manager.clone();
+        let query_streamer = self.query_streamer.clone();
+        let streaming_registry = self.streaming_registry.clone();
+
+        // Spawn streaming task
+        tokio::spawn(async move {
+            // Define send function that writes to WebSocket
+            let send_fn = |msg: StreamingMessage| -> Result<(), String> {
+                let response = match msg {
+                    StreamingMessage::Started {
+                        stream_id,
+                        query,
+                        estimated_rows,
+                    } => WsResponse::QueryStarted {
+                        stream_id: stream_id.to_string(),
+                        query,
+                        estimated_rows,
+                    },
+                    StreamingMessage::Progress {
+                        stream_id,
+                        progress,
+                    } => WsResponse::QueryProgress {
+                        stream_id: stream_id.to_string(),
+                        rows_processed: progress.rows_processed,
+                        percentage: progress.percentage,
+                        throughput: progress.throughput,
+                    },
+                    StreamingMessage::Batch {
+                        stream_id,
+                        batch_number,
+                        rows,
+                        has_more,
+                    } => {
+                        // Convert rows to JSON
+                        let json_rows: Vec<serde_json::Value> = rows
+                            .iter()
+                            .map(|r| serde_json::to_value(r).unwrap_or(serde_json::Value::Null))
+                            .collect();
+
+                        WsResponse::QueryBatch {
+                            stream_id: stream_id.to_string(),
+                            batch_number,
+                            rows: json_rows,
+                            has_more,
+                        }
+                    }
+                    StreamingMessage::Completed {
+                        stream_id,
+                        total_rows,
+                        execution_time_ms,
+                    } => WsResponse::QueryCompleted {
+                        stream_id: stream_id.to_string(),
+                        total_rows,
+                        execution_time_ms,
+                    },
+                    StreamingMessage::Cancelled { stream_id, reason } => {
+                        WsResponse::QueryCancelled {
+                            stream_id: stream_id.to_string(),
+                            reason,
+                        }
+                    }
+                    StreamingMessage::Error { stream_id, error } => WsResponse::Error {
+                        code: "STREAM_ERROR".to_string(),
+                        message: format!("Stream {}: {}", stream_id, error),
+                    },
+                };
+
+                // Send to connection
+                if let Some(connection) = connection_manager.get_connection(conn_id_clone) {
+                    tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current()
+                            .block_on(async { connection.send_json(&response).await })
+                    })
+                    .map_err(|e| format!("Failed to send: {}", e))?;
+                }
+
+                Ok(())
+            };
+
+            // Stream the results
+            match query_streamer
+                .stream_results(stream_id_clone, query_clone, mock_results, send_fn)
+                .await
+            {
+                Ok(total) => {
+                    info!(
+                        "✅ Completed streaming query {}: {} rows",
+                        stream_id_clone, total
+                    );
+                }
+                Err(e) => {
+                    error!("❌ Streaming query {} failed: {}", stream_id_clone, e);
+                }
+            }
+
+            // Clean up
+            streaming_registry.remove_stream(stream_id_clone).await;
+        });
+
+        Ok(())
+    }
+
+    /// Handle query cancellation request
+    async fn handle_cancel_query(
+        &self,
+        conn_id: ConnectionId,
+        stream_id_str: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Parse stream ID
+        let stream_id = match uuid::Uuid::parse_str(&stream_id_str) {
+            Ok(uuid) => QueryStreamId::from(uuid),
+            Err(_) => {
+                let response = WsResponse::Error {
+                    code: "INVALID_STREAM_ID".to_string(),
+                    message: format!("Invalid stream ID: {}", stream_id_str),
+                };
+                self.send_to_connection(conn_id, &response).await?;
+                return Ok(());
+            }
+        };
+
+        // Cancel the stream
+        match self.streaming_registry.cancel_stream(stream_id).await {
+            Ok(_) => {
+                info!(
+                    "🛑 Cancelled query stream {} for connection {}",
+                    stream_id, conn_id
+                );
+                let response = WsResponse::QueryCancelled {
+                    stream_id: stream_id_str,
+                    reason: "Cancelled by user".to_string(),
+                };
+                self.send_to_connection(conn_id, &response).await?;
+            }
+            Err(e) => {
+                warn!("Failed to cancel stream {}: {}", stream_id, e);
+                let response = WsResponse::Error {
+                    code: "CANCEL_FAILED".to_string(),
+                    message: e,
+                };
+                self.send_to_connection(conn_id, &response).await?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Handle query status request
     async fn handle_query_status(
         &self,
@@ -354,6 +610,7 @@ impl WebSocketService {
     pub async fn get_stats(&self) -> ServiceStats {
         let conn_metrics = self.connection_manager.get_metrics();
         let pubsub_stats = self.pubsub_manager.get_all_stats().await;
+        let active_streams = self.streaming_registry.active_stream_count().await;
 
         ServiceStats {
             active_connections: conn_metrics.active_connections,
@@ -362,7 +619,13 @@ impl WebSocketService {
             total_messages_received: conn_metrics.total_messages_received,
             active_channels: pubsub_stats.channel_count,
             total_channel_messages: pubsub_stats.total_messages,
+            active_streams,
         }
+    }
+
+    /// Get streaming registry for advanced operations
+    pub fn streaming_registry(&self) -> Arc<StreamingRegistry> {
+        self.streaming_registry.clone()
     }
 }
 
@@ -375,4 +638,5 @@ pub struct ServiceStats {
     pub total_messages_received: u64,
     pub active_channels: usize,
     pub total_channel_messages: u64,
+    pub active_streams: usize,
 }

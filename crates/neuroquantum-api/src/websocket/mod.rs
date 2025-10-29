@@ -29,17 +29,27 @@
 //! }
 //! ```
 
+pub mod flow_control;
 pub mod handler;
 pub mod manager;
 pub mod metrics;
 pub mod pubsub;
+pub mod streaming;
 pub mod types;
 
 #[cfg(test)]
 mod tests;
 
+pub use flow_control::{
+    DropPolicy, FlowAction, FlowControlConfig, FlowControlStats, FlowControlledSender,
+    FlowController, FlowRecommendation, FlowState,
+};
 pub use handler::{ServiceStats, WebSocketService, WsMessage, WsResponse};
 pub use manager::{ConnectionConfig, ConnectionManager};
 pub use metrics::ConnectionMetrics;
 pub use pubsub::{ChannelId, ChannelStats, PubSubManager, PubSubStats};
+pub use streaming::{
+    QueryProgress, QueryResultBatch, QueryStreamId, QueryStreamStatus, QueryStreamer, StreamStats,
+    StreamingConfig, StreamingMessage, StreamingRegistry,
+};
 pub use types::{Connection, ConnectionId, ConnectionMetadata, ConnectionStatus};
