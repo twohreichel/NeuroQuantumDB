@@ -30,6 +30,14 @@ pub type Key = Vec<u8>;
 /// Type alias for values (row IDs in the database)
 pub type Value = u64;
 
+/// Type alias for async insert result with optional split information
+type InsertFuture<'a> =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<(Key, PageId)>>> + Send + 'a>>;
+
+/// Type alias for async range scan result
+type RangeScanFuture<'a> =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<(Key, Value)>>> + Send + 'a>>;
+
 /// Configuration for B+ Tree
 #[derive(Debug, Clone)]
 pub struct BTreeConfig {
@@ -238,9 +246,7 @@ impl BTree {
         page_id: PageId,
         key: Key,
         value: Value,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<Option<(Key, PageId)>>> + Send + 'a>,
-    > {
+    ) -> InsertFuture<'a> {
         Box::pin(async move {
             // Try to read as internal node first
             if let Ok(mut internal_node) = self.page_manager.read_internal_node(page_id).await {
@@ -337,8 +343,7 @@ impl BTree {
         page_id: PageId,
         start_key: &'a Key,
         end_key: &'a Key,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<(Key, Value)>>> + Send + 'a>>
-    {
+    ) -> RangeScanFuture<'a> {
         Box::pin(async move {
             // Try to read as internal node first
             if let Ok(internal_node) = self.page_manager.read_internal_node(page_id).await {

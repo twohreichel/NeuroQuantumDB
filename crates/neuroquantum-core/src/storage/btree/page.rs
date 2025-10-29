@@ -24,7 +24,7 @@ const MAGIC_NUMBER: u32 = 0x42545245; // "BTRE" in hex
 
 /// Page header containing metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PageHeader {
+pub struct PageHeader {
     /// Magic number for validation
     magic: u32,
     /// Page type (0 = free, 1 = internal, 2 = leaf)
@@ -38,6 +38,7 @@ struct PageHeader {
 }
 
 impl PageHeader {
+    #[allow(dead_code)]
     fn new(page_id: PageId, page_type: u8, data_len: u32) -> Self {
         Self {
             magic: MAGIC_NUMBER,
@@ -347,6 +348,7 @@ impl PageManager {
             let mut file = OpenOptions::new()
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(&page_path)
                 .await?;
 

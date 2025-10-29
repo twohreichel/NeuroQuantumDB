@@ -2,8 +2,9 @@
 //!
 //! Run with: cargo bench --features benchmarks --bench btree_benchmark
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::storage::btree::BTree;
+use std::hint::black_box;
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -15,16 +16,18 @@ fn btree_insert_sequential(c: &mut Criterion) {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let rt = Runtime::new().unwrap();
-            b.to_async(&rt).iter(|| async {
-                let temp_dir = TempDir::new().unwrap();
-                let mut btree = BTree::new(temp_dir.path()).await.unwrap();
+            b.iter(|| {
+                rt.block_on(async {
+                    let temp_dir = TempDir::new().unwrap();
+                    let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
-                for i in 0..size {
-                    let key = format!("key{:010}", i).into_bytes();
-                    btree.insert(key, i as u64).await.unwrap();
-                }
+                    for i in 0..size {
+                        let key = format!("key{:010}", i).into_bytes();
+                        btree.insert(key, i as u64).await.unwrap();
+                    }
 
-                black_box(btree)
+                    black_box(btree)
+                })
             });
         });
     }
@@ -45,15 +48,17 @@ fn btree_insert_random(c: &mut Criterion) {
                 .map(|i| format!("key{:010}", (i * 7919) % size).into_bytes())
                 .collect();
 
-            b.to_async(&rt).iter(|| async {
-                let temp_dir = TempDir::new().unwrap();
-                let mut btree = BTree::new(temp_dir.path()).await.unwrap();
+            b.iter(|| {
+                rt.block_on(async {
+                    let temp_dir = TempDir::new().unwrap();
+                    let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
-                for (i, key) in keys.iter().enumerate() {
-                    btree.insert(key.clone(), i as u64).await.unwrap();
-                }
+                    for (i, key) in keys.iter().enumerate() {
+                        btree.insert(key.clone(), i as u64).await.unwrap();
+                    }
 
-                black_box(btree)
+                    black_box(btree)
+                })
             });
         });
     }
@@ -85,10 +90,10 @@ fn btree_search(c: &mut Criterion) {
 
             // Benchmark: search for keys
             let mut counter = 0;
-            b.to_async(&rt).iter(|| async {
+            b.iter(|| {
                 let key = format!("key{:010}", counter % size).into_bytes();
                 counter += 1;
-                black_box(btree.search(&key).await.unwrap())
+                rt.block_on(async { black_box(btree.search(&key).await.unwrap()) })
             });
 
             drop(temp_dir);
@@ -124,10 +129,12 @@ fn btree_range_scan(c: &mut Criterion) {
                 });
 
                 // Benchmark: range scan
-                b.to_async(&rt).iter(|| async {
-                    let start = format!("key{:010}", 10_000).into_bytes();
-                    let end = format!("key{:010}", 10_000 + scan_size).into_bytes();
-                    black_box(btree.range_scan(&start, &end).await.unwrap())
+                b.iter(|| {
+                    rt.block_on(async {
+                        let start = format!("key{:010}", 10_000).into_bytes();
+                        let end = format!("key{:010}", 10_000 + scan_size).into_bytes();
+                        black_box(btree.range_scan(&start, &end).await.unwrap())
+                    })
                 });
 
                 drop(temp_dir);
@@ -146,23 +153,25 @@ fn btree_delete(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let rt = Runtime::new().unwrap();
 
-            b.to_async(&rt).iter(|| async {
-                let temp_dir = TempDir::new().unwrap();
-                let mut btree = BTree::new(temp_dir.path()).await.unwrap();
+            b.iter(|| {
+                rt.block_on(async {
+                    let temp_dir = TempDir::new().unwrap();
+                    let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
-                // Insert keys
-                for i in 0..size {
-                    let key = format!("key{:010}", i).into_bytes();
-                    btree.insert(key, i as u64).await.unwrap();
-                }
+                    // Insert keys
+                    for i in 0..size {
+                        let key = format!("key{:010}", i).into_bytes();
+                        btree.insert(key, i as u64).await.unwrap();
+                    }
 
-                // Delete keys
-                for i in 0..size {
-                    let key = format!("key{:010}", i).into_bytes();
-                    btree.delete(&key).await.unwrap();
-                }
+                    // Delete keys
+                    for i in 0..size {
+                        let key = format!("key{:010}", i).into_bytes();
+                        btree.delete(&key).await.unwrap();
+                    }
 
-                black_box(btree)
+                    black_box(btree)
+                })
             });
         });
     }
@@ -178,36 +187,38 @@ fn btree_mixed_workload(c: &mut Criterion) {
     group.bench_function("realistic_workload", |b| {
         let rt = Runtime::new().unwrap();
 
-        b.to_async(&rt).iter(|| async {
-            let temp_dir = TempDir::new().unwrap();
-            let mut btree = BTree::new(temp_dir.path()).await.unwrap();
+        b.iter(|| {
+            rt.block_on(async {
+                let temp_dir = TempDir::new().unwrap();
+                let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
-            // Initial data
-            for i in 0..1000 {
-                let key = format!("key{:010}", i).into_bytes();
-                btree.insert(key, i as u64).await.unwrap();
-            }
-
-            // Mixed operations
-            for i in 0..1000 {
-                let op = i % 10;
-
-                if op < 5 {
-                    // 50% reads
-                    let key = format!("key{:010}", i % 1000).into_bytes();
-                    black_box(btree.search(&key).await.unwrap());
-                } else if op < 8 {
-                    // 30% inserts
-                    let key = format!("key{:010}", 1000 + i).into_bytes();
+                // Initial data
+                for i in 0..1000 {
+                    let key = format!("key{:010}", i).into_bytes();
                     btree.insert(key, i as u64).await.unwrap();
-                } else {
-                    // 20% deletes
-                    let key = format!("key{:010}", i % 500).into_bytes();
-                    black_box(btree.delete(&key).await.unwrap());
                 }
-            }
 
-            black_box(btree)
+                // Mixed operations
+                for i in 0..1000 {
+                    let op = i % 10;
+
+                    if op < 5 {
+                        // 50% reads
+                        let key = format!("key{:010}", i % 1000).into_bytes();
+                        black_box(btree.search(&key).await.unwrap());
+                    } else if op < 8 {
+                        // 30% inserts
+                        let key = format!("key{:010}", 1000 + i).into_bytes();
+                        btree.insert(key, i as u64).await.unwrap();
+                    } else {
+                        // 20% deletes
+                        let key = format!("key{:010}", i % 500).into_bytes();
+                        black_box(btree.delete(&key).await.unwrap());
+                    }
+                }
+
+                black_box(btree)
+            })
         });
     });
 
