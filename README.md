@@ -37,24 +37,4 @@ Das Setup-Script installiert automatisch:
 
 ---
 
-## 📊 Projekt-Status & Roadmap
-
-**Neu:** Umfassende Projektanalyse durchgeführt! 🎉
-
-- **[📋 INDEX_ANALYSE.md](./INDEX_ANALYSE.md)** - Schnellübersicht & Einstieg
-- **[📖 PROJEKT_ANALYSE.md](./PROJEKT_ANALYSE.md)** - Detaillierte technische Analyse
-- **[🎯 TASK_OVERVIEW.md](./TASK_OVERVIEW.md)** - Aufeinander aufbauende Tasks
-- **[🗺️ VISUAL_ROADMAP.md](./VISUAL_ROADMAP.md)** - Diagramme & Timeline
-- **[🚀 NEXT_STEPS.md](./NEXT_STEPS.md)** - Sofort starten!
-
-**Aktueller Status:**
-```
-Tests:          ✅ 161/161 PASSING
-Code-Qualität:  ✅ EXCELLENT
-MVP Timeline:   🎯 8 Wochen
-v1.0 Timeline:  🎯 20 Wochen
-```
-
----
-
 Have a look at the [Wiki](https://twoh-me.github.io/NeuroQuantumDB/) for more information.
