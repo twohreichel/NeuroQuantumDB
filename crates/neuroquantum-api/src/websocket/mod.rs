@@ -13,17 +13,18 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use neuroquantum_api::websocket::{ConnectionManager, ConnectionConfig};
+//! use neuroquantum_api::websocket::{ConnectionManager, ConnectionConfig, ConnectionMetadata};
 //!
 //! #[tokio::main]
 //! async fn main() {
 //!     let config = ConnectionConfig::default();
 //!     let manager = ConnectionManager::new(config);
 //!     
-//!     // Register a new connection
-//!     let conn_id = manager.register(session, metadata).await;
-//!     
-//!     // Broadcast a message
+//!     // Example: Register a new connection (in real use, session comes from actix-ws)
+//!     // let metadata = ConnectionMetadata::new("127.0.0.1:8080".to_string());
+//!     // let conn_id = manager.register(session, metadata).await.unwrap();
+//!
+//!     // Broadcast a message to all connected clients
 //!     manager.broadcast("Hello, all clients!").await;
 //! }
 //! ```
