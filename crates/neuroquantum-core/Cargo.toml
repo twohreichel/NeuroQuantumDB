@@ -52,6 +52,9 @@ lz4_flex = "0.11"
 # B+ Tree serialization
 bincode = "1.3"
 
+# LRU cache for page storage
+lru = "0.12"
+
 
 # Post-quantum cryptography and security
 pqcrypto-mlkem = "0.1"
@@ -92,6 +95,11 @@ required-features = ["benchmarks"]
 
 [[bench]]
 name = "btree_benchmark"
+harness = false
+required-features = ["benchmarks"]
+
+[[bench]]
+name = "page_storage_benchmark"
 harness = false
 required-features = ["benchmarks"]
 
