@@ -1,6 +1,13 @@
 // Production Monitoring and Observability for NeuroQuantumDB
 // Structured logging, metrics collection, and distributed tracing
 
+pub mod query_metrics;
+
+pub use query_metrics::{
+    AdvancedQueryMetrics, ContentionSummary, ExecutionSummary, IndexUsageEntry,
+    LockContentionEvent, LockType, MonitoringConfig, QueryHistogram, SlowQueryEntry,
+};
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
