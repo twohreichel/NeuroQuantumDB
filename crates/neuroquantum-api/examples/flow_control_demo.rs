@@ -114,7 +114,7 @@ async fn demo_throttling() -> Result<(), Box<dyn std::error::Error>> {
 
     // Simulate buffer filling up
     for buffer_size in (50..=85).step_by(5) {
-        let can_send = controller.can_send(buffer_size).await;
+        let _can_send = controller.can_send(buffer_size).await;
         let delay = controller.calculate_delay(buffer_size).await;
         let stats = controller.get_stats().await;
 

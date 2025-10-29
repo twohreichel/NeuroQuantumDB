@@ -224,13 +224,11 @@ async fn demo_query_cancellation() -> Result<(), Box<dyn std::error::Error>> {
     let registry_clone = registry.clone();
     let stream_id_clone = stream_id;
 
-    let mut batch_count = 0;
     let send_fn = move |msg: StreamingMessage| {
         if let StreamingMessage::Batch { batch_number, .. } = &msg {
-            batch_count = *batch_number;
             println!("📦 Batch #{}", batch_number);
 
-            if batch_count >= 2 {
+            if *batch_number >= 2 {
                 println!("\n⚠️  Cancelling query...");
                 let registry = registry_clone.clone();
                 tokio::spawn(async move { registry.cancel_stream(stream_id_clone).await });

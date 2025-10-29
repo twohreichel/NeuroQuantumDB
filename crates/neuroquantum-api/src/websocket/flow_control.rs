@@ -177,8 +177,10 @@ impl FlowController {
             config.backpressure_threshold * 100.0
         );
 
-        let mut stats = FlowControlStats::default();
-        stats.max_buffer_size = config.max_buffer_size;
+        let stats = FlowControlStats {
+            max_buffer_size: config.max_buffer_size,
+            ..Default::default()
+        };
 
         Self {
             config,
