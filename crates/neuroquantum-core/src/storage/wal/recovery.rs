@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use super::{LSN, TransactionId, WALConfig, WALRecord, WALRecordType};
+use super::{TransactionId, WALConfig, WALRecord, WALRecordType, LSN};
 use crate::storage::pager::{PageId, PageStorageManager};
 
 /// Recovery statistics
@@ -37,14 +37,17 @@ pub struct RecoveryStats {
 ///
 /// Implements ARIES-style crash recovery with analysis, redo, and undo phases
 pub struct RecoveryManager {
-    config: WALConfig,
-    pager: Arc<PageStorageManager>,
+    _config: WALConfig,
+    _pager: Arc<PageStorageManager>,
 }
 
 impl RecoveryManager {
     /// Create a new recovery manager
     pub fn new(config: WALConfig, pager: Arc<PageStorageManager>) -> Self {
-        Self { config, pager }
+        Self {
+            _config: config,
+            _pager: pager,
+        }
     }
 
     /// Perform crash recovery using ARIES algorithm
@@ -62,11 +65,15 @@ impl RecoveryManager {
 
         // Phase 2: Redo
         info!("♻️ Phase 2: Redo");
-        let redo_count = self.redo_phase(wal_manager, &analysis_result, &pager).await?;
+        let redo_count = self
+            .redo_phase(wal_manager, &analysis_result, &pager)
+            .await?;
 
         // Phase 3: Undo
         info!("↩️ Phase 3: Undo");
-        let undo_count = self.undo_phase(wal_manager, &analysis_result, &pager).await?;
+        let undo_count = self
+            .undo_phase(wal_manager, &analysis_result, &pager)
+            .await?;
 
         let recovery_time_ms = start_time.elapsed().as_millis() as u64;
 
@@ -91,10 +98,7 @@ impl RecoveryManager {
     }
 
     /// Phase 1: Analysis - determine transaction and page state
-    async fn analysis_phase(
-        &self,
-        wal_manager: &super::WALManager,
-    ) -> Result<AnalysisResult> {
+    async fn analysis_phase(&self, wal_manager: &super::WALManager) -> Result<AnalysisResult> {
         info!("Scanning log from beginning...");
 
         // Read all log records
@@ -102,7 +106,7 @@ impl RecoveryManager {
 
         let mut active_txns: HashMap<TransactionId, LSN> = HashMap::new();
         let mut committed_txns: HashSet<TransactionId> = HashSet::new();
-        let mut aborted_txns: HashSet<TransactionId> = HashSet::new();
+        let mut _aborted_txns: HashSet<TransactionId> = HashSet::new();
         let mut dirty_pages: HashMap<PageId, LSN> = HashMap::new();
         let mut checkpoint_lsn: Option<LSN> = None;
 
@@ -124,7 +128,7 @@ impl RecoveryManager {
                 }
                 WALRecordType::Abort { tx_id } => {
                     active_txns.remove(tx_id);
-                    aborted_txns.insert(*tx_id);
+                    _aborted_txns.insert(*tx_id);
                     debug!("Found ABORT for TX={}", tx_id);
                 }
                 WALRecordType::CheckpointBegin { .. } => {
@@ -134,7 +138,12 @@ impl RecoveryManager {
                 WALRecordType::CheckpointEnd => {
                     debug!("Found CHECKPOINT END at LSN={}", record.lsn);
                 }
-                WALRecordType::CLR { tx_id, undo_next_lsn, page_id, .. } => {
+                WALRecordType::CLR {
+                    tx_id,
+                    undo_next_lsn,
+                    page_id,
+                    ..
+                } => {
                     active_txns.insert(*tx_id, record.lsn);
                     dirty_pages.entry(*page_id).or_insert(record.lsn);
                     debug!("Found CLR for TX={}, undo_next={}", tx_id, undo_next_lsn);
@@ -150,7 +159,7 @@ impl RecoveryManager {
         Ok(AnalysisResult {
             active_txns,
             committed_txns,
-            aborted_txns,
+            _aborted_txns,
             dirty_pages,
             checkpoint_lsn,
             total_records: records.len(),
@@ -227,7 +236,9 @@ impl RecoveryManager {
         // For each active transaction, follow the undo chain
         for (tx_id, last_lsn) in &analysis.active_txns {
             info!("Undoing transaction: {}", tx_id);
-            let undo_ops = self.undo_transaction(wal_manager, *tx_id, *last_lsn, pager).await?;
+            let undo_ops = self
+                .undo_transaction(wal_manager, *tx_id, *last_lsn, pager)
+                .await?;
             undo_count += undo_ops;
         }
 
@@ -313,7 +324,7 @@ struct AnalysisResult {
     /// Committed transactions
     committed_txns: HashSet<TransactionId>,
     /// Aborted transactions
-    aborted_txns: HashSet<TransactionId>,
+    _aborted_txns: HashSet<TransactionId>,
     /// Dirty pages and their recovery LSN
     dirty_pages: HashMap<PageId, LSN>,
     /// Last checkpoint LSN (if any)
@@ -345,7 +356,11 @@ mod tests {
         };
 
         let db_file = data_path.join("test.db");
-        let pager = Arc::new(PageStorageManager::new(&db_file, pager_config).await.unwrap());
+        let pager = Arc::new(
+            PageStorageManager::new(&db_file, pager_config)
+                .await
+                .unwrap(),
+        );
 
         let wal_config = super::WALConfig {
             wal_dir: wal_path,
@@ -415,4 +430,3 @@ mod tests {
         assert!(stats.transactions_aborted >= 1 || stats.transactions_committed == 0);
     }
 }
-

@@ -12,7 +12,7 @@ use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tracing::{debug, info, warn};
 
-use super::{LSN, WALRecord};
+use super::{WALRecord, LSN};
 
 /// Log writer configuration
 #[derive(Debug, Clone)]
@@ -55,7 +55,10 @@ impl LogWriter {
         // Open the current segment file
         writer.open_segment(segment_num).await?;
 
-        info!("✅ LogWriter initialized: segment={}, next_lsn={}", segment_num, next_lsn);
+        info!(
+            "✅ LogWriter initialized: segment={}, next_lsn={}",
+            segment_num, next_lsn
+        );
         Ok(writer)
     }
 
@@ -68,7 +71,10 @@ impl LogWriter {
         while let Some(entry) = entries.next_entry().await? {
             if let Some(filename) = entry.file_name().to_str() {
                 if filename.starts_with("wal-") && filename.ends_with(".log") {
-                    if let Some(num_str) = filename.strip_prefix("wal-").and_then(|s| s.strip_suffix(".log")) {
+                    if let Some(num_str) = filename
+                        .strip_prefix("wal-")
+                        .and_then(|s| s.strip_suffix(".log"))
+                    {
                         if let Ok(num) = num_str.parse::<u64>() {
                             max_segment = max_segment.max(num);
                             found_any = true;
@@ -139,7 +145,10 @@ impl LogWriter {
         self.current_file = Some(buf_writer);
         self.current_segment = segment_num;
 
-        debug!("📂 Opened WAL segment: {} (size: {} bytes)", segment_num, self.current_file_size);
+        debug!(
+            "📂 Opened WAL segment: {} (size: {} bytes)",
+            segment_num, self.current_file_size
+        );
         Ok(())
     }
 
@@ -171,7 +180,11 @@ impl LogWriter {
                 file.get_ref().sync_all().await?;
             }
 
-            debug!("✍️ Wrote WAL record LSN={} ({} bytes)", record.lsn, record_bytes.len());
+            debug!(
+                "✍️ Wrote WAL record LSN={} ({} bytes)",
+                record.lsn,
+                record_bytes.len()
+            );
             Ok(())
         } else {
             Err(anyhow!("No active WAL segment file"))
@@ -190,7 +203,11 @@ impl LogWriter {
 
     /// Rotate to a new segment file
     async fn rotate_segment(&mut self) -> Result<()> {
-        info!("🔄 Rotating WAL segment from {} to {}", self.current_segment, self.current_segment + 1);
+        info!(
+            "🔄 Rotating WAL segment from {} to {}",
+            self.current_segment,
+            self.current_segment + 1
+        );
 
         // Flush current segment
         self.flush().await?;
@@ -390,4 +407,3 @@ mod tests {
         assert!(writer.current_segment > initial_segment);
     }
 }
-

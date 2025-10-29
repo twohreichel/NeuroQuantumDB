@@ -7,7 +7,7 @@
 //! - Crash recovery simulation
 
 use neuroquantum_core::storage::{
-    pager::{PageId, PageStorageManager, PageType, PagerConfig, SyncMode},
+    pager::{PageStorageManager, PageType, PagerConfig, SyncMode},
     wal::{RecoveryStats, WALConfig, WALManager},
 };
 use std::sync::Arc;
@@ -86,7 +86,10 @@ async fn main() -> anyhow::Result<()> {
     println!();
     println!("📊 WAL Statistics:");
     println!("   Current LSN: {}", wal.get_current_lsn());
-    println!("   Transaction Table: {} active", wal.get_transaction_table().await.len());
+    println!(
+        "   Transaction Table: {} active",
+        wal.get_transaction_table().await.len()
+    );
     println!("   Dirty Pages: {}", wal.get_dirty_page_table().await.len());
 
     Ok(())
@@ -163,7 +166,12 @@ async fn demo_concurrent_transactions(
     // Wait for all transactions
     for (i, handle) in handles.into_iter().enumerate() {
         let (tx_id, page_id) = handle.await??;
-        println!("   Transaction {} committed: {} (page: {})", i + 1, tx_id, page_id.0);
+        println!(
+            "   Transaction {} committed: {} (page: {})",
+            i + 1,
+            tx_id,
+            page_id.0
+        );
     }
 
     println!("   ✅ All concurrent transactions completed");
@@ -187,7 +195,8 @@ async fn demo_transaction_abort(
     for i in 0..3 {
         let before = vec![0; 100];
         let after = vec![99; 100];
-        wal.log_update(tx_id, page_id, i * 100, before, after).await?;
+        wal.log_update(tx_id, page_id, i * 100, before, after)
+            .await?;
     }
 
     println!("   Logged 3 updates");
@@ -227,13 +236,15 @@ async fn demo_crash_recovery(
 
     // Committed transaction
     let tx1 = wal.begin_transaction().await?;
-    wal.log_update(tx1, page_id, 0, vec![0; 100], vec![1; 100]).await?;
+    wal.log_update(tx1, page_id, 0, vec![0; 100], vec![1; 100])
+        .await?;
     wal.commit_transaction(tx1).await?;
     println!("   Simulated committed transaction: {}", tx1);
 
     // Uncommitted transaction (simulates crash)
     let tx2 = wal.begin_transaction().await?;
-    wal.log_update(tx2, page_id, 100, vec![0; 100], vec![2; 100]).await?;
+    wal.log_update(tx2, page_id, 100, vec![0; 100], vec![2; 100])
+        .await?;
     println!("   Simulated uncommitted transaction: {} (crash!)", tx2);
 
     // Perform recovery
@@ -244,10 +255,15 @@ async fn demo_crash_recovery(
     println!("      - Records analyzed: {}", stats.records_analyzed);
     println!("      - Redo operations: {}", stats.redo_operations);
     println!("      - Undo operations: {}", stats.undo_operations);
-    println!("      - Transactions committed: {}", stats.transactions_committed);
-    println!("      - Transactions aborted: {}", stats.transactions_aborted);
+    println!(
+        "      - Transactions committed: {}",
+        stats.transactions_committed
+    );
+    println!(
+        "      - Transactions aborted: {}",
+        stats.transactions_aborted
+    );
     println!("      - Recovery time: {}ms", stats.recovery_time_ms);
 
     Ok(())
 }
-

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
 
-use super::{LSN, TransactionId, WALConfig};
+use super::{TransactionId, WALConfig, LSN};
 use crate::storage::pager::PageId;
 
 /// Checkpoint record metadata
@@ -131,12 +131,8 @@ mod tests {
         let mut dirty_pages = HashMap::new();
         dirty_pages.insert(PageId(1), 50);
 
-        let record = CheckpointManager::create_checkpoint_record(
-            1000,
-            vec![tx_id],
-            tx_table,
-            dirty_pages,
-        );
+        let record =
+            CheckpointManager::create_checkpoint_record(1000, vec![tx_id], tx_table, dirty_pages);
 
         let bytes = CheckpointManager::serialize_checkpoint(&record).unwrap();
         let deserialized = CheckpointManager::deserialize_checkpoint(&bytes).unwrap();
@@ -145,4 +141,3 @@ mod tests {
         assert_eq!(record.active_transactions, deserialized.active_transactions);
     }
 }
-

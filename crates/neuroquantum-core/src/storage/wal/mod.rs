@@ -50,13 +50,9 @@ pub enum WALRecordType {
         after_image: Vec<u8>,
     },
     /// Transaction commit
-    Commit {
-        tx_id: TransactionId,
-    },
+    Commit { tx_id: TransactionId },
     /// Transaction abort
-    Abort {
-        tx_id: TransactionId,
-    },
+    Abort { tx_id: TransactionId },
     /// Checkpoint begin
     CheckpointBegin {
         active_transactions: Vec<TransactionId>,
@@ -164,7 +160,7 @@ impl Default for WALConfig {
             wal_dir: PathBuf::from("data/wal"),
             segment_size: 64 * 1024 * 1024, // 64 MB
             sync_on_write: true,
-            buffer_size: 256 * 1024, // 256 KB
+            buffer_size: 256 * 1024,       // 256 KB
             checkpoint_interval_secs: 300, // 5 minutes
             min_segments_to_keep: 3,
         }
@@ -198,7 +194,7 @@ enum TransactionStatus {
 /// Ensures durability and atomicity of transactions.
 #[derive(Clone)]
 pub struct WALManager {
-    config: WALConfig,
+    _config: WALConfig,
     /// Current LSN counter
     next_lsn: Arc<AtomicU64>,
     /// Log writer for appending records
@@ -210,18 +206,18 @@ pub struct WALManager {
     /// Dirty page table: page_id -> recovery_lsn
     dirty_page_table: Arc<RwLock<HashMap<PageId, LSN>>>,
     /// Checkpoint manager
-    checkpoint_manager: Arc<CheckpointManager>,
+    _checkpoint_manager: Arc<CheckpointManager>,
     /// Recovery manager
     recovery_manager: Arc<RecoveryManager>,
 }
 
 impl WALManager {
     /// Create a new WAL manager
-    pub async fn new(
-        config: WALConfig,
-        pager: Arc<PageStorageManager>,
-    ) -> Result<Self> {
-        info!("📝 Initializing WAL Manager at: {}", config.wal_dir.display());
+    pub async fn new(config: WALConfig, pager: Arc<PageStorageManager>) -> Result<Self> {
+        info!(
+            "📝 Initializing WAL Manager at: {}",
+            config.wal_dir.display()
+        );
 
         // Create WAL directory if it doesn't exist
         tokio::fs::create_dir_all(&config.wal_dir).await?;
@@ -239,19 +235,16 @@ impl WALManager {
         let next_lsn = log_writer.get_next_lsn();
 
         let checkpoint_manager = Arc::new(CheckpointManager::new(config.clone()));
-        let recovery_manager = Arc::new(RecoveryManager::new(
-            config.clone(),
-            Arc::clone(&pager),
-        ));
+        let recovery_manager = Arc::new(RecoveryManager::new(config.clone(), Arc::clone(&pager)));
 
         let manager = Self {
-            config,
+            _config: config,
             next_lsn: Arc::new(AtomicU64::new(next_lsn)),
             log_writer: Arc::new(RwLock::new(log_writer)),
             active_txns: Arc::new(RwLock::new(HashMap::new())),
             transaction_table: Arc::new(RwLock::new(HashMap::new())),
             dirty_page_table: Arc::new(RwLock::new(HashMap::new())),
-            checkpoint_manager,
+            _checkpoint_manager: checkpoint_manager,
             recovery_manager,
         };
 
@@ -344,7 +337,10 @@ impl WALManager {
         let mut dirty_pages = self.dirty_page_table.write().await;
         dirty_pages.entry(page_id).or_insert(lsn);
 
-        debug!("📝 Update logged: TX={}, Page={}, LSN={}", tx_id, page_id.0, lsn);
+        debug!(
+            "📝 Update logged: TX={}, Page={}, LSN={}",
+            tx_id, page_id.0, lsn
+        );
         Ok(lsn)
     }
 
@@ -357,12 +353,7 @@ impl WALManager {
             tx_table.get(&tx_id).copied()
         };
 
-        let record = WALRecord::new(
-            lsn,
-            prev_lsn,
-            Some(tx_id),
-            WALRecordType::Commit { tx_id },
-        );
+        let record = WALRecord::new(lsn, prev_lsn, Some(tx_id), WALRecordType::Commit { tx_id });
 
         // Write commit record and force to disk
         self.append_log_record(record).await?;
@@ -392,12 +383,7 @@ impl WALManager {
             tx_table.get(&tx_id).copied()
         };
 
-        let record = WALRecord::new(
-            lsn,
-            prev_lsn,
-            Some(tx_id),
-            WALRecordType::Abort { tx_id },
-        );
+        let record = WALRecord::new(lsn, prev_lsn, Some(tx_id), WALRecordType::Abort { tx_id });
 
         // Write abort record
         self.append_log_record(record).await?;
@@ -532,7 +518,11 @@ mod tests {
         };
 
         let db_file = data_path.join("test.db");
-        let pager = Arc::new(PageStorageManager::new(&db_file, pager_config).await.unwrap());
+        let pager = Arc::new(
+            PageStorageManager::new(&db_file, pager_config)
+                .await
+                .unwrap(),
+        );
 
         let wal_config = WALConfig {
             wal_dir: wal_path,
@@ -543,7 +533,9 @@ mod tests {
             min_segments_to_keep: 2,
         };
 
-        let wal = WALManager::new(wal_config, Arc::clone(&pager)).await.unwrap();
+        let wal = WALManager::new(wal_config, Arc::clone(&pager))
+            .await
+            .unwrap();
 
         (temp_dir, pager, wal)
     }
@@ -595,7 +587,7 @@ mod tests {
     async fn test_checkpoint() {
         let (_temp, _pager, wal) = setup_test_env().await;
 
-        let tx_id = wal.begin_transaction().await.unwrap();
+        let _tx_id = wal.begin_transaction().await.unwrap();
 
         let checkpoint_lsn = wal.checkpoint().await.unwrap();
         assert!(checkpoint_lsn > 0);
@@ -620,4 +612,3 @@ mod tests {
         assert!(deserialized.verify_checksum());
     }
 }
-

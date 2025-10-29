@@ -19,7 +19,7 @@ use uuid::Uuid;
 pub use btree::{BTree, BTreeConfig};
 pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
-pub use wal::{WALConfig, WALManager, RecoveryStats};
+pub use wal::{RecoveryStats, WALConfig, WALManager};
 
 use crate::dna::{DNACompressor, EncodedData, QuantumDNACompressor};
 use crate::transaction::{IsolationLevel, TransactionManager};
