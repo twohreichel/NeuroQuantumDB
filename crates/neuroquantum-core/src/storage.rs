@@ -5,6 +5,7 @@
 pub mod btree;
 pub mod buffer;
 pub mod pager;
+pub mod wal;
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,7 @@ use uuid::Uuid;
 pub use btree::{BTree, BTreeConfig};
 pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
+pub use wal::{WALConfig, WALManager, RecoveryStats};
 
 use crate::dna::{DNACompressor, EncodedData, QuantumDNACompressor};
 use crate::transaction::{IsolationLevel, TransactionManager};
