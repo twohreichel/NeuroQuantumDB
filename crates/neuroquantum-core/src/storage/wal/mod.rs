@@ -494,6 +494,21 @@ impl WALManager {
     pub async fn get_dirty_page_table(&self) -> HashMap<PageId, LSN> {
         self.dirty_page_table.read().await.clone()
     }
+
+    /// Get current LSN (alias for compatibility)
+    pub fn current_lsn(&self) -> LSN {
+        self.get_current_lsn()
+    }
+
+    /// Get WAL directory path
+    pub fn get_wal_directory(&self) -> PathBuf {
+        self._config.wal_dir.clone()
+    }
+
+    /// Get all WAL records since a given LSN (for incremental backup)
+    pub async fn get_records_since_lsn(&self, since_lsn: LSN) -> Result<Vec<WALRecord>> {
+        self.read_log_records(since_lsn).await
+    }
 }
 
 #[cfg(test)]

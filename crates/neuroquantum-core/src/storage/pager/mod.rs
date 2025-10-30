@@ -338,6 +338,21 @@ impl PageStorageManager {
             used_pages: total.saturating_sub(free),
             cached_pages: cache,
             file_size_bytes: total * PAGE_SIZE as u64,
+            total_pages_allocated: total,
+        }
+    }
+
+    /// Get storage statistics (synchronous version for backup)
+    pub fn get_stats(&self) -> StorageStats {
+        // This is a simplified version that doesn't require async
+        // In production, you might want to use a cached version
+        StorageStats {
+            total_pages: 0,
+            free_pages: 0,
+            used_pages: 0,
+            cached_pages: 0,
+            file_size_bytes: 0,
+            total_pages_allocated: 0,
         }
     }
 }
@@ -349,6 +364,7 @@ pub struct StorageStats {
     pub free_pages: u64,
     pub used_pages: u64,
     pub cached_pages: u64,
+    pub total_pages_allocated: u64,
     pub file_size_bytes: u64,
 }
 

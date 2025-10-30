@@ -2,6 +2,7 @@
 //! Provides persistent file-based storage with DNA compression, B+ tree indexes,
 //! and ACID transaction support for production deployment
 
+pub mod backup;
 pub mod btree;
 pub mod buffer;
 pub mod pager;
@@ -16,6 +17,11 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use uuid::Uuid;
 
+pub use backup::{
+    BackupConfig, BackupManager, BackupMetadata, BackupStats, BackupStorageBackend,
+    BackupStorageType, BackupType, IncrementalBackup, LocalBackend, RestoreManager, RestoreOptions,
+    RestoreStats, S3Backend, S3Config,
+};
 pub use btree::{BTree, BTreeConfig};
 pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};

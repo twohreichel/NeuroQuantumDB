@@ -339,6 +339,12 @@ impl Page {
     pub fn set_lsn(&mut self, lsn: u64) {
         self.header.lsn = lsn;
     }
+
+    /// Serialize page to Vec<u8> (for backup)
+    pub fn serialize(&self) -> Result<Vec<u8>> {
+        let bytes = self.to_bytes()?;
+        Ok(bytes.to_vec())
+    }
 }
 
 impl fmt::Debug for Page {
