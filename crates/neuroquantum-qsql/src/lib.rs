@@ -16,6 +16,7 @@
 pub mod ast;
 pub mod error;
 pub mod executor;
+pub mod explain;
 pub mod natural_language;
 pub mod optimizer;
 pub mod parser;

@@ -15,6 +15,7 @@ tokio = { version = "1.47.1", features = ["full"] }
 # Serialization
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = "1.0.145"
+serde_yaml = "0.9"
 
 # Parsing
 regex = "1.11.2"
@@ -37,3 +38,8 @@ default = ["neuromorphic", "quantum", "natural-language"]
 neuromorphic = []
 quantum = []
 natural-language = []
+
+[[example]]
+name = "explain_analyze_demo"
+path = "../../examples/explain_analyze_demo.rs"
+

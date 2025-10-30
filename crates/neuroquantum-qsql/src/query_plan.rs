@@ -117,6 +117,8 @@ impl QueryExecutor {
             Statement::LearnPattern(learn) => self.execute_learn_pattern(learn, plan).await,
             Statement::AdaptWeights(adapt) => self.execute_adapt_weights(adapt, plan).await,
             Statement::QuantumJoin(qjoin) => self.execute_quantum_join(qjoin, plan).await,
+            Statement::Explain(explain) => self.execute_explain(explain, plan).await,
+            Statement::Analyze(analyze) => self.execute_analyze(analyze, plan).await,
             _ => Err(QSQLError::ExecutionError {
                 message: "Statement type not yet implemented".to_string(),
             }),
@@ -485,6 +487,173 @@ impl QueryExecutor {
             execution_time,
             rows_affected: 2,
             optimization_applied: true,
+            synaptic_pathways_used: 0,
+            quantum_operations: 0,
+        })
+    }
+
+    /// Execute EXPLAIN statement
+    async fn execute_explain(
+        &mut self,
+        explain: &ExplainStatement,
+        _plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
+        use crate::explain::{ExplainConfig, ExplainGenerator};
+
+        // Create a query plan for the inner statement
+        // For now, create a simple plan without full optimization
+        let inner_plan = QueryPlan {
+            statement: (*explain.statement).clone(),
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 100.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        // Generate explain plan
+        let config = ExplainConfig {
+            show_costs: true,
+            show_timing: explain.analyze,
+            show_buffers: explain.verbose,
+            show_synaptic_pathways: true,
+            show_quantum_ops: true,
+            format: explain.format.clone(),
+        };
+
+        let generator = ExplainGenerator::new(config);
+        let explain_plan = generator.generate_explain(&inner_plan, explain.analyze)?;
+
+        // Format output based on format
+        let output = match explain.format {
+            ExplainFormat::Text => generator.format_text(&explain_plan),
+            ExplainFormat::Json => generator.format_json(&explain_plan)?,
+            ExplainFormat::Yaml => generator.format_yaml(&explain_plan)?,
+            ExplainFormat::Xml => {
+                // Simple XML wrapper (full XML support could be added later)
+                format!(
+                    "<explain>{}</explain>",
+                    generator.format_text(&explain_plan)
+                )
+            }
+        };
+
+        // Return as a single-row result
+        let columns = vec![ColumnInfo {
+            name: "QUERY PLAN".to_string(),
+            data_type: DataType::VarChar(None),
+            nullable: false,
+        }];
+
+        let mut row = HashMap::new();
+        row.insert("QUERY PLAN".to_string(), QueryValue::String(output));
+
+        Ok(QueryResult {
+            rows: vec![row],
+            columns,
+            execution_time: explain_plan.planning_time,
+            rows_affected: 1,
+            optimization_applied: false,
+            synaptic_pathways_used: 0,
+            quantum_operations: 0,
+        })
+    }
+
+    /// Execute ANALYZE statement
+    async fn execute_analyze(
+        &mut self,
+        analyze: &AnalyzeStatement,
+        _plan: &QueryPlan,
+    ) -> QSQLResult<QueryResult> {
+        use crate::explain::TableStatistics;
+
+        // Simulate collecting table statistics
+        let stats = TableStatistics {
+            table_name: analyze.table_name.clone(),
+            row_count: 10000,
+            page_count: 100,
+            avg_row_size: 256,
+            null_frac: HashMap::new(),
+            distinct_values: HashMap::new(),
+            most_common_values: HashMap::new(),
+            histogram_bounds: HashMap::new(),
+            last_analyzed: std::time::SystemTime::now(),
+            synaptic_density: 0.75,
+            plasticity_index: 0.82,
+        };
+
+        // Return statistics as result
+        let columns = vec![
+            ColumnInfo {
+                name: "table_name".to_string(),
+                data_type: DataType::VarChar(Some(255)),
+                nullable: false,
+            },
+            ColumnInfo {
+                name: "row_count".to_string(),
+                data_type: DataType::BigInt,
+                nullable: false,
+            },
+            ColumnInfo {
+                name: "page_count".to_string(),
+                data_type: DataType::BigInt,
+                nullable: false,
+            },
+            ColumnInfo {
+                name: "avg_row_size".to_string(),
+                data_type: DataType::Integer,
+                nullable: false,
+            },
+            ColumnInfo {
+                name: "synaptic_density".to_string(),
+                data_type: DataType::Real,
+                nullable: false,
+            },
+            ColumnInfo {
+                name: "plasticity_index".to_string(),
+                data_type: DataType::Real,
+                nullable: false,
+            },
+        ];
+
+        let mut row = HashMap::new();
+        row.insert(
+            "table_name".to_string(),
+            QueryValue::String(stats.table_name),
+        );
+        row.insert(
+            "row_count".to_string(),
+            QueryValue::Integer(stats.row_count as i64),
+        );
+        row.insert(
+            "page_count".to_string(),
+            QueryValue::Integer(stats.page_count as i64),
+        );
+        row.insert(
+            "avg_row_size".to_string(),
+            QueryValue::Integer(stats.avg_row_size as i64),
+        );
+        row.insert(
+            "synaptic_density".to_string(),
+            QueryValue::Float(stats.synaptic_density as f64),
+        );
+        row.insert(
+            "plasticity_index".to_string(),
+            QueryValue::Float(stats.plasticity_index as f64),
+        );
+
+        Ok(QueryResult {
+            rows: vec![row],
+            columns,
+            execution_time: Duration::from_millis(50),
+            rows_affected: 1,
+            optimization_applied: false,
             synaptic_pathways_used: 0,
             quantum_operations: 0,
         })

@@ -71,6 +71,9 @@ pub enum Statement {
     QuantumSearch(QuantumSearchStatement),
     SuperpositionQuery(SuperpositionQueryStatement),
     QuantumJoin(QuantumJoinStatement),
+    // Query Analysis
+    Explain(ExplainStatement),
+    Analyze(AnalyzeStatement),
 }
 
 /// Standard SQL SELECT with neuromorphic and quantum extensions
@@ -499,6 +502,31 @@ pub struct QuantumJoinStatement {
     pub quantum_state: Option<String>,
 }
 
+/// EXPLAIN statement for query plan visualization
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExplainStatement {
+    pub statement: Box<Statement>,
+    pub analyze: bool,         // If true, execute and show actual statistics
+    pub verbose: bool,         // Show detailed information
+    pub format: ExplainFormat, // Output format
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ExplainFormat {
+    Text,
+    Json,
+    Yaml,
+    Xml,
+}
+
+/// ANALYZE statement for collecting table statistics
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AnalyzeStatement {
+    pub table_name: String,
+    pub columns: Option<Vec<String>>, // Specific columns to analyze, None = all
+    pub sample_size: Option<u64>,     // Number of rows to sample
+}
+
 // Display implementations for better debugging and logging
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -506,6 +534,10 @@ impl fmt::Display for Statement {
             Statement::Select(_s) => write!(f, "SELECT"),
             Statement::NeuroMatch(n) => write!(f, "NEUROMATCH {}", n.target_table),
             Statement::QuantumSearch(q) => write!(f, "QUANTUM_SEARCH {}", q.target_table),
+            Statement::Explain(e) => {
+                write!(f, "EXPLAIN {}", if e.analyze { "ANALYZE" } else { "" })
+            }
+            Statement::Analyze(a) => write!(f, "ANALYZE {}", a.table_name),
             _ => write!(f, "{:?}", self),
         }
     }
