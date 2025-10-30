@@ -9,7 +9,7 @@
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
@@ -203,7 +203,7 @@ impl RestoreManager {
     /// Restore full backup
     async fn restore_full_backup(
         &self,
-        metadata: &BackupMetadata,
+        _metadata: &BackupMetadata,
         stats: &mut RestoreStats,
     ) -> Result<()> {
         info!("Restoring full backup");
@@ -277,7 +277,7 @@ impl RestoreManager {
     }
 
     /// Restore data pages
-    async fn restore_data_pages(&self, data_dir: &PathBuf, stats: &mut RestoreStats) -> Result<()> {
+    async fn restore_data_pages(&self, data_dir: &Path, stats: &mut RestoreStats) -> Result<()> {
         info!("Restoring data pages from {}", data_dir.display());
 
         // List all chunk files
@@ -321,7 +321,7 @@ impl RestoreManager {
     }
 
     /// Restore WAL files
-    async fn restore_wal_files(&self, wal_dir: &PathBuf, stats: &mut RestoreStats) -> Result<()> {
+    async fn restore_wal_files(&self, wal_dir: &Path, stats: &mut RestoreStats) -> Result<()> {
         info!("Restoring WAL files from {}", wal_dir.display());
 
         let output_wal_dir = self.options.output_path.join("wal");
@@ -358,7 +358,7 @@ impl RestoreManager {
     /// Apply WAL records for point-in-time recovery
     async fn apply_wal_for_pitr(
         &self,
-        metadata: &BackupMetadata,
+        _metadata: &BackupMetadata,
         stats: &mut RestoreStats,
     ) -> Result<()> {
         info!("Applying WAL for point-in-time recovery");
@@ -396,7 +396,7 @@ impl RestoreManager {
         for wal_file in wal_files {
             debug!("Replaying WAL: {}", wal_file.display());
 
-            let wal_data = tokio::fs::read(&wal_file).await?;
+            let _wal_data = tokio::fs::read(&wal_file).await?;
 
             // Parse WAL records (simplified - actual implementation would be more complex)
             // For now, just count records as applied

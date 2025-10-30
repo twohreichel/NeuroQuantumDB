@@ -11,7 +11,7 @@
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
@@ -392,7 +392,7 @@ impl BackupManager {
     /// Backup all data pages
     async fn backup_data_pages(
         &self,
-        backup_dir: &PathBuf,
+        backup_dir: &Path,
         _metadata: &BackupMetadata,
     ) -> Result<BackupStats> {
         let mut stats = BackupStats::default();
@@ -452,7 +452,7 @@ impl BackupManager {
     /// Backup WAL files
     async fn backup_wal_files(
         &self,
-        backup_dir: &PathBuf,
+        backup_dir: &Path,
         _metadata: &BackupMetadata,
     ) -> Result<BackupStats> {
         let mut stats = BackupStats::default();

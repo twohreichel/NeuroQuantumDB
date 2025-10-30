@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -128,7 +128,7 @@ impl IncrementalBackup {
     async fn backup_wal_since_lsn(
         &self,
         _since_lsn: u64,
-        backup_dir: &PathBuf,
+        backup_dir: &Path,
     ) -> Result<BackupStats> {
         let mut stats = BackupStats::default();
         let wal_manager = self.wal_manager.read().await;

@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::S3Config;
 
@@ -15,22 +15,22 @@ use super::S3Config;
 #[async_trait]
 pub trait BackupStorageBackend: Send + Sync {
     /// Write a file to storage
-    async fn write_file(&self, path: &PathBuf, data: &[u8]) -> Result<()>;
+    async fn write_file(&self, path: &Path, data: &[u8]) -> Result<()>;
 
     /// Read a file from storage
-    async fn read_file(&self, path: &PathBuf) -> Result<Vec<u8>>;
+    async fn read_file(&self, path: &Path) -> Result<Vec<u8>>;
 
     /// Delete a file from storage
-    async fn delete_file(&self, path: &PathBuf) -> Result<()>;
+    async fn delete_file(&self, path: &Path) -> Result<()>;
 
     /// Create a directory
-    async fn create_directory(&self, path: &PathBuf) -> Result<()>;
+    async fn create_directory(&self, path: &Path) -> Result<()>;
 
     /// Check if directory exists
-    async fn directory_exists(&self, path: &PathBuf) -> Result<bool>;
+    async fn directory_exists(&self, path: &Path) -> Result<bool>;
 
     /// List files in a directory
-    async fn list_directory(&self, path: &PathBuf) -> Result<Vec<PathBuf>>;
+    async fn list_directory(&self, path: &Path) -> Result<Vec<PathBuf>>;
 }
 
 /// Local filesystem storage backend
@@ -47,9 +47,9 @@ impl LocalBackend {
     }
 
     /// Get full path for a relative path
-    fn get_full_path(&self, path: &PathBuf) -> PathBuf {
+    fn get_full_path(&self, path: &Path) -> PathBuf {
         if path.is_absolute() {
-            path.clone()
+            path.to_path_buf()
         } else {
             self.base_path.join(path)
         }
@@ -58,7 +58,7 @@ impl LocalBackend {
 
 #[async_trait]
 impl BackupStorageBackend for LocalBackend {
-    async fn write_file(&self, path: &PathBuf, data: &[u8]) -> Result<()> {
+    async fn write_file(&self, path: &Path, data: &[u8]) -> Result<()> {
         let full_path = self.get_full_path(path);
 
         // Create parent directories if needed
@@ -70,30 +70,30 @@ impl BackupStorageBackend for LocalBackend {
         Ok(())
     }
 
-    async fn read_file(&self, path: &PathBuf) -> Result<Vec<u8>> {
+    async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
         let full_path = self.get_full_path(path);
         let data = tokio::fs::read(&full_path).await?;
         Ok(data)
     }
 
-    async fn delete_file(&self, path: &PathBuf) -> Result<()> {
+    async fn delete_file(&self, path: &Path) -> Result<()> {
         let full_path = self.get_full_path(path);
         tokio::fs::remove_file(&full_path).await?;
         Ok(())
     }
 
-    async fn create_directory(&self, path: &PathBuf) -> Result<()> {
+    async fn create_directory(&self, path: &Path) -> Result<()> {
         let full_path = self.get_full_path(path);
         tokio::fs::create_dir_all(&full_path).await?;
         Ok(())
     }
 
-    async fn directory_exists(&self, path: &PathBuf) -> Result<bool> {
+    async fn directory_exists(&self, path: &Path) -> Result<bool> {
         let full_path = self.get_full_path(path);
         Ok(full_path.exists() && full_path.is_dir())
     }
 
-    async fn list_directory(&self, path: &PathBuf) -> Result<Vec<PathBuf>> {
+    async fn list_directory(&self, path: &Path) -> Result<Vec<PathBuf>> {
         let full_path = self.get_full_path(path);
         let mut entries = tokio::fs::read_dir(&full_path).await?;
         let mut files = Vec::new();
@@ -122,14 +122,14 @@ impl S3Backend {
     }
 
     /// Get S3 key for a path
-    fn get_s3_key(&self, path: &PathBuf) -> String {
+    fn get_s3_key(&self, path: &Path) -> String {
         path.to_string_lossy().to_string()
     }
 }
 
 #[async_trait]
 impl BackupStorageBackend for S3Backend {
-    async fn write_file(&self, path: &PathBuf, data: &[u8]) -> Result<()> {
+    async fn write_file(&self, path: &Path, data: &[u8]) -> Result<()> {
         let key = self.get_s3_key(path);
 
         // Production implementation would use AWS SDK:
@@ -152,7 +152,7 @@ impl BackupStorageBackend for S3Backend {
         Ok(())
     }
 
-    async fn read_file(&self, path: &PathBuf) -> Result<Vec<u8>> {
+    async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
         let key = self.get_s3_key(path);
 
         // Production implementation would use AWS SDK:
@@ -171,7 +171,7 @@ impl BackupStorageBackend for S3Backend {
         Ok(Vec::new())
     }
 
-    async fn delete_file(&self, path: &PathBuf) -> Result<()> {
+    async fn delete_file(&self, path: &Path) -> Result<()> {
         let key = self.get_s3_key(path);
 
         // Production implementation would use AWS SDK:
@@ -187,19 +187,19 @@ impl BackupStorageBackend for S3Backend {
         Ok(())
     }
 
-    async fn create_directory(&self, _path: &PathBuf) -> Result<()> {
+    async fn create_directory(&self, _path: &Path) -> Result<()> {
         // S3 doesn't have directories, but we can create a marker object
         // For now, no-op
         Ok(())
     }
 
-    async fn directory_exists(&self, _path: &PathBuf) -> Result<bool> {
+    async fn directory_exists(&self, _path: &Path) -> Result<bool> {
         // S3 doesn't have directories
         // Could check if any objects with this prefix exist
         Ok(true)
     }
 
-    async fn list_directory(&self, path: &PathBuf) -> Result<Vec<PathBuf>> {
+    async fn list_directory(&self, path: &Path) -> Result<Vec<PathBuf>> {
         let prefix = self.get_s3_key(path);
 
         // Production implementation would use AWS SDK:
