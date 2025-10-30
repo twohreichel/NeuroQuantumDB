@@ -318,6 +318,9 @@ mod tests {
         let page = Page::new(PageId(0), PageType::Data);
         io.write_page(&page).await.unwrap();
 
+        // Sync to ensure data is written to disk
+        io.sync().await.unwrap();
+
         // Size should be at least PAGE_SIZE
         assert!(io.file_size().await.unwrap() >= PAGE_SIZE as u64);
     }
