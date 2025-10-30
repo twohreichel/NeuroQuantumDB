@@ -1,0 +1,144 @@
+groups:
+  - name: neuroquantum_alerts
+    interval: 30s
+    rules:
+      # High Query Latency
+      - alert: HighQueryLatency
+        expr: histogram_quantile(0.99, rate(neuroquantum_query_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High query latency detected"
+          description: "P99 query latency is {{ $value }}s (threshold: 1s)"
+
+      # Slow Query Rate
+      - alert: HighSlowQueryRate
+        expr: rate(neuroquantum_slow_queries_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of slow queries"
+          description: "{{ $value }} slow queries per second in the last 5 minutes"
+
+      # High Lock Contention
+      - alert: HighLockContention
+        expr: rate(neuroquantum_lock_wait_seconds_total[5m]) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High lock contention detected"
+          description: "{{ $value }} seconds spent waiting on locks per second"
+
+      # Buffer Pool Hit Ratio
+      - alert: LowBufferPoolHitRatio
+        expr: neuroquantum_buffer_pool_hit_ratio < 0.90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low buffer pool hit ratio"
+          description: "Buffer pool hit ratio is {{ $value }} (threshold: 0.90)"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: neuroquantum_memory_usage_bytes / neuroquantum_memory_limit_bytes > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is at {{ $value | humanizePercentage }}"
+
+      # Connection Pool Saturation
+      - alert: ConnectionPoolSaturation
+        expr: neuroquantum_active_connections / neuroquantum_max_connections > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Connection pool near capacity"
+          description: "{{ $value | humanizePercentage }} of connection pool in use"
+
+      # WAL Growth Rate
+      - alert: HighWALGrowthRate
+        expr: rate(neuroquantum_wal_bytes_written[5m]) > 100 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "High WAL write rate"
+          description: "Writing {{ $value | humanize }}B/s to WAL"
+
+      # Index Not Used
+      - alert: UnusedIndexDetected
+        expr: neuroquantum_index_scans_total == 0 and time() - neuroquantum_index_created_timestamp > 86400
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Unused index detected"
+          description: "Index {{ $labels.index_name }} has not been used in 24 hours"
+
+      # Query Queue Buildup
+      - alert: QueryQueueBuildup
+        expr: neuroquantum_query_queue_length > 100
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Query queue building up"
+          description: "{{ $value }} queries waiting in queue"
+
+      # Service Down
+      - alert: NeuroQuantumDBDown
+        expr: up{job="neuroquantum-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NeuroQuantumDB API is down"
+          description: "The NeuroQuantumDB API has been down for more than 1 minute"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(neuroquantum_errors_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "{{ $value }} errors per second in the last 5 minutes"
+
+      # Disk Space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Only {{ $value | humanizePercentage }} of disk space remaining"
+
+      # WebSocket Connection Issues
+      - alert: WebSocketConnectionDrop
+        expr: rate(neuroquantum_websocket_disconnections_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket disconnection rate"
+          description: "{{ $value }} WebSocket disconnections per second"
+
+      # Quantum Operation Failures
+      - alert: QuantumOperationFailures
+        expr: rate(neuroquantum_quantum_operation_failures_total[10m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Quantum operation failures detected"
+          description: "{{ $value }} quantum operation failures per second"
+
