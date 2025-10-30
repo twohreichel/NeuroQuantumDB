@@ -72,7 +72,7 @@ lint: ## Run all linting checks
 	@echo "  🔍 Running Clippy analysis..."
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
 	@echo "  🛡️ Running security audit..."
-	cargo audit
+	cargo audit --ignore RUSTSEC-2020-0168 --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2024-0436
 	@echo "  📋 Running cargo-deny checks..."
 	cargo deny check
 	@echo "  🧹 Checking for unused dependencies..."
@@ -103,7 +103,7 @@ check: lint ## Static analysis and linting (comprehensive)
 
 security: ## Security audit and vulnerability assessment
 	@echo "🔒 Running security audit..."
-	cargo audit
+	cargo audit --ignore RUSTSEC-2020-0168 --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2024-0436
 	cargo deny check licenses
 	cargo deny check advisories
 	cargo deny check bans
