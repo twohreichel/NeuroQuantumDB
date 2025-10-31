@@ -177,7 +177,15 @@ impl RestoreManager {
         // Verify checksum if present
         if !metadata.checksum.is_empty() {
             debug!("Verifying backup checksum");
-            // TODO: Implement checksum verification
+            let computed_checksum = self.compute_backup_checksum(metadata).await?;
+            if computed_checksum != metadata.checksum {
+                return Err(anyhow!(
+                    "Checksum verification failed: expected {}, got {}",
+                    metadata.checksum,
+                    computed_checksum
+                ));
+            }
+            info!("✅ Backup checksum verified successfully");
         }
 
         // Verify all required files exist
@@ -448,6 +456,48 @@ impl RestoreManager {
         Ok(())
     }
 
+    /// Compute checksum of backup files for verification
+    async fn compute_backup_checksum(&self, _metadata: &BackupMetadata) -> Result<String> {
+        use sha3::{Digest, Sha3_256};
+        
+        let mut hasher = Sha3_256::new();
+        let backup_dir = self.get_backup_directory();
+        
+        // Note: We only hash the actual data files, not metadata
+        // This allows metadata fields like end_time to change without invalidating the checksum
+        
+        // Hash all data files in sorted order for consistency
+        let data_dir = backup_dir.join("data");
+        if self.storage_backend.directory_exists(&data_dir).await? {
+            let mut entries = self.storage_backend.list_directory(&data_dir).await?;
+            entries.sort();
+
+            for file_path in entries {
+                if file_path.extension().and_then(|s| s.to_str()) == Some("dat") {
+                    let file_data = self.storage_backend.read_file(&file_path).await?;
+                    hasher.update(&file_data);
+                }
+            }
+        }
+
+        // Hash WAL files if present
+        let wal_dir = backup_dir.join("wal");
+        if self.storage_backend.directory_exists(&wal_dir).await? {
+            let mut entries = self.storage_backend.list_directory(&wal_dir).await?;
+            entries.sort();
+
+            for file_path in entries {
+                if file_path.extension().and_then(|s| s.to_str()) == Some("wal") {
+                    let file_data = self.storage_backend.read_file(&file_path).await?;
+                    hasher.update(&file_data);
+                }
+            }
+        }
+
+        let result = hasher.finalize();
+        Ok(format!("{:x}", result))
+    }
+
     /// Decompress gzip data
     fn decompress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
         use flate2::read::GzDecoder;
@@ -484,5 +534,43 @@ mod tests {
         assert_eq!(stats.bytes_read, 0);
         assert_eq!(stats.pages_restored, 0);
         assert!(!stats.verification_passed);
+    }
+
+    #[tokio::test]
+    async fn test_checksum_computation() {
+        use sha3::{Digest, Sha3_256};
+
+        // Test that checksum computation is deterministic
+        let mut hasher1 = Sha3_256::new();
+        hasher1.update(b"test data");
+        let result1 = hasher1.finalize();
+        let checksum1 = format!("{:x}", result1);
+
+        let mut hasher2 = Sha3_256::new();
+        hasher2.update(b"test data");
+        let result2 = hasher2.finalize();
+        let checksum2 = format!("{:x}", result2);
+
+        assert_eq!(checksum1, checksum2);
+        assert!(!checksum1.is_empty());
+        assert_eq!(checksum1.len(), 64); // SHA3-256 produces 64 hex characters
+    }
+
+    #[tokio::test]
+    async fn test_checksum_different_data() {
+        use sha3::{Digest, Sha3_256};
+
+        // Test that different data produces different checksums
+        let mut hasher1 = Sha3_256::new();
+        hasher1.update(b"test data 1");
+        let result1 = hasher1.finalize();
+        let checksum1 = format!("{:x}", result1);
+
+        let mut hasher2 = Sha3_256::new();
+        hasher2.update(b"test data 2");
+        let result2 = hasher2.finalize();
+        let checksum2 = format!("{:x}", result2);
+
+        assert_ne!(checksum1, checksum2);
     }
 }

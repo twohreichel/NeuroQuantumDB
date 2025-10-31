@@ -291,8 +291,14 @@ impl StorageEngine {
         // Load existing metadata or create new
         let metadata = Self::load_or_create_metadata(&data_dir).await?;
 
+        // Initialize transaction manager with real log manager
+        let log_dir = data_dir.join("logs");
+        let transaction_manager = crate::transaction::TransactionManager::new_async(&log_dir)
+            .await
+            .map_err(|e| anyhow!("Failed to initialize transaction manager: {}", e))?;
+
         let mut engine = Self {
-            data_dir,
+            data_dir: data_dir.clone(),
             indexes: HashMap::new(),
             transaction_log: Vec::new(),
             compressed_blocks: HashMap::new(),
@@ -302,7 +308,7 @@ impl StorageEngine {
             next_lsn: 1,
             row_cache: HashMap::new(),
             cache_limit: 10000, // 10k rows in cache
-            transaction_manager: TransactionManager::new(),
+            transaction_manager,
         };
 
         // Load existing data
@@ -1579,6 +1585,197 @@ impl StorageEngine {
             .cleanup_timed_out_transactions()
             .await
             .map_err(|e| anyhow!("Failed to cleanup transactions: {}", e))
+    }
+
+    // === RECOVERY OPERATIONS ===
+
+    /// Apply after-image to storage (REDO operation for recovery)
+    pub async fn apply_after_image(
+        &mut self,
+        table: &str,
+        key: &str,
+        after_image: &[u8],
+    ) -> Result<()> {
+        debug!("♻️  Applying after-image (REDO) for {}.{}", table, key);
+
+        // Deserialize the row from after-image
+        let row: Row = serde_json::from_slice(after_image)
+            .map_err(|e| anyhow!("Failed to deserialize after-image: {}", e))?;
+
+        // Check if table exists
+        let schema = self
+            .metadata
+            .tables
+            .get(table)
+            .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+            .clone();
+
+        // Apply the row to storage
+        let compressed_data = self.compress_row(&row).await?;
+        self.compressed_blocks.insert(row.id, compressed_data);
+
+        // Update indexes
+        self.update_indexes_for_insert(&schema, &row)?;
+
+        // Add to cache
+        self.add_to_cache(row.clone());
+
+        debug!("✅ REDO applied for row ID: {}", row.id);
+        Ok(())
+    }
+
+    /// Apply before-image to storage (UNDO operation for recovery)
+    pub async fn apply_before_image(
+        &mut self,
+        table: &str,
+        key: &str,
+        before_image: Option<&[u8]>,
+    ) -> Result<()> {
+        debug!("⏪ Applying before-image (UNDO) for {}.{}", table, key);
+
+        if let Some(before_data) = before_image {
+            // Deserialize the old row from before-image
+            let old_row: Row = serde_json::from_slice(before_data)
+                .map_err(|e| anyhow!("Failed to deserialize before-image: {}", e))?;
+
+            // Check if table exists
+            let schema = self
+                .metadata
+                .tables
+                .get(table)
+                .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+                .clone();
+
+            // Restore the old row to storage
+            let compressed_data = self.compress_row(&old_row).await?;
+            self.compressed_blocks.insert(old_row.id, compressed_data);
+
+            // Update indexes to old state
+            self.update_indexes_for_insert(&schema, &old_row)?;
+
+            // Update cache
+            self.add_to_cache(old_row.clone());
+
+            debug!("✅ UNDO applied for row ID: {}", old_row.id);
+        } else {
+            // No before-image means this was an INSERT - we need to remove the row
+            // Parse row ID from key
+            if let Ok(row_id) = key.parse::<RowId>() {
+                self.compressed_blocks.remove(&row_id);
+                self.row_cache.remove(&row_id);
+
+                debug!("✅ UNDO applied: removed row ID {}", row_id);
+            } else {
+                tracing::warn!("Could not parse row ID from key: {}", key);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply a log record during recovery (convenience method)
+    pub async fn apply_log_record(
+        &mut self,
+        record: &crate::transaction::LogRecord,
+        is_redo: bool,
+    ) -> Result<()> {
+        use crate::transaction::LogRecordType;
+
+        match &record.record_type {
+            LogRecordType::Update {
+                table,
+                key,
+                before_image,
+                after_image,
+                ..
+            } => {
+                if is_redo {
+                    self.apply_after_image(table, key, after_image).await?;
+                } else {
+                    self.apply_before_image(table, key, before_image.as_deref()).await?;
+                }
+            }
+            _ => {
+                // Other log record types don't need storage application
+                debug!("Skipping non-update log record type");
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Perform crash recovery by replaying WAL logs
+    /// This integrates the TransactionManager's recovery with storage operations
+    pub async fn perform_recovery(&mut self) -> Result<()> {
+        use crate::transaction::{LogRecordType, TransactionId};
+        use std::collections::HashSet;
+
+        info!("🔄 Starting storage-level crash recovery...");
+
+        // Get the WAL log manager from transaction manager (via shared reference)
+        // For now, we'll read the logs directly using the internal log manager
+        let log_dir = self.data_dir.join("logs");
+        let log_manager = crate::transaction::LogManager::new(&log_dir).await
+            .map_err(|e| anyhow!("Failed to initialize log manager: {}", e))?;
+
+        let log_records = log_manager.read_log().await
+            .map_err(|e| anyhow!("Failed to read log: {}", e))?;
+
+        if log_records.is_empty() {
+            info!("No log records to recover");
+            return Ok(());
+        }
+
+        // Phase 1: Analysis - determine which transactions to undo/redo
+        let mut active_txs: HashSet<TransactionId> = HashSet::new();
+        let mut committed_txs: HashSet<TransactionId> = HashSet::new();
+
+        for record in &log_records {
+            match &record.record_type {
+                LogRecordType::Begin { tx_id, .. } => {
+                    active_txs.insert(*tx_id);
+                }
+                LogRecordType::Commit { tx_id } => {
+                    active_txs.remove(tx_id);
+                    committed_txs.insert(*tx_id);
+                }
+                LogRecordType::Abort { tx_id } => {
+                    active_txs.remove(tx_id);
+                }
+                _ => {}
+            }
+        }
+
+        info!(
+            "Analysis: {} transactions to undo, {} to redo",
+            active_txs.len(),
+            committed_txs.len()
+        );
+
+        // Phase 2: REDO - reapply committed transactions
+        for record in &log_records {
+            if let Some(tx_id) = record.tx_id {
+                if committed_txs.contains(&tx_id) {
+                    self.apply_log_record(record, true).await?;
+                }
+            }
+        }
+
+        info!("REDO phase completed");
+
+        // Phase 3: UNDO - rollback uncommitted transactions
+        for record in log_records.iter().rev() {
+            if let Some(tx_id) = record.tx_id {
+                if active_txs.contains(&tx_id) {
+                    self.apply_log_record(record, false).await?;
+                }
+            }
+        }
+
+        info!("UNDO phase completed");
+        info!("✅ Storage-level crash recovery completed");
+
+        Ok(())
     }
 }
 

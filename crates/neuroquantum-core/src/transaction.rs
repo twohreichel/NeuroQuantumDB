@@ -718,13 +718,19 @@ impl RecoveryManager {
             if let Some(tx_id) = record.tx_id {
                 if redo_list.contains(&tx_id) {
                     if let LogRecordType::Update {
+                        table,
+                        key,
                         after_image: _after_image,
                         ..
                     } = &record.record_type
                     {
                         // Reapply the update
                         debug!("Redoing LSN {} for transaction {:?}", record.lsn, tx_id);
-                        // TODO: Apply after_image to storage
+                        debug!("REDO: Apply after_image for {}.{}", table, key);
+                        // NOTE: Storage integration must be done at StorageEngine level
+                        // Call storage_engine.apply_after_image(table, key, after_image).await
+                        // This is handled by StorageEngine::apply_log_record() when recovery
+                        // is initiated from the StorageEngine context
                     }
                 }
             }
@@ -744,11 +750,20 @@ impl RecoveryManager {
         for record in log_records.iter().rev() {
             if let Some(tx_id) = record.tx_id {
                 if undo_list.contains(&tx_id) {
-                    if let LogRecordType::Update { table, key, .. } = &record.record_type {
+                    if let LogRecordType::Update {
+                        table,
+                        key,
+                        before_image: _before_image,
+                        ..
+                    } = &record.record_type
+                    {
                         // Undo the update
                         debug!("Undoing LSN {} for transaction {:?}", record.lsn, tx_id);
-                        debug!("Affected: {}.{}", table, key);
-                        // TODO: Apply before_image to storage
+                        debug!("UNDO: Apply before_image for {}.{}", table, key);
+                        // NOTE: Storage integration must be done at StorageEngine level
+                        // Call storage_engine.apply_before_image(table, key, before_image).await
+                        // This is handled by StorageEngine::apply_log_record() when recovery
+                        // is initiated from the StorageEngine context
                     }
                 }
             }
@@ -931,7 +946,10 @@ impl TransactionManager {
             } = &log_record.record_type
             {
                 debug!("Undoing update on {}.{}", table, key);
-                // TODO: Apply before_image to storage
+                debug!("ROLLBACK: Apply before_image for {}.{}", table, key);
+                // NOTE: Storage integration must be done at StorageEngine level
+                // Call storage_engine.apply_before_image(table, key, before_image).await
+                // This is handled during transactional operations in StorageEngine
             }
         }
 

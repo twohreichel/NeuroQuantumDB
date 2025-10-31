@@ -348,6 +348,10 @@ impl BackupManager {
                 / (stats.duration_ms as f64 / 1000.0);
         }
 
+        // Step 4: Calculate checksum for verification
+        info!("Calculating backup checksum");
+        metadata.checksum = self.compute_backup_checksum(&backup_dir, metadata).await?;
+
         Ok(stats)
     }
 
@@ -526,6 +530,51 @@ impl BackupManager {
             .write_file(&metadata_path, metadata_json.as_bytes())
             .await?;
         Ok(())
+    }
+
+    /// Compute checksum of backup files for verification
+    async fn compute_backup_checksum(
+        &self,
+        backup_dir: &Path,
+        _metadata: &BackupMetadata,
+    ) -> Result<String> {
+        use sha3::{Digest, Sha3_256};
+
+        let mut hasher = Sha3_256::new();
+
+        // Note: We only hash the actual data files, not metadata
+        // This allows metadata fields like end_time to change without invalidating the checksum
+
+        // Hash all data files in sorted order for consistency
+        let data_dir = backup_dir.join("data");
+        if self.storage_backend.directory_exists(&data_dir).await? {
+            let mut entries = self.storage_backend.list_directory(&data_dir).await?;
+            entries.sort();
+
+            for file_path in entries {
+                if file_path.extension().and_then(|s| s.to_str()) == Some("dat") {
+                    let file_data = self.storage_backend.read_file(&file_path).await?;
+                    hasher.update(&file_data);
+                }
+            }
+        }
+
+        // Hash WAL files if present
+        let wal_dir = backup_dir.join("wal");
+        if self.storage_backend.directory_exists(&wal_dir).await? {
+            let mut entries = self.storage_backend.list_directory(&wal_dir).await?;
+            entries.sort();
+
+            for file_path in entries {
+                if file_path.extension().and_then(|s| s.to_str()) == Some("wal") {
+                    let file_data = self.storage_backend.read_file(&file_path).await?;
+                    hasher.update(&file_data);
+                }
+            }
+        }
+
+        let result = hasher.finalize();
+        Ok(format!("{:x}", result))
     }
 
     /// Find last backup of a specific type

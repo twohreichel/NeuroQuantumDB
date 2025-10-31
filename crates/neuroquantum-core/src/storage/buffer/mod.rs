@@ -80,6 +80,10 @@ pub struct BufferPoolManager {
     flush_semaphore: Arc<Semaphore>,
     /// Background flusher (optional)
     flusher: Option<Arc<BackgroundFlusher>>,
+    /// Cache hit counter
+    cache_hits: Arc<RwLock<u64>>,
+    /// Cache miss counter
+    cache_misses: Arc<RwLock<u64>>,
 }
 
 impl BufferPoolManager {
@@ -116,6 +120,8 @@ impl BufferPoolManager {
             dirty_pages: Arc::new(RwLock::new(HashMap::new())),
             flush_semaphore: Arc::new(Semaphore::new(10)), // Max 10 concurrent flushes
             flusher: None,
+            cache_hits: Arc::new(RwLock::new(0)),
+            cache_misses: Arc::new(RwLock::new(0)),
         };
 
         // Start background flusher if enabled
@@ -151,6 +157,12 @@ impl BufferPoolManager {
         if let Some(&frame_id) = page_table.get(&page_id) {
             drop(page_table);
 
+            // Record cache hit
+            {
+                let mut hits = self.cache_hits.write().await;
+                *hits += 1;
+            }
+
             // Update access in eviction policy
             let mut eviction = self.eviction.write().await;
             eviction.record_access(frame_id);
@@ -164,13 +176,19 @@ impl BufferPoolManager {
 
             frame.pin();
             debug!(
-                "📌 Fetched page {:?} from buffer (frame {:?})",
+                "📌 Fetched page {:?} from buffer (frame {:?}) [CACHE HIT]",
                 page_id, frame_id
             );
 
             return Ok(frame.page().await);
         }
         drop(page_table);
+
+        // Record cache miss
+        {
+            let mut misses = self.cache_misses.write().await;
+            *misses += 1;
+        }
 
         // Page not in buffer - need to load it
         self.load_page(page_id).await
@@ -409,13 +427,51 @@ impl BufferPoolManager {
 
         let pinned_count = frames.values().filter(|f| f.is_pinned()).count();
 
+        // Calculate hit rate
+        let hits = *self.cache_hits.read().await;
+        let misses = *self.cache_misses.read().await;
+        let total_accesses = hits + misses;
+        let hit_rate = if total_accesses > 0 {
+            hits as f64 / total_accesses as f64
+        } else {
+            0.0
+        };
+
         BufferPoolStats {
             total_frames,
             used_frames,
             free_frames,
             dirty_frames: dirty_count,
             pinned_frames: pinned_count,
-            hit_rate: 0.0, // TODO: Implement hit rate tracking
+            hit_rate,
+        }
+    }
+
+    /// Reset cache statistics (useful for benchmarking)
+    pub async fn reset_stats(&self) {
+        let mut hits = self.cache_hits.write().await;
+        let mut misses = self.cache_misses.write().await;
+        *hits = 0;
+        *misses = 0;
+        debug!("🔄 Cache statistics reset");
+    }
+
+    /// Get detailed cache metrics
+    pub async fn cache_metrics(&self) -> CacheMetrics {
+        let hits = *self.cache_hits.read().await;
+        let misses = *self.cache_misses.read().await;
+        let total_accesses = hits + misses;
+        let hit_rate = if total_accesses > 0 {
+            hits as f64 / total_accesses as f64
+        } else {
+            0.0
+        };
+
+        CacheMetrics {
+            hits,
+            misses,
+            total_accesses,
+            hit_rate,
         }
     }
 
@@ -434,6 +490,15 @@ impl BufferPoolManager {
         info!("✅ BufferPoolManager shutdown complete");
         Ok(())
     }
+}
+
+/// Cache metrics for monitoring
+#[derive(Debug, Clone, Copy)]
+pub struct CacheMetrics {
+    pub hits: u64,
+    pub misses: u64,
+    pub total_accesses: u64,
+    pub hit_rate: f64,
 }
 
 /// Buffer pool statistics
@@ -531,6 +596,155 @@ mod tests {
 
         let stats = buffer_pool.stats().await;
         assert_eq!(stats.dirty_frames, 1);
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit_rate_initial() {
+        let (buffer_pool, _temp_dir) = create_test_buffer_pool().await;
+
+        // Initially, hit rate should be 0.0 (no accesses yet)
+        let metrics = buffer_pool.cache_metrics().await;
+        assert_eq!(metrics.hits, 0);
+        assert_eq!(metrics.misses, 0);
+        assert_eq!(metrics.total_accesses, 0);
+        assert_eq!(metrics.hit_rate, 0.0);
+
+        let stats = buffer_pool.stats().await;
+        assert_eq!(stats.hit_rate, 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_cache_miss() {
+        let (buffer_pool, _temp_dir) = create_test_buffer_pool().await;
+
+        // First access to a page should be a miss
+        let page_id = buffer_pool
+            .pager
+            .allocate_page(PageType::Data)
+            .await
+            .unwrap();
+
+        let _page = buffer_pool.fetch_page(page_id).await.unwrap();
+
+        let metrics = buffer_pool.cache_metrics().await;
+        assert_eq!(metrics.hits, 0);
+        assert_eq!(metrics.misses, 1);
+        assert_eq!(metrics.total_accesses, 1);
+        assert_eq!(metrics.hit_rate, 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit() {
+        let (buffer_pool, _temp_dir) = create_test_buffer_pool().await;
+
+        let page_id = buffer_pool
+            .pager
+            .allocate_page(PageType::Data)
+            .await
+            .unwrap();
+
+        // First access - miss
+        let page = buffer_pool.fetch_page(page_id).await.unwrap();
+        drop(page);
+        buffer_pool.unpin_page(page_id, false).await.unwrap();
+
+        // Second access to same page - should be a hit
+        let _page = buffer_pool.fetch_page(page_id).await.unwrap();
+
+        let metrics = buffer_pool.cache_metrics().await;
+        assert_eq!(metrics.hits, 1);
+        assert_eq!(metrics.misses, 1);
+        assert_eq!(metrics.total_accesses, 2);
+        assert_eq!(metrics.hit_rate, 0.5); // 1 hit out of 2 accesses
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit_rate_multiple_accesses() {
+        let (buffer_pool, _temp_dir) = create_test_buffer_pool().await;
+
+        // Create 3 pages
+        let page1 = buffer_pool
+            .pager
+            .allocate_page(PageType::Data)
+            .await
+            .unwrap();
+        let page2 = buffer_pool
+            .pager
+            .allocate_page(PageType::Data)
+            .await
+            .unwrap();
+        let page3 = buffer_pool
+            .pager
+            .allocate_page(PageType::Data)
+            .await
+            .unwrap();
+
+        // Access pattern: page1, page2, page1, page3, page1, page2
+        // Misses: page1, page2, page3 = 3
+        // Hits: page1 (2x), page2 (1x) = 3
+        // Total: 6, Hit rate: 3/6 = 0.5
+
+        let p = buffer_pool.fetch_page(page1).await.unwrap(); // miss
+        drop(p);
+        buffer_pool.unpin_page(page1, false).await.unwrap();
+
+        let p = buffer_pool.fetch_page(page2).await.unwrap(); // miss
+        drop(p);
+        buffer_pool.unpin_page(page2, false).await.unwrap();
+
+        let p = buffer_pool.fetch_page(page1).await.unwrap(); // hit
+        drop(p);
+        buffer_pool.unpin_page(page1, false).await.unwrap();
+
+        let p = buffer_pool.fetch_page(page3).await.unwrap(); // miss
+        drop(p);
+        buffer_pool.unpin_page(page3, false).await.unwrap();
+
+        let p = buffer_pool.fetch_page(page1).await.unwrap(); // hit
+        drop(p);
+        buffer_pool.unpin_page(page1, false).await.unwrap();
+
+        let p = buffer_pool.fetch_page(page2).await.unwrap(); // hit
+        drop(p);
+        buffer_pool.unpin_page(page2, false).await.unwrap();
+
+        let metrics = buffer_pool.cache_metrics().await;
+        assert_eq!(metrics.hits, 3);
+        assert_eq!(metrics.misses, 3);
+        assert_eq!(metrics.total_accesses, 6);
+        assert_eq!(metrics.hit_rate, 0.5);
+
+        let stats = buffer_pool.stats().await;
+        assert_eq!(stats.hit_rate, 0.5);
+    }
+
+    #[tokio::test]
+    async fn test_reset_stats() {
+        let (buffer_pool, _temp_dir) = create_test_buffer_pool().await;
+
+        let page_id = buffer_pool
+            .pager
+            .allocate_page(PageType::Data)
+            .await
+            .unwrap();
+
+        // Generate some hits and misses
+        let _ = buffer_pool.fetch_page(page_id).await.unwrap(); // miss
+        buffer_pool.unpin_page(page_id, false).await.unwrap();
+        let _ = buffer_pool.fetch_page(page_id).await.unwrap(); // hit
+        buffer_pool.unpin_page(page_id, false).await.unwrap();
+
+        let metrics_before = buffer_pool.cache_metrics().await;
+        assert_eq!(metrics_before.total_accesses, 2);
+
+        // Reset stats
+        buffer_pool.reset_stats().await;
+
+        let metrics_after = buffer_pool.cache_metrics().await;
+        assert_eq!(metrics_after.hits, 0);
+        assert_eq!(metrics_after.misses, 0);
+        assert_eq!(metrics_after.total_accesses, 0);
+        assert_eq!(metrics_after.hit_rate, 0.0);
     }
 
     #[tokio::test]
