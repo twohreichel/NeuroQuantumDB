@@ -459,13 +459,13 @@ impl RestoreManager {
     /// Compute checksum of backup files for verification
     async fn compute_backup_checksum(&self, _metadata: &BackupMetadata) -> Result<String> {
         use sha3::{Digest, Sha3_256};
-        
+
         let mut hasher = Sha3_256::new();
         let backup_dir = self.get_backup_directory();
-        
+
         // Note: We only hash the actual data files, not metadata
         // This allows metadata fields like end_time to change without invalidating the checksum
-        
+
         // Hash all data files in sorted order for consistency
         let data_dir = backup_dir.join("data");
         if self.storage_backend.directory_exists(&data_dir).await? {

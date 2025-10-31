@@ -1692,7 +1692,8 @@ impl StorageEngine {
                 if is_redo {
                     self.apply_after_image(table, key, after_image).await?;
                 } else {
-                    self.apply_before_image(table, key, before_image.as_deref()).await?;
+                    self.apply_before_image(table, key, before_image.as_deref())
+                        .await?;
                 }
             }
             _ => {
@@ -1715,10 +1716,13 @@ impl StorageEngine {
         // Get the WAL log manager from transaction manager (via shared reference)
         // For now, we'll read the logs directly using the internal log manager
         let log_dir = self.data_dir.join("logs");
-        let log_manager = crate::transaction::LogManager::new(&log_dir).await
+        let log_manager = crate::transaction::LogManager::new(&log_dir)
+            .await
             .map_err(|e| anyhow!("Failed to initialize log manager: {}", e))?;
 
-        let log_records = log_manager.read_log().await
+        let log_records = log_manager
+            .read_log()
+            .await
             .map_err(|e| anyhow!("Failed to read log: {}", e))?;
 
         if log_records.is_empty() {

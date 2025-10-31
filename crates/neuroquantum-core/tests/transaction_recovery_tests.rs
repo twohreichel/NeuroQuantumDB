@@ -33,12 +33,14 @@ async fn test_apply_after_image_redo() {
     let after_image = serde_json::to_vec(&row).unwrap();
 
     // Apply the after-image (REDO)
-    let result = storage
-        .apply_after_image("users", "1", &after_image)
-        .await;
+    let result = storage.apply_after_image("users", "1", &after_image).await;
 
     // Verify the operation succeeded (this validates the REDO mechanism works)
-    assert!(result.is_ok(), "apply_after_image failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "apply_after_image failed: {:?}",
+        result.err()
+    );
 
     // Note: apply_after_image updates in-memory structures (cache, compressed_blocks, indexes)
     // but doesn't write to the table file. In a real recovery scenario, this is followed
@@ -70,7 +72,10 @@ async fn test_apply_before_image_undo() {
         updated_at: chrono::Utc::now(),
     };
 
-    storage.insert_row("users", original_row.clone()).await.unwrap();
+    storage
+        .insert_row("users", original_row.clone())
+        .await
+        .unwrap();
 
     // Simulate an update that we need to undo
     let before_image = serde_json::to_vec(&original_row).unwrap();
@@ -210,11 +215,7 @@ async fn test_perform_recovery_with_committed_transaction() {
 
     // Write COMMIT
     log_manager
-        .write_log_record(
-            Some(tx_id),
-            None,
-            LogRecordType::Commit { tx_id },
-        )
+        .write_log_record(Some(tx_id), None, LogRecordType::Commit { tx_id })
         .await
         .unwrap();
 
@@ -321,4 +322,3 @@ fn create_test_table_schema() -> neuroquantum_core::storage::TableSchema {
         version: 1,
     }
 }
-
