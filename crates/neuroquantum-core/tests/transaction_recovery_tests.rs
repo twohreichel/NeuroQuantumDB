@@ -290,7 +290,8 @@ async fn test_transactional_operations_with_rollback() {
     // The row should have been inserted but the transaction log indicates rollback
     // In a full implementation, MVCC would prevent seeing this row
     // For now, we just verify the rollback completed without error
-    assert!(rows.len() >= 0);
+    // Note: rows.len() returns usize which is always >= 0, so we just verify the query succeeds
+    let _ = rows.len();
 }
 
 // Helper function to create test table schema
