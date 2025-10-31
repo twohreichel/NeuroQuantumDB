@@ -340,7 +340,7 @@ impl Page {
         self.header.lsn = lsn;
     }
 
-    /// Serialize page to Vec<u8> (for backup)
+    /// Serialize page to `Vec<u8>` (for backup)
     pub fn serialize(&self) -> Result<Vec<u8>> {
         let bytes = self.to_bytes()?;
         Ok(bytes.to_vec())
