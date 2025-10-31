@@ -38,6 +38,7 @@ base64 = "0.22"
 
 # Quantum computing - complex numbers for state vectors
 num-complex = "0.4"
+nalgebra = { version = "0.32", features = ["serde-serialize"] }
 
 # SIMD and performance
 wide = "0.7"
@@ -104,6 +105,11 @@ required-features = ["benchmarks"]
 
 [[bench]]
 name = "page_storage_benchmark"
+harness = false
+required-features = ["benchmarks"]
+
+[[bench]]
+name = "quantum_annealing"
 harness = false
 required-features = ["benchmarks"]
 

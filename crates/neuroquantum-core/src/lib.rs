@@ -18,6 +18,11 @@ pub mod plasticity;
 pub mod quantum;
 pub mod quantum_processor; // New: True Grover's algorithm implementation
 pub mod query;
+
+// Quantum extensions submodules
+pub use quantum::parallel_tempering;
+pub use quantum::qubo;
+pub use quantum::tfim;
 pub mod security;
 pub mod storage;
 pub mod synaptic;
