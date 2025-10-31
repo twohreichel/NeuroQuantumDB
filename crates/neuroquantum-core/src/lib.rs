@@ -47,6 +47,13 @@ pub use transaction::{
     TransactionManager, TransactionStatistics, TransactionStatus, LSN,
 };
 
+// Quantum search constants
+/// Minimum search space size to ensure meaningful quantum advantage using Grover's algorithm
+const MIN_QUANTUM_SEARCH_SPACE: usize = 4;
+
+/// Minimum quantum speedup threshold to ensure quantum performance exceeds classical
+const MIN_QUANTUM_SPEEDUP: f32 = 1.01;
+
 // Main database engine that integrates all components
 #[derive(Clone)]
 pub struct NeuroQuantumDB {
@@ -287,7 +294,7 @@ impl NeuroQuantumDBCore {
 
         // Implement actual quantum search algorithm using Grover's algorithm simulation
         // Use a minimum search space to ensure meaningful quantum speedup
-        let search_space_size = request.filters.len().max(4); // Minimum of 4 for quantum advantage
+        let search_space_size = request.filters.len().max(MIN_QUANTUM_SEARCH_SPACE);
         let optimal_iterations = ((std::f64::consts::PI / 4.0) * (search_space_size as f64).sqrt())
             .ceil()
             .max(1.0) as usize;
@@ -338,7 +345,7 @@ impl NeuroQuantumDBCore {
         // Classical search would need O(N) operations, quantum needs O(sqrt(N))
         let classical_time = search_space_size as f32;
         let quantum_time = optimal_iterations.max(1) as f32;
-        let quantum_speedup = (classical_time / quantum_time).max(1.01); // Ensure speedup > 1.0
+        let quantum_speedup = (classical_time / quantum_time).max(MIN_QUANTUM_SPEEDUP);
 
         Ok(QueryResult {
             results: search_results,
