@@ -203,8 +203,8 @@ impl TFIMSolver {
         }
 
         // External field terms
-        for i in 0..problem.num_spins {
-            energy -= problem.external_fields[i] * spins[i] as f64;
+        for (i, &spin) in spins.iter().enumerate().take(problem.num_spins) {
+            energy -= problem.external_fields[i] * spin as f64;
         }
 
         energy

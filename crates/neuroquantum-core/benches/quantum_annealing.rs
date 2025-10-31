@@ -3,13 +3,14 @@
 //! Benchmarks for QUBO, TFIM, and Parallel Tempering algorithms
 //! comparing quantum-inspired approaches against classical methods.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::DMatrix;
 use neuroquantum_core::quantum::parallel_tempering::{
     ising_energy_function, ParallelTempering, ParallelTemperingConfig,
 };
 use neuroquantum_core::quantum::qubo::{QUBOConfig, QUBOSolver};
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
+use std::hint::black_box;
 use tokio::runtime::Runtime;
 
 /// Benchmark QUBO solver on Max-Cut problems of varying sizes
