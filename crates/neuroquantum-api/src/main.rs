@@ -14,7 +14,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse_args();
 
     // Initialize logging (skip for CLI commands that don't need it)
-    let needs_logging = matches!(cli.command, None | Some(neuroquantum_api::cli::Commands::Serve));
+    let needs_logging = matches!(
+        cli.command,
+        None | Some(neuroquantum_api::cli::Commands::Serve)
+    );
     if needs_logging {
         init_logging()?;
         print_banner();

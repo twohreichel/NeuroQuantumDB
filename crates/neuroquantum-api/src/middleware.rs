@@ -479,44 +479,6 @@ impl CircuitBreaker {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_is_public_endpoint() {
-        assert!(is_public_endpoint("/health"));
-        assert!(is_public_endpoint("/metrics"));
-        assert!(is_public_endpoint("/api/v1/auth/login"));
-        assert!(is_public_endpoint("/api-docs/"));
-        assert!(!is_public_endpoint("/api/v1/tables"));
-        assert!(!is_public_endpoint("/api/v1/neural/train"));
-    }
-
-    #[test]
-    fn test_circuit_breaker_states() {
-        let cb = CircuitBreaker::new(3, 2, Duration::from_secs(30));
-
-        // Test successful calls
-        let result: Result<&str, ApiError> = cb.call_service("test", || Ok("success"));
-        assert!(result.is_ok());
-
-        // Test failure threshold
-        for _ in 0..3 {
-            let _: Result<&str, ApiError> = cb.call_service("test", || {
-                Err(ApiError::ServiceUnavailable {
-                    service: "test".to_string(),
-                    reason: "test failure".to_string(),
-                })
-            });
-        }
-
-        // Circuit should be open now
-        let result: Result<&str, ApiError> = cb.call_service("test", || Ok("should fail"));
-        assert!(matches!(result, Err(ApiError::CircuitBreakerOpen { .. })));
-    }
-}
-
 /// IP Whitelisting middleware for admin endpoints
 pub struct IpWhitelistMiddleware<S> {
     service: Rc<S>,
@@ -575,7 +537,10 @@ where
                         return Err(actix_web::Error::from(error));
                     }
 
-                    info!("✅ Admin endpoint access granted from whitelisted IP: {} accessing {}", client_ip, path);
+                    info!(
+                        "✅ Admin endpoint access granted from whitelisted IP: {} accessing {}",
+                        client_ip, path
+                    );
                 }
             }
 
@@ -617,8 +582,8 @@ where
 
 /// Helper function to check if an endpoint is an admin endpoint
 fn is_admin_endpoint(path: &str) -> bool {
-    path.starts_with("/api/v1/admin") 
-        || path.starts_with("/metrics") 
+    path.starts_with("/api/v1/admin")
+        || path.starts_with("/metrics")
         || path.contains("/api-key/generate")
 }
 
@@ -626,3 +591,40 @@ pub fn ip_whitelist_middleware(whitelist: Vec<String>) -> IpWhitelistMiddlewareF
     IpWhitelistMiddlewareFactory::new(whitelist)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_public_endpoint() {
+        assert!(is_public_endpoint("/health"));
+        assert!(is_public_endpoint("/metrics"));
+        assert!(is_public_endpoint("/api/v1/auth/login"));
+        assert!(is_public_endpoint("/api-docs/"));
+        assert!(!is_public_endpoint("/api/v1/tables"));
+        assert!(!is_public_endpoint("/api/v1/neural/train"));
+    }
+
+    #[test]
+    fn test_circuit_breaker_states() {
+        let cb = CircuitBreaker::new(3, 2, Duration::from_secs(30));
+
+        // Test successful calls
+        let result: Result<&str, ApiError> = cb.call_service("test", || Ok("success"));
+        assert!(result.is_ok());
+
+        // Test failure threshold
+        for _ in 0..3 {
+            let _: Result<&str, ApiError> = cb.call_service("test", || {
+                Err(ApiError::ServiceUnavailable {
+                    service: "test".to_string(),
+                    reason: "test failure".to_string(),
+                })
+            });
+        }
+
+        // Circuit should be open now
+        let result: Result<&str, ApiError> = cb.call_service("test", || Ok("should fail"));
+        assert!(matches!(result, Err(ApiError::CircuitBreakerOpen { .. })));
+    }
+}

@@ -29,22 +29,17 @@ pub type LSN = u64;
 pub type ResourceId = String;
 
 /// Isolation levels for transactions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum IsolationLevel {
     /// Dirty reads allowed, lowest isolation
     ReadUncommitted,
     /// No dirty reads, non-repeatable reads allowed
+    #[default]
     ReadCommitted,
     /// Repeatable reads, phantom reads allowed
     RepeatableRead,
     /// Full serializable isolation, highest level
     Serializable,
-}
-
-impl Default for IsolationLevel {
-    fn default() -> Self {
-        Self::ReadCommitted
-    }
 }
 
 /// Transaction status

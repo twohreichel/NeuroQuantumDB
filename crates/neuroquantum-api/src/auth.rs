@@ -70,7 +70,10 @@ impl AuthService {
         expiry_hours: Option<u32>,
     ) -> Result<ApiKey, String> {
         if self.has_admin_keys() {
-            return Err("Admin key already exists. Use API endpoints to create additional keys.".to_string());
+            return Err(
+                "Admin key already exists. Use API endpoints to create additional keys."
+                    .to_string(),
+            );
         }
 
         let admin_key = self.generate_api_key(
@@ -234,7 +237,7 @@ impl AuthService {
     /// Default: Max 5 key generations per hour per IP
     pub fn check_key_generation_rate_limit(&self, ip_address: &str) -> Result<(), String> {
         const MAX_GENERATIONS_PER_HOUR: usize = 5;
-        
+
         if let Some(generation_times) = self.key_generation_tracking.get(ip_address) {
             let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
             let recent_generations = generation_times
@@ -258,11 +261,12 @@ impl AuthService {
 
     /// Track API key generation attempt from an IP address
     pub fn track_key_generation(&mut self, ip_address: &str) {
-        let entry = self.key_generation_tracking
+        let entry = self
+            .key_generation_tracking
             .entry(ip_address.to_string())
-            .or_insert_with(Vec::new);
+            .or_default();
         entry.push(Utc::now());
-        
+
         // Clean up old entries (older than 24 hours) to prevent memory growth
         let cutoff = Utc::now() - chrono::Duration::hours(24);
         entry.retain(|&time| time > cutoff);

@@ -56,7 +56,9 @@ impl AppState {
         // Warn if no admin keys exist - database needs initialization
         if !auth_service.has_admin_keys() {
             tracing::warn!("⚠️  No admin keys found! Run 'neuroquantum-api init' to create the first admin key.");
-            tracing::warn!("⚠️  The API server will start but authentication will fail until initialized.");
+            tracing::warn!(
+                "⚠️  The API server will start but authentication will fail until initialized."
+            );
         }
 
         let jwt_service = JwtService::new(config.jwt.secret.as_bytes());

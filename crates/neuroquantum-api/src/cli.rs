@@ -101,7 +101,11 @@ async fn init_database(
 
     println!("📋 Configuration:");
     println!("  Admin Key Name: {}", name);
-    println!("  Expiry: {} hours ({} days)", expiry_hours, expiry_hours / 24);
+    println!(
+        "  Expiry: {} hours ({} days)",
+        expiry_hours,
+        expiry_hours / 24
+    );
     println!();
 
     if !skip_confirm {
@@ -154,8 +158,7 @@ async fn init_database(
             admin_key.key
         );
 
-        fs::write(&output_path, key_content)
-            .context("Failed to write API key to file")?;
+        fs::write(&output_path, key_content).context("Failed to write API key to file")?;
 
         println!("💾 API key saved to: {}", output_path.display());
 
@@ -173,7 +176,11 @@ async fn init_database(
     fs::create_dir_all(".neuroquantum")?;
     fs::write(
         state_file,
-        format!("Initialized at: {}\nAdmin key: {}", chrono::Utc::now(), name),
+        format!(
+            "Initialized at: {}\nAdmin key: {}",
+            chrono::Utc::now(),
+            name
+        ),
     )?;
 
     println!("\n✅ Initialization complete!");
@@ -229,4 +236,3 @@ fn generate_jwt_secret(output: Option<PathBuf>) -> Result<()> {
 
     Ok(())
 }
-
