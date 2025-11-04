@@ -7,7 +7,9 @@ workers = 2
 max_connections = 1000
 
 [database]
-# Using default core database configuration
+data_path = "./neuroquantum_data"
+max_connections = 100
+connection_timeout_seconds = 30
 
 [jwt]
 secret = "dev-secret-key-32-characters-long!"

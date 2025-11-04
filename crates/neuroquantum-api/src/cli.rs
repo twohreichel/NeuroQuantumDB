@@ -11,6 +11,10 @@ use tracing::warn;
 #[command(name = "neuroquantum-api")]
 #[command(about = "NeuroQuantumDB API Server", long_about = None)]
 pub struct Cli {
+    /// Path to configuration file
+    #[arg(short, long, global = true)]
+    pub config: Option<PathBuf>,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }

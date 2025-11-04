@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
     }
 
     // Load configuration
-    let config = match ApiConfig::load() {
+    let config = match load_config(cli.config.as_ref()) {
         Ok(config) => {
             info!("✅ Configuration loaded successfully");
             config
@@ -81,6 +81,25 @@ async fn main() -> Result<()> {
 
     info!("👋 NeuroQuantumDB API Server shutdown complete");
     Ok(())
+}
+
+/// Load configuration from CLI path, environment variable, or default
+fn load_config(config_path: Option<&std::path::PathBuf>) -> Result<ApiConfig> {
+    if let Some(path) = config_path {
+        // Use explicitly provided config path
+        info!("Loading configuration from: {}", path.display());
+        ApiConfig::from_file(path)
+    } else if let Ok(config_path) = env::var("NEUROQUANTUM_CONFIG") {
+        // Use environment variable
+        info!(
+            "Loading configuration from NEUROQUANTUM_CONFIG: {}",
+            config_path
+        );
+        ApiConfig::from_file(config_path)
+    } else {
+        // Use default load logic
+        ApiConfig::load()
+    }
 }
 
 /// Initialize logging based on environment
