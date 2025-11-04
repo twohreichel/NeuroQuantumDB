@@ -16,9 +16,10 @@ tests/
 **/tests/
 proptest-regressions/
 
-# Benchmarks
-benches/
-**/benches/
+# Benchmarks - Keep bench dir structure but ignore content
+# Cargo needs bench declarations but we don't run them in Docker
+# benches/
+# **/benches/
 
 # Examples (not needed in production)
 examples/
