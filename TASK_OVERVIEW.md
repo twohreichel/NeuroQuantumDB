@@ -214,11 +214,11 @@ docs/
 ```
 
 **GitHub Actions Integration:**
-- `.github/workflows/docs.yml` erstellt
-- Automatischer Build bei Push zu `main`
-- Kombiniert User Docs (mdBook) + API Docs (Rustdoc)
-- Deployment zu GitHub Pages
-- Elegante Landing Page mit Navigation
+- GitHub Pages Deployment in bestehender `ci.yml` integriert
+- Automatischer Build bei Push zu `main` (nutzt vorhandenen `build-documentation` Job)
+- Kombiniert User Docs (mdBook) + API Docs (Rustdoc) + Code Metrics
+- Deployment zu GitHub Pages via separater `deploy-docs` Job
+- Elegante Landing Page mit Navigation (bereits in ci.yml vorhanden)
 
 **Build Results:**
 - ✅ mdBook Build erfolgreich (0 Errors)
