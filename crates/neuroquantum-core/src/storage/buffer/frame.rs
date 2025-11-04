@@ -78,11 +78,18 @@ impl Frame {
     }
 
     /// Unpin this frame (decrement pin count)
-    pub fn unpin(&self) {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the frame was not pinned (pin count already 0)
+    pub fn unpin(&self) -> Result<(), &'static str> {
         let prev = self.pin_count.fetch_sub(1, Ordering::SeqCst);
         if prev == 0 {
-            panic!("Attempted to unpin a frame that was not pinned");
+            // Restore the count since we failed
+            self.pin_count.fetch_add(1, Ordering::SeqCst);
+            return Err("Attempted to unpin a frame that was not pinned");
         }
+        Ok(())
     }
 
     /// Check if frame is pinned
@@ -159,19 +166,25 @@ mod tests {
         frame.pin();
         assert_eq!(frame.pin_count(), 2);
 
-        frame.unpin();
+        assert!(frame.unpin().is_ok());
         assert_eq!(frame.pin_count(), 1);
 
-        frame.unpin();
+        assert!(frame.unpin().is_ok());
         assert_eq!(frame.pin_count(), 0);
         assert!(!frame.is_pinned());
     }
 
     #[test]
-    #[should_panic(expected = "not pinned")]
-    fn test_frame_unpin_panic() {
+    fn test_frame_unpin_error() {
         let frame = Frame::new(FrameId(0));
-        frame.unpin(); // Should panic
+        
+        // Trying to unpin when not pinned should return error
+        let result = frame.unpin();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Attempted to unpin a frame that was not pinned");
+        
+        // Pin count should remain 0
+        assert_eq!(frame.pin_count(), 0);
     }
 
     #[tokio::test]
