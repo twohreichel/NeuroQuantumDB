@@ -3,7 +3,6 @@
 
 # Target directories
 target/
-**/target/
 
 # Documentation
 docs/
@@ -13,7 +12,6 @@ book.toml
 
 # Tests
 tests/
-**/tests/
 proptest-regressions/
 
 # Benchmarks - Keep bench dir structure but ignore content
@@ -54,7 +52,6 @@ rustfmt.toml
 Cargo.toml.clippy
 
 # Logs
-*.log
 logs/
 
 # OS files
@@ -62,7 +59,6 @@ logs/
 Thumbs.db
 
 # Temporary files
-tmp/
 temp/
 *.tmp
 
@@ -71,10 +67,6 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 
-# Future todos and tasks
-future-todos.md
-TASK_OVERVIEW.md
-production-ready-prompt.md
 
 # License (not needed in runtime)
 LICENSE
