@@ -153,6 +153,48 @@ benchmark-compare: ## Compare NEON vs Scalar performance
 	cargo bench --package neuroquantum-core --features benchmarks -- neon_vs_scalar
 	@echo "✅ Comparison results available"
 
+benchmark-report: ## Generate comprehensive performance report
+	@echo "📊 Generating performance report..."
+	@./scripts/performance-report.sh
+	@echo "✅ Report generated in target/performance-reports/"
+
+# Performance profiling targets
+profile-flamegraph: ## Generate flamegraph for CPU profiling
+	@echo "🔥 Generating CPU flamegraph..."
+	@command -v cargo-flamegraph >/dev/null 2>&1 || { echo "❌ cargo-flamegraph not found. Install with: cargo install flamegraph"; exit 1; }
+	cargo flamegraph --bench btree_benchmark --root
+	@echo "✅ Flamegraph saved to flamegraph.svg"
+
+profile-memory: ## Profile memory usage with Valgrind
+	@echo "💾 Profiling memory usage..."
+	@command -v valgrind >/dev/null 2>&1 || { echo "❌ valgrind not found. Install with: brew install valgrind"; exit 1; }
+	cargo build --release --bin neuroquantum-api
+	valgrind --tool=massif --massif-out-file=massif.out target/release/neuroquantum-api
+	@echo "✅ Memory profile saved to massif.out"
+
+profile-cache: ## Profile cache performance with cachegrind
+	@echo "🔍 Profiling cache behavior..."
+	@command -v valgrind >/dev/null 2>&1 || { echo "❌ valgrind not found."; exit 1; }
+	cargo build --release --bin neuroquantum-api
+	valgrind --tool=cachegrind --cachegrind-out-file=cachegrind.out target/release/neuroquantum-api
+	@echo "✅ Cache profile saved to cachegrind.out"
+
+profile-all: profile-flamegraph profile-memory profile-cache ## Run all profiling tools
+	@echo "✅ All profiling completed!"
+
+# Performance optimization targets
+optimize-size: ## Build with size optimizations (for Raspberry Pi)
+	@echo "📦 Building with size optimizations..."
+	cargo build --profile production --target $(TARGET) --features $(FEATURES)
+	@ls -lh target/$(TARGET)/production/neuroquantum-api
+	@echo "✅ Size-optimized build complete"
+
+optimize-speed: ## Build with maximum speed optimizations
+	@echo "⚡ Building with speed optimizations..."
+	RUSTFLAGS="-C target-cpu=native -C opt-level=3 -C lto=fat -C codegen-units=1" \
+		cargo build --release --features $(FEATURES)
+	@echo "✅ Speed-optimized build complete"
+
 # Docker targets
 docker-build: ## Build production Docker image (<15MB target)
 	@echo "🐳 Building production Docker image..."

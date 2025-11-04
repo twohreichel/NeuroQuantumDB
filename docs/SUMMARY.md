@@ -55,6 +55,7 @@
 - [Contributing](./development/contributing.md)
 - [Testing Guide](./development/testing.md)
 - [Benchmarking](./development/benchmarking.md)
+- [Performance Testing](./development/performance-testing.md)
 - [Code Architecture](./development/code-architecture.md)
 
 # Reference

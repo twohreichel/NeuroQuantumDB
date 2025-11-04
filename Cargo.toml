@@ -153,16 +153,35 @@ redundant_pub_crate = "warn"
 opt-level = 0
 debug = true
 overflow-checks = true
+incremental = true
+
+[profile.dev.package."*"]
+opt-level = 3  # Optimize dependencies even in dev mode
 
 [profile.release]
+opt-level = 3           # Maximum optimization
+codegen-units = 1       # Better optimization, slower compile
+lto = "fat"             # Full Link Time Optimization
+panic = "abort"         # Smaller binary, no unwinding
+strip = true            # Remove debug symbols
+incremental = false     # No incremental compilation in release
+
+[profile.release.package."*"]
 opt-level = 3
-codegen-units = 1
-lto = true
-panic = "abort"
-strip = true
 
 [profile.bench]
 opt-level = 3
 debug = true
+lto = "thin"            # Fast LTO for benchmarks
+codegen-units = 1
+
+# Production profile with maximum optimizations
+[profile.production]
+inherits = "release"
+opt-level = "z"         # Optimize for size (Raspberry Pi)
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
 
 

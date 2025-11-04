@@ -1,55 +1,83 @@
-# Docker ignore file for NeuroQuantumDB
-# Reduces build context size by ~90%
+# Docker build ignore file
+# Reduces context size and build time
 
-# Build artifacts
+# Target directories
 target/
 **/target/
 
-# Development files
+# Documentation
+docs/
+book.toml
+*.md
+!README.md
+
+# Tests
+tests/
+**/tests/
+proptest-regressions/
+
+# Benchmarks
+benches/
+**/benches/
+
+# Examples (not needed in production)
+examples/
+**/examples/
+
+# Git
 .git/
 .gitignore
+.gitattributes
+
+# CI/CD
 .github/
 hooks/
 
-# Documentation
-docs/
-target/book/
-target/doc/
-*.md
-book.toml
-
-# IDE and editor files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# Monitoring configs (use volume mounts instead)
+docker/monitoring/
+
+# Scripts
+scripts/
+
+# Development configs
+config/dev.toml
+deny.toml
+rustfmt.toml
+Cargo.toml.clippy
+
+# Logs
+*.log
+logs/
+
 # OS files
 .DS_Store
 Thumbs.db
-
-# Test and coverage files
-target/coverage/
-target/criterion/
-tests/
-
-# Scripts and tools
-scripts/
-Makefile
-deny.toml
-rustfmt.toml
-
-# Docker files (avoid recursive copying)
-Dockerfile
-docker-compose*.yml
-.dockerignore
 
 # Temporary files
 tmp/
 temp/
 *.tmp
-*.log
 
-# Development configs
-config/dev.toml
+# Docker files (avoid recursion)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Future todos and tasks
+future-todos.md
+TASK_OVERVIEW.md
+production-ready-prompt.md
+
+# License (not needed in runtime)
+LICENSE
+
+# Makefile (development only)
+Makefile
+

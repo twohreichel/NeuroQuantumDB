@@ -37,21 +37,40 @@ ENV STRIP=aarch64-linux-gnu-strip
 
 WORKDIR /app
 
-# Copy workspace configuration and create production version without tests
+# Add Rust target first (cacheable layer)
+RUN rustup target add aarch64-unknown-linux-gnu
+
+# Copy only dependency files first for better caching
 COPY Cargo.toml ./Cargo.toml.full
 COPY Cargo.lock ./Cargo.lock
-COPY crates/ crates/
+COPY crates/neuroquantum-core/Cargo.toml crates/neuroquantum-core/Cargo.toml
+COPY crates/neuroquantum-qsql/Cargo.toml crates/neuroquantum-qsql/Cargo.toml
+COPY crates/neuroquantum-api/Cargo.toml crates/neuroquantum-api/Cargo.toml
 
 # Create production Cargo.toml without tests workspace member
 RUN sed '/^[[:space:]]*"tests"/d' Cargo.toml.full > Cargo.toml
 
-# Add Rust target and build with proper environment
-RUN rustup target add aarch64-unknown-linux-gnu
+# Create dummy source files to cache dependencies
+RUN mkdir -p crates/neuroquantum-core/src && \
+    mkdir -p crates/neuroquantum-qsql/src && \
+    mkdir -p crates/neuroquantum-api/src && \
+    echo "fn main() {}" > crates/neuroquantum-api/src/main.rs && \
+    echo "pub fn dummy() {}" > crates/neuroquantum-core/src/lib.rs && \
+    echo "pub fn dummy() {}" > crates/neuroquantum-qsql/src/lib.rs
 
-# Build with explicit target and feature flags
+# Build dependencies only (cached layer)
 RUN cargo build --release --target aarch64-unknown-linux-gnu \
     --features neon-optimizations,neuromorphic,quantum,natural-language \
-    --bin neuroquantum-api
+    --bin neuroquantum-api || true
+
+# Now copy actual source code
+COPY crates/ crates/
+
+# Build final binary with all optimizations
+RUN cargo build --release --target aarch64-unknown-linux-gnu \
+    --features neon-optimizations,neuromorphic,quantum,natural-language \
+    --bin neuroquantum-api && \
+    aarch64-linux-gnu-strip target/aarch64-unknown-linux-gnu/release/neuroquantum-api
 
 # Stage 2: Production runtime (ultra-minimal)
 FROM gcr.io/distroless/cc-debian12:latest
