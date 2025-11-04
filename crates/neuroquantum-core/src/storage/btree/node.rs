@@ -126,6 +126,26 @@ impl LeafNode {
         }
     }
 
+    /// Insert or update a key-value pair (upsert)
+    pub fn upsert(&mut self, key: Key, value: Value) -> Result<bool> {
+        // Find insertion position
+        match self.entries.binary_search_by(|(k, _)| k.cmp(&key)) {
+            Ok(pos) => {
+                // Key exists, update the value
+                self.entries[pos].1 = value;
+                Ok(false) // false = updated existing key
+            }
+            Err(pos) => {
+                // Key doesn't exist, insert new entry
+                if self.is_full() {
+                    return Err(anyhow!("Leaf node is full"));
+                }
+                self.entries.insert(pos, (key, value));
+                Ok(true) // true = inserted new key
+            }
+        }
+    }
+
     /// Search for a value by key
     pub fn search(&self, key: &Key) -> Option<Value> {
         self.entries

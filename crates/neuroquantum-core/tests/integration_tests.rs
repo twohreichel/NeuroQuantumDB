@@ -28,8 +28,8 @@ async fn test_crud_with_btree() -> anyhow::Result<()> {
     let value3 = btree.search(&vec![7, 8, 9]).await?;
     assert_eq!(value3, Some(200));
 
-    // Update data
-    btree.insert(vec![1, 2, 3], 1000).await?;
+    // Update data using upsert
+    btree.upsert(vec![1, 2, 3], 1000).await?;
 
     // Verify update
     let updated = btree.search(&vec![1, 2, 3]).await?;

@@ -34,6 +34,11 @@ pub type Value = u64;
 type InsertFuture<'a> =
     std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<(Key, PageId)>>> + Send + 'a>>;
 
+/// Type alias for async upsert result with optional split information and new key flag
+type UpsertFuture<'a> = std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<(Option<(Key, PageId)>, bool)>> + Send + 'a>,
+>;
+
 /// Type alias for async range scan result
 type RangeScanFuture<'a> =
     std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<(Key, Value)>>> + Send + 'a>>;
@@ -157,6 +162,63 @@ impl BTree {
         }
 
         self.num_keys += 1;
+        Ok(())
+    }
+
+    /// Insert or update a key-value pair (upsert operation)
+    ///
+    /// # Arguments
+    /// * `key` - The key to insert or update
+    /// * `value` - The value (row ID) to associate with the key
+    ///
+    /// # Returns
+    /// * `Ok(())` if upsert was successful
+    /// * `Err` if an I/O error occurred
+    pub async fn upsert(&mut self, key: Key, value: Value) -> Result<()> {
+        debug!("🌳 Upserting key (len={}) with value={}", key.len(), value);
+
+        // If tree is empty, create root leaf node
+        if self.root_page_id.is_none() {
+            let mut root_leaf = LeafNode::new(self.config.order);
+            root_leaf.upsert(key, value)?;
+
+            let root_page_id = self.page_manager.allocate_page().await?;
+            self.page_manager
+                .write_leaf_node(root_page_id, &root_leaf)
+                .await?;
+
+            self.root_page_id = Some(root_page_id);
+            self.num_keys = 1;
+            self.height = 1;
+
+            return Ok(());
+        }
+
+        // Upsert into existing tree
+        let root_page_id = self.root_page_id.unwrap();
+        let (split_result, is_new_key) = self.upsert_recursive(root_page_id, key, value).await?;
+
+        // Handle root split
+        if let Some((split_key, new_page_id)) = split_result {
+            let mut new_root = InternalNode::new(self.config.order);
+            new_root.keys.push(split_key);
+            new_root.children.push(root_page_id);
+            new_root.children.push(new_page_id);
+
+            let new_root_page_id = self.page_manager.allocate_page().await?;
+            self.page_manager
+                .write_internal_node(new_root_page_id, &new_root)
+                .await?;
+
+            self.root_page_id = Some(new_root_page_id);
+            self.height += 1;
+        }
+
+        // Only increment key count if it was a new key
+        if is_new_key {
+            self.num_keys += 1;
+        }
+
         Ok(())
     }
 
@@ -311,6 +373,84 @@ impl BTree {
                         .write_leaf_node(page_id, &leaf_node)
                         .await?;
                     Ok(None)
+                }
+            }
+        })
+    }
+
+    /// Recursive upsert helper
+    /// Returns: (optional split info, whether key was new)
+    fn upsert_recursive<'a>(
+        &'a mut self,
+        page_id: PageId,
+        key: Key,
+        value: Value,
+    ) -> UpsertFuture<'a> {
+        Box::pin(async move {
+            // Try to read as internal node first
+            if let Ok(mut internal_node) = self.page_manager.read_internal_node(page_id).await {
+                // Find child to upsert into
+                let child_index = internal_node.find_child_index(&key);
+                let child_page_id = internal_node.children[child_index];
+
+                // Recursively upsert into child
+                let (split_result, is_new_key) =
+                    self.upsert_recursive(child_page_id, key, value).await?;
+
+                // Handle child split
+                if let Some((split_key, new_child_page_id)) = split_result {
+                    internal_node.insert_child(split_key, new_child_page_id)?;
+
+                    // Check if internal node needs to split
+                    if internal_node.is_full() {
+                        let (split_key, new_node) = internal_node.split();
+                        let new_page_id = self.page_manager.allocate_page().await?;
+
+                        self.page_manager
+                            .write_internal_node(page_id, &internal_node)
+                            .await?;
+                        self.page_manager
+                            .write_internal_node(new_page_id, &new_node)
+                            .await?;
+
+                        return Ok((Some((split_key, new_page_id)), is_new_key));
+                    } else {
+                        self.page_manager
+                            .write_internal_node(page_id, &internal_node)
+                            .await?;
+                    }
+                }
+
+                Ok((None, is_new_key))
+            } else {
+                // Must be a leaf node
+                let mut leaf_node = self.page_manager.read_leaf_node(page_id).await?;
+
+                // Upsert into leaf
+                let is_new_key = leaf_node.upsert(key, value)?;
+
+                // Check if leaf needs to split
+                if leaf_node.is_full() {
+                    let (split_key, mut new_leaf) = leaf_node.split();
+                    let new_page_id = self.page_manager.allocate_page().await?;
+
+                    // Update sibling pointers
+                    new_leaf.next_leaf = leaf_node.next_leaf;
+                    leaf_node.next_leaf = Some(new_page_id);
+
+                    self.page_manager
+                        .write_leaf_node(page_id, &leaf_node)
+                        .await?;
+                    self.page_manager
+                        .write_leaf_node(new_page_id, &new_leaf)
+                        .await?;
+
+                    Ok((Some((split_key, new_page_id)), is_new_key))
+                } else {
+                    self.page_manager
+                        .write_leaf_node(page_id, &leaf_node)
+                        .await?;
+                    Ok((None, is_new_key))
                 }
             }
         })
