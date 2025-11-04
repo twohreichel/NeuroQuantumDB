@@ -76,3 +76,5 @@ LICENSE
 
 # Makefile (development only)
 Makefile
+
+.neuroquantum
