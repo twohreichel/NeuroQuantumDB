@@ -49,6 +49,9 @@ scripts/
 config/dev.toml
 deny.toml
 rustfmt.toml
+
+# Python Integration Test Project
+python-integration-test/
 Cargo.toml.clippy
 
 # Logs
