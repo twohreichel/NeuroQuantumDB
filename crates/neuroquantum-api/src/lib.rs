@@ -2,7 +2,7 @@ use actix_cors::Cors;
 use actix_web::body::MessageBody;
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
-use actix_web_prometheus::PrometheusMetricsBuilder;
+use actix_web_prom::PrometheusMetricsBuilder;
 use anyhow::Result;
 use neuroquantum_core::NeuroQuantumDB;
 use std::time::Instant;
@@ -12,6 +12,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 pub mod auth;
 pub mod biometric_auth;
+pub mod cli;
 pub mod config;
 pub mod error;
 pub mod handlers;
@@ -50,7 +51,14 @@ impl AppState {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to initialize database: {}", e))?;
 
-        let auth_service = AuthService::new();
+        let auth_service = AuthService::new_with_setup_mode();
+
+        // Warn if no admin keys exist - database needs initialization
+        if !auth_service.has_admin_keys() {
+            tracing::warn!("⚠️  No admin keys found! Run 'neuroquantum-api init' to create the first admin key.");
+            tracing::warn!("⚠️  The API server will start but authentication will fail until initialized.");
+        }
+
         let jwt_service = JwtService::new(config.jwt.secret.as_bytes());
 
         let rate_limit_config = RateLimitConfig {

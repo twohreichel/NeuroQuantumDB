@@ -31,25 +31,50 @@ pub struct AuthService {
     key_hashes: HashMap<String, String>,
     // Rate limiting tracking
     usage_tracking: HashMap<String, Vec<DateTime<Utc>>>,
+    // Track API key generation attempts per IP
+    key_generation_tracking: HashMap<String, Vec<DateTime<Utc>>>,
 }
 
 impl AuthService {
+    /// Create a new AuthService without any default keys
+    /// Use `new_with_setup_mode()` for initial setup or restore from persistent storage
     pub fn new() -> Self {
-        let mut service = Self {
+        Self {
             api_keys: HashMap::new(),
             key_hashes: HashMap::new(),
             usage_tracking: HashMap::new(),
-        };
+            key_generation_tracking: HashMap::new(),
+        }
+    }
 
-        // Create a default admin key on startup
-        service.create_default_admin_key();
+    /// Create a new AuthService in setup mode (allows initial admin key creation)
+    /// This should only be used during the initial setup phase
+    pub fn new_with_setup_mode() -> Self {
+        let service = Self::new();
+        info!("🔧 AuthService initialized in setup mode - no default keys created");
+        info!("💡 Run 'neuroquantum-api init' to create your first admin key");
         service
     }
 
-    /// Create default admin key for initial setup
-    fn create_default_admin_key(&mut self) {
+    /// Check if any admin keys exist
+    pub fn has_admin_keys(&self) -> bool {
+        self.api_keys
+            .values()
+            .any(|key| key.permissions.contains(&"admin".to_string()))
+    }
+
+    /// Create an admin key - only allowed if no admin keys exist yet (setup mode)
+    pub fn create_initial_admin_key(
+        &mut self,
+        name: String,
+        expiry_hours: Option<u32>,
+    ) -> Result<ApiKey, String> {
+        if self.has_admin_keys() {
+            return Err("Admin key already exists. Use API endpoints to create additional keys.".to_string());
+        }
+
         let admin_key = self.generate_api_key(
-            "default-admin".to_string(),
+            name,
             vec![
                 "admin".to_string(),
                 "neuromorphic".to_string(),
@@ -58,12 +83,13 @@ impl AuthService {
                 "read".to_string(),
                 "write".to_string(),
             ],
-            Some(365 * 24), // 1 year expiry
-            Some(1000),     // 1000 requests per hour
+            expiry_hours,
+            Some(10000), // High rate limit for admin
         );
 
-        info!("🔐 Default admin API key created: {}", admin_key.key);
-        warn!("⚠️ SECURITY: Change the default admin key in production!");
+        info!("🔐 Initial admin API key created: {}", &admin_key.key[..12]);
+        warn!("⚠️ SECURITY: Store this key securely - it will not be shown again!");
+        Ok(admin_key)
     }
 
     pub fn generate_api_key(
@@ -202,6 +228,44 @@ impl AuthService {
 
     pub fn list_api_keys(&self) -> Vec<ApiKey> {
         self.api_keys.values().cloned().collect()
+    }
+
+    /// Check if API key generation is rate limited for a given IP address
+    /// Default: Max 5 key generations per hour per IP
+    pub fn check_key_generation_rate_limit(&self, ip_address: &str) -> Result<(), String> {
+        const MAX_GENERATIONS_PER_HOUR: usize = 5;
+        
+        if let Some(generation_times) = self.key_generation_tracking.get(ip_address) {
+            let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
+            let recent_generations = generation_times
+                .iter()
+                .filter(|&&time| time > one_hour_ago)
+                .count();
+
+            if recent_generations >= MAX_GENERATIONS_PER_HOUR {
+                warn!(
+                    "⚠️ API key generation rate limit exceeded for IP: {} ({}/{} in last hour)",
+                    ip_address, recent_generations, MAX_GENERATIONS_PER_HOUR
+                );
+                return Err(format!(
+                    "Rate limit exceeded: Maximum {} key generations per hour. Try again later.",
+                    MAX_GENERATIONS_PER_HOUR
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Track API key generation attempt from an IP address
+    pub fn track_key_generation(&mut self, ip_address: &str) {
+        let entry = self.key_generation_tracking
+            .entry(ip_address.to_string())
+            .or_insert_with(Vec::new);
+        entry.push(Utc::now());
+        
+        // Clean up old entries (older than 24 hours) to prevent memory growth
+        let cutoff = Utc::now() - chrono::Duration::hours(24);
+        entry.retain(|&time| time > cutoff);
     }
 
     pub fn get_api_key_stats(&self, key: &str) -> Option<ApiKeyStats> {

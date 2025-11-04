@@ -516,3 +516,113 @@ mod tests {
         assert!(matches!(result, Err(ApiError::CircuitBreakerOpen { .. })));
     }
 }
+
+/// IP Whitelisting middleware for admin endpoints
+pub struct IpWhitelistMiddleware<S> {
+    service: Rc<S>,
+    whitelist: Vec<String>,
+}
+
+impl<S, B> Service<ServiceRequest> for IpWhitelistMiddleware<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    forward_ready!(service);
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
+        let whitelist = self.whitelist.clone();
+        let path = req.path().to_string();
+
+        Box::pin(async move {
+            // Check if this is an admin endpoint
+            if is_admin_endpoint(&path) {
+                // Extract client IP address
+                let client_ip = req
+                    .connection_info()
+                    .realip_remote_addr()
+                    .unwrap_or("unknown")
+                    .to_string();
+
+                // If whitelist is empty, allow all (but log warning)
+                if whitelist.is_empty() {
+                    warn!(
+                        "⚠️ Admin endpoint accessed with no IP whitelist configured: {} from {}",
+                        path, client_ip
+                    );
+                } else {
+                    // Check if IP is in whitelist
+                    let ip_allowed = whitelist.iter().any(|allowed_ip| {
+                        // Support both exact match and CIDR notation in the future
+                        client_ip.starts_with(allowed_ip.as_str())
+                    });
+
+                    if !ip_allowed {
+                        warn!(
+                            "🚫 Blocked admin endpoint access from non-whitelisted IP: {} tried to access {}",
+                            client_ip, path
+                        );
+                        let error = ApiError::Forbidden(format!(
+                            "Access to admin endpoints is restricted. Your IP ({}) is not in the whitelist.",
+                            client_ip
+                        ));
+                        return Err(actix_web::Error::from(error));
+                    }
+
+                    info!("✅ Admin endpoint access granted from whitelisted IP: {} accessing {}", client_ip, path);
+                }
+            }
+
+            service.call(req).await
+        })
+    }
+}
+
+/// Transform factory for IP whitelist middleware
+pub struct IpWhitelistMiddlewareFactory {
+    whitelist: Vec<String>,
+}
+
+impl IpWhitelistMiddlewareFactory {
+    pub fn new(whitelist: Vec<String>) -> Self {
+        Self { whitelist }
+    }
+}
+
+impl<S, B> Transform<S, ServiceRequest> for IpWhitelistMiddlewareFactory
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type Transform = IpWhitelistMiddleware<S>;
+    type InitError = ();
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(IpWhitelistMiddleware {
+            service: Rc::new(service),
+            whitelist: self.whitelist.clone(),
+        }))
+    }
+}
+
+/// Helper function to check if an endpoint is an admin endpoint
+fn is_admin_endpoint(path: &str) -> bool {
+    path.starts_with("/api/v1/admin") 
+        || path.starts_with("/metrics") 
+        || path.contains("/api-key/generate")
+}
+
+pub fn ip_whitelist_middleware(whitelist: Vec<String>) -> IpWhitelistMiddlewareFactory {
+    IpWhitelistMiddlewareFactory::new(whitelist)
+}
+

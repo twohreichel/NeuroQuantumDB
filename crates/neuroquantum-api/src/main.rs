@@ -1,5 +1,5 @@
 use anyhow::Result;
-use neuroquantum_api::{start_server, ApiConfig};
+use neuroquantum_api::{cli::Cli, start_server, ApiConfig};
 use std::env;
 use tokio::signal;
 use tracing::{error, info, warn};
@@ -10,14 +10,29 @@ async fn main() -> Result<()> {
     // Set up panic handler first
     setup_panic_handler();
 
-    // Initialize logging first
-    init_logging()?;
+    // Parse CLI arguments
+    let cli = Cli::parse_args();
 
-    // Print startup banner
-    print_banner();
+    // Initialize logging (skip for CLI commands that don't need it)
+    let needs_logging = matches!(cli.command, None | Some(neuroquantum_api::cli::Commands::Serve));
+    if needs_logging {
+        init_logging()?;
+        print_banner();
+        print_system_info();
+    }
 
-    // Print system information for debugging
-    print_system_info();
+    // Handle CLI commands (init, generate-jwt-secret, etc.)
+    if let Some(ref cmd) = cli.command {
+        match cmd {
+            neuroquantum_api::cli::Commands::Init { .. }
+            | neuroquantum_api::cli::Commands::GenerateJwtSecret { .. } => {
+                return cli.execute().await;
+            }
+            neuroquantum_api::cli::Commands::Serve => {
+                // Continue to start server
+            }
+        }
+    }
 
     // Load configuration
     let config = match ApiConfig::load() {

@@ -37,4 +37,52 @@ Das Setup-Script installiert automatisch:
 
 ---
 
+## 🔒 Security & Production Setup
+
+### Initial Setup (Required)
+
+NeuroQuantumDB uses secure initialization instead of default credentials:
+
+```bash
+# Initialize the database with your first admin key
+neuroquantum-api init
+
+# Or non-interactive with custom settings
+neuroquantum-api init --name admin --expiry-hours 8760 --output .env --yes
+
+# Generate a secure JWT secret for production
+neuroquantum-api generate-jwt-secret --output config/jwt-secret.txt
+```
+
+### Security Features
+
+- ✅ **No Default Credentials** - Requires explicit initialization
+- ✅ **JWT Authentication** - Secure token-based authentication
+- ✅ **API Key Management** - Granular permission control
+- ✅ **Rate Limiting** - Protection against abuse (5 key generations/hour per IP)
+- ✅ **IP Whitelisting** - Admin endpoints protected by IP whitelist
+- ✅ **Post-Quantum Crypto** - ML-KEM & ML-DSA ready
+- ✅ **Biometric Auth** - EEG-based authentication support
+
+### Production Configuration
+
+Edit `config/prod.toml`:
+
+```toml
+[auth]
+jwt_secret = "YOUR-GENERATED-SECRET-HERE"
+jwt_expiration_hours = 8
+
+[security]
+admin_ip_whitelist = [
+    "127.0.0.1",
+    "::1",
+    "YOUR-ADMIN-IP-HERE"
+]
+```
+
+📖 **Full Documentation:** See [SECURITY_HARDENING.md](./SECURITY_HARDENING.md) for complete security guide.
+
+---
+
 Have a look at the [Wiki](https://twoh-me.github.io/NeuroQuantumDB/) for more information.

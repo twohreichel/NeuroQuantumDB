@@ -15,7 +15,7 @@ neuroquantum-core = { path = "../neuroquantum-core" }
 actix-web = "4.11.0"
 actix-cors = "0.7.1"
 actix-ws = "0.3.0"
-actix-web-prometheus = "0.1.2"
+actix-web-prom = { version = "0.10", features = ["process"] }
 futures-util = "0.3.31"
 
 # Async runtime
@@ -57,6 +57,10 @@ toml = "0.9.7"
 # Additional utilities
 base64 = "0.22.1"
 num_cpus = "1.17.0"
+rand = "0.8"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
 
 [features]
 default = []

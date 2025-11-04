@@ -179,6 +179,9 @@ pub struct SecurityConfig {
     pub csrf_protection: bool,
     pub quantum_encryption: bool,
     pub circuit_breaker: CircuitBreakerConfig,
+    /// Whitelist of IP addresses allowed to access admin endpoints
+    /// Empty list = no restrictions (not recommended for production)
+    pub admin_ip_whitelist: Vec<String>,
 }
 
 impl Default for SecurityConfig {
@@ -190,6 +193,10 @@ impl Default for SecurityConfig {
             csrf_protection: false, // Disabled for API-only service
             quantum_encryption: false,
             circuit_breaker: CircuitBreakerConfig::default(),
+            admin_ip_whitelist: vec![
+                "127.0.0.1".to_string(),
+                "::1".to_string(), // IPv6 localhost
+            ],
         }
     }
 }
