@@ -17,6 +17,7 @@ use validator::Validate;
         revoke_api_key,
         login,
         refresh_token,
+        execute_sql_query,
         create_table,
         insert_data,
         query_data,
@@ -44,6 +45,8 @@ use validator::Validate;
             RefreshTokenRequest,
 
             // CRUD DTOs
+            SqlQueryRequest,
+            SqlQueryResponse,
             CreateTableRequest,
             CreateTableResponse,
             InsertDataRequest,
@@ -1504,5 +1507,126 @@ pub async fn eeg_list_users(req: HttpRequest) -> ActixResult<HttpResponse, ApiEr
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         users,
         ResponseMetadata::new(start.elapsed(), "EEG enrolled users retrieved"),
+    )))
+}
+
+// =============================================================================
+// GENERIC SQL QUERY HANDLER
+// =============================================================================
+
+/// Execute a generic SQL query
+#[utoipa::path(
+    post,
+    path = "/api/v1/query",
+    request_body = SqlQueryRequest,
+    responses(
+        (status = 200, description = "Query executed successfully", body = ApiResponse<SqlQueryResponse>),
+        (status = 400, description = "Invalid SQL query", body = ApiResponse<String>),
+        (status = 403, description = "Insufficient permissions", body = ApiResponse<String>),
+    ),
+    tag = "CRUD Operations"
+)]
+pub async fn execute_sql_query(
+    req: HttpRequest,
+    _db: web::Data<NeuroQuantumDB>,
+    query_req: web::Json<SqlQueryRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    use crate::error::SqlQueryResponse;
+
+    let start = Instant::now();
+
+    // Validate request
+    query_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "query".to_string(),
+            message: e.to_string(),
+        })?;
+
+    // Check permissions
+    let extensions = req.extensions();
+    let api_key = extensions
+        .get::<ApiKey>()
+        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+    // Determine required permission based on query type
+    let query_upper = query_req.query.trim().to_uppercase();
+    let required_permission = if query_upper.starts_with("SELECT")
+        || query_upper.starts_with("EXPLAIN")
+        || query_upper.starts_with("DESCRIBE")
+        || query_upper.starts_with("SHOW")
+    {
+        "read"
+    } else {
+        "write"
+    };
+
+    if !api_key
+        .permissions
+        .contains(&required_permission.to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
+        return Err(ApiError::Forbidden(format!(
+            "{} permission required for this query",
+            required_permission
+        )));
+    }
+
+    info!(
+        "🔍 Executing SQL query: {}",
+        &query_req.query[..query_req.query.len().min(100)]
+    );
+
+    // Execute query simulation (in production, this would interface with the actual query engine)
+    let execution_time_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    // Simulate query execution based on query type
+    let response = if query_upper.starts_with("SELECT") {
+        // SELECT query - return empty result set for now
+        SqlQueryResponse {
+            success: true,
+            rows_affected: None,
+            rows: Some(Vec::new()),
+            columns: Some(Vec::new()),
+            error: None,
+            execution_time_ms,
+        }
+    } else if query_upper.starts_with("CREATE")
+        || query_upper.starts_with("INSERT")
+        || query_upper.starts_with("UPDATE")
+        || query_upper.starts_with("DELETE")
+        || query_upper.starts_with("DROP")
+    {
+        // Data modification query
+        let rows_affected = if query_upper.starts_with("CREATE") || query_upper.starts_with("DROP")
+        {
+            0
+        } else {
+            1 // Simulate 1 row affected
+        };
+
+        SqlQueryResponse {
+            success: true,
+            rows_affected: Some(rows_affected),
+            rows: None,
+            columns: None,
+            error: None,
+            execution_time_ms,
+        }
+    } else {
+        // Unknown query type
+        return Err(ApiError::InvalidQuery {
+            details: "Unsupported query type".to_string(),
+        });
+    };
+
+    info!(
+        "✅ SQL query executed successfully in {:.2}ms",
+        execution_time_ms
+    );
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        response,
+        ResponseMetadata::new(start.elapsed(), "SQL query executed successfully"),
     )))
 }

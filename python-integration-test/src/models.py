@@ -16,11 +16,11 @@ class QueryResponse(BaseModel):
     """Query execution response."""
 
     success: bool
-    columns: list[str] = Field(default_factory=list)
-    rows: list[list[Any]] = Field(default_factory=list)
-    rows_returned: int = 0
-    execution_time_ms: float = 0.0
+    rows_affected: Optional[int] = None
+    rows: Optional[list[dict[str, Any]]] = None
+    columns: Optional[list[str]] = None
     error: Optional[str] = None
+    execution_time_ms: float = 0.0
 
 
 class HealthResponse(BaseModel):

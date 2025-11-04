@@ -200,7 +200,26 @@ pub struct QuantumConfig {
     pub measurement_basis: Option<String>,
 }
 
-/// CRUD Operation DTOs
+// CRUD Operation DTOs
+
+/// Generic SQL query request
+#[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
+pub struct SqlQueryRequest {
+    #[validate(length(min = 1))]
+    pub query: String,
+}
+
+/// Generic SQL query response
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SqlQueryResponse {
+    pub success: bool,
+    pub rows_affected: Option<usize>,
+    pub rows: Option<Vec<HashMap<String, serde_json::Value>>>,
+    pub columns: Option<Vec<String>>,
+    pub error: Option<String>,
+    pub execution_time_ms: f64,
+}
+
 #[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 pub struct CreateTableRequest {
     #[validate(nested)]

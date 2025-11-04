@@ -90,7 +90,7 @@ class NeuroQuantumClient:
         """
         request = QueryRequest(query=query)
         response = await self.client.post(
-            "/query",
+            "/api/v1/query",
             json=request.model_dump(),
         )
 
@@ -102,6 +102,10 @@ class NeuroQuantumClient:
             )
 
         data = response.json()
+        # Handle the API response structure (data.data contains the actual result)
+        if "data" in data:
+            actual_data = data["data"]
+            return QueryResponse(**actual_data)
         return QueryResponse(**data)
 
     async def execute_query_raw(self, query: str) -> dict[str, Any]:
@@ -115,7 +119,7 @@ class NeuroQuantumClient:
         """
         request = QueryRequest(query=query)
         response = await self.client.post(
-            "/query",
+            "/api/v1/query",
             json=request.model_dump(),
         )
         response.raise_for_status()

@@ -304,6 +304,9 @@ pub fn configure_app(
                     web::scope("")
                         .wrap(middleware::auth_middleware())
 
+                        // Generic SQL query endpoint
+                        .route("/query", web::post().to(handlers::execute_sql_query))
+
                         // CRUD Operations
                         .service(
                             web::scope("/tables")
