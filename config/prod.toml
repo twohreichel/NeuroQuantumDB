@@ -5,66 +5,66 @@
 host = "127.0.0.1"  # SECURITY: Only bind to localhost, use reverse proxy for external access
 port = 8080
 workers = 4
-keep_alive = 30
-client_timeout = 60
-shutdown_timeout = 30
+max_connections = 25000
+keep_alive = 75
+client_timeout = 5000
+client_shutdown = 5000
 
 [database]
 data_path = "./neuroquantum_data"
 max_connections = 100
 connection_timeout_seconds = 30
 
-[database.neuromorphic_config]
-synaptic_strength_threshold = 0.7
-learning_rate = 0.015
-plasticity_decay = 0.001
-max_synaptic_connections = 10000000
-hebbian_window_ms = 50
-
-[database.quantum_config]
-default_quantum_level = 5
-grovers_iterations = 15
-annealing_temperature = 0.01
-superposition_depth = 8
-quantum_error_correction = true
-
-[database.dna_config]
-target_compression_ratio = 999.0
-error_correction_redundancy = 3
-quaternary_encoding_block_size = 256
-protein_folding_levels = 4
-cache_size_mb = 1024
-
-[auth]
+[jwt]
 # SECURITY WARNING: Change this secret key immediately!
-jwt_secret = "CHANGE_THIS_IN_PRODUCTION_neuroquantum_$(openssl rand -hex 32)"
-token_expiry_seconds = 3600  # 1 hour
-quantum_level = 4
-kyber_key_size = 1024
-dilithium_signature_size = 2420
-password_hash_cost = 12
+secret = "CHANGE_THIS_IN_PRODUCTION_neuroquantum_secret_key_32_chars_min"
+expiration_hours = 1
+refresh_threshold_minutes = 15
+quantum_enabled = true
+algorithm = "HS256"
+issuer = "neuroquantum-db"
+audience = "neuroquantum-api"
 
-[metrics]
+[rate_limit]
+requests_per_hour = 10000
+burst_allowance = 100
 enabled = true
-port = 9090
-path = "/metrics"
-collection_interval_ms = 5000
-retention_hours = 168  # 7 days
-export_format = "prometheus"
+strategy = "TokenBucket"
+
+[cors]
+allowed_origins = ["https://app.neuroquantumdb.com"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+allowed_headers = ["Authorization", "Content-Type", "X-API-Key", "X-Request-ID", "X-Quantum-Level"]
+expose_headers = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID"]
+max_age = 3600
+allow_credentials = true
 
 [security]
-quantum_resistant_encryption = true
-tls_enabled = true
-tls_cert_path = "/etc/ssl/certs/neuroquantumdb.crt"
-tls_key_path = "/etc/ssl/private/neuroquantumdb.key"
-cors_origins = ["https://neuroquantumdb.org"]
-rate_limit_requests_per_minute = 500
-max_request_size_mb = 5
+max_payload_size = 5242880  # 5MB
+request_timeout_seconds = 60
+security_headers = true
+csrf_protection = false
+quantum_encryption = true
+admin_ip_whitelist = ["127.0.0.1", "::1"]
 
-[performance]
-arm64_neon_enabled = true
-power_management_enabled = true
-max_power_consumption_mw = 1500.0
-cpu_frequency_scaling = true
-memory_pool_size_mb = 256
-gc_threshold_mb = 50
+[security.circuit_breaker]
+failure_threshold = 10
+success_threshold = 5
+timeout_seconds = 120
+enabled = true
+
+[monitoring]
+metrics_enabled = true
+prometheus_endpoint = "/metrics"
+health_check_endpoint = "/health"
+performance_stats = true
+detailed_logging = true
+websocket_enabled = true
+
+[logging]
+level = "info"
+format = "Json"
+file_path = "/var/log/neuroquantumdb/api.log"
+max_file_size_mb = 100
+max_files = 10
+structured_logging = true
