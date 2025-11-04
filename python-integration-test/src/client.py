@@ -94,18 +94,29 @@ class NeuroQuantumClient:
             json=request.model_dump(),
         )
 
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
+        data = response.json()
+
+        # Handle the API response structure
+        # API wraps responses in: {"success": bool, "data": {...}, "error": {...}, "metadata": {...}}
+        if not data.get("success", False):
+            # Error case: extract error message
+            error_obj = data.get("error", {})
+            if isinstance(error_obj, dict):
+                # ApiError is an object with the error message - extract the message
+                error_msg = str(error_obj) if error_obj else f"HTTP {response.status_code}"
+            else:
+                error_msg = str(error_obj) if error_obj else f"HTTP {response.status_code}"
+
             return QueryResponse(
                 success=False,
-                error=error_data.get("error", f"HTTP {response.status_code}"),
+                error=error_msg,
             )
 
-        data = response.json()
-        # Handle the API response structure (data.data contains the actual result)
+        # Success case: data.data contains the SqlQueryResponse
         if "data" in data:
             actual_data = data["data"]
             return QueryResponse(**actual_data)
+
         return QueryResponse(**data)
 
     async def execute_query_raw(self, query: str) -> dict[str, Any]:
