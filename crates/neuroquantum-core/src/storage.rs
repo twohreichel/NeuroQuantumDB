@@ -329,8 +329,17 @@ impl StorageEngine {
 
         for dir in &dirs {
             if !dir.exists() {
-                fs::create_dir_all(dir).await?;
+                fs::create_dir_all(dir).await.map_err(|e| {
+                    anyhow!(
+                        "Failed to create directory '{}': {} (Error code: {})",
+                        dir.display(),
+                        e,
+                        e.raw_os_error().unwrap_or(-1)
+                    )
+                })?;
                 info!("📁 Created directory: {}", dir.display());
+            } else {
+                debug!("📁 Directory already exists: {}", dir.display());
             }
         }
 

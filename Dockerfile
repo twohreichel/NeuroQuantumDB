@@ -46,6 +46,7 @@ COPY Cargo.lock ./Cargo.lock
 COPY crates/neuroquantum-core/Cargo.toml crates/neuroquantum-core/Cargo.toml
 COPY crates/neuroquantum-qsql/Cargo.toml crates/neuroquantum-qsql/Cargo.toml
 COPY crates/neuroquantum-api/Cargo.toml crates/neuroquantum-api/Cargo.toml
+COPY neuroquantum_data /neuroquantum_data
 
 # Create production Cargo.toml without tests workspace member
 RUN sed '/^[[:space:]]*"tests"/d' Cargo.toml.full > Cargo.toml

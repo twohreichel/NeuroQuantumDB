@@ -76,6 +76,3 @@ LICENSE
 
 # Makefile (development only)
 Makefile
-
-# Generated data
-neuroquantum_data

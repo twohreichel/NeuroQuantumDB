@@ -20,7 +20,13 @@ RUSTFLAGS := -C target-cpu=cortex-a72 -C target-feature=+neon,+fp-armv8 -C opt-l
 CARGO_FLAGS := --target $(TARGET) --profile $(PROFILE) --features $(FEATURES)
 
 # Development targets
-dev: ## Build for development with debug symbols
+init-data-dir: ## Initialize the neuroquantum_data directory with correct permissions
+	@echo "📁 Initializing neuroquantum_data directory..."
+	@mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
+	@chmod -R 755 neuroquantum_data
+	@echo "✅ neuroquantum_data directory initialized!"
+
+dev: init-data-dir ## Build for development with debug symbols
 	@echo "🔨 Building NeuroQuantumDB for development..."
 	cargo build --workspace --features debug-synaptic,neuromorphic,quantum,natural-language
 
@@ -261,6 +267,15 @@ power-monitor: ## Power monitoring (requires powertop)
 	else \
 		echo "⚠️  powertop not installed. Install with: sudo apt install powertop"; \
 	fi
+
+# Runtime targets
+run: init-data-dir ## Run the NeuroQuantumDB API server (development mode)
+	@echo "🚀 Starting NeuroQuantumDB API server..."
+	cargo run --bin neuroquantum-api -- --config config/dev.toml
+
+run-release: init-data-dir build-release ## Run the NeuroQuantumDB API server (release mode)
+	@echo "🚀 Starting NeuroQuantumDB API server (release)..."
+	./target/release/neuroquantum-api --config config/dev.toml
 
 # Clean targets
 clean: ## Clean build artifacts
