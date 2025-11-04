@@ -177,12 +177,15 @@ mod tests {
     #[test]
     fn test_frame_unpin_error() {
         let frame = Frame::new(FrameId(0));
-        
+
         // Trying to unpin when not pinned should return error
         let result = frame.unpin();
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Attempted to unpin a frame that was not pinned");
-        
+        assert_eq!(
+            result.unwrap_err(),
+            "Attempted to unpin a frame that was not pinned"
+        );
+
         // Pin count should remain 0
         assert_eq!(frame.pin_count(), 0);
     }

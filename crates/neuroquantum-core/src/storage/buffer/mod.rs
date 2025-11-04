@@ -319,7 +319,8 @@ impl BufferPoolManager {
             .get(&frame_id)
             .ok_or_else(|| anyhow!("Frame not found: {:?}", frame_id))?;
 
-        frame.unpin()
+        frame
+            .unpin()
             .map_err(|e| anyhow!("Failed to unpin frame {:?}: {}", frame_id, e))?;
 
         if is_dirty {
