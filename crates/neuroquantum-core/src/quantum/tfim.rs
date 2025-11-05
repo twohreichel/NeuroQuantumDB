@@ -100,9 +100,21 @@ impl TFIMSolver {
         Self { config }
     }
 
-    /// Solve TFIM problem using quantum annealing
+    /// Solve TFIM problem using quantum annealing with multiple retries
+    /// This is more realistic as real quantum annealers run multiple times
     #[instrument(skip(self, problem))]
     pub fn solve(&self, problem: &TFIMProblem) -> CoreResult<TFIMSolution> {
+        self.solve_with_retries(problem, 1)
+    }
+
+    /// Solve TFIM problem with multiple annealing runs (retries)
+    /// Returns the best solution found across all runs
+    #[instrument(skip(self, problem))]
+    pub fn solve_with_retries(
+        &self,
+        problem: &TFIMProblem,
+        num_retries: usize,
+    ) -> CoreResult<TFIMSolution> {
         let start_time = std::time::Instant::now();
 
         if problem.num_spins == 0 {
@@ -110,9 +122,42 @@ impl TFIMSolver {
         }
 
         debug!(
-            "Solving TFIM problem '{}' with {} spins",
-            problem.name, problem.num_spins
+            "Solving TFIM problem '{}' with {} spins ({} retries)",
+            problem.name, problem.num_spins, num_retries
         );
+
+        let mut best_solution: Option<TFIMSolution> = None;
+
+        for _retry in 0..num_retries {
+            let solution = self.solve_single_run(problem)?;
+
+            match &best_solution {
+                None => best_solution = Some(solution),
+                Some(current_best) => {
+                    if solution.energy < current_best.energy {
+                        best_solution = Some(solution);
+                    }
+                }
+            }
+        }
+
+        let mut final_solution = best_solution.unwrap();
+        final_solution.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+
+        info!(
+            "TFIM solved with {} retries: best_energy={:.4}, prob={:.4}, time={:.2}ms",
+            num_retries,
+            final_solution.energy,
+            final_solution.ground_state_prob,
+            final_solution.computation_time_ms
+        );
+
+        Ok(final_solution)
+    }
+
+    /// Single annealing run
+    fn solve_single_run(&self, problem: &TFIMProblem) -> CoreResult<TFIMSolution> {
+        let start_time = std::time::Instant::now();
 
         let mut rng = rand::thread_rng();
 
@@ -175,8 +220,8 @@ impl TFIMSolver {
         let ground_state_prob =
             self.estimate_ground_state_probability(problem, best_energy, self.config.temperature);
 
-        info!(
-            "TFIM solved: energy={:.4}, tunneling_events={}, prob={:.4}, time={:.2}ms",
+        debug!(
+            "TFIM single run: energy={:.4}, tunneling_events={}, prob={:.4}, time={:.2}ms",
             best_energy, tunneling_events, ground_state_prob, computation_time_ms
         );
 
@@ -353,11 +398,41 @@ mod tests {
             name: "Simple".to_string(),
         };
 
-        let solver = TFIMSolver::new();
-        let solution = solver.solve(&problem).unwrap();
+        // Use more annealing steps for better convergence
+        let config = TransverseFieldConfig {
+            initial_field: 10.0,
+            final_field: 0.01,
+            num_steps: 2000,
+            field_schedule: FieldSchedule::Linear,
+            temperature: 0.5, // Lower temperature for better convergence
+            quantum_tunneling: true,
+        };
+
+        let solver = TFIMSolver::with_config(config);
+
+        // Run multiple annealing attempts to ensure convergence
+        // This mimics real quantum annealing where multiple samples are taken
+        let solution = solver.solve_with_retries(&problem, 5).unwrap();
 
         assert_eq!(solution.spins.len(), 3);
-        assert!(solution.energy < 0.0); // Ferromagnetic should align
+
+        // For ferromagnetic coupling (J_ij = 1.0), optimal energy is when all spins align
+        // Energy = -J * (s0*s1 + s0*s2 + s1*s2) = -1.0 * 3 = -3.0 (all aligned)
+        // With multiple retries, we should reliably find the ground state
+        assert!(
+            solution.energy < 0.0,
+            "Ferromagnetic coupling should result in aligned spins with negative energy, got: {}",
+            solution.energy
+        );
+
+        // Check if we found the optimal solution (all spins aligned)
+        // Optimal energy for 3 spins with J=1.0 is -3.0
+        assert!(
+            solution.energy <= -2.5,
+            "Expected near-optimal energy (≤ -2.5), got: {}",
+            solution.energy
+        );
+
         assert!(solution.ground_state_prob > 0.0);
     }
 

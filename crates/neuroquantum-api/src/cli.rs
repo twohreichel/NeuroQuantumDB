@@ -47,8 +47,69 @@ pub enum Commands {
         output: Option<PathBuf>,
     },
 
+    /// Manage API keys (create, list, revoke)
+    Key {
+        #[command(subcommand)]
+        action: KeyAction,
+    },
+
     /// Start the API server (default command)
     Serve,
+}
+
+#[derive(Subcommand)]
+pub enum KeyAction {
+    /// Create a new API key (requires existing admin key)
+    Create {
+        /// Name for the new API key
+        #[arg(short, long)]
+        name: String,
+
+        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        #[arg(long)]
+        admin_key: Option<String>,
+
+        /// Permissions (comma-separated: admin,read,write,quantum,neuromorphic,dna)
+        #[arg(short, long, value_delimiter = ',')]
+        permissions: Vec<String>,
+
+        /// Expiry in hours
+        #[arg(short, long, default_value = "720")]
+        expiry_hours: u32,
+
+        /// Rate limit per hour
+        #[arg(short, long)]
+        rate_limit: Option<u32>,
+
+        /// Output file for the new key
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// List all API keys
+    List {
+        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        #[arg(long)]
+        admin_key: Option<String>,
+    },
+
+    /// Revoke an API key
+    Revoke {
+        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        #[arg(long)]
+        admin_key: Option<String>,
+
+        /// API key to revoke (prefix match supported)
+        #[arg(short, long)]
+        key: String,
+    },
+
+    /// Show statistics about API keys
+    Stats {
+        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        #[arg(long)]
+        admin_key: Option<String>,
+    },
 }
 
 impl Cli {
@@ -68,6 +129,9 @@ impl Cli {
             }
             Some(Commands::GenerateJwtSecret { output }) => {
                 generate_jwt_secret(output)?;
+            }
+            Some(Commands::Key { action }) => {
+                handle_key_command(action).await?;
             }
             Some(Commands::Serve) | None => {
                 // Will be handled by main.rs to start the server
@@ -124,7 +188,8 @@ async fn init_database(
     }
 
     // Create auth service
-    let mut auth_service = AuthService::new_with_setup_mode();
+    let mut auth_service = AuthService::new()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
 
     // Generate admin key
     println!("\n🔑 Generating admin API key...");
@@ -237,6 +302,254 @@ fn generate_jwt_secret(output: Option<PathBuf>) -> Result<()> {
             println!("🔒 File permissions set to 600 (owner read/write only)");
         }
     }
+
+    Ok(())
+}
+
+async fn handle_key_command(action: KeyAction) -> Result<()> {
+    match action {
+        KeyAction::Create {
+            name,
+            admin_key,
+            permissions,
+            expiry_hours,
+            rate_limit,
+            output,
+        } => {
+            create_api_key(
+                name,
+                admin_key,
+                permissions,
+                expiry_hours,
+                rate_limit,
+                output,
+            )
+            .await
+        }
+        KeyAction::List { admin_key } => list_api_keys(admin_key).await,
+        KeyAction::Revoke { admin_key, key } => revoke_api_key(admin_key, key).await,
+        KeyAction::Stats { admin_key } => show_stats(admin_key).await,
+    }
+}
+
+async fn create_api_key(
+    name: String,
+    admin_key: Option<String>,
+    permissions: Vec<String>,
+    expiry_hours: u32,
+    rate_limit: Option<u32>,
+    output: Option<PathBuf>,
+) -> Result<()> {
+    println!("🔑 Creating new API key...\n");
+
+    // Get admin key from argument or environment variable
+    let admin_key = admin_key
+        .or_else(|| std::env::var("NEUROQUANTUM_ADMIN_KEY").ok())
+        .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
+
+    let mut auth_service = AuthService::new()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+
+    let admin_api_key = auth_service
+        .validate_api_key(&admin_key)
+        .await
+        .ok_or_else(|| anyhow::anyhow!("Invalid admin key"))?;
+
+    if !admin_api_key.permissions.contains(&"admin".to_string()) {
+        anyhow::bail!("Admin permission required to create API keys");
+    }
+
+    let valid_permissions = vec!["admin", "neuromorphic", "quantum", "dna", "read", "write"];
+    for permission in &permissions {
+        if !valid_permissions.contains(&permission.as_str()) {
+            anyhow::bail!(
+                "Invalid permission: {}. Valid permissions are: {:?}",
+                permission,
+                valid_permissions
+            );
+        }
+    }
+
+    let new_key = auth_service
+        .generate_api_key(
+            name.clone(),
+            permissions.clone(),
+            Some(expiry_hours),
+            rate_limit,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to generate API key: {}", e))?;
+
+    println!("✅ API key created successfully!");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("🔐 API Key: {}", new_key.key);
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("📝 Name: {}", new_key.name);
+    println!("⏰ Created: {}", new_key.created_at);
+    println!("⏳ Expires: {}", new_key.expires_at);
+    println!("🎫 Permissions: {}", new_key.permissions.join(", "));
+    if let Some(limit) = new_key.rate_limit_per_hour {
+        println!("⚡ Rate Limit: {} requests/hour", limit);
+    }
+    println!();
+
+    warn!("⚠️  IMPORTANT: Save this key securely - it will not be shown again!");
+
+    if let Some(output_path) = output {
+        let key_content = format!(
+            "# NeuroQuantumDB API Key\n\
+             # Generated: {}\n\
+             # Name: {}\n\
+             # Expires: {}\n\
+             # Permissions: {}\n\n\
+             NEUROQUANTUM_API_KEY={}\n",
+            new_key.created_at,
+            new_key.name,
+            new_key.expires_at,
+            new_key.permissions.join(", "),
+            new_key.key
+        );
+
+        fs::write(&output_path, key_content).context("Failed to write API key to file")?;
+        println!("💾 API key saved to: {}", output_path.display());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&output_path)?.permissions();
+            perms.set_mode(0o600);
+            fs::set_permissions(&output_path, perms)?;
+            println!("🔒 File permissions set to 600 (owner read/write only)");
+        }
+    }
+
+    Ok(())
+}
+
+async fn list_api_keys(admin_key: Option<String>) -> Result<()> {
+    println!("📋 Listing all API keys...\n");
+
+    // Get admin key from argument or environment variable
+    let admin_key = admin_key
+        .or_else(|| std::env::var("NEUROQUANTUM_ADMIN_KEY").ok())
+        .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
+
+    let auth_service = AuthService::new()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+
+    let admin_api_key = auth_service
+        .validate_api_key(&admin_key)
+        .await
+        .ok_or_else(|| anyhow::anyhow!("Invalid admin key"))?;
+
+    if !admin_api_key.permissions.contains(&"admin".to_string()) {
+        anyhow::bail!("Admin permission required to list API keys");
+    }
+
+    let keys = auth_service.list_api_keys();
+
+    if keys.is_empty() {
+        println!("No API keys found.");
+        return Ok(());
+    }
+
+    println!("┌─────────────────────────────────────────────────────────────────┐");
+    println!("│ API Keys                                                        │");
+    println!("├─────────────────────────────────────────────────────────────────┤");
+
+    for (i, key_info) in keys.iter().enumerate() {
+        if i > 0 {
+            println!("├─────────────────────────────────────────────────────────────────┤");
+        }
+        println!("│ Name: {:<58}│", key_info.name);
+        println!("│ Key:  {:<58}│", key_info.key_id);
+        println!("│ Permissions: {:<51}│", key_info.permissions.join(", "));
+        println!(
+            "│ Created: {:<55}│",
+            key_info.created_at.format("%Y-%m-%d %H:%M:%S")
+        );
+        println!(
+            "│ Expires: {:<55}│",
+            key_info.expires_at.format("%Y-%m-%d %H:%M:%S")
+        );
+        println!("│ Usage: {} times{:<48}│", key_info.usage_count, "");
+        if let Some(last_used) = key_info.last_used {
+            println!(
+                "│ Last Used: {:<53}│",
+                last_used.format("%Y-%m-%d %H:%M:%S")
+            );
+        }
+    }
+
+    println!("└─────────────────────────────────────────────────────────────────┘");
+    println!("\nTotal: {} API key(s)", keys.len());
+
+    Ok(())
+}
+
+async fn revoke_api_key(admin_key: Option<String>, key_to_revoke: String) -> Result<()> {
+    println!("🗑️  Revoking API key...\n");
+
+    // Get admin key from argument or environment variable
+    let admin_key = admin_key
+        .or_else(|| std::env::var("NEUROQUANTUM_ADMIN_KEY").ok())
+        .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
+
+    let mut auth_service = AuthService::new()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+
+    let admin_api_key = auth_service
+        .validate_api_key(&admin_key)
+        .await
+        .ok_or_else(|| anyhow::anyhow!("Invalid admin key"))?;
+
+    if !admin_api_key.permissions.contains(&"admin".to_string()) {
+        anyhow::bail!("Admin permission required to revoke API keys");
+    }
+
+    let revoked = auth_service.revoke_api_key(&key_to_revoke, Some(&admin_api_key.name));
+
+    if revoked {
+        println!("✅ API key revoked successfully");
+        println!(
+            "🔑 Revoked key: {}...",
+            &key_to_revoke[..16.min(key_to_revoke.len())]
+        );
+    } else {
+        println!("❌ API key not found or already revoked");
+    }
+
+    Ok(())
+}
+
+async fn show_stats(admin_key: Option<String>) -> Result<()> {
+    println!("📊 API Key Statistics\n");
+
+    // Get admin key from argument or environment variable
+    let admin_key = admin_key
+        .or_else(|| std::env::var("NEUROQUANTUM_ADMIN_KEY").ok())
+        .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
+
+    let auth_service = AuthService::new()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+
+    let admin_api_key = auth_service
+        .validate_api_key(&admin_key)
+        .await
+        .ok_or_else(|| anyhow::anyhow!("Invalid admin key"))?;
+
+    if !admin_api_key.permissions.contains(&"admin".to_string()) {
+        anyhow::bail!("Admin permission required to view statistics");
+    }
+
+    let stats = auth_service.get_storage_stats();
+
+    println!("┌─────────────────────────────────────────────────────────────────┐");
+    println!("│ Storage Statistics                                              │");
+    println!("├─────────────────────────────────────────────────────────────────┤");
+    println!("│ Total Active Keys:    {:<42}│", stats.total_active_keys);
+    println!("│ Total Revoked Keys:   {:<42}│", stats.total_revoked_keys);
+    println!("│ Admin Keys:           {:<42}│", stats.admin_keys);
+    println!("└─────────────────────────────────────────────────────────────────┘");
 
     Ok(())
 }

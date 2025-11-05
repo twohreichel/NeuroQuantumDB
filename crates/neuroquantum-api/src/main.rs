@@ -24,11 +24,12 @@ async fn main() -> Result<()> {
         print_system_info();
     }
 
-    // Handle CLI commands (init, generate-jwt-secret, etc.)
+    // Handle CLI commands (init, generate-jwt-secret, key management, etc.)
     if let Some(ref cmd) = cli.command {
         match cmd {
             neuroquantum_api::cli::Commands::Init { .. }
-            | neuroquantum_api::cli::Commands::GenerateJwtSecret { .. } => {
+            | neuroquantum_api::cli::Commands::GenerateJwtSecret { .. }
+            | neuroquantum_api::cli::Commands::Key { .. } => {
                 return cli.execute().await;
             }
             neuroquantum_api::cli::Commands::Serve => {

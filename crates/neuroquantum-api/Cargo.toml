@@ -59,6 +59,9 @@ base64 = "0.22.1"
 num_cpus = "1.17.0"
 rand = "0.8"
 
+# Database for persistent storage
+rusqlite = { version = "0.32", features = ["bundled"] }
+
 # CLI
 clap = { version = "4.5", features = ["derive"] }
 

@@ -19,6 +19,7 @@ pub mod handlers;
 pub mod jwt;
 pub mod middleware;
 pub mod rate_limit;
+pub mod storage;
 pub mod websocket;
 
 use auth::AuthService;
@@ -51,7 +52,8 @@ impl AppState {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to initialize database: {}", e))?;
 
-        let auth_service = AuthService::new_with_setup_mode();
+        let auth_service = AuthService::new()
+            .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
 
         // Warn if no admin keys exist - database needs initialization
         if !auth_service.has_admin_keys() {

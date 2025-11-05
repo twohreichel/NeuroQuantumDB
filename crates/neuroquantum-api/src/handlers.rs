@@ -150,100 +150,61 @@ pub struct RevokeKeyRequest {
     pub api_key: String,
 }
 
-/// User login with JWT token generation
+/// User login with JWT token generation - DISABLED FOR SECURITY
+///
+/// This endpoint has been disabled. NeuroQuantumDB now uses API-Key-Only authentication.
+/// To obtain an API key:
+/// 1. Run: `neuroquantum-api init` to create your first admin key
+/// 2. Use the X-API-Key header for authentication
+/// 3. Admin users can create additional API keys via `/api/v1/auth/generate-key`
 #[utoipa::path(
     post,
     path = "/api/v1/auth/login",
     request_body = LoginRequest,
     responses(
-        (status = 200, description = "Login successful", body = ApiResponse<LoginResponse>),
-        (status = 401, description = "Invalid credentials", body = ApiResponse<String>),
-        (status = 422, description = "Validation error", body = ApiResponse<String>),
+        (status = 501, description = "Endpoint disabled - use API keys instead", body = ApiResponse<String>),
     ),
     tag = "Authentication"
 )]
 pub async fn login(
     _auth_service: web::Data<AuthService>,
-    login_req: web::Json<LoginRequest>,
+    _login_req: web::Json<LoginRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
-    let start = Instant::now();
+    warn!("⚠️ Attempt to use disabled /auth/login endpoint");
 
-    // Validate request
-    login_req
-        .validate()
-        .map_err(|e| ApiError::ValidationError {
-            field: "request".to_string(),
-            message: e.to_string(),
-        })?;
-
-    // In a real implementation, verify credentials against database
-    // For now, we'll simulate authentication
-    let user_id = format!("user_{}", uuid::Uuid::new_v4());
-    let permissions = vec!["read".to_string(), "write".to_string()];
-    let quantum_level = if login_req.quantum_enabled.unwrap_or(false) {
-        255
-    } else {
-        128
-    };
-
-    // Simulate JWT token generation (would use actual JWT service in real implementation)
-    let access_token = format!("jwt_token_{}", uuid::Uuid::new_v4());
-    let refresh_token = format!("refresh_token_{}", uuid::Uuid::new_v4());
-
-    let response = LoginResponse {
-        access_token,
-        refresh_token,
-        expires_in: 86400, // 24 hours
-        token_type: "Bearer".to_string(),
-        user_id,
-        permissions,
-        quantum_level,
-    };
-
-    info!(
-        "🔐 User login successful with quantum_level: {}",
-        quantum_level
-    );
-
-    Ok(HttpResponse::Ok().json(ApiResponse::success(
-        response,
-        ResponseMetadata::new(start.elapsed(), "Login successful"),
-    )))
+    Err(ApiError::NotImplemented(
+        "JWT login has been disabled for security reasons. \
+         NeuroQuantumDB uses API-Key-Only authentication. \
+         Please run 'neuroquantum-api init' to create your first admin API key, \
+         then use the X-API-Key header for authentication."
+            .to_string(),
+    ))
 }
 
-/// Refresh JWT token
+/// Refresh JWT token - DISABLED FOR SECURITY
+///
+/// This endpoint has been disabled. API keys don't need to be refreshed.
+/// If your API key expires, request a new one from an admin user.
 #[utoipa::path(
     post,
     path = "/api/v1/auth/refresh",
     request_body = RefreshTokenRequest,
     responses(
-        (status = 200, description = "Token refreshed", body = ApiResponse<LoginResponse>),
-        (status = 401, description = "Invalid refresh token", body = ApiResponse<String>),
+        (status = 501, description = "Endpoint disabled - API keys don't need refresh", body = ApiResponse<String>),
     ),
     tag = "Authentication"
 )]
 pub async fn refresh_token(
-    refresh_req: web::Json<RefreshTokenRequest>,
+    _refresh_req: web::Json<RefreshTokenRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
-    let start = Instant::now();
+    warn!("⚠️ Attempt to use disabled /auth/refresh endpoint");
 
-    // Simulate token refresh (would use actual JWT service in real implementation)
-    let new_token = format!("jwt_token_{}", uuid::Uuid::new_v4());
-
-    let response = LoginResponse {
-        access_token: new_token,
-        refresh_token: refresh_req.refresh_token.clone(),
-        expires_in: 86400,
-        token_type: "Bearer".to_string(),
-        user_id: "user_123".to_string(),
-        permissions: vec!["read".to_string(), "write".to_string()],
-        quantum_level: 128,
-    };
-
-    Ok(HttpResponse::Ok().json(ApiResponse::success(
-        response,
-        ResponseMetadata::new(start.elapsed(), "Token refreshed successfully"),
-    )))
+    Err(ApiError::NotImplemented(
+        "Token refresh has been disabled. \
+         API keys have fixed expiration dates and cannot be refreshed. \
+         Contact an admin to generate a new API key if needed."
+            .to_string(),
+    ))
 }
 
 /// Generate new API key (requires admin permission)
@@ -291,12 +252,16 @@ pub async fn generate_api_key(
     }
 
     let mut auth_service_mut = auth_service.as_ref().clone();
-    let new_key = auth_service_mut.generate_api_key(
-        key_request.name.clone(),
-        key_request.permissions.clone(),
-        key_request.expiry_hours,
-        key_request.rate_limit_per_hour,
-    );
+    let new_key = auth_service_mut
+        .generate_api_key(
+            key_request.name.clone(),
+            key_request.permissions.clone(),
+            key_request.expiry_hours,
+            key_request.rate_limit_per_hour,
+        )
+        .map_err(|e| ApiError::InternalServerError {
+            message: format!("Failed to generate API key: {}", e),
+        })?;
 
     info!(
         "🔑 Admin {} generated new API key for: {}",
@@ -349,7 +314,7 @@ pub async fn revoke_api_key(
     }
 
     let mut auth_service_mut = auth_service.as_ref().clone();
-    let revoked = auth_service_mut.revoke_api_key(&revoke_req.api_key);
+    let revoked = auth_service_mut.revoke_api_key(&revoke_req.api_key, Some(&requesting_key.name));
 
     if revoked {
         info!("🗑️ Admin {} revoked API key", requesting_key.name);

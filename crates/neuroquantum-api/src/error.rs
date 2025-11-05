@@ -58,6 +58,9 @@ pub enum ApiError {
 
     #[error("Service unavailable: {service} - {reason}")]
     ServiceUnavailable { service: String, reason: String },
+
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
 }
 
 /// Standard API response wrapper
@@ -606,6 +609,7 @@ impl ResponseError for ApiError {
             ApiError::ServiceUnavailable { .. } | ApiError::CircuitBreakerOpen { .. } => {
                 HttpResponse::ServiceUnavailable().json(response)
             }
+            ApiError::NotImplemented(_) => HttpResponse::NotImplemented().json(response),
             _ => HttpResponse::InternalServerError().json(response),
         }
     }
@@ -639,6 +643,7 @@ where
                 Some(ApiError::ConnectionPoolError { .. }) => HttpResponse::InternalServerError(),
                 Some(ApiError::CircuitBreakerOpen { .. }) => HttpResponse::ServiceUnavailable(),
                 Some(ApiError::ServiceUnavailable { .. }) => HttpResponse::ServiceUnavailable(),
+                Some(ApiError::NotImplemented(_)) => HttpResponse::NotImplemented(),
                 None => HttpResponse::InternalServerError(),
             };
             status.json(response)
