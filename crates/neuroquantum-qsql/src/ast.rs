@@ -357,9 +357,12 @@ pub enum UnaryOperator {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SelectItem {
-    pub expression: Expression,
-    pub alias: Option<String>,
+pub enum SelectItem {
+    Wildcard,
+    Expression {
+        expr: Expression,
+        alias: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

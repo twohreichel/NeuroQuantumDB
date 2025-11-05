@@ -567,17 +567,14 @@ impl QSQLParser {
 
             match &tokens[i] {
                 TokenType::Identifier(name) => {
-                    select_list.push(SelectItem {
-                        expression: Expression::Identifier(name.clone()),
+                    select_list.push(SelectItem::Expression {
+                        expr: Expression::Identifier(name.clone()),
                         alias: None,
                     });
                     i += 1;
                 }
                 TokenType::Multiply => {
-                    select_list.push(SelectItem {
-                        expression: Expression::Identifier("*".to_string()),
-                        alias: None,
-                    });
+                    select_list.push(SelectItem::Wildcard);
                     i += 1;
                 }
                 TokenType::Comma => {

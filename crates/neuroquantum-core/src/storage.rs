@@ -81,6 +81,20 @@ pub enum Value {
     Null,
 }
 
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Integer(i) => write!(f, "{}", i),
+            Value::Float(fl) => write!(f, "{}", fl),
+            Value::Text(s) => write!(f, "{}", s),
+            Value::Boolean(b) => write!(f, "{}", b),
+            Value::Timestamp(ts) => write!(f, "{}", ts.to_rfc3339()),
+            Value::Binary(b) => write!(f, "Binary[{} bytes]", b.len()),
+            Value::Null => write!(f, "NULL"),
+        }
+    }
+}
+
 /// Database row containing field values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Row {

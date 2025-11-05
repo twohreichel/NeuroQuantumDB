@@ -30,8 +30,12 @@ tracing = "0.1.41"
 # Cryptographic hashing for pattern recognition
 md5 = "0.8.0"
 
+# Date and time for Row timestamps
+chrono = { version = "0.4", features = ["serde"] }
+
 [dev-dependencies]
 proptest = "1.7.0"
+tempfile = "3.8"
 
 [features]
 default = ["neuromorphic", "quantum", "natural-language"]
