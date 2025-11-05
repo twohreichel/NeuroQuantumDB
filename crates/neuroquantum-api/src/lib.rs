@@ -35,6 +35,7 @@ use websocket::{ConnectionConfig, ConnectionManager, PubSubManager, WebSocketSer
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<tokio::sync::RwLock<NeuroQuantumDB>>,
+    pub qsql_engine: Arc<tokio::sync::Mutex<neuroquantum_qsql::QSQLEngine>>,
     pub auth_service: AuthService,
     pub jwt_service: JwtService,
     pub rate_limit_service: RateLimitService,
@@ -74,14 +75,24 @@ impl AppState {
         };
         let rate_limit_service = RateLimitService::new(rate_limit_config).await?;
 
-        // Initialize WebSocket service
+        // Initialize QSQL engine
+        let qsql_engine = neuroquantum_qsql::QSQLEngine::new()
+            .map_err(|e| anyhow::anyhow!("Failed to initialize QSQL engine: {}", e))?;
+        let qsql_engine_arc = Arc::new(tokio::sync::Mutex::new(qsql_engine));
+
+        // Initialize WebSocket service with QSQL engine
         let ws_config = ConnectionConfig::default();
         let connection_manager = Arc::new(ConnectionManager::new(ws_config));
         let pubsub_manager = Arc::new(PubSubManager::new());
-        let websocket_service = Arc::new(WebSocketService::new(connection_manager, pubsub_manager));
+        let websocket_service = Arc::new(WebSocketService::with_qsql_engine(
+            connection_manager,
+            pubsub_manager,
+            qsql_engine_arc.clone(),
+        ));
 
         Ok(Self {
             db: Arc::new(tokio::sync::RwLock::new(db)),
+            qsql_engine: qsql_engine_arc,
             auth_service,
             jwt_service,
             rate_limit_service,

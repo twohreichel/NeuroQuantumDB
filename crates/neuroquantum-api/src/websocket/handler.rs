@@ -125,6 +125,7 @@ pub struct WebSocketService {
     pubsub_manager: Arc<PubSubManager>,
     streaming_registry: Arc<StreamingRegistry>,
     query_streamer: Arc<QueryStreamer>,
+    qsql_engine: Option<Arc<tokio::sync::Mutex<neuroquantum_qsql::QSQLEngine>>>,
 }
 
 impl WebSocketService {
@@ -146,6 +147,39 @@ impl WebSocketService {
             pubsub_manager,
             streaming_registry,
             query_streamer,
+            qsql_engine: None,
+        }
+    }
+
+    /// Set the QSQL engine for real query execution
+    pub fn set_qsql_engine(
+        &mut self,
+        engine: Arc<tokio::sync::Mutex<neuroquantum_qsql::QSQLEngine>>,
+    ) {
+        self.qsql_engine = Some(engine);
+        info!("✅ QSQL engine attached to WebSocketService");
+    }
+
+    /// Create a new WebSocket service with QSQL engine
+    pub fn with_qsql_engine(
+        connection_manager: Arc<ConnectionManager>,
+        pubsub_manager: Arc<PubSubManager>,
+        qsql_engine: Arc<tokio::sync::Mutex<neuroquantum_qsql::QSQLEngine>>,
+    ) -> Self {
+        let streaming_config = StreamingConfig::default();
+        let streaming_registry = Arc::new(StreamingRegistry::new(streaming_config.clone()));
+        let query_streamer = Arc::new(QueryStreamer::new(
+            streaming_config,
+            streaming_registry.clone(),
+        ));
+
+        info!("✅ WebSocketService initialized with QSQL engine support");
+        Self {
+            connection_manager,
+            pubsub_manager,
+            streaming_registry,
+            query_streamer,
+            qsql_engine: Some(qsql_engine),
         }
     }
 
@@ -167,6 +201,7 @@ impl WebSocketService {
             pubsub_manager,
             streaming_registry,
             query_streamer,
+            qsql_engine: None,
         }
     }
 
@@ -395,9 +430,70 @@ impl WebSocketService {
             stream_id, conn_id
         );
 
-        // For demonstration, create mock results
-        // In production, this would execute the actual query
-        let mock_results = self.query_streamer.create_mock_results(500);
+        // Execute real query if QSQL engine is available, otherwise use mock data
+        let query_results = if let Some(qsql_engine) = &self.qsql_engine {
+            match qsql_engine.lock().await.execute_query(&query).await {
+                Ok(result) => {
+                    // Convert QueryResult rows to Row format
+                    result
+                        .rows
+                        .into_iter()
+                        .map(|row_map| {
+                            use neuroquantum_core::storage::{Row, Value};
+                            use neuroquantum_qsql::query_plan::QueryValue;
+
+                            let mut fields = std::collections::HashMap::new();
+                            let mut id_value = 0u64;
+
+                            for (key, value) in row_map {
+                                // Extract id if present
+                                if key == "id" {
+                                    if let QueryValue::Integer(i) = value {
+                                        id_value = i as u64;
+                                    }
+                                }
+
+                                // Convert QueryValue to Value
+                                let converted_value = match value {
+                                    QueryValue::Null => Value::Null,
+                                    QueryValue::Boolean(b) => Value::Boolean(b),
+                                    QueryValue::Integer(i) => Value::Integer(i),
+                                    QueryValue::Float(f) => Value::Float(f),
+                                    QueryValue::String(s) => Value::Text(s),
+                                    QueryValue::Blob(b) => Value::Binary(b),
+                                    QueryValue::DNASequence(s) => Value::Text(s),
+                                    QueryValue::SynapticWeight(w) => Value::Float(w as f64),
+                                    QueryValue::QuantumState(s) => Value::Text(s),
+                                };
+                                fields.insert(key, converted_value);
+                            }
+
+                            Row {
+                                id: id_value,
+                                fields,
+                                created_at: chrono::Utc::now(),
+                                updated_at: chrono::Utc::now(),
+                            }
+                        })
+                        .collect()
+                }
+                Err(e) => {
+                    error!("❌ Query execution failed: {}", e);
+                    // Send error to client
+                    let error_response = WsResponse::Error {
+                        code: "QUERY_FAILED".to_string(),
+                        message: format!("Query execution failed: {}", e),
+                    };
+                    self.send_to_connection(conn_id, &error_response).await?;
+                    self.streaming_registry.remove_stream(stream_id).await;
+                    return Ok(());
+                }
+            }
+        } else {
+            // Fallback to mock data if no QSQL engine available
+            warn!("⚠️  No QSQL engine available, using mock data");
+            self.query_streamer.create_mock_results(500)
+        };
 
         // Clone required variables for async task
         let conn_id_clone = conn_id;
@@ -482,9 +578,9 @@ impl WebSocketService {
                 Ok(())
             };
 
-            // Stream the results
+            // Stream the results (using real query results instead of mock data)
             match query_streamer
-                .stream_results(stream_id_clone, query_clone, mock_results, send_fn)
+                .stream_results(stream_id_clone, query_clone, query_results, send_fn)
                 .await
             {
                 Ok(total) => {

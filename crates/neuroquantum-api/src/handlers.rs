@@ -2,6 +2,7 @@ use crate::auth::{ApiKey, AuthService};
 use crate::error::*;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
 use neuroquantum_core::NeuroQuantumDB;
+use neuroquantum_qsql::query_plan::QueryValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1609,7 +1610,7 @@ pub async fn eeg_list_users(req: HttpRequest) -> ActixResult<HttpResponse, ApiEr
 )]
 pub async fn execute_sql_query(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
+    app_state: web::Data<crate::AppState>,
     query_req: web::Json<SqlQueryRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     use crate::error::SqlQueryResponse;
@@ -1658,47 +1659,73 @@ pub async fn execute_sql_query(
         &query_req.query[..query_req.query.len().min(100)]
     );
 
-    // Execute query simulation (in production, this would interface with the actual query engine)
+    // Execute query using QSQL engine
+    let mut qsql_engine = app_state.qsql_engine.lock().await;
+    let query_result = qsql_engine
+        .execute_query(&query_req.query)
+        .await
+        .map_err(|e| ApiError::InvalidQuery {
+            details: format!("Query execution failed: {}", e),
+        })?;
+
     let execution_time_ms = start.elapsed().as_secs_f64() * 1000.0;
 
-    // Simulate query execution based on query type
-    let response = if query_upper.starts_with("SELECT") {
-        // SELECT query - return empty result set for now
-        SqlQueryResponse {
-            success: true,
-            rows_affected: None,
-            rows: Some(Vec::new()),
-            columns: Some(Vec::new()),
-            error: None,
-            execution_time_ms,
-        }
-    } else if query_upper.starts_with("CREATE")
-        || query_upper.starts_with("INSERT")
-        || query_upper.starts_with("UPDATE")
-        || query_upper.starts_with("DELETE")
-        || query_upper.starts_with("DROP")
-    {
-        // Data modification query
-        let rows_affected = if query_upper.starts_with("CREATE") || query_upper.starts_with("DROP")
-        {
-            0
+    // Convert QSQL QueryResult to SqlQueryResponse
+    let response = SqlQueryResponse {
+        success: true,
+        rows_affected: Some(query_result.rows_affected as usize),
+        rows: if !query_result.rows.is_empty() {
+            Some(
+                query_result
+                    .rows
+                    .into_iter()
+                    .map(|row| {
+                        row.into_iter()
+                            .map(|(k, v)| {
+                                let json_value = match v {
+                                    QueryValue::Null => serde_json::Value::Null,
+                                    QueryValue::Boolean(b) => serde_json::Value::Bool(b),
+                                    QueryValue::Integer(i) => serde_json::Value::Number(i.into()),
+                                    QueryValue::Float(f) => serde_json::Number::from_f64(f)
+                                        .map(serde_json::Value::Number)
+                                        .unwrap_or(serde_json::Value::Null),
+                                    QueryValue::String(s) => serde_json::Value::String(s),
+                                    QueryValue::Blob(b) => {
+                                        use base64::Engine;
+                                        serde_json::Value::String(
+                                            base64::engine::general_purpose::STANDARD.encode(b),
+                                        )
+                                    }
+                                    QueryValue::DNASequence(s) => serde_json::Value::String(s),
+                                    QueryValue::SynapticWeight(w) => {
+                                        serde_json::Number::from_f64(w as f64)
+                                            .map(serde_json::Value::Number)
+                                            .unwrap_or(serde_json::Value::Null)
+                                    }
+                                    QueryValue::QuantumState(s) => serde_json::Value::String(s),
+                                };
+                                (k, json_value)
+                            })
+                            .collect()
+                    })
+                    .collect(),
+            )
         } else {
-            1 // Simulate 1 row affected
-        };
-
-        SqlQueryResponse {
-            success: true,
-            rows_affected: Some(rows_affected),
-            rows: None,
-            columns: None,
-            error: None,
-            execution_time_ms,
-        }
-    } else {
-        // Unknown query type
-        return Err(ApiError::InvalidQuery {
-            details: "Unsupported query type".to_string(),
-        });
+            None
+        },
+        columns: if !query_result.columns.is_empty() {
+            Some(
+                query_result
+                    .columns
+                    .into_iter()
+                    .map(|col| col.name)
+                    .collect(),
+            )
+        } else {
+            None
+        },
+        error: None,
+        execution_time_ms,
     };
 
     info!(

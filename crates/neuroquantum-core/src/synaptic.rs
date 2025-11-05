@@ -11,6 +11,11 @@ use std::sync::RwLock;
 use std::time::Instant;
 use tracing::{debug, info, instrument, warn};
 
+/// Helper function for serde default with Instant
+fn instant_now() -> Instant {
+    Instant::now()
+}
+
 /// Types of synaptic connections
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectionType {
@@ -75,7 +80,7 @@ impl ActivationFunction {
 }
 
 /// Advanced neuron structure with full activation capabilities
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Neuron {
     pub id: u64,
     pub activation: f32,
@@ -83,6 +88,7 @@ pub struct Neuron {
     pub activation_function: ActivationFunction,
     pub input_sum: f32,
     pub output: f32,
+    #[serde(skip, default)]
     pub last_spike_time: Option<Instant>,
     pub refractory_period_ms: u64,
     pub threshold: f32,
@@ -136,13 +142,14 @@ impl Neuron {
 }
 
 /// Synapse structure with full plasticity support
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Synapse {
     pub pre_neuron: u64,
     pub post_neuron: u64,
     pub weight: f32,
     pub plasticity_factor: f32,
     pub eligibility_trace: f32,
+    #[serde(skip, default = "instant_now")]
     pub last_update: Instant,
     pub connection_type: ConnectionType,
 }
@@ -187,11 +194,12 @@ impl Synapse {
 }
 
 /// Individual synaptic node representing a data point or index entry
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SynapticNode {
     pub id: u64,
     pub strength: f32,
     pub connections: Vec<SynapticConnection>,
+    #[serde(skip, default = "instant_now")]
     pub last_access: Instant,
     pub access_count: u64,
     pub data_payload: Vec<u8>,
@@ -201,11 +209,12 @@ pub struct SynapticNode {
 }
 
 /// Synaptic connection between nodes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SynapticConnection {
     pub target_id: u64,
     pub weight: f32,
     pub connection_type: ConnectionType,
+    #[serde(skip, default = "instant_now")]
     pub last_strengthened: Instant,
     pub usage_count: u64,
     pub plasticity_factor: f32,
@@ -313,7 +322,7 @@ pub struct SynapticNetwork {
 }
 
 /// Query pattern structure for learning and optimization
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryPattern {
     pub pattern_hash: String,
     pub access_count: u64,
@@ -321,6 +330,7 @@ pub struct QueryPattern {
     pub optimal_neurons: Vec<u64>,
     pub synaptic_pathway: Vec<u64>,
     pub performance_score: f32,
+    #[serde(skip, default = "instant_now")]
     pub last_accessed: Instant,
 }
 
@@ -890,10 +900,145 @@ impl SynapticNetwork {
         Ok(())
     }
 
-    /// Save the current learning state
+    /// Save the current learning state to persistent storage
     pub async fn save_learning_state(&self) -> CoreResult<()> {
-        // In production, this would serialize the network state to persistent storage
-        tracing::info!("Synaptic learning state saved");
+        let state = self.serialize_network_state()?;
+
+        // Save to file
+        let state_path = std::path::Path::new("./neuroquantum_data/synaptic_state.bin");
+
+        // Create directory if it doesn't exist
+        if let Some(parent) = state_path.parent() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                CoreError::StorageError(format!("Failed to create synaptic state directory: {}", e))
+            })?;
+        }
+
+        tokio::fs::write(state_path, &state).await.map_err(|e| {
+            CoreError::StorageError(format!("Failed to write synaptic state: {}", e))
+        })?;
+
+        tracing::info!("✅ Synaptic learning state saved ({} bytes)", state.len());
+        Ok(())
+    }
+
+    /// Load learning state from persistent storage
+    pub async fn load_learning_state(&mut self) -> CoreResult<()> {
+        let state_path = std::path::Path::new("./neuroquantum_data/synaptic_state.bin");
+
+        if !state_path.exists() {
+            tracing::warn!("No saved synaptic state found, starting fresh");
+            return Ok(());
+        }
+
+        let state = tokio::fs::read(state_path).await.map_err(|e| {
+            CoreError::StorageError(format!("Failed to read synaptic state: {}", e))
+        })?;
+
+        self.deserialize_network_state(&state)?;
+
+        tracing::info!("✅ Synaptic learning state loaded ({} bytes)", state.len());
+        Ok(())
+    }
+
+    /// Serialize the entire network state
+    fn serialize_network_state(&self) -> CoreResult<Vec<u8>> {
+        #[derive(Serialize)]
+        struct NetworkState {
+            nodes: Vec<(u64, SynapticNode)>,
+            neurons: Vec<(u64, Neuron)>,
+            synapses: Vec<Synapse>,
+            query_patterns: Vec<(String, QueryPattern)>,
+            total_connections: usize,
+            memory_usage: usize,
+        }
+
+        let nodes: Vec<_> = self
+            .nodes
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+        let neurons: Vec<_> = self
+            .neurons
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+        let synapses = self.synapses.read().unwrap().clone();
+        let query_patterns: Vec<_> = self
+            .query_patterns
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let total_connections = *self.total_connections.read().unwrap();
+        let memory_usage = *self.memory_usage.read().unwrap();
+
+        let state = NetworkState {
+            nodes,
+            neurons,
+            synapses,
+            query_patterns,
+            total_connections,
+            memory_usage,
+        };
+
+        bincode::serialize(&state).map_err(|e| {
+            CoreError::SerializationError(format!("Failed to serialize network state: {}", e))
+        })
+    }
+
+    /// Deserialize and restore network state
+    fn deserialize_network_state(&mut self, data: &[u8]) -> CoreResult<()> {
+        #[derive(Deserialize)]
+        struct NetworkState {
+            nodes: Vec<(u64, SynapticNode)>,
+            neurons: Vec<(u64, Neuron)>,
+            synapses: Vec<Synapse>,
+            query_patterns: Vec<(String, QueryPattern)>,
+            total_connections: usize,
+            memory_usage: usize,
+        }
+
+        let state: NetworkState = bincode::deserialize(data).map_err(|e| {
+            CoreError::StorageError(format!("Failed to deserialize network state: {}", e))
+        })?;
+
+        // Restore nodes
+        let mut nodes = self.nodes.write().unwrap();
+        nodes.clear();
+        for (id, node) in state.nodes {
+            nodes.insert(id, node);
+        }
+        drop(nodes);
+
+        // Restore neurons
+        let mut neurons = self.neurons.write().unwrap();
+        neurons.clear();
+        for (id, neuron) in state.neurons {
+            neurons.insert(id, neuron);
+        }
+        drop(neurons);
+
+        // Restore synapses
+        *self.synapses.write().unwrap() = state.synapses;
+
+        // Restore query patterns
+        let mut query_patterns = self.query_patterns.write().unwrap();
+        query_patterns.clear();
+        for (key, pattern) in state.query_patterns {
+            query_patterns.insert(key, pattern);
+        }
+        drop(query_patterns);
+
+        // Restore statistics
+        *self.total_connections.write().unwrap() = state.total_connections;
+        *self.memory_usage.write().unwrap() = state.memory_usage;
+
         Ok(())
     }
 

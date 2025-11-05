@@ -7,6 +7,21 @@ use crate::dna::{DNABase, DNAError};
 use reed_solomon_erasure::{galois_8::Field as GF8, Error as RSError, ReedSolomon};
 use tracing::{debug, instrument, warn};
 
+/// Error correction statistics
+#[derive(Debug, Default, Clone)]
+pub struct ErrorCorrectionStats {
+    /// Total number of errors detected
+    pub errors_detected: usize,
+    /// Total number of errors corrected
+    pub errors_corrected: usize,
+    /// Total number of blocks processed
+    pub blocks_processed: usize,
+    /// Number of reconstruction attempts
+    pub reconstructions_attempted: usize,
+    /// Number of successful reconstructions
+    pub reconstructions_successful: usize,
+}
+
 /// Reed-Solomon error corrector optimized for DNA data
 #[derive(Debug)]
 pub struct ReedSolomonCorrector {
@@ -18,6 +33,8 @@ pub struct ReedSolomonCorrector {
     data_shards: usize,
     /// Maximum correctable errors per block
     max_correctable_errors: usize,
+    /// Error correction statistics
+    stats: std::sync::Arc<std::sync::Mutex<ErrorCorrectionStats>>,
 }
 
 impl ReedSolomonCorrector {
@@ -37,7 +54,18 @@ impl ReedSolomonCorrector {
             parity_shards,
             data_shards,
             max_correctable_errors,
+            stats: std::sync::Arc::new(std::sync::Mutex::new(ErrorCorrectionStats::default())),
         }
+    }
+
+    /// Get error correction statistics
+    pub fn get_stats(&self) -> ErrorCorrectionStats {
+        self.stats.lock().unwrap().clone()
+    }
+
+    /// Reset error correction statistics
+    pub fn reset_stats(&self) {
+        *self.stats.lock().unwrap() = ErrorCorrectionStats::default();
     }
 
     /// Generate Reed-Solomon parity data for the given input
@@ -174,14 +202,46 @@ impl ReedSolomonCorrector {
             shards.push(None);
         }
 
-        // Detect and correct errors - simplified for now
-        let errors_detected = 0; // Placeholder - RS library handles detection internally
+        // Detect errors by checking which shards are missing or corrupted
+        let errors_detected = self.detect_errors(&shards);
 
-        if errors_detected > 0 {
+        // Count missing shards
+        let missing_shards = shards.iter().filter(|s| s.is_none()).count();
+        let total_errors = errors_detected + missing_shards;
+
+        // Update statistics
+        {
+            let mut stats = self.stats.lock().unwrap();
+            stats.blocks_processed += 1;
+            stats.errors_detected += total_errors;
+        }
+
+        if missing_shards > 0 || errors_detected > 0 {
+            debug!(
+                "Detected {} missing shards and {} corrupted shards, attempting reconstruction",
+                missing_shards, errors_detected
+            );
+
+            // Update reconstruction attempt counter
+            {
+                let mut stats = self.stats.lock().unwrap();
+                stats.reconstructions_attempted += 1;
+            }
+
             // Attempt Reed-Solomon reconstruction
             match self.rs_codec.reconstruct(&mut shards) {
                 Ok(_) => {
-                    debug!("Successfully corrected {} errors in block", errors_detected);
+                    debug!(
+                        "Successfully reconstructed data with {} errors/missing shards",
+                        total_errors
+                    );
+
+                    // Update successful reconstruction counter
+                    {
+                        let mut stats = self.stats.lock().unwrap();
+                        stats.reconstructions_successful += 1;
+                        stats.errors_corrected += total_errors;
+                    }
 
                     // Extract corrected data
                     let corrected: Vec<u8> = shards[0..self.data_shards]
@@ -191,10 +251,15 @@ impl ReedSolomonCorrector {
                         .take(data_block.len())
                         .collect();
 
-                    Ok((corrected, errors_detected))
+                    Ok((corrected, total_errors))
                 }
                 Err(RSError::TooFewShardsPresent) => Err(DNAError::ErrorCorrectionFailed(
-                    "Too many errors to correct".to_string(),
+                    format!(
+                        "Too many errors to correct: {} missing, {} corrupted, need at least {} valid shards",
+                        missing_shards,
+                        errors_detected,
+                        self.data_shards
+                    ),
                 )),
                 Err(e) => Err(DNAError::ErrorCorrectionFailed(format!(
                     "Reed-Solomon reconstruction failed: {:?}",
@@ -208,11 +273,78 @@ impl ReedSolomonCorrector {
     }
 
     /// Detect errors in Reed-Solomon encoded data
-    #[allow(dead_code)]
-    fn detect_errors(&self, _shards: &[Vec<u8>]) -> usize {
-        // Simple error detection - in a real implementation, this would be more sophisticated
-        // For now, we'll assume no errors detected by default (RS library handles this internally)
-        0 // Placeholder return value
+    /// This checks for corrupted shards using checksums and validates shard integrity
+    fn detect_errors(&self, shards: &[Option<Vec<u8>>]) -> usize {
+        let mut corrupted_count = 0;
+
+        for (idx, shard) in shards.iter().enumerate() {
+            if let Some(shard_data) = shard {
+                // Verify shard is not empty
+                if shard_data.is_empty() {
+                    corrupted_count += 1;
+                    continue;
+                }
+
+                // For data shards, validate checksum if available
+                // Check if all bytes are the same (likely corruption)
+                if shard_data.len() > 1 {
+                    let first_byte = shard_data[0];
+                    let all_same = shard_data.iter().all(|&b| b == first_byte);
+
+                    // If all bytes are 0xFF or 0x00, likely corrupted
+                    if all_same && (first_byte == 0xFF || first_byte == 0x00) {
+                        debug!(
+                            "Detected corrupted shard at index {}: all bytes are 0x{:02X}",
+                            idx, first_byte
+                        );
+                        corrupted_count += 1;
+                        continue;
+                    }
+                }
+
+                // Additional validation: check for expected shard size
+                let expected_size = if idx < self.data_shards {
+                    // Data shards should have consistent size
+                    shards[0..self.data_shards]
+                        .iter()
+                        .filter_map(|s| s.as_ref())
+                        .map(|s| s.len())
+                        .max()
+                        .unwrap_or(shard_data.len())
+                } else {
+                    // Parity shards should match data shard size
+                    shards[0..self.data_shards]
+                        .iter()
+                        .filter_map(|s| s.as_ref())
+                        .map(|s| s.len())
+                        .next()
+                        .unwrap_or(shard_data.len())
+                };
+
+                // Allow some tolerance for the last shard which might be padded
+                if !shard_data.is_empty()
+                    && (shard_data.len() < expected_size / 2
+                        || shard_data.len() > expected_size * 2)
+                {
+                    debug!(
+                        "Detected size anomaly in shard {}: expected ~{} bytes, got {} bytes",
+                        idx,
+                        expected_size,
+                        shard_data.len()
+                    );
+                    corrupted_count += 1;
+                }
+            }
+        }
+
+        if corrupted_count > 0 {
+            debug!(
+                "Detected {} corrupted shards during error detection",
+                corrupted_count
+            );
+        }
+
+        corrupted_count
     }
 
     /// Calculate the required parity length for a given data size

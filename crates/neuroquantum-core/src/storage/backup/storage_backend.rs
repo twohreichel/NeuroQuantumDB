@@ -109,21 +109,38 @@ impl BackupStorageBackend for LocalBackend {
 /// Amazon S3 storage backend
 pub struct S3Backend {
     config: S3Config,
-    // In production, would include S3 client
-    // client: aws_sdk_s3::Client,
+    client: aws_sdk_s3::Client,
 }
 
 impl S3Backend {
     /// Create a new S3 backend
     pub async fn new(config: S3Config) -> Result<Self> {
-        // In production, initialize AWS SDK client here
-        // For now, return a placeholder
-        Ok(Self { config })
+        // Initialize AWS SDK configuration
+        let aws_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .load()
+            .await;
+
+        // Create S3 client with optional endpoint override for custom S3-compatible services
+        let client = if let Some(endpoint) = &config.endpoint {
+            let s3_config = aws_sdk_s3::config::Builder::from(&aws_config)
+                .endpoint_url(endpoint)
+                .force_path_style(true)
+                .build();
+            aws_sdk_s3::Client::from_conf(s3_config)
+        } else {
+            aws_sdk_s3::Client::new(&aws_config)
+        };
+
+        tracing::info!("✅ S3 backend initialized for bucket: {}", config.bucket);
+
+        Ok(Self { config, client })
     }
 
     /// Get S3 key for a path
     fn get_s3_key(&self, path: &Path) -> String {
-        path.to_string_lossy().to_string()
+        // Remove leading slash if present and convert to string
+        let path_str = path.to_string_lossy();
+        path_str.trim_start_matches('/').to_string()
     }
 }
 
@@ -132,18 +149,17 @@ impl BackupStorageBackend for S3Backend {
     async fn write_file(&self, path: &Path, data: &[u8]) -> Result<()> {
         let key = self.get_s3_key(path);
 
-        // Production implementation would use AWS SDK:
-        // self.client
-        //     .put_object()
-        //     .bucket(&self.config.bucket)
-        //     .key(&key)
-        //     .body(ByteStream::from(data.to_vec()))
-        //     .send()
-        //     .await?;
+        self.client
+            .put_object()
+            .bucket(&self.config.bucket)
+            .key(&key)
+            .body(aws_sdk_s3::primitives::ByteStream::from(data.to_vec()))
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("S3 write failed: {}", e))?;
 
-        // For now, log the operation
         tracing::info!(
-            "S3 write: bucket={}, key={}, size={}",
+            "✅ S3 write: bucket={}, key={}, size={} bytes",
             self.config.bucket,
             key,
             data.len()
@@ -155,34 +171,45 @@ impl BackupStorageBackend for S3Backend {
     async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
         let key = self.get_s3_key(path);
 
-        // Production implementation would use AWS SDK:
-        // let resp = self.client
-        //     .get_object()
-        //     .bucket(&self.config.bucket)
-        //     .key(&key)
-        //     .send()
-        //     .await?;
-        //
-        // let data = resp.body.collect().await?.into_bytes().to_vec();
+        let resp = self
+            .client
+            .get_object()
+            .bucket(&self.config.bucket)
+            .key(&key)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("S3 read failed: {}", e))?;
 
-        tracing::info!("S3 read: bucket={}, key={}", self.config.bucket, key);
+        let data = resp
+            .body
+            .collect()
+            .await
+            .map_err(|e| anyhow::anyhow!("S3 body read failed: {}", e))?
+            .into_bytes()
+            .to_vec();
 
-        // Return empty data for now
-        Ok(Vec::new())
+        tracing::info!(
+            "✅ S3 read: bucket={}, key={}, size={} bytes",
+            self.config.bucket,
+            key,
+            data.len()
+        );
+
+        Ok(data)
     }
 
     async fn delete_file(&self, path: &Path) -> Result<()> {
         let key = self.get_s3_key(path);
 
-        // Production implementation would use AWS SDK:
-        // self.client
-        //     .delete_object()
-        //     .bucket(&self.config.bucket)
-        //     .key(&key)
-        //     .send()
-        //     .await?;
+        self.client
+            .delete_object()
+            .bucket(&self.config.bucket)
+            .key(&key)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("S3 delete failed: {}", e))?;
 
-        tracing::info!("S3 delete: bucket={}, key={}", self.config.bucket, key);
+        tracing::info!("✅ S3 delete: bucket={}, key={}", self.config.bucket, key);
 
         Ok(())
     }
@@ -202,25 +229,30 @@ impl BackupStorageBackend for S3Backend {
     async fn list_directory(&self, path: &Path) -> Result<Vec<PathBuf>> {
         let prefix = self.get_s3_key(path);
 
-        // Production implementation would use AWS SDK:
-        // let resp = self.client
-        //     .list_objects_v2()
-        //     .bucket(&self.config.bucket)
-        //     .prefix(&prefix)
-        //     .send()
-        //     .await?;
-        //
-        // let files = resp.contents()
-        //     .unwrap_or_default()
-        //     .iter()
-        //     .filter_map(|obj| obj.key())
-        //     .map(|key| PathBuf::from(key))
-        //     .collect();
+        let resp = self
+            .client
+            .list_objects_v2()
+            .bucket(&self.config.bucket)
+            .prefix(&prefix)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("S3 list failed: {}", e))?;
 
-        tracing::info!("S3 list: bucket={}, prefix={}", self.config.bucket, prefix);
+        let files: Vec<PathBuf> = resp
+            .contents()
+            .iter()
+            .filter_map(|obj| obj.key())
+            .map(PathBuf::from)
+            .collect();
 
-        // Return empty list for now
-        Ok(Vec::new())
+        tracing::info!(
+            "✅ S3 list: bucket={}, prefix={}, found {} objects",
+            self.config.bucket,
+            prefix,
+            files.len()
+        );
+
+        Ok(files)
     }
 }
 

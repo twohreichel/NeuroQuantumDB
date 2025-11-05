@@ -47,6 +47,10 @@ criterion = { version = "0.7.0", features = ["html_reports"], optional = true }
 # Async traits
 async-trait = "0.1"
 
+# AWS SDK for S3 backups
+aws-config = "1.5"
+aws-sdk-s3 = "1.60"
+
 # Compression algorithms for comparison
 flate2 = "1.0"
 lz4_flex = "0.11"

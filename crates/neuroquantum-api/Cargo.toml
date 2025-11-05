@@ -10,6 +10,7 @@ description = "NeuroQuantumDB REST API Server"
 [dependencies]
 # Local dependencies
 neuroquantum-core = { path = "../neuroquantum-core" }
+neuroquantum-qsql = { path = "../neuroquantum-qsql" }
 
 # Web framework
 actix-web = "4.11.0"
