@@ -9,6 +9,12 @@ use crate::dna::{DNABase, DNAError};
 use std::arch::x86_64::*;
 
 /// AVX2-optimized encoding of bytes to DNA bases
+///
+/// # Safety
+///
+/// This function requires the CPU to support AVX2 instructions.
+/// The caller must ensure that the `avx2` target feature is available before calling.
+/// Use `is_x86_feature_detected!("avx2")` to check at runtime.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn encode_chunk_avx2(input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
@@ -47,10 +53,16 @@ unsafe fn encode_32_bytes_avx2(chunk: &[u8], output: &mut Vec<DNABase>) -> Resul
 }
 
 /// AVX2-optimized decoding of DNA bases to bytes
+///
+/// # Safety
+///
+/// This function requires the CPU to support AVX2 instructions.
+/// The caller must ensure that the `avx2` target feature is available before calling.
+/// Use `is_x86_feature_detected!("avx2")` to check at runtime.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn decode_chunk_avx2(input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
-    if input.len() % 4 != 0 {
+    if !input.len().is_multiple_of(4) {
         return Err(DNAError::LengthMismatch {
             expected: (input.len() / 4) * 4,
             actual: input.len(),
@@ -76,7 +88,7 @@ unsafe fn decode_128_bases_avx2(chunk: &[DNABase], output: &mut Vec<u8>) -> Resu
     // Process 32 groups of 4 bases each
     let mut bytes = [0u8; 32];
 
-    for group in 0..32 {
+    for (group, byte_slot) in bytes.iter_mut().enumerate() {
         let base_offset = group * 4;
         let mut byte = 0u8;
 
@@ -87,7 +99,7 @@ unsafe fn decode_128_bases_avx2(chunk: &[DNABase], output: &mut Vec<u8>) -> Resu
             byte |= (base.to_bits()) << shift;
         }
 
-        bytes[group] = byte;
+        *byte_slot = byte;
     }
 
     output.extend_from_slice(&bytes);
@@ -95,6 +107,12 @@ unsafe fn decode_128_bases_avx2(chunk: &[DNABase], output: &mut Vec<u8>) -> Resu
 }
 
 /// AVX2-optimized pattern matching for dictionary compression
+///
+/// # Safety
+///
+/// This function requires the CPU to support AVX2 instructions.
+/// The caller must ensure that the `avx2` target feature is available before calling.
+/// Use `is_x86_feature_detected!("avx2")` to check at runtime.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn find_pattern_avx2(haystack: &[u8], needle: &[u8]) -> Vec<usize> {
@@ -139,6 +157,12 @@ pub unsafe fn find_pattern_avx2(haystack: &[u8], needle: &[u8]) -> Vec<usize> {
 }
 
 /// Calculate Hamming distance between DNA sequences using AVX2
+///
+/// # Safety
+///
+/// This function requires the CPU to support AVX2 instructions.
+/// The caller must ensure that the `avx2` target feature is available before calling.
+/// Use `is_x86_feature_detected!("avx2")` to check at runtime.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn hamming_distance_avx2(seq1: &[DNABase], seq2: &[DNABase]) -> Result<usize, DNAError> {
@@ -192,6 +216,12 @@ unsafe fn hamming_distance_32_bytes_avx2(chunk1: &[u8], chunk2: &[u8]) -> usize 
 }
 
 /// AVX2-optimized base frequency counting
+///
+/// # Safety
+///
+/// This function requires the CPU to support AVX2 instructions.
+/// The caller must ensure that the `avx2` target feature is available before calling.
+/// Use `is_x86_feature_detected!("avx2")` to check at runtime.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn count_base_frequencies_avx2(bases: &[DNABase]) -> [usize; 4] {
@@ -234,6 +264,12 @@ unsafe fn count_32_bases_avx2(chunk: &[u8], counts: &mut [usize; 4]) {
 }
 
 /// AVX2-optimized CRC32 calculation with hardware acceleration
+///
+/// # Safety
+///
+/// This function requires the CPU to support AVX2 and SSE4.2 instructions.
+/// The caller must ensure that the `avx2` and `sse4.2` target features are available before calling.
+/// Use `is_x86_feature_detected!("avx2")` and `is_x86_feature_detected!("sse4.2")` to check at runtime.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2,sse4.2")]
 pub unsafe fn crc32_avx2(data: &[u8]) -> u32 {
@@ -256,6 +292,15 @@ pub unsafe fn crc32_avx2(data: &[u8]) -> u32 {
 }
 
 /// AVX2-optimized memory copy for large DNA sequences
+///
+/// # Safety
+///
+/// This function requires the CPU to support AVX2 instructions.
+/// The caller must ensure that:
+/// - The `avx2` target feature is available (use `is_x86_feature_detected!("avx2")` to check)
+/// - `dst` and `src` are valid pointers for the given length
+/// - `dst` and `src` regions do not overlap
+/// - Both `dst` and `src` are valid for reads/writes of `len` bytes
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn memcpy_avx2(dst: *mut u8, src: *const u8, len: usize) {
