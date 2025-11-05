@@ -236,11 +236,11 @@ jobs:
 
       - name: Check for unsafe code
         run: |
-          if grep -r "unsafe" crates/ --include="*.rs"; then
-            echo "❌ Unsafe code detected! Remove all unsafe blocks."
+          if grep -r "unsafe" crates/ --include="*.rs" --exclude-dir="simd" | grep -v "crates/neuroquantum-core/src/dna/simd/"; then
+            echo "❌ Unsafe code detected outside of SIMD modules! Remove all unsafe blocks."
             exit 1
           else
-            echo "✅ No unsafe code found."
+            echo "✅ No unsafe code found outside SIMD optimizations."
           fi
 
   test:

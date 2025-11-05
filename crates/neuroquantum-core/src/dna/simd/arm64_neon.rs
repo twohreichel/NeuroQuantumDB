@@ -3,6 +3,8 @@
 //! This module provides ARM64 NEON SIMD implementations for high-performance
 //! DNA compression operations on ARM-based processors.
 
+#![cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+
 use crate::dna::{DNABase, DNAError};
 use std::arch::aarch64::*;
 
@@ -370,22 +372,12 @@ fn bases_to_bytes(bases: &[DNABase]) -> Vec<u8> {
 }
 
 /// NEON feature detection and capability reporting
-pub fn detect_neon_capabilities() -> NeonCapabilities {
-    NeonCapabilities {
+pub fn detect_neon_capabilities() -> super::NeonCapabilities {
+    super::NeonCapabilities {
         has_neon: std::arch::is_aarch64_feature_detected!("neon"),
         has_crc32: std::arch::is_aarch64_feature_detected!("crc"),
         has_sha2: std::arch::is_aarch64_feature_detected!("sha2"),
         vector_width: 128,  // bits
         parallel_lanes: 16, // bytes
     }
-}
-
-/// NEON capability information
-#[derive(Debug, Clone)]
-pub struct NeonCapabilities {
-    pub has_neon: bool,
-    pub has_crc32: bool,
-    pub has_sha2: bool,
-    pub vector_width: usize,
-    pub parallel_lanes: usize,
 }

@@ -5,8 +5,37 @@
 
 use crate::dna::{DNABase, DNAError};
 
+#[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 pub mod arm64_neon;
 pub mod x86_avx2;
+
+/// NEON capability information
+#[derive(Debug, Clone)]
+pub struct NeonCapabilities {
+    pub has_neon: bool,
+    pub has_crc32: bool,
+    pub has_sha2: bool,
+    pub vector_width: usize,
+    pub parallel_lanes: usize,
+}
+
+/// Detect NEON capabilities (delegates to platform-specific implementation)
+#[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+pub fn detect_neon_capabilities() -> NeonCapabilities {
+    arm64_neon::detect_neon_capabilities()
+}
+
+/// Stub for non-ARM64 platforms
+#[cfg(not(any(target_arch = "aarch64", target_arch = "arm64ec")))]
+pub fn detect_neon_capabilities() -> NeonCapabilities {
+    NeonCapabilities {
+        has_neon: false,
+        has_crc32: false,
+        has_sha2: false,
+        vector_width: 0,
+        parallel_lanes: 0,
+    }
+}
 
 /// SIMD capability detection and dispatch
 #[derive(Debug, Clone)]

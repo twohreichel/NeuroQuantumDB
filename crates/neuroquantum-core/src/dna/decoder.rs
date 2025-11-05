@@ -164,30 +164,26 @@ impl QuaternaryDecoder {
 
     #[cfg(target_arch = "x86_64")]
     fn decode_chunk_avx2(&self, chunk: &[DNABase]) -> Result<Vec<u8>, DNAError> {
-        use std::arch::x86_64::*;
-
         let mut result = Vec::with_capacity(chunk.len() / 4);
         let mut i = 0;
 
-        unsafe {
-            // Process 128 bases (32 bytes) at a time with AVX2
-            while i + 128 <= chunk.len() {
-                // Convert bases to bytes in groups of 4
-                for group in 0..32 {
-                    let base_offset = i + group * 4;
-                    let mut byte = 0u8;
+        // Process 128 bases (32 bytes) at a time with AVX2
+        while i + 128 <= chunk.len() {
+            // Convert bases to bytes in groups of 4
+            for group in 0..32 {
+                let base_offset = i + group * 4;
+                let mut byte = 0u8;
 
-                    for j in 0..4 {
-                        let base = chunk[base_offset + j];
-                        let shift = 6 - (j * 2);
-                        byte |= base.to_bits() << shift;
-                    }
-
-                    result.push(byte);
+                for j in 0..4 {
+                    let base = chunk[base_offset + j];
+                    let shift = 6 - (j * 2);
+                    byte |= base.to_bits() << shift;
                 }
 
-                i += 128;
+                result.push(byte);
             }
+
+            i += 128;
         }
 
         // Handle remaining bases
