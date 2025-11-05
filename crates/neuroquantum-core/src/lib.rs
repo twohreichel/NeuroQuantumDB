@@ -18,6 +18,7 @@ pub mod plasticity;
 pub mod quantum;
 pub mod quantum_processor; // New: True Grover's algorithm implementation
 pub mod query;
+mod simd; // SIMD optimizations - internal only
 
 // Quantum extensions submodules
 pub use quantum::parallel_tempering;

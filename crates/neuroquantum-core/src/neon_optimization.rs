@@ -14,9 +14,6 @@ use crate::error::{CoreError, CoreResult};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
-
 /// NEON optimizer for ARM64 SIMD operations
 #[derive(Debug)]
 pub struct NeonOptimizer {
@@ -372,62 +369,8 @@ impl NeonOptimizer {
     #[cfg(target_arch = "aarch64")]
     /// ARM64 NEON implementation of DNA compression
     fn neon_dna_compression(&self, data: &[u8]) -> CoreResult<Vec<u8>> {
-        let mut result = Vec::with_capacity(data.len() / 4);
-
-        unsafe {
-            // Process 16 bytes at a time using NEON 128-bit registers
-            for chunk in data.chunks_exact(16) {
-                // Load 16 bytes into NEON register
-                let vec = vld1q_u8(chunk.as_ptr());
-
-                // Quaternary encode: each byte (8 bits) becomes 4 bases (2 bits each)
-                // We pack 4 bases into 1 byte for 4:1 compression
-                let encoded = self.quaternary_encode_neon(vec);
-
-                // Store compressed result (4 bytes from 16 input bytes)
-                let mut temp = [0u8; 16];
-                vst1q_u8(temp.as_mut_ptr(), encoded);
-
-                // Only take the first 4 bytes (4:1 compression ratio)
-                result.extend_from_slice(&temp[..4]);
-            }
-
-            // Handle remaining bytes with scalar code
-            let remainder_start = (data.len() / 16) * 16;
-            if remainder_start < data.len() {
-                let remainder = &data[remainder_start..];
-                let scalar_result = self.scalar_dna_compression(remainder)?;
-                result.extend_from_slice(&scalar_result);
-            }
-        }
-
-        Ok(result)
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    /// NEON-optimized quaternary encoding
-    /// Converts 8-bit bytes to 2-bit DNA bases (A=00, T=01, G=10, C=11)
-    unsafe fn quaternary_encode_neon(&self, input: uint8x16_t) -> uint8x16_t {
-        // Create mask for extracting 2-bit pairs
-        let mask_2bit = vdupq_n_u8(0b11);
-
-        // Shift and mask to extract quaternary digits
-        let bits_6_7 = vshrq_n_u8(input, 6);
-        let bits_4_5 = vshrq_n_u8(input, 4);
-        let bits_2_3 = vshrq_n_u8(input, 2);
-        let bits_0_1 = input;
-
-        // Mask each to 2 bits
-        let q0 = vandq_u8(bits_6_7, mask_2bit);
-        let q1 = vandq_u8(bits_4_5, mask_2bit);
-        let q2 = vandq_u8(bits_2_3, mask_2bit);
-        let q3 = vandq_u8(bits_0_1, mask_2bit);
-
-        // Pack 4 quaternary digits into each byte
-        let packed_high = vorrq_u8(vshlq_n_u8(q0, 6), vshlq_n_u8(q1, 4));
-        let packed_low = vorrq_u8(vshlq_n_u8(q2, 2), q3);
-
-        vorrq_u8(packed_high, packed_low)
+        // Use the safe wrapper from SIMD module which handles feature detection and unsafe internally
+        crate::simd::neon::safe_neon_dna_compression(data)
     }
 
     /// Scalar fallback for DNA compression
@@ -489,54 +432,8 @@ impl NeonOptimizer {
         cols_a: usize,
         cols_b: usize,
     ) -> CoreResult<Vec<f32>> {
-        let mut result = vec![0.0f32; rows_a * cols_b];
-
-        unsafe {
-            for i in 0..rows_a {
-                for j in 0..cols_b {
-                    let mut sum = vdupq_n_f32(0.0);
-
-                    // Process 4 elements at a time
-                    let chunks = cols_a / 4;
-                    for k in 0..chunks {
-                        let k_base = k * 4;
-
-                        // Load 4 elements from row of A
-                        let a_vec = vld1q_f32(&matrix_a[i * cols_a + k_base]);
-
-                        // Load 4 elements from column of B
-                        let b_vals = [
-                            matrix_b[k_base * cols_b + j],
-                            matrix_b[(k_base + 1) * cols_b + j],
-                            matrix_b[(k_base + 2) * cols_b + j],
-                            matrix_b[(k_base + 3) * cols_b + j],
-                        ];
-                        let b_vec = vld1q_f32(b_vals.as_ptr());
-
-                        // Multiply and accumulate
-                        sum = vfmaq_f32(sum, a_vec, b_vec);
-                    }
-
-                    // Sum the 4 partial results
-                    let sum_array = [
-                        vgetq_lane_f32(sum, 0),
-                        vgetq_lane_f32(sum, 1),
-                        vgetq_lane_f32(sum, 2),
-                        vgetq_lane_f32(sum, 3),
-                    ];
-                    let mut total = sum_array.iter().sum::<f32>();
-
-                    // Handle remaining elements
-                    for k in (chunks * 4)..cols_a {
-                        total += matrix_a[i * cols_a + k] * matrix_b[k * cols_b + j];
-                    }
-
-                    result[i * cols_b + j] = total;
-                }
-            }
-        }
-
-        Ok(result)
+        // Use the safe wrapper from SIMD module
+        crate::simd::neon::safe_neon_matrix_multiply(matrix_a, matrix_b, rows_a, cols_a, cols_b)
     }
 
     /// Scalar fallback for matrix multiplication
@@ -601,105 +498,8 @@ impl NeonOptimizer {
         imag_parts: &mut [f32],
         operation: QuantumOperation,
     ) -> CoreResult<()> {
-        unsafe {
-            let len = real_parts.len();
-            let chunks = len / 4;
-
-            match operation {
-                QuantumOperation::Normalize => {
-                    // Calculate magnitude squared
-                    let mut norm_sq = vdupq_n_f32(0.0);
-
-                    for i in 0..chunks {
-                        let idx = i * 4;
-                        let real = vld1q_f32(&real_parts[idx]);
-                        let imag = vld1q_f32(&imag_parts[idx]);
-
-                        let real_sq = vmulq_f32(real, real);
-                        let imag_sq = vmulq_f32(imag, imag);
-                        norm_sq = vaddq_f32(norm_sq, vaddq_f32(real_sq, imag_sq));
-                    }
-
-                    // Sum the 4 partial norms
-                    let norm_array = [
-                        vgetq_lane_f32(norm_sq, 0),
-                        vgetq_lane_f32(norm_sq, 1),
-                        vgetq_lane_f32(norm_sq, 2),
-                        vgetq_lane_f32(norm_sq, 3),
-                    ];
-                    let mut total_norm: f32 = norm_array.iter().sum();
-
-                    // Handle remainder
-                    for i in (chunks * 4)..len {
-                        total_norm += real_parts[i] * real_parts[i] + imag_parts[i] * imag_parts[i];
-                    }
-
-                    let norm = total_norm.sqrt();
-                    if norm > 1e-10 {
-                        let inv_norm = vdupq_n_f32(1.0 / norm);
-
-                        // Normalize all elements
-                        for i in 0..chunks {
-                            let idx = i * 4;
-                            let real = vld1q_f32(&real_parts[idx]);
-                            let imag = vld1q_f32(&imag_parts[idx]);
-
-                            let real_norm = vmulq_f32(real, inv_norm);
-                            let imag_norm = vmulq_f32(imag, inv_norm);
-
-                            vst1q_f32(&mut real_parts[idx], real_norm);
-                            vst1q_f32(&mut imag_parts[idx], imag_norm);
-                        }
-
-                        // Handle remainder
-                        for i in (chunks * 4)..len {
-                            real_parts[i] /= norm;
-                            imag_parts[i] /= norm;
-                        }
-                    }
-                }
-                QuantumOperation::PhaseFlip => {
-                    let neg = vdupq_n_f32(-1.0);
-
-                    for i in 0..chunks {
-                        let idx = i * 4;
-                        let real = vld1q_f32(&real_parts[idx]);
-                        let imag = vld1q_f32(&imag_parts[idx]);
-
-                        let real_flip = vmulq_f32(real, neg);
-                        let imag_flip = vmulq_f32(imag, neg);
-
-                        vst1q_f32(&mut real_parts[idx], real_flip);
-                        vst1q_f32(&mut imag_parts[idx], imag_flip);
-                    }
-
-                    // Handle remainder
-                    for i in (chunks * 4)..len {
-                        real_parts[i] = -real_parts[i];
-                        imag_parts[i] = -imag_parts[i];
-                    }
-                }
-                QuantumOperation::Hadamard => {
-                    for i in 0..(len / 2) {
-                        let idx_even = i * 2;
-                        let idx_odd = i * 2 + 1;
-
-                        // H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
-                        let r0 = real_parts[idx_even];
-                        let i0 = imag_parts[idx_even];
-                        let r1 = real_parts[idx_odd];
-                        let i1 = imag_parts[idx_odd];
-
-                        real_parts[idx_even] = (r0 + r1) * std::f32::consts::FRAC_1_SQRT_2;
-                        imag_parts[idx_even] = (i0 + i1) * std::f32::consts::FRAC_1_SQRT_2;
-                        real_parts[idx_odd] = (r0 - r1) * std::f32::consts::FRAC_1_SQRT_2;
-                        imag_parts[idx_odd] = (i0 - i1) * std::f32::consts::FRAC_1_SQRT_2;
-                    }
-                }
-            }
-        }
-
-        Ok(())
+        // Use the safe wrapper from SIMD module
+        crate::simd::neon::safe_neon_quantum_operation(real_parts, imag_parts, operation)
     }
 
     /// Scalar fallback for quantum operations
@@ -774,51 +574,8 @@ impl NeonOptimizer {
     #[cfg(target_arch = "aarch64")]
     /// NEON implementation of parallel pattern search
     fn neon_parallel_search(&self, haystack: &[u8], needle: &[u8]) -> CoreResult<Vec<usize>> {
-        let mut matches = Vec::new();
-
-        if needle.len() > 16 {
-            // Fallback for large patterns
-            return self.scalar_search(haystack, needle);
-        }
-
-        unsafe {
-            // Load first byte of needle for quick rejection
-            let first_byte = vdupq_n_u8(needle[0]);
-
-            let mut pos = 0;
-            while pos + 16 <= haystack.len() {
-                // Load 16 bytes from haystack
-                let chunk = vld1q_u8(haystack.as_ptr().add(pos));
-
-                // Compare with first byte of needle
-                let cmp = vceqq_u8(chunk, first_byte);
-
-                // Check which lanes matched
-                let mask_bytes = [0u8; 16];
-                vst1q_u8(mask_bytes.as_ptr() as *mut u8, cmp);
-
-                for (i, &mask) in mask_bytes.iter().enumerate() {
-                    if mask == 0xFF && pos + i + needle.len() <= haystack.len() {
-                        // Potential match - verify with full comparison
-                        if &haystack[pos + i..pos + i + needle.len()] == needle {
-                            matches.push(pos + i);
-                        }
-                    }
-                }
-
-                pos += 16;
-            }
-
-            // Handle remainder with scalar search
-            while pos + needle.len() <= haystack.len() {
-                if &haystack[pos..pos + needle.len()] == needle {
-                    matches.push(pos);
-                }
-                pos += 1;
-            }
-        }
-
-        Ok(matches)
+        // Use the safe wrapper from SIMD module
+        crate::simd::neon::safe_neon_parallel_search(haystack, needle)
     }
 
     /// Scalar fallback for search

@@ -9,6 +9,86 @@ use crate::dna::{DNABase, DNAError};
 pub mod arm64_neon;
 pub mod x86_avx2;
 
+// Safe wrapper functions that perform feature detection internally
+
+/// Safe wrapper for NEON DNA encoding with automatic feature detection
+#[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+pub fn safe_encode_chunk_neon(input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        // SAFETY: We've checked that NEON is available
+        unsafe { arm64_neon::encode_chunk_neon(input, output) }
+    } else {
+        // Fallback to scalar encoding
+        for &byte in input {
+            for shift in (0..8).step_by(2).rev() {
+                let two_bits = (byte >> shift) & 0b11;
+                let base = DNABase::from_bits(two_bits)?;
+                output.push(base);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Safe wrapper for AVX2 DNA encoding with automatic feature detection
+#[cfg(target_arch = "x86_64")]
+pub fn safe_encode_chunk_avx2(input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: We've checked that AVX2 is available
+        unsafe { x86_avx2::encode_chunk_avx2(input, output) }
+    } else {
+        // Fallback to scalar encoding
+        for &byte in input {
+            for shift in (0..8).step_by(2).rev() {
+                let two_bits = (byte >> shift) & 0b11;
+                let base = DNABase::from_bits(two_bits)?;
+                output.push(base);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Safe wrapper for NEON DNA decoding with automatic feature detection
+#[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+pub fn safe_decode_chunk_neon(input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        // SAFETY: We've checked that NEON is available
+        unsafe { arm64_neon::decode_chunk_neon(input, output) }
+    } else {
+        // Fallback to scalar decoding
+        for bases in input.chunks_exact(4) {
+            let mut byte = 0u8;
+            for (i, &base) in bases.iter().enumerate() {
+                let shift = 6 - (i * 2);
+                byte |= (base.to_bits()) << shift;
+            }
+            output.push(byte);
+        }
+        Ok(())
+    }
+}
+
+/// Safe wrapper for AVX2 DNA decoding with automatic feature detection
+#[cfg(target_arch = "x86_64")]
+pub fn safe_decode_chunk_avx2(input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: We've checked that AVX2 is available
+        unsafe { x86_avx2::decode_chunk_avx2(input, output) }
+    } else {
+        // Fallback to scalar decoding
+        for bases in input.chunks_exact(4) {
+            let mut byte = 0u8;
+            for (i, &base) in bases.iter().enumerate() {
+                let shift = 6 - (i * 2);
+                byte |= (base.to_bits()) << shift;
+            }
+            output.push(byte);
+        }
+        Ok(())
+    }
+}
+
 /// NEON capability information
 #[derive(Debug, Clone)]
 pub struct NeonCapabilities {

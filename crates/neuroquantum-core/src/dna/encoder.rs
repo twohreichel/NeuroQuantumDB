@@ -204,98 +204,20 @@ impl QuaternaryEncoder {
 
     #[cfg(target_arch = "aarch64")]
     fn encode_chunk_neon(&self, chunk: &[u8]) -> Result<Vec<DNABase>, DNAError> {
-        use std::arch::aarch64::*;
-
         let mut result = Vec::with_capacity(chunk.len() * 4);
-        let mut i = 0;
 
-        unsafe {
-            // Process 16 bytes at a time with NEON
-            while i + 16 <= chunk.len() {
-                let bytes = vld1q_u8(chunk.as_ptr().add(i));
-
-                // Extract 2-bit pairs and convert to bases using const lane indices
-                let byte_values = [
-                    vgetq_lane_u8(bytes, 0),
-                    vgetq_lane_u8(bytes, 1),
-                    vgetq_lane_u8(bytes, 2),
-                    vgetq_lane_u8(bytes, 3),
-                    vgetq_lane_u8(bytes, 4),
-                    vgetq_lane_u8(bytes, 5),
-                    vgetq_lane_u8(bytes, 6),
-                    vgetq_lane_u8(bytes, 7),
-                    vgetq_lane_u8(bytes, 8),
-                    vgetq_lane_u8(bytes, 9),
-                    vgetq_lane_u8(bytes, 10),
-                    vgetq_lane_u8(bytes, 11),
-                    vgetq_lane_u8(bytes, 12),
-                    vgetq_lane_u8(bytes, 13),
-                    vgetq_lane_u8(bytes, 14),
-                    vgetq_lane_u8(bytes, 15),
-                ];
-
-                for byte in byte_values {
-                    for shift in (0..8).step_by(2).rev() {
-                        let two_bits = (byte >> shift) & 0b11;
-                        let base = DNABase::from_bits(two_bits)?;
-                        result.push(base);
-                    }
-                }
-
-                i += 16;
-            }
-        }
-
-        // Handle remaining bytes
-        while i < chunk.len() {
-            let byte = chunk[i];
-            for shift in (0..8).step_by(2).rev() {
-                let two_bits = (byte >> shift) & 0b11;
-                let base = DNABase::from_bits(two_bits)?;
-                result.push(base);
-            }
-            i += 1;
-        }
+        // Use the safe wrapper from SIMD module which handles feature detection and unsafe internally
+        crate::dna::simd::safe_encode_chunk_neon(chunk, &mut result)?;
 
         Ok(result)
     }
 
     #[cfg(target_arch = "x86_64")]
     fn encode_chunk_avx2(&self, chunk: &[u8]) -> Result<Vec<DNABase>, DNAError> {
-        use std::arch::x86_64::*;
-
         let mut result = Vec::with_capacity(chunk.len() * 4);
-        let mut i = 0;
 
-        unsafe {
-            // Process 32 bytes at a time with AVX2
-            while i + 32 <= chunk.len() {
-                let bytes = _mm256_loadu_si256(chunk.as_ptr().add(i) as *const __m256i);
-
-                // Extract bytes and convert
-                let bytes_array: [u8; 32] = std::mem::transmute(bytes);
-                for &byte in &bytes_array {
-                    for shift in (0..8).step_by(2).rev() {
-                        let two_bits = (byte >> shift) & 0b11;
-                        let base = DNABase::from_bits(two_bits)?;
-                        result.push(base);
-                    }
-                }
-
-                i += 32;
-            }
-        }
-
-        // Handle remaining bytes
-        while i < chunk.len() {
-            let byte = chunk[i];
-            for shift in (0..8).step_by(2).rev() {
-                let two_bits = (byte >> shift) & 0b11;
-                let base = DNABase::from_bits(two_bits)?;
-                result.push(base);
-            }
-            i += 1;
-        }
+        // Use the safe wrapper from SIMD module which handles feature detection and unsafe internally
+        crate::dna::simd::safe_encode_chunk_avx2(chunk, &mut result)?;
 
         Ok(result)
     }
