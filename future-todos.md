@@ -1,3 +1,3 @@
 ## Future Todos
-* fix docker permission issues
-* Multi Nodesupport
+* Fix docker permission issues
+* Multi-node support

@@ -1,4 +1,4 @@
-# 🧠 NeuroQuantumDB - Das intelligente Datenbank-Wunder
+# 🧠 NeuroQuantumDB - The Intelligent Database Wonder
 
 <div align="center">
 
@@ -13,27 +13,27 @@
 
 ---
 
-## ⚡ Quick Start für Entwickler
+## ⚡ Quick Start for Developers
 
-### 🚀 Automatisches Setup (Empfohlen)
+### 🚀 Automated Setup (Recommended)
 
-Nach dem Klonen des Repositories führen Sie einfach aus:
+After cloning the repository, simply run:
 
 ```bash
-# Repository klonen
+# Clone repository
 git clone https://github.com/neuroquantumdb/neuroquantumdb.git
 cd neuroquantumdb
 
-# Automatisches Development Setup
+# Automated development setup
 ./scripts/setup-dev.sh
 ```
 
-Das Setup-Script installiert automatisch:
-- ✅ Alle erforderlichen Rust-Tools (cargo-audit, cargo-deny, cargo-machete)
-- ✅ Pre-commit Hooks für Code-Qualität
-- ✅ Git-Konfiguration für optimalen Workflow
-- ✅ Post-merge Hooks für Dependency-Updates
-- ✅ Commit-Message Validation
+The setup script automatically installs:
+- ✅ All required Rust tools (cargo-audit, cargo-deny, cargo-machete)
+- ✅ Pre-commit hooks for code quality
+- ✅ Git configuration for optimal workflow
+- ✅ Post-merge hooks for dependency updates
+- ✅ Commit message validation
 
 ---
 
@@ -85,44 +85,44 @@ admin_ip_whitelist = [
 
 ---
 
-## 🧪 API Testing mit Postman
+## 🧪 API Testing with Postman
 
-Die komplette API kann lokal mit Postman getestet werden:
+The complete API can be tested locally with Postman:
 
-### 📥 Import & Setup (2 Minuten)
+### 📥 Import & Setup (2 Minutes)
 
-1. **Importiere die Postman Collection:**
-   - Öffne Postman
-   - Klicke auf "Import"
-   - Ziehe die Dateien aus `postman/` in das Import-Fenster:
+1. **Import the Postman Collection:**
+   - Open Postman
+   - Click on "Import"
+   - Drag the files from `postman/` into the Import window:
      - `NeuroQuantumDB.postman_collection.json`
      - `NeuroQuantumDB.postman_environment.json`
 
-2. **Environment aktivieren:**
-   - Wähle oben rechts "NeuroQuantumDB Local"
+2. **Activate Environment:**
+   - Select "NeuroQuantumDB Local" in the top right
 
-3. **Starte den Server:**
+3. **Start the Server:**
    ```bash
    cargo run --bin neuroquantum-api
    ```
 
-4. **Teste die API:**
+4. **Test the API:**
    - Health Check → Login → Create Table → Insert Data
-   - **Der Token wird automatisch gespeichert!** ✨
+   - **The token is automatically saved!** ✨
 
-### 🎯 Verfügbare Endpunkte
+### 🎯 Available Endpoints
 
-Die Postman Collection enthält fertige Requests für:
+The Postman Collection contains ready-made requests for:
 
 - ✅ **Authentication** - Login, Token Refresh, API Key Management
-- ✅ **CRUD Operations** - Create, Read, Update, Delete mit SQL
-- ✅ **Neural Networks** - Training und Status-Abfrage
-- ✅ **Quantum Search** - Grover's Algorithmus Suche
-- ✅ **DNA Compression** - DNA-Sequenz Kompression
-- ✅ **Biometric Auth** - EEG-basierte Authentifizierung
-- ✅ **Monitoring** - Prometheus Metriken & Performance Stats
+- ✅ **CRUD Operations** - Create, Read, Update, Delete with SQL
+- ✅ **Neural Networks** - Training and status queries
+- ✅ **Quantum Search** - Grover's algorithm search
+- ✅ **DNA Compression** - DNA sequence compression
+- ✅ **Biometric Auth** - EEG-based authentication
+- ✅ **Monitoring** - Prometheus metrics & Performance Stats
 
-📖 **Detaillierte Anleitung:** Siehe [postman/README.md](./postman/README.md)
+📖 **Detailed Guide:** See [postman/README.md](./postman/README.md)
 
 ---
 

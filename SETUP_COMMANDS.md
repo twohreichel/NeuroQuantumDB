@@ -1,108 +1,108 @@
-# 🚀 NeuroQuantumDB Setup-Befehle mit `cargo run`
+# 🚀 NeuroQuantumDB Setup Commands with `cargo run`
 
-## Voraussetzung
-Das System läuft mit `cargo run`. Um CLI-Befehle auszuführen, verwenden Sie:
+## Prerequisites
+The system runs with `cargo run`. To execute CLI commands, use:
 ```bash
-cargo run -p neuroquantum-api -- [BEFEHL]
+cargo run -p neuroquantum-api -- [COMMAND]
 ```
 
 ---
 
-## 📝 Verfügbare Befehle
+## 📝 Available Commands
 
-### 1. Datenbank initialisieren (Interaktiv)
+### 1. Initialize Database (Interactive)
 ```bash
 cargo run -p neuroquantum-api -- init
 ```
 
-### 2. Datenbank initialisieren (Nicht-interaktiv mit benutzerdefinierten Einstellungen)
+### 2. Initialize Database (Non-interactive with custom settings)
 ```bash
 cargo run -p neuroquantum-api -- init --name admin --expiry-hours 8760 --output .env --yes
 ```
 
-**Parameter:**
-- `--name admin`: Name des Admin-Keys
-- `--expiry-hours 8760`: Gültigkeit in Stunden (8760 = 1 Jahr)
-- `--output .env`: Ausgabedatei für den Admin-Key
-- `--yes` oder `-y`: Überspringt Bestätigungsfragen
+**Parameters:**
+- `--name admin`: Name of the admin key
+- `--expiry-hours 8760`: Validity in hours (8760 = 1 year)
+- `--output .env`: Output file for the admin key
+- `--yes` or `-y`: Skips confirmation prompts
 
-### 3. JWT-Secret generieren
+### 3. Generate JWT Secret
 ```bash
 cargo run -p neuroquantum-api -- generate-jwt-secret --output config/jwt-secret.txt
 ```
 
-**Oder Ausgabe direkt im Terminal:**
+**Or output directly in terminal:**
 ```bash
 cargo run -p neuroquantum-api -- generate-jwt-secret
 ```
 
-### 4. Server starten (Standard)
+### 4. Start Server (Default)
 ```bash
 cargo run -p neuroquantum-api
-# oder explizit:
+# or explicitly:
 cargo run -p neuroquantum-api -- serve
 ```
 
-### 5. Mit benutzerdefinierter Konfiguration
+### 5. With Custom Configuration
 ```bash
 cargo run -p neuroquantum-api -- --config config/prod.toml serve
 ```
 
 ---
 
-## 🔧 Vollständiges Setup-Beispiel
+## 🔧 Complete Setup Example
 
 ```bash
-# 1. JWT-Secret generieren
+# 1. Generate JWT secret
 cargo run -p neuroquantum-api -- generate-jwt-secret --output config/jwt-secret.txt
 
-# 2. Datenbank initialisieren
+# 2. Initialize database
 cargo run -p neuroquantum-api -- init --name admin --expiry-hours 8760 --output .env --yes
 
-# 3. Server starten
+# 3. Start server
 cargo run -p neuroquantum-api
 ```
 
 ---
 
-## 💡 Hilfreiche Tipps
+## 💡 Helpful Tips
 
-### Hilfe zu einem bestimmten Befehl anzeigen:
+### Display help for a specific command:
 ```bash
 cargo run -p neuroquantum-api -- init --help
 cargo run -p neuroquantum-api -- generate-jwt-secret --help
 ```
 
-### Alle verfügbaren Befehle anzeigen:
+### Display all available commands:
 ```bash
 cargo run -p neuroquantum-api -- --help
 ```
 
-### Mit Release-Build (schneller):
+### With release build (faster):
 ```bash
 cargo run -p neuroquantum-api --release -- init
 ```
 
 ---
 
-## 📋 Schnellreferenz-Tabelle
+## 📋 Quick Reference Table
 
-| Aktion | Befehl |
-|--------|--------|
-| Init (interaktiv) | `cargo run -p neuroquantum-api -- init` |
+| Action | Command |
+|--------|---------|
+| Init (interactive) | `cargo run -p neuroquantum-api -- init` |
 | Init (auto) | `cargo run -p neuroquantum-api -- init --name admin --expiry-hours 8760 --output .env --yes` |
-| JWT-Secret | `cargo run -p neuroquantum-api -- generate-jwt-secret --output config/jwt-secret.txt` |
-| Server starten | `cargo run -p neuroquantum-api` |
-| Hilfe | `cargo run -p neuroquantum-api -- --help` |
+| JWT Secret | `cargo run -p neuroquantum-api -- generate-jwt-secret --output config/jwt-secret.txt` |
+| Start Server | `cargo run -p neuroquantum-api` |
+| Help | `cargo run -p neuroquantum-api -- --help` |
 
 ---
 
-## 🎯 Nach dem Setup
+## 🎯 After Setup
 
-Nach erfolgreicher Initialisierung:
-1. Der Admin-Key wird in der angegebenen Datei gespeichert (z.B. `.env`)
-2. Das JWT-Secret steht in `config/jwt-secret.txt`
-3. Sie können den Server starten und die API verwenden
+After successful initialization:
+1. The admin key is saved in the specified file (e.g., `.env`)
+2. The JWT secret is stored in `config/jwt-secret.txt`
+3. You can start the server and use the API
 
-**Wichtig:** Bewahren Sie den Admin-Key und das JWT-Secret sicher auf!
+**Important:** Keep the admin key and JWT secret secure!
 

@@ -1,4 +1,4 @@
-# 🧠 NeuroQuantumDB - Das intelligente Datenbank-Wunder
+# 🧠 NeuroQuantumDB - The Intelligent Database Wonder
 
 <div align="center">
 
@@ -13,70 +13,70 @@
 
 ---
 
-## Was ist NeuroQuantumDB?
+## What is NeuroQuantumDB?
 
-NeuroQuantumDB ist eine revolutionäre Datenbank-Architektur, die drei bahnbrechende Technologien kombiniert:
+NeuroQuantumDB is a revolutionary database architecture that combines three groundbreaking technologies:
 
-### 1. 🧬 DNA-basierte Kompression
-Bio-inspirierte Datenkompression mit Quaternärer Kodierung (A, T, G, C) und Reed-Solomon Fehlerkorrektur erreicht Kompressionsraten von **999:1** für hochstrukturierte Daten.
+### 1. 🧬 DNA-based Compression
+Bio-inspired data compression with quaternary encoding (A, T, G, C) and Reed-Solomon error correction achieves compression ratios of **999:1** for highly structured data.
 
 **Highlights:**
-- Quaternäre DNA-Kodierung (4 Zustände pro Base)
+- Quaternary DNA encoding (4 states per base)
 - Reed-Solomon Error Correction
-- NEON SIMD-Beschleunigung auf ARM64
-- Automatische Pattern-Erkennung
+- NEON SIMD acceleration on ARM64
+- Automatic pattern recognition
 
-### 2. ⚛️ Quantum-inspirierte Algorithmen
-Grover's Search, Quantum Annealing und QUBO (Quadratic Unconstrained Binary Optimization) für optimierte Suche und Query-Planung.
+### 2. ⚛️ Quantum-inspired Algorithms
+Grover's Search, Quantum Annealing and QUBO (Quadratic Unconstrained Binary Optimization) for optimized search and query planning.
 
 **Highlights:**
-- Grover's Algorithm für quadratische Suchbeschleunigung
-- Quantum Annealing für Query-Optimierung
-- TFIM (Transverse-Field Ising Model) für Constraint-Solving
+- Grover's Algorithm for quadratic search acceleration
+- Quantum Annealing for query optimization
+- TFIM (Transverse-Field Ising Model) for constraint solving
 - QAOA (Quantum Approximate Optimization Algorithm)
 
-### 3. 🧠 Neuromorphe Computing
-Gehirn-inspirierte Speicher- und Lernalgorithmen mit Synaptic Plasticity und Hebbian Learning.
+### 3. 🧠 Neuromorphic Computing
+Brain-inspired storage and learning algorithms with Synaptic Plasticity and Hebbian Learning.
 
 **Highlights:**
 - Spike-Timing-Dependent Plasticity (STDP)
-- Hebbian Learning für adaptive Indexe
-- Neuromorphe Query-Optimierung
-- Automatisches Schema-Learning
+- Hebbian Learning for adaptive indexes
+- Neuromorphic query optimization
+- Automatic schema learning
 
 ---
 
-## Warum NeuroQuantumDB?
+## Why NeuroQuantumDB?
 
-### 🚀 Ultra-effizient für Edge Computing
-- **< 100 MB RAM** - Läuft auf Raspberry Pi 4
-- **< 2W Power** - Ideal für batteriebetriebene Geräte
-- **< 5s Startup** - Schnelle Deployment-Zyklen
-- **ARM64-optimiert** - NEON SIMD für maximale Performance
+### 🚀 Ultra-efficient for Edge Computing
+- **< 100 MB RAM** - Runs on Raspberry Pi 4
+- **< 2W Power** - Ideal for battery-powered devices
+- **< 5s Startup** - Fast deployment cycles
+- **ARM64-optimized** - NEON SIMD for maximum performance
 
 ### 🔒 Enterprise-Grade Security
 - **Post-Quantum Cryptography** - ML-KEM & ML-DSA ready
-- **No Default Credentials** - Sichere Initialisierung erforderlich
-- **JWT Authentication** - Token-basierte Zugriffskontrolle
-- **Rate Limiting** - Schutz vor Missbrauch
-- **EEG Biometric Auth** - Gehirnwellen-basierte Authentifizierung
+- **No Default Credentials** - Secure initialization required
+- **JWT Authentication** - Token-based access control
+- **Rate Limiting** - Protection against abuse
+- **EEG Biometric Auth** - Brainwave-based authentication
 
 ### 📊 Production-Ready
-- **80%+ Test Coverage** - 328+ Tests (alle grün)
-- **ACID-Garantien** - Full Transactional Support mit MVCC
-- **Crash Recovery** - ARIES-basierter Recovery-Algorithmus
-- **Prometheus Metrics** - Umfassendes Monitoring
-- **Docker Ready** - Multi-Stage Build < 15MB
+- **80%+ Test Coverage** - 328+ tests (all green)
+- **ACID Guarantees** - Full transactional support with MVCC
+- **Crash Recovery** - ARIES-based recovery algorithm
+- **Prometheus Metrics** - Comprehensive monitoring
+- **Docker Ready** - Multi-stage build < 15MB
 
 ### 🔧 Developer-Friendly
-- **QSQL Language** - SQL-kompatibel mit neuromorphen/quantum Erweiterungen
-- **REST + WebSocket API** - 17 Endpunkte mit OpenAPI/Swagger
-- **Comprehensive Examples** - 12+ Demo-Programme
-- **Auto-Dev-Setup** - Ein Script für komplette Dev-Umgebung
+- **QSQL Language** - SQL-compatible with neuromorphic/quantum extensions
+- **REST + WebSocket API** - 17 endpoints with OpenAPI/Swagger
+- **Comprehensive Examples** - 12+ demo programs
+- **Auto-Dev-Setup** - One script for complete dev environment
 
 ---
 
-## Architektur-Übersicht
+## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -112,16 +112,16 @@ Gehirn-inspirierte Speicher- und Lernalgorithmen mit Synaptic Plasticity und Heb
 ## Use Cases
 
 ### 🏥 Medical IoT
-- **EEG/ECG-Datenerfassung** auf Edge Devices
-- **DNA-Kompression** für Genomdaten
-- **Biometric Auth** für Patientenzugriff
-- **Real-time Monitoring** via WebSocket
+- **EEG/ECG data acquisition** on edge devices
+- **DNA compression** for genomic data
+- **Biometric auth** for patient access
+- **Real-time monitoring** via WebSocket
 
 ### 🏭 Industrial IoT
-- **Sensor-Datenerfassung** mit geringem Stromverbrauch
-- **Quantum-optimierte** Anomalieerkennung
-- **Neuromorphes Lernen** für Predictive Maintenance
-- **Edge Computing** ohne Cloud-Anbindung
+- **Sensor data acquisition** with low power consumption
+- **Quantum-optimized** anomaly detection
+- **Neuromorphic learning** for predictive maintenance
+- **Edge computing** without cloud connection
 
 ### 🔬 Research & Academia
 - **Quantum Algorithm Prototyping**
@@ -130,17 +130,17 @@ Gehirn-inspirierte Speicher- und Lernalgorithmen mit Synaptic Plasticity und Heb
 - **Edge Computing Benchmarks**
 
 ### 🤖 Edge AI
-- **Model Deployment** auf Raspberry Pi
-- **Real-time Inference** mit niedriger Latenz
-- **Adaptive Learning** ohne Cloud
-- **Privacy-Preserving** AI
+- **Model deployment** on Raspberry Pi
+- **Real-time inference** with low latency
+- **Adaptive learning** without cloud
+- **Privacy-preserving** AI
 
 ---
 
-## Technologie-Stack
+## Technology Stack
 
 - **Language:** Rust (Edition 2021)
-- **Storage:** Custom B+ Tree mit WAL
+- **Storage:** Custom B+ Tree with WAL
 - **API:** Actix-Web (REST) + Actix-WS (WebSocket)
 - **Crypto:** Post-Quantum (ML-KEM, ML-DSA), Argon2, AES-GCM
 - **Monitoring:** Prometheus + Grafana
@@ -157,16 +157,16 @@ Gehirn-inspirierte Speicher- und Lernalgorithmen mit Synaptic Plasticity und Heb
 
 ---
 
-## Lizenz
+## License
 
-MIT License - siehe [LICENSE](../LICENSE) für Details.
+MIT License - see [LICENSE](../LICENSE) for details.
 
 ---
 
-## Nächste Schritte
+## Next Steps
 
-1. [Installation](./getting-started/installation.md) - Setup auf Raspberry Pi 4
-2. [Quick Start](./getting-started/quick-start.md) - Erste Schritte mit QSQL
-3. [Security Setup](./getting-started/security-setup.md) - Production-Ready Konfiguration
-4. [Examples](./examples/dna-compression.md) - Hands-On Tutorials
+1. [Installation](./getting-started/installation.md) - Setup on Raspberry Pi 4
+2. [Quick Start](./getting-started/quick-start.md) - First steps with QSQL
+3. [Security Setup](./getting-started/security-setup.md) - Production-ready configuration
+4. [Examples](./examples/dna-compression.md) - Hands-on tutorials
 

@@ -1,142 +1,142 @@
 # NeuroQuantumDB Postman Collection
 
-Diese Postman Collection ermöglicht es Ihnen, alle API-Endpunkte der NeuroQuantumDB lokal zu testen.
+This Postman Collection allows you to test all API endpoints of NeuroQuantumDB locally.
 
-## 📦 Inhalt
+## 📦 Contents
 
-- `NeuroQuantumDB.postman_collection.json` - Vollständige API-Collection mit allen Endpunkten
-- `NeuroQuantumDB.postman_environment.json` - Environment-Konfiguration für lokales Testing
-- `README.md` - Diese Anleitung
+- `NeuroQuantumDB.postman_collection.json` - Complete API collection with all endpoints
+- `NeuroQuantumDB.postman_environment.json` - Environment configuration for local testing
+- `README.md` - This guide
 
-## 🚀 Schnellstart
+## 🚀 Quickstart
 
-### 1. Postman Collection importieren
+### 1. Import Postman Collection
 
-1. Öffnen Sie Postman
-2. Klicken Sie auf **Import** (oben links)
-3. Wählen Sie **File** und importieren Sie:
+1. Open Postman
+2. Click on **Import** (top left)
+3. Select **File** and import:
    - `NeuroQuantumDB.postman_collection.json`
    - `NeuroQuantumDB.postman_environment.json`
-4. Die Collection erscheint unter "Collections" und das Environment unter "Environments"
+4. The collection appears under "Collections" and the environment under "Environments"
 
-### 2. Environment aktivieren
+### 2. Activate Environment
 
-1. Klicken Sie oben rechts auf den Environment-Dropdown
-2. Wählen Sie **"NeuroQuantumDB Local"**
-3. Das Environment ist nun aktiv und zeigt `http://localhost:8080` als Base URL
+1. Click on the Environment dropdown in the top right
+2. Select **"NeuroQuantumDB Local"**
+3. The environment is now active and shows `http://localhost:8080` as base URL
 
-### 3. API Server starten
+### 3. Start API Server
 
-Stellen Sie sicher, dass der NeuroQuantumDB API Server läuft:
+Make sure the NeuroQuantumDB API server is running:
 
 ```bash
 cd /Users/andreasreichel/workspace/NeuroQuantumDB
 cargo run --bin neuroquantum-api
 ```
 
-Der Server startet standardmäßig auf `http://localhost:8080`.
+The server starts by default on `http://localhost:8080`.
 
-### 4. Testen der API
+### 4. Testing the API
 
-#### Health Check (ohne Authentifizierung)
-1. Öffnen Sie die Collection **NeuroQuantumDB API**
-2. Navigieren Sie zu **Health & Status** → **Health Check**
-3. Klicken Sie auf **Send**
-4. Sie sollten eine erfolgreiche Response mit Status "healthy" erhalten
+#### Health Check (without authentication)
+1. Open the collection **NeuroQuantumDB API**
+2. Navigate to **Health & Status** → **Health Check**
+3. Click **Send**
+4. You should receive a successful response with status "healthy"
 
-#### Login & Token-Authentifizierung
-1. Navigieren Sie zu **Authentication** → **Login**
-2. Klicken Sie auf **Send**
-3. **Der Access Token wird automatisch extrahiert und gespeichert!**
-4. Alle nachfolgenden Requests verwenden diesen Token automatisch
+#### Login & Token Authentication
+1. Navigate to **Authentication** → **Login**
+2. Click **Send**
+3. **The access token is automatically extracted and saved!**
+4. All subsequent requests use this token automatically
 
-## 🔑 Automatische Token-Verwaltung
+## 🔑 Automatic Token Management
 
-Die Collection enthält Post-Response-Scripts, die automatisch:
+The collection contains post-response scripts that automatically:
 
-- ✅ **Access Token** aus der Login-Response extrahieren
-- ✅ **Refresh Token** speichern
-- ✅ **User ID** speichern
-- ✅ **API Keys** nach der Generierung speichern
-- ✅ **Network IDs** und andere IDs für nachfolgende Requests bereitstellen
+- ✅ Extract **Access Token** from login response
+- ✅ Save **Refresh Token**
+- ✅ Save **User ID**
+- ✅ Save **API Keys** after generation
+- ✅ Provide **Network IDs** and other IDs for subsequent requests
 
-Sie müssen nichts manuell kopieren oder einfügen!
+You don't need to copy or paste anything manually!
 
-## 📋 API-Endpunkte Übersicht
+## 📋 API Endpoints Overview
 
 ### Health & Status
-- **Health Check** - Prüft den Server-Status (keine Auth erforderlich)
+- **Health Check** - Checks server status (no auth required)
 
 ### Authentication
-- **Login** - Authentifizierung mit Username/Password → generiert Access Token
-- **Refresh Token** - Erneuert den Access Token
-- **Generate API Key** - Erstellt einen neuen API Key (Admin-Berechtigung erforderlich)
-- **Revoke API Key** - Widerruft einen API Key (Admin-Berechtigung erforderlich)
+- **Login** - Authentication with username/password → generates access token
+- **Refresh Token** - Renews the access token
+- **Generate API Key** - Creates a new API key (admin permission required)
+- **Revoke API Key** - Revokes an API key (admin permission required)
 
 ### CRUD Operations
-- **Execute SQL Query** - Führt beliebige SQL-Abfragen aus
-- **Create Table** - Erstellt eine neue Tabelle mit Schema
-- **Insert Data** - Fügt Daten in Batch ein
-- **Query Data** - Fragt Daten mit Filtern ab
-- **Update Data** - Aktualisiert Datensätze
-- **Delete Data** - Löscht Datensätze (mit Soft-Delete und Cascade-Option)
+- **Execute SQL Query** - Executes arbitrary SQL queries
+- **Create Table** - Creates a new table with schema
+- **Insert Data** - Inserts data in batch
+- **Query Data** - Queries data with filters
+- **Update Data** - Updates records
+- **Delete Data** - Deletes records (with soft-delete and cascade option)
 
 ### Neural Networks
-- **Train Neural Network** - Startet das Training eines neuronalen Netzwerks
-- **Get Training Status** - Ruft den Training-Status ab
+- **Train Neural Network** - Starts training a neural network
+- **Get Training Status** - Retrieves training status
 
 ### Quantum Search
-- **Quantum Search** - Führt Quantum-inspirierte Suche mit Grover's Algorithmus durch
+- **Quantum Search** - Performs quantum-inspired search using Grover's algorithm
 
 ### DNA Compression
-- **Compress DNA** - Komprimiert DNA-Sequenzen mit fortschrittlichen Algorithmen
+- **Compress DNA** - Compresses DNA sequences with advanced algorithms
 
 ### Biometric Authentication
-- **EEG Enroll User** - Registriert Benutzer mit EEG-biometrischer Signatur
-- **EEG Authenticate** - Authentifiziert mit EEG-Daten
-- **EEG Update Signature** - Aktualisiert EEG-Signatur
-- **EEG List Users** - Listet alle registrierten EEG-Benutzer
+- **EEG Enroll User** - Registers user with EEG biometric signature
+- **EEG Authenticate** - Authenticates with EEG data
+- **EEG Update Signature** - Updates EEG signature
+- **EEG List Users** - Lists all registered EEG users
 
 ### Monitoring
-- **Get Metrics** - Prometheus-kompatible Metriken
-- **Get Performance Stats** - Detaillierte Performance-Statistiken
+- **Get Metrics** - Prometheus-compatible metrics
+- **Get Performance Stats** - Detailed performance statistics
 
-## 🔐 Authentifizierung
+## 🔐 Authentication
 
-Die Collection unterstützt zwei Authentifizierungsmethoden:
+The collection supports two authentication methods:
 
-### 1. JWT Bearer Token (empfohlen für Testing)
-- Wird automatisch nach dem Login verwendet
-- Wird in allen geschützten Endpunkten automatisch mitgesendet
-- Token läuft nach 24 Stunden ab (kann mit Refresh Token erneuert werden)
+### 1. JWT Bearer Token (recommended for testing)
+- Automatically used after login
+- Automatically sent with all protected endpoints
+- Token expires after 24 hours (can be renewed with refresh token)
 
 ### 2. API Key Authentication
-- Kann über **Generate API Key** erstellt werden
-- Benötigt Admin-Berechtigung
-- Für langfristige Zugriffe geeignet
+- Can be created via **Generate API Key**
+- Requires admin permission
+- Suitable for long-term access
 
-## 📝 Beispiel-Workflow
+## 📝 Example Workflow
 
-### Kompletter Test-Durchlauf:
+### Complete Test Run:
 
-1. **Health Check** - Prüfe Server-Status
-2. **Login** - Authentifiziere dich (Token wird automatisch gespeichert)
-3. **Generate API Key** - Erstelle einen Admin API Key (optional)
-4. **Create Table** - Erstelle eine "users" Tabelle
-5. **Insert Data** - Füge Test-Daten ein
-6. **Query Data** - Frage die Daten ab
-7. **Update Data** - Aktualisiere einen Datensatz
-8. **Train Neural Network** - Starte ein neuronales Netzwerk Training
-9. **Get Training Status** - Prüfe den Training-Fortschritt
-10. **Quantum Search** - Führe eine Quantum-Suche durch
-11. **Compress DNA** - Komprimiere DNA-Sequenzen
-12. **EEG Enroll User** - Registriere einen Benutzer mit EEG
-13. **EEG Authenticate** - Authentifiziere mit EEG-Daten
-14. **Get Performance Stats** - Hole Performance-Metriken
+1. **Health Check** - Check server status
+2. **Login** - Authenticate (token is automatically saved)
+3. **Generate API Key** - Create an admin API key (optional)
+4. **Create Table** - Create a "users" table
+5. **Insert Data** - Insert test data
+6. **Query Data** - Query the data
+7. **Update Data** - Update a record
+8. **Train Neural Network** - Start neural network training
+9. **Get Training Status** - Check training progress
+10. **Quantum Search** - Perform a quantum search
+11. **Compress DNA** - Compress DNA sequences
+12. **EEG Enroll User** - Register a user with EEG
+13. **EEG Authenticate** - Authenticate with EEG data
+14. **Get Performance Stats** - Retrieve performance metrics
 
 ## 🧪 Tests
 
-Jeder Request enthält automatische Tests:
+Each request contains automatic tests:
 
 ```javascript
 pm.test("Status code is 200", function () {
@@ -149,87 +149,87 @@ pm.test("Response has success status", function () {
 });
 ```
 
-Die Tests werden automatisch ausgeführt und zeigen grüne Häkchen bei Erfolg.
+Tests are automatically executed and show green checkmarks on success.
 
-## 🔧 Environment-Variablen
+## 🔧 Environment Variables
 
-Das Environment enthält folgende Variablen:
+The environment contains the following variables:
 
-| Variable | Beschreibung | Beispielwert |
-|----------|--------------|--------------|
+| Variable | Description | Example Value |
+|----------|-------------|---------------|
 | `base_url` | API Base URL | `http://localhost:8080` |
-| `access_token` | JWT Access Token | Wird automatisch gesetzt |
-| `refresh_token` | JWT Refresh Token | Wird automatisch gesetzt |
-| `api_key` | Generierter API Key | Wird automatisch gesetzt |
-| `user_id` | Benutzer ID | Wird automatisch gesetzt |
-| `table_name` | Standard-Tabellenname | `users` |
-| `network_id` | Neural Network ID | Wird automatisch gesetzt |
-| `eeg_user_id` | EEG Benutzer ID | `john_doe_123` |
+| `access_token` | JWT Access Token | Automatically set |
+| `refresh_token` | JWT Refresh Token | Automatically set |
+| `api_key` | Generated API Key | Automatically set |
+| `user_id` | User ID | Automatically set |
+| `table_name` | Default table name | `users` |
+| `network_id` | Neural Network ID | Automatically set |
+| `eeg_user_id` | EEG User ID | `john_doe_123` |
 
-Sie können diese Variablen manuell anpassen, wenn gewünscht.
+You can manually adjust these variables if desired.
 
-## 🌐 Andere Environments
+## 🌐 Other Environments
 
-Für andere Umgebungen (z.B. Production, Staging):
+For other environments (e.g., Production, Staging):
 
-1. Duplizieren Sie das Environment
-2. Ändern Sie die `base_url` entsprechend:
+1. Duplicate the environment
+2. Change the `base_url` accordingly:
    - Production: `https://api.neuroquantum.com`
    - Staging: `https://staging-api.neuroquantum.com`
 
 ## 🐛 Troubleshooting
 
 ### Problem: "Could not send request" / Connection refused
-**Lösung:** Stellen Sie sicher, dass der API Server läuft:
+**Solution:** Make sure the API server is running:
 ```bash
 cargo run --bin neuroquantum-api
 ```
 
 ### Problem: 401 Unauthorized
-**Lösung:** 
-1. Führen Sie zuerst den **Login**-Request aus
-2. Der Token wird automatisch gespeichert
-3. Oder verwenden Sie **Refresh Token**, wenn der Token abgelaufen ist
+**Solution:** 
+1. First execute the **Login** request
+2. The token is automatically saved
+3. Or use **Refresh Token** if the token has expired
 
 ### Problem: 403 Forbidden
-**Lösung:** Der Endpunkt erfordert spezielle Berechtigungen (z.B. Admin)
-1. Loggen Sie sich mit einem Admin-Account ein
-2. Oder generieren Sie einen API Key mit den benötigten Berechtigungen
+**Solution:** The endpoint requires special permissions (e.g., admin)
+1. Log in with an admin account
+2. Or generate an API key with the required permissions
 
-### Problem: Environment-Variablen werden nicht gesetzt
-**Lösung:**
-1. Prüfen Sie, ob das richtige Environment ausgewählt ist (oben rechts)
-2. Schauen Sie in die **Test**-Scripts der Requests (unter "Tests"-Tab)
-3. Öffnen Sie die Console (Ansicht → Show Postman Console) für Debug-Logs
+### Problem: Environment variables are not being set
+**Solution:**
+1. Check if the correct environment is selected (top right)
+2. Look at the **Test** scripts of the requests (under "Tests" tab)
+3. Open the console (View → Show Postman Console) for debug logs
 
-## 📚 Weitere Ressourcen
+## 📚 Additional Resources
 
-- [API Dokumentation](http://localhost:8080/api-docs/) - Swagger UI (wenn Server läuft)
-- [Projekt README](../README.md) - Hauptdokumentation
-- [Development Guide](../docs/development/) - Entwickler-Dokumentation
+- [API Documentation](http://localhost:8080/api-docs/) - Swagger UI (when server is running)
+- [Project README](../README.md) - Main documentation
+- [Development Guide](../docs/development/) - Developer documentation
 
-## 🎯 Tipps
+## 🎯 Tips
 
-1. **Collection Runner**: Führen Sie die gesamte Collection automatisch aus
-   - Rechtsklick auf Collection → "Run collection"
-   - Nützlich für Regressionstests
+1. **Collection Runner**: Run the entire collection automatically
+   - Right-click on collection → "Run collection"
+   - Useful for regression tests
 
-2. **Code Generation**: Generieren Sie Code für verschiedene Sprachen
-   - Klicken Sie auf einen Request → "Code" (rechts)
-   - Unterstützt curl, Python, JavaScript, Go, etc.
+2. **Code Generation**: Generate code for different languages
+   - Click on a request → "Code" (right side)
+   - Supports curl, Python, JavaScript, Go, etc.
 
-3. **Environment-Switcher**: Wechseln Sie schnell zwischen Environments
-   - Erstellen Sie verschiedene Environments für Dev, Staging, Production
+3. **Environment Switcher**: Quickly switch between environments
+   - Create different environments for Dev, Staging, Production
 
-4. **Pre-request Scripts**: Fügen Sie eigene Scripts hinzu
-   - Generieren Sie dynamische Daten
-   - Führen Sie Setup-Code aus
+4. **Pre-request Scripts**: Add your own scripts
+   - Generate dynamic data
+   - Execute setup code
 
 ## 📞 Support
 
-Bei Fragen oder Problemen:
-- Öffnen Sie ein Issue im GitHub Repository
-- Konsultieren Sie die API-Dokumentation unter `/api-docs/`
+For questions or issues:
+- Open an issue in the GitHub repository
+- Consult the API documentation at `/api-docs/`
 
 ---
 
