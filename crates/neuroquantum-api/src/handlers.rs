@@ -1625,29 +1625,34 @@ pub async fn execute_sql_query(
             message: e.to_string(),
         })?;
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - Extract API key data before any await points
+    let (has_permission, required_permission) = {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    // Determine required permission based on query type
-    let query_upper = query_req.query.trim().to_uppercase();
-    let required_permission = if query_upper.starts_with("SELECT")
-        || query_upper.starts_with("EXPLAIN")
-        || query_upper.starts_with("DESCRIBE")
-        || query_upper.starts_with("SHOW")
-    {
-        "read"
-    } else {
-        "write"
-    };
+        // Determine required permission based on query type
+        let query_upper = query_req.query.trim().to_uppercase();
+        let required_permission = if query_upper.starts_with("SELECT")
+            || query_upper.starts_with("EXPLAIN")
+            || query_upper.starts_with("DESCRIBE")
+            || query_upper.starts_with("SHOW")
+        {
+            "read"
+        } else {
+            "write"
+        };
 
-    if !api_key
-        .permissions
-        .contains(&required_permission.to_string())
-        && !api_key.permissions.contains(&"admin".to_string())
-    {
+        let has_permission = api_key
+            .permissions
+            .contains(&required_permission.to_string())
+            || api_key.permissions.contains(&"admin".to_string());
+
+        (has_permission, required_permission.to_string())
+    }; // extensions reference is dropped here
+
+    if !has_permission {
         return Err(ApiError::Forbidden(format!(
             "{} permission required for this query",
             required_permission
