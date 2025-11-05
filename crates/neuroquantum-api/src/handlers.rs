@@ -4,6 +4,7 @@ use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Result as ActixResu
 use neuroquantum_core::NeuroQuantumDB;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, warn};
 use utoipa::{OpenApi, ToSchema};
@@ -345,7 +346,7 @@ pub async fn revoke_api_key(
 )]
 pub async fn create_table(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
+    db: web::Data<Arc<tokio::sync::RwLock<NeuroQuantumDB>>>,
     create_req: web::Json<CreateTableRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -358,20 +359,21 @@ pub async fn create_table(
             message: e.to_string(),
         })?;
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions (extract before any await to avoid holding RefCell across await)
+    let has_permission = {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"write".to_string())
-        && !api_key.permissions.contains(&"admin".to_string())
-    {
+        api_key.permissions.contains(&"write".to_string())
+            || api_key.permissions.contains(&"admin".to_string())
+    };
+
+    if !has_permission {
         return Err(ApiError::Forbidden("Write permission required".to_string()));
     }
 
-    // Simulate table creation (in real implementation, this would interact with the core database)
-    let table_id = uuid::Uuid::new_v4().to_string();
     let table_name = create_req.schema.name.clone();
 
     info!(
@@ -390,12 +392,80 @@ pub async fn create_table(
         }
     }
 
+    // Find primary key from constraints or use "id" as default
+    let primary_key = if let Some(constraints) = &create_req.schema.constraints {
+        constraints
+            .iter()
+            .find(|c| matches!(c.constraint_type, ConstraintType::PrimaryKey))
+            .and_then(|c| c.columns.first().cloned())
+            .unwrap_or_else(|| "id".to_string())
+    } else {
+        "id".to_string()
+    };
+
+    // Convert API TableSchema to storage TableSchema
+    let storage_schema = neuroquantum_core::storage::TableSchema {
+        name: create_req.schema.name.clone(),
+        columns: create_req
+            .schema
+            .columns
+            .iter()
+            .map(|c| neuroquantum_core::storage::ColumnDefinition {
+                name: c.name.clone(),
+                data_type: match c.data_type {
+                    DataType::Integer => neuroquantum_core::storage::DataType::Integer,
+                    DataType::Float => neuroquantum_core::storage::DataType::Float,
+                    DataType::Text | DataType::Json | DataType::DnaSequence => {
+                        neuroquantum_core::storage::DataType::Text
+                    }
+                    DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
+                    DataType::DateTime => neuroquantum_core::storage::DataType::Timestamp,
+                    DataType::Binary | DataType::NeuralVector | DataType::QuantumState => {
+                        neuroquantum_core::storage::DataType::Binary
+                    }
+                },
+                nullable: c.nullable.unwrap_or(true),
+                default_value: c.default_value.as_ref().map(|v| match v {
+                    serde_json::Value::Number(n) => {
+                        if n.is_i64() {
+                            neuroquantum_core::storage::Value::Integer(n.as_i64().unwrap())
+                        } else {
+                            neuroquantum_core::storage::Value::Float(n.as_f64().unwrap())
+                        }
+                    }
+                    serde_json::Value::String(s) => {
+                        neuroquantum_core::storage::Value::Text(s.clone())
+                    }
+                    serde_json::Value::Bool(b) => neuroquantum_core::storage::Value::Boolean(*b),
+                    serde_json::Value::Null => neuroquantum_core::storage::Value::Null,
+                    _ => neuroquantum_core::storage::Value::Text(v.to_string()),
+                }),
+            })
+            .collect(),
+        primary_key,
+        created_at: chrono::Utc::now(),
+        version: 1,
+    };
+
+    // Create table in database
+    let mut db_lock = db.as_ref().write().await;
+    db_lock
+        .storage_mut()
+        .create_table(storage_schema.clone())
+        .await
+        .map_err(|e| ApiError::InternalServerError {
+            message: format!("Failed to create table: {}", e),
+        })?;
+
+    let table_id = uuid::Uuid::new_v4().to_string();
     let response = CreateTableResponse {
         table_name: table_name.clone(),
         created_at: chrono::Utc::now().to_rfc3339(),
         schema: create_req.schema.clone(),
         table_id,
     };
+
+    info!("✅ Table '{}' created successfully", table_name);
 
     Ok(HttpResponse::Created().json(ApiResponse::success(
         response,
@@ -424,7 +494,7 @@ pub async fn create_table(
 pub async fn insert_data(
     req: HttpRequest,
     path: web::Path<String>,
-    _db: web::Data<NeuroQuantumDB>,
+    db: web::Data<Arc<tokio::sync::RwLock<NeuroQuantumDB>>>,
     insert_req: web::Json<InsertDataRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -438,15 +508,18 @@ pub async fn insert_data(
             message: e.to_string(),
         })?;
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions (extract before any await to avoid holding RefCell across await)
+    let has_permission = {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"write".to_string())
-        && !api_key.permissions.contains(&"admin".to_string())
-    {
+        api_key.permissions.contains(&"write".to_string())
+            || api_key.permissions.contains(&"admin".to_string())
+    };
+
+    if !has_permission {
         return Err(ApiError::Forbidden("Write permission required".to_string()));
     }
 
@@ -464,29 +537,72 @@ pub async fn insert_data(
         total_records, table_name, batch_size
     );
 
-    // Simulate batch insertion
+    // Convert JSON records to storage Rows and insert them
     let mut inserted_ids = Vec::new();
     let mut failed_count = 0;
+    let mut errors = Vec::new();
 
-    for record in insert_req.records.iter() {
-        // Simulate validation and insertion
+    let mut db_lock = db.as_ref().write().await;
+
+    for (idx, record) in insert_req.records.iter().enumerate() {
         if record.is_empty() {
             failed_count += 1;
+            errors.push(format!("Record {} is empty", idx));
             continue;
         }
 
-        let record_id = uuid::Uuid::new_v4().to_string();
-        inserted_ids.push(record_id);
+        // Convert HashMap to Row
+        let mut fields = std::collections::HashMap::new();
+        for (key, value) in record.iter() {
+            let storage_value = match value {
+                serde_json::Value::Number(n) => {
+                    if n.is_i64() {
+                        neuroquantum_core::storage::Value::Integer(n.as_i64().unwrap())
+                    } else {
+                        neuroquantum_core::storage::Value::Float(n.as_f64().unwrap())
+                    }
+                }
+                serde_json::Value::String(s) => neuroquantum_core::storage::Value::Text(s.clone()),
+                serde_json::Value::Bool(b) => neuroquantum_core::storage::Value::Boolean(*b),
+                serde_json::Value::Null => neuroquantum_core::storage::Value::Null,
+                serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+                    neuroquantum_core::storage::Value::Text(value.to_string())
+                }
+            };
+            fields.insert(key.clone(), storage_value);
+        }
+
+        let row = neuroquantum_core::storage::Row {
+            id: 0, // Will be assigned by storage engine
+            fields,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        match db_lock.storage_mut().insert_row(&table_name, row).await {
+            Ok(row_id) => {
+                inserted_ids.push(row_id.to_string());
+            }
+            Err(e) => {
+                failed_count += 1;
+                errors.push(format!("Record {}: {}", idx, e));
+            }
+        }
     }
 
     let inserted_count = inserted_ids.len();
+
+    info!(
+        "✅ Inserted {} records into '{}', {} failed",
+        inserted_count, table_name, failed_count
+    );
 
     let response = InsertDataResponse {
         inserted_count,
         failed_count,
         inserted_ids,
-        errors: if failed_count > 0 {
-            Some(vec!["Some records were empty and skipped".to_string()])
+        errors: if !errors.is_empty() {
+            Some(errors)
         } else {
             None
         },

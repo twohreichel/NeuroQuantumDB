@@ -228,6 +228,16 @@ impl NeuroQuantumDB {
             .await
             .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))
     }
+
+    /// Get mutable reference to storage engine
+    pub fn storage_mut(&mut self) -> &mut storage::StorageEngine {
+        &mut self.storage
+    }
+
+    /// Get reference to storage engine
+    pub fn storage(&self) -> &storage::StorageEngine {
+        &self.storage
+    }
 }
 
 impl Default for NeuroQuantumDB {

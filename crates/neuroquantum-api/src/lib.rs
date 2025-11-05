@@ -34,7 +34,7 @@ use websocket::{ConnectionConfig, ConnectionManager, PubSubManager, WebSocketSer
 /// Application state shared across handlers
 #[derive(Clone)]
 pub struct AppState {
-    pub db: NeuroQuantumDB,
+    pub db: Arc<tokio::sync::RwLock<NeuroQuantumDB>>,
     pub auth_service: AuthService,
     pub jwt_service: JwtService,
     pub rate_limit_service: RateLimitService,
@@ -81,7 +81,7 @@ impl AppState {
         let websocket_service = Arc::new(WebSocketService::new(connection_manager, pubsub_manager));
 
         Ok(Self {
-            db,
+            db: Arc::new(tokio::sync::RwLock::new(db)),
             auth_service,
             jwt_service,
             rate_limit_service,
