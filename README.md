@@ -85,4 +85,45 @@ admin_ip_whitelist = [
 
 ---
 
+## 🧪 API Testing mit Postman
+
+Die komplette API kann lokal mit Postman getestet werden:
+
+### 📥 Import & Setup (2 Minuten)
+
+1. **Importiere die Postman Collection:**
+   - Öffne Postman
+   - Klicke auf "Import"
+   - Ziehe die Dateien aus `postman/` in das Import-Fenster:
+     - `NeuroQuantumDB.postman_collection.json`
+     - `NeuroQuantumDB.postman_environment.json`
+
+2. **Environment aktivieren:**
+   - Wähle oben rechts "NeuroQuantumDB Local"
+
+3. **Starte den Server:**
+   ```bash
+   cargo run --bin neuroquantum-api
+   ```
+
+4. **Teste die API:**
+   - Health Check → Login → Create Table → Insert Data
+   - **Der Token wird automatisch gespeichert!** ✨
+
+### 🎯 Verfügbare Endpunkte
+
+Die Postman Collection enthält fertige Requests für:
+
+- ✅ **Authentication** - Login, Token Refresh, API Key Management
+- ✅ **CRUD Operations** - Create, Read, Update, Delete mit SQL
+- ✅ **Neural Networks** - Training und Status-Abfrage
+- ✅ **Quantum Search** - Grover's Algorithmus Suche
+- ✅ **DNA Compression** - DNA-Sequenz Kompression
+- ✅ **Biometric Auth** - EEG-basierte Authentifizierung
+- ✅ **Monitoring** - Prometheus Metriken & Performance Stats
+
+📖 **Detaillierte Anleitung:** Siehe [postman/README.md](./postman/README.md)
+
+---
+
 Have a look at the [Wiki](https://twoh-me.github.io/NeuroQuantumDB/) for more information.
