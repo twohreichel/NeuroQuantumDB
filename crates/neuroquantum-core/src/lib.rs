@@ -15,6 +15,7 @@ pub mod learning;
 pub mod monitoring;
 pub mod neon_optimization;
 pub mod plasticity;
+pub mod pqcrypto; // Post-quantum cryptography
 pub mod quantum;
 pub mod quantum_processor; // New: True Grover's algorithm implementation
 pub mod query;

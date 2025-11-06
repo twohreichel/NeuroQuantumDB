@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{debug, info, warn};
 
 use super::{BackupMetadata, BackupStats, BackupStorageBackend};
 use crate::storage::pager::{PageId, PageStorageManager};
@@ -124,12 +124,8 @@ impl IncrementalBackup {
         Ok(modified_pages)
     }
 
-    /// Backup WAL segments since given LSN
-    async fn backup_wal_since_lsn(
-        &self,
-        _since_lsn: u64,
-        backup_dir: &Path,
-    ) -> Result<BackupStats> {
+    /// Backup WAL segments since given LSN with proper parsing
+    async fn backup_wal_since_lsn(&self, since_lsn: u64, backup_dir: &Path) -> Result<BackupStats> {
         let mut stats = BackupStats::default();
         let wal_manager = self.wal_manager.read().await;
 
@@ -139,32 +135,150 @@ impl IncrementalBackup {
         // Get WAL directory
         let source_wal_dir = wal_manager.get_wal_directory();
 
+        info!(
+            "Scanning WAL segments from {} for records since LSN {}",
+            source_wal_dir.display(),
+            since_lsn
+        );
+
         // List WAL segment files
         let mut entries = tokio::fs::read_dir(&source_wal_dir).await?;
+        let mut processed_segments = 0;
 
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("wal") {
-                // Read WAL file to check if it contains records after since_lsn
+                // Read and parse WAL file
                 let wal_data = tokio::fs::read(&path).await?;
 
-                // Simplified: backup all WAL files
-                // In production, would parse and check LSN ranges
-                let filename = path.file_name().unwrap();
-                let dest_path = wal_dir.join(filename);
+                // Parse WAL records to check LSN range
+                match self.parse_wal_segment(&wal_data, since_lsn).await {
+                    Ok(parsed_data) => {
+                        if !parsed_data.is_empty() {
+                            // This segment contains records after since_lsn
+                            let filename = path.file_name().unwrap();
+                            let dest_path = wal_dir.join(filename);
 
-                self.storage_backend
-                    .write_file(&dest_path, &wal_data)
-                    .await?;
+                            // Write only the relevant records
+                            self.storage_backend
+                                .write_file(&dest_path, &parsed_data)
+                                .await?;
 
-                stats.bytes_read += wal_data.len() as u64;
-                stats.bytes_written += wal_data.len() as u64;
-                stats.wal_segments_backed_up += 1;
-                stats.files_backed_up += 1;
+                            stats.bytes_read += wal_data.len() as u64;
+                            stats.bytes_written += parsed_data.len() as u64;
+                            stats.wal_segments_backed_up += 1;
+                            stats.files_backed_up += 1;
+
+                            info!(
+                                "Backed up WAL segment {:?}: {} bytes ({} records)",
+                                filename,
+                                parsed_data.len(),
+                                self.count_records_in_segment(&parsed_data)
+                                    .await
+                                    .unwrap_or(0)
+                            );
+                        } else {
+                            debug!(
+                                "Skipped WAL segment {:?} - no records after LSN {}",
+                                path.file_name(),
+                                since_lsn
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Failed to parse WAL segment {:?}: {}. Backing up entire segment.",
+                            path.file_name(),
+                            e
+                        );
+
+                        // Fallback: backup entire segment if parsing fails
+                        let filename = path.file_name().unwrap();
+                        let dest_path = wal_dir.join(filename);
+
+                        self.storage_backend
+                            .write_file(&dest_path, &wal_data)
+                            .await?;
+
+                        stats.bytes_read += wal_data.len() as u64;
+                        stats.bytes_written += wal_data.len() as u64;
+                        stats.wal_segments_backed_up += 1;
+                        stats.files_backed_up += 1;
+                    }
+                }
+
+                processed_segments += 1;
             }
         }
 
+        info!(
+            "Processed {} WAL segments, backed up {} segments",
+            processed_segments, stats.wal_segments_backed_up
+        );
+
         Ok(stats)
+    }
+
+    /// Parse WAL segment and filter records by LSN
+    async fn parse_wal_segment(&self, data: &[u8], since_lsn: u64) -> Result<Vec<u8>> {
+        use crate::storage::wal::WALRecord;
+        use bincode;
+
+        let mut filtered_records = Vec::new();
+        let mut offset = 0;
+
+        while offset < data.len() {
+            // Try to deserialize a WAL record
+            match bincode::deserialize::<WALRecord>(&data[offset..]) {
+                Ok(record) => {
+                    // Check if this record is after since_lsn
+                    if record.lsn > since_lsn {
+                        // Serialize and add to filtered records
+                        if let Ok(serialized) = bincode::serialize(&record) {
+                            filtered_records.extend_from_slice(&serialized);
+                        }
+                    }
+
+                    // Calculate record size and move offset
+                    if let Ok(serialized) = bincode::serialize(&record) {
+                        offset += serialized.len();
+                    } else {
+                        break;
+                    }
+                }
+                Err(_) => {
+                    // End of valid records or corrupted data
+                    break;
+                }
+            }
+        }
+
+        Ok(filtered_records)
+    }
+
+    /// Count the number of records in a WAL segment
+    async fn count_records_in_segment(&self, data: &[u8]) -> Result<usize> {
+        use crate::storage::wal::WALRecord;
+        use bincode;
+
+        let mut count = 0;
+        let mut offset = 0;
+
+        while offset < data.len() {
+            match bincode::deserialize::<WALRecord>(&data[offset..]) {
+                Ok(record) => {
+                    count += 1;
+                    if let Ok(serialized) = bincode::serialize(&record) {
+                        offset += serialized.len();
+                    } else {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+
+        Ok(count)
     }
 }
 

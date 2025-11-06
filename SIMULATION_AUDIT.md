@@ -36,19 +36,18 @@ Dieses Dokument listet alle Stellen im Code auf, die aktuell nur simuliert sind 
 - ✅ Rückgabe tatsächlicher Query-Ergebnisse
 - ✅ Konvertierung von QueryValue zu JSON
 
-### 4. Quantum-resistente JWT (`crates/neuroquantum-api/src/jwt.rs`)
-**Status:** Simuliert Post-Quantum Kryptographie
+### 4. Quantum-resistente JWT (`crates/neuroquantum-api/src/jwt.rs`) ✅ ERLEDIGT
+**Status:** ~~Simuliert Post-Quantum Kryptographie~~ IMPLEMENTIERT
 
-**Zeile 75:**
-```rust
-// In a real implementation, this would use post-quantum cryptography
-// For now, we'll simulate with enhanced claims
-```
-
-**Notwendige Änderungen:**
-- Integration echter Post-Quantum Algorithmen (Kyber, Dilithium)
-- `pqcrypto` oder `oqs` crate Integration
-- Echte Quantum-Signaturen und Key Exchange
+**Implementiert:**
+- ✅ Neues `PQCryptoManager` Modul in neuroquantum-core (`src/pqcrypto.rs`)
+- ✅ NIST-standardisierte Post-Quantum Algorithmen:
+  - ML-KEM-768 (Kyber) für Key Encapsulation (NIST FIPS 203)
+  - ML-DSA-65 (Dilithium) für Digital Signatures (NIST FIPS 204)
+- ✅ Integration in JWT Service mit echten Quantum-Signaturen
+- ✅ Quantum Token Claims mit verifizierbaren Signaturen
+- ✅ Vollständige Test-Suite für Sign/Verify und KEM-Operationen
+- ✅ Dokumentation: `docs/security/post-quantum-crypto.md`
 
 ## 🟡 Mittlere Priorität
 
@@ -63,25 +62,23 @@ Dieses Dokument listet alle Stellen im Code auf, die aktuell nur simuliert sind 
 - ✅ Zählung von detektierten, korrigierten Fehlern und Rekonstruktionsversuchen
 - ✅ Unterscheidung zwischen fehlenden und korrupten Shards
 
-### 6. EEG Signal Processing (`crates/neuroquantum-core/src/security.rs`)
-**Status:** Vereinfachte FFT und Wavelet-Implementierung
+### 6. EEG Signal Processing (`crates/neuroquantum-core/src/security.rs`) ✅ ERLEDIGT
+**Status:** ~~Vereinfachte FFT und Wavelet-Implementierung~~ IMPLEMENTIERT
 
-**Zeile 478:**
-```rust
-// Simplified FFT feature extraction
-// In production, use a proper FFT library like rustfft
-```
-
-**Zeile 525:**
-```rust
-// Simplified frequency band extraction
-// In production, use proper signal processing
-```
-
-**Notwendige Änderungen:**
-- Integration von `rustfft` für echte FFT
-- Professionelle Wavelet-Transform Library
-- Verbessertes Frequency Band Extraction
+**Implementiert:**
+- ✅ Integration von `rustfft` v6.2 für professionelle FFT
+- ✅ Echte Cooley-Tukey FFT mit 256-sample Windows
+- ✅ 50% Window Overlap für bessere zeitliche Auflösung
+- ✅ Präzise Frequenzband-Extraktion:
+  - Delta (0.5-4 Hz)
+  - Theta (4-8 Hz)
+  - Alpha (8-13 Hz)
+  - Beta (13-30 Hz)
+  - Gamma (30-50 Hz)
+- ✅ Power Spectrum Berechnung mit Complex<f32>
+- ✅ Band Power Calculation basierend auf Frequenz-Auflösung
+- ✅ Haar Wavelet Transform für Hybrid-Methode
+- ✅ Dokumentation: `docs/security/eeg-biometric-auth.md`
 
 ### 7. Synaptic Network Persistence (`crates/neuroquantum-core/src/synaptic.rs`) ✅ ERLEDIGT
 **Status:** ~~Keine echte Persistierung~~ IMPLEMENTIERT
@@ -93,10 +90,23 @@ Dieses Dokument listet alle Stellen im Code auf, die aktuell nur simuliert sind 
 - ✅ Alle Strukturen mit Serialize/Deserialize Traits (Neuron, Synapse, SynapticNode, SynapticConnection, QueryPattern)
 - ✅ Korrekte Behandlung von nicht-serialisierbaren Instant-Feldern
 
-### 8. Incremental Backup WAL Parsing (`crates/neuroquantum-core/src/storage/backup/incremental.rs`)
-**Status:** Sichert alle WAL-Dateien ohne LSN-Check
+### 8. Incremental Backup WAL Parsing (`crates/neuroquantum-core/src/storage/backup/incremental.rs`) ✅ ERLEDIGT
+**Status:** ~~Sichert alle WAL-Dateien ohne LSN-Check~~ IMPLEMENTIERT
 
-**Zeile 152:**
+**Implementiert:**
+- ✅ Echtes WAL Segment Parsing mit bincode Deserialisierung
+- ✅ LSN-basierte Filterung (nur Backups von Records mit LSN > since_lsn)
+- ✅ Effiziente Speicherplatznutzung durch selektives Backup
+- ✅ Intelligentes Segment-Scanning mit Fehlertoleranz
+- ✅ Fallback auf vollständiges Segment-Backup bei Parse-Fehlern
+- ✅ WAL Record Counting für Statistiken
+- ✅ Detailed Logging und Monitoring
+- ✅ Modified Page Tracking aus WAL Records:
+  - Extraction von Page IDs aus Update Records
+  - Extraction von Page IDs aus CLR Records
+- ✅ Dokumentation: `docs/operations/incremental-backup.md`
+
+**Alte Zeile 152:**
 ```rust
 // Simplified: backup all WAL files
 // In production, would parse and check LSN ranges

@@ -9,12 +9,14 @@ use aes_gcm::{
 };
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use num_complex::Complex;
 use pqcrypto_mldsa::mldsa87;
 use pqcrypto_mlkem::mlkem1024;
 use pqcrypto_traits::kem::{
     Ciphertext, PublicKey as KemPublicKey, SecretKey as KemSecretKey, SharedSecret,
 };
 use pqcrypto_traits::sign::{PublicKey as SigPublicKey, SecretKey as SigSecretKey, SignedMessage};
+use rustfft::FftPlanner;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_512};
 use std::collections::HashMap;
@@ -472,24 +474,66 @@ impl BiometricAuth {
         }
     }
 
-    /// Extract frequency domain features using FFT
+    /// Extract frequency domain features using FFT with rustfft
     fn fft_features(&self, eeg_data: &[f32]) -> Result<Vec<f32>, SecurityError> {
-        // Simplified FFT feature extraction
-        // In production, use a proper FFT library like rustfft
         let mut features = Vec::new();
-
-        // Calculate power in different frequency bands
         let window_size = 256.min(eeg_data.len());
-        for i in (0..eeg_data.len()).step_by(window_size / 2) {
-            let end = (i + window_size).min(eeg_data.len());
-            let window = &eeg_data[i..end];
 
-            // Simple power calculation (placeholder for real FFT)
-            let power: f32 = window.iter().map(|x| x * x).sum::<f32>() / window.len() as f32;
-            features.push(power);
+        // Create FFT planner
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(window_size);
+
+        // Process each window with 50% overlap
+        for i in (0..eeg_data.len().saturating_sub(window_size)).step_by(window_size / 2) {
+            let window = &eeg_data[i..i + window_size];
+
+            // Convert to complex numbers for FFT
+            let mut buffer: Vec<Complex<f32>> =
+                window.iter().map(|&x| Complex::new(x, 0.0)).collect();
+
+            // Perform FFT
+            fft.process(&mut buffer);
+
+            // Calculate power spectrum and extract frequency band features
+            let power_spectrum: Vec<f32> = buffer
+                .iter()
+                .take(window_size / 2) // Only need first half (Nyquist)
+                .map(|c| c.norm_sqr())
+                .collect();
+
+            // Extract standard EEG frequency bands (assuming 256 Hz sampling rate)
+            // Delta (0.5-4 Hz), Theta (4-8 Hz), Alpha (8-13 Hz), Beta (13-30 Hz), Gamma (30-50 Hz)
+            let sampling_rate = 256.0;
+            let freq_resolution = sampling_rate / window_size as f32;
+
+            let delta_band = Self::band_power(&power_spectrum, 0.5, 4.0, freq_resolution);
+            let theta_band = Self::band_power(&power_spectrum, 4.0, 8.0, freq_resolution);
+            let alpha_band = Self::band_power(&power_spectrum, 8.0, 13.0, freq_resolution);
+            let beta_band = Self::band_power(&power_spectrum, 13.0, 30.0, freq_resolution);
+            let gamma_band = Self::band_power(&power_spectrum, 30.0, 50.0, freq_resolution);
+
+            features
+                .extend_from_slice(&[delta_band, theta_band, alpha_band, beta_band, gamma_band]);
         }
 
         Ok(features)
+    }
+
+    /// Calculate power in a specific frequency band
+    fn band_power(
+        power_spectrum: &[f32],
+        low_freq: f32,
+        high_freq: f32,
+        freq_resolution: f32,
+    ) -> f32 {
+        let low_idx = (low_freq / freq_resolution) as usize;
+        let high_idx = ((high_freq / freq_resolution) as usize).min(power_spectrum.len());
+
+        if low_idx >= high_idx || high_idx > power_spectrum.len() {
+            return 0.0;
+        }
+
+        power_spectrum[low_idx..high_idx].iter().sum::<f32>() / (high_idx - low_idx) as f32
     }
 
     /// Extract wavelet features
@@ -519,18 +563,42 @@ impl BiometricAuth {
         Ok(features)
     }
 
-    /// Extract frequency band powers
+    /// Extract frequency band powers using FFT
     fn extract_frequency_bands(&self, eeg_data: &[f32]) -> Result<FrequencyBands, SecurityError> {
-        // Simplified frequency band extraction
-        // In production, use proper signal processing
-        let total_power: f32 = eeg_data.iter().map(|x| x * x).sum();
+        let window_size = eeg_data.len().min(512).next_power_of_two();
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(window_size);
+
+        // Pad or truncate data to window size
+        let mut buffer: Vec<Complex<f32>> = eeg_data
+            .iter()
+            .take(window_size)
+            .map(|&x| Complex::new(x, 0.0))
+            .collect();
+
+        // Pad with zeros if needed
+        buffer.resize(window_size, Complex::new(0.0, 0.0));
+
+        // Perform FFT
+        fft.process(&mut buffer);
+
+        // Calculate power spectrum
+        let power_spectrum: Vec<f32> = buffer
+            .iter()
+            .take(window_size / 2)
+            .map(|c| c.norm_sqr())
+            .collect();
+
+        // Extract band powers (assuming 256 Hz sampling rate)
+        let sampling_rate = 256.0;
+        let freq_resolution = sampling_rate / window_size as f32;
 
         Ok(FrequencyBands {
-            delta: total_power * 0.15,
-            theta: total_power * 0.20,
-            alpha: total_power * 0.30,
-            beta: total_power * 0.25,
-            gamma: total_power * 0.10,
+            delta: Self::band_power(&power_spectrum, 0.5, 4.0, freq_resolution),
+            theta: Self::band_power(&power_spectrum, 4.0, 8.0, freq_resolution),
+            alpha: Self::band_power(&power_spectrum, 8.0, 13.0, freq_resolution),
+            beta: Self::band_power(&power_spectrum, 13.0, 30.0, freq_resolution),
+            gamma: Self::band_power(&power_spectrum, 30.0, 50.0, freq_resolution),
         })
     }
 
