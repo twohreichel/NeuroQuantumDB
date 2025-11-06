@@ -484,7 +484,17 @@ impl BiometricAuth {
         let fft = planner.plan_fft_forward(window_size);
 
         // Process each window with 50% overlap
-        for i in (0..eeg_data.len().saturating_sub(window_size)).step_by(window_size / 2) {
+        // Ensure we process at least one window if data length equals window_size
+        let end = if eeg_data.len() == window_size {
+            window_size
+        } else {
+            eeg_data.len().saturating_sub(window_size)
+        };
+
+        for i in (0..=end.saturating_sub(window_size)).step_by((window_size / 2).max(1)) {
+            if i + window_size > eeg_data.len() {
+                break;
+            }
             let window = &eeg_data[i..i + window_size];
 
             // Convert to complex numbers for FFT
@@ -1578,6 +1588,7 @@ mod tests {
             .authenticate_eeg("user123", &eeg_data)
             .await
             .unwrap();
+
         assert!(matches!(result, AuthResult::Success { .. }));
     }
 }
