@@ -53,7 +53,7 @@ async fn test_dna_compression_and_encryption_roundtrip() {
         .expect("Failed to create table");
 
     // Insert test data
-    let test_data = vec![
+    let test_data = [
         ("Alice Johnson", "alice@quantum.db"),
         ("Bob Smith", "bob@neuroquantum.ai"),
         ("Charlie Brown", "charlie@dna-compression.org"),
@@ -79,21 +79,18 @@ async fn test_dna_compression_and_encryption_roundtrip() {
             .expect("Failed to insert row");
 
         inserted_ids.push(row_id);
-        println!("✅ Inserted row {} with DNA compression + encryption", row_id);
+        println!(
+            "✅ Inserted row {} with DNA compression + encryption",
+            row_id
+        );
     }
 
     // Verify data is actually on disk (encrypted and compressed)
     let table_file = data_path.join("tables").join("test_users.nqdb");
-    assert!(
-        table_file.exists(),
-        "Table file should exist on disk"
-    );
+    assert!(table_file.exists(), "Table file should exist on disk");
 
     let file_content = tokio::fs::read(&table_file).await.unwrap();
-    assert!(
-        !file_content.is_empty(),
-        "Table file should contain data"
-    );
+    assert!(!file_content.is_empty(), "Table file should contain data");
 
     // Verify the file content is NOT plain JSON (should be binary encrypted data)
     let content_str = String::from_utf8_lossy(&file_content);
@@ -185,7 +182,10 @@ async fn test_compression_ratio_with_encryption() {
     let repetitive_content = "ACGTACGT".repeat(1000); // 8000 characters
     let mut fields = HashMap::new();
     fields.insert("id".to_string(), Value::Integer(1));
-    fields.insert("content".to_string(), Value::Text(repetitive_content.clone()));
+    fields.insert(
+        "content".to_string(),
+        Value::Text(repetitive_content.clone()),
+    );
 
     let row = Row {
         id: 0,
@@ -203,10 +203,7 @@ async fn test_compression_ratio_with_encryption() {
 
     // Check file size on disk
     let table_file = data_path.join("tables").join("large_data.nqdb");
-    let file_size = tokio::fs::metadata(&table_file)
-        .await
-        .unwrap()
-        .len() as usize;
+    let file_size = tokio::fs::metadata(&table_file).await.unwrap().len() as usize;
 
     println!("📊 Compression Statistics:");
     println!("   Original size: {} bytes", original_size);
@@ -250,6 +247,8 @@ async fn test_compression_ratio_with_encryption() {
     );
 
     println!("✅ DNA Compression + Encryption storage test PASSED");
-    println!("   File size: {} bytes (ratio: {:.2}x)", file_size, compression_ratio);
+    println!(
+        "   File size: {} bytes (ratio: {:.2}x)",
+        file_size, compression_ratio
+    );
 }
-

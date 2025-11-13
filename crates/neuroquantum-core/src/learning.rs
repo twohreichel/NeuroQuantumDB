@@ -403,7 +403,9 @@ impl HebbianLearningEngine {
 
     /// Get most frequent query patterns for optimization
     pub fn get_frequent_patterns(&self, top_n: usize) -> Vec<(QueryPattern, u64)> {
-        let mut patterns: Vec<_> = self.query_patterns.iter()
+        let mut patterns: Vec<_> = self
+            .query_patterns
+            .iter()
             .map(|(p, f)| (p.clone(), *f))
             .collect();
         patterns.sort_by(|a, b| b.1.cmp(&a.1));
@@ -420,7 +422,9 @@ impl HebbianLearningEngine {
         let mut trained_count = 0;
 
         // Collect patterns to train (to avoid borrowing conflicts)
-        let patterns_to_train: Vec<_> = self.query_patterns.iter()
+        let patterns_to_train: Vec<_> = self
+            .query_patterns
+            .iter()
             .filter(|(_, freq)| **freq >= min_frequency)
             .map(|(p, f)| (p.clone(), *f))
             .collect();
@@ -435,23 +439,13 @@ impl HebbianLearningEngine {
             let correlation = (frequency.min(100) as f32) / 100.0;
 
             for column in &pattern.columns {
-                let column_hash = self.hash_string(&column);
+                let column_hash = self.hash_string(column);
 
                 // Strengthen table -> column connection
-                self.strengthen_connection(
-                    network,
-                    table_hash,
-                    column_hash,
-                    correlation,
-                )?;
+                self.strengthen_connection(network, table_hash, column_hash, correlation)?;
 
                 // Strengthen column -> query_type connection
-                self.strengthen_connection(
-                    network,
-                    column_hash,
-                    query_type_hash,
-                    correlation,
-                )?;
+                self.strengthen_connection(network, column_hash, query_type_hash, correlation)?;
             }
 
             trained_count += 1;

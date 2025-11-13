@@ -19,14 +19,12 @@ async fn test_simple_insert() {
     println!("Creating table schema...");
     let schema = TableSchema {
         name: "simple_test".to_string(),
-        columns: vec![
-            ColumnDefinition {
-                name: "id".to_string(),
-                data_type: DataType::Integer,
-                nullable: false,
-                default_value: None,
-            },
-        ],
+        columns: vec![ColumnDefinition {
+            name: "id".to_string(),
+            data_type: DataType::Integer,
+            nullable: false,
+            default_value: None,
+        }],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
@@ -64,4 +62,3 @@ async fn test_simple_insert() {
 
     println!("🎉 Test passed!");
 }
-

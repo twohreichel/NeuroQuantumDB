@@ -335,8 +335,10 @@ impl StorageEngine {
             .await
             .map_err(|e| anyhow!("Failed to initialize encryption manager: {}", e))?;
 
-        info!("🔐 Encryption-at-rest enabled with key fingerprint: {}",
-            encryption_manager.get_key_fingerprint());
+        info!(
+            "🔐 Encryption-at-rest enabled with key fingerprint: {}",
+            encryption_manager.get_key_fingerprint()
+        );
 
         let mut engine = Self {
             data_dir: data_dir.clone(),
@@ -848,8 +850,8 @@ impl StorageEngine {
     /// Compress row data using DNA compression
     async fn compress_row(&mut self, row: &Row) -> Result<EncodedData> {
         // Use bincode for efficient binary serialization (more compatible with HashMap)
-        let serialized = bincode::serialize(row)
-            .map_err(|e| anyhow!("Failed to serialize row: {}", e))?;
+        let serialized =
+            bincode::serialize(row).map_err(|e| anyhow!("Failed to serialize row: {}", e))?;
         let compressed = self.dna_compressor.compress(&serialized).await?;
         Ok(compressed)
     }
@@ -1091,7 +1093,9 @@ impl StorageEngine {
             match bincode::deserialize::<CompressedRowEntry>(entry_bytes) {
                 Ok(entry) => {
                     // Get the compressed data (decrypt first if encrypted)
-                    let compressed_data = if let Some(ref encrypted_wrapper) = entry.encrypted_wrapper {
+                    let compressed_data = if let Some(ref encrypted_wrapper) =
+                        entry.encrypted_wrapper
+                    {
                         // Data is encrypted, decrypt it first
                         if let Some(ref encryption_manager) = self.encryption_manager {
                             match encryption_manager.decrypt(encrypted_wrapper) {
@@ -1220,9 +1224,14 @@ impl StorageEngine {
         // Immediately persist compressed blocks to quantum directory
         self.save_compressed_blocks().await?;
 
-        debug!("💾 Row {} written (DNA compressed{}, {} bytes)",
+        debug!(
+            "💾 Row {} written (DNA compressed{}, {} bytes)",
             row.id,
-            if self.encryption_manager.is_some() { " + encrypted" } else { "" },
+            if self.encryption_manager.is_some() {
+                " + encrypted"
+            } else {
+                ""
+            },
             entry_bytes.len()
         );
 
@@ -1325,7 +1334,10 @@ impl StorageEngine {
             }
             Err(e) => {
                 // Log warning but don't fail the operation
-                debug!("⚠️  Warning: Failed to serialize transaction for logging: {}", e);
+                debug!(
+                    "⚠️  Warning: Failed to serialize transaction for logging: {}",
+                    e
+                );
             }
         }
 

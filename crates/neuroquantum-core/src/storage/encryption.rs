@@ -31,7 +31,8 @@ pub struct EncryptedData {
 pub struct EncryptionManager {
     /// Master encryption key (derived from password or generated)
     master_key: [u8; 32],
-    /// Key file path for persistence
+    /// Key file path for persistence (stored for future key rotation support)
+    #[allow(dead_code)]
     key_path: PathBuf,
 }
 
@@ -113,7 +114,7 @@ impl EncryptionManager {
         let mut nonce_bytes = [0u8; 12];
         use rand::RngCore;
         rand::thread_rng().fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
+        let nonce = Nonce::from(nonce_bytes);
 
         // Create cipher with master key
         let cipher = Aes256Gcm::new_from_slice(&self.master_key)
@@ -121,7 +122,7 @@ impl EncryptionManager {
 
         // Encrypt
         let ciphertext = cipher
-            .encrypt(nonce, plaintext)
+            .encrypt(&nonce, plaintext)
             .map_err(|e| anyhow!("Encryption failed: {}", e))?;
 
         // Generate salt for key derivation (used for future enhancements)
@@ -152,7 +153,13 @@ impl EncryptionManager {
             ));
         }
 
-        let nonce = Nonce::from_slice(&encrypted.nonce);
+        // Convert Vec<u8> to [u8; 12] for From trait
+        let nonce_array: [u8; 12] = encrypted
+            .nonce
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("Invalid nonce format"))?;
+        let nonce = Nonce::from(nonce_array);
 
         // Create cipher with master key
         let cipher = Aes256Gcm::new_from_slice(&self.master_key)
@@ -160,7 +167,7 @@ impl EncryptionManager {
 
         // Decrypt
         let plaintext = cipher
-            .decrypt(nonce, encrypted.ciphertext.as_ref())
+            .decrypt(&nonce, encrypted.ciphertext.as_ref())
             .map_err(|e| anyhow!("Decryption failed: {}", e))?;
 
         Ok(plaintext)
@@ -174,8 +181,8 @@ impl EncryptionManager {
             Argon2,
         };
 
-        let salt_string = SaltString::encode_b64(salt)
-            .map_err(|e| anyhow!("Failed to encode salt: {}", e))?;
+        let salt_string =
+            SaltString::encode_b64(salt).map_err(|e| anyhow!("Failed to encode salt: {}", e))?;
 
         let argon2 = Argon2::default();
         let hash = argon2
@@ -269,4 +276,3 @@ mod tests {
         assert_ne!(hash1, hash3);
     }
 }
-
