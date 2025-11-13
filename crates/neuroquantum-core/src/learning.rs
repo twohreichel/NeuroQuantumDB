@@ -42,14 +42,27 @@ impl AntiHebbianLearning {
     }
 
     /// Apply anti-Hebbian learning to weaken unused connections
-    pub fn apply_weakening(&self, _network: &mut SynapticNetwork) -> CoreResult<u64> {
-        let weakened_count = 0;
+    /// This implements competitive learning where weak synapses are pruned
+    pub fn apply_weakening(&self, network: &SynapticNetwork) -> CoreResult<u64> {
+        // Anti-Hebbian learning: prune connections below threshold
+        // This implements competitive learning where weak, unused connections are removed
+        let pruned_count = network.prune_weak_connections(self.pruning_threshold);
 
-        // Implementation would go here for anti-Hebbian learning
-        // This is a placeholder for the complex algorithm
+        debug!(
+            "Anti-Hebbian learning: pruned {} weak connections (threshold: {})",
+            pruned_count, self.pruning_threshold
+        );
 
-        Ok(weakened_count)
+        Ok(pruned_count as u64)
     }
+}
+
+/// Query pattern for learning optimization
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct QueryPattern {
+    pub table: String,
+    pub query_type: String, // SELECT, INSERT, UPDATE, DELETE
+    pub columns: Vec<String>,
 }
 
 /// Main Hebbian learning engine implementing neuroplasticity
@@ -65,6 +78,10 @@ pub struct HebbianLearningEngine {
     adaptive_rate_enabled: bool,
     min_learning_rate: f32,
     max_learning_rate: f32,
+    /// Track query patterns for optimization
+    query_patterns: HashMap<QueryPattern, u64>, // pattern -> frequency
+    /// Threshold for automatic training
+    training_threshold: u64,
 }
 
 impl HebbianLearningEngine {
@@ -86,6 +103,8 @@ impl HebbianLearningEngine {
             adaptive_rate_enabled: true,
             min_learning_rate: 0.001,
             max_learning_rate: 0.1,
+            query_patterns: HashMap::new(),
+            training_threshold: 10, // Train after 10 occurrences
         })
     }
 
@@ -363,6 +382,107 @@ impl HebbianLearningEngine {
 
         self.stats.learning_efficiency = efficiency;
         efficiency
+    }
+
+    /// Track a query pattern for automatic learning
+    pub fn track_query_pattern(&mut self, pattern: QueryPattern) -> bool {
+        let counter = self.query_patterns.entry(pattern.clone()).or_insert(0);
+        *counter += 1;
+
+        // Return true if pattern frequency exceeds threshold (triggers training)
+        if *counter == self.training_threshold {
+            info!(
+                "Query pattern reached training threshold: table={}, type={}, frequency={}",
+                pattern.table, pattern.query_type, counter
+            );
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get most frequent query patterns for optimization
+    pub fn get_frequent_patterns(&self, top_n: usize) -> Vec<(QueryPattern, u64)> {
+        let mut patterns: Vec<_> = self.query_patterns.iter()
+            .map(|(p, f)| (p.clone(), *f))
+            .collect();
+        patterns.sort_by(|a, b| b.1.cmp(&a.1));
+        patterns.truncate(top_n);
+        patterns
+    }
+
+    /// Train network based on frequent query patterns
+    pub fn train_on_frequent_patterns(
+        &mut self,
+        network: &SynapticNetwork,
+        min_frequency: u64,
+    ) -> CoreResult<u64> {
+        let mut trained_count = 0;
+
+        // Collect patterns to train (to avoid borrowing conflicts)
+        let patterns_to_train: Vec<_> = self.query_patterns.iter()
+            .filter(|(_, freq)| **freq >= min_frequency)
+            .map(|(p, f)| (p.clone(), *f))
+            .collect();
+
+        for (pattern, frequency) in patterns_to_train {
+            // Create neural pathway for this query pattern
+            // Pattern: table -> columns -> query_type
+            let table_hash = self.hash_string(&pattern.table);
+            let query_type_hash = self.hash_string(&pattern.query_type);
+
+            // Strengthen connections based on pattern frequency
+            let correlation = (frequency.min(100) as f32) / 100.0;
+
+            for column in &pattern.columns {
+                let column_hash = self.hash_string(&column);
+
+                // Strengthen table -> column connection
+                self.strengthen_connection(
+                    network,
+                    table_hash,
+                    column_hash,
+                    correlation,
+                )?;
+
+                // Strengthen column -> query_type connection
+                self.strengthen_connection(
+                    network,
+                    column_hash,
+                    query_type_hash,
+                    correlation,
+                )?;
+            }
+
+            trained_count += 1;
+        }
+
+        info!(
+            "Trained network on {} frequent query patterns (min frequency: {})",
+            trained_count, min_frequency
+        );
+
+        Ok(trained_count)
+    }
+
+    /// Simple hash function to convert strings to node IDs
+    fn hash_string(&self, s: &str) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        s.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Clear query pattern history
+    pub fn clear_query_patterns(&mut self) {
+        self.query_patterns.clear();
+    }
+
+    /// Get total number of tracked patterns
+    pub fn get_pattern_count(&self) -> usize {
+        self.query_patterns.len()
     }
 }
 
