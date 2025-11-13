@@ -5,6 +5,7 @@
 pub mod backup;
 pub mod btree;
 pub mod buffer;
+pub mod encryption;
 pub mod pager;
 pub mod wal;
 
@@ -24,6 +25,7 @@ pub use backup::{
 };
 pub use btree::{BTree, BTreeConfig};
 pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
+pub use encryption::{EncryptedData, EncryptionManager};
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
 pub use wal::{RecoveryStats, WALConfig, WALManager};
 
@@ -32,6 +34,19 @@ use crate::transaction::{IsolationLevel, TransactionManager};
 
 /// Unique identifier for database rows
 pub type RowId = u64;
+
+/// Compressed row entry for binary storage format
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CompressedRowEntry {
+    row_id: RowId,
+    compressed_data: EncodedData,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+    /// Encrypted wrapper for additional security (optional)
+    encrypted_wrapper: Option<EncryptedData>,
+    /// Format version for backward compatibility
+    format_version: u32,
+}
 
 /// Transaction identifier
 pub type TransactionId = Uuid;
@@ -260,6 +275,9 @@ pub struct StorageEngine {
 
     /// Transaction manager for ACID compliance
     transaction_manager: TransactionManager,
+
+    /// Encryption manager for data-at-rest encryption
+    encryption_manager: Option<EncryptionManager>,
 }
 
 impl StorageEngine {
@@ -287,6 +305,7 @@ impl StorageEngine {
             row_cache: HashMap::new(),
             cache_limit: 10000,
             transaction_manager: TransactionManager::new(),
+            encryption_manager: None,
         }
     }
 
@@ -311,6 +330,14 @@ impl StorageEngine {
             .await
             .map_err(|e| anyhow!("Failed to initialize transaction manager: {}", e))?;
 
+        // Initialize encryption manager for data-at-rest encryption
+        let encryption_manager = EncryptionManager::new(&data_dir)
+            .await
+            .map_err(|e| anyhow!("Failed to initialize encryption manager: {}", e))?;
+
+        info!("🔐 Encryption-at-rest enabled with key fingerprint: {}",
+            encryption_manager.get_key_fingerprint());
+
         let mut engine = Self {
             data_dir: data_dir.clone(),
             indexes: HashMap::new(),
@@ -323,6 +350,7 @@ impl StorageEngine {
             row_cache: HashMap::new(),
             cache_limit: 10000, // 10k rows in cache
             transaction_manager,
+            encryption_manager: Some(encryption_manager),
         };
 
         // Load existing data
@@ -476,10 +504,10 @@ impl StorageEngine {
         };
         self.log_operation(operation).await?;
 
-        // Append to table file
+        // Append to table file with DNA compression
         self.append_row_to_file(table, &row).await?;
 
-        debug!("✅ Row inserted with ID: {}", row.id);
+        debug!("✅ Row inserted with ID: {} (DNA compressed)", row.id);
         Ok(row.id)
     }
 
@@ -819,7 +847,9 @@ impl StorageEngine {
 
     /// Compress row data using DNA compression
     async fn compress_row(&mut self, row: &Row) -> Result<EncodedData> {
-        let serialized = serde_json::to_vec(row)?;
+        // Use bincode for efficient binary serialization (more compatible with HashMap)
+        let serialized = bincode::serialize(row)
+            .map_err(|e| anyhow!("Failed to serialize row: {}", e))?;
         let compressed = self.dna_compressor.compress(&serialized).await?;
         Ok(compressed)
     }
@@ -828,7 +858,8 @@ impl StorageEngine {
     #[allow(dead_code)]
     async fn decompress_row(&mut self, encoded: &EncodedData) -> Result<Row> {
         let decompressed = self.dna_compressor.decompress(encoded).await?;
-        let row: Row = serde_json::from_slice(&decompressed)?;
+        let row: Row = bincode::deserialize(&decompressed)
+            .map_err(|e| anyhow!("Failed to deserialize row: {}", e))?;
         Ok(row)
     }
 
@@ -1016,7 +1047,7 @@ impl StorageEngine {
         Ok(projected_rows)
     }
 
-    /// Load all rows for a table
+    /// Load all rows for a table with DNA decompression
     async fn load_table_rows(&self, table: &str) -> Result<Vec<Row>> {
         let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
 
@@ -1024,35 +1055,176 @@ impl StorageEngine {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(&table_path).await?;
-        let mut rows = Vec::new();
+        let file_content = fs::read(&table_path).await?;
 
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
+        // If file is empty, return empty vector
+        if file_content.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut rows = Vec::new();
+        let mut offset = 0;
+
+        // Try to read as binary compressed format first
+        while offset < file_content.len() {
+            // Check if we have enough bytes for length prefix
+            if offset + 4 > file_content.len() {
+                break;
             }
 
-            let row: Row = serde_json::from_str(line)?;
-            rows.push(row);
+            // Read length prefix
+            let len_bytes: [u8; 4] = file_content[offset..offset + 4]
+                .try_into()
+                .map_err(|_| anyhow!("Failed to read length prefix"))?;
+            let entry_len = u32::from_le_bytes(len_bytes) as usize;
+            offset += 4;
+
+            // Check if we have enough bytes for entry
+            if offset + entry_len > file_content.len() {
+                break;
+            }
+
+            // Read and deserialize compressed entry
+            let entry_bytes = &file_content[offset..offset + entry_len];
+            offset += entry_len;
+
+            match bincode::deserialize::<CompressedRowEntry>(entry_bytes) {
+                Ok(entry) => {
+                    // Get the compressed data (decrypt first if encrypted)
+                    let compressed_data = if let Some(ref encrypted_wrapper) = entry.encrypted_wrapper {
+                        // Data is encrypted, decrypt it first
+                        if let Some(ref encryption_manager) = self.encryption_manager {
+                            match encryption_manager.decrypt(encrypted_wrapper) {
+                                Ok(decrypted_bytes) => {
+                                    // Deserialize the decrypted compressed data
+                                    match bincode::deserialize::<EncodedData>(&decrypted_bytes) {
+                                        Ok(data) => data,
+                                        Err(e) => {
+                                            debug!("Failed to deserialize decrypted data: {}", e);
+                                            continue;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    debug!("Failed to decrypt row: {}", e);
+                                    continue;
+                                }
+                            }
+                        } else {
+                            debug!("Encrypted data found but no encryption manager available");
+                            continue;
+                        }
+                    } else {
+                        // Data is not encrypted, use directly
+                        entry.compressed_data
+                    };
+
+                    // Decompress the row data
+                    let compressor = self.dna_compressor.clone();
+                    match compressor.decompress(&compressed_data).await {
+                        Ok(decompressed) => {
+                            // Try bincode first (new format), then JSON (legacy format)
+                            if let Ok(row) = bincode::deserialize::<Row>(&decompressed) {
+                                rows.push(row);
+                            } else if let Ok(row) = serde_json::from_slice::<Row>(&decompressed) {
+                                rows.push(row);
+                            } else {
+                                debug!("Failed to deserialize decompressed row with both bincode and JSON");
+                                continue;
+                            }
+                        }
+                        Err(e) => {
+                            debug!("Failed to decompress row: {}", e);
+                            continue;
+                        }
+                    }
+                }
+                Err(_) => {
+                    // Might be legacy JSON format, try to read as text
+                    break;
+                }
+            }
+        }
+
+        // If no rows were read, try legacy JSON format
+        if rows.is_empty() && offset == 0 {
+            let content = String::from_utf8_lossy(&file_content);
+            for line in content.lines() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+
+                if let Ok(row) = serde_json::from_str::<Row>(line) {
+                    rows.push(row);
+                }
+            }
         }
 
         Ok(rows)
     }
 
-    /// Append row to table file
-    async fn append_row_to_file(&self, table: &str, row: &Row) -> Result<()> {
+    /// Append row to table file with DNA compression and encryption
+    async fn append_row_to_file(&mut self, table: &str, row: &Row) -> Result<()> {
         let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
 
-        let row_json = serde_json::to_string(row)?;
+        // Get or create compressed data for this row
+        let compressed_data = if let Some(data) = self.compressed_blocks.get(&row.id) {
+            data.clone()
+        } else {
+            // Compress the row if not already compressed
+            let serialized = serde_json::to_vec(row)?;
+            let compressed = self.dna_compressor.compress(&serialized).await?;
+            self.compressed_blocks.insert(row.id, compressed.clone());
+            compressed
+        };
+
+        // Optionally encrypt the compressed data
+        let encrypted_wrapper = if let Some(ref encryption_manager) = self.encryption_manager {
+            // Serialize the compressed data
+            let compressed_bytes = bincode::serialize(&compressed_data)
+                .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+
+            // Encrypt the serialized compressed data
+            let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
+            Some(encrypted)
+        } else {
+            None
+        };
+
+        // Create a storage entry with metadata, compressed data, and optional encryption
+        let storage_entry = CompressedRowEntry {
+            row_id: row.id,
+            compressed_data,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            encrypted_wrapper,
+            format_version: 1,
+        };
+
+        // Serialize and write the entry
+        let entry_bytes = bincode::serialize(&storage_entry)
+            .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+
         let mut file = fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(&table_path)
             .await?;
 
-        file.write_all(row_json.as_bytes()).await?;
-        file.write_all(b"\n").await?;
+        // Write length prefix (4 bytes) followed by entry data
+        let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
+        file.write_all(&len_bytes).await?;
+        file.write_all(&entry_bytes).await?;
         file.flush().await?;
+
+        // Immediately persist compressed blocks to quantum directory
+        self.save_compressed_blocks().await?;
+
+        debug!("💾 Row {} written (DNA compressed{}, {} bytes)",
+            row.id,
+            if self.encryption_manager.is_some() { " + encrypted" } else { "" },
+            entry_bytes.len()
+        );
 
         Ok(())
     }
@@ -1140,11 +1312,21 @@ impl StorageEngine {
         };
 
         self.next_lsn += 1;
-        self.transaction_log.push(transaction);
 
-        // Keep transaction log size manageable
-        if self.transaction_log.len() > 10000 {
-            self.transaction_log.drain(0..5000);
+        // Try to push transaction - if serialization fails, log warning but don't fail operation
+        match bincode::serialize(&transaction) {
+            Ok(_) => {
+                self.transaction_log.push(transaction);
+
+                // Keep transaction log size manageable
+                if self.transaction_log.len() > 10000 {
+                    self.transaction_log.drain(0..5000);
+                }
+            }
+            Err(e) => {
+                // Log warning but don't fail the operation
+                debug!("⚠️  Warning: Failed to serialize transaction for logging: {}", e);
+            }
         }
 
         Ok(())
@@ -1232,7 +1414,10 @@ impl StorageEngine {
             .data_dir
             .join("quantum")
             .join("compressed_blocks.qdata");
-        let content = serde_json::to_string_pretty(&self.compressed_blocks)?;
+        // Use bincode instead of JSON because CompressedDNA contains HashMap with Vec<u8> keys
+        // which cannot be serialized to JSON (JSON only supports string keys)
+        let content = bincode::serialize(&self.compressed_blocks)
+            .map_err(|e| anyhow!("Failed to serialize compressed blocks: {}", e))?;
         fs::write(&blocks_path, content).await?;
 
         Ok(())
@@ -1246,9 +1431,11 @@ impl StorageEngine {
             .join("compressed_blocks.qdata");
 
         if blocks_path.exists() {
-            let content = fs::read_to_string(&blocks_path).await?;
-            if !content.trim().is_empty() {
-                self.compressed_blocks = serde_json::from_str(&content)?;
+            let content = fs::read(&blocks_path).await?;
+            if !content.is_empty() {
+                // Use bincode to deserialize (consistent with save_compressed_blocks)
+                self.compressed_blocks = bincode::deserialize(&content)
+                    .map_err(|e| anyhow!("Failed to deserialize compressed blocks: {}", e))?;
             }
         }
 
