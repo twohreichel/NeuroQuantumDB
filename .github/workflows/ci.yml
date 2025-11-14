@@ -169,70 +169,20 @@ jobs:
       - name: Check unused dependencies
         run: cargo machete
 
-  comprehensive-lint:
-    name: Comprehensive Lint Check
+  code-quality:
+    name: Code Quality Checks
     runs-on: ubuntu-latest
     needs: [formatting, clippy, security-audit, dependency-check, unused-deps]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Cache Rust dependencies from previous jobs
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "clippy"
-          save-if: false
-
-      - name: Cache Rust dependencies fallback
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "comprehensive-lint"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Cache lint tools from previous jobs
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/cargo-audit
-            ~/.cargo/bin/cargo-deny
-            ~/.cargo/bin/cargo-machete
-          key: security-tools-${{ runner.os }}-v2
-          restore-keys: |
-            cargo-deny-${{ runner.os }}-v2
-            cargo-machete-${{ runner.os }}-v2
-
-      - name: Install missing tools only
+      - name: Check for TODO/FIXME comments
         run: |
-          missing_tools=()
-          if ! command -v cargo-audit &> /dev/null; then
-            missing_tools+=("cargo-audit")
-          fi
-          if ! command -v cargo-deny &> /dev/null; then
-            missing_tools+=("cargo-deny")
-          fi
-          if ! command -v cargo-machete &> /dev/null; then
-            missing_tools+=("cargo-machete")
-          fi
-          if [ ${#missing_tools[@]} -gt 0 ]; then
-            echo "Installing missing tools: ${missing_tools[*]}"
-            cargo install --locked "${missing_tools[@]}"
-          else
-            echo "✅ All tools already available from cache"
-          fi
-
-      - name: Run only additional lint checks
-        run: |
-          echo "🔍 Running additional project-specific checks..."
+          echo "🔍 Checking for TODO/FIXME comments in production code..."
           if grep -r "TODO\\|FIXME" crates/ --include="*.rs" | grep -v "test" | head -10; then
             echo "⚠️  Found TODO/FIXME comments in production code"
           fi
-          echo "📖 Checking documentation coverage..."
-          cargo doc --workspace --no-deps 2>&1 | grep "warning:" || echo "✅ No documentation warnings"
 
       - name: Check for unsafe code
         run: |
@@ -246,7 +196,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
-    needs: [comprehensive-lint]
+    needs: [code-quality]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -554,7 +504,7 @@ jobs:
       - security-audit
       - dependency-check
       - unused-deps
-      - comprehensive-lint
+      - code-quality
       - test
       - build-documentation
       - build-and-push
@@ -574,7 +524,7 @@ jobs:
           echo "| Unused Dependencies | ${{ needs.unused-deps.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Tests | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **📚 Documentation** | ${{ needs.build-documentation.result == 'success' && '✅ Generated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Comprehensive Lint | ${{ needs.comprehensive-lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | ${{ needs.code-quality.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Docker Build | ${{ needs.build-and-push.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **🌐 Documentation Deploy** | ${{ needs.deploy-documentation.result == 'success' && '✅ Deployed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
