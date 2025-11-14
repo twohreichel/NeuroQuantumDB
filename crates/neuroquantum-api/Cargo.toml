@@ -73,3 +73,6 @@ clap = { version = "4.5", features = ["derive"] }
 
 [features]
 default = []
+
+[dev-dependencies]
+tempfile = "3.13"

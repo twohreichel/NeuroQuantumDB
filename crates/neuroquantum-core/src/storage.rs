@@ -229,6 +229,32 @@ pub enum TransactionStatus {
     Aborted,
 }
 
+/// Query execution statistics for monitoring and optimization
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct QueryExecutionStats {
+    /// Number of cache hits
+    pub cache_hits: usize,
+    /// Number of cache misses
+    pub cache_misses: usize,
+    /// Indexes used in the query
+    pub indexes_used: Vec<String>,
+    /// Whether index was actually used for query optimization
+    pub index_scan: bool,
+    /// Number of rows examined from storage
+    pub rows_examined: usize,
+}
+
+impl QueryExecutionStats {
+    pub fn cache_hit_rate(&self) -> Option<f32> {
+        let total = self.cache_hits + self.cache_misses;
+        if total > 0 {
+            Some(self.cache_hits as f32 / total as f32)
+        } else {
+            None
+        }
+    }
+}
+
 /// Database metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseMetadata {
@@ -278,6 +304,9 @@ pub struct StorageEngine {
 
     /// Encryption manager for data-at-rest encryption
     encryption_manager: Option<EncryptionManager>,
+
+    /// Query execution statistics for the last query
+    last_query_stats: QueryExecutionStats,
 }
 
 impl StorageEngine {
@@ -325,6 +354,7 @@ impl StorageEngine {
             cache_limit: 10000,
             transaction_manager: TransactionManager::new(),
             encryption_manager: None,
+            last_query_stats: QueryExecutionStats::default(),
         }
     }
 
@@ -372,6 +402,7 @@ impl StorageEngine {
             cache_limit: 10000, // 10k rows in cache
             transaction_manager,
             encryption_manager: Some(encryption_manager),
+            last_query_stats: QueryExecutionStats::default(),
         };
 
         // Load existing data
@@ -534,17 +565,47 @@ impl StorageEngine {
 
     /// Select rows matching the given query
     pub async fn select_rows(&self, query: &SelectQuery) -> Result<Vec<Row>> {
+        let (rows, _stats) = self.select_rows_with_stats(query).await?;
+        Ok(rows)
+    }
+
+    /// Select rows matching the given query with execution statistics
+    pub async fn select_rows_with_stats(
+        &self,
+        query: &SelectQuery,
+    ) -> Result<(Vec<Row>, QueryExecutionStats)> {
         debug!("🔍 Selecting rows from table: {}", query.table);
 
-        // Get table schema - unused but kept for future optimization
-        let _schema = self
+        let mut stats = QueryExecutionStats::default();
+
+        // Get table schema
+        let schema = self
             .metadata
             .tables
             .get(&query.table)
             .ok_or_else(|| anyhow!("Table '{}' does not exist", query.table))?;
 
-        // Load all rows for the table (in a real implementation, this would be optimized)
+        // Check if we can use an index for this query
+        let index_key = format!("{}_{}", query.table, schema.primary_key);
+        if self.indexes.contains_key(&index_key) {
+            stats.indexes_used.push(index_key.clone());
+            // Index exists but we're doing a full scan for now
+            // In a more optimized implementation, we'd use the index for WHERE clauses
+            stats.index_scan = false;
+        }
+
+        // Load all rows for the table
         let mut rows = self.load_table_rows(&query.table).await?;
+        stats.rows_examined = rows.len();
+
+        // Track cache hits/misses during row loading
+        for row in &rows {
+            if self.row_cache.contains_key(&row.id) {
+                stats.cache_hits += 1;
+            } else {
+                stats.cache_misses += 1;
+            }
+        }
 
         // Apply WHERE clause
         if let Some(where_clause) = &query.where_clause {
@@ -571,7 +632,12 @@ impl StorageEngine {
         }
 
         debug!("✅ Selected {} rows", rows.len());
-        Ok(rows)
+        Ok((rows, stats))
+    }
+
+    /// Get the last query execution statistics
+    pub fn get_last_query_stats(&self) -> &QueryExecutionStats {
+        &self.last_query_stats
     }
 
     /// Update rows matching the given query

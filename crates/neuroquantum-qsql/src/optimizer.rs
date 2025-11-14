@@ -184,6 +184,10 @@ pub struct OptimizationStats {
     pub cache_hits: u64,
     pub cache_misses: u64,
     pub average_improvement: f64,
+    /// Count of neuromorphic operations performed (synaptic network activations)
+    pub neural_operation_count: u32,
+    /// Count of quantum operations performed (Grover iterations, QUBO optimizations)
+    pub quantum_operation_count: u32,
 }
 
 impl NeuromorphicOptimizer {
@@ -336,6 +340,7 @@ impl NeuromorphicOptimizer {
 
         plan.optimization_metadata.synaptic_adaptations = synaptic_adaptations;
         self.optimization_stats.synaptic_strengthening_events += synaptic_adaptations as u64;
+        self.optimization_stats.neural_operation_count += 1;
 
         Ok(plan)
     }
@@ -554,6 +559,7 @@ impl NeuromorphicOptimizer {
                 });
 
                 plan.execution_strategy = ExecutionStrategy::QuantumInspired;
+                self.optimization_stats.quantum_operation_count += 1;
             }
             _ => {
                 // Apply general quantum optimizations
@@ -566,6 +572,7 @@ impl NeuromorphicOptimizer {
                     parameters: params,
                     expected_speedup: 2.0,
                 });
+                self.optimization_stats.quantum_operation_count += 1;
             }
         }
 

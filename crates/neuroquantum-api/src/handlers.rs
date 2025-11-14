@@ -690,13 +690,12 @@ pub async fn query_data(
     };
 
     // Execute query on storage engine
-    let rows =
-        storage
-            .select_rows(&select_query)
-            .await
-            .map_err(|e| ApiError::InternalServerError {
-                message: format!("Query execution failed: {}", e),
-            })?;
+    let (rows, query_exec_stats) = storage
+        .select_rows_with_stats(&select_query)
+        .await
+        .map_err(|e| ApiError::InternalServerError {
+            message: format!("Query execution failed: {}", e),
+        })?;
 
     // Convert rows to JSON records
     let mut records = Vec::new();
@@ -714,11 +713,11 @@ pub async fn query_data(
 
     let query_stats = QueryStats {
         execution_time_ms: start.elapsed().as_millis() as f64,
-        rows_scanned,
-        indexes_used: vec![],     // TODO: Track actual indexes used
-        neural_operations: None,  // TODO: Implement neural similarity search
-        quantum_operations: None, // TODO: Implement quantum search
-        cache_hit_rate: None,     // TODO: Track cache hits
+        rows_scanned: query_exec_stats.rows_examined,
+        indexes_used: query_exec_stats.indexes_used.clone(),
+        neural_operations: None, // Neural operations not yet integrated in query execution
+        quantum_operations: None, // Quantum operations not yet integrated in query execution
+        cache_hit_rate: query_exec_stats.cache_hit_rate(),
     };
 
     let response = QueryDataResponse {
