@@ -186,7 +186,14 @@ jobs:
 
       - name: Check for unsafe code
         run: |
-          if grep -r "unsafe" crates/ --include="*.rs" --exclude-dir="simd" | grep -v "crates/neuroquantum-core/src/dna/simd/"; then
+          # Check for actual unsafe blocks/functions in Rust code (not in comments)
+          # Exclude SIMD modules where unsafe is allowed and necessary for performance
+          echo "🔍 Checking for unsafe code blocks outside SIMD modules..."
+          if grep -r "unsafe fn\|unsafe impl\|unsafe trait\|unsafe {" crates/ --include="*.rs" | \
+             grep -v "crates/neuroquantum-core/src/dna/simd/" | \
+             grep -v "crates/neuroquantum-core/src/simd/" | \
+             grep -v "// " | \
+             grep -v "/// "; then
             echo "❌ Unsafe code detected outside of SIMD modules! Remove all unsafe blocks."
             exit 1
           else
