@@ -424,7 +424,7 @@ pub mod utils {
     ///
     /// Converts Array-of-Structures to Structure-of-Arrays layout
     /// for better SIMD vectorization. For example, converts:
-    /// [ABCD][EFGH][IJKL] to [AEI][BFJ][CGK][DHL]
+    /// \[ABCD\]\[EFGH\]\[IJKL\] to \[AEI\]\[BFJ\]\[CGK\]\[DHL\]
     pub fn transpose_bytes(input: &[u8]) -> Vec<u8> {
         if input.is_empty() {
             return Vec::new();
