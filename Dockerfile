@@ -76,25 +76,36 @@ RUN cargo build --release --target aarch64-unknown-linux-gnu \
 # Stage 2: Production runtime (ultra-minimal)
 FROM gcr.io/distroless/cc-debian12:latest
 
-# Create non-root user for security
-USER nonroot:nonroot
-
 # Set production environment
 ENV RUST_LOG=info
 ENV NEUROQUANTUM_ENV=production
 ENV NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
+ENV NEUROQUANTUM_DATA_PATH=/data
+
+# Create data directory with proper permissions in builder stage, then copy
+# Note: distroless doesn't have shell, so we create directories in builder
+COPY --from=rust-builder --chown=65532:65532 /tmp /data
+
+# Create non-root user for security (nonroot UID/GID is 65532 in distroless)
+USER nonroot:nonroot
+
+# Set working directory
+WORKDIR /data
 
 # Copy optimized binary
 COPY --from=rust-builder --chown=nonroot:nonroot \
     /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-api \
-    /usr/local/bin/neuroquantumdb
+    /usr/local/bin/neuroquantum-api
 
 # Copy production configuration
 COPY --chown=nonroot:nonroot config/prod.toml /etc/neuroquantumdb/config.toml
 
+# Define volume for persistent data
+VOLUME ["/data"]
+
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD ["/usr/local/bin/neuroquantumdb", "health-check"]
+    CMD ["/usr/local/bin/neuroquantum-api", "health-check"]
 
 # Expose ports
 EXPOSE 8080 9090
@@ -109,5 +120,5 @@ LABEL com.neuroquantumdb.security="quantum-resistant"
 LABEL com.neuroquantumdb.encryption="kyber-dilithium"
 
 # Production entrypoint
-ENTRYPOINT ["/usr/local/bin/neuroquantumdb"]
-CMD ["--config", "/etc/neuroquantumdb/config.toml"]
+ENTRYPOINT ["/usr/local/bin/neuroquantum-api"]
+CMD ["serve", "--config", "/etc/neuroquantumdb/config.toml"]

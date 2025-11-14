@@ -461,7 +461,11 @@ impl LogManager {
         })
     }
 
-    /// Create a placeholder log manager (for synchronous TransactionManager construction)
+    /// Create a placeholder log manager for two-phase initialization
+    ///
+    /// **Important:** This uses /dev/null and should NOT be used in production.
+    /// Only for internal use during TransactionManager construction.
+    #[doc(hidden)]
     pub fn new_placeholder() -> Self {
         Self {
             log_file: Arc::new(Mutex::new(File::from_std(
@@ -635,7 +639,11 @@ impl RecoveryManager {
         Self { log_manager }
     }
 
-    /// Create a placeholder recovery manager (for synchronous construction)
+    /// Create a placeholder recovery manager for two-phase initialization
+    ///
+    /// **Important:** This uses a placeholder LogManager and should NOT be used in production.
+    /// Only for internal use during synchronous construction.
+    #[doc(hidden)]
     pub fn new_placeholder() -> Self {
         Self {
             log_manager: Arc::new(LogManager::new_placeholder()),

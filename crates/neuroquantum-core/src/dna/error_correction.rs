@@ -426,11 +426,77 @@ impl ReedSolomonCorrector {
     }
 
     /// Correct GC bias errors
-    fn correct_gc_bias_errors(&self, _bases: &mut [DNABase]) -> usize {
-        // This is a placeholder for more sophisticated GC bias correction
-        // In practice, this would analyze local GC content and apply corrections
-        // based on known sequencing bias patterns
-        0
+    fn correct_gc_bias_errors(&self, bases: &mut [DNABase]) -> usize {
+        // GC bias correction based on local GC content analysis
+        // This analyzes windows of the sequence to detect and correct bias patterns
+        let mut corrections = 0;
+        let window_size = 20; // Analyze 20bp windows
+
+        if bases.len() < window_size {
+            return 0;
+        }
+
+        for window_start in 0..(bases.len() - window_size) {
+            let window = &bases[window_start..window_start + window_size];
+
+            // Calculate GC content in window
+            let gc_count = window
+                .iter()
+                .filter(|b| matches!(b, DNABase::Guanine | DNABase::Cytosine))
+                .count();
+
+            let gc_content = gc_count as f64 / window_size as f64;
+
+            // Detect extreme GC bias (< 20% or > 80%)
+            // Natural DNA typically has 40-60% GC content
+            if gc_content < 0.2 {
+                // Too AT-rich: likely sequencing error
+                // Look for isolated GC bases that might be errors
+                for i in window_start..window_start + window_size {
+                    if matches!(bases[i], DNABase::Guanine | DNABase::Cytosine) {
+                        // Check if surrounded by AT
+                        let prev_at =
+                            i > 0 && matches!(bases[i - 1], DNABase::Adenine | DNABase::Thymine);
+                        let next_at = i < bases.len() - 1
+                            && matches!(bases[i + 1], DNABase::Adenine | DNABase::Thymine);
+
+                        if prev_at && next_at {
+                            // Likely sequencing error - convert to AT
+                            bases[i] = if matches!(bases[i], DNABase::Guanine) {
+                                DNABase::Adenine
+                            } else {
+                                DNABase::Thymine
+                            };
+                            corrections += 1;
+                        }
+                    }
+                }
+            } else if gc_content > 0.8 {
+                // Too GC-rich: likely sequencing error
+                // Look for isolated AT bases that might be errors
+                for i in window_start..window_start + window_size {
+                    if matches!(bases[i], DNABase::Adenine | DNABase::Thymine) {
+                        // Check if surrounded by GC
+                        let prev_gc =
+                            i > 0 && matches!(bases[i - 1], DNABase::Guanine | DNABase::Cytosine);
+                        let next_gc = i < bases.len() - 1
+                            && matches!(bases[i + 1], DNABase::Guanine | DNABase::Cytosine);
+
+                        if prev_gc && next_gc {
+                            // Likely sequencing error - convert to GC
+                            bases[i] = if matches!(bases[i], DNABase::Adenine) {
+                                DNABase::Guanine
+                            } else {
+                                DNABase::Cytosine
+                            };
+                            corrections += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        corrections
     }
 
     /// Get an alternate base for error correction

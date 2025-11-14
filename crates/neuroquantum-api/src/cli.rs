@@ -55,6 +55,17 @@ pub enum Commands {
 
     /// Start the API server (default command)
     Serve,
+
+    /// Health check for Docker/Kubernetes
+    HealthCheck {
+        /// Server URL to check
+        #[arg(short, long, default_value = "http://127.0.0.1:8080")]
+        url: String,
+
+        /// Timeout in seconds
+        #[arg(short, long, default_value = "5")]
+        timeout: u64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -132,6 +143,9 @@ impl Cli {
             }
             Some(Commands::Key { action }) => {
                 handle_key_command(action).await?;
+            }
+            Some(Commands::HealthCheck { url, timeout }) => {
+                health_check(url, timeout).await?;
             }
             Some(Commands::Serve) | None => {
                 // Will be handled by main.rs to start the server
@@ -552,4 +566,34 @@ async fn show_stats(admin_key: Option<String>) -> Result<()> {
     println!("└─────────────────────────────────────────────────────────────────┘");
 
     Ok(())
+}
+
+/// Perform health check for Docker/Kubernetes
+async fn health_check(url: String, timeout_secs: u64) -> Result<()> {
+    use std::time::Duration;
+
+    let health_url = format!("{}/health", url.trim_end_matches('/'));
+
+    // Create HTTP client with timeout
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(timeout_secs))
+        .build()
+        .context("Failed to create HTTP client")?;
+
+    // Send health check request
+    match client.get(&health_url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                // Exit with 0 for healthy
+                std::process::exit(0);
+            } else {
+                eprintln!("Health check failed: HTTP {}", response.status());
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            eprintln!("Health check failed: {}", e);
+            std::process::exit(1);
+        }
+    }
 }

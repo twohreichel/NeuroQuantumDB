@@ -49,6 +49,9 @@ validator = { version = "0.19.0", features = ["derive"] }
 utoipa = { version = "5.4.0", features = ["actix_extras", "chrono", "uuid"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 
+# HTTP client for health checks
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+
 # Rate limiting and caching
 redis = { version = "0.32.1", features = ["tokio-comp", "connection-manager"] }
 dashmap = "6.1.0"

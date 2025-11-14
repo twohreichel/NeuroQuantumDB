@@ -47,6 +47,7 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Zlib",
+    "CDLA-Permissive-2.0", # Community Data License Agreement - used by webpki-roots
 ]
 
 [bans]

@@ -636,7 +636,7 @@ pub async fn insert_data(
 pub async fn query_data(
     req: HttpRequest,
     path: web::Path<String>,
-    _db: web::Data<NeuroQuantumDB>,
+    db: web::Data<Arc<tokio::sync::RwLock<NeuroQuantumDB>>>,
     query_req: web::Json<QueryDataRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -650,15 +650,18 @@ pub async fn query_data(
             message: e.to_string(),
         })?;
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - extract before await to avoid holding RefCell across await
+    let has_read_permission = {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"read".to_string())
-        && !api_key.permissions.contains(&"admin".to_string())
-    {
+        api_key.permissions.contains(&"read".to_string())
+            || api_key.permissions.contains(&"admin".to_string())
+    }; // extensions RefCell is dropped here
+
+    if !has_read_permission {
         return Err(ApiError::Forbidden("Read permission required".to_string()));
     }
 
@@ -670,40 +673,59 @@ pub async fn query_data(
         table_name, limit, offset
     );
 
-    // Simulate query execution
-    let mut mock_records = Vec::new();
-    for i in 0..limit.min(50) {
-        // Simulate up to 50 records
+    // Execute real query on storage engine
+    use neuroquantum_core::storage::SelectQuery;
+
+    let mut db_lock = db.as_ref().write().await;
+    let storage = db_lock.storage_mut();
+
+    // Build SelectQuery from request
+    let select_query = SelectQuery {
+        table: table_name.clone(),
+        columns: vec!["*".to_string()],
+        where_clause: None,
+        order_by: None,
+        limit: Some(limit as u64),
+        offset: Some(offset as u64),
+    };
+
+    // Execute query on storage engine
+    let rows =
+        storage
+            .select_rows(&select_query)
+            .await
+            .map_err(|e| ApiError::InternalServerError {
+                message: format!("Query execution failed: {}", e),
+            })?;
+
+    // Convert rows to JSON records
+    let mut records = Vec::new();
+    let rows_scanned = rows.len();
+    for row in &rows {
         let mut record = HashMap::new();
-        record.insert(
-            "id".to_string(),
-            serde_json::Value::String(uuid::Uuid::new_v4().to_string()),
-        );
-        record.insert(
-            "created_at".to_string(),
-            serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
-        );
-        record.insert(
-            "data".to_string(),
-            serde_json::Value::String(format!("Sample data {}", i + offset)),
-        );
-        mock_records.push(record);
+        for (field, value) in &row.fields {
+            record.insert(field.clone(), storage_value_to_json(value));
+        }
+        records.push(record);
     }
+
+    // Get total count (would need a separate COUNT query in production)
+    let total_count = rows_scanned;
 
     let query_stats = QueryStats {
         execution_time_ms: start.elapsed().as_millis() as f64,
-        rows_scanned: 1000,
-        indexes_used: vec!["primary_key".to_string()],
-        neural_operations: query_req.neural_similarity.as_ref().map(|_| 5),
-        quantum_operations: query_req.quantum_search.as_ref().map(|_| 3),
-        cache_hit_rate: Some(0.85),
+        rows_scanned,
+        indexes_used: vec![],     // TODO: Track actual indexes used
+        neural_operations: None,  // TODO: Implement neural similarity search
+        quantum_operations: None, // TODO: Implement quantum search
+        cache_hit_rate: None,     // TODO: Track cache hits
     };
 
     let response = QueryDataResponse {
-        records: mock_records.clone(),
-        total_count: 1000,
-        returned_count: mock_records.len(),
-        has_more: mock_records.len() == limit as usize,
+        records: records.clone(),
+        total_count,
+        returned_count: records.len(),
+        has_more: records.len() == limit as usize,
         query_stats,
     };
 
@@ -1742,4 +1764,25 @@ pub async fn execute_sql_query(
         response,
         ResponseMetadata::new(start.elapsed(), "SQL query executed successfully"),
     )))
+}
+
+// Helper functions for type conversions
+
+/// Convert storage::Value to serde_json::Value
+fn storage_value_to_json(value: &neuroquantum_core::storage::Value) -> serde_json::Value {
+    use neuroquantum_core::storage::Value;
+    match value {
+        Value::Integer(i) => serde_json::Value::Number((*i).into()),
+        Value::Float(f) => serde_json::Number::from_f64(*f)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        Value::Text(s) => serde_json::Value::String(s.clone()),
+        Value::Boolean(b) => serde_json::Value::Bool(*b),
+        Value::Timestamp(ts) => serde_json::Value::String(ts.to_rfc3339()),
+        Value::Binary(b) => {
+            use base64::Engine;
+            serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
+        }
+        Value::Null => serde_json::Value::Null,
+    }
 }

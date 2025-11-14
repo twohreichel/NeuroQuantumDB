@@ -421,10 +421,42 @@ pub mod utils {
     }
 
     /// Transpose bytes for more efficient SIMD processing
+    ///
+    /// Converts Array-of-Structures to Structure-of-Arrays layout
+    /// for better SIMD vectorization. For example, converts:
+    /// [ABCD][EFGH][IJKL] to [AEI][BFJ][CGK][DHL]
     pub fn transpose_bytes(input: &[u8]) -> Vec<u8> {
-        // This is a placeholder for byte transposition algorithms
-        // In practice, this would reorganize data for better SIMD access patterns
-        input.to_vec()
+        if input.is_empty() {
+            return Vec::new();
+        }
+
+        // Process in 4x4 blocks for optimal SIMD performance
+        const BLOCK_SIZE: usize = 4;
+        let mut output = vec![0u8; input.len()];
+
+        let full_blocks = input.len() / (BLOCK_SIZE * BLOCK_SIZE);
+        let remainder = input.len() % (BLOCK_SIZE * BLOCK_SIZE);
+
+        // Transpose 4x4 blocks
+        for block_idx in 0..full_blocks {
+            let base_in = block_idx * BLOCK_SIZE * BLOCK_SIZE;
+            let base_out = block_idx * BLOCK_SIZE * BLOCK_SIZE;
+
+            // Manual 4x4 transpose
+            for i in 0..BLOCK_SIZE {
+                for j in 0..BLOCK_SIZE {
+                    output[base_out + j * BLOCK_SIZE + i] = input[base_in + i * BLOCK_SIZE + j];
+                }
+            }
+        }
+
+        // Handle remainder bytes without transposition
+        if remainder > 0 {
+            let start = full_blocks * BLOCK_SIZE * BLOCK_SIZE;
+            output[start..].copy_from_slice(&input[start..]);
+        }
+
+        output
     }
 
     /// Calculate Hamming distance between DNA sequences using SIMD

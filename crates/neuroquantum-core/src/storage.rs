@@ -281,8 +281,20 @@ pub struct StorageEngine {
 }
 
 impl StorageEngine {
-    /// Create a placeholder storage engine for synchronous construction
-    /// This should be followed by proper async initialization
+    /// Create a placeholder storage engine for two-phase initialization
+    ///
+    /// This is used for synchronous construction of NeuroQuantumDB,
+    /// which is then properly initialized with async `init()` method.
+    ///
+    /// **Important:** This should NOT be used directly for production.
+    /// Always follow with proper async initialization via `new()`.
+    ///
+    /// # Example
+    /// ```no_run
+    /// let mut db = NeuroQuantumDB::new();
+    /// db.init().await?; // Proper async initialization
+    /// ```
+    #[doc(hidden)] // Hide from public API docs
     pub fn new_placeholder(data_dir: &std::path::Path) -> Self {
         let metadata = DatabaseMetadata {
             version: "1.0.0".to_string(),

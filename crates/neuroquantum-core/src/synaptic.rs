@@ -201,11 +201,14 @@ pub struct SynapticNode {
     pub connections: Vec<SynapticConnection>,
     #[serde(skip, default = "instant_now")]
     pub last_access: Instant,
+    #[serde(skip, default = "instant_now")]
+    pub last_decay: Instant, // Track when decay was last applied
     pub access_count: u64,
     pub data_payload: Vec<u8>,
     pub activation_level: f32,
     pub learning_rate: f32,
     pub decay_factor: f32,
+    pub decay_tau_ms: f32, // Time constant for exponential decay (in milliseconds)
 }
 
 /// Synaptic connection between nodes
@@ -228,11 +231,13 @@ impl SynapticNode {
             strength: 0.0,
             connections: Vec::new(),
             last_access: Instant::now(),
+            last_decay: Instant::now(),
             access_count: 0,
             data_payload: Vec::new(),
             activation_level: 0.0,
             learning_rate: 0.01,
             decay_factor: 0.99,
+            decay_tau_ms: 60_000.0, // 1 minute time constant (biologically realistic for STM)
         }
     }
 
@@ -243,11 +248,13 @@ impl SynapticNode {
             strength: 0.0,
             connections: Vec::new(),
             last_access: Instant::now(),
+            last_decay: Instant::now(),
             access_count: 0,
             data_payload: data,
             activation_level: 0.0,
             learning_rate: 0.01,
             decay_factor: 0.99,
+            decay_tau_ms: 60_000.0, // 1 minute time constant
         }
     }
 
@@ -263,9 +270,37 @@ impl SynapticNode {
     }
 
     /// Apply natural decay to simulate forgetting
+    /// Uses exponential decay: weight(t) = weight(0) * exp(-dt/τ)
+    /// where τ is the time constant (decay_tau_ms)
     pub fn apply_decay(&mut self) {
-        self.strength *= self.decay_factor;
-        self.activation_level *= self.decay_factor;
+        let now = Instant::now();
+        let elapsed_ms = now.duration_since(self.last_decay).as_millis() as f32;
+
+        if elapsed_ms > 0.0 {
+            // Exponential decay formula: exp(-t/τ)
+            let decay_multiplier = (-elapsed_ms / self.decay_tau_ms).exp();
+
+            self.strength *= decay_multiplier;
+            self.activation_level *= decay_multiplier;
+
+            // Update last decay time
+            self.last_decay = now;
+        }
+    }
+
+    /// Apply decay with custom time constant (for LTP vs LTD)
+    /// LTP (Long-Term Potentiation): τ ≈ hours to days
+    /// LTD (Long-Term Depression): τ ≈ minutes
+    pub fn apply_decay_with_tau(&mut self, tau_ms: f32) {
+        let now = Instant::now();
+        let elapsed_ms = now.duration_since(self.last_decay).as_millis() as f32;
+
+        if elapsed_ms > 0.0 {
+            let decay_multiplier = (-elapsed_ms / tau_ms).exp();
+            self.strength *= decay_multiplier;
+            self.activation_level *= decay_multiplier;
+            self.last_decay = now;
+        }
     }
 
     /// Add a connection to another node
