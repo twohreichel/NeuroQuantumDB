@@ -283,16 +283,23 @@ pub struct StorageEngine {
 impl StorageEngine {
     /// Create a placeholder storage engine for two-phase initialization
     ///
-    /// This is used for synchronous construction of NeuroQuantumDB,
-    /// which is then properly initialized with async `init()` method.
+    /// This is used for synchronous construction of StorageEngine,
+    /// which is then properly initialized with async `new()` method.
     ///
     /// **Important:** This should NOT be used directly for production.
     /// Always follow with proper async initialization via `new()`.
     ///
     /// # Example
     /// ```no_run
-    /// let mut db = NeuroQuantumDB::new();
-    /// db.init().await?; // Proper async initialization
+    /// use neuroquantum_core::storage::StorageEngine;
+    /// use std::path::Path;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let data_dir = Path::new("./data");
+    /// // Don't use new_placeholder directly - use new() instead
+    /// let storage = StorageEngine::new(data_dir).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[doc(hidden)] // Hide from public API docs
     pub fn new_placeholder(data_dir: &std::path::Path) -> Self {
