@@ -8,8 +8,8 @@
 //! Status: Addresses AUDIT.md open points (Lines 978-980, 1203-1205)
 
 use neuroquantum_core::storage::{
-    ColumnDefinition, DataType, Row, SelectQuery, TableSchema, Value,
-    UpdateQuery, DeleteQuery, WhereClause, Condition, ComparisonOperator,
+    ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
+    TableSchema, UpdateQuery, Value, WhereClause,
 };
 use neuroquantum_core::NeuroQuantumDB;
 use std::collections::HashMap;
@@ -202,7 +202,10 @@ async fn test_complete_api_workflow_crud() {
             offset: None,
         };
 
-        let rows = storage.select_rows(&query).await.expect("Failed to get row");
+        let rows = storage
+            .select_rows(&query)
+            .await
+            .expect("Failed to get row");
         assert_eq!(rows.len(), 1, "Should find 1 updated row");
 
         let row = &rows[0];
@@ -335,10 +338,7 @@ async fn test_complex_multi_table_workflow() {
         for i in 1..=10 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert(
-                "username".to_string(),
-                Value::Text(format!("user_{}", i)),
-            );
+            fields.insert("username".to_string(), Value::Text(format!("user_{}", i)));
 
             let row = Row {
                 id: 0,
@@ -613,10 +613,7 @@ async fn test_crash_recovery_wal_replay() {
             for i in 0..20 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert(
-                    "name".to_string(),
-                    Value::Text(format!("pre_crash_{}", i)),
-                );
+                fields.insert("name".to_string(), Value::Text(format!("pre_crash_{}", i)));
                 fields.insert("value".to_string(), Value::Integer(i * 10));
                 fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -729,9 +726,10 @@ async fn test_backup_and_restore() {
     }
 
     // Verify data file exists and is readable
-    assert!(storage_path.join("neuroquantum.db").exists() ||
-            storage_path.join("tables").exists(),
-            "Data directory should exist");
+    assert!(
+        storage_path.join("neuroquantum.db").exists() || storage_path.join("tables").exists(),
+        "Data directory should exist"
+    );
 
     // Restore simulation - re-open database and verify data
     {
@@ -847,10 +845,7 @@ async fn test_concurrent_recovery_operations() {
             for i in 0..50 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert(
-                    "name".to_string(),
-                    Value::Text(format!("concurrent_{}", i)),
-                );
+                fields.insert("name".to_string(), Value::Text(format!("concurrent_{}", i)));
                 fields.insert("value".to_string(), Value::Integer(i));
                 fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -861,7 +856,10 @@ async fn test_concurrent_recovery_operations() {
                     updated_at: chrono::Utc::now(),
                 };
 
-                storage.insert_row("concurrent_recovery", row).await.unwrap();
+                storage
+                    .insert_row("concurrent_recovery", row)
+                    .await
+                    .unwrap();
             }
 
             storage.flush_to_disk().await.unwrap();
@@ -896,11 +894,7 @@ async fn test_concurrent_recovery_operations() {
         }
     }
 
-    assert!(
-        success_count >= 1,
-        "At least one recovery should succeed"
-    );
+    assert!(success_count >= 1, "At least one recovery should succeed");
 
     println!("✅ Concurrent recovery operations test passed!");
 }
-
