@@ -23,9 +23,6 @@ After cloning the repository, simply run:
 # Clone repository
 git clone https://github.com/neuroquantumdb/neuroquantumdb.git
 cd neuroquantumdb
-
-# Automated development setup
-./scripts/setup-dev.sh
 ```
 
 The setup script automatically installs:
