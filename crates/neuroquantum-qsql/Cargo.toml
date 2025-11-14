@@ -43,7 +43,3 @@ neuromorphic = []
 quantum = []
 natural-language = []
 
-[[example]]
-name = "explain_analyze_demo"
-path = "../../examples/explain_analyze_demo.rs"
-
