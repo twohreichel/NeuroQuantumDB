@@ -1257,6 +1257,7 @@ impl StorageEngine {
         let mut temp_file = fs::File::create(&temp_path).await?;
 
         // Write all rows to temporary file (updated ones with new data, others as-is)
+        // Using the same binary format as append_row_to_file
         for existing_row in existing_rows {
             let row_to_write = if let Some(updated_row) = updated_map.get(&existing_row.id) {
                 updated_row
@@ -1264,15 +1265,58 @@ impl StorageEngine {
                 &existing_row
             };
 
-            let row_json = serde_json::to_string(row_to_write)?;
-            temp_file.write_all(row_json.as_bytes()).await?;
-            temp_file.write_all(b"\n").await?;
+            // Get or create compressed data for this row
+            let compressed_data = if let Some(data) = self.compressed_blocks.get(&row_to_write.id) {
+                data.clone()
+            } else {
+                // Compress the row if not already compressed
+                let serialized = serde_json::to_vec(row_to_write)?;
+                let compressed = self.dna_compressor.compress(&serialized).await?;
+                self.compressed_blocks
+                    .insert(row_to_write.id, compressed.clone());
+                compressed
+            };
+
+            // Optionally encrypt the compressed data
+            let encrypted_wrapper = if let Some(ref encryption_manager) = self.encryption_manager {
+                // Serialize the compressed data
+                let compressed_bytes = bincode::serialize(&compressed_data)
+                    .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+
+                // Encrypt the serialized compressed data
+                let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
+                Some(encrypted)
+            } else {
+                None
+            };
+
+            // Create a storage entry with metadata, compressed data, and optional encryption
+            let storage_entry = CompressedRowEntry {
+                row_id: row_to_write.id,
+                compressed_data,
+                created_at: row_to_write.created_at,
+                updated_at: row_to_write.updated_at,
+                encrypted_wrapper,
+                format_version: 1,
+            };
+
+            // Serialize and write the entry using the same format as append_row_to_file
+            let entry_bytes = bincode::serialize(&storage_entry)
+                .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+
+            // Write length prefix (4 bytes) followed by entry data
+            let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
+            temp_file.write_all(&len_bytes).await?;
+            temp_file.write_all(&entry_bytes).await?;
         }
 
         temp_file.flush().await?;
 
         // Replace the original file with the temporary file
         fs::rename(&temp_path, &table_path).await?;
+
+        // Immediately persist compressed blocks to quantum directory
+        self.save_compressed_blocks().await?;
 
         Ok(())
     }
@@ -1293,11 +1337,52 @@ impl StorageEngine {
         let existing_rows = self.load_table_rows(table).await?;
 
         // Write rows that are not deleted to temporary file
+        // Using the same binary format as append_row_to_file
         for row in existing_rows {
             if !deleted_row_ids.contains(&row.id) {
-                let row_json = serde_json::to_string(&row)?;
-                temp_file.write_all(row_json.as_bytes()).await?;
-                temp_file.write_all(b"\n").await?;
+                // Get or create compressed data for this row
+                let compressed_data = if let Some(data) = self.compressed_blocks.get(&row.id) {
+                    data.clone()
+                } else {
+                    // Compress the row if not already compressed
+                    let serialized = serde_json::to_vec(&row)?;
+                    let compressed = self.dna_compressor.compress(&serialized).await?;
+                    self.compressed_blocks.insert(row.id, compressed.clone());
+                    compressed
+                };
+
+                // Optionally encrypt the compressed data
+                let encrypted_wrapper =
+                    if let Some(ref encryption_manager) = self.encryption_manager {
+                        // Serialize the compressed data
+                        let compressed_bytes = bincode::serialize(&compressed_data)
+                            .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+
+                        // Encrypt the serialized compressed data
+                        let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
+                        Some(encrypted)
+                    } else {
+                        None
+                    };
+
+                // Create a storage entry with metadata, compressed data, and optional encryption
+                let storage_entry = CompressedRowEntry {
+                    row_id: row.id,
+                    compressed_data,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    encrypted_wrapper,
+                    format_version: 1,
+                };
+
+                // Serialize and write the entry using the same format as append_row_to_file
+                let entry_bytes = bincode::serialize(&storage_entry)
+                    .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+
+                // Write length prefix (4 bytes) followed by entry data
+                let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
+                temp_file.write_all(&len_bytes).await?;
+                temp_file.write_all(&entry_bytes).await?;
             }
         }
 
@@ -1305,6 +1390,9 @@ impl StorageEngine {
 
         // Replace the original file with the temporary file
         fs::rename(&temp_path, &table_path).await?;
+
+        // Immediately persist compressed blocks to quantum directory
+        self.save_compressed_blocks().await?;
 
         Ok(())
     }

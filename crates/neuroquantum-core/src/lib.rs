@@ -606,7 +606,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_neuro_quantum_db() {
-        let mut db = NeuroQuantumDB::new();
+        // Use a unique temporary directory for this test
+        let temp_dir = std::env::temp_dir().join(format!("nqdb_test_{}", uuid::Uuid::new_v4()));
+        let config = NeuroQuantumConfig {
+            storage_path: temp_dir.clone(),
+            ..Default::default()
+        };
+
+        let mut db = NeuroQuantumDB::with_config(config);
         db.init().await.unwrap();
 
         let key = "test_key";
@@ -626,6 +633,9 @@ mod tests {
         // Get compression stats
         let stats = db.get_compression_stats();
         assert!(stats.compression_time_us > 0);
+
+        // Cleanup: remove temporary directory
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 
     #[tokio::test]

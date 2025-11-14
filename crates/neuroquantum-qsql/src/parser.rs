@@ -1407,36 +1407,113 @@ impl QSQLParser {
             });
         }
 
-        match &tokens[*i] {
+        // Parse the left side (primary expression)
+        let left = match &tokens[*i] {
             TokenType::Identifier(name) => {
                 *i += 1;
-                Ok(Expression::Identifier(name.clone()))
+                Expression::Identifier(name.clone())
             }
             TokenType::StringLiteral(s) => {
                 *i += 1;
-                Ok(Expression::Literal(Literal::String(s.clone())))
+                Expression::Literal(Literal::String(s.clone()))
             }
             TokenType::IntegerLiteral(n) => {
                 *i += 1;
-                Ok(Expression::Literal(Literal::Integer(*n)))
+                Expression::Literal(Literal::Integer(*n))
             }
             TokenType::FloatLiteral(f) => {
                 *i += 1;
-                Ok(Expression::Literal(Literal::Float(*f)))
+                Expression::Literal(Literal::Float(*f))
             }
             TokenType::BooleanLiteral(b) => {
                 *i += 1;
-                Ok(Expression::Literal(Literal::Boolean(*b)))
+                Expression::Literal(Literal::Boolean(*b))
             }
             TokenType::DNALiteral(dna) => {
                 *i += 1;
-                Ok(Expression::Literal(Literal::DNA(dna.clone())))
+                Expression::Literal(Literal::DNA(dna.clone()))
             }
             _ => {
-                *i += 1; // Skip unknown token for now
-                Ok(Expression::Identifier("unknown".to_string()))
+                return Err(QSQLError::ParseError {
+                    message: format!("Unexpected token in expression: {:?}", tokens[*i]),
+                    position: *i,
+                });
+            }
+        };
+
+        // Check if there's a binary operator following
+        if *i < tokens.len() {
+            let operator = match &tokens[*i] {
+                TokenType::Equal => Some(BinaryOperator::Equal),
+                TokenType::NotEqual => Some(BinaryOperator::NotEqual),
+                TokenType::LessThan => Some(BinaryOperator::LessThan),
+                TokenType::LessThanOrEqual => Some(BinaryOperator::LessThanOrEqual),
+                TokenType::GreaterThan => Some(BinaryOperator::GreaterThan),
+                TokenType::GreaterThanOrEqual => Some(BinaryOperator::GreaterThanOrEqual),
+                TokenType::Plus => Some(BinaryOperator::Add),
+                TokenType::Minus => Some(BinaryOperator::Subtract),
+                TokenType::Multiply => Some(BinaryOperator::Multiply),
+                TokenType::Divide => Some(BinaryOperator::Divide),
+                TokenType::Modulo => Some(BinaryOperator::Modulo),
+                TokenType::And => Some(BinaryOperator::And),
+                TokenType::Or => Some(BinaryOperator::Or),
+                TokenType::Like => Some(BinaryOperator::Like),
+                _ => None,
+            };
+
+            if let Some(op) = operator {
+                *i += 1; // consume the operator
+
+                // Parse the right side (avoid infinite recursion by parsing primary only for simple cases)
+                if *i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected expression after operator".to_string(),
+                        position: *i,
+                    });
+                }
+
+                let right = match &tokens[*i] {
+                    TokenType::Identifier(name) => {
+                        *i += 1;
+                        Expression::Identifier(name.clone())
+                    }
+                    TokenType::StringLiteral(s) => {
+                        *i += 1;
+                        Expression::Literal(Literal::String(s.clone()))
+                    }
+                    TokenType::IntegerLiteral(n) => {
+                        *i += 1;
+                        Expression::Literal(Literal::Integer(*n))
+                    }
+                    TokenType::FloatLiteral(f) => {
+                        *i += 1;
+                        Expression::Literal(Literal::Float(*f))
+                    }
+                    TokenType::BooleanLiteral(b) => {
+                        *i += 1;
+                        Expression::Literal(Literal::Boolean(*b))
+                    }
+                    TokenType::DNALiteral(dna) => {
+                        *i += 1;
+                        Expression::Literal(Literal::DNA(dna.clone()))
+                    }
+                    _ => {
+                        return Err(QSQLError::ParseError {
+                            message: format!("Unexpected token after operator: {:?}", tokens[*i]),
+                            position: *i,
+                        });
+                    }
+                };
+
+                return Ok(Expression::BinaryOp {
+                    left: Box::new(left),
+                    operator: op,
+                    right: Box::new(right),
+                });
             }
         }
+
+        Ok(left)
     }
 }
 

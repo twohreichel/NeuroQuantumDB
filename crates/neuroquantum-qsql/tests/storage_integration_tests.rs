@@ -5,7 +5,7 @@
 //! neuromorphic learning.
 
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
+use neuroquantum_qsql::{query_plan::QueryValue, ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use tempfile::TempDir;
 
@@ -214,21 +214,8 @@ async fn test_update_with_dna_recompression() {
 
     storage.insert_row("employees", row).await.unwrap();
 
-    // Create executor and execute UPDATE
-    let config = ExecutorConfig::default();
-    let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
-
-    let parser = Parser::new();
-    let sql = "UPDATE employees SET salary = 60000.0 WHERE id = 1";
-    let statement = parser.parse(sql).unwrap();
-
-    let result = executor.execute_statement(&statement).await.unwrap();
-
-    // Verify update succeeded
-    assert_eq!(result.rows_affected, 1);
-
-    // Verify updated data (DNA re-compressed)
-    let query = neuroquantum_core::storage::SelectQuery {
+    // Verify the row was actually inserted
+    let verify_query = neuroquantum_core::storage::SelectQuery {
         table: "employees".to_string(),
         columns: vec!["*".to_string()],
         where_clause: None,
@@ -236,10 +223,59 @@ async fn test_update_with_dna_recompression() {
         limit: None,
         offset: None,
     };
+    let rows_before = storage.select_rows(&verify_query).await.unwrap();
+    println!(
+        "📊 Rows before update in original storage: {}",
+        rows_before.len()
+    );
 
-    let rows = storage.select_rows(&query).await.unwrap();
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].fields.get("salary"), Some(&Value::Float(60000.0)));
+    // Create executor and execute UPDATE
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+
+    // First, test if the executor can SELECT the data
+    let parser = Parser::new();
+    let select_test_sql = "SELECT * FROM employees WHERE id = 1";
+    let select_test_statement = parser.parse(select_test_sql).unwrap();
+    let select_test_result = executor
+        .execute_statement(&select_test_statement)
+        .await
+        .unwrap();
+    println!(
+        "🔍 SELECT test found {} rows",
+        select_test_result.rows.len()
+    );
+
+    let sql = "UPDATE employees SET salary = 60000.0 WHERE id = 1";
+    let statement = parser.parse(sql).unwrap();
+    println!("📝 Parsed UPDATE statement: {:?}", statement);
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+    println!("✏️ UPDATE result: rows_affected = {}", result.rows_affected);
+
+    // Verify update succeeded
+    assert_eq!(result.rows_affected, 1);
+
+    // Verify updated data (DNA re-compressed) using a SELECT query through the executor
+    let select_sql = "SELECT * FROM employees WHERE id = 1";
+    let select_statement = parser.parse(select_sql).unwrap();
+    let select_result = executor.execute_statement(&select_statement).await.unwrap();
+
+    println!(
+        "🔍 SELECT after UPDATE found {} rows",
+        select_result.rows.len()
+    );
+    println!("📊 SELECT result: {:?}", select_result);
+
+    // Check that we got the updated salary
+    assert_eq!(select_result.rows.len(), 1);
+    // The result should contain the updated salary value
+    let updated_row = &select_result.rows[0];
+    if let Some(QueryValue::Float(salary)) = updated_row.get("salary") {
+        assert_eq!(*salary, 60000.0);
+    } else {
+        panic!("Expected salary field to be a Float with value 60000.0");
+    }
 
     println!("✅ UPDATE with DNA re-compression: SUCCESS");
 }
