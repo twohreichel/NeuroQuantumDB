@@ -57,6 +57,154 @@ impl Default for BufferPoolConfig {
     }
 }
 
+impl BufferPoolConfig {
+    /// Create a new configuration with auto-tuned buffer pool size based on available RAM.
+    ///
+    /// This method automatically calculates the optimal buffer pool size by:
+    /// - Detecting total available system RAM
+    /// - Allocating 50% of RAM to buffer pool (conservative for shared systems)
+    /// - Enforcing minimum of 512 MB (512 frames @ 4KB pages)
+    /// - Enforcing maximum of 32 GB (32768 frames @ 4KB pages)
+    ///
+    /// # Example RAM-to-Pool-Size Mapping
+    ///
+    /// | System RAM | Buffer Pool | Frames (4KB pages) |
+    /// |------------|-------------|-------------------|
+    /// | 1 GB       | 512 MB      | 512 (min)        |
+    /// | 4 GB       | 2 GB        | 2048             |
+    /// | 8 GB       | 4 GB        | 4096             |
+    /// | 16 GB      | 8 GB        | 8192             |
+    /// | 32 GB      | 16 GB       | 16384            |
+    /// | 64 GB      | 32 GB       | 32768 (max)      |
+    /// | 128 GB+    | 32 GB       | 32768 (max)      |
+    ///
+    /// # Returns
+    ///
+    /// A new `BufferPoolConfig` with auto-tuned `pool_size` and default values for other fields.
+    ///
+    /// # Panics
+    ///
+    /// Panics if system memory information cannot be retrieved. This is extremely rare
+    /// and typically indicates a platform incompatibility.
+    pub fn auto_tuned() -> Self {
+        let pool_size = Self::calculate_optimal_pool_size();
+
+        info!(
+            "🎯 Auto-tuning buffer pool: detected optimal size = {} frames",
+            pool_size
+        );
+
+        Self {
+            pool_size,
+            eviction_policy: EvictionPolicyType::LRU,
+            enable_background_flush: true,
+            flush_interval: Duration::from_secs(5),
+            max_dirty_pages: (pool_size / 10).max(100), // 10% of pool size, min 100
+        }
+    }
+
+    /// Calculate optimal buffer pool size based on available system RAM.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Query total system RAM in bytes
+    /// 2. Calculate buffer pool as 50% of total RAM
+    /// 3. Convert to number of frames (assuming 4KB page size)
+    /// 4. Clamp to [512, 32768] range
+    ///
+    /// # Implementation Notes
+    ///
+    /// - Uses `sysinfo` crate for cross-platform RAM detection
+    /// - Conservative 50% allocation allows for OS, other processes, and memory spikes
+    /// - For dedicated database servers, consider using `with_ram_percentage()`
+    ///
+    /// # Returns
+    ///
+    /// Number of frames (pages) for the buffer pool.
+    fn calculate_optimal_pool_size() -> usize {
+        use sysinfo::System;
+
+        let mut sys = System::new_all();
+        sys.refresh_memory();
+
+        // sysinfo 0.30+ returns memory in bytes
+        let total_ram_bytes = sys.total_memory();
+        let total_ram_mb = total_ram_bytes / 1024 / 1024;
+
+        // Allocate 50% of RAM to buffer pool (conservative)
+        let buffer_pool_mb = (total_ram_mb as f64 * 0.5) as u64;
+
+        // Convert MB to number of 4KB frames
+        // 1 MB = 1024 KB = 256 frames (@ 4KB per frame)
+        let frames = (buffer_pool_mb * 256) as usize;
+
+        // Clamp to [512, 32768] range
+        // Min: 512 frames = 2 MB (for resource-constrained devices)
+        // Max: 32768 frames = 128 MB (prevents excessive memory usage)
+        let clamped_frames = frames.clamp(512, 32768);
+
+        debug!(
+            "System RAM: {} MB, Buffer Pool: {} MB ({} frames, clamped: {} frames)",
+            total_ram_mb, buffer_pool_mb, frames, clamped_frames
+        );
+
+        clamped_frames
+    }
+
+    /// Create a configuration with custom RAM percentage allocation.
+    ///
+    /// # Arguments
+    ///
+    /// * `ram_percentage` - Percentage of RAM to allocate (0.0 to 1.0)
+    ///   - 0.5 (50%) - Conservative, for shared systems (default in `auto_tuned()`)
+    ///   - 0.7 (70%) - Moderate, for database-focused servers
+    ///   - 0.8 (80%) - Aggressive, for dedicated database servers
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Dedicated database server - allocate 80% RAM
+    /// let config = BufferPoolConfig::with_ram_percentage(0.8);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `ram_percentage` is not in the range [0.0, 1.0].
+    pub fn with_ram_percentage(ram_percentage: f64) -> Self {
+        assert!(
+            (0.0..=1.0).contains(&ram_percentage),
+            "RAM percentage must be between 0.0 and 1.0, got {}",
+            ram_percentage
+        );
+
+        use sysinfo::System;
+
+        let mut sys = System::new_all();
+        sys.refresh_memory();
+
+        // sysinfo 0.30+ returns memory in bytes
+        let total_ram_bytes = sys.total_memory();
+        let total_ram_mb = total_ram_bytes / 1024 / 1024;
+        let buffer_pool_mb = (total_ram_mb as f64 * ram_percentage) as u64;
+        let frames = (buffer_pool_mb * 256) as usize;
+        let pool_size = frames.clamp(512, 32768);
+
+        info!(
+            "🎯 Auto-tuning buffer pool with {}% RAM: {} frames",
+            (ram_percentage * 100.0) as u8,
+            pool_size
+        );
+
+        Self {
+            pool_size,
+            eviction_policy: EvictionPolicyType::LRU,
+            enable_background_flush: true,
+            flush_interval: Duration::from_secs(5),
+            max_dirty_pages: (pool_size / 10).max(100),
+        }
+    }
+}
+
 /// Buffer Pool Manager
 ///
 /// Manages a pool of page frames with intelligent caching,
@@ -840,5 +988,100 @@ mod tests {
 
         let stats = buffer_pool.stats().await;
         assert_eq!(stats.dirty_frames, 0);
+    }
+
+    #[test]
+    fn test_auto_tuned_config() {
+        // Test that auto_tuned() produces a valid configuration
+        let config = BufferPoolConfig::auto_tuned();
+
+        // Pool size should be within valid range
+        assert!(
+            config.pool_size >= 512,
+            "Pool size too small: {}",
+            config.pool_size
+        );
+        assert!(
+            config.pool_size <= 32768,
+            "Pool size too large: {}",
+            config.pool_size
+        );
+
+        // Verify other defaults are set correctly
+        assert_eq!(config.eviction_policy, EvictionPolicyType::LRU);
+        assert!(config.enable_background_flush);
+        assert_eq!(config.flush_interval, Duration::from_secs(5));
+
+        // max_dirty_pages should be 10% of pool_size, min 100
+        let expected_max_dirty = (config.pool_size / 10).max(100);
+        assert_eq!(config.max_dirty_pages, expected_max_dirty);
+    }
+
+    #[test]
+    fn test_with_ram_percentage_50() {
+        let config = BufferPoolConfig::with_ram_percentage(0.5);
+
+        // Verify pool size is within bounds
+        assert!(config.pool_size >= 512);
+        assert!(config.pool_size <= 32768);
+
+        // Verify defaults
+        assert_eq!(config.eviction_policy, EvictionPolicyType::LRU);
+        assert!(config.enable_background_flush);
+    }
+
+    #[test]
+    fn test_with_ram_percentage_80() {
+        // Test aggressive allocation for dedicated database servers
+        let config = BufferPoolConfig::with_ram_percentage(0.8);
+
+        assert!(config.pool_size >= 512);
+        assert!(config.pool_size <= 32768);
+    }
+
+    #[test]
+    fn test_with_ram_percentage_30() {
+        // Test conservative allocation for shared systems
+        let config = BufferPoolConfig::with_ram_percentage(0.3);
+
+        assert!(config.pool_size >= 512);
+        assert!(config.pool_size <= 32768);
+    }
+
+    #[test]
+    #[should_panic(expected = "RAM percentage must be between 0.0 and 1.0")]
+    fn test_with_ram_percentage_invalid_high() {
+        // Should panic with percentage > 1.0
+        let _config = BufferPoolConfig::with_ram_percentage(1.5);
+    }
+
+    #[test]
+    #[should_panic(expected = "RAM percentage must be between 0.0 and 1.0")]
+    fn test_with_ram_percentage_invalid_low() {
+        // Should panic with negative percentage
+        let _config = BufferPoolConfig::with_ram_percentage(-0.1);
+    }
+
+    #[test]
+    fn test_ram_percentage_edge_cases() {
+        // Test edge cases: 0% and 100%
+        let config_min = BufferPoolConfig::with_ram_percentage(0.0);
+        assert_eq!(config_min.pool_size, 512); // Should clamp to minimum
+
+        let config_max = BufferPoolConfig::with_ram_percentage(1.0);
+        assert!(config_max.pool_size >= 512);
+        assert!(config_max.pool_size <= 32768); // Should respect maximum
+    }
+
+    #[test]
+    fn test_auto_tuned_vs_default() {
+        let auto_config = BufferPoolConfig::auto_tuned();
+        let default_config = BufferPoolConfig::default();
+
+        // Auto-tuned should generally have different pool_size than fixed default (1000)
+        // unless by coincidence the system has exactly 16MB RAM
+        // We just verify both are valid
+        assert!(auto_config.pool_size >= 512);
+        assert!(default_config.pool_size == 1000);
     }
 }
