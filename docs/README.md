@@ -350,7 +350,6 @@ MIT License - See [LICENSE](../LICENSE) for details
 - **Stack Overflow**: Tag questions with `neuroquantumdb`
 
 ### Related Documentation
-- [Production Tuning Guide](PRODUCTION_TUNING.md)
 - [Audit Log](../AUDIT.md)
 - [Makefile Commands](../Makefile)
 

@@ -1,38 +1,38 @@
-# NeuroQuantumDB Production Configuration
-# CRITICAL: Change default values before production deployment!
+# NeuroQuantumDB Development Configuration
+# Optimized for local development with debug capabilities
 
 [server]
-host = "127.0.0.1"  # SECURITY: Only bind to localhost, use reverse proxy for external access
+host = "127.0.0.1"
 port = 8080
-workers = 4
-max_connections = 25000
+workers = 2  # Reduced for dev - fewer CPU cores needed
+max_connections = 1000  # Lower limit for dev environment
 keep_alive = 75
 client_timeout = 5000
 client_shutdown = 5000
 
 [database]
 data_path = "./neuroquantum_data"
-max_connections = 100
+max_connections = 50  # Reduced for dev
 connection_timeout_seconds = 30
 
 [jwt]
-# SECURITY WARNING: Change this secret key immediately!
-secret = "CHANGE_THIS_IN_PRODUCTION_neuroquantum_secret_key_32_chars_min"
-expiration_hours = 1
-refresh_threshold_minutes = 15
-quantum_enabled = true
+# DEV SECRET - DO NOT USE IN PRODUCTION!
+secret = "dev_secret_key_min_32_chars_1234567890abcdef"
+expiration_hours = 24  # Longer expiration for dev convenience
+refresh_threshold_minutes = 60
+quantum_enabled = false  # Disabled for faster dev iterations
 algorithm = "HS256"
 issuer = "neuroquantum-db"
 audience = "neuroquantum-api"
 
 [rate_limit]
-requests_per_hour = 10000
-burst_allowance = 100
-enabled = true
+requests_per_hour = 100000  # Very high limit for dev testing
+burst_allowance = 1000
+enabled = false  # Disabled for easier dev testing
 strategy = "TokenBucket"
 
 [cors]
-allowed_origins = ["https://app.neuroquantumdb.com"]
+allowed_origins = ["http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:3000"]
 allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 allowed_headers = ["Authorization", "Content-Type", "X-API-Key", "X-Request-ID", "X-Quantum-Level"]
 expose_headers = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID"]
@@ -40,31 +40,30 @@ max_age = 3600
 allow_credentials = true
 
 [security]
-max_payload_size = 5242880  # 5MB
-request_timeout_seconds = 60
+max_payload_size = 16777216  # 16MB - larger for dev testing
+request_timeout_seconds = 120  # Longer timeout for debugging
 security_headers = true
 csrf_protection = false
-quantum_encryption = true
+quantum_encryption = false  # Disabled for faster dev
 admin_ip_whitelist = ["127.0.0.1", "::1"]
 
 [security.circuit_breaker]
-failure_threshold = 10
+failure_threshold = 50  # Higher threshold for dev
 success_threshold = 5
-timeout_seconds = 120
-enabled = true
+timeout_seconds = 60
+enabled = false  # Disabled for easier dev debugging
 
 [monitoring]
 metrics_enabled = true
 prometheus_endpoint = "/metrics"
 health_check_endpoint = "/health"
 performance_stats = true
-detailed_logging = true
+detailed_logging = true  # Enable detailed logs for dev
 websocket_enabled = true
 
 [logging]
-level = "info"
-format = "Json"
-file_path = "/var/log/neuroquantumdb/api.log"
+level = "debug"  # Debug level for development
+format = "Plain"  # Plain text easier to read during dev
 max_file_size_mb = 100
-max_files = 10
-structured_logging = true
+max_files = 3  # Fewer log files in dev
+structured_logging = false  # Plain logs for dev

@@ -104,8 +104,6 @@ Das System ist aktuell für **Single-Node Deployment** optimiert. Für echte Hoc
 
 ### 4.4 Performance: Buffer Pool Tuning ✅ IMPLEMENTIERT
 
-**Datei:** `docs/PRODUCTION_TUNING.md`
-
 **Status:** ✅ **ERLEDIGT** - Auto-Tuning vollständig implementiert
 
 **Implementierung:**

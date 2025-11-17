@@ -33,16 +33,14 @@ Welcome to NeuroQuantumDB documentation! This guide helps you find exactly what 
   - Natural language queries
 
 ### Configure the Database
-→ **[User Guide - Configuration](user_guide.html#4-configuration)**  
-→ **[Production Tuning Guide](PRODUCTION_TUNING.html)** *(if converted)*
+→ **[User Guide - Configuration](user_guide.html#4-configuration)**
 
 ### Develop or Contribute
 → **[Developer Guide - Development Setup](developer_guide.html#4-development-setup)**  
 → **[Developer Guide - Contributing Guidelines](developer_guide.html#11-contributing-guidelines)**
 
 ### Optimize Performance
-→ **[Developer Guide - Performance Optimization](developer_guide.html#9-performance-optimization)**  
-→ **[Production Tuning Guide](PRODUCTION_TUNING.html)** *(if converted)*
+→ **[Developer Guide - Performance Optimization](developer_guide.html#9-performance-optimization)**
 
 ### Secure My Deployment
 → **[User Guide - Security](user_guide.html#9-security)**  
