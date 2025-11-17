@@ -237,6 +237,7 @@ pub async fn generate_api_key(
             "Non-admin user attempted to generate API key: {}",
             requesting_key.name
         );
+        crate::metrics::record_auth_request("failed");
         return Err(ApiError::Forbidden(
             "Admin permission required to generate API keys".to_string(),
         ));
@@ -246,6 +247,7 @@ pub async fn generate_api_key(
 
     for permission in &key_request.permissions {
         if !valid_permissions.contains(&permission.as_str()) {
+            crate::metrics::record_auth_request("failed");
             return Err(ApiError::BadRequest(format!(
                 "Invalid permission: {}. Valid permissions are: {:?}",
                 permission, valid_permissions
@@ -261,14 +263,19 @@ pub async fn generate_api_key(
             key_request.expiry_hours,
             key_request.rate_limit_per_hour,
         )
-        .map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to generate API key: {}", e),
+        .map_err(|e| {
+            crate::metrics::record_auth_request("failed");
+            ApiError::InternalServerError {
+                message: format!("Failed to generate API key: {}", e),
+            }
         })?;
 
     info!(
         "🔑 Admin {} generated new API key for: {}",
         requesting_key.name, new_key.name
     );
+
+    crate::metrics::record_auth_request("success");
 
     let response = GenerateKeyResponse {
         api_key: new_key.key.clone(),
@@ -957,6 +964,10 @@ pub async fn train_neural_network(
         ),
     };
 
+    // Record neural training metrics
+    crate::metrics::record_neural_training("queued", start.elapsed().as_secs_f64());
+    crate::metrics::NEURAL_NETWORKS_TRAINING.inc();
+
     Ok(HttpResponse::Accepted().json(ApiResponse::success(
         response,
         ResponseMetadata::new(start.elapsed(), "Neural network training queued"),
@@ -1092,6 +1103,9 @@ pub async fn quantum_search(
         quantum_stats,
     };
 
+    // Record quantum search metrics
+    crate::metrics::record_quantum_search("success");
+
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
         ResponseMetadata::new(start.elapsed(), "Quantum search completed"),
@@ -1191,6 +1205,12 @@ pub async fn compress_dna(
         average_compression_ratio: total_input_size as f32 / total_compressed_size as f32,
         compression_time_ms: start.elapsed().as_millis() as f64,
     };
+
+    // Record DNA compression metrics
+    crate::metrics::record_dna_compression(
+        "success",
+        compression_stats.average_compression_ratio as f64,
+    );
 
     let response = CompressDnaResponse {
         compressed_sequences,
@@ -1690,11 +1710,17 @@ pub async fn execute_sql_query(
     let query_result = qsql_engine
         .execute_query(&query_req.query)
         .await
-        .map_err(|e| ApiError::InvalidQuery {
-            details: format!("Query execution failed: {}", e),
+        .map_err(|e| {
+            crate::metrics::record_db_operation("query", "failed", start.elapsed().as_secs_f64());
+            ApiError::InvalidQuery {
+                details: format!("Query execution failed: {}", e),
+            }
         })?;
 
     let execution_time_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    // Record successful query metrics
+    crate::metrics::record_db_operation("query", "success", start.elapsed().as_secs_f64());
 
     // Convert QSQL QueryResult to SqlQueryResponse
     let response = SqlQueryResponse {

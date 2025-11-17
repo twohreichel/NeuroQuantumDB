@@ -291,6 +291,20 @@ impl WebSocketService {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let msg: WsMessage = serde_json::from_str(text)?;
 
+        // Record incoming WebSocket message
+        let msg_type = match &msg {
+            WsMessage::Subscribe { .. } => "subscribe",
+            WsMessage::Unsubscribe { .. } => "unsubscribe",
+            WsMessage::Publish { .. } => "publish",
+            WsMessage::StreamQuery { .. } => "stream_query",
+            WsMessage::CancelQuery { .. } => "cancel_query",
+            WsMessage::Ping { .. } => "ping",
+            WsMessage::Pong { .. } => "pong",
+            WsMessage::QueryStatus { .. } => "query_status",
+            WsMessage::Message { .. } => "message",
+        };
+        crate::metrics::record_websocket_message("received", msg_type);
+
         match msg {
             WsMessage::Subscribe { channel } => {
                 self.handle_subscribe(conn_id, channel).await?;
@@ -673,6 +687,22 @@ impl WebSocketService {
     ) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(connection) = self.connection_manager.get_connection(conn_id) {
             connection.send_json(response).await?;
+
+            // Record outgoing WebSocket message
+            let msg_type = match response {
+                WsResponse::SubscriptionConfirmed { .. } => "subscription_confirmed",
+                WsResponse::UnsubscriptionConfirmed { .. } => "unsubscription_confirmed",
+                WsResponse::ChannelMessage { .. } => "channel_message",
+                WsResponse::QueryStarted { .. } => "query_started",
+                WsResponse::QueryProgress { .. } => "query_progress",
+                WsResponse::QueryBatch { .. } => "query_batch",
+                WsResponse::QueryCompleted { .. } => "query_completed",
+                WsResponse::QueryCancelled { .. } => "query_cancelled",
+                WsResponse::Pong { .. } => "pong",
+                WsResponse::QueryStatus { .. } => "query_status",
+                WsResponse::Error { .. } => "error",
+            };
+            crate::metrics::record_websocket_message("sent", msg_type);
         }
         Ok(())
     }

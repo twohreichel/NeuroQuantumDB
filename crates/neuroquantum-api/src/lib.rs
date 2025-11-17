@@ -17,6 +17,7 @@ pub mod config;
 pub mod error;
 pub mod handlers;
 pub mod jwt;
+pub mod metrics;
 pub mod middleware;
 pub mod rate_limit;
 pub mod storage;
@@ -137,35 +138,18 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
 
 /// 📊 Prometheus metrics endpoint (requires admin permission)
 pub async fn metrics() -> HttpResponse {
-    let metrics = r#"
-# HELP neuroquantum_queries_total Total number of queries processed
-# TYPE neuroquantum_queries_total counter
-neuroquantum_queries_total{type="neuromorphic"} 1234
-neuroquantum_queries_total{type="quantum"} 567
-neuroquantum_queries_total{type="dna"} 89
-
-# HELP neuroquantum_auth_requests_total Total authentication requests
-# TYPE neuroquantum_auth_requests_total counter
-neuroquantum_auth_requests_total{status="success"} 5678
-neuroquantum_auth_requests_total{status="failed"} 123
-
-# HELP neuroquantum_response_time_seconds Query response time in seconds
-# TYPE neuroquantum_response_time_seconds histogram
-neuroquantum_response_time_seconds_bucket{le="0.001"} 500
-neuroquantum_response_time_seconds_bucket{le="0.01"} 1200
-neuroquantum_response_time_seconds_bucket{le="0.1"} 1800
-neuroquantum_response_time_seconds_bucket{le="+Inf"} 2000
-neuroquantum_response_time_seconds_sum 15.5
-neuroquantum_response_time_seconds_count 2000
-
-# HELP neuroquantum_active_connections Current active connections
-# TYPE neuroquantum_active_connections gauge
-neuroquantum_active_connections 42
-"#;
-
-    HttpResponse::Ok()
-        .content_type("text/plain; version=0.0.4")
-        .body(metrics)
+    match crate::metrics::render_metrics() {
+        Ok(metrics_text) => HttpResponse::Ok()
+            .content_type("text/plain; version=0.0.4; charset=utf-8")
+            .body(metrics_text),
+        Err(e) => {
+            tracing::error!("Failed to render metrics: {}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to collect metrics",
+                "details": e.to_string()
+            }))
+        }
+    }
 }
 
 /// 🔍 WebSocket handler for real-time communication (requires authentication)
@@ -210,6 +194,9 @@ pub async fn websocket_handler(
     // Handle WebSocket upgrade
     let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
 
+    // Record WebSocket connection metrics
+    crate::metrics::record_websocket_connection("connected");
+
     // Spawn handler task
     let ws_service = state.websocket_service.clone();
     actix_web::rt::spawn(async move {
@@ -218,6 +205,9 @@ pub async fn websocket_handler(
             .await
         {
             error!("WebSocket connection error: {:?}", e);
+            crate::metrics::record_websocket_connection("error");
+        } else {
+            crate::metrics::record_websocket_connection("disconnected");
         }
     });
 
