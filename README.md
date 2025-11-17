@@ -123,4 +123,43 @@ The Postman Collection contains ready-made requests for:
 
 ---
 
+## 📚 Documentation
+
+Comprehensive documentation is available for developers and users:
+
+### 📖 Documentation Index
+
+**[Complete Documentation](./docs/README.md)** - Overview and navigation to all documentation resources
+
+### 🔧 For Developers
+
+**[Developer Guide](./docs/developer_guide.md)** - Complete technical reference including:
+- System architecture and design principles
+- Core component internals (Storage Engine, DNA Compression, Quantum Processor)
+- API reference and implementation details
+- Development setup and build process
+- Testing, benchmarking, and performance optimization
+- Security architecture and best practices
+- Contributing guidelines
+
+### 👥 For Users
+
+**[User Guide](./docs/user_guide.md)** - Practical guide for using NeuroQuantumDB:
+- Quick start and installation instructions
+- Configuration and deployment
+- Using the REST API with examples
+- QSQL query language reference
+- Advanced features (DNA compression, quantum search, neural networks)
+- Monitoring and maintenance
+- Troubleshooting and FAQ
+
+### 🌐 Additional Resources
+
+- **API Documentation**: Run `make docs-api` and open `target/doc/index.html`
+- **Interactive API Docs**: Start the server and visit `http://localhost:8080/api-docs/`
+- **Generate All Docs**: Run `make docs` to generate complete documentation
+- **Serve Docs Locally**: Run `make docs-serve` to browse at `http://localhost:8000`
+
+---
+
 Have a look at the [Wiki](https://twoh-me.github.io/NeuroQuantumDB/) for more information.

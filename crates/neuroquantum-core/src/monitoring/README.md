@@ -291,9 +291,3 @@ Configuration options.
 - [ ] Historical trend analysis
 - [ ] Machine learning for anomaly detection
 
-## See Also
-
-- [Task 4.1 Completion Report](../docs/dev/task-4-1-completion-report.md)
-- [TASK_OVERVIEW.md](../TASK_OVERVIEW.md) - Project roadmap
-- [Demo](../examples/advanced_monitoring_demo.rs) - Full example
-

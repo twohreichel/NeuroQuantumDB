@@ -3,6 +3,7 @@ members = [
     "crates/neuroquantum-core",
     "crates/neuroquantum-qsql",
     "crates/neuroquantum-api",
+    "scripts",
 ]
 resolver = "2"
 

@@ -1,0 +1,9 @@
+[package]
+name = "doc-generator"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+pulldown-cmark = "0.9"
+
