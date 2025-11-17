@@ -14,11 +14,31 @@ fn main() {
     println!("📂 Working directory: {}", working_dir.display());
 
     let docs = vec![
-        ("docs/developer_guide.md", "target/doc/guides/developer_guide.html", "Developer Guide"),
-        ("docs/user_guide.md", "target/doc/guides/user_guide.html", "User Guide"),
-        ("docs/README.md", "target/doc/guides/README.html", "Documentation Index"),
-        ("docs/quick_reference.md", "target/doc/guides/quick_reference.html", "Quick Reference"),
-        ("docs/NAVIGATION.md", "target/doc/guides/NAVIGATION.html", "Navigation"),
+        (
+            "docs/developer_guide.md",
+            "target/doc/guides/developer_guide.html",
+            "Developer Guide",
+        ),
+        (
+            "docs/user_guide.md",
+            "target/doc/guides/user_guide.html",
+            "User Guide",
+        ),
+        (
+            "docs/README.md",
+            "target/doc/guides/README.html",
+            "Documentation Index",
+        ),
+        (
+            "docs/quick_reference.md",
+            "target/doc/guides/quick_reference.html",
+            "Quick Reference",
+        ),
+        (
+            "docs/NAVIGATION.md",
+            "target/doc/guides/NAVIGATION.html",
+            "Navigation",
+        ),
     ];
 
     // Ensure output directory exists
@@ -108,7 +128,10 @@ fn main() {
         }
     }
 
-    println!("\n📊 Summary: {} converted, {} skipped", success_count, skip_count);
+    println!(
+        "\n📊 Summary: {} converted, {} skipped",
+        success_count, skip_count
+    );
 
     if success_count > 0 {
         println!("✅ Documentation generation complete!");
@@ -117,4 +140,3 @@ fn main() {
         std::process::exit(1);
     }
 }
-
