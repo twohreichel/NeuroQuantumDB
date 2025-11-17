@@ -122,16 +122,8 @@ jobs:
             target
           key: ${{ runner.os }}-docs-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Generate Rust API documentation
-        run: cargo doc --workspace --all-features --no-deps --document-private-items
-
-      - name: Generate Markdown to HTML documentation
-        run: |
-          cd scripts
-          cargo run --bin generate-docs
-
-      - name: Create index redirect
-        run: echo '<meta http-equiv="refresh" content="0; url=guides/README.html">' > target/doc/index.html
+      - name: Generate all documentation
+        run: make docs
 
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v3
