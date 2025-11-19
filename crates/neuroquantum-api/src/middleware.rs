@@ -50,7 +50,7 @@ where
                         if let Some(jwt_service) =
                             req.app_data::<actix_web::web::Data<JwtService>>()
                         {
-                            match jwt_service.validate_token(token) {
+                            match jwt_service.validate_token(token).await {
                                 Ok(claims) => {
                                     debug!(
                                         "✅ JWT authentication successful for user: {}",

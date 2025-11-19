@@ -25,6 +25,11 @@ algorithm = "HS256"
 issuer = "neuroquantum-db"
 audience = "neuroquantum-api"
 
+# JWT Secret Key Rotation (disabled in dev for convenience)
+rotation_enabled = false  # Set to true to test rotation in dev
+rotation_interval_days = 7  # Shorter interval for testing (7 days)
+rotation_grace_period_hours = 2  # Shorter grace period for testing
+
 [rate_limit]
 requests_per_hour = 100000  # Very high limit for dev testing
 burst_allowance = 1000

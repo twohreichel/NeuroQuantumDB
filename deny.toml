@@ -31,6 +31,9 @@ ignore = [
     # Note: actix-web-prometheus replaced with actix-web-prom, eliminating mach dependency
     "RUSTSEC-2024-0384", # instant crate - unmaintained but comes from reed-solomon-erasure dependency
     "RUSTSEC-2024-0436", # paste crate - unmaintained but required by pqcrypto-mldsa (transitive dependency)
+    "RUSTSEC-2025-0120", # json5 crate - unmaintained but required by config crate (transitive dependency)
+                         # No safe upgrade available. Alternatives: serde_json5, jsonc-parser, json-five
+                         # Will be addressed when config crate updates or we migrate to alternative
 ]
 
 [licenses]

@@ -27,6 +27,11 @@ algorithm = "HS256"
 issuer = "neuroquantum-db"
 audience = "neuroquantum-api"
 
+# JWT Secret Key Rotation (Security Best Practice)
+rotation_enabled = true  # Enable automatic key rotation
+rotation_interval_days = 90  # Rotate keys every 90 days (industry standard)
+rotation_grace_period_hours = 24  # Keep previous key valid for 24h during rotation
+
 [rate_limit]
 requests_per_hour = 10000  # Per user/IP - adjust based on expected load
 burst_allowance = 100
