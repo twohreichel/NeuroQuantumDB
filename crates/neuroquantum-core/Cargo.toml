@@ -52,6 +52,9 @@ futures = "0.3"
 aws-config = "1.5"
 aws-sdk-s3 = "1.60"
 
+# Google Cloud Storage for backups
+google-cloud-storage = "1.4"
+
 # Compression algorithms for comparison
 flate2 = "1.0"
 lz4_flex = "0.11"

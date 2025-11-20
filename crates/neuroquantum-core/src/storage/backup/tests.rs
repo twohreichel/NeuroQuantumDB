@@ -85,6 +85,7 @@ async fn test_full_backup_creation() -> Result<()> {
         include_wal: true,
         storage_backend: BackupStorageType::Local,
         s3_config: None,
+        gcs_config: None,
     };
 
     let backup_manager = BackupManager::new(pager, wal_manager, config).await?;
@@ -128,6 +129,7 @@ async fn test_backup_and_restore() -> Result<()> {
         include_wal: false,
         storage_backend: BackupStorageType::Local,
         s3_config: None,
+        gcs_config: None,
     };
 
     let backup_manager = BackupManager::new(pager, wal_manager, config).await?;
