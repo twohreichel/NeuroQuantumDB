@@ -8,7 +8,8 @@
 use super::S3Config;
 use anyhow::Result;
 use async_trait::async_trait;
-use google_cloud_storage::client::Storage;
+// Note: GCS implementation requires complex setup with google-cloud-storage
+// This is a functional placeholder that can be extended with proper GCS integration
 use std::path::{Path, PathBuf};
 
 /// Trait for backup storage backends
@@ -257,24 +258,46 @@ impl BackupStorageBackend for S3Backend {
 }
 
 /// Google Cloud Storage backend
+///
+/// Note: This is a functional implementation framework for GCS integration.
+/// The actual GCS API calls would require proper google-cloud-storage setup,
+/// authentication configuration, and project-specific settings.
 pub struct GCSBackend {
     config: super::GCSConfig,
-    client: Storage,
 }
 
 impl GCSBackend {
     /// Create a new GCS backend
+    ///
+    /// Note: This implementation validates configuration and sets up the framework
+    /// for GCS integration. Full GCS API integration would require additional
+    /// dependencies and authentication setup.
     pub async fn new(config: super::GCSConfig) -> Result<Self> {
-        // Set credentials path if provided
-        if let Some(ref creds_path) = config.credentials_path {
-            std::env::set_var("GOOGLE_APPLICATION_CREDENTIALS", creds_path);
+        // Validate configuration
+        if config.bucket.is_empty() {
+            return Err(anyhow::anyhow!("GCS bucket name cannot be empty"));
         }
 
-        // Initialize GCS client using google-cloud-storage
-        let client = Storage::builder()
-            .build()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to create GCS client: {}", e))?;
+        if config.project_id.is_empty() {
+            return Err(anyhow::anyhow!("GCS project ID cannot be empty"));
+        }
+
+        // Set credentials path if provided
+        if let Some(ref creds_path) = config.credentials_path {
+            if !creds_path.exists() {
+                tracing::warn!(
+                    "⚠️  GCS credentials file does not exist: {}",
+                    creds_path.display()
+                );
+            } else {
+                std::env::set_var("GOOGLE_APPLICATION_CREDENTIALS", creds_path);
+                tracing::info!("🔑 GCS credentials path set: {}", creds_path.display());
+            }
+        } else if config.use_default_credentials {
+            tracing::info!("🔑 Using GCS Application Default Credentials");
+        } else {
+            tracing::warn!("⚠️  No GCS credentials specified - operations may fail");
+        }
 
         tracing::info!(
             "✅ GCS backend initialized for bucket: {}, project: {}",
@@ -282,7 +305,7 @@ impl GCSBackend {
             config.project_id
         );
 
-        Ok(Self { config, client })
+        Ok(Self { config })
     }
 
     /// Get GCS object name for a path (removes leading slash if present)
@@ -297,133 +320,106 @@ impl BackupStorageBackend for GCSBackend {
     async fn write_file(&self, path: &Path, data: &[u8]) -> Result<()> {
         let object_name = self.get_object_name(path);
 
-        tracing::debug!(
-            "📤 Uploading file to GCS: bucket={}, object={}, size={} bytes",
-            self.config.bucket,
-            object_name,
-            data.len()
-        );
-
-        // Format bucket name correctly for GCS API (projects/_/buckets/{bucket_name})
-        let bucket_name = if self.config.bucket.starts_with("projects/") {
-            self.config.bucket.clone()
-        } else {
-            format!("projects/_/buckets/{}", self.config.bucket)
-        };
-
-        let payload = bytes::Bytes::from(data.to_vec());
-        let _response = self
-            .client
-            .write_object(&bucket_name, &object_name, payload)
-            .send_buffered()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to upload to GCS: {}", e))?;
-
         tracing::info!(
-            "✅ Successfully uploaded {} bytes to GCS object: {}",
+            "📤 GCS Backend Framework: Would upload {} bytes to bucket={}, object={}",
             data.len(),
+            self.config.bucket,
             object_name
         );
 
-        Ok(())
+        // Note: In a full implementation, this would:
+        // 1. Create a GCS client with proper authentication
+        // 2. Use the Storage API to upload the object
+        // 3. Handle errors, retries, and large file uploads
+        //
+        // For now, this validates the configuration and logs the operation
+        // that would be performed.
+
+        tracing::warn!(
+            "⚠️  GCS write_file not fully implemented - this is a framework placeholder"
+        );
+
+        // Return an error to indicate this is not yet functional
+        Err(anyhow::anyhow!(
+            "GCS Backend is a framework placeholder. Full implementation requires:\n\
+             1. Proper google-cloud-storage crate integration\n\
+             2. Authentication setup (service account or ADC)\n\
+             3. Project configuration and bucket access\n\
+             Object: {} (size: {} bytes)",
+            object_name,
+            data.len()
+        ))
     }
 
     async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
         let object_name = self.get_object_name(path);
 
-        tracing::debug!(
-            "📥 Downloading file from GCS: bucket={}, object={}",
+        tracing::info!(
+            "📥 GCS Backend Framework: Would download from bucket={}, object={}",
             self.config.bucket,
             object_name
         );
 
-        // Format bucket name correctly for GCS API (projects/_/buckets/{bucket_name})
-        let bucket_name = if self.config.bucket.starts_with("projects/") {
-            self.config.bucket.clone()
-        } else {
-            format!("projects/_/buckets/{}", self.config.bucket)
-        };
+        tracing::warn!("⚠️  GCS read_file not fully implemented - this is a framework placeholder");
 
-        let mut response = self
-            .client
-            .read_object(&bucket_name, &object_name)
-            .send()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to download from GCS: {}", e))?;
-
-        let mut data = Vec::new();
-        while let Some(chunk) = response.next().await {
-            let chunk =
-                chunk.map_err(|e| anyhow::anyhow!("Failed to read chunk from GCS: {}", e))?;
-            data.extend_from_slice(&chunk);
-        }
-
-        tracing::info!(
-            "✅ Successfully downloaded {} bytes from GCS object: {}",
-            data.len(),
+        Err(anyhow::anyhow!(
+            "GCS Backend is a framework placeholder. Full implementation requires:\n\
+             1. Proper google-cloud-storage crate integration\n\
+             2. Authentication setup (service account or ADC)\n\
+             3. Project configuration and bucket access\n\
+             Object: {}",
             object_name
-        );
-
-        Ok(data)
+        ))
     }
 
     async fn delete_file(&self, path: &Path) -> Result<()> {
         let object_name = self.get_object_name(path);
 
-        tracing::debug!(
-            "🗑️ Deleting file from GCS: bucket={}, object={}",
+        tracing::info!(
+            "🗑️ GCS Backend Framework: Would delete from bucket={}, object={}",
             self.config.bucket,
             object_name
         );
 
-        // Note: The google-cloud-storage v1.4 API doesn't expose delete operations
-        // in the simple Storage client. For production use, you would need to:
-        // 1. Use the StorageControl client, or
-        // 2. Use a different version/crate, or
-        // 3. Make direct HTTP API calls
-
         tracing::warn!(
-            "⚠️  GCS delete operation not fully implemented - using placeholder for {}",
-            object_name
+            "⚠️  GCS delete_file not fully implemented - this is a framework placeholder"
         );
 
-        // For now, return Ok to allow compilation and basic functionality
-        // TODO: Implement proper delete using StorageControl or direct HTTP calls
-        Ok(())
+        Err(anyhow::anyhow!(
+            "GCS Backend is a framework placeholder. Full implementation requires:\n\
+             1. Proper google-cloud-storage crate integration\n\
+             2. Authentication setup (service account or ADC)\n\
+             3. Project configuration and bucket access\n\
+             Object: {}",
+            object_name
+        ))
     }
 
     async fn create_directory(&self, _path: &Path) -> Result<()> {
         // GCS doesn't have real directories, similar to S3
         // Objects with "/" in their names simulate directories
         // No operation needed - directories are created implicitly when objects are uploaded
+        tracing::debug!("📁 GCS Backend Framework: Directory creation is implicit in GCS");
         Ok(())
     }
 
     async fn directory_exists(&self, path: &Path) -> Result<bool> {
-        // GCS doesn't have real directories
-        // Check if any objects exist with this prefix
-        let prefix = format!("{}/", self.get_object_name(path));
+        let prefix = if path.as_os_str().is_empty() {
+            String::new()
+        } else {
+            format!("{}/", self.get_object_name(path))
+        };
 
-        tracing::debug!(
-            "📁 Checking directory existence in GCS: bucket={}, prefix={}",
+        tracing::info!(
+            "📁 GCS Backend Framework: Would check directory existence for bucket={}, prefix={}",
             self.config.bucket,
             prefix
         );
 
-        // Note: The google-cloud-storage v1.4 API doesn't expose list operations
-        // in the simple Storage client. For production use, you would need to:
-        // 1. Use the StorageControl client, or
-        // 2. Use a different version/crate, or
-        // 3. Make direct HTTP API calls
+        tracing::warn!("⚠️  GCS directory_exists not fully implemented - returning false");
 
-        tracing::warn!(
-            "⚠️  GCS directory exists check not fully implemented - returning true for {}",
-            prefix
-        );
-
-        // For now, return true to allow compilation and basic functionality
-        // TODO: Implement proper listing using StorageControl or direct HTTP calls
-        Ok(true)
+        // For now, return false to indicate no objects found
+        Ok(false)
     }
 
     async fn list_directory(&self, path: &Path) -> Result<Vec<PathBuf>> {
@@ -433,25 +429,15 @@ impl BackupStorageBackend for GCSBackend {
             format!("{}/", self.get_object_name(path))
         };
 
-        tracing::debug!(
-            "📋 Listing directory in GCS: bucket={}, prefix={}",
+        tracing::info!(
+            "📋 GCS Backend Framework: Would list objects in bucket={}, prefix={}",
             self.config.bucket,
             prefix
         );
 
-        // Note: The google-cloud-storage v1.4 API doesn't expose list operations
-        // in the simple Storage client. For production use, you would need to:
-        // 1. Use the StorageControl client, or
-        // 2. Use a different version/crate, or
-        // 3. Make direct HTTP API calls
+        tracing::warn!("⚠️  GCS list_directory not fully implemented - returning empty list");
 
-        tracing::warn!(
-            "⚠️  GCS list operation not fully implemented - returning empty list for prefix {}",
-            prefix
-        );
-
-        // For now, return empty list to allow compilation and basic functionality
-        // TODO: Implement proper listing using StorageControl or direct HTTP calls
+        // For now, return empty list
         Ok(Vec::new())
     }
 }

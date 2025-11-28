@@ -10,7 +10,7 @@ keywords = ["database", "neuromorphic", "dna-compression", "bioinformatics", "si
 
 [package.metadata.cargo-machete]
 # These dependencies are used conditionally or reserved for future features
-ignored = ["bitvec", "bytemuck", "flate2", "hashbrown", "lz4_flex", "wide", "chacha20poly1305"]
+ignored = ["bitvec", "bytemuck", "hashbrown", "wide", "chacha20poly1305"]
 
 [dependencies]
 # Workspace dependencies
@@ -52,8 +52,8 @@ futures = "0.3"
 aws-config = "1.5"
 aws-sdk-s3 = "1.60"
 
-# Google Cloud Storage for backups
-google-cloud-storage = "1.4.0"
+# Google Cloud Storage for backups (framework placeholder)
+# google-cloud-storage = "1.4.0"  # Commented out - requires proper setup
 
 # Compression algorithms for comparison
 flate2 = "1.0"
@@ -85,8 +85,7 @@ rustfft = "6.1"
 # System information for auto-tuning
 sysinfo = "0.30"
 
-# Bytes for GCS integration
-bytes = "1.5"
+# Note: bytes dependency removed as GCS backend is framework-only
 
 [dev-dependencies]
 proptest = "1.4"
