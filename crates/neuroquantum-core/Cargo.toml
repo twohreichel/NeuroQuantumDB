@@ -53,7 +53,7 @@ aws-config = "1.5"
 aws-sdk-s3 = "1.60"
 
 # Google Cloud Storage for backups
-google-cloud-storage = "1.4"
+google-cloud-storage = "1.4.0"
 
 # Compression algorithms for comparison
 flate2 = "1.0"
@@ -84,6 +84,9 @@ rustfft = "6.1"
 
 # System information for auto-tuning
 sysinfo = "0.30"
+
+# Bytes for GCS integration
+bytes = "1.5"
 
 [dev-dependencies]
 proptest = "1.4"
