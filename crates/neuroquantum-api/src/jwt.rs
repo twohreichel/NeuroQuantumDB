@@ -148,17 +148,46 @@ impl JwtKeyRotation {
     }
 
     /// Force immediate rotation (for emergency key compromise)
+    ///
+    /// This method performs an emergency rotation without a grace period.
+    /// All existing tokens (both current and previous) are immediately invalidated.
+    ///
+    /// **Important differences from `rotate()`:**
+    /// - No grace period: Previous key is immediately set to `None`
+    /// - All old keys are securely zeroized
+    /// - No background task is spawned
+    ///
+    /// Use this only in emergency situations where key compromise is suspected.
     pub async fn force_rotate(&self) -> Result<(), ApiError> {
         warn!("⚠️  EMERGENCY: Forcing immediate JWT secret rotation");
 
-        // Invalidate previous key immediately (no grace period)
+        // Generate new cryptographically secure random secret (48 bytes = 384 bits)
+        let new_secret = Self::generate_secure_secret().map_err(|e| ApiError::EncryptionError {
+            details: format!("Failed to generate new secret: {}", e),
+        })?;
+
+        // Acquire locks
+        let mut current = self.current_key.write().await;
         let mut previous = self.previous_key.write().await;
+
+        // Zeroize previous key if it exists
         if let Some(ref mut key) = *previous {
             key.iter_mut().for_each(|b| *b = 0);
         }
+
+        // Zeroize current key
+        current.iter_mut().for_each(|b| *b = 0);
+
+        // Set new secret, invalidate previous key immediately (no grace period)
+        *current = new_secret;
         *previous = None;
 
-        self.rotate().await?;
+        // Update rotation timestamp
+        let mut last_rotation = self.last_rotation.write().await;
+        *last_rotation = SystemTime::now();
+
+        info!("✅ Emergency JWT secret rotation completed");
+
         Ok(())
     }
 
