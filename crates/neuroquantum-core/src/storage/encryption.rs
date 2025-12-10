@@ -96,7 +96,7 @@ impl EncryptionManager {
 
         let (master_key, actual_strategy) = match strategy {
             KeyStorageStrategy::OsKeychain => {
-                let key = Self::load_or_create_keychain_key(&instance_id).await?;
+                let key = Self::load_or_create_keychain_key(&instance_id, &key_path).await?;
                 (key, KeyStorageStrategy::OsKeychain)
             }
             KeyStorageStrategy::FileBased => {
@@ -104,21 +104,32 @@ impl EncryptionManager {
                 (key, KeyStorageStrategy::FileBased)
             }
             KeyStorageStrategy::KeychainWithFileFallback => {
-                match Self::load_or_create_keychain_key(&instance_id).await {
-                    Ok(key) => {
-                        tracing::info!(
-                            "🔐 Master key loaded from OS keychain for instance: {}",
-                            instance_id
-                        );
-                        (key, KeyStorageStrategy::OsKeychain)
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            "⚠️ OS keychain unavailable ({}), falling back to file-based storage",
-                            e
-                        );
-                        let key = Self::load_or_create_file_key(&key_path).await?;
-                        (key, KeyStorageStrategy::FileBased)
+                // IMPORTANT: First check if a file-based key exists.
+                // This ensures backward compatibility with existing encrypted data.
+                // If data was encrypted with a file-based key, we must use that key,
+                // not a potentially different key from the keychain.
+                if key_path.exists() {
+                    tracing::info!("🔑 Found existing file-based key, using it for compatibility");
+                    let key = Self::load_master_key_from_file(&key_path).await?;
+                    (key, KeyStorageStrategy::FileBased)
+                } else {
+                    // No existing file key, try keychain first
+                    match Self::load_or_create_keychain_key(&instance_id, &key_path).await {
+                        Ok(key) => {
+                            tracing::info!(
+                                "🔐 Master key loaded from OS keychain for instance: {}",
+                                instance_id
+                            );
+                            (key, KeyStorageStrategy::OsKeychain)
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "⚠️ OS keychain unavailable ({}), falling back to file-based storage",
+                                e
+                            );
+                            let key = Self::load_or_create_file_key(&key_path).await?;
+                            (key, KeyStorageStrategy::FileBased)
+                        }
                     }
                 }
             }
@@ -152,7 +163,8 @@ impl EncryptionManager {
     }
 
     /// Load or create a master key using the OS keychain
-    async fn load_or_create_keychain_key(instance_id: &str) -> Result<[u8; 32]> {
+    /// Also saves a backup copy to file for disaster recovery
+    async fn load_or_create_keychain_key(instance_id: &str, key_path: &Path) -> Result<[u8; 32]> {
         let entry = Entry::new(KEYRING_SERVICE, instance_id)
             .map_err(|e| anyhow!("Failed to access keychain: {}", e))?;
 
@@ -161,6 +173,16 @@ impl EncryptionManager {
             Ok(encoded_key) => {
                 let key = Self::decode_key(&encoded_key)?;
                 tracing::debug!("🔑 Loaded existing master key from OS keychain");
+
+                // Ensure file backup exists for disaster recovery
+                if !key_path.exists() {
+                    if let Err(e) = Self::save_master_key_to_file(key_path, &key).await {
+                        tracing::warn!("⚠️ Failed to save key backup to file: {}", e);
+                    } else {
+                        tracing::debug!("🔑 Saved key backup to file for disaster recovery");
+                    }
+                }
+
                 Ok(key)
             }
             Err(keyring::Error::NoEntry) => {
@@ -171,6 +193,13 @@ impl EncryptionManager {
                 entry
                     .set_password(&encoded)
                     .map_err(|e| anyhow!("Failed to store key in keychain: {}", e))?;
+
+                // Also save to file as backup for disaster recovery
+                if let Err(e) = Self::save_master_key_to_file(key_path, &key).await {
+                    tracing::warn!("⚠️ Failed to save key backup to file: {}", e);
+                } else {
+                    tracing::debug!("🔑 Saved key backup to file for disaster recovery");
+                }
 
                 tracing::info!("🔑 Generated and stored new master key in OS keychain");
                 Ok(key)
