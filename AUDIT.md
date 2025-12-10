@@ -22,13 +22,14 @@ NeuroQuantumDB ist ein ambitioniertes Projekt, das neuromorphe Computing-Prinzip
 - Comprehensive Test-Suite vorhanden
 
 **Kritische Lücken:**
-- 17 `#[allow(dead_code)]` Markierungen deuten auf unvollständige Features hin (reduziert von 25)
+- 16 `#[allow(dead_code)]` Markierungen deuten auf unvollständige Features hin (reduziert von 25)
 - ~~ML-KEM Decapsulation ist als Workaround implementiert~~ ✅ **BEHOBEN**
 - Mehrere "Future Features" als Kommentare markiert
 - ~~EEG-Biometrie nutzt vereinfachte FFT-Implementierung~~ ✅ **BEHOBEN** (rustfft O(n log n))
 - ~~Anti-Hebbian Learning nicht aktiv~~ ✅ **BEHOBEN** (Competitive Learning, laterale Inhibition, STDP)
 - ~~PlasticityMatrix max_nodes ungenutzt~~ ✅ **BEHOBEN** (Auto-Scaling mit Consolidation)
 - ~~WAL Recovery nicht vollständig integriert~~ ✅ **BEHOBEN** (ARIES mit Storage-Callback)
+- ~~Master Key Security unzureichend~~ ✅ **BEHOBEN** (OS Keychain Integration)
 
 ---
 
@@ -322,22 +323,74 @@ pub fn filtfilt(&self, signal: &[f32]) -> Vec<f32> {
 
 ---
 
-### 1.8 neuroquantum-core: Storage Encryption
+### 1.8 neuroquantum-core: Storage Encryption ✅ ERLEDIGT
 
 **Datei:** `crates/neuroquantum-core/src/storage/encryption.rs`
 
-| Zeile | Element | Problem |
-|-------|---------|---------|
-| 35 | `key_path` | Für Key-Rotation vorgesehen |
-| 177 | Zusätzliche dead_code | Unvollständige Key-Management-Features |
+**Status:** ✅ **BEHOBEN** (10. Dezember 2025)
 
-**Sicherheitsempfehlung:** Der Master-Key wird Base64-kodiert auf Disk gespeichert. Dies ist für Produktion unzureichend:
+**Ursprüngliches Problem:**
+- `key_path` war als dead code markiert
+- Master-Key wurde Base64-kodiert auf Disk gespeichert (unsicher für Produktion)
+- Keine Key-Rotation-Unterstützung
+- Keine OS-Keychain-Integration
+
+**Lösung:**
+- Vollständige OS-Keychain-Integration mit `keyring` crate v3:
+  - **macOS**: Keychain Services
+  - **Windows**: Credential Manager
+  - **Linux**: Secret Service (GNOME Keyring, KWallet)
+- Neue `KeyStorageStrategy` Enum:
+  - `OsKeychain` - Empfohlen für Produktion
+  - `FileBased` - Fallback für Tests/unsichere Umgebungen
+  - `KeychainWithFileFallback` - Automatischer Fallback (Standard)
+- Neue Features:
+  - `migrate_to_keychain()` - Migration von Datei zu OS-Keychain
+  - `rotate_key()` - Schlüssel-Rotation mit alter/neuer Fingerprint-Verfolgung
+  - `delete_key()` - Sichere Schlüssel-Löschung
+  - `check_keychain_status()` - Status-Check des Keychain-Backends
+- Alle Felder werden jetzt aktiv genutzt:
+  - `key_path` für Fallback-Storage und Migration
+  - `instance_id` für eindeutige Keychain-Einträge pro Datenbank-Instanz
+  - `storage_strategy` für Strategie-Tracking
+- Neue Strukturen: `KeyStorageStrategy`, `KeychainStatus`, `MigrationResult`, `KeyRotationResult`
+
+**Neue Implementation:**
 ```rust
-// In production, this should be protected by HSM or system keychain
-// For now, we'll use base64 encoding with file permissions
+/// Key storage strategy for the encryption manager
+pub enum KeyStorageStrategy {
+    /// Store keys in the OS keychain (recommended for production)
+    OsKeychain,
+    /// Fallback to file-based storage (for testing or unsupported environments)
+    FileBased,
+    /// Try OS keychain first, fall back to file if unavailable
+    KeychainWithFileFallback,
+}
+
+/// Load or create a master key using the OS keychain
+async fn load_or_create_keychain_key(instance_id: &str) -> Result<[u8; 32]> {
+    let entry = Entry::new(KEYRING_SERVICE, instance_id)?;
+    match entry.get_password() {
+        Ok(encoded_key) => Self::decode_key(&encoded_key),
+        Err(keyring::Error::NoEntry) => {
+            let key = Self::generate_master_key();
+            entry.set_password(&Self::encode_key(&key))?;
+            Ok(key)
+        }
+        Err(e) => Err(anyhow!("Keychain error: {}", e)),
+    }
+}
 ```
 
-**Empfehlung:** Integration mit OS-Keychain (macOS Keychain, Linux Secret Service) oder HSM.
+**Tests:** 10 Tests bestanden, einschließlich:
+- `test_encryption_roundtrip`
+- `test_encryption_manager_persistence`
+- `test_key_encoding`
+- `test_instance_id_generation`
+- `test_keychain_status_check`
+- `test_key_rotation_file_based`
+- `test_derive_key_from_password`
+- `test_storage_strategy_getter`
 
 ---
 
@@ -681,9 +734,15 @@ crates/neuroquantum-qsql/tests/
      - WAL-Archivierung und -Truncation
      - Detaillierte Recovery-Statistiken
 
-3. **Master Key Security**
-   - OS Keychain Integration
-   - Estimated: 2-3 Tage
+3. ~~**Master Key Security**~~ ✅ **ERLEDIGT**
+   - ~~OS Keychain Integration~~
+   - Implementiert mit vollständiger OS-Keychain-Integration:
+     - `keyring` crate v3 für plattformübergreifende Unterstützung
+     - macOS Keychain, Windows Credential Manager, Linux Secret Service
+     - `KeyStorageStrategy` für flexible Konfiguration
+     - `migrate_to_keychain()` für bestehende Deployments
+     - `rotate_key()` für sichere Schlüssel-Rotation
+   - 10 Tests bestanden
 
 ### 8.2 Hoch (nächste Iteration)
 
@@ -732,14 +791,14 @@ crates/neuroquantum-qsql/tests/
 
 NeuroQuantumDB zeigt eine **beeindruckende architektonische Vision** und fortgeschrittene Implementierung neuartiger Konzepte. Die Kombination aus neuromorphem Computing, Quanten-inspirierten Algorithmen und DNA-basierter Datenspeicherung ist innovativ.
 
-**Für den Produktionseinsatz fehlen jedoch:**
+**Alle kritischen Sicherheitspunkte wurden behoben:**
 1. ~~Funktionierende Post-Quantum Key-Decapsulation~~ ✅ **BEHOBEN**
 2. ~~Vollständige Crash-Recovery~~ ✅ **BEHOBEN** (ARIES mit Storage-Integration)
-3. Sichere Key-Management-Integration
+3. ~~Sichere Key-Management-Integration~~ ✅ **BEHOBEN** (OS Keychain Integration)
 
-**Geschätzte Zeit bis Production-Ready:** 2-3 Wochen fokussierte Entwicklung (reduziert durch ML-KEM und WAL Recovery Fix)
+**Geschätzte Zeit bis Production-Ready:** Das Projekt hat alle kritischen Sicherheitspunkte abgeschlossen. Verbleibende Aufgaben sind NLP Enhancement und Stress Testing Suite (Technical Debt).
 
-**Empfehlung:** Das Projekt ist vielversprechend und kann nach Behebung der verbleibenden kritischen Punkte (Master Key Security) für Edge-Computing Use-Cases eingesetzt werden. Für Enterprise-Deployments wird zusätzlich Multi-Node-Support benötigt.
+**Empfehlung:** Das Projekt ist für Edge-Computing Use-Cases produktionsreif. Für Enterprise-Deployments wird zusätzlich Multi-Node-Support benötigt (siehe `future-todos.md`).
 
 ---
 

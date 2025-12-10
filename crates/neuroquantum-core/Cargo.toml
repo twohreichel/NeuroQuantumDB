@@ -87,6 +87,10 @@ rustfft = "6.1"
 # System information for auto-tuning
 sysinfo = "0.30"
 
+# OS Keychain integration for secure key storage
+# macOS: Keychain, Windows: Credential Manager, Linux: Secret Service/KWallet
+keyring = "3"
+
 # Note: bytes dependency removed as GCS backend is framework-only
 
 [dev-dependencies]
