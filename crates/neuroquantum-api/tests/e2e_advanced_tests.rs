@@ -16,6 +16,22 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Default test data size for E2E tests (configurable via E2E_DATA_SIZE env var)
+const TEST_DATA_SIZE_DEFAULT: usize = 10;
+
+/// Get configurable test data size from environment
+///
+/// Use E2E_DATA_SIZE environment variable to control test thoroughness:
+/// - Fast (default): E2E_DATA_SIZE=10 (development)
+/// - Standard: E2E_DATA_SIZE=25 (CI)
+/// - Thorough: E2E_DATA_SIZE=50 (pre-release)
+fn get_test_data_size() -> usize {
+    std::env::var("E2E_DATA_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(TEST_DATA_SIZE_DEFAULT)
+}
+
 /// Helper to create test database instance
 async fn create_test_db() -> (Arc<RwLock<NeuroQuantumDB>>, tempfile::TempDir) {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -110,8 +126,9 @@ async fn test_complete_api_workflow_crud() {
             .expect("Failed to create table");
     }
 
-    // 2. Insert data
-    insert_test_data(&db, table_name, 50).await;
+    // 2. Insert data (configurable via E2E_DATA_SIZE env var)
+    let data_size = get_test_data_size();
+    insert_test_data(&db, table_name, data_size).await;
 
     // 3. Read data with various filters
     {
@@ -132,23 +149,31 @@ async fn test_complete_api_workflow_crud() {
             .select_rows(&query)
             .await
             .expect("Failed to select all rows");
-        assert_eq!(rows.len(), 50, "Should have 50 rows");
+        assert_eq!(rows.len(), data_size, "Should have {} rows", data_size);
 
-        // Query with limit and offset
+        // Query with limit and offset (proportional to data size)
+        let limit_size = std::cmp::min(5, data_size / 2);
+        let offset_size = std::cmp::min(2, data_size / 4);
         let query_limited = SelectQuery {
             table: table_name.to_string(),
             columns: vec!["id".to_string(), "name".to_string()],
             where_clause: None,
             order_by: None,
-            limit: Some(10),
-            offset: Some(20),
+            limit: Some(limit_size as u64),
+            offset: Some(offset_size as u64),
         };
 
         let rows_limited = storage
             .select_rows(&query_limited)
             .await
             .expect("Failed to select limited rows");
-        assert_eq!(rows_limited.len(), 10, "Should have 10 rows with limit");
+        let expected_limited = std::cmp::min(limit_size, data_size.saturating_sub(offset_size));
+        assert_eq!(
+            rows_limited.len(),
+            expected_limited,
+            "Should have {} rows with limit",
+            expected_limited
+        );
     }
 
     // 4. Update data

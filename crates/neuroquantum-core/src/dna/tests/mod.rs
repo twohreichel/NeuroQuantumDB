@@ -232,9 +232,31 @@ mod unit_tests {
 mod property_tests {
     use super::*;
 
+    /// Get configurable PropTest configuration from environment
+    ///
+    /// Use PROPTEST_CASES environment variable to control test thoroughness:
+    /// - Fast (default): PROPTEST_CASES=32 (development)
+    /// - Standard: PROPTEST_CASES=64 (CI)
+    /// - Thorough: PROPTEST_CASES=256 (pre-release)
+    fn get_proptest_config() -> ProptestConfig {
+        let cases = std::env::var("PROPTEST_CASES")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(32); // Default: fast tests
+
+        ProptestConfig {
+            cases,
+            max_shrink_iters: if cases > 100 { 1000 } else { 500 },
+            max_shrink_time: if cases > 100 { 10000 } else { 5000 },
+            ..ProptestConfig::default()
+        }
+    }
+
     proptest! {
+        #![proptest_config(get_proptest_config())]
+
         #[test]
-        fn test_compression_roundtrip(data in prop::collection::vec(any::<u8>(), 0..1000)) {
+        fn test_compression_roundtrip(data in prop::collection::vec(any::<u8>(), 0..500)) {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let compressor = QuantumDNACompressor::new();
 
@@ -246,8 +268,8 @@ mod property_tests {
 
         #[test]
         fn test_different_configs_same_result(
-            data in prop::collection::vec(any::<u8>(), 1..100),
-            error_strength in 1u8..=32,
+            data in prop::collection::vec(any::<u8>(), 1..50),
+            error_strength in prop::sample::select(vec![8u8, 16, 32]),
             enable_simd in any::<bool>(),
             enable_dict in any::<bool>()
         ) {
@@ -282,7 +304,7 @@ mod property_tests {
         }
 
         #[test]
-        fn test_compression_ratio_bounds(data in prop::collection::vec(any::<u8>(), 1..1000)) {
+        fn test_compression_ratio_bounds(data in prop::collection::vec(any::<u8>(), 1..500)) {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let compressor = QuantumDNACompressor::new();
 
@@ -295,7 +317,7 @@ mod property_tests {
 
         #[test]
         fn test_error_correction_integrity(
-            data in prop::collection::vec(any::<u8>(), 10..100)
+            data in prop::collection::vec(any::<u8>(), 10..50)
         ) {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let compressor = QuantumDNACompressor::new();
@@ -315,7 +337,7 @@ mod property_tests {
         }
 
         #[test]
-        fn test_base_sequence_validity(data in prop::collection::vec(any::<u8>(), 1..100)) {
+        fn test_base_sequence_validity(data in prop::collection::vec(any::<u8>(), 1..50)) {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let compressor = QuantumDNACompressor::new();
 

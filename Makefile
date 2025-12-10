@@ -39,6 +39,30 @@ test: ## Run comprehensive test suite (80%+ coverage required)
 
 test-full: test ## Alias for comprehensive test suite
 
+test-fast: ## Run fast tests for development (~16s)
+	@echo "⚡ Running fast development tests..."
+	@echo "   PROPTEST_CASES=32, E2E_DATA_SIZE=10"
+	PROPTEST_CASES=32 E2E_DATA_SIZE=10 cargo test --workspace --all-features
+	@echo "✅ Fast tests completed!"
+
+test-standard: ## Run standard tests for CI (~60-80s)
+	@echo "🧪 Running standard CI tests..."
+	@echo "   PROPTEST_CASES=64, E2E_DATA_SIZE=25"
+	PROPTEST_CASES=64 E2E_DATA_SIZE=25 cargo test --workspace --all-features
+	@echo "✅ Standard tests completed!"
+
+test-thorough: ## Run thorough tests for pre-release (~180-200s)
+	@echo "🔬 Running thorough pre-release tests..."
+	@echo "   PROPTEST_CASES=256, E2E_DATA_SIZE=50"
+	PROPTEST_CASES=256 E2E_DATA_SIZE=50 cargo test --workspace --all-features
+	@echo "✅ Thorough tests completed!"
+
+test-stress: ## Run stress tests for production validation (~300-400s)
+	@echo "💪 Running stress tests..."
+	@echo "   PROPTEST_CASES=512, E2E_DATA_SIZE=100"
+	PROPTEST_CASES=512 E2E_DATA_SIZE=100 cargo test --workspace --all-features
+	@echo "✅ Stress tests completed!"
+
 # Documentation targets
 docs: docs-api docs-guides docs-link ## Generate all documentation (API + Guides)
 
