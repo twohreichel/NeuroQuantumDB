@@ -4,6 +4,8 @@
 //! It leverages the neuromorphic nature of NeuroQuantumDB to process brainwave patterns and
 //! create unique user signatures for advanced authentication.
 
+use rustfft::num_complex::Complex;
+use rustfft::FftPlanner;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::f32::consts::PI;
@@ -127,7 +129,7 @@ impl DigitalFilter {
     }
 }
 
-/// FFT Analyzer for frequency domain analysis
+/// FFT Analyzer for frequency domain analysis using optimized rustfft (O(n log n))
 #[derive(Debug, Clone)]
 pub struct FFTAnalyzer {
     sampling_rate: f32,
@@ -138,25 +140,88 @@ impl FFTAnalyzer {
         Self { sampling_rate }
     }
 
-    /// Perform FFT and extract power spectrum
+    /// Perform FFT and extract power spectrum using rustfft (O(n log n) complexity)
+    ///
+    /// This implementation uses the Cooley-Tukey FFT algorithm via rustfft,
+    /// which is significantly faster than naive DFT for large signals.
+    /// For EEG signals with typical lengths of 512-8192 samples, this provides
+    /// a ~10-100x speedup compared to naive O(n²) DFT.
     pub fn analyze(&self, signal: &[f32]) -> FrequencySpectrum {
         let n = signal.len();
-        let mut power_spectrum = Vec::with_capacity(n / 2);
-
-        // Simplified FFT implementation using DFT
-        for k in 0..n / 2 {
-            let mut real = 0.0;
-            let mut imag = 0.0;
-
-            for (i, &sample) in signal.iter().enumerate() {
-                let angle = 2.0 * PI * (k as f32) * (i as f32) / (n as f32);
-                real += sample * angle.cos();
-                imag -= sample * angle.sin();
-            }
-
-            let magnitude = (real * real + imag * imag).sqrt() / (n as f32);
-            power_spectrum.push(magnitude);
+        if n == 0 {
+            return FrequencySpectrum {
+                spectrum: vec![],
+                sampling_rate: self.sampling_rate,
+            };
         }
+
+        // Create FFT planner (reuses internal buffers for efficiency)
+        let mut planner = FftPlanner::<f32>::new();
+        let fft = planner.plan_fft_forward(n);
+
+        // Convert real signal to complex (imaginary part = 0)
+        let mut buffer: Vec<Complex<f32>> = signal.iter().map(|&x| Complex::new(x, 0.0)).collect();
+
+        // Perform FFT in-place
+        fft.process(&mut buffer);
+
+        // Extract power spectrum (magnitude squared, normalized)
+        // We only need the first half due to Nyquist theorem for real signals
+        let normalization = 1.0 / (n as f32);
+        let power_spectrum: Vec<f32> = buffer
+            .iter()
+            .take(n / 2)
+            .map(|c| c.norm() * normalization)
+            .collect();
+
+        FrequencySpectrum {
+            spectrum: power_spectrum,
+            sampling_rate: self.sampling_rate,
+        }
+    }
+
+    /// Perform FFT with Hann window for improved frequency resolution
+    ///
+    /// The Hann window reduces spectral leakage, which is important for
+    /// accurate EEG band power estimation. This is particularly useful
+    /// for distinguishing closely spaced frequency components in brainwaves.
+    pub fn analyze_windowed(&self, signal: &[f32]) -> FrequencySpectrum {
+        let n = signal.len();
+        if n == 0 {
+            return FrequencySpectrum {
+                spectrum: vec![],
+                sampling_rate: self.sampling_rate,
+            };
+        }
+
+        // Apply Hann window to reduce spectral leakage
+        let windowed: Vec<f32> = signal
+            .iter()
+            .enumerate()
+            .map(|(i, &x)| {
+                let window_coeff = 0.5 * (1.0 - (2.0 * PI * i as f32 / (n - 1) as f32).cos());
+                x * window_coeff
+            })
+            .collect();
+
+        // Create FFT planner
+        let mut planner = FftPlanner::<f32>::new();
+        let fft = planner.plan_fft_forward(n);
+
+        // Convert to complex
+        let mut buffer: Vec<Complex<f32>> =
+            windowed.iter().map(|&x| Complex::new(x, 0.0)).collect();
+
+        // Perform FFT
+        fft.process(&mut buffer);
+
+        // Extract power spectrum with coherent gain compensation for Hann window
+        let normalization = 2.0 / (n as f32); // Factor of 2 for Hann window coherent gain
+        let power_spectrum: Vec<f32> = buffer
+            .iter()
+            .take(n / 2)
+            .map(|c| c.norm() * normalization)
+            .collect();
 
         FrequencySpectrum {
             spectrum: power_spectrum,

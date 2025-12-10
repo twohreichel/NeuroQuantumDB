@@ -2959,6 +2959,7 @@ dependencies = [
  "redis",
  "reqwest",
  "rusqlite",
+ "rustfft",
  "serde",
  "serde_json",
  "sysinfo 0.33.1",
