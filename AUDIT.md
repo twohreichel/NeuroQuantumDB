@@ -22,50 +22,76 @@ NeuroQuantumDB ist ein ambitioniertes Projekt, das neuromorphe Computing-Prinzip
 - Comprehensive Test-Suite vorhanden
 
 **Kritische Lücken:**
-- 25 `#[allow(dead_code)]` Markierungen deuten auf unvollständige Features hin
+- 20 `#[allow(dead_code)]` Markierungen deuten auf unvollständige Features hin (reduziert von 25)
 - ~~ML-KEM Decapsulation ist als Workaround implementiert~~ ✅ **BEHOBEN**
 - Mehrere "Future Features" als Kommentare markiert
 - ~~EEG-Biometrie nutzt vereinfachte FFT-Implementierung~~ ✅ **BEHOBEN** (rustfft O(n log n))
+- ~~Anti-Hebbian Learning nicht aktiv~~ ✅ **BEHOBEN** (Competitive Learning, laterale Inhibition, STDP)
 
 ---
 
 ## 1. Dead Code und Ungenutzte Elemente
 
-### 1.1 neuroquantum-core: Learning Module
+### 1.1 neuroquantum-core: Learning Module ✅ ERLEDIGT
 
 **Datei:** `crates/neuroquantum-core/src/learning.rs`
 
-| Zeile | Element | Problem | Empfehlung |
-|-------|---------|---------|------------|
-| 27 | `decay_rate` | Markiert für Anti-Hebbian Learning | Implementierung der Decay-Mechanismen erforderlich |
-| 29 | `pruning_threshold` | Für Connection Pruning vorgesehen | Integration mit `apply_weakening()` vervollständigen |
-| 31 | `competition_factor` | Für Competitive Learning | Laterale Inhibition implementieren |
-| 72 | `decay_factor` | Future Decay Mechanismen | Synaptic decay als optionale Pipeline integrieren |
-| 76 | `anti_hebbian` | Competitive Learning Features | STDP-basierte Anti-Hebbian-Regeln implementieren |
+**Status:** ✅ **BEHOBEN** (10. Dezember 2025)
 
-**Betroffener Code:**
+**Ursprüngliches Problem:** 
+- `decay_rate`, `pruning_threshold`, `competition_factor` in `AntiHebbianLearning` waren als dead code markiert
+- `decay_factor` und `anti_hebbian` in `HebbianLearningEngine` wurden nicht genutzt
+- Competitive Learning und laterale Inhibition fehlten
+
+**Lösung:**
+- Vollständige Implementierung von `AntiHebbianLearning` mit allen Feldern aktiv genutzt:
+  - **Synaptic Decay**: Exponentieller Gewichtsverfall für ungenutzte Verbindungen
+  - **Winner-Takes-All (WTA)**: k-WTA Competitive Learning mit konfigurierbarer Anzahl von Gewinnern
+  - **Laterale Inhibition**: Gaussian-basierte Inhibition benachbarter Neuronen
+  - **STDP Anti-Hebbian**: Zeitabhängige Abschwächung bei kausaler Verletzung (post vor pre)
+  - **Connection Pruning**: Automatisches Entfernen schwacher Verbindungen unter Threshold
+- Neue Strukturen: `AntiHebbianStats`, `WinnerInfo`, `PlasticityCycleResult`
+- Integration in `HebbianLearningEngine` mit neuen Methoden:
+  - `apply_anti_hebbian_decay()` - Synaptic Decay anwenden
+  - `apply_competitive_learning()` - WTA-Lernen
+  - `apply_lateral_inhibition()` - Laterale Inhibition
+  - `apply_stdp_anti_hebbian()` - STDP-basiertes Anti-Hebbian
+  - `perform_plasticity_cycle()` - Kompletter Plastizitäts-Zyklus
+
+**Neue Implementation (Beispiel):**
 ```rust
-pub struct AntiHebbianLearning {
-    #[allow(dead_code)] // Used in future anti-competitive learning algorithms
-    decay_rate: f32,
-    #[allow(dead_code)] // Used for connection pruning thresholds
-    pruning_threshold: f32,
-    #[allow(dead_code)] // Used in competitive learning mechanisms
-    competition_factor: f32,
+/// Implement Winner-Takes-All (WTA) competitive learning
+pub fn apply_competitive_learning(
+    &mut self,
+    network: &SynapticNetwork,
+    activations: &HashMap<u64, f32>,
+    k_winners: usize,
+) -> CoreResult<Vec<WinnerInfo>> {
+    // Sort neurons by activation (descending)
+    // Select k winners, strengthen their connections
+    // Weaken loser connections
+    // Return winner information
+}
+
+/// Apply lateral inhibition to implement local competition
+pub fn apply_lateral_inhibition(
+    &mut self,
+    network: &SynapticNetwork,
+    active_neuron_id: u64,
+    neighbor_ids: &[u64],
+) -> CoreResult<u64> {
+    // Gaussian-like falloff with distance
+    // Inhibit neighboring neurons proportionally
 }
 ```
 
-**Empfohlene Maßnahme:**
-Implementieren Sie die laterale Inhibition nach dem Winner-Takes-All (WTA) Prinzip:
-```rust
-pub fn apply_competitive_learning(&mut self, network: &SynapticNetwork, winners: &[u64]) -> CoreResult<()> {
-    let losers = network.get_non_winning_neurons(winners);
-    for loser in losers {
-        self.weaken_connections(loser, self.competition_factor)?;
-    }
-    Ok(())
-}
-```
+**Tests:** 17 Tests bestanden, einschließlich:
+- `test_anti_hebbian_creation`
+- `test_synaptic_decay`
+- `test_competitive_learning_wta`
+- `test_lateral_inhibition`
+- `test_anti_hebbian_pruning`
+- `test_plasticity_cycle`
 
 ---
 
@@ -539,7 +565,7 @@ crates/neuroquantum-qsql/tests/
 - [ ] WAL Recovery (implementiert aber nicht vollständig integriert)
 - [ ] Biometric Authentication (vereinfachte Algorithmen)
 - [ ] Natural Language Queries (basic Pattern Matching)
-- [ ] Competitive Learning (Strukturen vorhanden, nicht aktiv)
+- [x] ~~Competitive Learning (Strukturen vorhanden, nicht aktiv)~~ ✅ **BEHOBEN** - Vollständige Anti-Hebbian Implementierung
 
 ### 7.3 Nicht erfüllt 🔴
 
@@ -579,9 +605,15 @@ crates/neuroquantum-qsql/tests/
    - Bilineare Transformation, Zero-Phase-Filterung (filtfilt)
    - Cascaded-Biquad-Implementierung für numerische Stabilität
 
-6. **Anti-Hebbian Learning**
-   - Competitive Learning aktivieren
-   - Estimated: 3-5 Tage
+6. ~~**Anti-Hebbian Learning**~~ ✅ **ERLEDIGT**
+   - ~~Competitive Learning aktivieren~~
+   - Implementiert mit vollständigem Anti-Hebbian Learning:
+     - Synaptic Decay mit konfigurierbarer Rate
+     - Winner-Takes-All (k-WTA) Competitive Learning
+     - Laterale Inhibition mit Gaussian-Falloff
+     - STDP-basiertes Anti-Hebbian für kausale Verletzungen
+     - Connection Pruning unter Threshold
+   - 17 Tests bestanden
 
 ### 8.3 Mittel (Technical Debt)
 
