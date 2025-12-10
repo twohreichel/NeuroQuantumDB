@@ -167,25 +167,196 @@ impl Default for WALConfig {
     }
 }
 
-/// Transaction state tracked by WAL
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-struct TransactionState {
-    tx_id: TransactionId,
-    status: TransactionStatus,
-    first_lsn: LSN,
-    last_lsn: LSN,
-    undo_next_lsn: Option<LSN>,
+/// Transaction state tracked by WAL for ARIES-style recovery
+///
+/// This structure maintains comprehensive transaction state information
+/// required for proper crash recovery, including:
+/// - Transaction boundaries (first/last LSN)
+/// - Undo chain navigation (undo_next_lsn)
+/// - Current transaction status for recovery decisions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionState {
+    /// Unique transaction identifier
+    pub tx_id: TransactionId,
+    /// Current status of the transaction
+    pub status: TransactionStatus,
+    /// LSN of the first log record for this transaction
+    pub first_lsn: LSN,
+    /// LSN of the last log record for this transaction
+    pub last_lsn: LSN,
+    /// Next LSN to undo (for crash recovery undo chain)
+    pub undo_next_lsn: Option<LSN>,
+    /// Timestamp when transaction started
+    pub start_time: chrono::DateTime<chrono::Utc>,
+    /// Number of operations performed by this transaction
+    pub operation_count: u64,
+    /// Pages modified by this transaction (for selective undo)
+    pub modified_pages: Vec<PageId>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-enum TransactionStatus {
+impl TransactionState {
+    /// Create a new transaction state
+    pub fn new(tx_id: TransactionId, first_lsn: LSN) -> Self {
+        Self {
+            tx_id,
+            status: TransactionStatus::Active,
+            first_lsn,
+            last_lsn: first_lsn,
+            undo_next_lsn: None,
+            start_time: chrono::Utc::now(),
+            operation_count: 0,
+            modified_pages: Vec::new(),
+        }
+    }
+
+    /// Check if transaction is in a terminal state
+    pub fn is_terminal(&self) -> bool {
+        matches!(
+            self.status,
+            TransactionStatus::Committed | TransactionStatus::Aborted
+        )
+    }
+
+    /// Check if transaction needs undo during recovery
+    pub fn needs_undo(&self) -> bool {
+        matches!(
+            self.status,
+            TransactionStatus::Active | TransactionStatus::Aborting
+        )
+    }
+
+    /// Check if transaction needs redo during recovery
+    pub fn needs_redo(&self) -> bool {
+        matches!(
+            self.status,
+            TransactionStatus::Committed | TransactionStatus::Committing
+        )
+    }
+
+    /// Update the last LSN and increment operation count
+    pub fn record_operation(&mut self, lsn: LSN, page_id: Option<PageId>) {
+        self.last_lsn = lsn;
+        self.undo_next_lsn = Some(lsn);
+        self.operation_count += 1;
+        if let Some(page) = page_id {
+            if !self.modified_pages.contains(&page) {
+                self.modified_pages.push(page);
+            }
+        }
+    }
+
+    /// Transition to committing state
+    pub fn begin_commit(&mut self) {
+        debug_assert_eq!(self.status, TransactionStatus::Active);
+        self.status = TransactionStatus::Committing;
+    }
+
+    /// Transition to committed state
+    pub fn complete_commit(&mut self, lsn: LSN) {
+        debug_assert_eq!(self.status, TransactionStatus::Committing);
+        self.status = TransactionStatus::Committed;
+        self.last_lsn = lsn;
+    }
+
+    /// Transition to aborting state
+    pub fn begin_abort(&mut self) {
+        debug_assert!(matches!(
+            self.status,
+            TransactionStatus::Active | TransactionStatus::Committing
+        ));
+        self.status = TransactionStatus::Aborting;
+    }
+
+    /// Transition to aborted state
+    pub fn complete_abort(&mut self, lsn: LSN) {
+        debug_assert_eq!(self.status, TransactionStatus::Aborting);
+        self.status = TransactionStatus::Aborted;
+        self.last_lsn = lsn;
+    }
+
+    /// Get transaction duration
+    pub fn duration(&self) -> chrono::Duration {
+        chrono::Utc::now() - self.start_time
+    }
+
+    /// Get transaction summary for monitoring
+    pub fn summary(&self) -> TransactionSummary {
+        TransactionSummary {
+            tx_id: self.tx_id,
+            status: self.status,
+            duration_ms: self.duration().num_milliseconds() as u64,
+            operation_count: self.operation_count,
+            pages_modified: self.modified_pages.len(),
+            lsn_range: (self.first_lsn, self.last_lsn),
+        }
+    }
+}
+
+/// Transaction status for ARIES recovery protocol
+///
+/// Transaction lifecycle:
+/// ```text
+/// Active -> Committing -> Committed
+///       \-> Aborting  -> Aborted
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TransactionStatus {
+    /// Transaction is active and can perform operations
     Active,
+    /// Transaction is in the process of committing (2PC prepare phase)
     Committing,
+    /// Transaction has been successfully committed
     Committed,
+    /// Transaction is in the process of being rolled back
     Aborting,
+    /// Transaction has been rolled back
     Aborted,
+}
+
+impl TransactionStatus {
+    /// Check if this status indicates an active transaction
+    pub fn is_active(&self) -> bool {
+        matches!(self, Self::Active | Self::Committing | Self::Aborting)
+    }
+
+    /// Check if this status indicates a completed transaction
+    pub fn is_complete(&self) -> bool {
+        matches!(self, Self::Committed | Self::Aborted)
+    }
+
+    /// Get human-readable status string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Active => "ACTIVE",
+            Self::Committing => "COMMITTING",
+            Self::Committed => "COMMITTED",
+            Self::Aborting => "ABORTING",
+            Self::Aborted => "ABORTED",
+        }
+    }
+}
+
+impl std::fmt::Display for TransactionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// Summary of transaction state for monitoring and debugging
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionSummary {
+    /// Transaction ID
+    pub tx_id: TransactionId,
+    /// Current status
+    pub status: TransactionStatus,
+    /// Duration in milliseconds
+    pub duration_ms: u64,
+    /// Number of operations
+    pub operation_count: u64,
+    /// Number of pages modified
+    pub pages_modified: usize,
+    /// LSN range (first, last)
+    pub lsn_range: (LSN, LSN),
 }
 
 /// Write-Ahead Log Manager
@@ -270,18 +441,9 @@ impl WALManager {
         // Write to log
         self.append_log_record(record).await?;
 
-        // Track transaction
+        // Track transaction using the new constructor
         let mut active_txns = self.active_txns.write().await;
-        active_txns.insert(
-            tx_id,
-            TransactionState {
-                tx_id,
-                status: TransactionStatus::Active,
-                first_lsn: lsn,
-                last_lsn: lsn,
-                undo_next_lsn: None,
-            },
-        );
+        active_txns.insert(tx_id, TransactionState::new(tx_id, lsn));
 
         let mut tx_table = self.transaction_table.write().await;
         tx_table.insert(tx_id, lsn);
@@ -327,10 +489,10 @@ impl WALManager {
         let mut tx_table = self.transaction_table.write().await;
         tx_table.insert(tx_id, lsn);
 
-        // Update transaction state
+        // Update transaction state using the new record_operation method
         let mut active_txns = self.active_txns.write().await;
         if let Some(tx_state) = active_txns.get_mut(&tx_id) {
-            tx_state.last_lsn = lsn;
+            tx_state.record_operation(lsn, Some(page_id));
         }
 
         // Mark page as dirty
@@ -346,6 +508,14 @@ impl WALManager {
 
     /// Commit a transaction
     pub async fn commit_transaction(&self, tx_id: TransactionId) -> Result<()> {
+        // Begin commit phase - update state first
+        {
+            let mut active_txns = self.active_txns.write().await;
+            if let Some(tx_state) = active_txns.get_mut(&tx_id) {
+                tx_state.begin_commit();
+            }
+        }
+
         let lsn = self.allocate_lsn();
 
         let prev_lsn = {
@@ -359,11 +529,10 @@ impl WALManager {
         self.append_log_record(record).await?;
         self.flush_log().await?;
 
-        // Update transaction state
+        // Complete commit phase - update state with final LSN
         let mut active_txns = self.active_txns.write().await;
         if let Some(tx_state) = active_txns.get_mut(&tx_id) {
-            tx_state.status = TransactionStatus::Committed;
-            tx_state.last_lsn = lsn;
+            tx_state.complete_commit(lsn);
         }
 
         // Remove from transaction table
@@ -376,6 +545,14 @@ impl WALManager {
 
     /// Abort a transaction
     pub async fn abort_transaction(&self, tx_id: TransactionId) -> Result<()> {
+        // Begin abort phase - update state first
+        {
+            let mut active_txns = self.active_txns.write().await;
+            if let Some(tx_state) = active_txns.get_mut(&tx_id) {
+                tx_state.begin_abort();
+            }
+        }
+
         let lsn = self.allocate_lsn();
 
         let prev_lsn = {
@@ -388,11 +565,10 @@ impl WALManager {
         // Write abort record
         self.append_log_record(record).await?;
 
-        // Update transaction state
+        // Complete abort phase - update state with final LSN
         let mut active_txns = self.active_txns.write().await;
         if let Some(tx_state) = active_txns.get_mut(&tx_id) {
-            tx_state.status = TransactionStatus::Aborted;
-            tx_state.last_lsn = lsn;
+            tx_state.complete_abort(lsn);
         }
 
         // Remove from transaction table
@@ -509,6 +685,111 @@ impl WALManager {
     pub async fn get_records_since_lsn(&self, since_lsn: LSN) -> Result<Vec<WALRecord>> {
         self.read_log_records(since_lsn).await
     }
+
+    /// Get transaction state for a specific transaction
+    pub async fn get_transaction_state(&self, tx_id: TransactionId) -> Option<TransactionState> {
+        self.active_txns.read().await.get(&tx_id).cloned()
+    }
+
+    /// Get summaries of all active transactions for monitoring
+    pub async fn get_active_transaction_summaries(&self) -> Vec<TransactionSummary> {
+        self.active_txns
+            .read()
+            .await
+            .values()
+            .map(|state| state.summary())
+            .collect()
+    }
+
+    /// Get count of active transactions by status
+    pub async fn get_transaction_stats(&self) -> TransactionStats {
+        let txns = self.active_txns.read().await;
+        let mut stats = TransactionStats::default();
+
+        for state in txns.values() {
+            match state.status {
+                TransactionStatus::Active => stats.active += 1,
+                TransactionStatus::Committing => stats.committing += 1,
+                TransactionStatus::Committed => stats.committed += 1,
+                TransactionStatus::Aborting => stats.aborting += 1,
+                TransactionStatus::Aborted => stats.aborted += 1,
+            }
+            stats.total_operations += state.operation_count;
+        }
+
+        stats.total_transactions = txns.len();
+        stats
+    }
+
+    /// Check if a transaction is still active
+    pub async fn is_transaction_active(&self, tx_id: TransactionId) -> bool {
+        self.active_txns
+            .read()
+            .await
+            .get(&tx_id)
+            .map(|state| !state.is_terminal())
+            .unwrap_or(false)
+    }
+
+    /// Get transactions that need undo during recovery
+    pub async fn get_transactions_needing_undo(&self) -> Vec<TransactionState> {
+        self.active_txns
+            .read()
+            .await
+            .values()
+            .filter(|state| state.needs_undo())
+            .cloned()
+            .collect()
+    }
+
+    /// Get transactions that need redo during recovery
+    pub async fn get_transactions_needing_redo(&self) -> Vec<TransactionState> {
+        self.active_txns
+            .read()
+            .await
+            .values()
+            .filter(|state| state.needs_redo())
+            .cloned()
+            .collect()
+    }
+
+    /// Get all pages modified by a transaction
+    pub async fn get_modified_pages(&self, tx_id: TransactionId) -> Vec<PageId> {
+        self.active_txns
+            .read()
+            .await
+            .get(&tx_id)
+            .map(|state| state.modified_pages.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get undo chain for a transaction (for selective rollback)
+    pub async fn get_undo_chain(&self, tx_id: TransactionId) -> Option<(LSN, Option<LSN>)> {
+        self.active_txns
+            .read()
+            .await
+            .get(&tx_id)
+            .map(|state| (state.last_lsn, state.undo_next_lsn))
+    }
+}
+
+/// Statistics about transaction states for monitoring
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TransactionStats {
+    /// Total number of tracked transactions
+    pub total_transactions: usize,
+    /// Number of active transactions
+    pub active: usize,
+    /// Number of transactions in committing phase
+    pub committing: usize,
+    /// Number of committed transactions
+    pub committed: usize,
+    /// Number of transactions in aborting phase
+    pub aborting: usize,
+    /// Number of aborted transactions
+    pub aborted: usize,
+    /// Total operations across all transactions
+    pub total_operations: u64,
 }
 
 #[cfg(test)]
@@ -625,5 +906,238 @@ mod tests {
 
         assert_eq!(record.lsn, deserialized.lsn);
         assert!(deserialized.verify_checksum());
+    }
+
+    #[tokio::test]
+    async fn test_transaction_state_new() {
+        let tx_id = Uuid::new_v4();
+        let lsn = 42;
+        let state = TransactionState::new(tx_id, lsn);
+
+        assert_eq!(state.tx_id, tx_id);
+        assert_eq!(state.status, TransactionStatus::Active);
+        assert_eq!(state.first_lsn, lsn);
+        assert_eq!(state.last_lsn, lsn);
+        assert!(state.undo_next_lsn.is_none());
+        assert_eq!(state.operation_count, 0);
+        assert!(state.modified_pages.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_transaction_state_record_operation() {
+        let tx_id = Uuid::new_v4();
+        let mut state = TransactionState::new(tx_id, 1);
+
+        let page1 = PageId(100);
+        let page2 = PageId(200);
+
+        state.record_operation(2, Some(page1));
+        assert_eq!(state.last_lsn, 2);
+        assert_eq!(state.undo_next_lsn, Some(2));
+        assert_eq!(state.operation_count, 1);
+        assert_eq!(state.modified_pages.len(), 1);
+
+        state.record_operation(3, Some(page2));
+        assert_eq!(state.last_lsn, 3);
+        assert_eq!(state.operation_count, 2);
+        assert_eq!(state.modified_pages.len(), 2);
+
+        // Same page shouldn't be added twice
+        state.record_operation(4, Some(page1));
+        assert_eq!(state.modified_pages.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_transaction_state_commit_lifecycle() {
+        let tx_id = Uuid::new_v4();
+        let mut state = TransactionState::new(tx_id, 1);
+
+        assert_eq!(state.status, TransactionStatus::Active);
+        assert!(!state.is_terminal());
+
+        state.begin_commit();
+        assert_eq!(state.status, TransactionStatus::Committing);
+        assert!(!state.is_terminal());
+
+        state.complete_commit(10);
+        assert_eq!(state.status, TransactionStatus::Committed);
+        assert!(state.is_terminal());
+        assert_eq!(state.last_lsn, 10);
+    }
+
+    #[tokio::test]
+    async fn test_transaction_state_abort_lifecycle() {
+        let tx_id = Uuid::new_v4();
+        let mut state = TransactionState::new(tx_id, 1);
+
+        state.begin_abort();
+        assert_eq!(state.status, TransactionStatus::Aborting);
+        assert!(!state.is_terminal());
+
+        state.complete_abort(15);
+        assert_eq!(state.status, TransactionStatus::Aborted);
+        assert!(state.is_terminal());
+        assert_eq!(state.last_lsn, 15);
+    }
+
+    #[tokio::test]
+    async fn test_transaction_state_needs_undo_redo() {
+        let tx_id = Uuid::new_v4();
+
+        // Active needs undo, not redo
+        let active_state = TransactionState::new(tx_id, 1);
+        assert!(active_state.needs_undo());
+        assert!(!active_state.needs_redo());
+
+        // Committed needs redo, not undo
+        let mut committed_state = TransactionState::new(tx_id, 1);
+        committed_state.begin_commit();
+        committed_state.complete_commit(10);
+        assert!(!committed_state.needs_undo());
+        assert!(committed_state.needs_redo());
+
+        // Aborting needs undo
+        let mut aborting_state = TransactionState::new(tx_id, 1);
+        aborting_state.begin_abort();
+        assert!(aborting_state.needs_undo());
+        assert!(!aborting_state.needs_redo());
+    }
+
+    #[tokio::test]
+    async fn test_transaction_state_summary() {
+        let tx_id = Uuid::new_v4();
+        let mut state = TransactionState::new(tx_id, 1);
+        state.record_operation(2, Some(PageId(100)));
+        state.record_operation(3, Some(PageId(200)));
+
+        let summary = state.summary();
+        assert_eq!(summary.tx_id, tx_id);
+        assert_eq!(summary.status, TransactionStatus::Active);
+        assert_eq!(summary.operation_count, 2);
+        assert_eq!(summary.pages_modified, 2);
+        assert_eq!(summary.lsn_range, (1, 3));
+    }
+
+    #[tokio::test]
+    async fn test_transaction_status_display() {
+        assert_eq!(TransactionStatus::Active.as_str(), "ACTIVE");
+        assert_eq!(TransactionStatus::Committing.as_str(), "COMMITTING");
+        assert_eq!(TransactionStatus::Committed.as_str(), "COMMITTED");
+        assert_eq!(TransactionStatus::Aborting.as_str(), "ABORTING");
+        assert_eq!(TransactionStatus::Aborted.as_str(), "ABORTED");
+
+        assert!(TransactionStatus::Active.is_active());
+        assert!(TransactionStatus::Committing.is_active());
+        assert!(!TransactionStatus::Committed.is_active());
+
+        assert!(!TransactionStatus::Active.is_complete());
+        assert!(TransactionStatus::Committed.is_complete());
+        assert!(TransactionStatus::Aborted.is_complete());
+    }
+
+    #[tokio::test]
+    async fn test_wal_manager_get_transaction_state() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        let state = wal.get_transaction_state(tx_id).await;
+        assert!(state.is_some());
+
+        let state = state.unwrap();
+        assert_eq!(state.tx_id, tx_id);
+        assert_eq!(state.status, TransactionStatus::Active);
+    }
+
+    #[tokio::test]
+    async fn test_wal_manager_transaction_stats() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let _tx1 = wal.begin_transaction().await.unwrap();
+        let _tx2 = wal.begin_transaction().await.unwrap();
+
+        let stats = wal.get_transaction_stats().await;
+        assert_eq!(stats.total_transactions, 2);
+        assert_eq!(stats.active, 2);
+        assert_eq!(stats.committing, 0);
+    }
+
+    #[tokio::test]
+    async fn test_wal_manager_is_transaction_active() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+        assert!(wal.is_transaction_active(tx_id).await);
+
+        wal.commit_transaction(tx_id).await.unwrap();
+        // After commit, transaction should be marked as committed but still tracked
+        // until cleanup
+        let state = wal.get_transaction_state(tx_id).await;
+        if let Some(s) = state {
+            assert!(!wal.is_transaction_active(tx_id).await || s.is_terminal());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_wal_manager_modified_pages() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        let page1 = PageId(100);
+        let page2 = PageId(200);
+
+        wal.log_update(tx_id, page1, 0, vec![0; 10], vec![1; 10])
+            .await
+            .unwrap();
+        wal.log_update(tx_id, page2, 0, vec![0; 10], vec![2; 10])
+            .await
+            .unwrap();
+
+        let modified = wal.get_modified_pages(tx_id).await;
+        assert_eq!(modified.len(), 2);
+        assert!(modified.contains(&page1));
+        assert!(modified.contains(&page2));
+    }
+
+    #[tokio::test]
+    async fn test_wal_manager_undo_chain() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        let page_id = PageId(100);
+        let lsn1 = wal
+            .log_update(tx_id, page_id, 0, vec![0; 10], vec![1; 10])
+            .await
+            .unwrap();
+        let lsn2 = wal
+            .log_update(tx_id, page_id, 0, vec![1; 10], vec![2; 10])
+            .await
+            .unwrap();
+
+        let undo_chain = wal.get_undo_chain(tx_id).await;
+        assert!(undo_chain.is_some());
+
+        let (last_lsn, undo_next) = undo_chain.unwrap();
+        assert_eq!(last_lsn, lsn2);
+        assert!(undo_next.is_some());
+        // undo_next should point to the last operation
+        assert!(undo_next.unwrap() >= lsn1);
+    }
+
+    #[tokio::test]
+    async fn test_transaction_state_serialization() {
+        let tx_id = Uuid::new_v4();
+        let mut state = TransactionState::new(tx_id, 1);
+        state.record_operation(2, Some(PageId(100)));
+
+        // Test serialization
+        let serialized = serde_json::to_string(&state).unwrap();
+        let deserialized: TransactionState = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.tx_id, tx_id);
+        assert_eq!(deserialized.status, TransactionStatus::Active);
+        assert_eq!(deserialized.operation_count, 1);
     }
 }

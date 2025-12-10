@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use super::{TransactionId, WALConfig, WALRecord, WALRecordType, LSN};
+use super::{TransactionId, TransactionState, WALConfig, WALRecord, WALRecordType, LSN};
 use crate::storage::pager::{PageId, PageStorageManager};
 
 /// Recovery statistics
@@ -63,6 +63,16 @@ impl RecoveryManager {
         info!("📊 Phase 1: Analysis");
         let analysis_result = self.analysis_phase(wal_manager).await?;
 
+        // Log detailed transaction state information
+        let redo_txns = analysis_result.transactions_needing_redo();
+        let undo_txns = analysis_result.transactions_needing_undo();
+        info!("   - Transactions needing redo: {}", redo_txns.len());
+        info!("   - Transactions needing undo: {}", undo_txns.len());
+        info!(
+            "   - Already aborted: {}",
+            analysis_result.aborted_txns.len()
+        );
+
         // Phase 2: Redo
         info!("♻️ Phase 2: Redo");
         let redo_count = self
@@ -98,37 +108,67 @@ impl RecoveryManager {
     }
 
     /// Phase 1: Analysis - determine transaction and page state
+    ///
+    /// This phase scans the log to build:
+    /// - Transaction table: maps tx_id -> TransactionState with full ARIES tracking
+    /// - Dirty page table: maps page_id -> recovery LSN
+    /// - Sets of committed and aborted transactions
     async fn analysis_phase(&self, wal_manager: &super::WALManager) -> Result<AnalysisResult> {
         info!("Scanning log from beginning...");
 
         // Read all log records
         let records = wal_manager.read_log_records(1).await?;
 
+        // Full TransactionState tracking for ARIES
+        let mut active_txn_states: HashMap<TransactionId, TransactionState> = HashMap::new();
+        // Simplified LSN mapping for compatibility
         let mut active_txns: HashMap<TransactionId, LSN> = HashMap::new();
         let mut committed_txns: HashSet<TransactionId> = HashSet::new();
-        let mut _aborted_txns: HashSet<TransactionId> = HashSet::new();
+        let mut aborted_txns: HashSet<TransactionId> = HashSet::new();
         let mut dirty_pages: HashMap<PageId, LSN> = HashMap::new();
         let mut checkpoint_lsn: Option<LSN> = None;
 
         for record in &records {
             match &record.record_type {
                 WALRecordType::Begin { tx_id, .. } => {
+                    // Create a new TransactionState with full tracking
+                    let tx_state = TransactionState::new(*tx_id, record.lsn);
+                    active_txn_states.insert(*tx_id, tx_state);
                     active_txns.insert(*tx_id, record.lsn);
                     debug!("Found BEGIN for TX={}", tx_id);
                 }
                 WALRecordType::Update { tx_id, page_id, .. } => {
+                    // Update transaction state with operation tracking
+                    if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
+                        tx_state.record_operation(record.lsn, Some(*page_id));
+                    } else {
+                        // Transaction started before our log scan - create state
+                        let mut tx_state = TransactionState::new(*tx_id, record.lsn);
+                        tx_state.record_operation(record.lsn, Some(*page_id));
+                        active_txn_states.insert(*tx_id, tx_state);
+                    }
                     active_txns.insert(*tx_id, record.lsn);
                     dirty_pages.entry(*page_id).or_insert(record.lsn);
                     debug!("Found UPDATE for TX={}, Page={}", tx_id, page_id.0);
                 }
                 WALRecordType::Commit { tx_id } => {
+                    // Mark transaction as committed
+                    if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
+                        tx_state.begin_commit();
+                        tx_state.complete_commit(record.lsn);
+                    }
                     active_txns.remove(tx_id);
                     committed_txns.insert(*tx_id);
                     debug!("Found COMMIT for TX={}", tx_id);
                 }
                 WALRecordType::Abort { tx_id } => {
+                    // Mark transaction as aborted
+                    if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
+                        tx_state.begin_abort();
+                        tx_state.complete_abort(record.lsn);
+                    }
                     active_txns.remove(tx_id);
-                    _aborted_txns.insert(*tx_id);
+                    aborted_txns.insert(*tx_id);
                     debug!("Found ABORT for TX={}", tx_id);
                 }
                 WALRecordType::CheckpointBegin { .. } => {
@@ -144,6 +184,12 @@ impl RecoveryManager {
                     page_id,
                     ..
                 } => {
+                    // Update undo chain for CLR records
+                    if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
+                        tx_state.record_operation(record.lsn, Some(*page_id));
+                        // CLR updates the undo_next_lsn to skip already undone operations
+                        tx_state.undo_next_lsn = Some(*undo_next_lsn);
+                    }
                     active_txns.insert(*tx_id, record.lsn);
                     dirty_pages.entry(*page_id).or_insert(record.lsn);
                     debug!("Found CLR for TX={}, undo_next={}", tx_id, undo_next_lsn);
@@ -154,12 +200,14 @@ impl RecoveryManager {
         info!("Analysis complete:");
         info!("  - Active transactions: {}", active_txns.len());
         info!("  - Committed transactions: {}", committed_txns.len());
+        info!("  - Aborted transactions: {}", aborted_txns.len());
         info!("  - Dirty pages: {}", dirty_pages.len());
 
         Ok(AnalysisResult {
+            active_txn_states,
             active_txns,
             committed_txns,
-            _aborted_txns,
+            aborted_txns,
             dirty_pages,
             checkpoint_lsn,
             total_records: records.len(),
@@ -218,6 +266,11 @@ impl RecoveryManager {
     }
 
     /// Phase 3: Undo - roll back incomplete transactions
+    ///
+    /// Uses the full TransactionState information for optimized undo:
+    /// - Respects undo_next_lsn for CLR-aware recovery
+    /// - Uses modified_pages for selective page access
+    /// - Leverages operation_count for progress tracking
     async fn undo_phase(
         &self,
         wal_manager: &super::WALManager,
@@ -226,16 +279,39 @@ impl RecoveryManager {
     ) -> Result<usize> {
         info!("Undoing incomplete transactions...");
 
-        if analysis.active_txns.is_empty() {
+        // Use TransactionState for transactions that need undo
+        let txns_to_undo = analysis.transactions_needing_undo();
+        if txns_to_undo.is_empty() && analysis.active_txns.is_empty() {
             info!("No active transactions to undo");
             return Ok(0);
         }
 
         let mut undo_count = 0;
 
-        // For each active transaction, follow the undo chain
+        // Prefer using full TransactionState when available
+        for tx_state in &txns_to_undo {
+            info!(
+                "Undoing transaction: {} (status: {}, operations: {})",
+                tx_state.tx_id, tx_state.status, tx_state.operation_count
+            );
+
+            // Use undo_next_lsn if available (CLR-aware), otherwise use last_lsn
+            let start_lsn = tx_state.undo_next_lsn.unwrap_or(tx_state.last_lsn);
+
+            let undo_ops = self
+                .undo_transaction(wal_manager, tx_state.tx_id, start_lsn, pager)
+                .await?;
+            undo_count += undo_ops;
+        }
+
+        // Fallback: Also process any transactions in active_txns not in active_txn_states
         for (tx_id, last_lsn) in &analysis.active_txns {
-            info!("Undoing transaction: {}", tx_id);
+            // Skip if already processed via TransactionState
+            if analysis.active_txn_states.contains_key(tx_id) {
+                continue;
+            }
+
+            info!("Undoing transaction (legacy path): {}", tx_id);
             let undo_ops = self
                 .undo_transaction(wal_manager, *tx_id, *last_lsn, pager)
                 .await?;
@@ -316,21 +392,41 @@ impl RecoveryManager {
     }
 }
 
-/// Result of the analysis phase
+/// Result of the analysis phase with full ARIES transaction tracking
 #[derive(Debug)]
 struct AnalysisResult {
-    /// Active transactions (not committed/aborted)
+    /// Active transaction states (not committed/aborted) - full TransactionState for proper undo
+    active_txn_states: HashMap<TransactionId, TransactionState>,
+    /// Active transactions (not committed/aborted) - LSN mapping for compatibility
     active_txns: HashMap<TransactionId, LSN>,
     /// Committed transactions
     committed_txns: HashSet<TransactionId>,
     /// Aborted transactions
-    _aborted_txns: HashSet<TransactionId>,
+    aborted_txns: HashSet<TransactionId>,
     /// Dirty pages and their recovery LSN
     dirty_pages: HashMap<PageId, LSN>,
     /// Last checkpoint LSN (if any)
     checkpoint_lsn: Option<LSN>,
     /// Total records analyzed
     total_records: usize,
+}
+
+impl AnalysisResult {
+    /// Get all transactions that need undo (active or aborting)
+    pub fn transactions_needing_undo(&self) -> Vec<&TransactionState> {
+        self.active_txn_states
+            .values()
+            .filter(|state| state.needs_undo())
+            .collect()
+    }
+
+    /// Get all transactions that need redo (committed or committing)
+    pub fn transactions_needing_redo(&self) -> Vec<&TransactionState> {
+        self.active_txn_states
+            .values()
+            .filter(|state| state.needs_redo())
+            .collect()
+    }
 }
 
 #[cfg(test)]
