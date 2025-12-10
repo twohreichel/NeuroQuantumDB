@@ -798,10 +798,11 @@ use neuroquantum_core::storage::{...};
 | Feature | Status | Bewertung |
 |---------|--------|-----------|
 | AES-256-GCM | ✅ Implementiert | Gut |
-| ML-KEM (Kyber) | 🟡 Workaround | Kritisch |
+| ML-KEM (Kyber) | ✅ Implementiert | Gut (RustCrypto ml-kem v0.2.1) |
 | ML-DSA (Dilithium) | ✅ Implementiert | Gut |
 | Argon2 Password Hashing | ✅ Implementiert | Gut |
 | JWT Authentication | ✅ Implementiert | Gut |
+| OS Keychain Integration | ✅ Implementiert | Gut (keyring v3) |
 
 ### 5.2 Input Validation
 
@@ -879,14 +880,14 @@ crates/neuroquantum-qsql/tests/
 ### 7.2 Teilweise erfüllt 🟡
 
 - [x] ~~WAL Recovery (implementiert aber nicht vollständig integriert)~~ ✅ **BEHOBEN** - Vollständige ARIES-Integration
-- [ ] Biometric Authentication (vereinfachte Algorithmen)
+- [x] ~~Biometric Authentication (vereinfachte Algorithmen)~~ ✅ **BEHOBEN** - Vollständige Butterworth-Filter und rustfft-Integration
 - [ ] Natural Language Queries (basic Pattern Matching)
 - [x] ~~Competitive Learning (Strukturen vorhanden, nicht aktiv)~~ ✅ **BEHOBEN** - Vollständige Anti-Hebbian Implementierung
 
 ### 7.3 Nicht erfüllt 🔴
 
 - [x] ~~ML-KEM Decapsulation (Workaround)~~ ✅ **BEHOBEN** - Wechsel zu RustCrypto ml-kem
-- [ ] HSM/Keychain Integration
+- [x] ~~HSM/Keychain Integration~~ ✅ **BEHOBEN** - Vollständige OS-Keychain-Integration (siehe 8.1 Punkt 3)
 - [ ] Multi-Node Clustering (in `future-todos.md`)
 - [ ] Real-time Replication
 - [ ] Automated Failover
