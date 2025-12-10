@@ -942,12 +942,25 @@ impl StorageEngine {
     }
 
     /// Decompress row data from DNA compression
-    #[allow(dead_code)]
-    async fn decompress_row(&mut self, encoded: &EncodedData) -> Result<Row> {
+    ///
+    /// This method provides async decompression of DNA-compressed row data,
+    /// supporting both modern bincode and legacy JSON formats for backwards
+    /// compatibility with older data files.
+    async fn decompress_row(&self, encoded: &EncodedData) -> Result<Row> {
         let decompressed = self.dna_compressor.decompress(encoded).await?;
-        let row: Row = bincode::deserialize(&decompressed)
-            .map_err(|e| anyhow!("Failed to deserialize row: {}", e))?;
-        Ok(row)
+
+        // Try bincode first (modern format), fall back to JSON (legacy format)
+        if let Ok(row) = bincode::deserialize::<Row>(&decompressed) {
+            return Ok(row);
+        }
+
+        // Fall back to JSON for legacy compatibility
+        serde_json::from_slice::<Row>(&decompressed).map_err(|e| {
+            anyhow!(
+                "Failed to deserialize row with both bincode and JSON: {}",
+                e
+            )
+        })
     }
 
     /// Update indexes for inserted row
@@ -1208,19 +1221,10 @@ impl StorageEngine {
                         entry.compressed_data
                     };
 
-                    // Decompress the row data
-                    let compressor = self.dna_compressor.clone();
-                    match compressor.decompress(&compressed_data).await {
-                        Ok(decompressed) => {
-                            // Try bincode first (new format), then JSON (legacy format)
-                            if let Ok(row) = bincode::deserialize::<Row>(&decompressed) {
-                                rows.push(row);
-                            } else if let Ok(row) = serde_json::from_slice::<Row>(&decompressed) {
-                                rows.push(row);
-                            } else {
-                                debug!("Failed to deserialize decompressed row with both bincode and JSON");
-                                continue;
-                            }
+                    // Decompress the row data using the async decompress_row method
+                    match self.decompress_row(&compressed_data).await {
+                        Ok(row) => {
+                            rows.push(row);
                         }
                         Err(e) => {
                             debug!("Failed to decompress row: {}", e);
