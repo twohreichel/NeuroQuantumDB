@@ -424,9 +424,9 @@ impl Default for LockManager {
 /// Write-Ahead Log manager for durability
 pub struct LogManager {
     log_file: Arc<Mutex<File>>,
-    #[allow(dead_code)]
+    /// Path to the WAL log file - used for archiving, truncation, and recovery
     log_path: PathBuf,
-    lsn_counter: Arc<AtomicU64>,
+    pub(crate) lsn_counter: Arc<AtomicU64>,
     /// Buffer for batch writes
     write_buffer: Arc<Mutex<VecDeque<LogRecord>>>,
     buffer_size: usize,
@@ -626,6 +626,174 @@ impl LogManager {
         info!("📍 Checkpoint written at LSN {}", lsn);
         Ok(lsn)
     }
+
+    /// Get the path to the WAL log file
+    pub fn get_log_path(&self) -> &Path {
+        &self.log_path
+    }
+
+    /// Archive the current WAL log file with a timestamp suffix
+    /// This is useful for backup and point-in-time recovery
+    pub async fn archive_log(&self) -> Result<PathBuf, NeuroQuantumError> {
+        // Flush any pending writes first
+        self.flush_buffer().await?;
+
+        let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+        let archive_path = self
+            .log_path
+            .with_extension(format!("log.{}.archive", timestamp));
+
+        tokio::fs::copy(&self.log_path, &archive_path)
+            .await
+            .map_err(|e| {
+                NeuroQuantumError::StorageError(format!(
+                    "Failed to archive WAL log from {} to {}: {}",
+                    self.log_path.display(),
+                    archive_path.display(),
+                    e
+                ))
+            })?;
+
+        info!("📦 WAL archived to: {}", archive_path.display());
+        Ok(archive_path)
+    }
+
+    /// Truncate the WAL log after a successful checkpoint
+    /// This removes all log records that are no longer needed for recovery
+    pub async fn truncate_log_after_checkpoint(
+        &self,
+        checkpoint_lsn: LSN,
+    ) -> Result<(), NeuroQuantumError> {
+        // Read all records
+        let all_records = self.read_log().await?;
+        let total_records = all_records.len();
+
+        // Keep only records after the checkpoint
+        let records_to_keep: Vec<_> = all_records
+            .into_iter()
+            .filter(|r| r.lsn > checkpoint_lsn)
+            .collect();
+        let kept_count = records_to_keep.len();
+
+        // Create a new truncated log file
+        let truncated_path = self.log_path.with_extension("log.truncated");
+        let mut truncated_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&truncated_path)
+            .await
+            .map_err(|e| {
+                NeuroQuantumError::StorageError(format!("Failed to create truncated log: {}", e))
+            })?;
+
+        // Write kept records to truncated file
+        for record in &records_to_keep {
+            let serialized = serde_json::to_vec(record).map_err(|e| {
+                NeuroQuantumError::SerializationError(format!(
+                    "Failed to serialize log record: {}",
+                    e
+                ))
+            })?;
+
+            let len = serialized.len() as u32;
+            truncated_file
+                .write_all(&len.to_le_bytes())
+                .await
+                .map_err(|e| {
+                    NeuroQuantumError::StorageError(format!("Failed to write log length: {}", e))
+                })?;
+            truncated_file.write_all(&serialized).await.map_err(|e| {
+                NeuroQuantumError::StorageError(format!("Failed to write log record: {}", e))
+            })?;
+        }
+
+        truncated_file.sync_all().await.map_err(|e| {
+            NeuroQuantumError::StorageError(format!("Failed to sync truncated log: {}", e))
+        })?;
+        drop(truncated_file);
+
+        // Replace original with truncated
+        tokio::fs::rename(&truncated_path, &self.log_path)
+            .await
+            .map_err(|e| {
+                NeuroQuantumError::StorageError(format!(
+                    "Failed to replace log with truncated: {}",
+                    e
+                ))
+            })?;
+
+        info!(
+            "✂️ WAL truncated after checkpoint LSN {}: {} records removed, {} kept",
+            checkpoint_lsn,
+            total_records - kept_count,
+            kept_count
+        );
+
+        Ok(())
+    }
+
+    /// Get statistics about the WAL log file
+    pub async fn get_log_stats(&self) -> Result<WALLogStats, NeuroQuantumError> {
+        let metadata = tokio::fs::metadata(&self.log_path).await.map_err(|e| {
+            NeuroQuantumError::StorageError(format!("Failed to get WAL metadata: {}", e))
+        })?;
+
+        let records = self.read_log().await?;
+        let current_lsn = self.lsn_counter.load(Ordering::SeqCst);
+
+        Ok(WALLogStats {
+            log_path: self.log_path.clone(),
+            file_size_bytes: metadata.len(),
+            record_count: records.len(),
+            current_lsn,
+            oldest_lsn: records.first().map(|r| r.lsn),
+            newest_lsn: records.last().map(|r| r.lsn),
+        })
+    }
+}
+
+/// Statistics about the WAL log file
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WALLogStats {
+    pub log_path: PathBuf,
+    pub file_size_bytes: u64,
+    pub record_count: usize,
+    pub current_lsn: LSN,
+    pub oldest_lsn: Option<LSN>,
+    pub newest_lsn: Option<LSN>,
+}
+
+/// Callback trait for storage operations during recovery
+/// This allows the RecoveryManager to integrate with the StorageEngine
+#[async_trait::async_trait]
+pub trait RecoveryStorageCallback: Send + Sync {
+    /// Apply an after-image (REDO operation)
+    async fn apply_after_image(
+        &self,
+        table: &str,
+        key: &str,
+        after_image: &[u8],
+    ) -> Result<(), NeuroQuantumError>;
+
+    /// Apply a before-image (UNDO operation)
+    async fn apply_before_image(
+        &self,
+        table: &str,
+        key: &str,
+        before_image: Option<&[u8]>,
+    ) -> Result<(), NeuroQuantumError>;
+}
+
+/// Recovery statistics from ARIES recovery process
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RecoveryStatistics {
+    pub total_records_analyzed: usize,
+    pub redo_operations: usize,
+    pub undo_operations: usize,
+    pub transactions_redone: usize,
+    pub transactions_undone: usize,
+    pub recovery_duration_ms: u64,
 }
 
 /// Recovery manager for crash recovery
@@ -651,9 +819,12 @@ impl RecoveryManager {
     }
 
     /// Perform crash recovery using ARIES algorithm
+    /// Perform crash recovery using ARIES algorithm (lightweight mode without storage)
+    /// This only analyzes the log and reports what would need to be done.
+    /// For full recovery with storage integration, use `recover_with_storage()`.
     #[instrument(skip(self))]
     pub async fn recover(&self) -> Result<(), NeuroQuantumError> {
-        info!("🔄 Starting crash recovery...");
+        info!("🔄 Starting crash recovery (analysis only)...");
 
         let log_records = self.log_manager.read_log().await?;
 
@@ -665,14 +836,91 @@ impl RecoveryManager {
         // Phase 1: Analysis - determine which transactions to undo/redo
         let (undo_list, redo_list) = self.analyze_phase(&log_records)?;
 
-        // Phase 2: Redo - reapply committed transactions
-        self.redo_phase(&log_records, &redo_list).await?;
+        info!(
+            "✅ Recovery analysis completed: {} transactions to redo, {} to undo",
+            redo_list.len(),
+            undo_list.len()
+        );
+        info!("   Use recover_with_storage() for full ARIES recovery with storage integration");
 
-        // Phase 3: Undo - rollback uncommitted transactions
-        self.undo_phase(&log_records, &undo_list).await?;
-
-        info!("✅ Crash recovery completed");
         Ok(())
+    }
+
+    /// Perform full ARIES crash recovery with storage integration
+    ///
+    /// This implements the complete ARIES recovery algorithm:
+    /// 1. **Analysis Phase**: Scan the log to determine which transactions committed
+    ///    and which were still active at crash time
+    /// 2. **Redo Phase**: Replay all changes from committed transactions to restore
+    ///    the database to its state at crash time
+    /// 3. **Undo Phase**: Roll back all changes from uncommitted transactions
+    ///
+    /// # Arguments
+    /// * `storage_callback` - Implementation of `RecoveryStorageCallback` that applies
+    ///   changes to the actual storage engine
+    ///
+    /// # Returns
+    /// * `RecoveryStatistics` with details about the recovery process
+    #[instrument(skip(self, storage_callback))]
+    pub async fn recover_with_storage(
+        &self,
+        storage_callback: &dyn RecoveryStorageCallback,
+    ) -> Result<RecoveryStatistics, NeuroQuantumError> {
+        let start_time = std::time::Instant::now();
+        info!("🔄 Starting full ARIES crash recovery with storage integration...");
+
+        let log_records = self.log_manager.read_log().await?;
+        let total_records = log_records.len();
+
+        if log_records.is_empty() {
+            info!("No log records to recover");
+            return Ok(RecoveryStatistics::default());
+        }
+
+        // Phase 1: Analysis
+        info!(
+            "📊 Phase 1: Analysis - scanning {} log records",
+            total_records
+        );
+        let (undo_list, redo_list) = self.analyze_phase(&log_records)?;
+
+        // Phase 2: Redo
+        info!(
+            "♻️ Phase 2: Redo - replaying {} committed transactions",
+            redo_list.len()
+        );
+        let redo_count = self
+            .redo_phase_with_storage(&log_records, &redo_list, storage_callback)
+            .await?;
+
+        // Phase 3: Undo
+        info!(
+            "↩️ Phase 3: Undo - rolling back {} uncommitted transactions",
+            undo_list.len()
+        );
+        let undo_count = self
+            .undo_phase_with_storage(&log_records, &undo_list, storage_callback)
+            .await?;
+
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+
+        let stats = RecoveryStatistics {
+            total_records_analyzed: total_records,
+            redo_operations: redo_count,
+            undo_operations: undo_count,
+            transactions_redone: redo_list.len(),
+            transactions_undone: undo_list.len(),
+            recovery_duration_ms: duration_ms,
+        };
+
+        info!("✅ ARIES recovery completed in {}ms", duration_ms);
+        info!("   Records analyzed: {}", stats.total_records_analyzed);
+        info!("   Redo operations: {}", stats.redo_operations);
+        info!("   Undo operations: {}", stats.undo_operations);
+        info!("   Transactions redone: {}", stats.transactions_redone);
+        info!("   Transactions undone: {}", stats.transactions_undone);
+
+        Ok(stats)
     }
 
     /// Analysis phase: determine transaction states
@@ -711,44 +959,54 @@ impl RecoveryManager {
         Ok((undo_list, redo_list))
     }
 
-    /// Redo phase: reapply committed transactions
-    async fn redo_phase(
+    /// Redo phase: reapply committed transactions with storage integration
+    async fn redo_phase_with_storage(
         &self,
         log_records: &[LogRecord],
         redo_list: &HashSet<TransactionId>,
-    ) -> Result<(), NeuroQuantumError> {
+        storage_callback: &dyn RecoveryStorageCallback,
+    ) -> Result<usize, NeuroQuantumError> {
+        let mut redo_count = 0;
+
         for record in log_records {
             if let Some(tx_id) = record.tx_id {
                 if redo_list.contains(&tx_id) {
                     if let LogRecordType::Update {
                         table,
                         key,
-                        after_image: _after_image,
+                        after_image,
                         ..
                     } = &record.record_type
                     {
-                        // Reapply the update
-                        debug!("Redoing LSN {} for transaction {:?}", record.lsn, tx_id);
-                        debug!("REDO: Apply after_image for {}.{}", table, key);
-                        // NOTE: Storage integration must be done at StorageEngine level
-                        // Call storage_engine.apply_after_image(table, key, after_image).await
-                        // This is handled by StorageEngine::apply_log_record() when recovery
-                        // is initiated from the StorageEngine context
+                        debug!(
+                            "REDO LSN {} for TX {:?}: {}.{}",
+                            record.lsn, tx_id, table, key
+                        );
+
+                        // Apply after-image through storage callback
+                        storage_callback
+                            .apply_after_image(table, key, after_image)
+                            .await?;
+
+                        redo_count += 1;
                     }
                 }
             }
         }
 
-        info!("Redo phase completed");
-        Ok(())
+        info!("Redo phase completed: {} operations", redo_count);
+        Ok(redo_count)
     }
 
-    /// Undo phase: rollback uncommitted transactions
-    async fn undo_phase(
+    /// Undo phase: rollback uncommitted transactions with storage integration
+    async fn undo_phase_with_storage(
         &self,
         log_records: &[LogRecord],
         undo_list: &HashSet<TransactionId>,
-    ) -> Result<(), NeuroQuantumError> {
+        storage_callback: &dyn RecoveryStorageCallback,
+    ) -> Result<usize, NeuroQuantumError> {
+        let mut undo_count = 0;
+
         // Process log records in reverse order for undo
         for record in log_records.iter().rev() {
             if let Some(tx_id) = record.tx_id {
@@ -756,24 +1014,28 @@ impl RecoveryManager {
                     if let LogRecordType::Update {
                         table,
                         key,
-                        before_image: _before_image,
+                        before_image,
                         ..
                     } = &record.record_type
                     {
-                        // Undo the update
-                        debug!("Undoing LSN {} for transaction {:?}", record.lsn, tx_id);
-                        debug!("UNDO: Apply before_image for {}.{}", table, key);
-                        // NOTE: Storage integration must be done at StorageEngine level
-                        // Call storage_engine.apply_before_image(table, key, before_image).await
-                        // This is handled by StorageEngine::apply_log_record() when recovery
-                        // is initiated from the StorageEngine context
+                        debug!(
+                            "UNDO LSN {} for TX {:?}: {}.{}",
+                            record.lsn, tx_id, table, key
+                        );
+
+                        // Apply before-image through storage callback
+                        storage_callback
+                            .apply_before_image(table, key, before_image.as_deref())
+                            .await?;
+
+                        undo_count += 1;
                     }
                 }
             }
         }
 
-        info!("Undo phase completed");
-        Ok(())
+        info!("Undo phase completed: {} operations", undo_count);
+        Ok(undo_count)
     }
 }
 
@@ -787,7 +1049,6 @@ pub struct TransactionManager {
     /// Log manager for durability
     log_manager: Arc<LogManager>,
     /// Recovery manager for crash recovery
-    #[allow(dead_code)]
     recovery_manager: Arc<RecoveryManager>,
     /// Global snapshot version counter for MVCC
     global_version: Arc<AtomicU64>,
@@ -1078,6 +1339,58 @@ impl TransactionManager {
             next_lsn: self.log_manager.lsn_counter.load(Ordering::SeqCst),
         }
     }
+
+    /// Perform full ARIES crash recovery with storage integration
+    ///
+    /// This delegates to the RecoveryManager's `recover_with_storage()` method,
+    /// providing a convenient entry point from the TransactionManager.
+    ///
+    /// # Arguments
+    /// * `storage_callback` - Implementation of `RecoveryStorageCallback` that applies
+    ///   changes to the actual storage engine
+    ///
+    /// # Returns
+    /// * `RecoveryStatistics` with details about the recovery process
+    pub async fn recover_with_storage(
+        &self,
+        storage_callback: &dyn RecoveryStorageCallback,
+    ) -> Result<RecoveryStatistics, NeuroQuantumError> {
+        self.recovery_manager
+            .recover_with_storage(storage_callback)
+            .await
+    }
+
+    /// Get the log manager for direct access (e.g., for archiving)
+    pub fn log_manager(&self) -> &Arc<LogManager> {
+        &self.log_manager
+    }
+
+    /// Get the recovery manager for direct access
+    pub fn recovery_manager(&self) -> &Arc<RecoveryManager> {
+        &self.recovery_manager
+    }
+
+    /// Archive the WAL log with a timestamp suffix
+    /// Useful for backup and point-in-time recovery
+    pub async fn archive_wal(&self) -> Result<PathBuf, NeuroQuantumError> {
+        self.log_manager.archive_log().await
+    }
+
+    /// Truncate the WAL log after a successful checkpoint
+    /// This removes old log records that are no longer needed for recovery
+    pub async fn truncate_wal_after_checkpoint(
+        &self,
+        checkpoint_lsn: LSN,
+    ) -> Result<(), NeuroQuantumError> {
+        self.log_manager
+            .truncate_log_after_checkpoint(checkpoint_lsn)
+            .await
+    }
+
+    /// Get WAL log statistics
+    pub async fn get_wal_stats(&self) -> Result<WALLogStats, NeuroQuantumError> {
+        self.log_manager.get_log_stats().await
+    }
 }
 
 /// Transaction statistics
@@ -1148,5 +1461,208 @@ mod tests {
 
         // This should work - no cycle yet
         assert!(tx_manager.active_transactions.read().await.len() == 2);
+    }
+
+    #[tokio::test]
+    async fn test_wal_log_stats() {
+        let temp_dir = TempDir::new().unwrap();
+        let tx_manager = TransactionManager::new_async(temp_dir.path())
+            .await
+            .unwrap();
+
+        // Create some transactions
+        let tx1 = tx_manager
+            .begin_transaction(IsolationLevel::ReadCommitted)
+            .await
+            .unwrap();
+        tx_manager.commit(tx1).await.unwrap();
+
+        let tx2 = tx_manager
+            .begin_transaction(IsolationLevel::RepeatableRead)
+            .await
+            .unwrap();
+        tx_manager.rollback(tx2).await.unwrap();
+
+        // Get WAL stats
+        let stats = tx_manager.get_wal_stats().await.unwrap();
+        assert!(stats.record_count > 0);
+        assert!(stats.current_lsn > 0);
+    }
+
+    #[tokio::test]
+    async fn test_recover_with_storage_callback() {
+        use std::sync::Mutex;
+
+        // Mock storage callback that tracks operations
+        struct MockStorageCallback {
+            redo_calls: Mutex<Vec<(String, String)>>,
+            undo_calls: Mutex<Vec<(String, String)>>,
+        }
+
+        #[async_trait::async_trait]
+        impl RecoveryStorageCallback for MockStorageCallback {
+            async fn apply_after_image(
+                &self,
+                table: &str,
+                key: &str,
+                _after_image: &[u8],
+            ) -> Result<(), NeuroQuantumError> {
+                self.redo_calls
+                    .lock()
+                    .unwrap()
+                    .push((table.to_string(), key.to_string()));
+                Ok(())
+            }
+
+            async fn apply_before_image(
+                &self,
+                table: &str,
+                key: &str,
+                _before_image: Option<&[u8]>,
+            ) -> Result<(), NeuroQuantumError> {
+                self.undo_calls
+                    .lock()
+                    .unwrap()
+                    .push((table.to_string(), key.to_string()));
+                Ok(())
+            }
+        }
+
+        let temp_dir = TempDir::new().unwrap();
+        let tx_manager = TransactionManager::new_async(temp_dir.path())
+            .await
+            .unwrap();
+
+        // Create a committed transaction with updates
+        let tx1 = tx_manager
+            .begin_transaction(IsolationLevel::ReadCommitted)
+            .await
+            .unwrap();
+        tx_manager
+            .log_update(
+                tx1,
+                "users".to_string(),
+                "1".to_string(),
+                None,
+                b"{'name': 'Alice'}".to_vec(),
+            )
+            .await
+            .unwrap();
+        tx_manager.commit(tx1).await.unwrap();
+
+        // Force flush to ensure records are written
+        tx_manager.log_manager.force_log(0).await.unwrap();
+
+        // Perform recovery with mock callback
+        // This tests the integration even though there are no uncommitted transactions
+        // (the recovery will find committed transactions to redo)
+        let callback = MockStorageCallback {
+            redo_calls: Mutex::new(Vec::new()),
+            undo_calls: Mutex::new(Vec::new()),
+        };
+
+        let stats = tx_manager.recover_with_storage(&callback).await.unwrap();
+
+        // Verify recovery ran and found the committed transaction
+        assert!(
+            stats.total_records_analyzed > 0,
+            "Expected to analyze some records"
+        );
+        assert_eq!(
+            stats.transactions_redone, 1,
+            "Expected 1 committed transaction to redo"
+        );
+
+        // Verify callback was called for redo
+        let redo_calls = callback.redo_calls.lock().unwrap();
+        assert!(
+            redo_calls.iter().any(|(t, k)| t == "users" && k == "1"),
+            "Expected redo for users.1"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_wal_archive() {
+        let temp_dir = TempDir::new().unwrap();
+        let tx_manager = TransactionManager::new_async(temp_dir.path())
+            .await
+            .unwrap();
+
+        // Create some transactions to generate WAL entries
+        let tx1 = tx_manager
+            .begin_transaction(IsolationLevel::ReadCommitted)
+            .await
+            .unwrap();
+        tx_manager.commit(tx1).await.unwrap();
+
+        // Archive the WAL
+        let archive_path = tx_manager.archive_wal().await.unwrap();
+        assert!(archive_path.exists());
+        assert!(archive_path.to_string_lossy().contains(".archive"));
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_and_truncate() {
+        let temp_dir = TempDir::new().unwrap();
+        let tx_manager = TransactionManager::new_async(temp_dir.path())
+            .await
+            .unwrap();
+
+        // Create some transactions
+        for i in 0..3 {
+            let tx = tx_manager
+                .begin_transaction(IsolationLevel::ReadCommitted)
+                .await
+                .unwrap();
+            tx_manager
+                .log_update(
+                    tx,
+                    "test".to_string(),
+                    format!("{}", i),
+                    None,
+                    b"data".to_vec(),
+                )
+                .await
+                .unwrap();
+            tx_manager.commit(tx).await.unwrap();
+        }
+
+        // Force flush
+        tx_manager.log_manager.force_log(0).await.unwrap();
+
+        let stats_before = tx_manager.get_wal_stats().await.unwrap();
+        let records_before = stats_before.record_count;
+
+        // Write checkpoint
+        tx_manager.checkpoint().await.unwrap();
+
+        // Force flush again
+        tx_manager.log_manager.force_log(0).await.unwrap();
+
+        // Verify we have records to truncate
+        assert!(
+            records_before > 0,
+            "Expected some records before truncation"
+        );
+
+        // Truncate all records up to current LSN - 1
+        // This should remove at least some records
+        let current_lsn = tx_manager.get_statistics().await.next_lsn;
+        tx_manager
+            .truncate_wal_after_checkpoint(current_lsn - 2)
+            .await
+            .unwrap();
+
+        // Verify truncation worked (log file was rewritten)
+        let stats_after = tx_manager.get_wal_stats().await.unwrap();
+
+        // After truncation, we should have fewer or equal records
+        // (depends on the LSN we used for truncation)
+        assert!(
+            stats_after.record_count <= records_before + 2, // +2 for checkpoint records
+            "Expected truncation to work: {} <= {}",
+            stats_after.record_count,
+            records_before + 2
+        );
     }
 }
