@@ -70,7 +70,9 @@ prometheus = { version = "0.14", features = ["process"] }
 axum = "0.7"
 
 # Post-quantum cryptography and security
-pqcrypto-mlkem = "0.1"
+# ML-KEM (Kyber): Using RustCrypto implementation for proper serialization support
+ml-kem = "0.2"
+# ML-DSA (Dilithium): Using pqcrypto for digital signatures
 pqcrypto-mldsa = "0.1"
 pqcrypto-traits = "0.3"
 sha3 = "0.10"

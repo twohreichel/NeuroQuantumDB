@@ -9,13 +9,14 @@ use aes_gcm::{
 };
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use ml_kem::{kem::Encapsulate, Encoded, EncodedSizeUser, KemCore, MlKem1024};
 use num_complex::Complex;
 use pqcrypto_mldsa::mldsa87;
-use pqcrypto_mlkem::mlkem1024;
-use pqcrypto_traits::kem::{
-    Ciphertext, PublicKey as KemPublicKey, SecretKey as KemSecretKey, SharedSecret,
-};
 use pqcrypto_traits::sign::{PublicKey as SigPublicKey, SecretKey as SigSecretKey, SignedMessage};
+
+/// ML-KEM-1024 ciphertext size in bytes (1568 bytes for Security Level 5)
+#[allow(dead_code)]
+const MLKEM1024_CIPHERTEXT_SIZE: usize = 1568;
 use rustfft::FftPlanner;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_512};
@@ -148,8 +149,9 @@ impl QuantumKeys {
     pub fn generate() -> Result<Self, SecurityError> {
         info!("🔐 Generating quantum-safe cryptographic keys...");
 
-        // Generate ML-KEM-1024 keys for KEM
-        let (mlkem_pk, mlkem_sk) = mlkem1024::keypair();
+        // Generate ML-KEM-1024 keys for KEM using RustCrypto ml-kem
+        let mut rng = rand::thread_rng();
+        let (mlkem_dk, mlkem_ek) = MlKem1024::generate(&mut rng);
 
         // Generate ML-DSA-87 keys for signatures
         let (mldsa_pk, mldsa_sk) = mldsa87::keypair();
@@ -159,9 +161,13 @@ impl QuantumKeys {
         use rand::RngCore;
         rand::thread_rng().fill_bytes(&mut symmetric_key);
 
+        // Serialize ML-KEM keys to bytes
+        let mlkem_public_bytes = mlkem_ek.as_bytes().to_vec();
+        let mlkem_secret_bytes = mlkem_dk.as_bytes().to_vec();
+
         Ok(Self {
-            mlkem_public: mlkem_pk.as_bytes().to_vec(),
-            mlkem_secret: mlkem_sk.as_bytes().to_vec(),
+            mlkem_public: mlkem_public_bytes,
+            mlkem_secret: mlkem_secret_bytes,
             mldsa_public: mldsa_pk.as_bytes().to_vec(),
             mldsa_secret: mldsa_sk.as_bytes().to_vec(),
             symmetric_key,
@@ -295,19 +301,43 @@ impl QuantumCrypto {
     }
 
     /// Generate quantum-safe shared secret using ML-KEM
+    ///
+    /// This method deserializes the peer's encapsulation key from bytes,
+    /// then encapsulates a shared secret that only the peer can decapsulate.
     pub async fn generate_shared_secret(
         &self,
         peer_public_key: &[u8],
     ) -> Result<(Vec<u8>, Vec<u8>), SecurityError> {
-        let pk = mlkem1024::PublicKey::from_bytes(peer_public_key).map_err(|e| {
-            SecurityError::KeyExchangeFailed(format!("Invalid public key: {:?}", e))
+        // Expected encapsulation key size for ML-KEM-1024 is 1568 bytes
+        const MLKEM1024_EK_SIZE: usize = 1568;
+
+        if peer_public_key.len() != MLKEM1024_EK_SIZE {
+            return Err(SecurityError::KeyExchangeFailed(format!(
+                "Invalid public key length: expected {} bytes, got {} bytes",
+                MLKEM1024_EK_SIZE,
+                peer_public_key.len()
+            )));
+        }
+
+        // Deserialize the encapsulation key from bytes
+        type MlKem1024EncapsulationKey = <MlKem1024 as KemCore>::EncapsulationKey;
+        type MlKem1024EkArray = Encoded<MlKem1024EncapsulationKey>;
+
+        // Use TryFrom to convert slice to fixed-size array
+        let ek_array: MlKem1024EkArray = peer_public_key.try_into().map_err(|_| {
+            SecurityError::KeyExchangeFailed("Failed to parse encapsulation key bytes".to_string())
+        })?;
+        let ek = MlKem1024EncapsulationKey::from_bytes(&ek_array);
+
+        // Encapsulate a shared secret
+        let mut rng = rand::thread_rng();
+        let (ct, shared_secret) = ek.encapsulate(&mut rng).map_err(|_| {
+            SecurityError::KeyExchangeFailed("ML-KEM encapsulation failed".to_string())
         })?;
 
-        let (shared_secret, ciphertext) = mlkem1024::encapsulate(&pk);
-
         Ok((
-            shared_secret.as_bytes().to_vec(),
-            ciphertext.as_bytes().to_vec(),
+            AsRef::<[u8]>::as_ref(&shared_secret).to_vec(),
+            AsRef::<[u8]>::as_ref(&ct).to_vec(),
         ))
     }
 

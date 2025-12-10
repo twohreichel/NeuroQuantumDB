@@ -1,15 +1,27 @@
-use pqcrypto_mldsa::mldsa65;
 /// Post-Quantum Cryptography utilities for NeuroQuantumDB
 ///
 /// Implements NIST post-quantum standards:
-/// - ML-KEM (Kyber) for key encapsulation
+/// - ML-KEM (Kyber) for key encapsulation (using RustCrypto ml-kem crate)
 /// - ML-DSA (Dilithium) for digital signatures
-use pqcrypto_mlkem::mlkem768;
-use pqcrypto_traits::kem::{Ciphertext, PublicKey, SecretKey, SharedSecret};
+use ml_kem::{
+    kem::{Decapsulate, Encapsulate},
+    Ciphertext, EncodedSizeUser, KemCore, MlKem768,
+};
+use pqcrypto_mldsa::mldsa65;
 use pqcrypto_traits::sign::{PublicKey as SignPublicKey, SecretKey as SignSecretKey};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
+
+/// Type aliases for ML-KEM-768 (NIST Security Level 3)
+type MlKemDecapsulationKey = <MlKem768 as KemCore>::DecapsulationKey;
+type MlKemEncapsulationKey = <MlKem768 as KemCore>::EncapsulationKey;
+
+/// ML-KEM-768 ciphertext size in bytes (1088 bytes)
+const MLKEM768_CIPHERTEXT_SIZE: usize = 1088;
+/// ML-KEM-768 shared secret size in bytes (32 bytes)
+#[allow(dead_code)]
+const MLKEM768_SHARED_SECRET_SIZE: usize = 32;
 
 #[derive(Error, Debug)]
 pub enum PQCryptoError {
@@ -24,16 +36,24 @@ pub enum PQCryptoError {
 
     #[error("Encoding error: {0}")]
     EncodingError(String),
+
+    #[error("Decapsulation failed: {0}")]
+    DecapsulationFailed(String),
+
+    #[error("Invalid key format: {0}")]
+    InvalidKeyFormat(String),
 }
 
 /// Post-quantum cryptographic key manager
+///
+/// Uses ML-KEM-768 (RustCrypto implementation) for key encapsulation and
+/// ML-DSA-65 (pqcrypto implementation) for digital signatures.
+/// Both provide NIST Security Level 3.
 #[derive(Clone)]
 pub struct PQCryptoManager {
-    // ML-KEM (Kyber) keys for key encapsulation
-    mlkem_public_key: Arc<mlkem768::PublicKey>,
-    // Note: mlkem_secret_key is used in the decapsulate workaround
-    #[allow(dead_code)]
-    mlkem_secret_key: Arc<mlkem768::SecretKey>,
+    // ML-KEM (Kyber) keys for key encapsulation using RustCrypto ml-kem
+    mlkem_encapsulation_key: Arc<MlKemEncapsulationKey>,
+    mlkem_decapsulation_key: Arc<MlKemDecapsulationKey>,
 
     // ML-DSA (Dilithium) keys for digital signatures
     mldsa_public_key: Arc<mldsa65::PublicKey>,
@@ -53,34 +73,34 @@ pub struct QuantumTokenClaims {
 impl PQCryptoManager {
     /// Create a new post-quantum crypto manager with generated keys
     pub fn new() -> Self {
-        // Generate ML-KEM-768 key pair (NIST Security Level 3)
-        let (mlkem_pk, mlkem_sk) = mlkem768::keypair();
+        let mut rng = rand::thread_rng();
+
+        // Generate ML-KEM-768 key pair (NIST Security Level 3) using RustCrypto
+        let (dk, ek) = MlKem768::generate(&mut rng);
 
         // Generate ML-DSA-65 key pair (NIST Security Level 3)
         let (mldsa_pk, mldsa_sk) = mldsa65::keypair();
 
+        // ML-KEM-768 key sizes are fixed by the standard
+        // Encapsulation key: 1184 bytes, Decapsulation key: 2400 bytes
         tracing::info!(
-            "🔐 Generated post-quantum key pairs: ML-KEM-768 (pk: {} bytes, sk: {} bytes), ML-DSA-65 (pk: {} bytes, sk: {} bytes)",
-            mlkem_pk.as_bytes().len(),
-            mlkem_sk.as_bytes().len(),
+            "🔐 Generated post-quantum key pairs: ML-KEM-768 (ek: 1184 bytes, dk: 2400 bytes), ML-DSA-65 (pk: {} bytes, sk: {} bytes)",
             mldsa_pk.as_bytes().len(),
             mldsa_sk.as_bytes().len()
         );
 
         Self {
-            mlkem_public_key: Arc::new(mlkem_pk),
-            mlkem_secret_key: Arc::new(mlkem_sk),
+            mlkem_encapsulation_key: Arc::new(ek),
+            mlkem_decapsulation_key: Arc::new(dk),
             mldsa_public_key: Arc::new(mldsa_pk),
             mldsa_secret_key: Arc::new(mldsa_sk),
         }
     }
 
-    /// Get the ML-KEM public key as base64
+    /// Get the ML-KEM encapsulation (public) key as base64
     pub fn get_mlkem_public_key_base64(&self) -> String {
-        base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            self.mlkem_public_key.as_bytes(),
-        )
+        let encoded = self.mlkem_encapsulation_key.as_bytes();
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, encoded)
     }
 
     /// Get the ML-DSA public key as base64
@@ -116,35 +136,54 @@ impl PQCryptoManager {
     /// Encapsulate a shared secret using ML-KEM (Kyber)
     /// Returns (ciphertext_bytes, shared_secret_bytes)
     ///
-    /// Note: The returned ciphertext bytes are in a format suitable for transmission.
-    /// For ML-KEM-768, this is 1088 bytes.
+    /// The ciphertext can be transmitted to the key holder who can then
+    /// decapsulate it using their decapsulation key to obtain the same shared secret.
+    /// For ML-KEM-768, ciphertext is 1088 bytes and shared secret is 32 bytes.
     pub fn encapsulate(&self) -> (Vec<u8>, Vec<u8>) {
-        let (ciphertext, shared_secret) = mlkem768::encapsulate(&self.mlkem_public_key);
+        let mut rng = rand::thread_rng();
 
-        // Get the bytes - mlkem768 Ciphertext is 1088 bytes, SharedSecret is 32 bytes
-        // However, as_bytes() may return different sizes due to internal representation
-        let ct_bytes = ciphertext.as_bytes();
-        let ss_bytes = shared_secret.as_bytes();
+        // Encapsulate using the encapsulation key
+        let (ct, shared_secret) = self
+            .mlkem_encapsulation_key
+            .encapsulate(&mut rng)
+            .expect("ML-KEM encapsulation should not fail with valid key");
 
-        (ct_bytes.to_vec(), ss_bytes.to_vec())
+        // Convert to bytes - Ciphertext and SharedKey are Array types that implement AsRef<[u8]>
+        let ct_bytes: Vec<u8> = AsRef::<[u8]>::as_ref(&ct).to_vec();
+        let ss_bytes: Vec<u8> = AsRef::<[u8]>::as_ref(&shared_secret).to_vec();
+
+        (ct_bytes, ss_bytes)
     }
 
     /// Decapsulate a shared secret using ML-KEM (Kyber)
     ///
     /// Takes ciphertext bytes (as returned by encapsulate) and returns the shared secret.
-    /// Note: Due to limitations in the pqcrypto library, this uses the public key to
-    /// re-encapsulate and doesn't actually deserialize the ciphertext.
-    /// This is a known limitation - in production, you should use a different approach
-    /// or a library that properly supports serialization.
-    pub fn decapsulate(&self, _ciphertext_bytes: &[u8]) -> Result<Vec<u8>, PQCryptoError> {
-        // WORKAROUND: The pqcrypto library's Ciphertext::from_bytes() doesn't work with
-        // the output of as_bytes(). This is a known issue with the pqcrypto crate.
-        // For now, we just perform a fresh encapsulation to demonstrate the concept.
-        // In a real implementation, you would need to use a different library or
-        // keep the Ciphertext object in memory without serializing it.
+    /// This correctly deserializes the ciphertext and performs proper decapsulation
+    /// using the decapsulation (secret) key.
+    pub fn decapsulate(&self, ciphertext_bytes: &[u8]) -> Result<Vec<u8>, PQCryptoError> {
+        // Validate ciphertext size for ML-KEM-768 (1088 bytes)
+        if ciphertext_bytes.len() != MLKEM768_CIPHERTEXT_SIZE {
+            return Err(PQCryptoError::InvalidCiphertext(format!(
+                "Invalid ciphertext length: expected {} bytes, got {} bytes",
+                MLKEM768_CIPHERTEXT_SIZE,
+                ciphertext_bytes.len()
+            )));
+        }
 
-        let (_new_ciphertext, shared_secret) = mlkem768::encapsulate(&self.mlkem_public_key);
-        Ok(shared_secret.as_bytes().to_vec())
+        // Deserialize the ciphertext from bytes using TryFrom
+        // Ciphertext<MlKem768> is a hybrid_array::Array with fixed size 1088
+        let ct: Ciphertext<MlKem768> = ciphertext_bytes.try_into().map_err(|_| {
+            PQCryptoError::InvalidCiphertext("Failed to parse ciphertext bytes".to_string())
+        })?;
+
+        // Decapsulate using the decapsulation key
+        let shared_secret = self.mlkem_decapsulation_key.decapsulate(&ct).map_err(|_| {
+            PQCryptoError::DecapsulationFailed(
+                "ML-KEM decapsulation failed - possibly corrupted ciphertext".to_string(),
+            )
+        })?;
+
+        Ok(AsRef::<[u8]>::as_ref(&shared_secret).to_vec())
     }
 
     /// Generate quantum token claims with signatures
@@ -235,11 +274,23 @@ mod tests {
         let manager = PQCryptoManager::new();
 
         // Test that encapsulation produces non-empty results
-        let (ciphertext, shared_secret1) = manager.encapsulate();
+        let (ciphertext, shared_secret_sender) = manager.encapsulate();
         assert!(!ciphertext.is_empty(), "Ciphertext should not be empty");
         assert!(
-            !shared_secret1.is_empty(),
+            !shared_secret_sender.is_empty(),
             "Shared secret should not be empty"
+        );
+
+        // Expected sizes for ML-KEM-768
+        assert_eq!(
+            ciphertext.len(),
+            1088,
+            "ML-KEM-768 ciphertext should be 1088 bytes"
+        );
+        assert_eq!(
+            shared_secret_sender.len(),
+            32,
+            "ML-KEM-768 shared secret should be 32 bytes"
         );
 
         // Test that multiple encapsulations produce different results (randomness)
@@ -249,9 +300,52 @@ mod tests {
             "Ciphertexts should be different due to randomness"
         );
 
-        // Note: Full decapsulation test is skipped due to pqcrypto library limitations
-        // The library's Ciphertext::from_bytes() doesn't work with as_bytes() output
-        // In production, use a different library or keep Ciphertext objects in memory
+        // Test full decapsulation roundtrip - this now works correctly!
+        let shared_secret_receiver = manager.decapsulate(&ciphertext).unwrap();
+        assert_eq!(
+            shared_secret_sender, shared_secret_receiver,
+            "Decapsulated shared secret must match the encapsulated one"
+        );
+    }
+
+    #[test]
+    fn test_kem_decapsulation_with_invalid_ciphertext() {
+        let manager = PQCryptoManager::new();
+
+        // Test with wrong length
+        let short_ciphertext = vec![0u8; 100];
+        let result = manager.decapsulate(&short_ciphertext);
+        assert!(
+            result.is_err(),
+            "Should fail with invalid ciphertext length"
+        );
+
+        // Test with correct length but invalid content (should still produce a result due to implicit rejection)
+        // ML-KEM uses implicit rejection, meaning it produces a pseudorandom output for invalid ciphertexts
+        // This is a security feature to prevent timing attacks
+        let invalid_ciphertext = vec![0u8; 1088];
+        let result = manager.decapsulate(&invalid_ciphertext);
+        // Note: ML-KEM may succeed with implicit rejection (returns pseudorandom key)
+        // or fail depending on the implementation
+        if let Ok(secret) = result {
+            // The secret should be 32 bytes even with implicit rejection
+            assert_eq!(secret.len(), 32);
+        }
+    }
+
+    #[test]
+    fn test_kem_multiple_roundtrips() {
+        let manager = PQCryptoManager::new();
+
+        // Perform multiple encapsulation/decapsulation roundtrips
+        for _ in 0..5 {
+            let (ciphertext, expected_secret) = manager.encapsulate();
+            let decapsulated_secret = manager.decapsulate(&ciphertext).unwrap();
+            assert_eq!(
+                expected_secret, decapsulated_secret,
+                "Each roundtrip must produce matching secrets"
+            );
+        }
     }
 
     #[test]

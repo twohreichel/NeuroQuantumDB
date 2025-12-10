@@ -23,7 +23,7 @@ NeuroQuantumDB ist ein ambitioniertes Projekt, das neuromorphe Computing-Prinzip
 
 **Kritische Lücken:**
 - 25 `#[allow(dead_code)]` Markierungen deuten auf unvollständige Features hin
-- ML-KEM Decapsulation ist als Workaround implementiert
+- ~~ML-KEM Decapsulation ist als Workaround implementiert~~ ✅ **BEHOBEN**
 - Mehrere "Future Features" als Kommentare markiert
 - EEG-Biometrie nutzt vereinfachte FFT-Implementierung
 
@@ -257,27 +257,38 @@ operators: HashMap<String, BinaryOperator>,
 
 ## 2. Unvollständige oder Simulierte Funktionen
 
-### 2.1 Post-Quantum Cryptography - ML-KEM Decapsulation
+### 2.1 Post-Quantum Cryptography - ML-KEM Decapsulation ✅ ERLEDIGT
 
 **Datei:** `crates/neuroquantum-core/src/pqcrypto.rs`
 
-**Kritisches Problem:** Die `decapsulate()` Funktion ist ein Workaround:
+**Status:** ✅ **BEHOBEN** (10. Dezember 2025)
+
+**Ursprüngliches Problem:** Die `decapsulate()` Funktion war ein Workaround, der einen neuen Shared Secret generierte statt den existierenden zu entschlüsseln.
+
+**Lösung:** 
+- Wechsel von `pqcrypto-mlkem` zu `ml-kem` (RustCrypto-Implementation, v0.2.1)
+- Die RustCrypto-Implementation unterstützt korrekte Serialisierung/Deserialisierung von Ciphertexts
+- Vollständige Encapsulation/Decapsulation-Roundtrips funktionieren nun korrekt
+- Auch `security.rs` wurde auf `ml-kem` mit `MlKem1024` umgestellt
+
+**Neue Implementation:**
 ```rust
-/// Note: Due to limitations in the pqcrypto library, this uses the public key to
-/// re-encapsulate and doesn't actually deserialize the ciphertext.
-/// This is a known limitation - in production, you should use a different approach
-pub fn decapsulate(&self, _ciphertext_bytes: &[u8]) -> Result<Vec<u8>, PQCryptoError> {
-    // WORKAROUND: The pqcrypto library's Ciphertext::from_bytes() doesn't work
-    let (_new_ciphertext, shared_secret) = mlkem768::encapsulate(&self.mlkem_public_key);
-    Ok(shared_secret.as_bytes().to_vec())
+pub fn decapsulate(&self, ciphertext_bytes: &[u8]) -> Result<Vec<u8>, PQCryptoError> {
+    // Validate ciphertext size for ML-KEM-768 (1088 bytes)
+    if ciphertext_bytes.len() != MLKEM768_CIPHERTEXT_SIZE {
+        return Err(PQCryptoError::InvalidCiphertext(...));
+    }
+    
+    // Deserialize the ciphertext from bytes using TryFrom
+    let ct: Ciphertext<MlKem768> = ciphertext_bytes.try_into()?;
+    
+    // Decapsulate using the decapsulation key - CORRECTLY!
+    let shared_secret = self.mlkem_decapsulation_key.decapsulate(&ct)?;
+    Ok(AsRef::<[u8]>::as_ref(&shared_secret).to_vec())
 }
 ```
 
-**Sicherheitsbewertung:** 🔴 **KRITISCH** - Die aktuelle Implementierung generiert einen neuen Shared Secret statt den existierenden zu entschlüsseln. Dies bricht das Key-Exchange-Protokoll.
-
-**Empfehlung:** 
-1. Wechsel zu `pqcrypto-crystal` oder `liboqs` Rust Bindings
-2. Oder Implementierung eines Custom Serializers für `mlkem768::Ciphertext`
+**Tests:** 7 Tests bestanden, einschließlich `test_kem_encapsulate_decapsulate` und `test_kem_multiple_roundtrips`
 
 ---
 
@@ -532,7 +543,7 @@ crates/neuroquantum-qsql/tests/
 
 ### 7.3 Nicht erfüllt 🔴
 
-- [ ] ML-KEM Decapsulation (Workaround)
+- [x] ~~ML-KEM Decapsulation (Workaround)~~ ✅ **BEHOBEN** - Wechsel zu RustCrypto ml-kem
 - [ ] HSM/Keychain Integration
 - [ ] Multi-Node Clustering (in `future-todos.md`)
 - [ ] Real-time Replication
@@ -544,9 +555,9 @@ crates/neuroquantum-qsql/tests/
 
 ### 8.1 Kritisch (vor Production Deployment)
 
-1. **ML-KEM Decapsulation Fix**
-   - Wechsel zu funktionierender PQ-Crypto Library
-   - Estimated: 2-3 Tage
+1. ~~**ML-KEM Decapsulation Fix**~~ ✅ **ERLEDIGT**
+   - ~~Wechsel zu funktionierender PQ-Crypto Library~~
+   - Implementiert mit RustCrypto `ml-kem` v0.2.1
 
 2. **WAL Recovery Integration**
    - StorageEngine.apply_log_record() vervollständigen
@@ -591,11 +602,11 @@ crates/neuroquantum-qsql/tests/
 NeuroQuantumDB zeigt eine **beeindruckende architektonische Vision** und fortgeschrittene Implementierung neuartiger Konzepte. Die Kombination aus neuromorphem Computing, Quanten-inspirierten Algorithmen und DNA-basierter Datenspeicherung ist innovativ.
 
 **Für den Produktionseinsatz fehlen jedoch:**
-1. Funktionierende Post-Quantum Key-Decapsulation
+1. ~~Funktionierende Post-Quantum Key-Decapsulation~~ ✅ **BEHOBEN**
 2. Vollständige Crash-Recovery
 3. Sichere Key-Management-Integration
 
-**Geschätzte Zeit bis Production-Ready:** 4-6 Wochen fokussierte Entwicklung
+**Geschätzte Zeit bis Production-Ready:** 3-5 Wochen fokussierte Entwicklung (reduziert durch ML-KEM Fix)
 
 **Empfehlung:** Das Projekt ist vielversprechend und kann nach Behebung der kritischen Punkte für Edge-Computing Use-Cases eingesetzt werden. Für Enterprise-Deployments wird zusätzlich Multi-Node-Support benötigt.
 
