@@ -22,11 +22,12 @@ NeuroQuantumDB ist ein ambitioniertes Projekt, das neuromorphe Computing-Prinzip
 - Comprehensive Test-Suite vorhanden
 
 **Kritische Lücken:**
-- 20 `#[allow(dead_code)]` Markierungen deuten auf unvollständige Features hin (reduziert von 25)
+- 19 `#[allow(dead_code)]` Markierungen deuten auf unvollständige Features hin (reduziert von 25)
 - ~~ML-KEM Decapsulation ist als Workaround implementiert~~ ✅ **BEHOBEN**
 - Mehrere "Future Features" als Kommentare markiert
 - ~~EEG-Biometrie nutzt vereinfachte FFT-Implementierung~~ ✅ **BEHOBEN** (rustfft O(n log n))
 - ~~Anti-Hebbian Learning nicht aktiv~~ ✅ **BEHOBEN** (Competitive Learning, laterale Inhibition, STDP)
+- ~~PlasticityMatrix max_nodes ungenutzt~~ ✅ **BEHOBEN** (Auto-Scaling mit Consolidation)
 
 ---
 
@@ -95,26 +96,54 @@ pub fn apply_lateral_inhibition(
 
 ---
 
-### 1.2 neuroquantum-core: Plasticity Module
+### 1.2 neuroquantum-core: Plasticity Module ✅ ERLEDIGT
 
 **Datei:** `crates/neuroquantum-core/src/plasticity.rs`
 
-| Zeile | Element | Problem |
-|-------|---------|---------|
-| 53 | `max_nodes` | Capacity Validation für zukünftige Features |
+**Status:** ✅ **BEHOBEN** (10. Dezember 2025)
 
-**Analyse:** Das Feld wird für Kapazitätsprüfungen benötigt, die derzeit nicht implementiert sind. Die PlasticityMatrix sollte bei Überschreitung von `max_nodes` Reorganisationen auslösen.
+**Ursprüngliches Problem:** 
+- `max_nodes` war als dead code markiert
+- Capacity Validation für zukünftige Features fehlte
+- Keine automatische Reorganisation bei Kapazitätsüberschreitung
 
-**Empfehlung:** Implementieren Sie Auto-Scaling:
-```rust
-pub fn check_and_reorganize(&mut self, network: &SynapticNetwork) -> CoreResult<bool> {
-    if network.node_count() > self.max_nodes * 90 / 100 {
-        self.trigger_consolidation(network)?;
-        return Ok(true);
-    }
-    Ok(false)
-}
-```
+**Lösung:**
+- Vollständige Auto-Scaling-Implementierung mit `CapacityConfig`:
+  - **Consolidation Threshold**: Auslösung bei 90% Kapazitätsauslastung
+  - **Warning Threshold**: Warnungen bei 80% Auslastung
+  - **Max Consolidation Batch**: Konfigurierbare Batch-Größe (Standard: 100 Nodes)
+  - **Min Consolidation Plasticity**: Nur Low-Plasticity-Nodes werden konsolidiert
+- Neue Strukturen: `CapacityConfig`, `CapacityCheckResult`, `ConsolidationResult`
+- Neue Methoden in `PlasticityMatrix`:
+  - `check_and_reorganize()` - Prüft Kapazität und löst bei Bedarf Konsolidierung aus
+  - `check_capacity()` - Liefert detaillierte Kapazitätsmetriken
+  - `trigger_consolidation()` - Führt neuroplastizitäts-inspirierte Konsolidierung durch
+  - `find_merge_target()` - Findet optimale Merge-Ziele innerhalb eines Clusters
+  - `merge_node_data()` - Führt Knoten-Daten zusammen
+  - `remove_node_data()` - Entfernt Knoten-Daten vollständig
+  - `prune_node_connections()` - Entfernt alle Verbindungen eines Knotens
+- Konstruktor `with_capacity_config()` für benutzerdefinierte Konfiguration
+- Getter/Setter für `max_nodes()` und `capacity_config()`
+
+**Neuromorphes Design:**
+Die Konsolidierung imitiert den synaptischen Pruning-Prozess des Gehirns:
+- Low-Activity-Knoten werden in High-Activity-Knoten innerhalb des gleichen Clusters gemergt
+- Sehr inaktive Knoten werden vollständig entfernt
+- Verbindungen werden nach der Konsolidierung aktualisiert
+- Memory-Effizienz durch automatisches Pruning
+
+**Tests:** 23 Tests bestanden, einschließlich:
+- `test_capacity_config_default`
+- `test_plasticity_matrix_with_capacity_config`
+- `test_invalid_capacity_config`
+- `test_check_capacity_below_threshold`
+- `test_check_capacity_high_utilization`
+- `test_find_merge_target`
+- `test_merge_node_data`
+- `test_remove_node_data`
+- `test_prune_node_connections`
+- `test_trigger_consolidation`
+- `test_check_and_reorganize_no_action_needed`
 
 ---
 

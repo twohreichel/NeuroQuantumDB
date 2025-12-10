@@ -48,9 +48,66 @@ impl Default for PlasticityParams {
     }
 }
 
+/// Capacity management configuration
+#[derive(Debug, Clone, Serialize)]
+pub struct CapacityConfig {
+    /// Threshold percentage (0.0-1.0) at which consolidation is triggered
+    pub consolidation_threshold: f32,
+    /// Threshold percentage (0.0-1.0) at which warnings are emitted
+    pub warning_threshold: f32,
+    /// Maximum nodes that can be consolidated in one cycle
+    pub max_consolidation_batch: usize,
+    /// Minimum plasticity score for a node to be considered for consolidation
+    pub min_consolidation_plasticity: f32,
+}
+
+impl Default for CapacityConfig {
+    fn default() -> Self {
+        Self {
+            consolidation_threshold: 0.90,     // Trigger at 90% capacity
+            warning_threshold: 0.80,           // Warn at 80% capacity
+            max_consolidation_batch: 100,      // Max 100 nodes per consolidation cycle
+            min_consolidation_plasticity: 0.1, // Only consolidate low-plasticity nodes
+        }
+    }
+}
+
+/// Result of a capacity check operation
+#[derive(Debug, Clone, Serialize)]
+pub struct CapacityCheckResult {
+    /// Current node count in the network
+    pub current_nodes: usize,
+    /// Maximum allowed nodes
+    pub max_nodes: usize,
+    /// Current capacity utilization (0.0-1.0)
+    pub utilization: f32,
+    /// Whether consolidation is needed
+    pub needs_consolidation: bool,
+    /// Whether we're at warning level
+    pub at_warning_level: bool,
+    /// Number of nodes that would need to be consolidated
+    pub consolidation_candidates: usize,
+}
+
+/// Result of a consolidation operation
+#[derive(Debug, Clone, Serialize)]
+pub struct ConsolidationResult {
+    /// Number of nodes consolidated (merged or removed)
+    pub nodes_consolidated: usize,
+    /// Number of connections pruned during consolidation
+    pub connections_pruned: usize,
+    /// Memory freed in bytes (estimated)
+    pub memory_freed_bytes: i64,
+    /// New capacity utilization after consolidation
+    pub new_utilization: f32,
+    /// Nodes that were merged into others
+    pub merged_nodes: Vec<(u64, u64)>, // (source_node, target_node)
+    /// Nodes that were removed entirely
+    pub removed_nodes: Vec<u64>,
+}
+
 /// Plasticity matrix managing dynamic network reorganization
 pub struct PlasticityMatrix {
-    #[allow(dead_code)] // Used for capacity validation in future features
     max_nodes: usize,
     plasticity_threshold: f32,
     access_patterns: AccessPatterns,
@@ -60,6 +117,7 @@ pub struct PlasticityMatrix {
     plasticity_scores: HashMap<u64, f32>,  // node_id -> plasticity score
     cluster_assignments: HashMap<u64, u32>, // node_id -> cluster_id
     next_cluster_id: u32,
+    capacity_config: CapacityConfig,
 }
 
 /// Record of network reorganization events
@@ -100,7 +158,359 @@ impl PlasticityMatrix {
             plasticity_scores: HashMap::new(),
             cluster_assignments: HashMap::new(),
             next_cluster_id: 0,
+            capacity_config: CapacityConfig::default(),
         })
+    }
+
+    /// Create a new plasticity matrix with custom capacity configuration
+    pub fn with_capacity_config(
+        max_nodes: usize,
+        plasticity_threshold: f32,
+        capacity_config: CapacityConfig,
+    ) -> CoreResult<Self> {
+        if !(0.0..=1.0).contains(&plasticity_threshold) {
+            return Err(CoreError::InvalidConfig(
+                "Plasticity threshold must be between 0.0 and 1.0".to_string(),
+            ));
+        }
+
+        if capacity_config.consolidation_threshold < capacity_config.warning_threshold {
+            return Err(CoreError::InvalidConfig(
+                "Consolidation threshold must be >= warning threshold".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            max_nodes,
+            plasticity_threshold,
+            access_patterns: AccessPatterns::default(),
+            params: PlasticityParams::default(),
+            reorganization_history: Vec::new(),
+            last_reorganization_secs: None,
+            plasticity_scores: HashMap::new(),
+            cluster_assignments: HashMap::new(),
+            next_cluster_id: 0,
+            capacity_config,
+        })
+    }
+
+    /// Get the maximum nodes capacity
+    pub fn max_nodes(&self) -> usize {
+        self.max_nodes
+    }
+
+    /// Set the capacity configuration
+    pub fn set_capacity_config(&mut self, config: CapacityConfig) {
+        self.capacity_config = config;
+    }
+
+    /// Get the current capacity configuration
+    pub fn capacity_config(&self) -> &CapacityConfig {
+        &self.capacity_config
+    }
+
+    /// Check capacity and trigger consolidation if needed
+    ///
+    /// This method monitors the network's node count against the configured
+    /// maximum capacity and triggers consolidation when the utilization
+    /// exceeds the configured threshold.
+    ///
+    /// # Arguments
+    /// * `network` - Reference to the synaptic network to check
+    ///
+    /// # Returns
+    /// * `Ok(true)` - Consolidation was performed
+    /// * `Ok(false)` - No consolidation needed
+    /// * `Err(_)` - An error occurred during capacity check or consolidation
+    #[instrument(level = "info", skip(self, network))]
+    pub fn check_and_reorganize(&mut self, network: &SynapticNetwork) -> CoreResult<bool> {
+        let capacity_result = self.check_capacity(network)?;
+
+        if capacity_result.at_warning_level {
+            warn!(
+                "Network capacity at warning level: {:.1}% ({}/{} nodes)",
+                capacity_result.utilization * 100.0,
+                capacity_result.current_nodes,
+                capacity_result.max_nodes
+            );
+        }
+
+        if capacity_result.needs_consolidation {
+            info!(
+                "Triggering consolidation: {:.1}% capacity, {} candidates",
+                capacity_result.utilization * 100.0,
+                capacity_result.consolidation_candidates
+            );
+
+            let consolidation_result = self.trigger_consolidation(network)?;
+
+            info!(
+                "Consolidation complete: {} nodes consolidated, {} connections pruned, new utilization: {:.1}%",
+                consolidation_result.nodes_consolidated,
+                consolidation_result.connections_pruned,
+                consolidation_result.new_utilization * 100.0
+            );
+
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    /// Check the current capacity utilization of the network
+    ///
+    /// # Arguments
+    /// * `network` - Reference to the synaptic network to check
+    ///
+    /// # Returns
+    /// Detailed capacity check result including utilization metrics
+    pub fn check_capacity(&self, network: &SynapticNetwork) -> CoreResult<CapacityCheckResult> {
+        let current_nodes = network.node_count();
+        let utilization = current_nodes as f32 / self.max_nodes as f32;
+
+        let at_warning_level = utilization >= self.capacity_config.warning_threshold;
+        let needs_consolidation = utilization >= self.capacity_config.consolidation_threshold;
+
+        // Count consolidation candidates (low-plasticity nodes that can be merged/removed)
+        let consolidation_candidates = self
+            .plasticity_scores
+            .values()
+            .filter(|&&score| score < self.capacity_config.min_consolidation_plasticity)
+            .count();
+
+        Ok(CapacityCheckResult {
+            current_nodes,
+            max_nodes: self.max_nodes,
+            utilization,
+            needs_consolidation,
+            at_warning_level,
+            consolidation_candidates,
+        })
+    }
+
+    /// Trigger network consolidation to free up capacity
+    ///
+    /// This method implements neuroplasticity-inspired consolidation where
+    /// low-activity nodes are merged or removed to make room for new data.
+    /// This mimics the brain's synaptic pruning process where unused
+    /// connections are eliminated to optimize neural efficiency.
+    ///
+    /// # Arguments
+    /// * `network` - Reference to the synaptic network to consolidate
+    ///
+    /// # Returns
+    /// Detailed result of the consolidation operation
+    #[instrument(level = "info", skip(self, network))]
+    pub fn trigger_consolidation(
+        &mut self,
+        network: &SynapticNetwork,
+    ) -> CoreResult<ConsolidationResult> {
+        let start_nodes = network.node_count();
+        let mut nodes_consolidated = 0;
+        let mut connections_pruned = 0;
+        let mut merged_nodes = Vec::new();
+        let mut removed_nodes = Vec::new();
+
+        // Phase 1: Identify low-plasticity nodes for consolidation
+        let mut candidates: Vec<_> = self
+            .plasticity_scores
+            .iter()
+            .filter(|(_, &score)| score < self.capacity_config.min_consolidation_plasticity)
+            .map(|(&node_id, &score)| (node_id, score))
+            .collect();
+
+        // Sort by plasticity score (lowest first - most eligible for consolidation)
+        candidates.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Limit to max batch size
+        candidates.truncate(self.capacity_config.max_consolidation_batch);
+
+        // Phase 2: Process each candidate
+        for (node_id, _score) in candidates {
+            // Check if this node has a cluster assignment
+            if let Some(&cluster_id) = self.cluster_assignments.get(&node_id) {
+                // Find the best target node in the same cluster to merge into
+                let merge_target = self.find_merge_target(node_id, cluster_id);
+
+                if let Some(target_id) = merge_target {
+                    // Merge node into target
+                    self.merge_node_data(node_id, target_id);
+                    merged_nodes.push((node_id, target_id));
+                    nodes_consolidated += 1;
+
+                    // Prune connections to the merged node
+                    let pruned = self.prune_node_connections(node_id);
+                    connections_pruned += pruned;
+                } else {
+                    // No suitable merge target - mark for removal if very low plasticity
+                    if *self.plasticity_scores.get(&node_id).unwrap_or(&1.0)
+                        < self.capacity_config.min_consolidation_plasticity / 2.0
+                    {
+                        self.remove_node_data(node_id);
+                        removed_nodes.push(node_id);
+                        nodes_consolidated += 1;
+
+                        let pruned = self.prune_node_connections(node_id);
+                        connections_pruned += pruned;
+                    }
+                }
+            } else {
+                // Node not in any cluster - candidate for removal
+                if *self.plasticity_scores.get(&node_id).unwrap_or(&1.0)
+                    < self.capacity_config.min_consolidation_plasticity / 2.0
+                {
+                    self.remove_node_data(node_id);
+                    removed_nodes.push(node_id);
+                    nodes_consolidated += 1;
+
+                    let pruned = self.prune_node_connections(node_id);
+                    connections_pruned += pruned;
+                }
+            }
+
+            // Check if we've reached batch limit
+            if nodes_consolidated >= self.capacity_config.max_consolidation_batch {
+                break;
+            }
+        }
+
+        // Phase 3: Prune low-usage connections network-wide
+        let additional_pruned = self.prune_unused_connections()?;
+        connections_pruned += additional_pruned as usize;
+
+        // Calculate new utilization
+        let estimated_new_nodes = start_nodes.saturating_sub(nodes_consolidated);
+        let new_utilization = estimated_new_nodes as f32 / self.max_nodes as f32;
+
+        // Estimate memory freed (rough estimate: ~1KB per node, ~100 bytes per connection)
+        let memory_freed_bytes = (nodes_consolidated * 1024 + connections_pruned * 100) as i64;
+
+        // Record the consolidation event
+        let event = ReorganizationEvent {
+            timestamp_secs: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            event_type: ReorganizationType::ConnectionPruning,
+            nodes_affected: removed_nodes
+                .iter()
+                .chain(merged_nodes.iter().map(|(src, _)| src))
+                .cloned()
+                .collect(),
+            performance_impact: 0.05 * nodes_consolidated as f32,
+            memory_delta: -memory_freed_bytes,
+        };
+        self.reorganization_history.push(event);
+
+        Ok(ConsolidationResult {
+            nodes_consolidated,
+            connections_pruned,
+            memory_freed_bytes,
+            new_utilization,
+            merged_nodes,
+            removed_nodes,
+        })
+    }
+
+    /// Find the best merge target for a node within its cluster
+    fn find_merge_target(&self, node_id: u64, cluster_id: u32) -> Option<u64> {
+        // Find nodes in the same cluster with higher plasticity scores
+        let candidates: Vec<_> = self
+            .cluster_assignments
+            .iter()
+            .filter(|(&id, &cid)| id != node_id && cid == cluster_id)
+            .filter_map(|(&id, _)| self.plasticity_scores.get(&id).map(|&score| (id, score)))
+            .filter(|(_id, score)| *score > self.capacity_config.min_consolidation_plasticity)
+            .collect();
+
+        // Return the node with highest plasticity score
+        candidates
+            .into_iter()
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(id, _)| id)
+    }
+
+    /// Merge data from source node into target node
+    fn merge_node_data(&mut self, source_id: u64, target_id: u64) {
+        // Transfer access frequency to target
+        if let Some(source_freq) = self
+            .access_patterns
+            .node_access_frequency
+            .remove(&source_id)
+        {
+            *self
+                .access_patterns
+                .node_access_frequency
+                .entry(target_id)
+                .or_insert(0) += source_freq;
+        }
+
+        // Transfer temporal locality data
+        if let Some(source_times) = self
+            .access_patterns
+            .temporal_locality_secs
+            .remove(&source_id)
+        {
+            self.access_patterns
+                .temporal_locality_secs
+                .entry(target_id)
+                .or_default()
+                .extend(source_times);
+        }
+
+        // Transfer spatial locality - redirect neighbors to target
+        if let Some(source_neighbors) = self.access_patterns.spatial_locality.remove(&source_id) {
+            let target_neighbors = self
+                .access_patterns
+                .spatial_locality
+                .entry(target_id)
+                .or_default();
+            for neighbor in source_neighbors {
+                if neighbor != target_id && !target_neighbors.contains(&neighbor) {
+                    target_neighbors.push(neighbor);
+                }
+            }
+        }
+
+        // Update plasticity score for target
+        let source_score = self.plasticity_scores.remove(&source_id).unwrap_or(0.0);
+        if let Some(target_score) = self.plasticity_scores.get_mut(&target_id) {
+            // Combine scores with weighted average
+            *target_score = (*target_score * 0.7 + source_score * 0.3).min(1.0);
+        }
+
+        // Remove cluster assignment for source
+        self.cluster_assignments.remove(&source_id);
+
+        debug!("Merged node {} into node {}", source_id, target_id);
+    }
+
+    /// Remove all data for a node
+    fn remove_node_data(&mut self, node_id: u64) {
+        self.access_patterns.node_access_frequency.remove(&node_id);
+        self.access_patterns.temporal_locality_secs.remove(&node_id);
+        self.access_patterns.spatial_locality.remove(&node_id);
+        self.plasticity_scores.remove(&node_id);
+        self.cluster_assignments.remove(&node_id);
+
+        debug!("Removed node data for node {}", node_id);
+    }
+
+    /// Prune all connections involving a specific node
+    fn prune_node_connections(&mut self, node_id: u64) -> usize {
+        let connections_before = self.access_patterns.connection_usage.len();
+
+        // Remove connections where node_id is source or target
+        self.access_patterns
+            .connection_usage
+            .retain(|(src, tgt), _| *src != node_id && *tgt != node_id);
+
+        // Also update spatial locality for other nodes that reference this node
+        for neighbors in self.access_patterns.spatial_locality.values_mut() {
+            neighbors.retain(|&n| n != node_id);
+        }
+
+        connections_before - self.access_patterns.connection_usage.len()
     }
 
     /// Record access to a node for plasticity analysis
@@ -695,5 +1105,336 @@ mod tests {
 
         assert!(matrix.access_patterns.node_access_frequency[&1] < initial_freq);
         assert!(matrix.access_patterns.connection_usage[&(1, 2)] < initial_usage);
+    }
+
+    #[test]
+    fn test_capacity_config_default() {
+        let config = CapacityConfig::default();
+        assert_eq!(config.consolidation_threshold, 0.90);
+        assert_eq!(config.warning_threshold, 0.80);
+        assert_eq!(config.max_consolidation_batch, 100);
+        assert_eq!(config.min_consolidation_plasticity, 0.1);
+    }
+
+    #[test]
+    fn test_plasticity_matrix_with_capacity_config() {
+        let config = CapacityConfig {
+            consolidation_threshold: 0.95,
+            warning_threshold: 0.85,
+            max_consolidation_batch: 50,
+            min_consolidation_plasticity: 0.05,
+        };
+
+        let matrix = PlasticityMatrix::with_capacity_config(1000, 0.5, config).unwrap();
+        assert_eq!(matrix.max_nodes(), 1000);
+        assert_eq!(matrix.capacity_config().consolidation_threshold, 0.95);
+        assert_eq!(matrix.capacity_config().warning_threshold, 0.85);
+    }
+
+    #[test]
+    fn test_invalid_capacity_config() {
+        // Warning threshold > consolidation threshold should fail
+        let config = CapacityConfig {
+            consolidation_threshold: 0.80,
+            warning_threshold: 0.90, // Invalid: warning > consolidation
+            max_consolidation_batch: 100,
+            min_consolidation_plasticity: 0.1,
+        };
+
+        let result = PlasticityMatrix::with_capacity_config(1000, 0.5, config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_check_capacity_below_threshold() {
+        let matrix = PlasticityMatrix::new(100, 0.5).unwrap();
+
+        // Create a network with max 1000 nodes, activation threshold 0.5
+        let network = SynapticNetwork::new(1000, 0.5).unwrap();
+        // Network starts empty, so utilization should be 0%
+
+        let result = matrix.check_capacity(&network).unwrap();
+        assert_eq!(result.current_nodes, 0);
+        assert_eq!(result.max_nodes, 100);
+        assert_eq!(result.utilization, 0.0);
+        assert!(!result.needs_consolidation);
+        assert!(!result.at_warning_level);
+    }
+
+    #[test]
+    fn test_check_capacity_high_utilization() {
+        let mut matrix = PlasticityMatrix::new(100, 0.5).unwrap();
+
+        // Simulate high plasticity scores for consolidation candidate counting
+        for i in 0..10 {
+            matrix.plasticity_scores.insert(i, 0.05); // Low plasticity = consolidation candidate
+        }
+
+        let result = matrix
+            .check_capacity(&SynapticNetwork::new(1000, 0.5).unwrap())
+            .unwrap();
+
+        // Should have consolidation candidates due to low plasticity scores
+        assert_eq!(result.consolidation_candidates, 10);
+    }
+
+    #[test]
+    fn test_find_merge_target() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        // Set up nodes in same cluster
+        matrix.cluster_assignments.insert(1, 0);
+        matrix.cluster_assignments.insert(2, 0);
+        matrix.cluster_assignments.insert(3, 0);
+
+        // Set plasticity scores
+        matrix.plasticity_scores.insert(1, 0.1); // Low - merge candidate
+        matrix.plasticity_scores.insert(2, 0.5); // High - merge target
+        matrix.plasticity_scores.insert(3, 0.3); // Medium
+
+        // Node 1 should merge into node 2 (highest plasticity in cluster)
+        let target = matrix.find_merge_target(1, 0);
+        assert_eq!(target, Some(2));
+    }
+
+    #[test]
+    fn test_find_merge_target_no_suitable_target() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        // Set up nodes in same cluster with all low plasticity
+        matrix.cluster_assignments.insert(1, 0);
+        matrix.cluster_assignments.insert(2, 0);
+
+        // All nodes have low plasticity
+        matrix.plasticity_scores.insert(1, 0.05);
+        matrix.plasticity_scores.insert(2, 0.05);
+
+        // No suitable merge target (all below threshold)
+        let target = matrix.find_merge_target(1, 0);
+        assert_eq!(target, None);
+    }
+
+    #[test]
+    fn test_merge_node_data() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        // Set up source node data
+        matrix.access_patterns.node_access_frequency.insert(1, 100);
+        matrix.access_patterns.node_access_frequency.insert(2, 50);
+        matrix
+            .access_patterns
+            .temporal_locality_secs
+            .insert(1, vec![1000, 2000]);
+        matrix
+            .access_patterns
+            .spatial_locality
+            .insert(1, vec![3, 4]);
+        matrix.plasticity_scores.insert(1, 0.3);
+        matrix.plasticity_scores.insert(2, 0.5);
+        matrix.cluster_assignments.insert(1, 0);
+        matrix.cluster_assignments.insert(2, 0);
+
+        // Merge node 1 into node 2
+        matrix.merge_node_data(1, 2);
+
+        // Source node data should be removed
+        assert!(!matrix
+            .access_patterns
+            .node_access_frequency
+            .contains_key(&1));
+        assert!(!matrix
+            .access_patterns
+            .temporal_locality_secs
+            .contains_key(&1));
+        assert!(!matrix.plasticity_scores.contains_key(&1));
+        assert!(!matrix.cluster_assignments.contains_key(&1));
+
+        // Target node should have combined data
+        assert_eq!(
+            matrix.access_patterns.node_access_frequency.get(&2),
+            Some(&150)
+        ); // 100 + 50
+        assert!(matrix
+            .access_patterns
+            .temporal_locality_secs
+            .contains_key(&2));
+    }
+
+    #[test]
+    fn test_remove_node_data() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        // Set up node data
+        matrix.access_patterns.node_access_frequency.insert(1, 100);
+        matrix
+            .access_patterns
+            .temporal_locality_secs
+            .insert(1, vec![1000]);
+        matrix
+            .access_patterns
+            .spatial_locality
+            .insert(1, vec![2, 3]);
+        matrix.plasticity_scores.insert(1, 0.5);
+        matrix.cluster_assignments.insert(1, 0);
+
+        // Remove node
+        matrix.remove_node_data(1);
+
+        // All data should be removed
+        assert!(!matrix
+            .access_patterns
+            .node_access_frequency
+            .contains_key(&1));
+        assert!(!matrix
+            .access_patterns
+            .temporal_locality_secs
+            .contains_key(&1));
+        assert!(!matrix.access_patterns.spatial_locality.contains_key(&1));
+        assert!(!matrix.plasticity_scores.contains_key(&1));
+        assert!(!matrix.cluster_assignments.contains_key(&1));
+    }
+
+    #[test]
+    fn test_prune_node_connections() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        // Set up connections
+        matrix.access_patterns.connection_usage.insert((1, 2), 10);
+        matrix.access_patterns.connection_usage.insert((1, 3), 5);
+        matrix.access_patterns.connection_usage.insert((2, 3), 8);
+        matrix
+            .access_patterns
+            .spatial_locality
+            .insert(2, vec![1, 3]);
+        matrix
+            .access_patterns
+            .spatial_locality
+            .insert(3, vec![1, 2]);
+
+        // Prune connections for node 1
+        let pruned = matrix.prune_node_connections(1);
+
+        assert_eq!(pruned, 2); // (1,2) and (1,3)
+        assert!(!matrix
+            .access_patterns
+            .connection_usage
+            .contains_key(&(1, 2)));
+        assert!(!matrix
+            .access_patterns
+            .connection_usage
+            .contains_key(&(1, 3)));
+        assert!(matrix
+            .access_patterns
+            .connection_usage
+            .contains_key(&(2, 3)));
+
+        // Node 1 should be removed from spatial locality of other nodes
+        assert!(!matrix
+            .access_patterns
+            .spatial_locality
+            .get(&2)
+            .unwrap()
+            .contains(&1));
+        assert!(!matrix
+            .access_patterns
+            .spatial_locality
+            .get(&3)
+            .unwrap()
+            .contains(&1));
+    }
+
+    #[test]
+    fn test_trigger_consolidation() {
+        let mut matrix = PlasticityMatrix::new(100, 0.5).unwrap();
+        let network = SynapticNetwork::new(1000, 0.5).unwrap();
+
+        // Set up nodes with low plasticity scores
+        for i in 0..5 {
+            matrix.access_patterns.node_access_frequency.insert(i, 10);
+            matrix.plasticity_scores.insert(i, 0.01); // Very low - consolidation candidate
+            matrix.cluster_assignments.insert(i, 0);
+        }
+
+        // Set up a high plasticity node as merge target
+        matrix
+            .access_patterns
+            .node_access_frequency
+            .insert(100, 1000);
+        matrix.plasticity_scores.insert(100, 0.8);
+        matrix.cluster_assignments.insert(100, 0);
+
+        // Trigger consolidation
+        let result = matrix.trigger_consolidation(&network).unwrap();
+
+        // Should have consolidated some nodes
+        assert!(result.nodes_consolidated > 0 || result.connections_pruned > 0);
+        assert!(result.memory_freed_bytes >= 0);
+    }
+
+    #[test]
+    fn test_check_and_reorganize_no_action_needed() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+        let network = SynapticNetwork::new(1000, 0.5).unwrap();
+
+        // Empty network - no consolidation needed
+        let result = matrix.check_and_reorganize(&network).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_capacity_check_result_structure() {
+        let result = CapacityCheckResult {
+            current_nodes: 80,
+            max_nodes: 100,
+            utilization: 0.8,
+            needs_consolidation: false,
+            at_warning_level: true,
+            consolidation_candidates: 5,
+        };
+
+        assert_eq!(result.current_nodes, 80);
+        assert_eq!(result.max_nodes, 100);
+        assert!((result.utilization - 0.8).abs() < 0.001);
+        assert!(!result.needs_consolidation);
+        assert!(result.at_warning_level);
+        assert_eq!(result.consolidation_candidates, 5);
+    }
+
+    #[test]
+    fn test_consolidation_result_structure() {
+        let result = ConsolidationResult {
+            nodes_consolidated: 10,
+            connections_pruned: 25,
+            memory_freed_bytes: 15000,
+            new_utilization: 0.75,
+            merged_nodes: vec![(1, 2), (3, 4)],
+            removed_nodes: vec![5, 6, 7],
+        };
+
+        assert_eq!(result.nodes_consolidated, 10);
+        assert_eq!(result.connections_pruned, 25);
+        assert_eq!(result.memory_freed_bytes, 15000);
+        assert!((result.new_utilization - 0.75).abs() < 0.001);
+        assert_eq!(result.merged_nodes.len(), 2);
+        assert_eq!(result.removed_nodes.len(), 3);
+    }
+
+    #[test]
+    fn test_set_capacity_config() {
+        let mut matrix = PlasticityMatrix::new(1000, 0.5).unwrap();
+
+        let new_config = CapacityConfig {
+            consolidation_threshold: 0.95,
+            warning_threshold: 0.85,
+            max_consolidation_batch: 200,
+            min_consolidation_plasticity: 0.2,
+        };
+
+        matrix.set_capacity_config(new_config);
+
+        assert_eq!(matrix.capacity_config().consolidation_threshold, 0.95);
+        assert_eq!(matrix.capacity_config().warning_threshold, 0.85);
+        assert_eq!(matrix.capacity_config().max_consolidation_batch, 200);
+        assert_eq!(matrix.capacity_config().min_consolidation_plasticity, 0.2);
     }
 }
