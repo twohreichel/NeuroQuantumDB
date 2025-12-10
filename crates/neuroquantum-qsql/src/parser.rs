@@ -9,14 +9,72 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, instrument, warn};
 
+/// Operator precedence levels for Pratt parsing
+/// Higher values = higher precedence (binds tighter)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Precedence {
+    /// Lowest precedence - starting point
+    None = 0,
+    /// OR logical operator
+    Or = 1,
+    /// AND logical operator
+    And = 2,
+    /// NOT unary operator
+    Not = 3,
+    /// Comparison operators: =, !=, <, >, <=, >=, LIKE, IN, BETWEEN
+    Comparison = 4,
+    /// Addition and subtraction: +, -
+    Additive = 5,
+    /// Multiplication, division, modulo: *, /, %
+    Multiplicative = 6,
+    /// Unary minus/plus
+    Unary = 7,
+    /// Neuromorphic operators (synaptic similarity, hebbian)
+    Neuromorphic = 8,
+    /// Quantum operators (entanglement, superposition)
+    Quantum = 9,
+    /// Function calls and parenthesized expressions
+    Call = 10,
+}
+
+impl Precedence {
+    /// Get the next higher precedence level
+    pub fn next(self) -> Self {
+        match self {
+            Precedence::None => Precedence::Or,
+            Precedence::Or => Precedence::And,
+            Precedence::And => Precedence::Not,
+            Precedence::Not => Precedence::Comparison,
+            Precedence::Comparison => Precedence::Additive,
+            Precedence::Additive => Precedence::Multiplicative,
+            Precedence::Multiplicative => Precedence::Unary,
+            Precedence::Unary => Precedence::Neuromorphic,
+            Precedence::Neuromorphic => Precedence::Quantum,
+            Precedence::Quantum => Precedence::Call,
+            Precedence::Call => Precedence::Call, // Max level
+        }
+    }
+}
+
+/// Operator information for Pratt parsing
+#[derive(Debug, Clone)]
+pub struct OperatorInfo {
+    /// The binary operator type
+    pub operator: BinaryOperator,
+    /// Precedence level for this operator
+    pub precedence: Precedence,
+    /// Whether this operator is right-associative (false = left-associative)
+    pub right_associative: bool,
+}
+
 /// Main QSQL parser with neuromorphic and quantum extensions
 #[derive(Debug, Clone)]
 pub struct QSQLParser {
     config: ParserConfig,
     natural_language_processor: Option<NaturalLanguageProcessor>,
     keywords: HashMap<String, TokenType>,
-    #[allow(dead_code)] // Will be used for operator precedence parsing in Phase 2
-    operators: HashMap<String, BinaryOperator>,
+    /// Operator precedence map for Pratt parsing
+    operators: HashMap<String, OperatorInfo>,
 }
 
 /// Parser configuration
@@ -1380,16 +1438,195 @@ impl QSQLParser {
         keywords.insert("QUANTUM".to_string(), TokenType::QuantumSearch);
     }
 
-    /// Initialize operator mappings
-    fn initialize_operators(operators: &mut HashMap<String, BinaryOperator>) {
-        operators.insert("=".to_string(), BinaryOperator::Equal);
-        operators.insert("!=".to_string(), BinaryOperator::NotEqual);
-        operators.insert("<".to_string(), BinaryOperator::LessThan);
-        operators.insert("<=".to_string(), BinaryOperator::LessThanOrEqual);
-        operators.insert(">".to_string(), BinaryOperator::GreaterThan);
-        operators.insert(">=".to_string(), BinaryOperator::GreaterThanOrEqual);
-        operators.insert("AND".to_string(), BinaryOperator::And);
-        operators.insert("OR".to_string(), BinaryOperator::Or);
+    /// Initialize operator mappings with precedence for Pratt parsing
+    fn initialize_operators(operators: &mut HashMap<String, OperatorInfo>) {
+        // Logical operators (lowest precedence)
+        operators.insert(
+            "OR".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Or,
+                precedence: Precedence::Or,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "AND".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::And,
+                precedence: Precedence::And,
+                right_associative: false,
+            },
+        );
+
+        // Comparison operators
+        operators.insert(
+            "=".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Equal,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "!=".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::NotEqual,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "<>".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::NotEqual,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "<".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::LessThan,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "<=".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::LessThanOrEqual,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            ">".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::GreaterThan,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            ">=".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::GreaterThanOrEqual,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "LIKE".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Like,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "IN".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::In,
+                precedence: Precedence::Comparison,
+                right_associative: false,
+            },
+        );
+
+        // Additive operators
+        operators.insert(
+            "+".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Add,
+                precedence: Precedence::Additive,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "-".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Subtract,
+                precedence: Precedence::Additive,
+                right_associative: false,
+            },
+        );
+
+        // Multiplicative operators (higher precedence than additive)
+        operators.insert(
+            "*".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Multiply,
+                precedence: Precedence::Multiplicative,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "/".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Divide,
+                precedence: Precedence::Multiplicative,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "%".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::Modulo,
+                precedence: Precedence::Multiplicative,
+                right_associative: false,
+            },
+        );
+
+        // Neuromorphic operators
+        operators.insert(
+            "SYNAPTIC_SIMILAR".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::SynapticSimilarity,
+                precedence: Precedence::Neuromorphic,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "HEBBIAN_STRENGTHEN".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::HebbianStrengthening,
+                precedence: Precedence::Neuromorphic,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "PLASTICITY_UPDATE".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::PlasticityUpdate,
+                precedence: Precedence::Neuromorphic,
+                right_associative: false,
+            },
+        );
+
+        // Quantum operators
+        operators.insert(
+            "ENTANGLE".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::QuantumEntanglement,
+                precedence: Precedence::Quantum,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "SUPERPOSITION_COLLAPSE".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::SuperpositionCollapse,
+                precedence: Precedence::Quantum,
+                right_associative: false,
+            },
+        );
+        operators.insert(
+            "AMPLITUDE_INTERFERE".to_string(),
+            OperatorInfo {
+                operator: BinaryOperator::AmplitudeInterference,
+                precedence: Precedence::Quantum,
+                right_associative: false,
+            },
+        );
     }
 
     /// Validate AST structure
@@ -1398,8 +1635,74 @@ impl QSQLParser {
         Ok(())
     }
 
-    /// Parse expression (simplified for now)
+    /// Parse expression using Pratt parsing (operator precedence parsing)
+    ///
+    /// This implements a Pratt parser which correctly handles operator precedence
+    /// and associativity. The algorithm works by:
+    /// 1. Parsing a primary expression (literals, identifiers, parentheses)
+    /// 2. While the next operator has higher precedence than min_precedence:
+    ///    - Parse the operator
+    ///    - Recursively parse the right side with appropriate precedence
+    ///    - Build the binary expression
     fn parse_expression(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<Expression> {
+        self.parse_expression_with_precedence(tokens, i, Precedence::None)
+    }
+
+    /// Parse expression with minimum precedence (core of Pratt parser)
+    fn parse_expression_with_precedence(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+        min_precedence: Precedence,
+    ) -> QSQLResult<Expression> {
+        // First, parse the left-hand side (prefix expression)
+        let mut left = self.parse_prefix_expression(tokens, i)?;
+
+        // Then, handle infix operators using precedence climbing
+        while *i < tokens.len() {
+            // Get operator info for current token
+            let op_info = match self.get_operator_info(&tokens[*i]) {
+                Some(info) => info,
+                None => break, // Not an operator, stop parsing
+            };
+
+            // If operator precedence is too low, stop
+            if op_info.precedence < min_precedence {
+                break;
+            }
+
+            // Consume the operator token
+            *i += 1;
+
+            // Determine the precedence for the right side
+            // For left-associative: use next higher precedence
+            // For right-associative: use same precedence
+            let next_min_precedence = if op_info.right_associative {
+                op_info.precedence
+            } else {
+                op_info.precedence.next()
+            };
+
+            // Parse the right-hand side recursively
+            let right = self.parse_expression_with_precedence(tokens, i, next_min_precedence)?;
+
+            // Build the binary expression
+            left = Expression::BinaryOp {
+                left: Box::new(left),
+                operator: op_info.operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// Parse prefix expression (primary expressions and unary operators)
+    fn parse_prefix_expression(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Expression> {
         if *i >= tokens.len() {
             return Err(QSQLError::ParseError {
                 message: "Unexpected end of expression".to_string(),
@@ -1407,113 +1710,199 @@ impl QSQLParser {
             });
         }
 
-        // Parse the left side (primary expression)
-        let left = match &tokens[*i] {
-            TokenType::Identifier(name) => {
+        match &tokens[*i] {
+            // Unary NOT operator
+            TokenType::Not => {
                 *i += 1;
-                Expression::Identifier(name.clone())
+                let operand = self.parse_expression_with_precedence(tokens, i, Precedence::Not)?;
+                Ok(Expression::UnaryOp {
+                    operator: UnaryOperator::Not,
+                    operand: Box::new(operand),
+                })
             }
-            TokenType::StringLiteral(s) => {
-                *i += 1;
-                Expression::Literal(Literal::String(s.clone()))
-            }
-            TokenType::IntegerLiteral(n) => {
-                *i += 1;
-                Expression::Literal(Literal::Integer(*n))
-            }
-            TokenType::FloatLiteral(f) => {
-                *i += 1;
-                Expression::Literal(Literal::Float(*f))
-            }
-            TokenType::BooleanLiteral(b) => {
-                *i += 1;
-                Expression::Literal(Literal::Boolean(*b))
-            }
-            TokenType::DNALiteral(dna) => {
-                *i += 1;
-                Expression::Literal(Literal::DNA(dna.clone()))
-            }
-            _ => {
-                return Err(QSQLError::ParseError {
-                    message: format!("Unexpected token in expression: {:?}", tokens[*i]),
-                    position: *i,
-                });
-            }
-        };
 
-        // Check if there's a binary operator following
-        if *i < tokens.len() {
-            let operator = match &tokens[*i] {
-                TokenType::Equal => Some(BinaryOperator::Equal),
-                TokenType::NotEqual => Some(BinaryOperator::NotEqual),
-                TokenType::LessThan => Some(BinaryOperator::LessThan),
-                TokenType::LessThanOrEqual => Some(BinaryOperator::LessThanOrEqual),
-                TokenType::GreaterThan => Some(BinaryOperator::GreaterThan),
-                TokenType::GreaterThanOrEqual => Some(BinaryOperator::GreaterThanOrEqual),
-                TokenType::Plus => Some(BinaryOperator::Add),
-                TokenType::Minus => Some(BinaryOperator::Subtract),
-                TokenType::Multiply => Some(BinaryOperator::Multiply),
-                TokenType::Divide => Some(BinaryOperator::Divide),
-                TokenType::Modulo => Some(BinaryOperator::Modulo),
-                TokenType::And => Some(BinaryOperator::And),
-                TokenType::Or => Some(BinaryOperator::Or),
-                TokenType::Like => Some(BinaryOperator::Like),
-                _ => None,
-            };
+            // Unary minus
+            TokenType::Minus => {
+                *i += 1;
+                let operand =
+                    self.parse_expression_with_precedence(tokens, i, Precedence::Unary)?;
+                Ok(Expression::UnaryOp {
+                    operator: UnaryOperator::Minus,
+                    operand: Box::new(operand),
+                })
+            }
 
-            if let Some(op) = operator {
-                *i += 1; // consume the operator
+            // Unary plus (usually a no-op, but we support it)
+            TokenType::Plus => {
+                *i += 1;
+                let operand =
+                    self.parse_expression_with_precedence(tokens, i, Precedence::Unary)?;
+                Ok(Expression::UnaryOp {
+                    operator: UnaryOperator::Plus,
+                    operand: Box::new(operand),
+                })
+            }
 
-                // Parse the right side (avoid infinite recursion by parsing primary only for simple cases)
-                if *i >= tokens.len() {
+            // Parenthesized expression
+            TokenType::LeftParen => {
+                *i += 1;
+                let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
                     return Err(QSQLError::ParseError {
-                        message: "Expected expression after operator".to_string(),
+                        message: "Expected closing parenthesis".to_string(),
                         position: *i,
                     });
                 }
+                *i += 1; // consume ')'
+                Ok(expr)
+            }
 
-                let right = match &tokens[*i] {
-                    TokenType::Identifier(name) => {
-                        *i += 1;
-                        Expression::Identifier(name.clone())
-                    }
-                    TokenType::StringLiteral(s) => {
-                        *i += 1;
-                        Expression::Literal(Literal::String(s.clone()))
-                    }
-                    TokenType::IntegerLiteral(n) => {
-                        *i += 1;
-                        Expression::Literal(Literal::Integer(*n))
-                    }
-                    TokenType::FloatLiteral(f) => {
-                        *i += 1;
-                        Expression::Literal(Literal::Float(*f))
-                    }
-                    TokenType::BooleanLiteral(b) => {
-                        *i += 1;
-                        Expression::Literal(Literal::Boolean(*b))
-                    }
-                    TokenType::DNALiteral(dna) => {
-                        *i += 1;
-                        Expression::Literal(Literal::DNA(dna.clone()))
-                    }
-                    _ => {
-                        return Err(QSQLError::ParseError {
-                            message: format!("Unexpected token after operator: {:?}", tokens[*i]),
-                            position: *i,
-                        });
-                    }
-                };
+            // Literals
+            TokenType::StringLiteral(s) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::String(s.clone())))
+            }
+            TokenType::IntegerLiteral(n) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::Integer(*n)))
+            }
+            TokenType::FloatLiteral(f) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::Float(*f)))
+            }
+            TokenType::BooleanLiteral(b) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::Boolean(*b)))
+            }
+            TokenType::DNALiteral(dna) => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::DNA(dna.clone())))
+            }
+            TokenType::Null => {
+                *i += 1;
+                Ok(Expression::Literal(Literal::Null))
+            }
 
-                return Ok(Expression::BinaryOp {
-                    left: Box::new(left),
-                    operator: op,
-                    right: Box::new(right),
+            // Identifier or function call
+            TokenType::Identifier(name) => {
+                let name_clone = name.clone();
+                *i += 1;
+
+                // Check if this is a function call
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                    self.parse_function_call(tokens, i, name_clone)
+                } else {
+                    Ok(Expression::Identifier(name_clone))
+                }
+            }
+
+            // NULL keyword (handled separately from literal)
+            TokenType::Is => {
+                // "IS NULL" or "IS NOT NULL" are handled as infix operators
+                Err(QSQLError::ParseError {
+                    message: "IS must follow an expression".to_string(),
+                    position: *i,
+                })
+            }
+
+            _ => Err(QSQLError::ParseError {
+                message: format!("Unexpected token in expression: {:?}", tokens[*i]),
+                position: *i,
+            }),
+        }
+    }
+
+    /// Parse function call expression
+    fn parse_function_call(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+        function_name: String,
+    ) -> QSQLResult<Expression> {
+        // Consume '('
+        *i += 1;
+
+        let mut args = Vec::new();
+
+        // Parse arguments
+        loop {
+            if *i >= tokens.len() {
+                return Err(QSQLError::ParseError {
+                    message: "Unclosed function call".to_string(),
+                    position: *i,
                 });
+            }
+
+            // Check for closing paren
+            if matches!(tokens[*i], TokenType::RightParen) {
+                *i += 1;
+                break;
+            }
+
+            // Parse argument expression
+            let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+            args.push(arg);
+
+            // Check for comma or closing paren
+            if *i < tokens.len() {
+                if matches!(tokens[*i], TokenType::Comma) {
+                    *i += 1;
+                } else if !matches!(tokens[*i], TokenType::RightParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected ',' or ')' in function call".to_string(),
+                        position: *i,
+                    });
+                }
             }
         }
 
-        Ok(left)
+        Ok(Expression::FunctionCall {
+            name: function_name,
+            args,
+        })
+    }
+
+    /// Get operator info from token for Pratt parsing
+    fn get_operator_info(&self, token: &TokenType) -> Option<OperatorInfo> {
+        let op_key = match token {
+            // Arithmetic operators
+            TokenType::Plus => "+",
+            TokenType::Minus => "-",
+            TokenType::Multiply => "*",
+            TokenType::Divide => "/",
+            TokenType::Modulo => "%",
+
+            // Comparison operators
+            TokenType::Equal => "=",
+            TokenType::NotEqual => "!=",
+            TokenType::LessThan => "<",
+            TokenType::LessThanOrEqual => "<=",
+            TokenType::GreaterThan => ">",
+            TokenType::GreaterThanOrEqual => ">=",
+
+            // Logical operators
+            TokenType::And => "AND",
+            TokenType::Or => "OR",
+
+            // String operators
+            TokenType::Like => "LIKE",
+            TokenType::In => "IN",
+
+            // Neuromorphic operators (from keywords)
+            TokenType::Identifier(name) => {
+                let upper = name.to_uppercase();
+                if self.operators.contains_key(&upper) {
+                    return self.operators.get(&upper).cloned();
+                }
+                return None;
+            }
+
+            // Not an infix operator
+            _ => return None,
+        };
+
+        self.operators.get(op_key).cloned()
     }
 }
 

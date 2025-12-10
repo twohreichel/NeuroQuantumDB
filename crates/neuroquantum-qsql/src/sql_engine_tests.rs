@@ -377,3 +377,406 @@ fn create_test_query_plan(statement: Statement) -> QueryPlan {
         },
     }
 }
+
+// =============================================================================
+// Operator Precedence Parser Tests (Pratt Parsing)
+// =============================================================================
+
+/// Test that multiplication has higher precedence than addition
+#[test]
+fn test_operator_precedence_mult_over_add() {
+    let parser = QSQLParser::new();
+
+    // 1 + 2 * 3 should parse as 1 + (2 * 3), not (1 + 2) * 3
+    let result = parser.parse("SELECT * FROM t WHERE x = 1 + 2 * 3");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                left: _,
+                operator: BinaryOperator::Equal,
+                right,
+            }) = select.where_clause
+            {
+                // The right side should be: 1 + (2 * 3)
+                if let Expression::BinaryOp {
+                    left: add_left,
+                    operator: add_op,
+                    right: add_right,
+                } = *right
+                {
+                    assert_eq!(add_op, BinaryOperator::Add);
+
+                    // Left side of addition is 1
+                    if let Expression::Literal(Literal::Integer(n)) = *add_left {
+                        assert_eq!(n, 1);
+                    } else {
+                        panic!("Expected integer literal 1");
+                    }
+
+                    // Right side of addition is 2 * 3
+                    if let Expression::BinaryOp {
+                        left: mult_left,
+                        operator: mult_op,
+                        right: mult_right,
+                    } = *add_right
+                    {
+                        assert_eq!(mult_op, BinaryOperator::Multiply);
+                        if let Expression::Literal(Literal::Integer(n)) = *mult_left {
+                            assert_eq!(n, 2);
+                        }
+                        if let Expression::Literal(Literal::Integer(n)) = *mult_right {
+                            assert_eq!(n, 3);
+                        }
+                    } else {
+                        panic!("Expected multiplication expression");
+                    }
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test that AND has higher precedence than OR
+#[test]
+fn test_operator_precedence_and_over_or() {
+    let parser = QSQLParser::new();
+
+    // a OR b AND c should parse as a OR (b AND c), not (a OR b) AND c
+    let result = parser.parse("SELECT * FROM t WHERE a = 1 OR b = 2 AND c = 3");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                operator: top_op, ..
+            }) = &select.where_clause
+            {
+                // The top-level operator should be OR (since AND binds tighter)
+                assert_eq!(*top_op, BinaryOperator::Or);
+            } else {
+                panic!("Expected binary operation at top level");
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test comparison operators have correct precedence relative to arithmetic
+#[test]
+fn test_operator_precedence_comparison_over_arithmetic() {
+    let parser = QSQLParser::new();
+
+    // x > 1 + 2 should parse as x > (1 + 2)
+    let result = parser.parse("SELECT * FROM t WHERE x > 1 + 2");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                left: cmp_left,
+                operator: cmp_op,
+                right: cmp_right,
+            }) = select.where_clause
+            {
+                // Top level should be comparison
+                assert_eq!(cmp_op, BinaryOperator::GreaterThan);
+
+                // Left side should be identifier x
+                if let Expression::Identifier(name) = *cmp_left {
+                    assert_eq!(name, "x");
+                } else {
+                    panic!("Expected identifier x");
+                }
+
+                // Right side should be addition 1 + 2
+                if let Expression::BinaryOp {
+                    operator: add_op, ..
+                } = *cmp_right
+                {
+                    assert_eq!(add_op, BinaryOperator::Add);
+                } else {
+                    panic!("Expected addition expression");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test parenthesized expressions override precedence
+#[test]
+fn test_parentheses_override_precedence() {
+    let parser = QSQLParser::new();
+
+    // (1 + 2) * 3 should parse as (1 + 2) * 3, not 1 + (2 * 3)
+    let result = parser.parse("SELECT * FROM t WHERE x = (1 + 2) * 3");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                left: _,
+                operator: BinaryOperator::Equal,
+                right,
+            }) = select.where_clause
+            {
+                // The right side should be: (1 + 2) * 3
+                // Top-level operation is multiplication
+                if let Expression::BinaryOp {
+                    left: mult_left,
+                    operator: mult_op,
+                    right: mult_right,
+                } = *right
+                {
+                    assert_eq!(mult_op, BinaryOperator::Multiply);
+
+                    // Left side of multiplication is (1 + 2)
+                    if let Expression::BinaryOp {
+                        operator: add_op, ..
+                    } = *mult_left
+                    {
+                        assert_eq!(add_op, BinaryOperator::Add);
+                    } else {
+                        panic!("Expected addition expression in parentheses");
+                    }
+
+                    // Right side is 3
+                    if let Expression::Literal(Literal::Integer(n)) = *mult_right {
+                        assert_eq!(n, 3);
+                    }
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test unary NOT operator
+#[test]
+fn test_unary_not_operator() {
+    let parser = QSQLParser::new();
+
+    let result = parser.parse("SELECT * FROM t WHERE NOT active = 1");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::UnaryOp {
+                operator: UnaryOperator::Not,
+                ..
+            }) = &select.where_clause
+            {
+                // Top-level should be NOT
+            } else {
+                panic!("Expected NOT unary operator at top level");
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test unary minus operator
+#[test]
+fn test_unary_minus_operator() {
+    let parser = QSQLParser::new();
+
+    let result = parser.parse("SELECT * FROM t WHERE x = -5");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                left: _,
+                operator: BinaryOperator::Equal,
+                right,
+            }) = select.where_clause
+            {
+                if let Expression::UnaryOp {
+                    operator: UnaryOperator::Minus,
+                    operand,
+                } = *right
+                {
+                    if let Expression::Literal(Literal::Integer(n)) = *operand {
+                        assert_eq!(n, 5);
+                    } else {
+                        panic!("Expected integer literal 5");
+                    }
+                } else {
+                    panic!("Expected unary minus");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test function call parsing
+#[test]
+fn test_function_call_parsing() {
+    let parser = QSQLParser::new();
+
+    let result = parser.parse("SELECT * FROM t WHERE COUNT(id) > 10");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                left,
+                operator: BinaryOperator::GreaterThan,
+                ..
+            }) = select.where_clause
+            {
+                if let Expression::FunctionCall { name, args } = *left {
+                    assert_eq!(name, "COUNT");
+                    assert_eq!(args.len(), 1);
+                } else {
+                    panic!("Expected function call");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test complex nested expressions
+#[test]
+fn test_complex_nested_expression() {
+    let parser = QSQLParser::new();
+
+    // Complex expression with multiple operators and precedence levels
+    let result = parser.parse("SELECT * FROM t WHERE a = 1 AND b > 2 + 3 * 4 OR c < 10");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            // Top level should be OR (lowest precedence among binary logical ops)
+            if let Some(Expression::BinaryOp {
+                operator: top_op, ..
+            }) = &select.where_clause
+            {
+                assert_eq!(*top_op, BinaryOperator::Or);
+            } else {
+                panic!("Expected OR at top level");
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test left associativity of operators
+#[test]
+fn test_left_associativity() {
+    let parser = QSQLParser::new();
+
+    // a - b - c should parse as (a - b) - c (left associative)
+    let result = parser.parse("SELECT * FROM t WHERE x = a - b - c");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                left: _,
+                operator: BinaryOperator::Equal,
+                right,
+            }) = select.where_clause
+            {
+                // Right side: (a - b) - c
+                // Top-level subtraction
+                if let Expression::BinaryOp {
+                    left: sub_left,
+                    operator: sub_op,
+                    right: sub_right,
+                } = *right
+                {
+                    assert_eq!(sub_op, BinaryOperator::Subtract);
+
+                    // Right operand should be c (identifier)
+                    if let Expression::Identifier(name) = *sub_right {
+                        assert_eq!(name, "c");
+                    } else {
+                        panic!("Expected identifier c");
+                    }
+
+                    // Left operand should be a - b
+                    if let Expression::BinaryOp {
+                        operator: inner_op, ..
+                    } = *sub_left
+                    {
+                        assert_eq!(inner_op, BinaryOperator::Subtract);
+                    } else {
+                        panic!("Expected inner subtraction");
+                    }
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test LIKE operator parsing
+#[test]
+fn test_like_operator() {
+    let parser = QSQLParser::new();
+
+    let result = parser.parse("SELECT * FROM t WHERE name LIKE '%test%'");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                operator: BinaryOperator::Like,
+                ..
+            }) = &select.where_clause
+            {
+                // LIKE operator correctly parsed
+            } else {
+                panic!("Expected LIKE operator");
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test division and modulo operators
+#[test]
+fn test_division_and_modulo() {
+    let parser = QSQLParser::new();
+
+    let result = parser.parse("SELECT * FROM t WHERE x = 10 / 3 % 2");
+    assert!(result.is_ok());
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::BinaryOp {
+                left: _,
+                operator: BinaryOperator::Equal,
+                right,
+            }) = select.where_clause
+            {
+                // Should be (10 / 3) % 2 due to left associativity and equal precedence
+                if let Expression::BinaryOp {
+                    operator: BinaryOperator::Modulo,
+                    left: mod_left,
+                    ..
+                } = *right
+                {
+                    if let Expression::BinaryOp {
+                        operator: BinaryOperator::Divide,
+                        ..
+                    } = *mod_left
+                    {
+                        // Correct structure
+                    } else {
+                        panic!("Expected division as left operand of modulo");
+                    }
+                } else {
+                    panic!("Expected modulo at top of arithmetic expression");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
