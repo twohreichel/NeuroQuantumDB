@@ -22,10 +22,10 @@ Das NeuroQuantumDB-Projekt ist ein beeindruckendes, ambitioniertes Datenbanksyst
 | Nr. | Datei | Zeile | Beschreibung | Empfehlung |
 |-----|-------|-------|--------------|------------|
 | 1.1.1 | [biometric_auth.rs](crates/neuroquantum-api/src/biometric_auth.rs#L368) | 368 | `sampling_rate` Feld in `DigitalFilter` | **Akzeptabel** - Debug/Inspektionszweck dokumentiert |
-| 1.1.2 | [pqcrypto.rs](crates/neuroquantum-core/src/pqcrypto.rs#L23) | 23 | `MLKEM768_SHARED_SECRET_SIZE` Konstante | **Entfernen** oder für Validierung verwenden |
+| 1.1.2 | [pqcrypto.rs](crates/neuroquantum-core/src/pqcrypto.rs#L23) | 23 | `MLKEM768_SHARED_SECRET_SIZE` Konstante | ✅ **ERLEDIGT** - Wird nun für Validierung des decapsulated shared secrets verwendet |
 | 1.1.3 | [synaptic.rs](crates/neuroquantum-core/src/synaptic.rs#L355) | 355 | `neon_optimizer` Feld in `SynapticNetwork` | ✅ **ERLEDIGT** - NEON-Optimierung wird nun aktiv in `optimize_network()` genutzt |
 | 1.1.4 | [x86_avx2.rs](crates/neuroquantum-core/src/dna/simd/x86_avx2.rs#L322-L347) | 322-347 | Drei Helper-Funktionen für Scalar-Fallback | **Akzeptabel** - Fallback-Code für nicht-AVX2-Systeme |
-| 1.1.5 | [security.rs](crates/neuroquantum-core/src/security.rs#L18) | 18 | `MLKEM1024_CIPHERTEXT_SIZE` Konstante | **Entfernen** oder für Validierung verwenden |
+| 1.1.5 | [security.rs](crates/neuroquantum-core/src/security.rs#L18) | 18 | `MLKEM1024_CIPHERTEXT_SIZE` Konstante | ✅ **ERLEDIGT** - Wird nun für Validierung in `decapsulate_shared_secret()` verwendet |
 | 1.1.6 | [page.rs](crates/neuroquantum-core/src/storage/btree/page.rs#L41) | 41 | `PageHeader::new()` Funktion | **Implementieren** - Sollte für Page-Erstellung verwendet werden |
 | 1.1.7 | [neon_optimization.rs](crates/neuroquantum-core/src/neon_optimization.rs#L171) | 171 | `scalar_update_connection_weights()` | **Akzeptabel** - Kommentar erklärt SIMD-Code-Pfad |
 
@@ -402,9 +402,13 @@ test result: ok. 92 passed; 0 failed; 0 ignored
    - WebSocket, Transactions, Recovery
    - Aufwand: 8-16 Stunden
 
-6. **Ungenutzte Konstanten entfernen oder verwenden**
-   - `MLKEM768_SHARED_SECRET_SIZE`, `MLKEM1024_CIPHERTEXT_SIZE`
-   - Aufwand: 1 Stunde
+6. **Ungenutzte Konstanten entfernen oder verwenden** ✅ **ERLEDIGT**
+   - ~~`MLKEM768_SHARED_SECRET_SIZE`, `MLKEM1024_CIPHERTEXT_SIZE`~~
+   - ~~Aufwand: 1 Stunde~~
+   - Implementiert: `#[allow(dead_code)]` entfernt von beiden Konstanten
+   - `MLKEM768_SHARED_SECRET_SIZE` wird nun in `pqcrypto.rs` für Validierung des decapsulated shared secrets verwendet
+   - `MLKEM1024_CIPHERTEXT_SIZE` wird nun in `security.rs` für Validierung in der neuen `decapsulate_shared_secret()` Funktion verwendet
+   - Neue Tests: `test_mlkem_encapsulate_decapsulate_roundtrip` und `test_mlkem_decapsulate_invalid_ciphertext_size` in security.rs
 
 ### Niedrige Priorität
 

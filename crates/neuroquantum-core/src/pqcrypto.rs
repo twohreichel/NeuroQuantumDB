@@ -20,7 +20,6 @@ type MlKemEncapsulationKey = <MlKem768 as KemCore>::EncapsulationKey;
 /// ML-KEM-768 ciphertext size in bytes (1088 bytes)
 const MLKEM768_CIPHERTEXT_SIZE: usize = 1088;
 /// ML-KEM-768 shared secret size in bytes (32 bytes)
-#[allow(dead_code)]
 const MLKEM768_SHARED_SECRET_SIZE: usize = 32;
 
 #[derive(Error, Debug)]
@@ -183,7 +182,18 @@ impl PQCryptoManager {
             )
         })?;
 
-        Ok(AsRef::<[u8]>::as_ref(&shared_secret).to_vec())
+        let shared_secret_bytes = AsRef::<[u8]>::as_ref(&shared_secret).to_vec();
+
+        // Validate shared secret size (should always be 32 bytes for ML-KEM-768)
+        if shared_secret_bytes.len() != MLKEM768_SHARED_SECRET_SIZE {
+            return Err(PQCryptoError::DecapsulationFailed(format!(
+                "Invalid shared secret size: expected {} bytes, got {} bytes",
+                MLKEM768_SHARED_SECRET_SIZE,
+                shared_secret_bytes.len()
+            )));
+        }
+
+        Ok(shared_secret_bytes)
     }
 
     /// Generate quantum token claims with signatures

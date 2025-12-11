@@ -9,13 +9,15 @@ use aes_gcm::{
 };
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use ml_kem::{kem::Encapsulate, Encoded, EncodedSizeUser, KemCore, MlKem1024};
+use ml_kem::{
+    kem::{Decapsulate, Encapsulate},
+    Ciphertext, Encoded, EncodedSizeUser, KemCore, MlKem1024,
+};
 use num_complex::Complex;
 use pqcrypto_mldsa::mldsa87;
 use pqcrypto_traits::sign::{PublicKey as SigPublicKey, SecretKey as SigSecretKey, SignedMessage};
 
 /// ML-KEM-1024 ciphertext size in bytes (1568 bytes for Security Level 5)
-#[allow(dead_code)]
 const MLKEM1024_CIPHERTEXT_SIZE: usize = 1568;
 use rustfft::FftPlanner;
 use serde::{Deserialize, Serialize};
@@ -357,6 +359,54 @@ impl QuantumCrypto {
     pub async fn get_public_keys(&self) -> Result<(Vec<u8>, Vec<u8>), SecurityError> {
         let keys = self.keys.read().await;
         Ok((keys.mlkem_public.clone(), keys.mldsa_public.clone()))
+    }
+
+    /// Decapsulate a shared secret from ML-KEM ciphertext
+    ///
+    /// Takes ciphertext bytes from `generate_shared_secret` and returns the shared secret.
+    /// This validates the ciphertext size and performs proper decapsulation using the
+    /// decapsulation (secret) key.
+    ///
+    /// For ML-KEM-1024, ciphertext must be exactly 1568 bytes.
+    pub async fn decapsulate_shared_secret(
+        &self,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, SecurityError> {
+        // Validate ciphertext size for ML-KEM-1024 (1568 bytes)
+        if ciphertext.len() != MLKEM1024_CIPHERTEXT_SIZE {
+            return Err(SecurityError::KeyExchangeFailed(format!(
+                "Invalid ciphertext length: expected {} bytes, got {} bytes",
+                MLKEM1024_CIPHERTEXT_SIZE,
+                ciphertext.len()
+            )));
+        }
+
+        let keys = self.keys.read().await;
+
+        // Deserialize the decapsulation key from bytes
+        type MlKem1024DecapsulationKey = <MlKem1024 as KemCore>::DecapsulationKey;
+        type MlKem1024DkArray = Encoded<MlKem1024DecapsulationKey>;
+
+        // Convert secret key bytes to fixed-size array
+        let dk_array: MlKem1024DkArray = keys.mlkem_secret.as_slice().try_into().map_err(|_| {
+            SecurityError::KeyExchangeFailed("Failed to parse decapsulation key bytes".to_string())
+        })?;
+        let dk = MlKem1024DecapsulationKey::from_bytes(&dk_array);
+
+        // Deserialize the ciphertext from bytes
+        let ct: Ciphertext<MlKem1024> = ciphertext.try_into().map_err(|_| {
+            SecurityError::KeyExchangeFailed("Failed to parse ciphertext bytes".to_string())
+        })?;
+
+        // Decapsulate using the decapsulation key
+        let shared_secret = dk.decapsulate(&ct).map_err(|_| {
+            SecurityError::KeyExchangeFailed(
+                "ML-KEM decapsulation failed - possibly corrupted ciphertext".to_string(),
+            )
+        })?;
+
+        debug!("✅ Successfully decapsulated shared secret");
+        Ok(AsRef::<[u8]>::as_ref(&shared_secret).to_vec())
     }
 }
 
@@ -1620,5 +1670,75 @@ mod tests {
             .unwrap();
 
         assert!(matches!(result, AuthResult::Success { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_mlkem_encapsulate_decapsulate_roundtrip() {
+        let config = QuantumEncryptionConfig {
+            mlkem_enabled: true,
+            mldsa_enabled: true,
+            key_rotation_interval: 3600,
+            security_level: 5,
+            encrypt_at_rest: true,
+            encrypt_in_transit: true,
+        };
+
+        let crypto = QuantumCrypto::new(config).unwrap();
+
+        // Get our public key
+        let (mlkem_public, _mldsa_public) = crypto.get_public_keys().await.unwrap();
+
+        // Encapsulate a shared secret using our own public key
+        let (shared_secret_sender, ciphertext) =
+            crypto.generate_shared_secret(&mlkem_public).await.unwrap();
+
+        // Verify ciphertext size
+        assert_eq!(
+            ciphertext.len(),
+            1568,
+            "ML-KEM-1024 ciphertext should be 1568 bytes"
+        );
+
+        // Decapsulate the shared secret
+        let shared_secret_receiver = crypto.decapsulate_shared_secret(&ciphertext).await.unwrap();
+
+        // Both sides should have the same shared secret
+        assert_eq!(
+            shared_secret_sender, shared_secret_receiver,
+            "Encapsulated and decapsulated shared secrets must match"
+        );
+
+        // Shared secret should be 32 bytes
+        assert_eq!(
+            shared_secret_receiver.len(),
+            32,
+            "ML-KEM-1024 shared secret should be 32 bytes"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_mlkem_decapsulate_invalid_ciphertext_size() {
+        let config = QuantumEncryptionConfig {
+            mlkem_enabled: true,
+            mldsa_enabled: true,
+            key_rotation_interval: 3600,
+            security_level: 5,
+            encrypt_at_rest: true,
+            encrypt_in_transit: true,
+        };
+
+        let crypto = QuantumCrypto::new(config).unwrap();
+
+        // Try to decapsulate with wrong ciphertext size
+        let invalid_ciphertext = vec![0u8; 100];
+        let result = crypto.decapsulate_shared_secret(&invalid_ciphertext).await;
+
+        assert!(result.is_err(), "Should fail with invalid ciphertext size");
+        if let Err(SecurityError::KeyExchangeFailed(msg)) = result {
+            assert!(
+                msg.contains("Invalid ciphertext length"),
+                "Error should mention invalid ciphertext length"
+            );
+        }
     }
 }
