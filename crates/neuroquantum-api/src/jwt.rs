@@ -1,4 +1,5 @@
 use crate::error::{ApiError, AuthToken, QuantumAuthClaims};
+use crate::permissions::Permission;
 use actix_web::{dev::ServiceRequest, error::ErrorUnauthorized, Error, HttpMessage};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -383,7 +384,7 @@ impl JwtService {
             exp,
             iat,
             quantum_level: 255, // Maximum quantum security (NIST Level 3)
-            permissions: vec!["quantum_authenticated".to_string()],
+            permissions: Permission::quantum_authenticated(),
         };
 
         encode(&Header::default(), &claims, &self.encoding_key).map_err(|e| {
@@ -584,6 +585,7 @@ impl JwtConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::permissions::{Permission, ADMIN, QUANTUM_AUTHENTICATED, READ};
 
     #[tokio::test]
     async fn test_jwt_generation_and_validation() {
@@ -591,17 +593,13 @@ mod tests {
         let service = JwtService::new(secret);
 
         let token = service
-            .generate_token(
-                "test_user",
-                vec!["read".to_string(), "write".to_string()],
-                128,
-            )
+            .generate_token("test_user", Permission::read_write(), 128)
             .unwrap();
 
         let claims = service.validate_token(&token).await.unwrap();
         assert_eq!(claims.sub, "test_user");
         assert_eq!(claims.quantum_level, 128);
-        assert!(claims.permissions.contains(&"read".to_string()));
+        assert!(claims.permissions.contains(&READ.to_string()));
     }
 
     #[tokio::test]
@@ -618,7 +616,7 @@ mod tests {
         assert_eq!(claims.quantum_level, 255);
         assert!(claims
             .permissions
-            .contains(&"quantum_authenticated".to_string()));
+            .contains(&QUANTUM_AUTHENTICATED.to_string()));
     }
 
     #[tokio::test]
@@ -688,7 +686,7 @@ mod tests {
 
         // Generate a token
         let token = service
-            .generate_token("rotation_user", vec!["admin".to_string()], 255)
+            .generate_token("rotation_user", Permission::to_owned(&[ADMIN]), 255)
             .unwrap();
 
         // Validate token

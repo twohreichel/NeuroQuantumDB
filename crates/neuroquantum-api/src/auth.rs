@@ -1,3 +1,4 @@
+use crate::permissions::Permission;
 use crate::storage::{ApiKeyInfo, ApiKeyStorage, StorageStats};
 #[cfg(not(test))]
 use bcrypt::DEFAULT_COST;
@@ -94,14 +95,7 @@ impl AuthService {
 
         let admin_key = self.generate_api_key(
             name,
-            vec![
-                "admin".to_string(),
-                "neuromorphic".to_string(),
-                "quantum".to_string(),
-                "dna".to_string(),
-                "read".to_string(),
-                "write".to_string(),
-            ],
+            Permission::admin_permissions(),
             expiry_hours,
             Some(10000), // High rate limit for admin
         )?;

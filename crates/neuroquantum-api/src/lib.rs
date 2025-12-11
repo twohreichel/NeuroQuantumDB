@@ -19,6 +19,7 @@ pub mod handlers;
 pub mod jwt;
 pub mod metrics;
 pub mod middleware;
+pub mod permissions;
 pub mod rate_limit;
 pub mod storage;
 pub mod websocket;

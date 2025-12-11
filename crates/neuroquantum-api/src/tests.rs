@@ -17,6 +17,7 @@ use crate::{
     error::{ApiError, ApiResponse, ResponseMetadata},
     handlers::*,
     health_check, metrics,
+    permissions::{Permission, ADMIN, READ, WRITE},
 };
 
 #[cfg(test)]
@@ -50,7 +51,7 @@ mod auth_tests {
         assert!(result.is_ok(), "Should create initial admin key");
         let admin_key = result.unwrap();
         assert_eq!(admin_key.name, "test-admin");
-        assert!(admin_key.permissions.contains(&"admin".to_string()));
+        assert!(admin_key.permissions.contains(&ADMIN.to_string()));
 
         // Verify we now have admin keys
         assert!(auth_service.has_admin_keys(), "Should have admin keys after creation");
@@ -69,14 +70,14 @@ mod auth_tests {
 
         let api_key = auth_service.generate_api_key(
             "test_key".to_string(),
-            vec!["read".to_string(), "write".to_string()],
+            Permission::read_write(),
             Some(24),
             Some(1000),
         );
 
         assert_eq!(api_key.name, "test_key");
-        assert!(api_key.permissions.contains(&"read".to_string()));
-        assert!(api_key.permissions.contains(&"write".to_string()));
+        assert!(api_key.permissions.contains(&READ.to_string()));
+        assert!(api_key.permissions.contains(&WRITE.to_string()));
     }
 
     #[tokio::test]
@@ -86,7 +87,7 @@ mod auth_tests {
         // Generate a key first
         let api_key = auth_service.generate_api_key(
             "validation_test".to_string(),
-            vec!["read".to_string()],
+            Permission::read_only(),
             Some(1),
             Some(100),
         );
@@ -114,7 +115,7 @@ mod auth_tests {
         // Generate a key first
         let api_key = auth_service.generate_api_key(
             "revoke_test".to_string(),
-            vec!["read".to_string()],
+            Permission::read_only(),
             Some(1),
             Some(100),
         );
@@ -133,7 +134,7 @@ mod auth_tests {
         let api_key = ApiKey {
             key: "test_key".to_string(),
             name: "test".to_string(),
-            permissions: vec!["read".to_string(), "admin".to_string()],
+            permissions: Permission::to_owned(&[READ, ADMIN]),
             created_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             rate_limit_per_hour: Some(1000),
@@ -141,8 +142,8 @@ mod auth_tests {
             last_used: None,
         };
 
-        assert!(api_key.permissions.contains(&"read".to_string()));
-        assert!(api_key.permissions.contains(&"admin".to_string()));
+        assert!(api_key.permissions.contains(&READ.to_string()));
+        assert!(api_key.permissions.contains(&ADMIN.to_string()));
         assert!(!api_key.permissions.contains(&"super_admin".to_string()));
     }
 
@@ -151,7 +152,7 @@ mod auth_tests {
         let api_key = ApiKey {
             key: "test_key_123".to_string(),
             name: "test_key".to_string(),
-            permissions: vec!["read".to_string()],
+            permissions: Permission::read_only(),
             created_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             rate_limit_per_hour: Some(100),
@@ -432,7 +433,7 @@ mod performance_tests {
         for i in 0..10 {
             let _key = auth_service.generate_api_key(
                 format!("perf_test_{}", i),
-                vec!["read".to_string()],
+                Permission::read_only(),
                 Some(1),
                 Some(100),
             );
@@ -453,7 +454,7 @@ mod performance_tests {
         for i in 0..100 {
             let _key = auth_service.generate_api_key(
                 format!("memory_test_{}", i),
-                vec!["read".to_string()],
+                Permission::read_only(),
                 Some(1),
                 Some(100),
             );

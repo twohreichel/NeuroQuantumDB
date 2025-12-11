@@ -11,7 +11,7 @@
 //!
 //! Run with: cargo run --example authentication_flow
 
-use neuroquantum_api::{auth::AuthService, jwt::JwtService};
+use neuroquantum_api::{auth::AuthService, jwt::JwtService, permissions::Permission};
 use std::time::Duration;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -158,33 +158,33 @@ async fn demo_api_key_permissions() -> Result<(), Box<dyn std::error::Error>> {
     let roles = vec![
         (
             "neuromorphic_researcher",
-            vec!["neuromorphic".to_string(), "read".to_string()],
+            Permission::neuromorphic_read(),
             "Researcher with access to synaptic learning features",
         ),
         (
             "quantum_analyst",
-            vec!["quantum".to_string(), "read".to_string()],
+            Permission::quantum_read(),
             "Analyst with access to quantum search algorithms",
         ),
         (
             "dna_specialist",
-            vec!["dna".to_string(), "read".to_string(), "write".to_string()],
+            Permission::dna_read_write(),
             "Specialist with DNA compression and error correction access",
         ),
         (
             "readonly_user",
-            vec!["read".to_string()],
+            Permission::read_only(),
             "Basic user with read-only access",
         ),
         (
             "full_access_developer",
-            vec![
-                "neuromorphic".to_string(),
-                "quantum".to_string(),
-                "dna".to_string(),
-                "read".to_string(),
-                "write".to_string(),
-            ],
+            Permission::to_owned(&[
+                neuroquantum_api::permissions::NEUROMORPHIC,
+                neuroquantum_api::permissions::QUANTUM,
+                neuroquantum_api::permissions::DNA,
+                neuroquantum_api::permissions::READ,
+                neuroquantum_api::permissions::WRITE,
+            ]),
             "Developer with full feature access (no admin)",
         ),
     ];
@@ -230,7 +230,7 @@ async fn demo_key_validation() -> Result<(), Box<dyn std::error::Error>> {
     // Create a test key
     let test_key = auth_service.generate_api_key(
         "test_user".to_string(),
-        vec!["quantum".to_string(), "read".to_string()],
+        Permission::quantum_read(),
         Some(24), // 24 hours
         None,     // No rate limit
     )?;

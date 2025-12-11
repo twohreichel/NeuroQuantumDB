@@ -299,6 +299,7 @@ neuroquantum-api/
 ├── handlers.rs    # REST-Endpoints
 ├── websocket/     # WebSocket-Support mit Streaming
 ├── middleware.rs  # Auth, Security-Headers
+├── permissions.rs # Permission-Konstanten und Utilities
 └── biometric_auth.rs  # EEG-Authentifizierung
 ```
 
@@ -412,9 +413,14 @@ test result: ok. 92 passed; 0 failed; 0 ignored
 
 ### Niedrige Priorität
 
-7. **String-Allokationen optimieren**
-   - `&'static str` für konstante Permissions
-   - Aufwand: 2-4 Stunden
+7. **String-Allokationen optimieren** ✅ **ERLEDIGT**
+   - ~~`&'static str` für konstante Permissions~~
+   - ~~Aufwand: 2-4 Stunden~~
+   - Implementiert: Neues `permissions` Modul mit statischen Konstanten (`ADMIN`, `READ`, `WRITE`, `NEUROMORPHIC`, `QUANTUM`, `DNA`, `QUANTUM_AUTHENTICATED`)
+   - `Permission` Utility-Struct mit Helper-Funktionen: `admin_permissions()`, `read_only()`, `read_write()`, `neuromorphic_read()`, `quantum_read()`, `dna_read_write()`, `quantum_authenticated()`, `to_owned()`, `is_valid()`, `has_admin()`, `has_read()`, `has_write()`
+   - Aktualisierte Module: `auth.rs`, `jwt.rs`, `tests.rs`
+   - Aktualisierte Examples: `jwt_key_rotation_demo.rs`, `authentication_flow.rs`
+   - Vorteile: Zentrale Definition von Permissions, weniger Heap-Allokationen, Typ-Sicherheit durch Konstanten
 
 8. **mdbook-Dokumentation erstellen**
    - Bereits in `future-todos.md`

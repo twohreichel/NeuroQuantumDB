@@ -4,6 +4,7 @@
 //! Run with: cargo run --example jwt_key_rotation_demo
 
 use neuroquantum_api::jwt::{JwtKeyRotation, JwtService};
+use neuroquantum_api::permissions::Permission;
 use std::time::Duration;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -80,11 +81,7 @@ async fn demo_jwt_service_rotation() -> Result<(), Box<dyn std::error::Error>> {
     let service = JwtService::with_rotation(secret, rotation_interval);
 
     // Generate a token
-    let token = service.generate_token(
-        "demo_user",
-        vec!["read".to_string(), "write".to_string()],
-        128,
-    )?;
+    let token = service.generate_token("demo_user", Permission::read_write(), 128)?;
 
     info!("✅ Generated JWT token");
     info!("Token (truncated): {}...", &token[..50]);
