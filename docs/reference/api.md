@@ -1,5 +1,17 @@
 # API Reference
 
+## Rust API Documentation
+
+Detailed Rust documentation for all crates:
+
+- **[neuroquantum-core](../api/neuroquantum_core/index.html)** — Core engine: DNA compression, quantum algorithms, storage
+- **[neuroquantum-api](../api/neuroquantum_api/index.html)** — REST API, WebSocket, authentication  
+- **[neuroquantum-qsql](../api/neuroquantum_qsql/index.html)** — QSQL parser, optimizer, executor
+
+Or browse all crates: **[API Index](../api/index.html)**
+
+---
+
 ## REST Endpoints
 
 ### Authentication

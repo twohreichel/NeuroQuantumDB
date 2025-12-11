@@ -39,6 +39,5 @@
 # Reference
 
 - [API Reference](reference/api.md)
-- [Rust API Docs](api/neuroquantum_core/index.html)
 - [Error Codes](reference/errors.md)
 - [Glossary](reference/glossary.md)
