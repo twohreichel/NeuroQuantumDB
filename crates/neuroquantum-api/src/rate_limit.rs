@@ -8,6 +8,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
+/// Get current Unix timestamp in seconds.
+/// Returns 0 if system time is before Unix epoch (should never happen on properly configured systems).
+#[inline]
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 /// Rate limiting configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RateLimitConfig {
@@ -41,10 +51,7 @@ struct RateLimitBucket {
 
 impl RateLimitBucket {
     fn new(max_tokens: u32) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = current_unix_timestamp();
 
         Self {
             tokens: max_tokens,
@@ -55,10 +62,7 @@ impl RateLimitBucket {
     }
 
     fn try_consume(&mut self, config: &RateLimitConfig) -> bool {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = current_unix_timestamp();
 
         // Reset window if needed
         if now >= self.window_start + config.window_size_seconds as u64 {
@@ -92,10 +96,7 @@ impl RateLimitBucket {
     }
 
     fn time_until_reset(&self, config: &RateLimitConfig) -> u64 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = current_unix_timestamp();
 
         (self.window_start + config.window_size_seconds as u64).saturating_sub(now)
     }
@@ -332,10 +333,7 @@ impl RateLimitService {
     pub async fn cleanup_expired(&self) {
         if self.redis_client.is_none() {
             let mut store = self.memory_store.write().await;
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            let now = current_unix_timestamp();
 
             store.retain(|_, bucket| {
                 bucket.window_start + self.config.window_size_seconds as u64 > now

@@ -103,7 +103,14 @@ impl BackgroundFlusher {
                         continue;
                     }
 
-                    let page = frame.page().await;
+                    let page = match frame.page().await {
+                        Ok(p) => p,
+                        Err(e) => {
+                            warn!("Cannot flush frame {:?}: {}", frame_id, e);
+                            drop(frames_guard);
+                            continue;
+                        }
+                    };
                     drop(frames_guard);
 
                     // Write to disk

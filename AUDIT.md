@@ -118,23 +118,44 @@ const TEST_BCRYPT_COST: u32 = 4;  // Absichtlich niedrig für Tests
 
 **Status**: ✅ Akzeptabel - Nur in Tests verwendet, Production nutzt DEFAULT_COST.
 
-#### 3.2.3 Unwrap/Expect Verwendung
+#### 3.2.3 Unwrap/Expect Verwendung ✅ **BEHOBEN**
 **Fundstellen**: ~50+ Vorkommen in Tests und Edge-Cases
 
-**Kritische Bereiche (sollten refactored werden)**:
-- [rate_limit.rs](crates/neuroquantum-api/src/rate_limit.rs#L46) - `SystemTime::now().duration_since(UNIX_EPOCH).unwrap()`
-- [biometric_auth.rs](crates/neuroquantum-api/src/biometric_auth.rs#L1121) - Testcode mit `.unwrap()`
+**Kritische Bereiche wurden refactored**:
+- [rate_limit.rs](crates/neuroquantum-api/src/rate_limit.rs) - `SystemTime` unwraps durch Helper-Funktion `current_unix_timestamp()` ersetzt
+- [frame.rs](crates/neuroquantum-core/src/storage/buffer/frame.rs) - `expect("Frame is empty")` durch `Result<_, FrameError>` ersetzt
 
-**Empfehlung**:
+**Implementierte Lösung in rate_limit.rs**:
 ```rust
-// Statt:
-let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+/// Get current Unix timestamp in seconds.
+/// Returns 0 if system time is before Unix epoch (should never happen on properly configured systems).
+#[inline]
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+```
 
-// Verwende:
-let now = SystemTime::now()
-    .duration_since(UNIX_EPOCH)
-    .map(|d| d.as_secs())
-    .unwrap_or(0);
+**Implementierte Lösung in frame.rs**:
+```rust
+/// Error type for frame operations
+#[derive(Debug, Error)]
+pub enum FrameError {
+    /// Frame is empty when a page was expected
+    #[error("Frame is empty: no page has been set")]
+    EmptyFrame,
+}
+
+/// Get page from this frame
+pub async fn page(&self) -> Result<Arc<RwLock<Page>>, FrameError> {
+    let guard = self.page.read().await;
+    guard
+        .as_ref()
+        .map(|(_, page)| page.clone())
+        .ok_or(FrameError::EmptyFrame)
+}
 ```
 
 ---
@@ -370,9 +391,12 @@ test result: ok. 92 passed; 0 failed; 0 ignored
 
 ### Mittlere Priorität
 
-4. **Unwrap durch proper Error-Handling ersetzen**
-   - Betrifft ~10 kritische Stellen
-   - Aufwand: 4-6 Stunden
+4. **Unwrap durch proper Error-Handling ersetzen** ✅ **ERLEDIGT**
+   - ~~Betrifft ~10 kritische Stellen~~
+   - ~~Aufwand: 4-6 Stunden~~
+   - Implementiert: Helper-Funktion `current_unix_timestamp()` in `rate_limit.rs` für sichere SystemTime-Berechnung
+   - `FrameError` Typ und Result-basierte `page()` Methode in `frame.rs`
+   - Alle Aufrufstellen in `buffer/mod.rs` und `buffer/flusher.rs` aktualisiert
 
 5. **Integration-Tests erweitern**
    - WebSocket, Transactions, Recovery

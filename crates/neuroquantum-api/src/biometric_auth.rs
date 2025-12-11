@@ -64,13 +64,13 @@ impl FrequencyBand {
 
 /// IIR Filter coefficients for digital filtering
 /// Represents a transfer function H(z) = B(z)/A(z) where:
-/// B(z) = b[0] + b[1]*z^-1 + b[2]*z^-2 + ...
-/// A(z) = a[0] + a[1]*z^-1 + a[2]*z^-2 + ...
+/// B(z) = b\[0\] + b\[1\]*z^-1 + b\[2\]*z^-2 + ...
+/// A(z) = a\[0\] + a\[1\]*z^-1 + a\[2\]*z^-2 + ...
 #[derive(Debug, Clone)]
 pub struct IIRCoefficients {
     /// Numerator coefficients (feedforward)
     pub b: Vec<f32>,
-    /// Denominator coefficients (feedback), a[0] is typically 1.0
+    /// Denominator coefficients (feedback), a\[0\] is typically 1.0
     pub a: Vec<f32>,
 }
 

@@ -11,6 +11,7 @@ use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::synaptic::SynapticNetwork;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::{Duration, SystemTime};
 use tracing::{debug, info, instrument};
 
@@ -618,7 +619,9 @@ impl NeuromorphicOptimizer {
             _ => "UNKNOWN".to_string(),
         };
 
-        Ok(format!("{:x}", md5::compute(pattern.as_bytes())))
+        let mut hasher = DefaultHasher::new();
+        pattern.hash(&mut hasher);
+        Ok(format!("{:016x}", hasher.finish()))
     }
 
     /// Cache optimization pattern for future use

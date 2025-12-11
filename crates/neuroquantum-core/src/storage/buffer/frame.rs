@@ -4,9 +4,18 @@
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::sync::RwLock;
 
 use super::super::pager::{Page, PageId};
+
+/// Error type for frame operations
+#[derive(Debug, Error)]
+pub enum FrameError {
+    /// Frame is empty when a page was expected
+    #[error("Frame is empty: no page has been set")]
+    EmptyFrame,
+}
 
 /// Frame identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -52,12 +61,16 @@ impl Frame {
     }
 
     /// Get page from this frame
-    pub async fn page(&self) -> Arc<RwLock<Page>> {
+    ///
+    /// # Errors
+    ///
+    /// Returns `FrameError::EmptyFrame` if no page has been set in this frame.
+    pub async fn page(&self) -> Result<Arc<RwLock<Page>>, FrameError> {
         let guard = self.page.read().await;
         guard
             .as_ref()
             .map(|(_, page)| page.clone())
-            .expect("Frame is empty")
+            .ok_or(FrameError::EmptyFrame)
     }
 
     /// Get page ID of the page in this frame

@@ -20,7 +20,7 @@ pub mod frame;
 
 pub use eviction::{ClockEviction, EvictionPolicy, LRUEviction};
 pub use flusher::BackgroundFlusher;
-pub use frame::{Frame, FrameId};
+pub use frame::{Frame, FrameError, FrameId};
 
 use super::pager::{Page, PageId, PageStorageManager};
 
@@ -328,7 +328,7 @@ impl BufferPoolManager {
                 page_id, frame_id
             );
 
-            return Ok(frame.page().await);
+            return Ok(frame.page().await?);
         }
         drop(page_table);
 
@@ -361,7 +361,7 @@ impl BufferPoolManager {
         frame.set_page(page_id, page).await;
         frame.pin();
 
-        let page_arc = frame.page().await;
+        let page_arc = frame.page().await?;
         drop(frames);
 
         // Update page table
@@ -516,7 +516,7 @@ impl BufferPoolManager {
             return Ok(());
         }
 
-        let page = frame.page().await;
+        let page = frame.page().await?;
         drop(frames);
 
         // Write to disk

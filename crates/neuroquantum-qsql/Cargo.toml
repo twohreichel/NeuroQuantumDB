@@ -27,9 +27,6 @@ thiserror = "2.0.16"
 # Logging
 tracing = "0.1.41"
 
-# Cryptographic hashing for pattern recognition
-md5 = "0.8.0"
-
 # Date and time for Row timestamps
 chrono = { version = "0.4", features = ["serde"] }
 
