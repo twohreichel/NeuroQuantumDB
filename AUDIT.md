@@ -184,19 +184,11 @@ headers.insert(
 
 | Datei | Zeile | Kontext | Risiko |
 |-------|-------|---------|--------|
-| `main.rs` | 374-375 | `Runtime::new().unwrap()` | 🔴 Hoch - Panic im Hauptprogramm |
+| ~~`main.rs`~~ | ~~258, 264~~ | ~~Signal-Handler `.expect()`~~ | ✅ **BEHOBEN** - Ordnungsgemäße Fehlerbehandlung |
 | `pqcrypto.rs` | 148 | `.expect("ML-KEM encapsulation...")` | 🟡 Mittel - Sollte nicht fehlschlagen |
 | `monitoring/query_metrics.rs` | 189, 193 | `.unwrap()` | 🟡 Mittel - Metrics-Kontext |
 
-**Empfehlung**: 
-```rust
-// Statt
-tokio::runtime::Runtime::new().unwrap()
-
-// Besser
-tokio::runtime::Runtime::new()
-    .expect("Failed to create Tokio runtime - this is a fatal error")
-```
+**Hinweis**: Der `.unwrap()` in Zeile 374-375 der `main.rs` befand sich im Test-Code und ist dort akzeptabel.
 
 #### 4.4.2 Test-Code `panic!()` Verwendung
 
@@ -393,17 +385,10 @@ pub struct AntiHebbianLearning {
 
 ### 9.1 Kritisch (vor Production)
 
-1. **Runtime-Panic vermeiden**
-   - **Datei**: `crates/neuroquantum-api/src/main.rs:374`
-   - **Problem**: `tokio::runtime::Runtime::new().unwrap()`
-   - **Lösung**: 
-     ```rust
-     let runtime = tokio::runtime::Runtime::new()
-         .map_err(|e| {
-             eprintln!("Fatal: Failed to create Tokio runtime: {}", e);
-             std::process::exit(1);
-         })?;
-     ```
+1. ~~**Runtime-Panic vermeiden**~~
+   - **Datei**: `crates/neuroquantum-api/src/main.rs`
+   - **Problem**: `.expect()` in Signal-Handlern konnte zu Panic führen
+   - **Status**: ✅ **ERLEDIGT** - Signal-Handler verwenden jetzt ordnungsgemäße Fehlerbehandlung mit Logging statt Panic
 
 2. **GCS Backend finalisieren oder entfernen**
    - **Datei**: `storage/backup/storage_backend.rs`

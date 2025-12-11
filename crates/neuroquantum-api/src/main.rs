@@ -251,19 +251,42 @@ fn validate_environment(config: &ApiConfig) -> Result<()> {
 }
 
 /// Set up graceful shutdown signal handling
+///
+/// This function creates a future that completes when a shutdown signal is received.
+/// It handles potential errors during signal handler installation gracefully,
+/// logging warnings instead of panicking.
 async fn setup_graceful_shutdown() {
     let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("Failed to install Ctrl+C handler");
+        match signal::ctrl_c().await {
+            Ok(()) => {}
+            Err(e) => {
+                error!(
+                    "❌ Failed to install Ctrl+C handler: {}. \
+                     Graceful shutdown via Ctrl+C may not work.",
+                    e
+                );
+                // Fall through - the future will never complete, but other signals may still work
+                std::future::pending::<()>().await;
+            }
+        }
     };
 
     #[cfg(unix)]
     let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("Failed to install signal handler")
-            .recv()
-            .await;
+        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+            Ok(mut stream) => {
+                stream.recv().await;
+            }
+            Err(e) => {
+                error!(
+                    "❌ Failed to install SIGTERM handler: {}. \
+                     Graceful shutdown via SIGTERM may not work.",
+                    e
+                );
+                // Fall through - the future will never complete, but Ctrl+C may still work
+                std::future::pending::<()>().await;
+            }
+        }
     };
 
     #[cfg(not(unix))]
