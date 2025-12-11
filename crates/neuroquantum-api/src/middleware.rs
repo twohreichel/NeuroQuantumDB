@@ -167,11 +167,13 @@ where
                 HeaderValue::from_static("max-age=31536000; includeSubDomains; preload"),
             );
 
-            // Content Security Policy
+            // Content Security Policy - Strict policy without unsafe-inline
+            // For API endpoints, we don't need inline scripts/styles
+            // This prevents XSS attacks by disallowing inline code execution
             headers.insert(
                 HeaderName::from_static("content-security-policy"),
                 HeaderValue::from_static(
-                    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+                    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
                 ),
             );
 

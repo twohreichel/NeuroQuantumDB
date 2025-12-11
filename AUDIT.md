@@ -95,20 +95,19 @@ pub fn safe_neon_dna_compression(data: &[u8]) -> CoreResult<Vec<u8>> {
 
 ### 3.2 Verbesserungswürdige Bereiche
 
-#### 3.2.1 CSP-Konfiguration (Mittleres Risiko)
-**Datei**: [middleware.rs](crates/neuroquantum-api/src/middleware.rs#L174)
+#### 3.2.1 CSP-Konfiguration ✅ **BEHOBEN**
+**Datei**: [middleware.rs](crates/neuroquantum-api/src/middleware.rs#L170)
+
+**Gelöst**: CSP wurde auf strikte Policy ohne `'unsafe-inline'` umgestellt:
 ```rust
-// Aktuell:
-"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'..."
+"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 ```
 
-**Problem**: `'unsafe-inline'` für Scripts und Styles ist ein XSS-Risiko.
-
-**Empfehlung**:
-```rust
-// Verwende Nonces oder Hashes statt unsafe-inline
-"default-src 'self'; script-src 'self' 'nonce-{random}'; style-src 'self' 'nonce-{random}'..."
-```
+Diese strikte CSP:
+- Verhindert XSS-Angriffe durch Verbot von inline Scripts/Styles
+- Setzt `default-src 'none'` als sichere Baseline
+- Fügt `frame-ancestors 'none'` gegen Clickjacking hinzu
+- Beschränkt `base-uri` und `form-action` auf `'self'`
 
 #### 3.2.2 Test-bcrypt-Kosten (Niedriges Risiko)
 **Datei**: [auth.rs](crates/neuroquantum-api/src/auth.rs#L14)
@@ -325,9 +324,10 @@ test result: ok. 92 passed; 0 failed; 0 ignored
 
 ### Hohe Priorität
 
-1. **CSP 'unsafe-inline' entfernen** (Sicherheit)
-   - Risiko: XSS-Angriffe
-   - Aufwand: 2-4 Stunden
+1. **CSP 'unsafe-inline' entfernen** (Sicherheit) ✅ **ERLEDIGT**
+   - ~~Risiko: XSS-Angriffe~~
+   - ~~Aufwand: 2-4 Stunden~~
+   - Implementiert: Strikte CSP ohne `'unsafe-inline'`, mit `default-src 'none'` und `frame-ancestors 'none'`
 
 2. **Synaptic Network NEON-Integration aktivieren** (Performance)
    - Aktuell dead_code
