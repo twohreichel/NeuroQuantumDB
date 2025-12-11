@@ -4,7 +4,7 @@
 //! - Hot backups (no downtime required)
 //! - Point-in-Time Recovery (PITR)
 //! - Incremental backups
-//! - Cloud storage integration (S3, GCS)
+//! - Cloud storage integration (S3)
 //! - Backup verification and validation
 //! - Compression and encryption
 
@@ -23,7 +23,7 @@ pub mod storage_backend;
 
 pub use incremental::{IncrementalBackup, IncrementalBackupManager};
 pub use restore::{RestoreManager, RestoreOptions, RestoreStats};
-pub use storage_backend::{BackupStorageBackend, GCSBackend, LocalBackend, S3Backend};
+pub use storage_backend::{BackupStorageBackend, LocalBackend, S3Backend};
 
 use super::pager::PageStorageManager;
 use super::wal::WALManager;
@@ -113,8 +113,6 @@ pub struct BackupConfig {
     pub storage_backend: BackupStorageType,
     /// S3 configuration (if using S3)
     pub s3_config: Option<S3Config>,
-    /// GCS configuration (if using GCS)
-    pub gcs_config: Option<GCSConfig>,
 }
 
 impl Default for BackupConfig {
@@ -130,7 +128,6 @@ impl Default for BackupConfig {
             include_wal: true,
             storage_backend: BackupStorageType::Local,
             s3_config: None,
-            gcs_config: None,
         }
     }
 }
@@ -142,8 +139,6 @@ pub enum BackupStorageType {
     Local,
     /// Amazon S3
     S3,
-    /// Google Cloud Storage
-    GCS,
 }
 
 /// S3 configuration
@@ -154,15 +149,6 @@ pub struct S3Config {
     pub access_key: String,
     pub secret_key: String,
     pub endpoint: Option<String>,
-}
-
-/// Google Cloud Storage configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GCSConfig {
-    pub bucket: String,
-    pub project_id: String,
-    pub credentials_path: Option<PathBuf>,
-    pub use_default_credentials: bool,
 }
 
 /// Backup statistics
@@ -218,13 +204,6 @@ impl BackupManager {
                     .as_ref()
                     .ok_or_else(|| anyhow!("S3 configuration required"))?;
                 Arc::new(S3Backend::new(s3_config.clone()).await?)
-            }
-            BackupStorageType::GCS => {
-                let gcs_config = config
-                    .gcs_config
-                    .as_ref()
-                    .ok_or_else(|| anyhow!("GCS configuration required"))?;
-                Arc::new(GCSBackend::new(gcs_config.clone()).await?)
             }
         };
 
