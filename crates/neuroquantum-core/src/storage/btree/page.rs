@@ -38,24 +38,71 @@ pub struct PageHeader {
 }
 
 impl PageHeader {
-    #[allow(dead_code)]
+    /// Create a new page header with the given parameters.
+    ///
+    /// The checksum field is initialized to 0 and should be set via `with_checksum()`
+    /// after the data checksum has been calculated.
     fn new(page_id: PageId, page_type: u8, data_len: u32) -> Self {
         Self {
             magic: MAGIC_NUMBER,
             page_type,
             page_id,
-            checksum: 0, // Will be calculated before write
+            checksum: 0,
             data_len,
         }
     }
 
+    /// Set the checksum for this header (builder pattern).
+    fn with_checksum(mut self, checksum: u32) -> Self {
+        self.checksum = checksum;
+        self
+    }
+
+    /// Validate that this page has a valid magic number.
     fn is_valid(&self) -> bool {
         self.magic == MAGIC_NUMBER
     }
 
+    /// Get the size of a serialized header in bytes.
+    /// Layout: magic(4) + type(1) + id(8) + checksum(4) + len(4) = 21 bytes
     fn serialized_size() -> usize {
-        // magic(4) + type(1) + id(8) + checksum(4) + len(4) = 21 bytes
         21
+    }
+
+    /// Serialize this header to bytes (little-endian format).
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(Self::serialized_size());
+        bytes.extend_from_slice(&self.magic.to_le_bytes());
+        bytes.push(self.page_type);
+        bytes.extend_from_slice(&self.page_id.to_le_bytes());
+        bytes.extend_from_slice(&self.checksum.to_le_bytes());
+        bytes.extend_from_slice(&self.data_len.to_le_bytes());
+        bytes
+    }
+
+    /// Deserialize a header from bytes (little-endian format).
+    ///
+    /// Returns None if the slice is too short.
+    fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() < Self::serialized_size() {
+            return None;
+        }
+
+        let magic = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        let page_type = bytes[4];
+        let page_id = u64::from_le_bytes([
+            bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12],
+        ]);
+        let checksum = u32::from_le_bytes([bytes[13], bytes[14], bytes[15], bytes[16]]);
+        let data_len = u32::from_le_bytes([bytes[17], bytes[18], bytes[19], bytes[20]]);
+
+        Some(Self {
+            magic,
+            page_type,
+            page_id,
+            checksum,
+            data_len,
+        })
     }
 }
 
@@ -113,22 +160,12 @@ impl PageSerializer {
     /// Create a complete page with header and data
     pub fn create_page(page_id: PageId, page_type: u8, data: &[u8]) -> Result<Vec<u8>> {
         let checksum = Self::calculate_checksum(data);
-        let header = PageHeader {
-            magic: MAGIC_NUMBER,
-            page_type,
-            page_id,
-            checksum,
-            data_len: data.len() as u32,
-        };
+        let header = PageHeader::new(page_id, page_type, data.len() as u32).with_checksum(checksum);
 
         let mut page = Vec::with_capacity(PAGE_SIZE);
 
-        // Write header
-        page.extend_from_slice(&header.magic.to_le_bytes());
-        page.push(header.page_type);
-        page.extend_from_slice(&header.page_id.to_le_bytes());
-        page.extend_from_slice(&header.checksum.to_le_bytes());
-        page.extend_from_slice(&header.data_len.to_le_bytes());
+        // Write header using serialization method
+        page.extend_from_slice(&header.to_bytes());
 
         // Write data
         page.extend_from_slice(data);
@@ -145,38 +182,25 @@ impl PageSerializer {
             return Err(anyhow!("Invalid page size: {}", page.len()));
         }
 
-        // Read header
-        let magic = u32::from_le_bytes([page[0], page[1], page[2], page[3]]);
-        let page_type = page[4];
-        let page_id = u64::from_le_bytes([
-            page[5], page[6], page[7], page[8], page[9], page[10], page[11], page[12],
-        ]);
-        let checksum = u32::from_le_bytes([page[13], page[14], page[15], page[16]]);
-        let data_len = u32::from_le_bytes([page[17], page[18], page[19], page[20]]);
-
-        let header = PageHeader {
-            magic,
-            page_type,
-            page_id,
-            checksum,
-            data_len,
-        };
+        // Read header using deserialization method
+        let header = PageHeader::from_bytes(page)
+            .ok_or_else(|| anyhow!("Failed to parse page header: insufficient data"))?;
 
         if !header.is_valid() {
-            return Err(anyhow!("Invalid page magic number: {:#x}", magic));
+            return Err(anyhow!("Invalid page magic number: {:#x}", header.magic));
         }
 
         // Extract data
         let data_start = PageHeader::serialized_size();
-        let data_end = data_start + data_len as usize;
+        let data_end = data_start + header.data_len as usize;
         let data = page[data_start..data_end].to_vec();
 
         // Verify checksum
         let calculated_checksum = Self::calculate_checksum(&data);
-        if calculated_checksum != checksum {
+        if calculated_checksum != header.checksum {
             warn!(
                 "Checksum mismatch for page {}: expected {:#x}, got {:#x}",
-                page_id, checksum, calculated_checksum
+                header.page_id, header.checksum, calculated_checksum
             );
         }
 
