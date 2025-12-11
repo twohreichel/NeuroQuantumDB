@@ -9,6 +9,9 @@ use crate::dna::{DNABase, DNAError};
 pub mod arm64_neon;
 pub mod x86_avx2;
 
+#[cfg(test)]
+mod tests;
+
 // Safe wrapper functions that perform feature detection internally
 
 /// Safe wrapper for NEON DNA encoding with automatic feature detection
