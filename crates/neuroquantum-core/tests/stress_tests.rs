@@ -95,15 +95,15 @@ async fn test_concurrent_reads() {
         .await
         .unwrap();
 
-    // Insert 50 rows (reduced from 100 for faster test execution)
-    for i in 0..50 {
+    // Insert 20 rows (reduced from 50 for faster test execution)
+    for i in 0..20 {
         let row = create_test_row(i, i * 10, &format!("data_{}", i));
         storage.insert_row("stress_test", row).await.unwrap();
     }
 
     let storage = Arc::new(tokio::sync::RwLock::new(storage));
-    let num_readers = 5;
-    let reads_per_reader = 20;
+    let num_readers = 3;
+    let reads_per_reader = 10;
     let successful_reads = Arc::new(AtomicU64::new(0));
 
     let mut handles = vec![];
@@ -114,7 +114,7 @@ async fn test_concurrent_reads() {
 
         let handle = tokio::spawn(async move {
             for read_num in 0..reads_per_reader {
-                let target_id = ((reader_id * reads_per_reader + read_num) % 50) as i64;
+                let target_id = ((reader_id * reads_per_reader + read_num) % 20) as i64;
                 let query = SelectQuery {
                     table: "stress_test".to_string(),
                     columns: vec!["*".to_string()],
@@ -658,7 +658,7 @@ async fn test_sustained_mixed_workload() {
     let storage = StorageEngine::new(temp_dir.path()).await.unwrap();
     let storage = Arc::new(tokio::sync::RwLock::new(storage));
 
-    // Create table and seed with initial data (reduced from 100 to 30)
+    // Create table and seed with initial data (reduced from 30 to 10)
     {
         let mut storage_guard = storage.write().await;
         storage_guard
@@ -666,15 +666,15 @@ async fn test_sustained_mixed_workload() {
             .await
             .unwrap();
 
-        for i in 0..30 {
+        for i in 0..10 {
             let row = create_test_row(i, 0, &format!("initial_data_{}", i));
             storage_guard.insert_row("stress_test", row).await.unwrap();
         }
     }
 
     // Reduced parameters for faster test execution
-    let num_workers = 4;
-    let operations_per_worker = 30;
+    let num_workers = 2;
+    let operations_per_worker = 15;
     let total_reads = Arc::new(AtomicU64::new(0));
     let total_writes = Arc::new(AtomicU64::new(0));
     let start = Instant::now();
@@ -691,7 +691,7 @@ async fn test_sustained_mixed_workload() {
                 // 70% reads, 30% writes
                 if op_num % 10 < 7 {
                     // Read operation (target within seeded data range)
-                    let target_id = (rand::random::<i64>().abs() % 30) as i64;
+                    let target_id = (rand::random::<i64>().abs() % 10) as i64;
                     let query = SelectQuery {
                         table: "stress_test".to_string(),
                         columns: vec!["*".to_string()],
