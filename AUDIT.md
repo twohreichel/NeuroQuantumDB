@@ -949,7 +949,7 @@ crates/neuroquantum-qsql/tests/
 | ~~Recovery~~ | ~~Crash-Recovery nach partiellem Write~~ ✅ **BEHOBEN** |
 | ~~Biometric~~ | ~~EEG-Feature Extraction Validation~~ ✅ **BEHOBEN** (11. Dezember 2025) |
 | ~~SIMD~~ | ~~Correctness-Tests für alle Architecturen~~ ✅ **BEHOBEN** (11. Dezember 2025) |
-| Quantum | QUBO Solver Korrektheits-Proofs |
+| ~~Quantum~~ | ~~QUBO Solver Korrektheits-Proofs~~ ✅ **BEHOBEN** (11. Dezember 2025) |
 
 ---
 
@@ -1115,6 +1115,84 @@ Umfassende SIMD-Correctness-Testsuite mit 65 Tests implementiert:
 - `test_crc32_bit_sensitivity`
 - `test_neon_encode_various_sizes` (ARM64)
 - `test_avx2_encode_various_sizes` (x86_64)
+
+---
+
+### 6.5 QUBO Solver Korrektheits-Tests ✅ ERLEDIGT
+
+**Datei:** `crates/neuroquantum-core/tests/qubo_correctness_tests.rs`
+
+**Status:** ✅ **BEHOBEN** (11. Dezember 2025)
+
+**Ursprüngliches Problem:**
+- Keine dedizierten Korrektheits-Proofs für QUBO-Solver vorhanden
+- Energy-Berechnung nicht mathematisch verifiziert
+- Keine Validierung bekannter optimaler Lösungen
+- QUBO-zu-Ising-Konvertierung nicht getestet
+- Max-Cut, Graph-Coloring und TSP Lösungen nicht validiert
+
+**Lösung:**
+Umfassende QUBO-Solver-Korrektheits-Testsuite mit 27 Tests implementiert:
+
+1. **Energy Calculation Correctness Tests (3 Tests):**
+   - `test_energy_calculation_correctness` - Manuelle Verifikation E(x) = x^T Q x für alle 4 2-Variablen-Lösungen
+   - `test_energy_symmetric_matrix` - Symmetrische Q-Matrix-Verifikation
+   - `test_energy_upper_triangular` - Upper-Triangular-Format-Verifikation
+
+2. **Known Optimal Solution Tests (3 Tests):**
+   - `test_known_optimal_2var` - Triviales 2-Variablen-Problem mit bekannter Lösung [0,1]
+   - `test_known_optimal_3var_independent` - 3 unabhängige Variablen, optimale Lösung [1,1,1]
+   - `test_antiferromagnetic_optimal` - Anti-ferromagnetisches Problem mit zwei gleichwertigen Optima
+
+3. **QUBO to Ising Conversion Tests (2 Tests):**
+   - `test_qubo_to_ising_conversion` - Verifikation der Konvertierung via TFIMSolver::from_qubo
+   - `test_qubo_ising_ground_state_equivalence` - Erhaltung der Ground-State-Struktur
+
+4. **Max-Cut Correctness Tests (4 Tests):**
+   - `test_max_cut_qubo_formulation` - QUBO-Formulierung für Max-Cut mathematisch verifiziert
+   - `test_max_cut_cycle_graph` - 4-Knoten-Zyklus-Graph
+   - `test_max_cut_complete_graph_k4` - Vollständiger Graph K4, Q-Matrix-Symmetrie
+   - `test_max_cut_weighted` - Gewichtete Kanten mit Heavy-Edge-Handling
+
+5. **Graph Coloring Correctness Tests (3 Tests):**
+   - `test_graph_coloring_triangle` - K3 mit 3 Farben
+   - `test_graph_coloring_bipartite` - Stern-Graph mit 2 Farben
+   - `test_graph_coloring_one_color_constraint` - Constraint-Validierung
+
+6. **TSP Correctness Tests (3 Tests):**
+   - `test_tsp_3cities_optimal` - 3-Städte-Problem mit bekannter optimaler Tour
+   - `test_tsp_city_constraint` - Jede Stadt maximal einmal besucht
+   - `test_tsp_time_constraint` - Maximal eine Stadt pro Zeitschritt
+
+7. **Solver Properties Tests (3 Tests):**
+   - `test_quantum_tunneling_effectiveness` - Vergleich mit/ohne Quantum Tunneling
+   - `test_solver_convergence` - Konvergenz zu bekannter optimaler Lösung
+   - `test_solution_quality_metric` - Quality-Metrik im gültigen Bereich [0,1]
+
+8. **Edge Case Tests (6 Tests):**
+   - `test_single_variable` - Ein-Variablen-Problem
+   - `test_zero_matrix` - Null-Q-Matrix
+   - `test_large_coefficients` - Große Koeffizienten (±10^6)
+   - `test_max_cut_invalid_index` - Ungültiger Knoten-Index → Error
+   - `test_graph_coloring_zero_colors` - Null Farben → Error
+   - `test_tsp_non_square` - Nicht-quadratische Distanz-Matrix → Error
+
+**Mathematische Grundlagen:**
+- QUBO: minimize E(x) = x^T Q x, x_i ∈ {0, 1}
+- Energy-Berechnung: E(x) = Σ_{i,j} Q_{ij} * x_i * x_j
+- Max-Cut QUBO: E(x) = Σ w_{ij} * (x_i + x_j - 2*x_i*x_j)
+- QUBO-zu-Ising: x_i = (1 + s_i) / 2, s_i ∈ {-1, +1}
+
+**Tests:** 27 Tests bestanden, einschließlich:
+- `test_energy_calculation_correctness`
+- `test_known_optimal_2var`
+- `test_antiferromagnetic_optimal`
+- `test_qubo_to_ising_conversion`
+- `test_max_cut_qubo_formulation`
+- `test_graph_coloring_triangle`
+- `test_tsp_3cities_optimal`
+- `test_quantum_tunneling_effectiveness`
+- `test_solver_convergence`
 
 ---
 
