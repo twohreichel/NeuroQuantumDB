@@ -149,33 +149,47 @@ let now = SystemTime::now()
 | 4.1.2 | Dokumentation (mdbook) | 🚧 **Geplant** | In `future-todos.md` dokumentiert |
 | 4.1.3 | JWT-Login-Endpoint | ⛔ **Deaktiviert** | Bewusst deaktiviert zugunsten API-Key-Authentifizierung |
 
-### 4.2 Query-Executor Fallback-Modus
+### 4.2 Query-Executor Fallback-Modus ✅ **BEHOBEN**
 **Datei**: [query_plan.rs](crates/neuroquantum-qsql/src/query_plan.rs#L263-L290)
 
+**Gelöst**: Der Legacy-Modus ist nun durch einen Production-Guard geschützt:
+
 ```rust
-// Fallback: Simulate data (legacy mode)
-let columns = vec![...];
-let mut rows = Vec::new();
-for i in 1..=5 {
-    let mut row = HashMap::new();
-    row.insert("id".to_string(), QueryValue::Integer(i));
-    // ... simulated data
+/// Query plan executor configuration
+pub struct ExecutorConfig {
+    // ... other fields ...
+    /// Allow legacy mode without storage engine (simulation mode).
+    /// Set to `false` in production to prevent accidental use of simulated data.
+    pub allow_legacy_mode: bool,
 }
-```
 
-**Bewertung**: Der Executor hat einen "Legacy-Modus" ohne Storage-Engine, der simulierte Daten zurückgibt. Dies ist für Tests akzeptabel, sollte aber in Production mit `has_storage_engine()`-Check geschützt werden.
-
-**Empfehlung**:
-```rust
-pub async fn execute(&mut self, plan: &QueryPlan) -> QSQLResult<QueryResult> {
-    if !self.has_storage_engine() {
-        return Err(QSQLError::ExecutionError {
-            message: "Storage engine required for query execution".to_string(),
-        });
+impl ExecutorConfig {
+    /// Create a production configuration that disallows legacy mode.
+    pub fn production() -> Self {
+        Self {
+            allow_legacy_mode: false,
+            ..Default::default()
+        }
     }
-    // ... real execution
+}
+
+impl QueryExecutor {
+    /// Validate that storage engine is available or legacy mode is allowed.
+    fn require_storage_or_legacy(&self) -> QSQLResult<()> {
+        if !self.has_storage_engine() && !self.is_legacy_mode_allowed() {
+            return Err(QSQLError::ConfigError {
+                message: "Storage engine required for query execution in production mode."
+                    .to_string(),
+            });
+        }
+        Ok(())
+    }
 }
 ```
+
+Zusätzlich werden bei Legacy-Modus-Nutzung Warnungen geloggt:
+- SELECT: "Query executor running in legacy mode with simulated data."
+- INSERT/UPDATE/DELETE: Operation-spezifische Warnungen
 
 ---
 
@@ -345,9 +359,14 @@ test result: ok. 92 passed; 0 failed; 0 ignored
    - NEON-Optimizer wird nun aktiv in `optimize_network()` genutzt für SIMD-beschleunigte Gewichtsaktualisierungen
    - Tests für ARM64 und Non-ARM64 Plattformen hinzugefügt
 
-3. **Query-Executor Legacy-Modus absichern** (Zuverlässigkeit)
-   - Production-Guard hinzufügen
-   - Aufwand: 1-2 Stunden
+3. **Query-Executor Legacy-Modus absichern** (Zuverlässigkeit) ✅ **ERLEDIGT**
+   - ~~Production-Guard hinzufügen~~
+   - ~~Aufwand: 1-2 Stunden~~
+   - Implementiert: Neue Konfigurationsoption `allow_legacy_mode` in `ExecutorConfig`
+   - `ExecutorConfig::production()` Factory-Methode für sichere Production-Konfiguration
+   - `require_storage_or_legacy()` Guard in `execute()` Methode
+   - Logging-Warnungen bei Verwendung des Legacy-Modus (SELECT, INSERT, UPDATE, DELETE)
+   - Tests bestehen weiterhin durch Default `allow_legacy_mode: true`
 
 ### Mittlere Priorität
 

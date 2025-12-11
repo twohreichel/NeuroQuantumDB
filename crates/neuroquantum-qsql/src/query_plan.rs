@@ -8,6 +8,7 @@ use crate::error::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
+use tracing::warn;
 
 // Import storage engine and related types
 use neuroquantum_core::learning::HebbianLearningEngine;
@@ -30,6 +31,10 @@ pub struct ExecutorConfig {
     pub enable_neuromorphic_learning: bool,
     pub enable_synaptic_optimization: bool,
     pub enable_dna_compression: bool, // Always enabled via StorageEngine
+    /// Allow legacy mode without storage engine (simulation mode).
+    /// Set to `false` in production to prevent accidental use of simulated data.
+    /// Default is `true` for backward compatibility with tests.
+    pub allow_legacy_mode: bool,
 }
 
 impl Default for ExecutorConfig {
@@ -44,6 +49,18 @@ impl Default for ExecutorConfig {
             enable_neuromorphic_learning: true,
             enable_synaptic_optimization: true,
             enable_dna_compression: true,
+            allow_legacy_mode: true, // Set to false in production
+        }
+    }
+}
+
+impl ExecutorConfig {
+    /// Create a production configuration that disallows legacy mode.
+    /// Use this in production environments to ensure storage engine is always required.
+    pub fn production() -> Self {
+        Self {
+            allow_legacy_mode: false,
+            ..Default::default()
         }
     }
 }
@@ -168,6 +185,25 @@ impl QueryExecutor {
         self.storage_engine.is_some()
     }
 
+    /// Check if legacy mode is allowed
+    pub fn is_legacy_mode_allowed(&self) -> bool {
+        self.config.allow_legacy_mode
+    }
+
+    /// Validate that storage engine is available or legacy mode is allowed.
+    /// Returns an error if neither condition is met.
+    fn require_storage_or_legacy(&self) -> QSQLResult<()> {
+        if !self.has_storage_engine() && !self.is_legacy_mode_allowed() {
+            return Err(QSQLError::ConfigError {
+                message: "Storage engine required for query execution in production mode. \
+                         Either provide a storage engine via `with_storage()` or \
+                         set `allow_legacy_mode: true` in ExecutorConfig for testing."
+                    .to_string(),
+            });
+        }
+        Ok(())
+    }
+
     /// Execute a Statement directly (convenience method)
     /// Creates a simple QueryPlan internally
     pub async fn execute_statement(&mut self, statement: &Statement) -> QSQLResult<QueryResult> {
@@ -191,7 +227,16 @@ impl QueryExecutor {
     }
 
     /// Execute a query plan
+    ///
+    /// # Errors
+    ///
+    /// Returns `QSQLError::ConfigError` if no storage engine is configured and
+    /// legacy mode is disabled (production mode). In production, always use
+    /// `ExecutorConfig::production()` to ensure real storage is required.
     pub async fn execute(&mut self, plan: &QueryPlan) -> QSQLResult<QueryResult> {
+        // Production guard: ensure storage engine or explicit legacy mode
+        self.require_storage_or_legacy()?;
+
         let start_time = std::time::Instant::now();
 
         let result = match &plan.statement {
@@ -274,6 +319,11 @@ impl QueryExecutor {
             })
         } else {
             // Fallback: Simulate data (legacy mode)
+            warn!(
+                "Query executor running in legacy mode with simulated data. \
+                 This should only be used for testing. \
+                 Configure a storage engine for production use."
+            );
             let columns = vec![
                 ColumnInfo {
                     name: "id".to_string(),
@@ -379,6 +429,10 @@ impl QueryExecutor {
             })
         } else {
             // Fallback: Simulate insertion (legacy mode)
+            warn!(
+                "INSERT executed in legacy mode with simulated result. \
+                 Configure a storage engine for production use."
+            );
             let mut rows = vec![HashMap::new()];
             rows[0].insert("id".to_string(), QueryValue::Integer(1));
             rows[0].insert(
@@ -436,6 +490,10 @@ impl QueryExecutor {
             })
         } else {
             // Fallback: Simulate update (legacy mode)
+            warn!(
+                "UPDATE executed in legacy mode with simulated result. \
+                 Configure a storage engine for production use."
+            );
             let mut rows = vec![HashMap::new()];
             rows[0].insert("id".to_string(), QueryValue::Integer(1));
             rows[0].insert(
@@ -493,6 +551,10 @@ impl QueryExecutor {
             })
         } else {
             // Fallback: Simulate deletion (legacy mode)
+            warn!(
+                "DELETE executed in legacy mode with simulated result. \
+                 Configure a storage engine for production use."
+            );
             Ok(QueryResult {
                 rows: vec![],
                 columns: vec![],
