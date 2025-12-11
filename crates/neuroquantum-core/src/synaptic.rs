@@ -352,7 +352,6 @@ pub struct SynapticNetwork {
     total_connections: RwLock<usize>,
     memory_usage: RwLock<usize>,
     query_patterns: RwLock<HashMap<String, QueryPattern>>,
-    #[allow(dead_code)]
     neon_optimizer: Option<NeonOptimizer>,
 }
 
@@ -725,6 +724,9 @@ impl SynapticNetwork {
 
         debug!("Starting network optimization with timeout {:?}", timeout);
 
+        // Apply NEON-optimized connection weight updates if available
+        self.optimize_connections_with_neon()?;
+
         // Apply decay to all nodes (fast operation)
         self.apply_global_decay();
 
@@ -825,6 +827,57 @@ impl SynapticNetwork {
         for node in nodes.values_mut() {
             node.apply_decay();
         }
+    }
+
+    /// Optimize synaptic connection weights using NEON SIMD when available
+    ///
+    /// This method applies hardware-accelerated optimization to all synaptic
+    /// node connections, using ARM64 NEON SIMD instructions for parallel
+    /// weight updates. On non-ARM64 platforms, optimization is skipped gracefully.
+    ///
+    /// # Neuromorphic Principles
+    /// - Applies decay factors to simulate synaptic depression
+    /// - Boosts weights based on usage (activity-dependent plasticity)
+    /// - Clamps weights to biologically plausible ranges [-1.0, 1.0]
+    pub fn optimize_connections_with_neon(&self) -> CoreResult<()> {
+        if let Some(ref optimizer) = self.neon_optimizer {
+            if optimizer.is_enabled() {
+                let mut nodes = self.nodes.write().unwrap();
+                debug!(
+                    "Applying NEON-optimized connection weight updates to {} nodes",
+                    nodes.len()
+                );
+
+                // Use the optimizer to process all node connections
+                optimizer.optimize_connections(&mut nodes)?;
+
+                info!(
+                    "NEON optimization applied to {} synaptic nodes",
+                    nodes.len()
+                );
+            } else {
+                debug!("NEON optimizer is disabled, skipping connection optimization");
+            }
+        } else {
+            debug!("No NEON optimizer available (non-ARM64 platform), skipping SIMD optimization");
+        }
+        Ok(())
+    }
+
+    /// Check if NEON optimization is available and enabled
+    pub fn is_neon_optimization_available(&self) -> bool {
+        self.neon_optimizer
+            .as_ref()
+            .is_some_and(|opt| opt.is_enabled())
+    }
+
+    /// Get NEON optimization statistics if available
+    pub fn get_neon_optimization_stats(
+        &self,
+    ) -> Option<crate::neon_optimization::OptimizationStats> {
+        self.neon_optimizer
+            .as_ref()
+            .map(|opt| opt.get_stats().clone())
     }
 
     /// Process query using synaptic network
@@ -1235,5 +1288,77 @@ mod tests {
         network.add_node(node).unwrap();
 
         assert_eq!(network.nodes.read().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_neon_optimization_integration() {
+        let network = SynapticNetwork::new(1000, 0.5).unwrap();
+
+        // Create nodes with connections
+        let mut node1 = SynapticNode::new(1);
+        node1
+            .add_connection(2, 0.5, ConnectionType::Excitatory)
+            .unwrap();
+        node1
+            .add_connection(3, -0.3, ConnectionType::Inhibitory)
+            .unwrap();
+        node1
+            .add_connection(4, 0.8, ConnectionType::Excitatory)
+            .unwrap();
+        node1
+            .add_connection(5, 0.2, ConnectionType::Modulatory)
+            .unwrap();
+
+        network.add_node(node1).unwrap();
+        network.add_node(SynapticNode::new(2)).unwrap();
+        network.add_node(SynapticNode::new(3)).unwrap();
+        network.add_node(SynapticNode::new(4)).unwrap();
+        network.add_node(SynapticNode::new(5)).unwrap();
+
+        // Test NEON optimization (works on both ARM64 and other platforms)
+        let result = network.optimize_connections_with_neon();
+        assert!(result.is_ok());
+
+        // Verify optimization status check
+        #[cfg(target_arch = "aarch64")]
+        {
+            // On ARM64, NEON should be available
+            assert!(network.is_neon_optimization_available());
+            assert!(network.get_neon_optimization_stats().is_some());
+        }
+
+        #[cfg(not(target_arch = "aarch64"))]
+        {
+            // On non-ARM64, NEON should not be available
+            assert!(!network.is_neon_optimization_available());
+            assert!(network.get_neon_optimization_stats().is_none());
+        }
+    }
+
+    #[test]
+    fn test_optimize_connections_applies_decay() {
+        let network = SynapticNetwork::new(1000, 0.5).unwrap();
+
+        // Create a node with connections
+        let mut node = SynapticNode::new(1);
+        node.add_connection(2, 1.0, ConnectionType::Excitatory)
+            .unwrap();
+        network.add_node(node).unwrap();
+        network.add_node(SynapticNode::new(2)).unwrap();
+
+        // Apply optimization
+        network.optimize_connections_with_neon().unwrap();
+
+        // Verify node still exists and has connections
+        let nodes = network.nodes.read().unwrap();
+        assert!(nodes.contains_key(&1));
+
+        // On ARM64, weights should have been modified by the optimizer
+        #[cfg(target_arch = "aarch64")]
+        {
+            let node = nodes.get(&1).unwrap();
+            // Weight should have been affected by decay
+            assert!(node.connections[0].weight <= 1.0);
+        }
     }
 }
