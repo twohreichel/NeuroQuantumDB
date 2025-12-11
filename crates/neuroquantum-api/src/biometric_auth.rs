@@ -50,8 +50,8 @@ pub enum FrequencyBand {
 }
 
 impl FrequencyBand {
-    /// Get frequency range for this band
-    fn range(&self) -> (f32, f32) {
+    /// Get frequency range for this band in Hz
+    pub fn range(&self) -> (f32, f32) {
         match self {
             FrequencyBand::Delta => (0.5, 4.0),
             FrequencyBand::Theta => (4.0, 8.0),
@@ -217,7 +217,7 @@ impl ButterworthDesign {
     /// H(s) = ω_c² / (s² + √2·ω_c·s + ω_c²)
     ///
     /// After bilinear transformation with frequency prewarping:
-    fn lowpass_biquad(&self, cutoff: f32) -> IIRCoefficients {
+    pub fn lowpass_biquad(&self, cutoff: f32) -> IIRCoefficients {
         let nyquist = self.sampling_rate / 2.0;
         // Clamp cutoff to safe range (0.1% to 45% of Nyquist for guaranteed stability)
         // Higher frequencies require special handling due to bilinear transform behavior
@@ -255,7 +255,7 @@ impl ButterworthDesign {
     ///
     /// The transfer function of a 2nd-order highpass Butterworth filter is:
     /// H(s) = s² / (s² + √2·ω_c·s + ω_c²)
-    fn highpass_biquad(&self, cutoff: f32) -> IIRCoefficients {
+    pub fn highpass_biquad(&self, cutoff: f32) -> IIRCoefficients {
         let nyquist = self.sampling_rate / 2.0;
         // Clamp cutoff to safe range
         let normalized_cutoff = (cutoff / nyquist).clamp(0.001, 0.45);
@@ -590,10 +590,11 @@ impl FFTAnalyzer {
 
 /// Frequency spectrum representation
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct FrequencySpectrum {
-    spectrum: Vec<f32>,
-    sampling_rate: f32,
+    /// Power spectrum values (magnitude of FFT output)
+    pub spectrum: Vec<f32>,
+    /// Sampling rate used for FFT analysis
+    pub sampling_rate: f32,
 }
 
 /// Extracted EEG features from signal
