@@ -41,8 +41,11 @@ impl ReedSolomonCorrector {
     /// Create a new Reed-Solomon corrector with the given error correction strength
     pub fn new(error_correction_strength: u8) -> Self {
         // Map error correction strength (0-255) to Reed-Solomon parameters
-        let parity_shards = (error_correction_strength as usize).clamp(1, 128);
-        let data_shards = (parity_shards * 4).clamp(16, 223); // Ensure valid RS parameters
+        // GF(2^8) requires data_shards + parity_shards <= 255
+        let parity_shards = (error_correction_strength as usize).clamp(1, 64);
+        // Calculate data_shards ensuring total doesn't exceed 255
+        let max_data_shards = 255 - parity_shards;
+        let data_shards = (parity_shards * 4).clamp(16, max_data_shards.min(191));
 
         let rs_codec =
             ReedSolomon::new(data_shards, parity_shards).expect("Invalid Reed-Solomon parameters");

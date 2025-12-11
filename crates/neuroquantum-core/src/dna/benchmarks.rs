@@ -283,7 +283,8 @@ mod benchmark_functions {
         let mut group = c.benchmark_group("error_correction");
 
         // Test different error correction strengths
-        for strength in [10u8, 50u8, 100u8] {
+        // Note: GF(2^8) limits parity_shards to max 64 to ensure data+parity <= 255
+        for strength in [10u8, 32u8, 64u8] {
             let corrector = ReedSolomonCorrector::new(strength);
             let test_size = 4096;
 
