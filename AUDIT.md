@@ -325,7 +325,7 @@ Als Experte für Neuroanatomie bestätige ich:
 
 ```
 test result: ok. 92 passed; 0 failed; 0 ignored
-+ 4 Integration-Tests
++ 30 Integration-Tests (erweitert)
 + 3 Doc-Tests
 ```
 
@@ -333,15 +333,18 @@ test result: ok. 92 passed; 0 failed; 0 ignored
 
 | Modul | Tests | Bewertung |
 |-------|-------|-----------|
-| neuroquantum-core | 47 | ✅ Gut |
-| neuroquantum-qsql | 45 | ✅ Gut |
-| neuroquantum-api | ~20 | ⚠️ Ausbaufähig |
-| Integration | 4 | ⚠️ Ausbaufähig |
+| neuroquantum-core | 47 + 12 Integration | ✅ Gut |
+| neuroquantum-qsql | 45 + 4 Integration | ✅ Gut |
+| neuroquantum-api | ~20 + 14 Integration | ✅ Verbessert |
+| Integration (gesamt) | 30 | ✅ Erweitert |
 
-**Empfehlung**: Ergänze End-to-End-Tests für:
-- WebSocket-Streaming unter Last
-- Concurrent Transaction-Handling
-- WAL-Recovery-Szenarien
+**Erweiterte Integration-Tests umfassen nun**:
+- ✅ WebSocket-Streaming unter Last (14 Tests)
+- ✅ Concurrent Transaction-Handling (12 Tests)
+- ✅ WAL-Recovery-Szenarien (integriert)
+- ✅ PubSub High-Throughput und Wildcard-Matching
+- ✅ Connection Manager Load-Tests
+- ✅ Crash-Recovery-Simulation
 
 ---
 
@@ -399,9 +402,21 @@ test result: ok. 92 passed; 0 failed; 0 ignored
    - `FrameError` Typ und Result-basierte `page()` Methode in `frame.rs`
    - Alle Aufrufstellen in `buffer/mod.rs` und `buffer/flusher.rs` aktualisiert
 
-5. **Integration-Tests erweitern**
-   - WebSocket, Transactions, Recovery
-   - Aufwand: 8-16 Stunden
+5. **Integration-Tests erweitern** ✅ **ERLEDIGT**
+   - ~~WebSocket, Transactions, Recovery~~
+   - ~~Aufwand: 8-16 Stunden~~
+   - Implementiert: Neue Testdatei `websocket_streaming_integration_tests.rs` mit 14 Tests:
+     - WebSocket-Streaming unter Last (concurrent streams, cancellation, progress updates)
+     - PubSub High-Throughput (wildcard matching, concurrent subscribe/unsubscribe)
+     - Connection Manager Load-Tests
+   - Implementiert: Neue Testdatei `concurrent_transaction_integration_tests.rs` mit 12 Tests:
+     - Concurrent Transaction Isolation
+     - Transaction Rollback Consistency
+     - Multiple Concurrent Inserts
+     - WAL Log Record Types (BEGIN, UPDATE, COMMIT, ABORT, CHECKPOINT)
+     - Recovery with Multiple Transactions
+     - Crash Recovery Simulation
+   - Alle 26 neuen Tests bestehen erfolgreich
 
 6. **Ungenutzte Konstanten entfernen oder verwenden** ✅ **ERLEDIGT**
    - ~~`MLKEM768_SHARED_SECRET_SIZE`, `MLKEM1024_CIPHERTEXT_SIZE`~~
