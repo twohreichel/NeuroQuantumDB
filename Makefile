@@ -69,7 +69,7 @@ docs: docs-clean docs-api docs-mdbook ## Generate all documentation (API + mdboo
 
 docs-api: ## Generate Rust API documentation
 	@echo "📚 Generating Rust API documentation..."
-	@cargo doc --workspace --all-features --no-deps --document-private-items
+	@cargo doc
 	@echo "✅ API documentation generated in target/doc/"
 
 docs-mdbook: ## Build mdbook documentation with embedded API docs
