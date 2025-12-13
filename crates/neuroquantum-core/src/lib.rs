@@ -26,6 +26,7 @@ pub use quantum::parallel_tempering;
 pub use quantum::qubo;
 pub use quantum::tfim;
 pub mod security;
+pub mod spiking; // Biologically accurate spiking neural networks (Izhikevich model)
 pub mod storage;
 pub mod synaptic;
 pub mod transaction;
@@ -47,6 +48,12 @@ pub use neon_optimization::{NeonOptimizer, OptimizationStats, QuantumOperation};
 pub use transaction::{
     IsolationLevel, LockManager, LockType, LogManager, RecoveryManager, Transaction, TransactionId,
     TransactionManager, TransactionStatistics, TransactionStatus, LSN,
+};
+
+// Re-export spiking neural network types (Izhikevich model)
+pub use spiking::{
+    IzhikevichNeuron, IzhikevichNeuronType, IzhikevichParameters, NetworkStatistics, STDPRule,
+    SpikingNeuralNetwork, SpikingSynapse,
 };
 
 // Quantum search constants

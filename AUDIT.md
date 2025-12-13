@@ -339,7 +339,7 @@ pub enum NeuroQuantumError {
 - ✅ Dockerfile vorhanden
 - ✅ Docker Compose für Monitoring (Prometheus, Grafana)
 - ✅ Konfigurationsdateien (dev.toml, prod.toml)
-- ⚠️ Kubernetes-Manifeste fehlen
+- ✅ Kubernetes-Manifeste in `k8s/` vorhanden
 
 ---
 
@@ -366,7 +366,19 @@ pub enum ActivationFunction {
 }
 ```
 
-**Empfehlung**: Für biologisch akkuratere Simulation zusätzlich `Hodgkin-Huxley` oder `Izhikevich`-Modelle erwägen.
+**Update**: ✅ **Izhikevich-Modell implementiert** - Biologisch akkurate Spiking-Neuronen verfügbar in `spiking.rs`:
+
+```rust
+pub enum IzhikevichNeuronType {
+    RegularSpiking,        // RS - Pyramidenzellen, Adaptation
+    IntrinsicallyBursting, // IB - Layer V, initiale Bursts
+    Chattering,            // CH - Gamma-Oszillationen, 25-70 Hz
+    FastSpiking,           // FS - GABAerge Interneuronen, keine Adaptation
+    Thalamocortical,       // TC - Tonisch/Burst-Modi
+    Resonator,             // RZ - Frequenz-selektiv
+    LowThresholdSpiking,   // LTS - Martinotti-Zellen
+}
+```
 
 ### 8.3 Anti-Hebbian Learning
 
@@ -438,8 +450,17 @@ pub struct AntiHebbianLearning {
 
 ### 9.3 Nice-to-Have
 
-6. **Biologisch akkuratere Neuronenmodelle**
+6. ~~**Biologisch akkuratere Neuronenmodelle**~~
    - Izhikevich-Neuronen für Spiking Neural Networks
+   - **Status**: ✅ **ERLEDIGT** - Vollständiges Izhikevich-Neuronenmodell implementiert in `crates/neuroquantum-core/src/spiking.rs`:
+     - **7 kortikale Neuronentypen**: Regular Spiking (RS), Intrinsically Bursting (IB), Chattering (CH), Fast Spiking (FS), Thalamocortical (TC), Resonator (RZ), Low-Threshold Spiking (LTS)
+     - **Biologisch korrekte Dynamik**: Izhikevich-Gleichungen (dv/dt, du/dt) mit charakteristischen Parametern (a, b, c, d)
+     - **Spiking Neural Network**: Vollständige Netzwerk-Implementation mit SpikingNeuralNetwork, IzhikevichNeuron, SpikingSynapse
+     - **Conductance-based Synapsen**: AMPA (excitatorisch, τ=5ms, E_rev=0mV) und GABA-A (inhibitorisch, τ=10ms, E_rev=-70mV)
+     - **STDP Learning**: Spike-Timing-Dependent Plasticity mit asymmetrischem Zeitfenster (LTP/LTD)
+     - **Neuronale Adaptation**: RS-Neuronen zeigen korrekte Feuerraten-Adaptation, FS-Neuronen feuern hochfrequent ohne Adaptation
+     - **Re-Exporte in lib.rs**: IzhikevichNeuron, IzhikevichNeuronType, IzhikevichParameters, SpikingNeuralNetwork, SpikingSynapse, STDPRule, NetworkStatistics
+     - **14 Unit-Tests**: Abdeckung aller Neuronentypen, Synaptische Transmission, STDP, Netzwerk-Simulation
    
 7. **Multi-Node Support**
    - Für horizontale Skalierung
