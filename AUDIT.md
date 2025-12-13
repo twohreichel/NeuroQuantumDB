@@ -424,8 +424,17 @@ pub struct AntiHebbianLearning {
      - **Neural-Network-Performance**: Forward/Backward-Propagation-Dauer, Konvergenz, Trainings-Epochen, Inferenz-Latenz
      - Vollständige Test-Suite mit 11 Unit-Tests
    
-5. **Benchmarks dokumentieren**
+5. ~~**Benchmarks dokumentieren**~~
    - `target/criterion/` enthält Benchmarks, aber keine CI-Integration
+   - **Status**: ✅ **ERLEDIGT** - Dedizierte GitHub Actions Benchmark-Workflow erstellt in `.github/workflows/benchmarks.yml`:
+     - **Automatische Benchmark-Ausführung**: Bei Push auf main und allen PRs
+     - **6 Benchmark-Kategorien**: DNA Compression, Grover Search, Quantum Annealing, B+ Tree, Page Storage, NEON/SIMD
+     - **Regression-Tracking**: Automatische Erkennung von Performance-Regressionen (Alert bei >10%, Fail bei >30%)
+     - **PR-Kommentare**: Automatische Benchmark-Ergebnisse als Kommentar auf PRs
+     - **Historischer Vergleich**: Baseline-Vergleich zwischen PR- und Base-Branch mit critcmp
+     - **Artifact-Speicherung**: 90 Tage für normale Runs, 365 Tage für vollständige Reports
+     - **GitHub Pages Integration**: Benchmark-Historie auf gh-pages Branch
+     - Redundanter Benchmark-Job aus ci.yml entfernt und auf dedizierten Workflow verwiesen
 
 ### 9.3 Nice-to-Have
 

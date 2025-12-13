@@ -183,31 +183,9 @@ jobs:
           path: target/release/neuroquantum-api
           retention-days: 7
 
-  # Benchmarks (optional, only on main)
-  benchmark:
-    name: Run Benchmarks
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: false
-
-      - name: Run benchmarks
-        run: cargo bench --workspace --all-features
-
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: target/criterion/
-          retention-days: 30
+  # NOTE: Benchmarks are now handled by the dedicated benchmarks.yml workflow
+  # which provides regression tracking, PR comments, and historical comparisons.
+  # See: .github/workflows/benchmarks.yml
 
   # Docker image build and push
   docker:
