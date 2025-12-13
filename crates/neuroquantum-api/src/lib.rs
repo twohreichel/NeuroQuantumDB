@@ -4,7 +4,7 @@ use actix_web::middleware::{Compress, Logger};
 use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
 use actix_web_prom::PrometheusMetricsBuilder;
 use anyhow::Result;
-use neuroquantum_core::NeuroQuantumDB;
+use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
 use std::time::Instant;
 use tracing::info;
 use utoipa::OpenApi;
@@ -47,11 +47,9 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new(config: ApiConfig) -> Result<Self> {
-        // Convert our API config database config to the core database config
-        let mut db = NeuroQuantumDB::new();
-
-        // Initialize the database asynchronously
-        db.init()
+        // Initialize the database using the new builder pattern with compile-time guarantees
+        let db = NeuroQuantumDBBuilder::new()
+            .build()
             .await
             .map_err(|e| anyhow::anyhow!("Failed to initialize database: {}", e))?;
 

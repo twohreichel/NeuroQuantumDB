@@ -3,7 +3,7 @@
 //! These tests verify complete workflows including table creation,
 //! data insertion with DNA compression, and querying with statistics.
 
-use neuroquantum_core::NeuroQuantumDB;
+use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -12,13 +12,13 @@ use tokio::sync::RwLock;
 /// Returns both the database and the temp directory to keep it alive
 async fn create_test_db() -> (Arc<RwLock<NeuroQuantumDB>>, tempfile::TempDir) {
     let temp_dir = tempfile::tempdir().unwrap();
-    let config = neuroquantum_core::NeuroQuantumConfig {
-        storage_path: temp_dir.path().to_path_buf(),
-        ..Default::default()
-    };
 
-    let mut db = NeuroQuantumDB::with_config(config);
-    db.init().await.expect("Failed to initialize database");
+    // Use the new builder pattern for compile-time initialization guarantees
+    let db = NeuroQuantumDBBuilder::new()
+        .storage_path(temp_dir.path().to_path_buf())
+        .build()
+        .await
+        .expect("Failed to initialize database");
 
     (Arc::new(RwLock::new(db)), temp_dir)
 }

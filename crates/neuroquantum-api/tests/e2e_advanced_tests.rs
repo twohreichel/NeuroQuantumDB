@@ -11,7 +11,7 @@ use neuroquantum_core::storage::{
     ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
     TableSchema, UpdateQuery, Value, WhereClause,
 };
-use neuroquantum_core::NeuroQuantumDB;
+use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -35,13 +35,13 @@ fn get_test_data_size() -> usize {
 /// Helper to create test database instance
 async fn create_test_db() -> (Arc<RwLock<NeuroQuantumDB>>, tempfile::TempDir) {
     let temp_dir = tempfile::tempdir().unwrap();
-    let config = neuroquantum_core::NeuroQuantumConfig {
-        storage_path: temp_dir.path().to_path_buf(),
-        ..Default::default()
-    };
 
-    let mut db = NeuroQuantumDB::with_config(config);
-    db.init().await.expect("Failed to initialize database");
+    // Use the new builder pattern for compile-time initialization guarantees
+    let db = NeuroQuantumDBBuilder::new()
+        .storage_path(temp_dir.path().to_path_buf())
+        .build()
+        .await
+        .expect("Failed to initialize database");
 
     (Arc::new(RwLock::new(db)), temp_dir)
 }
@@ -618,13 +618,11 @@ async fn test_crash_recovery_wal_replay() {
 
     // Phase 1: Create database and insert data
     {
-        let config = neuroquantum_core::NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await.expect("Failed to initialize");
+        let mut db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await
+            .expect("Failed to initialize");
 
         {
             let storage = db.storage_mut();
@@ -660,13 +658,11 @@ async fn test_crash_recovery_wal_replay() {
 
     // Phase 2: Recover database from same path
     {
-        let config = neuroquantum_core::NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await.expect("Failed to recover database");
+        let db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await
+            .expect("Failed to recover database");
 
         // Verify data is intact
         let storage = db.storage();
@@ -708,13 +704,11 @@ async fn test_backup_and_restore() {
 
     // Create database with data
     {
-        let config = neuroquantum_core::NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await.unwrap();
+        let mut db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await
+            .unwrap();
 
         {
             let storage = db.storage_mut();
@@ -758,13 +752,11 @@ async fn test_backup_and_restore() {
 
     // Restore simulation - re-open database and verify data
     {
-        let config = neuroquantum_core::NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await.unwrap();
+        let db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await
+            .unwrap();
 
         // Verify data is intact after "restore"
         let rows = db
@@ -850,13 +842,11 @@ async fn test_concurrent_recovery_operations() {
 
     // Setup database with data
     {
-        let config = neuroquantum_core::NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await.unwrap();
+        let mut db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await
+            .unwrap();
 
         {
             let storage = db.storage_mut();
@@ -897,13 +887,10 @@ async fn test_concurrent_recovery_operations() {
     for _i in 0..5 {
         let path = storage_path.clone();
         let handle = tokio::spawn(async move {
-            let config = neuroquantum_core::NeuroQuantumConfig {
-                storage_path: path,
-                ..Default::default()
-            };
-
-            let mut db = NeuroQuantumDB::with_config(config);
-            let result = db.init().await;
+            let result = NeuroQuantumDBBuilder::new()
+                .storage_path(path)
+                .build()
+                .await;
 
             // First recovery should succeed, others may fail due to locks
             // but at least one should succeed

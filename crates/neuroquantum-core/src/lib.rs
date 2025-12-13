@@ -71,6 +71,183 @@ pub struct NeuroQuantumDB {
     config: NeuroQuantumConfig,
 }
 
+/// Builder for creating a fully initialized NeuroQuantumDB instance.
+///
+/// This builder pattern ensures compile-time guarantees that the database
+/// is properly initialized before use. Use [`NeuroQuantumDBBuilder::build()`]
+/// to create a fully initialized instance.
+///
+/// # Example
+///
+/// ```no_run
+/// use neuroquantum_core::{NeuroQuantumDBBuilder, NeuroQuantumConfig};
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// // Create with default configuration
+/// let db = NeuroQuantumDBBuilder::new().build().await?;
+///
+/// // Or with custom configuration
+/// let config = NeuroQuantumConfig {
+///     memory_limit_gb: 16,
+///     ..Default::default()
+/// };
+/// let db = NeuroQuantumDBBuilder::with_config(config).build().await?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Compile-Time Safety
+///
+/// Unlike the deprecated `NeuroQuantumDB::new()` + `init()` pattern, this builder
+/// ensures that you cannot forget to initialize the database:
+///
+/// - The builder's `build()` method is async and returns `Result<NeuroQuantumDB, NeuroQuantumError>`
+/// - There is no way to obtain an uninitialized `NeuroQuantumDB` instance through the builder
+/// - All placeholder constructors are hidden from the public API
+#[derive(Debug, Clone)]
+pub struct NeuroQuantumDBBuilder {
+    config: NeuroQuantumConfig,
+}
+
+impl NeuroQuantumDBBuilder {
+    /// Create a new builder with default configuration.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use neuroquantum_core::NeuroQuantumDBBuilder;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let db = NeuroQuantumDBBuilder::new().build().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: NeuroQuantumConfig::default(),
+        }
+    }
+
+    /// Create a new builder with custom configuration.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use neuroquantum_core::{NeuroQuantumDBBuilder, NeuroQuantumConfig};
+    /// use std::path::PathBuf;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let config = NeuroQuantumConfig {
+    ///     storage_path: PathBuf::from("/data/neuroquantum"),
+    ///     memory_limit_gb: 32,
+    ///     enable_quantum_optimization: true,
+    ///     enable_neuromorphic_learning: true,
+    ///     ..Default::default()
+    /// };
+    /// let db = NeuroQuantumDBBuilder::with_config(config).build().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn with_config(config: NeuroQuantumConfig) -> Self {
+        Self { config }
+    }
+
+    /// Set the storage path for the database.
+    #[must_use]
+    pub fn storage_path(mut self, path: std::path::PathBuf) -> Self {
+        self.config.storage_path = path;
+        self
+    }
+
+    /// Set the memory limit in gigabytes.
+    #[must_use]
+    pub fn memory_limit_gb(mut self, limit: usize) -> Self {
+        self.config.memory_limit_gb = limit;
+        self
+    }
+
+    /// Enable or disable quantum optimization.
+    #[must_use]
+    pub fn enable_quantum_optimization(mut self, enable: bool) -> Self {
+        self.config.enable_quantum_optimization = enable;
+        self
+    }
+
+    /// Enable or disable neuromorphic learning.
+    #[must_use]
+    pub fn enable_neuromorphic_learning(mut self, enable: bool) -> Self {
+        self.config.enable_neuromorphic_learning = enable;
+        self
+    }
+
+    /// Set the DNA compression configuration.
+    #[must_use]
+    pub fn dna_compression(mut self, config: dna::DNACompressionConfig) -> Self {
+        self.config.dna_compression = config;
+        self
+    }
+
+    /// Build and initialize the NeuroQuantumDB instance.
+    ///
+    /// This method performs all necessary async initialization, including:
+    /// - Creating the storage directory structure
+    /// - Initializing the DNA compressor
+    /// - Setting up the transaction manager with WAL
+    /// - Initializing encryption at rest
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The storage directory cannot be created
+    /// - The transaction manager fails to initialize
+    /// - The encryption manager fails to initialize
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use neuroquantum_core::NeuroQuantumDBBuilder;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let db = NeuroQuantumDBBuilder::new()
+    ///     .memory_limit_gb(16)
+    ///     .enable_quantum_optimization(true)
+    ///     .build()
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn build(self) -> Result<NeuroQuantumDB, NeuroQuantumError> {
+        info!(
+            "🧠 Building NeuroQuantumDB with storage path: {}",
+            self.config.storage_path.display()
+        );
+
+        let dna_compressor =
+            dna::QuantumDNACompressor::with_config(self.config.dna_compression.clone());
+
+        // Properly initialize the storage engine asynchronously
+        let storage = storage::StorageEngine::new(&self.config.storage_path)
+            .await
+            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+
+        info!("✅ NeuroQuantumDB fully initialized and ready for use");
+
+        Ok(NeuroQuantumDB {
+            storage,
+            dna_compressor,
+            config: self.config,
+        })
+    }
+}
+
+impl Default for NeuroQuantumDBBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Configuration for the NeuroQuantumDB system
 #[derive(Debug, Clone)]
 pub struct NeuroQuantumConfig {
@@ -98,12 +275,71 @@ impl Default for NeuroQuantumConfig {
 }
 
 impl NeuroQuantumDB {
-    /// Create a new NeuroQuantumDB instance with default configuration
+    /// Create a new NeuroQuantumDB instance with default configuration.
+    ///
+    /// # Deprecated
+    ///
+    /// This method creates an uninitialized database instance that requires
+    /// a separate call to [`init()`](Self::init). Use [`NeuroQuantumDBBuilder`]
+    /// instead for compile-time initialization guarantees.
+    ///
+    /// # Migration
+    ///
+    /// ```no_run
+    /// use neuroquantum_core::NeuroQuantumDBBuilder;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// // Old pattern (deprecated):
+    /// // let mut db = NeuroQuantumDB::new();
+    /// // db.init().await?;
+    ///
+    /// // New pattern (recommended):
+    /// let db = NeuroQuantumDBBuilder::new().build().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use NeuroQuantumDBBuilder::new().build().await instead for compile-time initialization guarantees"
+    )]
+    #[allow(deprecated)]
     pub fn new() -> Self {
         Self::with_config(NeuroQuantumConfig::default())
     }
 
-    /// Create a new NeuroQuantumDB instance with custom configuration
+    /// Create a new NeuroQuantumDB instance with custom configuration.
+    ///
+    /// # Deprecated
+    ///
+    /// This method creates an uninitialized database instance that requires
+    /// a separate call to [`init()`](Self::init). Use [`NeuroQuantumDBBuilder`]
+    /// instead for compile-time initialization guarantees.
+    ///
+    /// # Migration
+    ///
+    /// ```no_run
+    /// use neuroquantum_core::{NeuroQuantumDBBuilder, NeuroQuantumConfig};
+    /// use std::path::PathBuf;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// // Old pattern (deprecated):
+    /// // let config = NeuroQuantumConfig { ... };
+    /// // let mut db = NeuroQuantumDB::with_config(config);
+    /// // db.init().await?;
+    ///
+    /// // New pattern (recommended):
+    /// let config = NeuroQuantumConfig {
+    ///     storage_path: PathBuf::from("/data/neuroquantum"),
+    ///     ..Default::default()
+    /// };
+    /// let db = NeuroQuantumDBBuilder::with_config(config).build().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use NeuroQuantumDBBuilder::with_config(config).build().await instead for compile-time initialization guarantees"
+    )]
     pub fn with_config(config: NeuroQuantumConfig) -> Self {
         let dna_compressor = dna::QuantumDNACompressor::with_config(config.dna_compression.clone());
 
@@ -117,7 +353,33 @@ impl NeuroQuantumDB {
         }
     }
 
-    /// Initialize the database asynchronously (call this after construction)
+    /// Initialize the database asynchronously (call this after construction).
+    ///
+    /// # Deprecated
+    ///
+    /// This method is part of the two-phase initialization pattern which is now
+    /// deprecated. Use [`NeuroQuantumDBBuilder`] instead for compile-time
+    /// initialization guarantees.
+    ///
+    /// # Migration
+    ///
+    /// ```no_run
+    /// use neuroquantum_core::NeuroQuantumDBBuilder;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// // Old pattern (deprecated):
+    /// // let mut db = NeuroQuantumDB::new();
+    /// // db.init().await?;
+    ///
+    /// // New pattern (recommended):
+    /// let db = NeuroQuantumDBBuilder::new().build().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use NeuroQuantumDBBuilder::new().build().await instead - the builder handles initialization automatically"
+    )]
     pub async fn init(&mut self) -> Result<(), NeuroQuantumError> {
         // Properly initialize the storage engine
         self.storage = storage::StorageEngine::new(&self.config.storage_path)
@@ -248,7 +510,14 @@ impl NeuroQuantumDB {
     }
 }
 
+#[allow(deprecated)]
 impl Default for NeuroQuantumDB {
+    /// Creates a default NeuroQuantumDB instance.
+    ///
+    /// # Deprecated
+    ///
+    /// This implementation is deprecated because it creates an uninitialized
+    /// database instance. Use [`NeuroQuantumDBBuilder`] instead.
     fn default() -> Self {
         Self::new()
     }
@@ -615,13 +884,13 @@ mod tests {
     async fn test_neuro_quantum_db() {
         // Use a unique temporary directory for this test
         let temp_dir = std::env::temp_dir().join(format!("nqdb_test_{}", uuid::Uuid::new_v4()));
-        let config = NeuroQuantumConfig {
-            storage_path: temp_dir.clone(),
-            ..Default::default()
-        };
 
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await.unwrap();
+        // Use the new NeuroQuantumDBBuilder pattern for compile-time initialization guarantee
+        let mut db = NeuroQuantumDBBuilder::new()
+            .storage_path(temp_dir.clone())
+            .build()
+            .await
+            .unwrap();
 
         let key = "test_key";
         let data = b"Hello, NeuroQuantumDB!";
@@ -642,6 +911,46 @@ mod tests {
         assert!(stats.compression_time_us > 0);
 
         // Cleanup: remove temporary directory
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_neuro_quantum_db_builder_with_config() {
+        // Test the builder with custom configuration
+        let temp_dir =
+            std::env::temp_dir().join(format!("nqdb_builder_test_{}", uuid::Uuid::new_v4()));
+        let config = NeuroQuantumConfig {
+            storage_path: temp_dir.clone(),
+            memory_limit_gb: 16,
+            enable_quantum_optimization: true,
+            enable_neuromorphic_learning: false,
+            ..Default::default()
+        };
+
+        let db = NeuroQuantumDBBuilder::with_config(config).build().await;
+        assert!(db.is_ok());
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_neuro_quantum_db_builder_fluent_api() {
+        // Test the fluent builder API
+        let temp_dir =
+            std::env::temp_dir().join(format!("nqdb_fluent_test_{}", uuid::Uuid::new_v4()));
+
+        let db = NeuroQuantumDBBuilder::new()
+            .storage_path(temp_dir.clone())
+            .memory_limit_gb(32)
+            .enable_quantum_optimization(true)
+            .enable_neuromorphic_learning(true)
+            .build()
+            .await;
+
+        assert!(db.is_ok());
+
+        // Cleanup
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 

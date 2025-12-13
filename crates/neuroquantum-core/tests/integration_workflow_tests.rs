@@ -8,7 +8,7 @@ use neuroquantum_core::{
         ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
         TableSchema, UpdateQuery, Value, WhereClause,
     },
-    NeuroQuantumConfig, NeuroQuantumDB,
+    NeuroQuantumDBBuilder,
 };
 use std::collections::HashMap;
 use tempfile::TempDir;
@@ -17,13 +17,11 @@ use tempfile::TempDir;
 #[tokio::test]
 async fn test_complete_crud_workflow() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let config = NeuroQuantumConfig {
-        storage_path: temp_dir.path().to_path_buf(),
-        ..Default::default()
-    };
 
-    let mut db = NeuroQuantumDB::with_config(config);
-    db.init().await?;
+    let mut db = NeuroQuantumDBBuilder::new()
+        .storage_path(temp_dir.path().to_path_buf())
+        .build()
+        .await?;
 
     // CREATE TABLE
     {
@@ -161,13 +159,11 @@ async fn test_complete_crud_workflow() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_update_delete_operations() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let config = NeuroQuantumConfig {
-        storage_path: temp_dir.path().to_path_buf(),
-        ..Default::default()
-    };
 
-    let mut db = NeuroQuantumDB::with_config(config);
-    db.init().await?;
+    let mut db = NeuroQuantumDBBuilder::new()
+        .storage_path(temp_dir.path().to_path_buf())
+        .build()
+        .await?;
 
     // Setup
     {
@@ -246,12 +242,10 @@ async fn test_complex_queries() -> anyhow::Result<()> {
 
     // Create DB with data
     {
-        let config = NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await?;
+        let mut db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await?;
 
         let storage = db.storage_mut();
         let schema = TableSchema {
@@ -329,12 +323,10 @@ async fn test_persistence_across_restarts() -> anyhow::Result<()> {
 
     // Phase 1: Create data
     {
-        let config = NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await?;
+        let mut db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await?;
 
         let storage = db.storage_mut();
         let schema = TableSchema {
@@ -379,12 +371,10 @@ async fn test_persistence_across_restarts() -> anyhow::Result<()> {
 
     // Phase 2: Reopen and verify
     {
-        let config = NeuroQuantumConfig {
-            storage_path: storage_path.clone(),
-            ..Default::default()
-        };
-        let mut db = NeuroQuantumDB::with_config(config);
-        db.init().await?;
+        let db = NeuroQuantumDBBuilder::new()
+            .storage_path(storage_path.clone())
+            .build()
+            .await?;
 
         let storage = db.storage();
         let query = SelectQuery {
@@ -410,13 +400,11 @@ async fn test_persistence_across_restarts() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_bulk_operations() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let config = NeuroQuantumConfig {
-        storage_path: temp_dir.path().to_path_buf(),
-        ..Default::default()
-    };
 
-    let mut db = NeuroQuantumDB::with_config(config);
-    db.init().await?;
+    let mut db = NeuroQuantumDBBuilder::new()
+        .storage_path(temp_dir.path().to_path_buf())
+        .build()
+        .await?;
 
     {
         let storage = db.storage_mut();
