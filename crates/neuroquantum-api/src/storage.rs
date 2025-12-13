@@ -29,7 +29,10 @@ impl ApiKeyStorage {
 
     /// Initialize database schema
     fn init_schema(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS api_keys (
@@ -66,7 +69,10 @@ impl ApiKeyStorage {
 
     /// Store a new API key
     pub fn store_key(&self, api_key: &ApiKey, key_hash: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         let permissions_json = serde_json::to_string(&api_key.permissions)?;
 
@@ -98,7 +104,10 @@ impl ApiKeyStorage {
 
     /// Retrieve API key by key_id
     pub fn get_key(&self, key_id: &str) -> Result<Option<(ApiKey, String)>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         let mut stmt = conn.prepare(
             "SELECT key_id, key_hash, name, permissions, expires_at, created_at,
@@ -109,7 +118,14 @@ impl ApiKeyStorage {
 
         let result = stmt.query_row(params![key_id], |row| {
             let permissions_json: String = row.get(3)?;
-            let permissions: Vec<String> = serde_json::from_str(&permissions_json).unwrap();
+            let permissions: Vec<String> =
+                serde_json::from_str(&permissions_json).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        3,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?;
 
             let expires_at_str: String = row.get(4)?;
             let created_at_str: String = row.get(5)?;
@@ -120,10 +136,22 @@ impl ApiKeyStorage {
                 name: row.get(2)?,
                 permissions,
                 expires_at: DateTime::parse_from_rfc3339(&expires_at_str)
-                    .unwrap()
+                    .map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            4,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })?
                     .with_timezone(&Utc),
                 created_at: DateTime::parse_from_rfc3339(&created_at_str)
-                    .unwrap()
+                    .map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            5,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })?
                     .with_timezone(&Utc),
                 last_used: last_used_str
                     .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
@@ -145,7 +173,10 @@ impl ApiKeyStorage {
 
     /// Update last used timestamp and increment usage count
     pub fn update_usage(&self, key_id: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         conn.execute(
             "UPDATE api_keys
@@ -159,7 +190,10 @@ impl ApiKeyStorage {
 
     /// Revoke an API key
     pub fn revoke_key(&self, key_id: &str, revoked_by: Option<&str>) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         let rows_affected = conn.execute(
             "UPDATE api_keys
@@ -178,7 +212,10 @@ impl ApiKeyStorage {
 
     /// List all active API keys (without exposing the actual key)
     pub fn list_keys(&self) -> Result<Vec<ApiKeyInfo>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         let mut stmt = conn.prepare(
             "SELECT key_id, name, permissions, expires_at, created_at,
@@ -191,7 +228,14 @@ impl ApiKeyStorage {
         let keys = stmt
             .query_map([], |row| {
                 let permissions_json: String = row.get(2)?;
-                let permissions: Vec<String> = serde_json::from_str(&permissions_json).unwrap();
+                let permissions: Vec<String> =
+                    serde_json::from_str(&permissions_json).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            2,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })?;
 
                 let expires_at_str: String = row.get(3)?;
                 let created_at_str: String = row.get(4)?;
@@ -205,10 +249,22 @@ impl ApiKeyStorage {
                     name: row.get(1)?,
                     permissions,
                     expires_at: DateTime::parse_from_rfc3339(&expires_at_str)
-                        .unwrap()
+                        .map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                3,
+                                rusqlite::types::Type::Text,
+                                Box::new(e),
+                            )
+                        })?
                         .with_timezone(&Utc),
                     created_at: DateTime::parse_from_rfc3339(&created_at_str)
-                        .unwrap()
+                        .map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                4,
+                                rusqlite::types::Type::Text,
+                                Box::new(e),
+                            )
+                        })?
                         .with_timezone(&Utc),
                     last_used: last_used_str
                         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
@@ -224,7 +280,10 @@ impl ApiKeyStorage {
 
     /// Check if any admin keys exist
     pub fn has_admin_keys(&self) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM api_keys
@@ -238,7 +297,10 @@ impl ApiKeyStorage {
 
     /// Clean up expired keys (mark as revoked)
     pub fn cleanup_expired_keys(&self) -> Result<usize> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         let now = Utc::now().to_rfc3339();
         let rows_affected = conn.execute(
@@ -257,7 +319,10 @@ impl ApiKeyStorage {
 
     /// Get storage statistics
     pub fn get_stats(&self) -> Result<StorageStats> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
 
         let total_keys: i64 = conn.query_row(
             "SELECT COUNT(*) FROM api_keys WHERE is_revoked = 0",

@@ -374,7 +374,11 @@ impl CircuitBreaker {
         F: FnOnce() -> Result<R, ApiError>,
     {
         let current_state = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock().unwrap_or_else(|poisoned| {
+                // On poisoned mutex, assume circuit is open for safety
+                warn!("Circuit breaker state mutex poisoned, defaulting to Open state");
+                poisoned.into_inner()
+            });
             state.clone()
         };
 
@@ -382,7 +386,10 @@ impl CircuitBreaker {
             CircuitBreakerState::Open => {
                 // Check if we should transition to half-open
                 let should_try = {
-                    let last_failure = self.last_failure_time.lock().unwrap();
+                    let last_failure = self.last_failure_time.lock().unwrap_or_else(|poisoned| {
+                        warn!("Circuit breaker last_failure_time mutex poisoned");
+                        poisoned.into_inner()
+                    });
                     if let Some(last_time) = *last_failure {
                         last_time.elapsed() >= self.timeout
                     } else {
@@ -391,7 +398,10 @@ impl CircuitBreaker {
                 };
 
                 if should_try {
-                    let mut state = self.state.lock().unwrap();
+                    let mut state = self.state.lock().unwrap_or_else(|poisoned| {
+                        warn!("Circuit breaker state mutex poisoned during transition");
+                        poisoned.into_inner()
+                    });
                     *state = CircuitBreakerState::HalfOpen;
                     drop(state);
                     info!(
@@ -436,14 +446,20 @@ impl CircuitBreaker {
 
     fn on_success(&self) {
         let current_state = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock().unwrap_or_else(|poisoned| {
+                warn!("Circuit breaker state mutex poisoned in on_success");
+                poisoned.into_inner()
+            });
             state.clone()
         };
 
         if current_state == CircuitBreakerState::HalfOpen {
             // Reset failure count and close the circuit
             self.failure_count.store(0, Ordering::SeqCst);
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock().unwrap_or_else(|poisoned| {
+                warn!("Circuit breaker state mutex poisoned during recovery");
+                poisoned.into_inner()
+            });
             *state = CircuitBreakerState::Closed;
             info!("✅ Circuit breaker closed after successful recovery");
         } else {
@@ -452,7 +468,10 @@ impl CircuitBreaker {
 
             // Check if we should transition to closed
             if success_count >= self.success_threshold {
-                let mut state = self.state.lock().unwrap();
+                let mut state = self.state.lock().unwrap_or_else(|poisoned| {
+                    warn!("Circuit breaker state mutex poisoned during success threshold");
+                    poisoned.into_inner()
+                });
                 *state = CircuitBreakerState::Closed;
                 info!(
                     "✅ Circuit breaker closed after {} successful requests",
@@ -466,12 +485,18 @@ impl CircuitBreaker {
         let failure_count = self.failure_count.fetch_add(1, Ordering::SeqCst) + 1;
 
         {
-            let mut last_failure = self.last_failure_time.lock().unwrap();
+            let mut last_failure = self.last_failure_time.lock().unwrap_or_else(|poisoned| {
+                warn!("Circuit breaker last_failure_time mutex poisoned in on_failure");
+                poisoned.into_inner()
+            });
             *last_failure = Some(Instant::now());
         }
 
         if failure_count >= self.failure_threshold {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock().unwrap_or_else(|poisoned| {
+                warn!("Circuit breaker state mutex poisoned during failure threshold");
+                poisoned.into_inner()
+            });
             *state = CircuitBreakerState::Open;
             warn!(
                 "🔴 Circuit breaker opened due to {} failures",

@@ -123,39 +123,62 @@ impl NeuroQuantumDBBuilder {
 
 ---
 
-## 4. Error Handling & Unwrap-Analyse
+## 4. Error Handling & Unwrap-Analyse ✅ ERLEDIGT
 
 ### 4.1 Kritische `unwrap()` Verwendungen in Produktionscode
 
-**Besonders kritisch sind `unwrap()` in nicht-test Code:**
+**Status: BEHOBEN** (13. Dezember 2025)
 
-| Datei | Zeile | Kontext | Risiko |
+~~Besonders kritisch sind `unwrap()` in nicht-test Code:~~
+
+| Datei | Zeile | Kontext | Status |
 |-------|-------|---------|--------|
-| [storage.rs (API)](crates/neuroquantum-api/src/storage.rs#L32) | 32 | `self.conn.lock().unwrap()` | 🔴 Kritisch |
-| [storage.rs (API)](crates/neuroquantum-api/src/storage.rs#L112) | 112 | `serde_json::from_str(...).unwrap()` | 🔴 Kritisch |
-| [middleware.rs](crates/neuroquantum-api/src/middleware.rs#L377) | 377 | `self.state.lock().unwrap()` | 🟠 Hoch |
-| [metrics.rs](crates/neuroquantum-api/src/metrics.rs#L23-232) | Mehrere | `.expect("Failed to register...")` | 🟡 Medium |
+| ~~[storage.rs (API)](crates/neuroquantum-api/src/storage.rs#L32)~~ | ~~32~~ | ~~`self.conn.lock().unwrap()`~~ | ✅ Behoben |
+| ~~[storage.rs (API)](crates/neuroquantum-api/src/storage.rs#L112)~~ | ~~112~~ | ~~`serde_json::from_str(...).unwrap()`~~ | ✅ Behoben |
+| ~~[middleware.rs](crates/neuroquantum-api/src/middleware.rs#L377)~~ | ~~377~~ | ~~`self.state.lock().unwrap()`~~ | ✅ Behoben |
+| [metrics.rs](crates/neuroquantum-api/src/metrics.rs#L23-232) | Mehrere | `.expect("Failed to register...")` | 🟡 Akzeptabel* |
 
-**Analyse `storage.rs`:**
-```rust
-// Line 112 - Korrupte JSON führt zu Panic!
-let permissions: Vec<String> = serde_json::from_str(&permissions_json).unwrap();
-```
+\* Die `.expect()` Aufrufe in `metrics.rs` sind für die Registrierung von Prometheus-Metriken in `Lazy<>` Statics erforderlich und akzeptabel, da sie nur beim Programmstart einmalig aufgerufen werden.
 
-**Empfehlung:**
+Die folgenden Änderungen wurden durchgeführt:
+
+**storage.rs:**
+1. ✅ Alle Mutex-Lock `unwrap()` durch `map_err()` mit aussagekräftiger Fehlermeldung ersetzt
+2. ✅ JSON-Parsing `unwrap()` durch `map_err()` mit `rusqlite::Error::FromSqlConversionFailure` ersetzt
+3. ✅ DateTime-Parsing `unwrap()` durch `map_err()` ersetzt
+
+**middleware.rs (CircuitBreaker):**
+1. ✅ Alle Mutex-Lock `unwrap()` durch `unwrap_or_else(|poisoned| poisoned.into_inner())` ersetzt
+2. ✅ Fail-Safe-Pattern implementiert: Bei poisoned Mutex wird der innere Wert wiederhergestellt
+3. ✅ Logging bei Mutex-Poisoning hinzugefügt für Debugging
+
+~~**Analyse `storage.rs`:**~~
+~~```rust~~
+~~// Line 112 - Korrupte JSON führt zu Panic!~~
+~~let permissions: Vec<String> = serde_json::from_str(&permissions_json).unwrap();~~
+~~```~~
+
+**Beispiel der neuen Implementierung (storage.rs):**
 ```rust
+let conn = self
+    .conn
+    .lock()
+    .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+
 let permissions: Vec<String> = serde_json::from_str(&permissions_json)
-    .map_err(|e| anyhow::anyhow!("Corrupted permissions data: {}", e))?;
+    .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+        3,
+        rusqlite::types::Type::Text,
+        Box::new(e),
+    ))?;
 ```
 
-**Mutex-Locks:**
+**Beispiel der neuen Implementierung (middleware.rs):**
 ```rust
-// Statt:
-let conn = self.conn.lock().unwrap();
-
-// Besser:
-let conn = self.conn.lock()
-    .map_err(|_| ApiError::Internal("Database lock poisoned".into()))?;
+let state = self.state.lock().unwrap_or_else(|poisoned| {
+    warn!("Circuit breaker state mutex poisoned, recovering inner value");
+    poisoned.into_inner()
+});
 ```
 
 ---
@@ -305,10 +328,10 @@ Alle gefundenen `panic!()` befinden sich in Test-Code (assertions), was akzeptab
 
 | # | Bereich | Aktion | Status |
 |---|---------|--------|--------|
-| 1 | Unwrap-Panics | Alle `unwrap()` in Produktionscode durch `?` oder `expect()` mit Kontext ersetzen | ⏳ Offen |
+| 1 | Unwrap-Panics | Alle `unwrap()` in Produktionscode durch `?` oder `expect()` mit Kontext ersetzen | ✅ Erledigt |
 | 2 | Legacy-Mode | Default `allow_legacy_mode: false` setzen | ✅ Erledigt |
 | 3 | Placeholder-Init | Compile-Time-Garantie für vollständige Initialisierung | ⏳ Offen |
-| 4 | Mutex-Poisoning | Graceful Error-Handling statt Panic | ⏳ Offen |
+| 4 | Mutex-Poisoning | Graceful Error-Handling statt Panic | ✅ Erledigt |
 
 ### 🟠 Hoch (zeitnah)
 
