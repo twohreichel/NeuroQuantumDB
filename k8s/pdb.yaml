@@ -1,0 +1,17 @@
+# Pod Disruption Budget for NeuroQuantumDB
+# Ensures high availability during node maintenance/updates
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: neuroquantumdb
+  namespace: neuroquantumdb
+  labels:
+    app.kubernetes.io/name: neuroquantumdb
+    app.kubernetes.io/component: availability
+spec:
+  # At least 1 pod must always be available
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: neuroquantumdb
+      app.kubernetes.io/component: api

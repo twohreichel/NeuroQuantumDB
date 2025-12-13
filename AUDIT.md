@@ -399,8 +399,18 @@ pub struct AntiHebbianLearning {
 
 ### 9.2 Empfohlen
 
-3. **Kubernetes Deployment-Manifeste**
+3. ~~**Kubernetes Deployment-Manifeste**~~
    - Für Production-Deployments auf K8s
+   - **Status**: ✅ **ERLEDIGT** - Vollständige K8s-Manifeste erstellt in `k8s/`:
+     - Namespace, ConfigMap, Secret, PVCs für persistente Speicherung
+     - Deployment mit Rolling Updates, Liveness/Readiness Probes
+     - Redis-Deployment für Rate Limiting und Caching
+     - Services (ClusterIP + LoadBalancer) und Ingress mit TLS
+     - HPA (Horizontal Pod Autoscaler) für automatische Skalierung
+     - PDB (Pod Disruption Budget) für Hochverfügbarkeit
+     - NetworkPolicies für Netzwerksicherheit
+     - Prometheus-Stack für Monitoring
+     - Kustomization für einfaches Deployment (`kubectl apply -k k8s/`)
    
 4. **Metrics für Neuromorphe Operationen**
    - Prometheus-Metrics für synaptische Lernzyklen

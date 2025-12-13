@@ -1,0 +1,82 @@
+# Network Policies for NeuroQuantumDB
+# Restricts network traffic to only what's necessary
+---
+# Allow ingress traffic to NeuroQuantumDB only from Ingress controller and within namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: neuroquantumdb-network-policy
+  namespace: neuroquantumdb
+  labels:
+    app.kubernetes.io/name: neuroquantumdb
+    app.kubernetes.io/component: network
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: neuroquantumdb
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9090
+    # Allow traffic from within namespace (for health checks, prometheus)
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9090
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow traffic to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# Redis network policy - only allow traffic from NeuroQuantumDB
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-network-policy
+  namespace: neuroquantumdb
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: network
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: neuroquantumdb
+      ports:
+        - protocol: TCP
+          port: 6379
