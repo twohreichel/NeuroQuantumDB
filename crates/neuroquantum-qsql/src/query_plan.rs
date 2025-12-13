@@ -32,8 +32,14 @@ pub struct ExecutorConfig {
     pub enable_synaptic_optimization: bool,
     pub enable_dna_compression: bool, // Always enabled via StorageEngine
     /// Allow legacy mode without storage engine (simulation mode).
-    /// Set to `false` in production to prevent accidental use of simulated data.
-    /// Default is `true` for backward compatibility with tests.
+    ///
+    /// When `false` (default), the executor requires a storage engine to be
+    /// configured via `with_storage()`. This prevents accidental use of
+    /// simulated data in production.
+    ///
+    /// When `true`, the executor will return simulated data if no storage
+    /// engine is configured. Only use `ExecutorConfig::testing()` to enable
+    /// this for test purposes.
     pub allow_legacy_mode: bool,
 }
 
@@ -49,7 +55,7 @@ impl Default for ExecutorConfig {
             enable_neuromorphic_learning: true,
             enable_synaptic_optimization: true,
             enable_dna_compression: true,
-            allow_legacy_mode: true, // Set to false in production
+            allow_legacy_mode: false, // Production-safe default: requires storage engine
         }
     }
 }
@@ -57,9 +63,21 @@ impl Default for ExecutorConfig {
 impl ExecutorConfig {
     /// Create a production configuration that disallows legacy mode.
     /// Use this in production environments to ensure storage engine is always required.
+    ///
+    /// Note: This is now equivalent to `Default::default()` as the default
+    /// configuration is production-safe.
     pub fn production() -> Self {
+        Self::default()
+    }
+
+    /// Create a testing configuration that allows legacy mode with simulated data.
+    ///
+    /// # Warning
+    /// Only use this for testing purposes. Legacy mode returns simulated data
+    /// instead of real storage data. Never use in production.
+    pub fn testing() -> Self {
         Self {
-            allow_legacy_mode: false,
+            allow_legacy_mode: true,
             ..Default::default()
         }
     }
@@ -125,12 +143,21 @@ pub struct ExecutionStats {
 }
 
 impl QueryExecutor {
-    /// Create a new query executor without storage integration (legacy mode)
+    /// Create a new query executor without storage integration.
+    ///
+    /// # Note
+    /// By default, this creates an executor that requires a storage engine.
+    /// Use `with_storage()` to configure the storage engine, or use
+    /// `with_config(ExecutorConfig::testing())` for test scenarios with
+    /// simulated data.
     pub fn new() -> QSQLResult<Self> {
         Self::with_config(ExecutorConfig::default())
     }
 
-    /// Create executor with custom configuration (legacy mode)
+    /// Create executor with custom configuration.
+    ///
+    /// For production, use `ExecutorConfig::default()` or `ExecutorConfig::production()`.
+    /// For testing with simulated data, use `ExecutorConfig::testing()`.
     pub fn with_config(config: ExecutorConfig) -> QSQLResult<Self> {
         Ok(Self {
             config,
@@ -1426,7 +1453,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_basic_select_execution() {
-        let mut executor = QueryExecutor::new().unwrap();
+        // Use testing config to allow legacy mode with simulated data
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
 
         let select = SelectStatement {
             select_list: vec![],
@@ -1468,7 +1496,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_neuromatch_execution() {
-        let mut executor = QueryExecutor::new().unwrap();
+        // Use testing config to allow legacy mode with simulated data
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
 
         let neuromatch = NeuroMatchStatement {
             target_table: "users".to_string(),
@@ -1504,7 +1533,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_quantum_search_execution() {
-        let mut executor = QueryExecutor::new().unwrap();
+        // Use testing config to allow legacy mode with simulated data
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
 
         let quantum_search = QuantumSearchStatement {
             target_table: "products".to_string(),

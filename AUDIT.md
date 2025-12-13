@@ -162,44 +162,29 @@ let conn = self.conn.lock()
 
 ## 5. Legacy-Mode & Simulierte Daten
 
-### 5.1 Query-Executor Legacy-Mode
+### 5.1 Query-Executor Legacy-Mode ✅ ERLEDIGT
 
-In [query_plan.rs](crates/neuroquantum-qsql/src/query_plan.rs#L35-L42) existiert ein `allow_legacy_mode` Flag:
+~~In [query_plan.rs](crates/neuroquantum-qsql/src/query_plan.rs#L35-L42) existiert ein `allow_legacy_mode` Flag:~~
+
+**Status: BEHOBEN** (13. Dezember 2025)
+
+Die folgenden Änderungen wurden durchgeführt:
+
+1. ✅ Default von `allow_legacy_mode` auf `false` geändert
+2. ✅ Neue `ExecutorConfig::testing()` Methode für explizite Legacy-Mode-Nutzung in Tests
+3. ✅ `ExecutorConfig::production()` ist jetzt identisch mit `Default::default()`
+4. ✅ Dokumentation aktualisiert
+5. ✅ Tests auf `ExecutorConfig::testing()` umgestellt
+6. ✅ Logging bei Legacy-Mode war bereits vorhanden (`warn!()` Makro)
 
 ```rust
-pub struct ExecutorConfig {
-    // ...
-    /// Allow legacy mode without storage engine (simulation mode).
-    /// Set to `false` in production to prevent accidental use of simulated data.
-    pub allow_legacy_mode: bool, // Default: true!
-}
-```
-
-**Problem:** Der Default ist `true`, was bedeutet, dass Queries mit **simulierten Daten** beantwortet werden können:
-
-```rust
-// Line 305-325: Simulated data returned!
-let mut rows = Vec::new();
-for i in 1..=5 {
-    let mut row = HashMap::new();
-    row.insert("id".to_string(), QueryValue::Integer(i));
-    row.insert("name".to_string(), QueryValue::String(format!("User {}", i)));
-    rows.push(row);
-}
-```
-
-**Empfehlung:**
-1. Default zu `false` ändern
-2. Logging verstärken wenn Legacy-Mode aktiv
-3. Production-Config erstellen:
-```rust
-// Bereits vorhanden, aber nicht als Default!
 impl ExecutorConfig {
-    pub fn production() -> Self {
-        Self {
-            allow_legacy_mode: false,
-            ..Default::default()
-        }
+    /// Production-safe default (allow_legacy_mode = false)
+    pub fn default() -> Self { ... }
+    
+    /// For testing with simulated data only
+    pub fn testing() -> Self {
+        Self { allow_legacy_mode: true, ..Default::default() }
     }
 }
 ```
@@ -318,29 +303,29 @@ Alle gefundenen `panic!()` befinden sich in Test-Code (assertions), was akzeptab
 
 ### 🔴 Kritisch (vor Production)
 
-| # | Bereich | Aktion |
-|---|---------|--------|
-| 1 | Unwrap-Panics | Alle `unwrap()` in Produktionscode durch `?` oder `expect()` mit Kontext ersetzen |
-| 2 | Legacy-Mode | Default `allow_legacy_mode: false` setzen |
-| 3 | Placeholder-Init | Compile-Time-Garantie für vollständige Initialisierung |
-| 4 | Mutex-Poisoning | Graceful Error-Handling statt Panic |
+| # | Bereich | Aktion | Status |
+|---|---------|--------|--------|
+| 1 | Unwrap-Panics | Alle `unwrap()` in Produktionscode durch `?` oder `expect()` mit Kontext ersetzen | ⏳ Offen |
+| 2 | Legacy-Mode | Default `allow_legacy_mode: false` setzen | ✅ Erledigt |
+| 3 | Placeholder-Init | Compile-Time-Garantie für vollständige Initialisierung | ⏳ Offen |
+| 4 | Mutex-Poisoning | Graceful Error-Handling statt Panic | ⏳ Offen |
 
 ### 🟠 Hoch (zeitnah)
 
-| # | Bereich | Aktion |
-|---|---------|--------|
-| 5 | Safety-Docs | Vollständige `# Safety`-Dokumentation für alle unsafe-Funktionen |
-| 6 | Dead-Code | `bases_to_bytes` und ungenutzte Felder entfernen |
-| 7 | Benchmarks | Performance-Baselines dokumentieren |
-| 8 | Quantum-Docs | Klarstellen, dass es sich um klassische Simulationen handelt |
+| # | Bereich | Aktion | Status |
+|---|---------|--------|--------|
+| 5 | Safety-Docs | Vollständige `# Safety`-Dokumentation für alle unsafe-Funktionen | ⏳ Offen |
+| 6 | Dead-Code | `bases_to_bytes` und ungenutzte Felder entfernen | ⏳ Offen |
+| 7 | Benchmarks | Performance-Baselines dokumentieren | ⏳ Offen |
+| 8 | Quantum-Docs | Klarstellen, dass es sich um klassische Simulationen handelt | ⏳ Offen |
 
 ### 🟡 Medium (geplant)
 
-| # | Bereich | Aktion |
-|---|---------|--------|
-| 9 | Multi-Node | Architektur für Cluster-Support entwerfen |
-| 10 | Prop-Tests | Property-based Testing für API und QSQL erweitern |
-| 11 | Fuzzing | Cargo-fuzz für Parser und Kompression einrichten |
+| # | Bereich | Aktion | Status |
+|---|---------|--------|--------|
+| 9 | Multi-Node | Architektur für Cluster-Support entwerfen | ⏳ Offen |
+| 10 | Prop-Tests | Property-based Testing für API und QSQL erweitern | ⏳ Offen |
+| 11 | Fuzzing | Cargo-fuzz für Parser und Kompression einrichten | ⏳ Offen |
 
 ---
 

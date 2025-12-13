@@ -217,7 +217,8 @@ fn test_parser_error_handling() {
 
 #[tokio::test]
 async fn test_query_executor_integration() {
-    let mut executor = QueryExecutor::new().unwrap();
+    // Use testing config to allow legacy mode with simulated data
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
     let parser = QSQLParser::new();
 
     // Parse a simple SELECT query
@@ -233,7 +234,8 @@ async fn test_query_executor_integration() {
 
 #[tokio::test]
 async fn test_neuromorphic_execution() {
-    let mut executor = QueryExecutor::new().unwrap();
+    // Use testing config to allow legacy mode with simulated data
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
     let parser = QSQLParser::new();
 
     // Parse neuromorphic query
@@ -247,7 +249,8 @@ async fn test_neuromorphic_execution() {
 
 #[tokio::test]
 async fn test_quantum_execution() {
-    let mut executor = QueryExecutor::new().unwrap();
+    // Use testing config to allow legacy mode with simulated data
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
     let parser = QSQLParser::new();
 
     // Parse quantum search query
@@ -261,7 +264,8 @@ async fn test_quantum_execution() {
 
 #[tokio::test]
 async fn test_complete_sql_workflow() {
-    let mut executor = QueryExecutor::new().unwrap();
+    // Use testing config to allow legacy mode with simulated data
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
     let parser = QSQLParser::new();
 
     // Test a complete workflow: CREATE, INSERT, SELECT, UPDATE, DELETE
