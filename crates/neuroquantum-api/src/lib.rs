@@ -75,10 +75,14 @@ impl AppState {
         };
         let rate_limit_service = RateLimitService::new(rate_limit_config).await?;
 
-        // Initialize QSQL engine
-        let qsql_engine = neuroquantum_qsql::QSQLEngine::new()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize QSQL engine: {}", e))?;
+        // Initialize QSQL engine with storage engine for production use
+        // This ensures queries are executed against the actual storage instead of simulated data
+        let storage_engine = db.storage().clone();
+        let qsql_engine = neuroquantum_qsql::QSQLEngine::with_storage(storage_engine)
+            .map_err(|e| anyhow::anyhow!("Failed to initialize QSQL engine with storage: {}", e))?;
         let qsql_engine_arc = Arc::new(tokio::sync::Mutex::new(qsql_engine));
+
+        tracing::info!("🔗 QSQL engine connected to storage engine for production query execution");
 
         // Initialize WebSocket service with QSQL engine
         let ws_config = ConnectionConfig::default();

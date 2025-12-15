@@ -175,6 +175,37 @@ impl QSQLEngine {
         })
     }
 
+    /// Create a QSQL engine with a storage engine for production use.
+    /// This ensures queries are executed against the actual storage instead of
+    /// returning simulated data.
+    pub fn with_storage(
+        storage_engine: neuroquantum_core::storage::StorageEngine,
+    ) -> anyhow::Result<Self> {
+        let config = ExecutorConfig::default();
+        let executor = QueryExecutor::with_storage(config, storage_engine)?;
+        Ok(Self {
+            parser: ParserQSQLParser::new(),
+            optimizer: NeuromorphicOptimizer::new()?,
+            executor,
+            cache: HashMap::new(),
+            metrics: QSQLMetrics::default(),
+        })
+    }
+
+    /// Set the storage engine for an existing QSQL engine.
+    /// This enables production mode query execution against the actual storage.
+    pub fn set_storage_engine(
+        &mut self,
+        storage_engine: neuroquantum_core::storage::StorageEngine,
+    ) {
+        self.executor.set_storage_engine(storage_engine);
+    }
+
+    /// Check if the engine has a storage engine configured for production use.
+    pub fn has_storage_engine(&self) -> bool {
+        self.executor.has_storage_engine()
+    }
+
     /// Execute a query with full pipeline processing
     #[instrument(skip(self, query))]
     pub async fn execute_query(&mut self, query: &str) -> Result<QueryResult, anyhow::Error> {
