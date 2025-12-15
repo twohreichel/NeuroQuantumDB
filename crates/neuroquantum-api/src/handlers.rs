@@ -448,7 +448,7 @@ pub async fn create_table(
                     serde_json::Value::Null => neuroquantum_core::storage::Value::Null,
                     _ => neuroquantum_core::storage::Value::Text(v.to_string()),
                 }),
-                auto_increment: false,
+                auto_increment: c.auto_increment.unwrap_or(false),
             })
             .collect(),
         primary_key,

@@ -136,6 +136,9 @@ pub struct ColumnDefinition {
     pub nullable: Option<bool>,
     pub default_value: Option<serde_json::Value>,
     pub constraints: Option<Vec<String>>,
+    /// Whether this column auto-increments
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_increment: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]

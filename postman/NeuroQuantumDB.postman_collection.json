@@ -272,7 +272,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"users\",\n  \"columns\": [\n    {\n      \"name\": \"id\",\n      \"data_type\": \"BigSerial\",\n      \"nullable\": false,\n      \"auto_increment\": true\n    },\n    {\n      \"name\": \"name\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"email\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    }\n  ],\n  \"id_strategy\": \"AutoIncrement\"\n}"
+							"raw": "{\n  \"schema\": {\n    \"name\": \"users\",\n    \"columns\": [\n      {\n        \"name\": \"id\",\n        \"data_type\": \"Integer\",\n        \"nullable\": false,\n        \"auto_increment\": true\n      },\n      {\n        \"name\": \"name\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      },\n      {\n        \"name\": \"email\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      }\n    ]\n  },\n  \"if_not_exists\": true\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/tables",
@@ -315,7 +315,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"distributed_events\",\n  \"columns\": [\n    {\n      \"name\": \"id\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"event_type\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"payload\",\n      \"data_type\": \"Text\",\n      \"nullable\": true\n    }\n  ],\n  \"id_strategy\": \"Uuid\"\n}"
+							"raw": "{\n  \"schema\": {\n    \"name\": \"distributed_events\",\n    \"columns\": [\n      {\n        \"name\": \"id\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      },\n      {\n        \"name\": \"event_type\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      },\n      {\n        \"name\": \"payload\",\n        \"data_type\": \"Text\",\n        \"nullable\": true\n      }\n    ]\n  },\n  \"if_not_exists\": true\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/tables",
@@ -360,12 +360,12 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"table_name\": \"users\",\n  \"record\": {\n    \"name\": \"Max Mustermann\",\n    \"email\": \"max@example.com\"\n  }\n}"
+							"raw": "{\n  \"table_name\": \"users\",\n  \"records\": [\n    {\n      \"name\": \"Max Mustermann\",\n      \"email\": \"max@example.com\"\n    }\n  ]\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/records",
+							"raw": "{{base_url}}/api/v1/tables/users/data",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "records"]
+							"path": ["api", "v1", "tables", "users", "data"]
 						},
 						"description": "Inserts a new record **without specifying an ID**.\n\n## Automatic ID Generation\n\nWhen the table has an auto-increment column (BigSerial, Serial, or AUTO_INCREMENT), the ID is automatically generated.\n\n**You do NOT need to provide the `id` field!**\n\n### Response includes:\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"inserted_id\": 1\n  }\n}\n```\n\nThe `inserted_id` field returns the auto-generated ID so you can reference it immediately."
 					},
@@ -388,12 +388,12 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"table_name\": \"users\",\n  \"record\": {\n    \"id\": 999,\n    \"name\": \"Manual ID User\",\n    \"email\": \"manual@example.com\"\n  }\n}"
+							"raw": "{\n  \"table_name\": \"users\",\n  \"records\": [\n    {\n      \"id\": 999,\n      \"name\": \"Manual ID User\",\n      \"email\": \"manual@example.com\"\n    }\n  ]\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/records",
+							"raw": "{{base_url}}/api/v1/tables/users/data",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "records"]
+							"path": ["api", "v1", "tables", "users", "data"]
 						},
 						"description": "Inserts a record with a manually specified ID.\n\n**⚠️ Warning:** Use with caution!\n\n- Only works if the column is NOT defined as `GENERATED ALWAYS AS IDENTITY`\n- May cause conflicts with auto-generated IDs\n- May break the auto-increment sequence\n\n**Recommended:** Let the database generate IDs automatically for most use cases."
 					},

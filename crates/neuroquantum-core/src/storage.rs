@@ -635,9 +635,22 @@ impl StorageEngine {
         fs::File::create(&index_path).await?;
 
         // Add to metadata
+        let mut schema_to_store = schema.clone();
+
+        // Initialize auto_increment_columns for columns with auto_increment: true or Serial/BigSerial types
+        for column in &schema_to_store.columns {
+            if column.auto_increment
+                || matches!(column.data_type, DataType::Serial | DataType::BigSerial)
+            {
+                schema_to_store
+                    .auto_increment_columns
+                    .insert(column.name.clone(), AutoIncrementConfig::new(&column.name));
+            }
+        }
+
         self.metadata
             .tables
-            .insert(schema.name.clone(), schema.clone());
+            .insert(schema_to_store.name.clone(), schema_to_store.clone());
 
         // Create index in memory
         self.indexes.insert(
@@ -1150,7 +1163,11 @@ impl StorageEngine {
                         value
                     ));
                 }
-            } else if !column.nullable && column.default_value.is_none() {
+            } else if !column.nullable
+                && column.default_value.is_none()
+                && !column.auto_increment
+                && !matches!(column.data_type, DataType::Serial | DataType::BigSerial)
+            {
                 return Err(anyhow!("Required column '{}' is missing", column.name));
             }
         }
