@@ -82,10 +82,20 @@ pub struct JwtConfig {
     pub audience: String,
 }
 
+/// List of known insecure default secrets that must not be used in production
+const INSECURE_DEFAULT_SECRETS: &[&str] = &[
+    "your-super-secret-jwt-key-change-this-in-production",
+    "CHANGE_THIS_IMMEDIATELY_USE_openssl_rand_base64_48_MINIMUM_32_CHARS",
+    "dev_secret_key_min_32_chars_1234567890abcdef",
+    "dev-secret-key-32-characters-long!",
+    "",
+];
+
 impl Default for JwtConfig {
     fn default() -> Self {
         Self {
-            secret: "your-super-secret-jwt-key-change-this-in-production".to_string(),
+            // Empty by default - MUST be provided via environment variable or config
+            secret: String::new(),
             expiration_hours: 24,
             refresh_threshold_minutes: 60,
             quantum_enabled: false,
@@ -93,6 +103,13 @@ impl Default for JwtConfig {
             issuer: "neuroquantum-db".to_string(),
             audience: "neuroquantum-api".to_string(),
         }
+    }
+}
+
+impl JwtConfig {
+    /// Check if the current secret is a known insecure default
+    pub fn is_insecure_default_secret(&self) -> bool {
+        INSECURE_DEFAULT_SECRETS.contains(&self.secret.as_str())
     }
 }
 
@@ -368,6 +385,20 @@ impl ApiConfig {
 
     /// Validate configuration settings
     fn validate(&self) -> anyhow::Result<()> {
+        // Check if JWT secret is a known insecure default
+        if self.jwt.is_insecure_default_secret() {
+            return Err(anyhow::anyhow!(
+                "\n\n✘ CRITICAL SECURITY ERROR: Insecure JWT secret detected!\n\n\
+                 The JWT secret is either empty or a known insecure default value.\n\
+                 This is NOT allowed in production.\n\n\
+                 To fix this:\n\
+                 1. Generate a secure secret: openssl rand -base64 48\n\
+                 2. Set the environment variable: export NEUROQUANTUM_JWT_SECRET=<your-secret>\n\
+                 3. Restart the application\n\n\
+                 The secret must be at least 32 characters long.\n"
+            ));
+        }
+
         // Validate JWT secret strength
         if self.jwt.secret.len() < 32 {
             return Err(anyhow::anyhow!(

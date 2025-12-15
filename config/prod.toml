@@ -17,9 +17,11 @@ max_connections = 500  # Higher for production load
 connection_timeout_seconds = 30
 
 [jwt]
-# ⚠️  SECURITY CRITICAL: Generate a strong secret key!
-# Generate with: openssl rand -base64 48
-secret = "CHANGE_THIS_IMMEDIATELY_USE_openssl_rand_base64_48_MINIMUM_32_CHARS"
+# ⚠️  SECURITY CRITICAL: JWT secret MUST be provided via environment variable!
+# The secret is intentionally NOT stored in this file for security reasons.
+# Set the environment variable: export NEUROQUANTUM_JWT_SECRET=$(openssl rand -base64 48)
+# Minimum 32 characters required.
+secret = ""
 expiration_hours = 1  # Short expiration for security
 refresh_threshold_minutes = 15
 quantum_enabled = true  # Enable quantum-resistant features
