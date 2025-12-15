@@ -352,6 +352,8 @@ pub unsafe fn memcpy_avx2(dst: *mut u8, src: *const u8, len: usize) {
 
 // Helper functions for scalar fallbacks (same as NEON version)
 
+/// Encodes a partial chunk of bytes to DNA bases (scalar fallback).
+/// Used when the input size is not a multiple of the SIMD vector width.
 #[allow(dead_code)]
 fn encode_partial_chunk(chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
     for &byte in chunk {
@@ -377,7 +379,9 @@ fn decode_partial_chunk(chunk: &[DNABase], output: &mut Vec<u8>) -> Result<(), D
     Ok(())
 }
 
-#[allow(dead_code)]
+/// Converts DNA bases to bytes for SIMD processing.
+/// Used by `hamming_distance_avx2` for efficient comparison.
+#[cfg(target_arch = "x86_64")]
 fn bases_to_bytes(bases: &[DNABase]) -> Vec<u8> {
     bases.iter().map(|&base| base as u8).collect()
 }

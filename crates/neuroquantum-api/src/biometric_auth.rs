@@ -364,8 +364,7 @@ pub struct DigitalFilter {
     order: usize,
     /// Pre-computed IIR coefficients (lazily computed on first use when sampling rate is known)
     coefficients: Option<FilterCoefficients>,
-    /// Sampling rate stored for debugging/inspection purposes
-    #[allow(dead_code)]
+    /// Sampling rate for filter coefficient computation. When present, used by `apply()`.
     sampling_rate: Option<f32>,
 }
 
@@ -432,9 +431,13 @@ impl DigitalFilter {
     }
 
     /// Apply filter to signal using real IIR Butterworth filtering
-    /// Uses zero-phase filtering (filtfilt) to eliminate phase distortion
+    /// Uses zero-phase filtering (filtfilt) to eliminate phase distortion.
+    /// If the filter was created with a sampling rate (e.g., via `bandpass_with_rate`),
+    /// that rate is used. Otherwise, defaults to 256 Hz (common for EEG).
     pub fn apply(&self, signal: &[f32]) -> Vec<f32> {
-        self.apply_with_rate(signal, 256.0) // Default to 256 Hz if not specified
+        // Use stored sampling rate if available, otherwise default to 256 Hz (common EEG rate)
+        let rate = self.sampling_rate.unwrap_or(256.0);
+        self.apply_with_rate(signal, rate)
     }
 
     /// Apply filter with explicit sampling rate

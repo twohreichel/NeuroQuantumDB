@@ -65,21 +65,28 @@ pub unsafe fn memcpy_avx2(dst: *mut u8, src: *const u8, len: usize) { ... }
 
 ---
 
-## 2. Dead Code & Unused Annotations
+## 2. Dead Code & Unused Annotations ✅ ERLEDIGT
 
 ### 2.1 `#[allow(dead_code)]` Vorkommen
+
+**Status: BEHOBEN** (15. Dezember 2025)
 
 | Datei | Zeile | Element | Status | Empfehlung |
 |-------|-------|---------|--------|------------|
 | [neon_optimization.rs](crates/neuroquantum-core/src/neon_optimization.rs#L171) | 171 | `scalar_update_connection_weights` | ✅ Berechtigt | Fallback für Non-SIMD |
-| [biometric_auth.rs](crates/neuroquantum-api/src/biometric_auth.rs#L368) | 368 | `sampling_rate` | ⚠️ Prüfen | Debugging-Feld ohne Nutzung |
+| [biometric_auth.rs](crates/neuroquantum-api/src/biometric_auth.rs#L368) | 368 | `sampling_rate` | ✅ Behoben | Wird jetzt in `apply()` genutzt |
 | [x86_avx2.rs](crates/neuroquantum-core/src/dna/simd/x86_avx2.rs#L322) | 322 | `encode_partial_chunk` | ✅ Berechtigt | Fallback-Funktion |
 | [x86_avx2.rs](crates/neuroquantum-core/src/dna/simd/x86_avx2.rs#L334) | 334 | `decode_partial_chunk` | ✅ Berechtigt | Fallback-Funktion |
-| [x86_avx2.rs](crates/neuroquantum-core/src/dna/simd/x86_avx2.rs#L347) | 347 | `bases_to_bytes` | ⚠️ Entfernen | Keine Verwendung gefunden |
+| [x86_avx2.rs](crates/neuroquantum-core/src/dna/simd/x86_avx2.rs#L347) | 347 | `bases_to_bytes` | ✅ Behoben | Wird von `hamming_distance_avx2` genutzt |
 
-**Handlungsempfehlung:**
-1. `sampling_rate` in `DigitalFilter` entweder nutzen oder entfernen
-2. `bases_to_bytes` sollte entfernt werden, falls nicht benötigt
+**Durchgeführte Änderungen:**
+
+1. ✅ `sampling_rate` in `DigitalFilter` wird jetzt aktiv in der `apply()` Methode verwendet
+   - `#[allow(dead_code)]` entfernt
+   - `apply()` nutzt gespeicherte Sampling-Rate statt Hardcoded-Default
+2. ✅ `bases_to_bytes` in x86_avx2.rs korrigiert
+   - Falsches `#[allow(dead_code)]` entfernt (Funktion wird von `hamming_distance_avx2` verwendet)
+   - `#[cfg(target_arch = "x86_64")]` hinzugefügt, da nur auf x86_64 benötigt
 
 ---
 
@@ -352,7 +359,7 @@ Alle gefundenen `panic!()` befinden sich in Test-Code (assertions), was akzeptab
 | # | Bereich | Aktion | Status |
 |---|---------|--------|--------|
 | 5 | Safety-Docs | Vollständige `# Safety`-Dokumentation für alle unsafe-Funktionen | ✅ Erledigt |
-| 6 | Dead-Code | `bases_to_bytes` und ungenutzte Felder entfernen | ⏳ Offen |
+| 6 | Dead-Code | `bases_to_bytes` und ungenutzte Felder entfernen | ✅ Erledigt |
 | 7 | Benchmarks | Performance-Baselines dokumentieren | ⏳ Offen |
 | 8 | Quantum-Docs | Klarstellen, dass es sich um klassische Simulationen handelt | ⏳ Offen |
 
