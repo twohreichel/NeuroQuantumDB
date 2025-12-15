@@ -26,6 +26,10 @@ pub mod query_plan;
 #[cfg(test)]
 pub mod sql_engine_tests;
 
+// Property-based tests for parser robustness
+#[cfg(test)]
+mod proptest_suite;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

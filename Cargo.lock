@@ -2959,6 +2959,7 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "prometheus",
+ "proptest",
  "rand 0.8.5",
  "redis",
  "reqwest",

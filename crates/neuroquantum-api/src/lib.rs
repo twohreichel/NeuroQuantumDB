@@ -376,6 +376,10 @@ pub async fn start_server(config: ApiConfig) -> Result<()> {
     Ok(())
 }
 
+// Property-based tests for API robustness
+#[cfg(test)]
+mod proptest_suite;
+
 #[cfg(test)]
 mod tests {
     use super::*;

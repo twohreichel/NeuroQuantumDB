@@ -84,3 +84,4 @@ default = []
 
 [dev-dependencies]
 tempfile = "3.13"
+proptest = "1.7.0"

@@ -341,11 +341,20 @@ dass es sich um klassische Simulationen handelt:
 
 ### 9.1 Test-Struktur
 
+**Status: AKTUALISIERT** (15. Dezember 2025)
+
 | Crate | Unit Tests | Integration Tests | Prop-Tests |
 |-------|------------|-------------------|------------|
 | neuroquantum-core | ✅ Umfangreich | ✅ Vorhanden | ✅ proptest |
-| neuroquantum-api | ✅ Vorhanden | ✅ Vorhanden | ❌ |
-| neuroquantum-qsql | ✅ Vorhanden | ✅ Storage-Integration | ❌ |
+| neuroquantum-api | ✅ Vorhanden | ✅ Vorhanden | ✅ proptest |
+| neuroquantum-qsql | ✅ Vorhanden | ✅ Storage-Integration | ✅ proptest |
+
+**Neue Property-Based Tests (15. Dezember 2025):**
+
+- ✅ **neuroquantum-qsql**: 31 Property-based Tests für Parser-Robustheit, SQL-Syntax-Validierung,
+  neuromorphe/quantum Erweiterungen, und Edge-Cases (SQL-Injection, Unicode, Null-Bytes)
+- ✅ **neuroquantum-api**: 25 Property-based Tests für Error-Handling, Request-Validierung,
+  Rate-Limiting, Permissions, und Serialisierung
 
 ### 9.2 Panic in Tests
 
@@ -378,7 +387,7 @@ Alle gefundenen `panic!()` befinden sich in Test-Code (assertions), was akzeptab
 | # | Bereich | Aktion | Status |
 |---|---------|--------|--------|
 | 9 | Multi-Node | Architektur für Cluster-Support entwerfen | ⏳ Offen |
-| 10 | Prop-Tests | Property-based Testing für API und QSQL erweitern | ⏳ Offen |
+| 10 | Prop-Tests | Property-based Testing für API und QSQL erweitern | ✅ Erledigt |
 | 11 | Fuzzing | Cargo-fuzz für Parser und Kompression einrichten | ⏳ Offen |
 
 ---
