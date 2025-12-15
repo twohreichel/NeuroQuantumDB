@@ -1,7 +1,36 @@
 //! # Transverse Field Ising Model (TFIM)
 //!
-//! Implements the Transverse Field Ising Model for quantum annealing
-//! with quantum tunneling effects for enhanced optimization.
+//! # ⚠️ Classical Simulation Notice
+//!
+//! **This is a CLASSICAL Monte Carlo simulation of quantum annealing dynamics.**
+//! It does NOT run on quantum hardware. The transverse field evolution and
+//! tunneling effects are approximated using classical stochastic methods.
+//!
+//! ## Technical Background
+//!
+//! The Transverse Field Ising Model (TFIM) describes a quantum system with:
+//!
+//! - Ising interactions (J_ij) between spins
+//! - A transverse magnetic field (Γ) inducing quantum fluctuations
+//! - External longitudinal fields (h_i) biasing individual spins
+//!
+//! This classical simulation approximates the quantum dynamics by:
+//!
+//! 1. Starting with a high transverse field (more "quantum" fluctuations)
+//! 2. Gradually reducing the field (classical annealing schedule)
+//! 3. Using Monte Carlo sampling to simulate thermal+quantum fluctuations
+//!
+//! ## Limitations
+//!
+//! - Cannot capture true quantum entanglement
+//! - Tunneling is approximated, not exact
+//! - No exponential quantum speedup
+//!
+//! ## When to Use
+//!
+//! - Optimization problems with Ising-like structure
+//! - Spin glass problems
+//! - Prototyping before deploying to real quantum annealers
 
 use crate::error::{CoreError, CoreResult};
 use nalgebra::DMatrix;

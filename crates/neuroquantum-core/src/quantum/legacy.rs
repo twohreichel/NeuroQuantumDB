@@ -1,7 +1,28 @@
 //! # Quantum-Inspired Algorithms for NeuroQuantumDB
 //!
-//! Implements Grover's search, quantum annealing, and superposition-based
-//! query processing optimized for ARM64/NEON hardware acceleration.
+//! # ⚠️ Classical Simulation Notice
+//!
+//! **All algorithms in this module are CLASSICAL SIMULATIONS.**
+//! They do NOT interface with real quantum hardware. These implementations
+//! simulate quantum algorithm behavior on classical computers for research,
+//! validation, and optimization purposes.
+//!
+//! ## Implemented Algorithms
+//!
+//! - **Grover's Search**: Classical state vector simulation of Grover's
+//!   unstructured search algorithm. Provides O(√N) theoretical complexity
+//!   but runs on classical hardware.
+//!
+//! - **Quantum Annealing**: Classical simulated annealing with quantum-inspired
+//!   heuristics for optimization problems.
+//!
+//! - **Superposition Query Processing**: Parallel query exploration inspired
+//!   by quantum superposition, implemented classically.
+//!
+//! ## Hardware Optimization
+//!
+//! While these are classical simulations, they are optimized for ARM64/NEON
+//! and x86_64/AVX2 hardware acceleration to maximize performance.
 
 use crate::error::{CoreError, CoreResult};
 use crate::query::{Query, QueryResult};

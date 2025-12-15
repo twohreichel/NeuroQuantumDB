@@ -1,7 +1,39 @@
-//! True Quantum Processor with Grover's Algorithm Implementation
+//! Quantum State Vector Simulator with Grover's Algorithm Implementation
 //!
-//! This module implements a real quantum state vector simulator with
-//! Grover's search algorithm, oracle functions, and diffusion operators.
+//! # ⚠️ Classical Simulation Notice
+//!
+//! **This module implements a CLASSICAL SIMULATION of quantum algorithms.**
+//! It does NOT interface with real quantum hardware. All operations are performed
+//! on classical computers using state vector representation.
+//!
+//! ## Technical Background
+//!
+//! The simulator represents quantum states as complex-valued amplitude vectors
+//! on classical hardware. For `n` qubits, we maintain a state vector of `2^n`
+//! complex amplitudes, which limits practical simulation to ~30 qubits due to
+//! exponential memory requirements.
+//!
+//! ## Implemented Algorithms
+//!
+//! - **Grover's Search Algorithm**: Provides theoretical O(√N) speedup for
+//!   unstructured search, simulated on classical hardware
+//! - **Oracle Pattern**: Generic trait-based oracle implementation for custom
+//!   search criteria
+//! - **Diffusion Operator**: Amplitude amplification via inversion about the mean
+//!
+//! ## Performance Characteristics
+//!
+//! While this implementation accurately simulates quantum behavior, it does NOT
+//! provide quantum speedup on classical hardware. The computational complexity
+//! remains classical O(N) due to the state vector representation. The value lies
+//! in algorithm validation and educational purposes.
+//!
+//! ## When to Use
+//!
+//! - Prototyping and validating quantum algorithms before deployment
+//! - Educational purposes to understand quantum computation
+//! - Research on quantum algorithm behavior
+//! - Testing quantum-classical hybrid approaches
 
 use crate::error::{CoreError, CoreResult};
 use num_complex::Complex64;

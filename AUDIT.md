@@ -305,7 +305,17 @@ Die DNA-Kompression ist **vollständig implementiert** und produktionsbereit:
 | TFIM | ✅ Vollständig | Transverse Field Ising Model |
 | Parallel Tempering | ✅ Vollständig | Monte-Carlo-Methode |
 
-**Wichtig:** Dies sind **klassische Simulationen** von Quanten-Algorithmen, keine echten Quanten-Computer-Anbindungen. Die Dokumentation sollte dies klarer kommunizieren.
+**Status: DOKUMENTIERT** (15. Dezember 2025)
+
+Alle Quantum-Module enthalten jetzt klar sichtbare Hinweise (⚠️ Classical Simulation Notice),
+dass es sich um klassische Simulationen handelt:
+
+- ✅ `quantum_processor.rs` - State Vector Simulator mit Grover's Algorithm
+- ✅ `quantum/mod.rs` - Übersichts-Dokumentation
+- ✅ `quantum/qubo.rs` - QUBO Solver
+- ✅ `quantum/tfim.rs` - Transverse Field Ising Model
+- ✅ `quantum/parallel_tempering.rs` - Replica Exchange Monte Carlo
+- ✅ `quantum/legacy.rs` - Legacy Quantum-Algorithmen
 
 ---
 
@@ -361,7 +371,7 @@ Alle gefundenen `panic!()` befinden sich in Test-Code (assertions), was akzeptab
 | 5 | Safety-Docs | Vollständige `# Safety`-Dokumentation für alle unsafe-Funktionen | ✅ Erledigt |
 | 6 | Dead-Code | `bases_to_bytes` und ungenutzte Felder entfernen | ✅ Erledigt |
 | 7 | Benchmarks | Performance-Baselines dokumentieren | ✅ Erledigt |
-| 8 | Quantum-Docs | Klarstellen, dass es sich um klassische Simulationen handelt | ⏳ Offen |
+| 8 | Quantum-Docs | Klarstellen, dass es sich um klassische Simulationen handelt | ✅ Erledigt |
 
 ### 🟡 Medium (geplant)
 

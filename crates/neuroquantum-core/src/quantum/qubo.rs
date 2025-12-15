@@ -1,7 +1,29 @@
 //! # QUBO (Quadratic Unconstrained Binary Optimization) Solver
 //!
-//! Implements quantum-inspired optimization for solving QUBO problems
-//! commonly found in database query optimization, graph problems, and combinatorial tasks.
+//! # ⚠️ Classical Simulation Notice
+//!
+//! **This is a CLASSICAL simulated annealing solver inspired by quantum annealing.**
+//! It does NOT require quantum hardware and runs entirely on classical computers.
+//! The "quantum" in quantum-inspired refers to algorithmic concepts borrowed from
+//! quantum mechanics, not actual quantum computation.
+//!
+//! ## Algorithm Description
+//!
+//! This solver uses simulated annealing with optional "quantum tunneling" heuristics
+//! to solve QUBO problems. The tunneling is simulated through probabilistic bit flips
+//! that can escape local minima, similar in concept to quantum tunneling but
+//! implemented classically.
+//!
+//! ## Complexity
+//!
+//! - Time: O(iterations × variables) per temperature step
+//! - Space: O(variables²) for the Q matrix
+//!
+//! ## Suitable Problems
+//!
+//! - Database query optimization
+//! - Graph problems (max-cut, partitioning)
+//! - Combinatorial tasks (scheduling, assignment)
 
 use crate::error::{CoreError, CoreResult};
 use nalgebra::DMatrix;

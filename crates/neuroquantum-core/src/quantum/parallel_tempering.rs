@@ -1,7 +1,37 @@
 //! # Parallel Tempering (Replica Exchange Monte Carlo)
 //!
-//! Implements parallel tempering for enhanced exploration of the solution space
-//! by maintaining multiple replicas at different temperatures with periodic exchanges.
+//! # ⚠️ Classical Algorithm Notice
+//!
+//! **This is a PURELY CLASSICAL Monte Carlo algorithm.**
+//! Parallel tempering is a well-established classical technique that predates
+//! quantum computing. It is included in the quantum module because it is often
+//! used in conjunction with quantum-inspired algorithms.
+//!
+//! ## Algorithm Description
+//!
+//! Parallel tempering (also known as Replica Exchange Monte Carlo or REMC)
+//! maintains multiple copies ("replicas") of the system at different temperatures.
+//! High-temperature replicas explore broadly, while low-temperature replicas
+//! exploit local minima. Periodic exchanges between replicas allow global
+//! exploration without getting stuck.
+//!
+//! ## Key Features
+//!
+//! - **Temperature Ladder**: Geometric or linear spacing of temperatures
+//! - **Metropolis Criterion**: Accept/reject moves based on energy change
+//! - **Replica Exchange**: Swap configurations between adjacent temperatures
+//! - **Adaptive Tuning**: Automatic temperature adjustment for optimal acceptance
+//!
+//! ## Computational Complexity
+//!
+//! - Time: O(replicas × steps × exchanges)
+//! - Space: O(replicas × system_size)
+//!
+//! ## Applications
+//!
+//! - Enhanced sampling for optimization problems
+//! - Combinatorial optimization
+//! - Simulation of complex energy landscapes
 
 use crate::error::{CoreError, CoreResult};
 use nalgebra::DMatrix;
