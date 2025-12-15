@@ -85,3 +85,4 @@ neuroquantum_data
 !.vscode/settings.json
 
 .neuroquantum
+corpus/
