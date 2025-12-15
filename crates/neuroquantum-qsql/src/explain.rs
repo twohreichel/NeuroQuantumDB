@@ -660,7 +660,7 @@ impl ExplainGenerator {
 
     /// Format explain plan as YAML
     pub fn format_yaml(&self, explain_plan: &ExplainPlan) -> QSQLResult<String> {
-        serde_yaml::to_string(explain_plan).map_err(|e| QSQLError::ExecutionError {
+        serde_yaml_ng::to_string(explain_plan).map_err(|e| QSQLError::ExecutionError {
             message: format!("Failed to serialize to YAML: {}", e),
         })
     }

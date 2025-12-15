@@ -14,8 +14,8 @@ ignored = ["arbitrary"]
 
 [dependencies]
 libfuzzer-sys = "0.4"
-arbitrary = { version = "1", features = ["derive"] }
-tokio = { version = "1.47", features = ["rt", "macros"] }
+arbitrary = { version = "1.4", features = ["derive"] }
+tokio = { version = "1.48", features = ["rt", "macros"] }
 
 [dependencies.neuroquantum-qsql]
 path = "../crates/neuroquantum-qsql"

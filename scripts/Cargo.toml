@@ -6,5 +6,5 @@ license = "MIT"
 
 
 [dependencies]
-pulldown-cmark = "0.9"
+pulldown-cmark = "0.13"
 

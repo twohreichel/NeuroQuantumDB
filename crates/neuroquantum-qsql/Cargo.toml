@@ -10,29 +10,31 @@ license = "MIT"
 neuroquantum-core = { path = "../neuroquantum-core" }
 
 # Async runtime
-tokio = { version = "1.47.1", features = ["full"] }
+tokio = { version = "1.48.0", features = ["full"] }
 
 # Serialization
-serde = { version = "1.0.225", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
-serde_yaml = "0.9"
+
+# YAML parsing - using serde_yaml_ng as maintained fork of deprecated serde_yaml
+serde_yaml_ng = "0.10"
 
 # Parsing
-regex = "1.11.2"
+regex = "1.12"
 
 # Error handling
-anyhow = "1.0.99"
-thiserror = "2.0.16"
+anyhow = "1.0.100"
+thiserror = "2.0.17"
 
 # Logging
-tracing = "0.1.41"
+tracing = "0.1.43"
 
 # Date and time for Row timestamps
 chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
-proptest = "1.7.0"
-tempfile = "3.8"
+proptest = "1.9"
+tempfile = "3.23"
 
 [features]
 default = ["neuromorphic", "quantum", "natural-language"]
