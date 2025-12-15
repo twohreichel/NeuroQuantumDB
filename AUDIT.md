@@ -394,7 +394,7 @@ Ignorierte Advisories:
 
 ### 9.3 Empfohlen ⚠️
 1. Row-Cache LRU-Eviction implementieren
-2. Legacy Mode aus Query Executor entfernen
+2. ~~Legacy Mode aus Query Executor entfernen~~ ✅ Erledigt (15. Dez 2025) - Legacy Mode ist nun nur in `#[cfg(test)]`-Builds verfügbar
 3. Lock-Hierarchie dokumentieren
 4. Mehr Integration Tests
 
@@ -438,7 +438,7 @@ Ignorierte Advisories:
 
 ### Kritische Punkte
 1. ~~**JWT Secret in Konfiguration:**~~ ✅ Behoben - Secret wird nur noch via Umgebungsvariable akzeptiert
-2. **Legacy Mode im Executor:** Potenzielle Fehlerquelle
+2. ~~**Legacy Mode im Executor:**~~ ✅ Behoben - Legacy Mode ist nun nur in `#[cfg(test)]`-Builds verfügbar und kann nicht mehr versehentlich in Produktion aktiviert werden
 3. **Concurrency:** Inkonsistente Lock-Patterns
 
 ### Gesamtempfehlung
@@ -455,7 +455,7 @@ Das Projekt ist **technisch beeindruckend und innovativ**. Die Kernfunktionalit�
 |-----------|--------|---------|--------|
 | 🔴 KRITISCH | JWT Secret aus prod.toml entfernen | 30 Min | ✅ Erledigt |
 | 🔴 KRITISCH | Startup-Check für Secrets implementieren | 2 Std | ✅ Erledigt |
-| ⚠️ HOCH | Legacy Mode entfernen oder #[cfg(test)] markieren | 1 Std | ⏳ Offen |
+| ⚠️ HOCH | Legacy Mode entfernen oder #[cfg(test)] markieren | 1 Std | ✅ Erledigt |
 | ⚠️ HOCH | LRU-Cache für Row-Cache | 4 Std | ⏳ Offen |
 | 📝 MITTEL | Lock-Hierarchie dokumentieren | 2 Std | ⏳ Offen |
 | 📝 MITTEL | Mehr API-Integration-Tests | 8 Std | ⏳ Offen |

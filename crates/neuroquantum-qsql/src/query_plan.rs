@@ -8,6 +8,7 @@ use crate::error::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
+#[cfg(test)]
 use tracing::warn;
 
 // Import storage engine and related types
@@ -33,13 +34,13 @@ pub struct ExecutorConfig {
     pub enable_dna_compression: bool, // Always enabled via StorageEngine
     /// Allow legacy mode without storage engine (simulation mode).
     ///
-    /// When `false` (default), the executor requires a storage engine to be
-    /// configured via `with_storage()`. This prevents accidental use of
-    /// simulated data in production.
+    /// This field is only available in test builds. In production, the executor
+    /// always requires a storage engine to be configured via `with_storage()`.
     ///
-    /// When `true`, the executor will return simulated data if no storage
-    /// engine is configured. Only use `ExecutorConfig::testing()` to enable
-    /// this for test purposes.
+    /// When `true` (test builds only), the executor will return simulated data
+    /// if no storage engine is configured.
+    #[cfg(test)]
+    #[serde(default)]
     pub allow_legacy_mode: bool,
 }
 
@@ -55,16 +56,17 @@ impl Default for ExecutorConfig {
             enable_neuromorphic_learning: true,
             enable_synaptic_optimization: true,
             enable_dna_compression: true,
-            allow_legacy_mode: false, // Production-safe default: requires storage engine
+            #[cfg(test)]
+            allow_legacy_mode: false, // Only available in test builds
         }
     }
 }
 
 impl ExecutorConfig {
-    /// Create a production configuration that disallows legacy mode.
+    /// Create a production configuration.
     /// Use this in production environments to ensure storage engine is always required.
     ///
-    /// Note: This is now equivalent to `Default::default()` as the default
+    /// Note: This is equivalent to `Default::default()` as the default
     /// configuration is production-safe.
     pub fn production() -> Self {
         Self::default()
@@ -74,7 +76,8 @@ impl ExecutorConfig {
     ///
     /// # Warning
     /// Only use this for testing purposes. Legacy mode returns simulated data
-    /// instead of real storage data. Never use in production.
+    /// instead of real storage data. This method is only available in test builds.
+    #[cfg(test)]
     pub fn testing() -> Self {
         Self {
             allow_legacy_mode: true,
@@ -212,20 +215,32 @@ impl QueryExecutor {
         self.storage_engine.is_some()
     }
 
-    /// Check if legacy mode is allowed
+    /// Check if legacy mode is allowed (test builds only)
+    #[cfg(test)]
     pub fn is_legacy_mode_allowed(&self) -> bool {
         self.config.allow_legacy_mode
     }
 
-    /// Validate that storage engine is available or legacy mode is allowed.
-    /// Returns an error if neither condition is met.
+    /// Check if legacy mode is allowed (always false in production builds)
+    #[cfg(not(test))]
+    pub fn is_legacy_mode_allowed(&self) -> bool {
+        false
+    }
+
+    /// Validate that storage engine is available.
+    /// In test builds, legacy mode is also accepted.
+    /// Returns an error if storage engine is not available (and legacy mode not enabled in tests).
     fn require_storage_or_legacy(&self) -> QSQLResult<()> {
         if !self.has_storage_engine() && !self.is_legacy_mode_allowed() {
-            return Err(QSQLError::ConfigError {
-                message: "Storage engine required for query execution in production mode. \
+            #[cfg(test)]
+            let message = "Storage engine required for query execution. \
                          Either provide a storage engine via `with_storage()` or \
-                         set `allow_legacy_mode: true` in ExecutorConfig for testing."
-                    .to_string(),
+                         use `ExecutorConfig::testing()` for test scenarios.";
+            #[cfg(not(test))]
+            let message = "Storage engine required for query execution. \
+                         Provide a storage engine via `with_storage()` before executing queries.";
+            return Err(QSQLError::ConfigError {
+                message: message.to_string(),
             });
         }
         Ok(())
@@ -345,47 +360,57 @@ impl QueryExecutor {
                 quantum_operations: if select.quantum_parallel { 1 } else { 0 },
             })
         } else {
-            // Fallback: Simulate data (legacy mode)
-            warn!(
-                "Query executor running in legacy mode with simulated data. \
-                 This should only be used for testing. \
-                 Configure a storage engine for production use."
-            );
-            let columns = vec![
-                ColumnInfo {
-                    name: "id".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                },
-                ColumnInfo {
-                    name: "name".to_string(),
-                    data_type: DataType::VarChar(Some(255)),
-                    nullable: true,
-                },
-            ];
-
-            let mut rows = Vec::new();
-
-            // Simulate data rows
-            for i in 1..=5 {
-                let mut row = HashMap::new();
-                row.insert("id".to_string(), QueryValue::Integer(i));
-                row.insert(
-                    "name".to_string(),
-                    QueryValue::String(format!("User {}", i)),
+            // Fallback: Simulate data (legacy mode) - only available in test builds
+            #[cfg(test)]
+            {
+                warn!(
+                    "Query executor running in legacy mode with simulated data. \
+                     This is only available in test builds."
                 );
-                rows.push(row);
-            }
+                let columns = vec![
+                    ColumnInfo {
+                        name: "id".to_string(),
+                        data_type: DataType::Integer,
+                        nullable: false,
+                    },
+                    ColumnInfo {
+                        name: "name".to_string(),
+                        data_type: DataType::VarChar(Some(255)),
+                        nullable: true,
+                    },
+                ];
 
-            Ok(QueryResult {
-                rows,
-                columns,
-                execution_time: Duration::from_micros(500),
-                rows_affected: 5,
-                optimization_applied: !plan.synaptic_pathways.is_empty(),
-                synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
-                quantum_operations: plan.quantum_optimizations.len() as u32,
-            })
+                let mut rows = Vec::new();
+
+                // Simulate data rows
+                for i in 1..=5 {
+                    let mut row = HashMap::new();
+                    row.insert("id".to_string(), QueryValue::Integer(i));
+                    row.insert(
+                        "name".to_string(),
+                        QueryValue::String(format!("User {}", i)),
+                    );
+                    rows.push(row);
+                }
+
+                Ok(QueryResult {
+                    rows,
+                    columns,
+                    execution_time: Duration::from_micros(500),
+                    rows_affected: 5,
+                    optimization_applied: !plan.synaptic_pathways.is_empty(),
+                    synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
+                    quantum_operations: plan.quantum_optimizations.len() as u32,
+                })
+            }
+            #[cfg(not(test))]
+            {
+                // This branch should never be reached in production because
+                // require_storage_or_legacy() is called at the start of execute()
+                Err(QSQLError::ConfigError {
+                    message: "Storage engine required for query execution.".to_string(),
+                })
+            }
         }
     }
 
@@ -455,27 +480,36 @@ impl QueryExecutor {
                 quantum_operations: 0,
             })
         } else {
-            // Fallback: Simulate insertion (legacy mode)
-            warn!(
-                "INSERT executed in legacy mode with simulated result. \
-                 Configure a storage engine for production use."
-            );
-            let mut rows = vec![HashMap::new()];
-            rows[0].insert("id".to_string(), QueryValue::Integer(1));
-            rows[0].insert(
-                "name".to_string(),
-                QueryValue::String("New User".to_string()),
-            );
+            // Fallback: Simulate insertion (legacy mode) - only available in test builds
+            #[cfg(test)]
+            {
+                warn!(
+                    "INSERT executed in legacy mode with simulated result. \
+                     This is only available in test builds."
+                );
+                let mut rows = vec![HashMap::new()];
+                rows[0].insert("id".to_string(), QueryValue::Integer(1));
+                rows[0].insert(
+                    "name".to_string(),
+                    QueryValue::String("New User".to_string()),
+                );
 
-            Ok(QueryResult {
-                rows,
-                columns: vec![],
-                execution_time: Duration::from_millis(1),
-                rows_affected: 1,
-                optimization_applied: false,
-                synaptic_pathways_used: 0,
-                quantum_operations: 0,
-            })
+                Ok(QueryResult {
+                    rows,
+                    columns: vec![],
+                    execution_time: Duration::from_millis(1),
+                    rows_affected: 1,
+                    optimization_applied: false,
+                    synaptic_pathways_used: 0,
+                    quantum_operations: 0,
+                })
+            }
+            #[cfg(not(test))]
+            {
+                Err(QSQLError::ConfigError {
+                    message: "Storage engine required for query execution.".to_string(),
+                })
+            }
         }
     }
 
@@ -516,27 +550,36 @@ impl QueryExecutor {
                 quantum_operations: 0,
             })
         } else {
-            // Fallback: Simulate update (legacy mode)
-            warn!(
-                "UPDATE executed in legacy mode with simulated result. \
-                 Configure a storage engine for production use."
-            );
-            let mut rows = vec![HashMap::new()];
-            rows[0].insert("id".to_string(), QueryValue::Integer(1));
-            rows[0].insert(
-                "name".to_string(),
-                QueryValue::String("Updated User".to_string()),
-            );
+            // Fallback: Simulate update (legacy mode) - only available in test builds
+            #[cfg(test)]
+            {
+                warn!(
+                    "UPDATE executed in legacy mode with simulated result. \
+                     This is only available in test builds."
+                );
+                let mut rows = vec![HashMap::new()];
+                rows[0].insert("id".to_string(), QueryValue::Integer(1));
+                rows[0].insert(
+                    "name".to_string(),
+                    QueryValue::String("Updated User".to_string()),
+                );
 
-            Ok(QueryResult {
-                rows,
-                columns: vec![],
-                execution_time: Duration::from_millis(1),
-                rows_affected: 1,
-                optimization_applied: false,
-                synaptic_pathways_used: 0,
-                quantum_operations: 0,
-            })
+                Ok(QueryResult {
+                    rows,
+                    columns: vec![],
+                    execution_time: Duration::from_millis(1),
+                    rows_affected: 1,
+                    optimization_applied: false,
+                    synaptic_pathways_used: 0,
+                    quantum_operations: 0,
+                })
+            }
+            #[cfg(not(test))]
+            {
+                Err(QSQLError::ConfigError {
+                    message: "Storage engine required for query execution.".to_string(),
+                })
+            }
         }
     }
 
@@ -577,20 +620,29 @@ impl QueryExecutor {
                 quantum_operations: 0,
             })
         } else {
-            // Fallback: Simulate deletion (legacy mode)
-            warn!(
-                "DELETE executed in legacy mode with simulated result. \
-                 Configure a storage engine for production use."
-            );
-            Ok(QueryResult {
-                rows: vec![],
-                columns: vec![],
-                execution_time: Duration::from_millis(1),
-                rows_affected: 1,
-                optimization_applied: false,
-                synaptic_pathways_used: 0,
-                quantum_operations: 0,
-            })
+            // Fallback: Simulate deletion (legacy mode) - only available in test builds
+            #[cfg(test)]
+            {
+                warn!(
+                    "DELETE executed in legacy mode with simulated result. \
+                     This is only available in test builds."
+                );
+                Ok(QueryResult {
+                    rows: vec![],
+                    columns: vec![],
+                    execution_time: Duration::from_millis(1),
+                    rows_affected: 1,
+                    optimization_applied: false,
+                    synaptic_pathways_used: 0,
+                    quantum_operations: 0,
+                })
+            }
+            #[cfg(not(test))]
+            {
+                Err(QSQLError::ConfigError {
+                    message: "Storage engine required for query execution.".to_string(),
+                })
+            }
         }
     }
 
