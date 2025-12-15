@@ -1,0 +1,56 @@
+[package]
+name = "neuroquantum-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[package.metadata.cargo-machete]
+# arbitrary is used by libfuzzer-sys for structured fuzzing
+ignored = ["arbitrary"]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+tokio = { version = "1.47", features = ["rt", "macros"] }
+
+[dependencies.neuroquantum-qsql]
+path = "../crates/neuroquantum-qsql"
+
+[dependencies.neuroquantum-core]
+path = "../crates/neuroquantum-core"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_qsql_parser"
+path = "fuzz_targets/fuzz_qsql_parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_dna_encoder"
+path = "fuzz_targets/fuzz_dna_encoder.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_dna_simd"
+path = "fuzz_targets/fuzz_dna_simd.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_qsql_tokenizer"
+path = "fuzz_targets/fuzz_qsql_tokenizer.rs"
+test = false
+doc = false
+bench = false
