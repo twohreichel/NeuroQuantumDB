@@ -32,8 +32,13 @@ pub unsafe fn encode_chunk_neon(input: &[u8], output: &mut Vec<DNABase>) -> Resu
 /// Encode exactly 16 bytes using NEON intrinsics
 ///
 /// # Safety
-/// This function requires ARM64 NEON support and must only be called
-/// when chunk.len() == 16. The caller must ensure proper alignment.
+///
+/// This is an internal function called only from `encode_chunk_neon`.
+/// The caller must ensure:
+/// - The `neon` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - `chunk.len() == 16` (caller validates this before calling)
+/// - `chunk` pointer is valid for reads of 16 bytes
+/// - The function is only called on ARM64 platforms (aarch64 or arm64ec)
 #[target_feature(enable = "neon")]
 unsafe fn encode_16_bytes_neon(chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
     // Load 16 bytes into NEON register
@@ -101,6 +106,15 @@ pub unsafe fn decode_chunk_neon(input: &[DNABase], output: &mut Vec<u8>) -> Resu
 }
 
 /// Decode exactly 64 DNA bases using NEON intrinsics
+///
+/// # Safety
+///
+/// This is an internal function called only from `decode_chunk_neon`.
+/// The caller must ensure:
+/// - The `neon` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - `chunk.len() == 64` (caller validates this before calling)
+/// - All `DNABase` values in `chunk` are valid (0-3)
+/// - The function is only called on ARM64 platforms (aarch64 or arm64ec)
 #[target_feature(enable = "neon")]
 unsafe fn decode_64_bases_neon(chunk: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
     // Process 16 groups of 4 bases each
@@ -210,6 +224,15 @@ pub unsafe fn hamming_distance_neon(seq1: &[DNABase], seq2: &[DNABase]) -> Resul
 }
 
 /// Calculate Hamming distance for 16 bytes using NEON
+///
+/// # Safety
+///
+/// This is an internal function called only from `hamming_distance_neon`.
+/// The caller must ensure:
+/// - The `neon` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - Both `chunk1.len() == 16` and `chunk2.len() == 16` (caller validates this)
+/// - Both chunk pointers are valid for reads of 16 bytes
+/// - The function is only called on ARM64 platforms (aarch64 or arm64ec)
 #[target_feature(enable = "neon")]
 unsafe fn hamming_distance_16_bytes_neon(chunk1: &[u8], chunk2: &[u8]) -> usize {
     let vec1 = vld1q_u8(chunk1.as_ptr());
@@ -305,6 +328,16 @@ pub unsafe fn count_base_frequencies_neon(bases: &[DNABase]) -> [usize; 4] {
 }
 
 /// Count frequencies in 16 bases using NEON
+///
+/// # Safety
+///
+/// This is an internal function called only from `count_base_frequencies_neon`.
+/// The caller must ensure:
+/// - The `neon` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - `chunk.len() == 16` (caller validates this before calling)
+/// - `chunk` pointer is valid for reads of 16 bytes
+/// - All byte values in `chunk` represent valid DNA base indices (0-3)
+/// - The function is only called on ARM64 platforms (aarch64 or arm64ec)
 #[target_feature(enable = "neon")]
 unsafe fn count_16_bases_neon(chunk: &[u8], counts: &mut [usize; 4]) {
     let bases_vec = vld1q_u8(chunk.as_ptr());

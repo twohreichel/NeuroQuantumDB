@@ -31,6 +31,14 @@ pub unsafe fn encode_chunk_avx2(input: &[u8], output: &mut Vec<DNABase>) -> Resu
 }
 
 /// Encode exactly 32 bytes using AVX2 intrinsics
+///
+/// # Safety
+///
+/// This is an internal function called only from `encode_chunk_avx2`.
+/// The caller must ensure:
+/// - The `avx2` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - `chunk.len() == 32` (caller validates this before calling)
+/// - `chunk` pointer is valid for reads of 32 bytes
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn encode_32_bytes_avx2(chunk: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
@@ -82,6 +90,14 @@ pub unsafe fn decode_chunk_avx2(input: &[DNABase], output: &mut Vec<u8>) -> Resu
 }
 
 /// Decode exactly 128 DNA bases using AVX2 intrinsics
+///
+/// # Safety
+///
+/// This is an internal function called only from `decode_chunk_avx2`.
+/// The caller must ensure:
+/// - The `avx2` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - `chunk.len() == 128` (caller validates this before calling)
+/// - All `DNABase` values in `chunk` are valid (0-3)
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn decode_128_bases_avx2(chunk: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
@@ -197,6 +213,14 @@ pub unsafe fn hamming_distance_avx2(seq1: &[DNABase], seq2: &[DNABase]) -> Resul
 }
 
 /// Calculate Hamming distance for 32 bytes using AVX2
+///
+/// # Safety
+///
+/// This is an internal function called only from `hamming_distance_avx2`.
+/// The caller must ensure:
+/// - The `avx2` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - Both `chunk1.len() == 32` and `chunk2.len() == 32` (caller validates this)
+/// - Both chunk pointers are valid for reads of 32 bytes
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn hamming_distance_32_bytes_avx2(chunk1: &[u8], chunk2: &[u8]) -> usize {
@@ -248,6 +272,15 @@ pub unsafe fn count_base_frequencies_avx2(bases: &[DNABase]) -> [usize; 4] {
 }
 
 /// Count frequencies in 32 bases using AVX2
+///
+/// # Safety
+///
+/// This is an internal function called only from `count_base_frequencies_avx2`.
+/// The caller must ensure:
+/// - The `avx2` target feature is available (guaranteed by parent function's `#[target_feature]`)
+/// - `chunk.len() == 32` (caller validates this before calling)
+/// - `chunk` pointer is valid for reads of 32 bytes
+/// - All byte values in `chunk` represent valid DNA base indices (0-3)
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn count_32_bases_avx2(chunk: &[u8], counts: &mut [usize; 4]) {

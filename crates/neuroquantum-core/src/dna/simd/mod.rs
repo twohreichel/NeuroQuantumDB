@@ -15,10 +15,26 @@ mod tests;
 // Safe wrapper functions that perform feature detection internally
 
 /// Safe wrapper for NEON DNA encoding with automatic feature detection
+///
+/// This function provides a safe interface to NEON-accelerated DNA encoding.
+/// It automatically detects NEON availability at runtime and falls back to
+/// scalar implementation if NEON is not available.
+///
+/// # Arguments
+/// * `input` - Byte slice to encode into DNA bases
+/// * `output` - Vector to append encoded DNA bases to
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(DNAError)` if encoding fails (e.g., invalid bit pattern)
 #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 pub fn safe_encode_chunk_neon(input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
     if std::arch::is_aarch64_feature_detected!("neon") {
-        // SAFETY: We've checked that NEON is available
+        // SAFETY: We have verified NEON is available via runtime feature detection.
+        // The `encode_chunk_neon` function requires:
+        // - NEON support: verified by `is_aarch64_feature_detected!("neon")`
+        // - Valid input slice: guaranteed by Rust's slice safety
+        // - Valid output vector: guaranteed by mutable borrow rules
         unsafe { arm64_neon::encode_chunk_neon(input, output) }
     } else {
         // Fallback to scalar encoding
@@ -34,10 +50,26 @@ pub fn safe_encode_chunk_neon(input: &[u8], output: &mut Vec<DNABase>) -> Result
 }
 
 /// Safe wrapper for AVX2 DNA encoding with automatic feature detection
+///
+/// This function provides a safe interface to AVX2-accelerated DNA encoding.
+/// It automatically detects AVX2 availability at runtime and falls back to
+/// scalar implementation if AVX2 is not available.
+///
+/// # Arguments
+/// * `input` - Byte slice to encode into DNA bases
+/// * `output` - Vector to append encoded DNA bases to
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(DNAError)` if encoding fails (e.g., invalid bit pattern)
 #[cfg(target_arch = "x86_64")]
 pub fn safe_encode_chunk_avx2(input: &[u8], output: &mut Vec<DNABase>) -> Result<(), DNAError> {
     if is_x86_feature_detected!("avx2") {
-        // SAFETY: We've checked that AVX2 is available
+        // SAFETY: We have verified AVX2 is available via runtime feature detection.
+        // The `encode_chunk_avx2` function requires:
+        // - AVX2 support: verified by `is_x86_feature_detected!("avx2")`
+        // - Valid input slice: guaranteed by Rust's slice safety
+        // - Valid output vector: guaranteed by mutable borrow rules
         unsafe { x86_avx2::encode_chunk_avx2(input, output) }
     } else {
         // Fallback to scalar encoding
@@ -53,10 +85,26 @@ pub fn safe_encode_chunk_avx2(input: &[u8], output: &mut Vec<DNABase>) -> Result
 }
 
 /// Safe wrapper for NEON DNA decoding with automatic feature detection
+///
+/// This function provides a safe interface to NEON-accelerated DNA decoding.
+/// It automatically detects NEON availability at runtime and falls back to
+/// scalar implementation if NEON is not available.
+///
+/// # Arguments
+/// * `input` - DNA bases slice to decode into bytes
+/// * `output` - Vector to append decoded bytes to
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(DNAError)` if decoding fails (e.g., input length not multiple of 4)
 #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 pub fn safe_decode_chunk_neon(input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
     if std::arch::is_aarch64_feature_detected!("neon") {
-        // SAFETY: We've checked that NEON is available
+        // SAFETY: We have verified NEON is available via runtime feature detection.
+        // The `decode_chunk_neon` function requires:
+        // - NEON support: verified by `is_aarch64_feature_detected!("neon")`
+        // - Valid input slice with DNABase values: guaranteed by type system
+        // - Valid output vector: guaranteed by mutable borrow rules
         unsafe { arm64_neon::decode_chunk_neon(input, output) }
     } else {
         // Fallback to scalar decoding
@@ -73,10 +121,26 @@ pub fn safe_decode_chunk_neon(input: &[DNABase], output: &mut Vec<u8>) -> Result
 }
 
 /// Safe wrapper for AVX2 DNA decoding with automatic feature detection
+///
+/// This function provides a safe interface to AVX2-accelerated DNA decoding.
+/// It automatically detects AVX2 availability at runtime and falls back to
+/// scalar implementation if AVX2 is not available.
+///
+/// # Arguments
+/// * `input` - DNA bases slice to decode into bytes
+/// * `output` - Vector to append decoded bytes to
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(DNAError)` if decoding fails (e.g., input length not multiple of 4)
 #[cfg(target_arch = "x86_64")]
 pub fn safe_decode_chunk_avx2(input: &[DNABase], output: &mut Vec<u8>) -> Result<(), DNAError> {
     if is_x86_feature_detected!("avx2") {
-        // SAFETY: We've checked that AVX2 is available
+        // SAFETY: We have verified AVX2 is available via runtime feature detection.
+        // The `decode_chunk_avx2` function requires:
+        // - AVX2 support: verified by `is_x86_feature_detected!("avx2")`
+        // - Valid input slice with DNABase values: guaranteed by type system
+        // - Valid output vector: guaranteed by mutable borrow rules
         unsafe { x86_avx2::decode_chunk_avx2(input, output) }
     } else {
         // Fallback to scalar decoding
