@@ -360,7 +360,7 @@ Alle gefundenen `panic!()` befinden sich in Test-Code (assertions), was akzeptab
 |---|---------|--------|--------|
 | 5 | Safety-Docs | Vollständige `# Safety`-Dokumentation für alle unsafe-Funktionen | ✅ Erledigt |
 | 6 | Dead-Code | `bases_to_bytes` und ungenutzte Felder entfernen | ✅ Erledigt |
-| 7 | Benchmarks | Performance-Baselines dokumentieren | ⏳ Offen |
+| 7 | Benchmarks | Performance-Baselines dokumentieren | ✅ Erledigt |
 | 8 | Quantum-Docs | Klarstellen, dass es sich um klassische Simulationen handelt | ⏳ Offen |
 
 ### 🟡 Medium (geplant)

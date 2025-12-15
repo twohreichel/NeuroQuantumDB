@@ -39,5 +39,6 @@
 # Reference
 
 - [API Reference](reference/api.md)
+- [Performance Benchmarks](reference/benchmarks.md)
 - [Error Codes](reference/errors.md)
 - [Glossary](reference/glossary.md)
