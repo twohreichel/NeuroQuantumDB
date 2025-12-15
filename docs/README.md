@@ -37,6 +37,7 @@ API available at `http://localhost:8080`
 
 | Section | Audience |
 |---------|----------|
+| [Concept & Vision](../concept/README.md) | Everyone — The origin story and design philosophy |
 | [User Guide](user-guide/installation.md) | End users, DevOps |
 | [Developer Guide](developer-guide/architecture.md) | Contributors, Integrators |
 | [Reference](reference/api.md) | API consumers |

@@ -4,6 +4,18 @@
 
 ---
 
+# Concept & Vision
+
+- [Overview](../concept/README.md)
+- [Genesis — From Idea to Vision](../concept/01-genesis.md)
+- [Neuroscience Foundations](../concept/02-neuroscience-foundations.md)
+- [Core Principles](../concept/03-core-principles.md)
+- [Technical Evolution](../concept/04-technical-evolution.md)
+- [Architecture](../concept/05-architecture.md)
+- [Future Vision](../concept/06-future-vision.md)
+
+---
+
 # User Guide
 
 - [Installation](user-guide/installation.md)
