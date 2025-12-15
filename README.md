@@ -131,6 +131,15 @@ Comprehensive documentation is available for developers and users:
 
 **[Complete Documentation](./docs/README.md)** - Overview and navigation to all documentation resources
 
+### 🧠 Concept & Vision
+
+**[Project Conception](./concept/README.md)** - The origin story and design philosophy:
+- How a small idea evolved into NeuroQuantumDB over three years
+- Neuroscience foundations — the brain as architectural blueprint
+- Core principles: Self-learning, DNA encoding, quantum-inspired algorithms
+- Technical evolution and milestone timeline
+- Future vision and roadmap
+
 ### 🔧 For Developers
 
 **[Developer Guide](./docs/developer_guide.md)** - Complete technical reference including:
