@@ -54,6 +54,132 @@ pub type TransactionId = Uuid;
 /// Log Sequence Number for write-ahead logging
 pub type LSN = u64;
 
+/// Strategy for automatic ID generation
+///
+/// This determines how unique identifiers are generated for new rows.
+/// Choose based on your use case:
+/// - `AutoIncrement`: Best for single-instance, high-performance scenarios
+/// - `Uuid`: Best for distributed systems or when IDs should be unpredictable
+/// - `Snowflake`: Best for distributed systems requiring sortable IDs
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum IdGenerationStrategy {
+    /// Sequential auto-incrementing integer (1, 2, 3, ...)
+    ///
+    /// **Pros:**
+    /// - Minimal storage (8 bytes)
+    /// - Excellent B+ tree performance (sequential inserts)
+    /// - Human-readable and debuggable
+    /// - Perfect for synaptic/neural ID references
+    ///
+    /// **Cons:**
+    /// - Predictable (potential security concern for public APIs)
+    /// - Single point of generation (not ideal for distributed systems)
+    #[default]
+    AutoIncrement,
+
+    /// UUID v4 (random 128-bit identifier)
+    ///
+    /// **Pros:**
+    /// - Globally unique without coordination
+    /// - Unpredictable (good for security)
+    /// - Works in distributed systems
+    ///
+    /// **Cons:**
+    /// - Larger storage (16 bytes)
+    /// - Poor B+ tree performance (random distribution causes page splits)
+    /// - Not human-readable
+    Uuid,
+
+    /// Snowflake-style ID (64-bit time-based with machine ID)
+    ///
+    /// **Pros:**
+    /// - Time-sortable (roughly ordered by creation time)
+    /// - Distributed generation with machine ID
+    /// - Same storage as auto-increment (8 bytes)
+    ///
+    /// **Cons:**
+    /// - Requires time synchronization
+    /// - More complex implementation
+    Snowflake {
+        /// Machine/node identifier (0-1023)
+        machine_id: u16,
+    },
+}
+
+/// Auto-increment column configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoIncrementConfig {
+    /// Column name that uses auto-increment
+    pub column_name: String,
+    /// Current next value to be assigned
+    pub next_value: i64,
+    /// Increment step (default: 1)
+    pub increment_by: i64,
+    /// Minimum value (default: 1)
+    pub min_value: i64,
+    /// Maximum value (default: i64::MAX)
+    pub max_value: i64,
+    /// Whether to cycle when max is reached
+    pub cycle: bool,
+}
+
+impl Default for AutoIncrementConfig {
+    fn default() -> Self {
+        Self {
+            column_name: "id".to_string(),
+            next_value: 1,
+            increment_by: 1,
+            min_value: 1,
+            max_value: i64::MAX,
+            cycle: false,
+        }
+    }
+}
+
+impl AutoIncrementConfig {
+    /// Create a new auto-increment config for a column
+    pub fn new(column_name: impl Into<String>) -> Self {
+        Self {
+            column_name: column_name.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Set the starting value
+    pub fn start_with(mut self, start: i64) -> Self {
+        self.next_value = start;
+        self
+    }
+
+    /// Set the increment step
+    pub fn increment_by(mut self, step: i64) -> Self {
+        self.increment_by = step;
+        self
+    }
+
+    /// Generate the next ID and advance the counter
+    pub fn next_id(&mut self) -> Result<i64> {
+        let current = self.next_value;
+
+        // Check for overflow
+        if self.increment_by > 0 && current > self.max_value - self.increment_by {
+            if self.cycle {
+                self.next_value = self.min_value;
+            } else {
+                return Err(anyhow!(
+                    "Auto-increment column '{}' has reached maximum value {}",
+                    self.column_name,
+                    self.max_value
+                ));
+            }
+        } else {
+            self.next_value = current + self.increment_by;
+        }
+
+        Ok(current)
+    }
+}
+
 /// Table schema definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableSchema {
@@ -62,6 +188,12 @@ pub struct TableSchema {
     pub primary_key: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub version: u32,
+    /// Auto-increment configurations for columns (column_name -> config)
+    #[serde(default)]
+    pub auto_increment_columns: HashMap<String, AutoIncrementConfig>,
+    /// ID generation strategy for internal row IDs
+    #[serde(default)]
+    pub id_strategy: IdGenerationStrategy,
 }
 
 /// Column definition in table schema
@@ -71,6 +203,9 @@ pub struct ColumnDefinition {
     pub data_type: DataType,
     pub nullable: bool,
     pub default_value: Option<Value>,
+    /// Whether this column auto-increments
+    #[serde(default)]
+    pub auto_increment: bool,
 }
 
 /// Supported data types
@@ -82,6 +217,10 @@ pub enum DataType {
     Boolean,
     Timestamp,
     Binary,
+    /// Auto-incrementing integer (SERIAL in PostgreSQL)
+    Serial,
+    /// Auto-incrementing big integer (BIGSERIAL in PostgreSQL)
+    BigSerial,
 }
 
 /// Generic value type for database operations
@@ -518,10 +657,25 @@ impl StorageEngine {
     }
 
     /// Insert a new row into the specified table
+    ///
+    /// Automatically handles:
+    /// - Row ID assignment (internal, always auto-increment)
+    /// - AUTO_INCREMENT columns (user-defined)
+    /// - SERIAL/BIGSERIAL columns (PostgreSQL-style)
+    /// - Timestamp fields (created_at, updated_at)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // ID is automatically generated - no need to specify it!
+    /// let mut row = Row::new();
+    /// row.set("name", Value::Text("Alice".to_string()));
+    /// row.set("email", Value::Text("alice@example.com".to_string()));
+    /// let id = storage.insert_row("users", row).await?;
+    /// ```
     pub async fn insert_row(&mut self, table: &str, mut row: Row) -> Result<RowId> {
         debug!("➕ Inserting row into table: {}", table);
 
-        // Get table schema
+        // Get table schema (clone to avoid borrow issues)
         let schema = self
             .metadata
             .tables
@@ -529,9 +683,12 @@ impl StorageEngine {
             .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
             .clone();
 
-        // Assign row ID
+        // Assign internal row ID (always auto-increment for B+ tree efficiency)
         row.id = self.next_row_id;
         self.next_row_id += 1;
+
+        // Process AUTO_INCREMENT columns
+        self.populate_auto_increment_columns(table, &schema, &mut row)?;
 
         // Validate row against schema
         self.validate_row(&schema, &row)?;
@@ -561,6 +718,67 @@ impl StorageEngine {
 
         debug!("✅ Row inserted with ID: {} (DNA compressed)", row.id);
         Ok(row.id)
+    }
+
+    /// Populate auto-increment columns with generated values
+    ///
+    /// This handles columns marked as:
+    /// - AUTO_INCREMENT (MySQL-style)
+    /// - SERIAL/BIGSERIAL (PostgreSQL-style)
+    /// - GENERATED AS IDENTITY (SQL standard)
+    fn populate_auto_increment_columns(
+        &mut self,
+        table: &str,
+        schema: &TableSchema,
+        row: &mut Row,
+    ) -> Result<()> {
+        for column in &schema.columns {
+            // Skip if value is already provided and is not NULL
+            if let Some(value) = row.fields.get(&column.name) {
+                if *value != Value::Null {
+                    continue;
+                }
+            }
+
+            // Check if this column needs auto-increment
+            let needs_auto_increment = column.auto_increment
+                || matches!(column.data_type, DataType::Serial | DataType::BigSerial);
+
+            if needs_auto_increment {
+                // Get or create auto-increment config for this column
+                let next_value = if let Some(config) = self
+                    .metadata
+                    .tables
+                    .get_mut(table)
+                    .and_then(|s| s.auto_increment_columns.get_mut(&column.name))
+                {
+                    config.next_id()?
+                } else {
+                    // First time: initialize auto-increment for this column
+                    let mut config = AutoIncrementConfig::new(&column.name);
+                    let value = config.next_id()?;
+
+                    // Store config in schema
+                    if let Some(schema) = self.metadata.tables.get_mut(table) {
+                        schema
+                            .auto_increment_columns
+                            .insert(column.name.clone(), config);
+                    }
+                    value
+                };
+
+                // Set the auto-generated value
+                row.fields
+                    .insert(column.name.clone(), Value::Integer(next_value));
+
+                debug!(
+                    "🔢 Auto-generated value {} for column '{}.{}'",
+                    next_value, table, column.name
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// Select rows matching the given query
@@ -798,13 +1016,13 @@ impl StorageEngine {
     /// Store data with a key (used by the main API)
     pub async fn store(&mut self, key: &str, data: &[u8]) -> Result<()> {
         // Create a simple row structure for generic storage
+        // Note: 'id' is not set here - it will be auto-generated by insert_row
         let mut fields = HashMap::new();
-        fields.insert("id".to_string(), Value::Integer(self.next_row_id as i64));
         fields.insert("key".to_string(), Value::Text(key.to_string()));
         fields.insert("data".to_string(), Value::Binary(data.to_vec()));
 
         let row = Row {
-            id: self.next_row_id,
+            id: 0, // Will be set by auto-increment
             fields,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
@@ -817,26 +1035,31 @@ impl StorageEngine {
                 columns: vec![
                     ColumnDefinition {
                         name: "id".to_string(),
-                        data_type: DataType::Integer,
+                        data_type: DataType::BigSerial, // Auto-increment ID
                         nullable: false,
                         default_value: None,
+                        auto_increment: true,
                     },
                     ColumnDefinition {
                         name: "key".to_string(),
                         data_type: DataType::Text,
                         nullable: false,
                         default_value: None,
+                        auto_increment: false,
                     },
                     ColumnDefinition {
                         name: "data".to_string(),
                         data_type: DataType::Binary,
                         nullable: false,
                         default_value: None,
+                        auto_increment: false,
                     },
                 ],
                 primary_key: "id".to_string(),
                 created_at: chrono::Utc::now(),
                 version: 1,
+                auto_increment_columns: HashMap::new(),
+                id_strategy: IdGenerationStrategy::AutoIncrement,
             };
             self.create_table(schema).await?;
         }
@@ -912,6 +1135,9 @@ impl StorageEngine {
                     (DataType::Boolean, Value::Boolean(_)) => true,
                     (DataType::Timestamp, Value::Timestamp(_)) => true,
                     (DataType::Binary, Value::Binary(_)) => true,
+                    // Serial types store as Integer values
+                    (DataType::BigSerial, Value::Integer(_)) => true,
+                    (DataType::Serial, Value::Integer(_)) => true,
                     (_, Value::Null) => column.nullable,
                     _ => false,
                 };
@@ -2191,26 +2417,110 @@ pub fn create_test_schema(name: &str) -> TableSchema {
         columns: vec![
             ColumnDefinition {
                 name: "id".to_string(),
-                data_type: DataType::Integer,
+                data_type: DataType::BigSerial, // Auto-increment ID
                 nullable: false,
                 default_value: None,
+                auto_increment: true,
             },
             ColumnDefinition {
                 name: "name".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "created_at".to_string(),
                 data_type: DataType::Timestamp,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
+    }
+}
+
+/// Builder for creating ColumnDefinition with sensible defaults
+impl ColumnDefinition {
+    /// Create a new column definition with minimal required fields
+    ///
+    /// # Example
+    /// ```rust
+    /// use neuroquantum_core::storage::{ColumnDefinition, DataType};
+    ///
+    /// let col = ColumnDefinition::new("name", DataType::Text);
+    /// assert!(!col.nullable);
+    /// assert!(!col.auto_increment);
+    /// ```
+    pub fn new(name: impl Into<String>, data_type: DataType) -> Self {
+        let name = name.into();
+        let auto_increment = matches!(data_type, DataType::Serial | DataType::BigSerial);
+        Self {
+            name,
+            data_type,
+            nullable: false,
+            default_value: None,
+            auto_increment,
+        }
+    }
+
+    /// Set the column as nullable
+    pub fn nullable(mut self) -> Self {
+        self.nullable = true;
+        self
+    }
+
+    /// Set a default value for the column
+    pub fn with_default(mut self, value: Value) -> Self {
+        self.default_value = Some(value);
+        self
+    }
+
+    /// Explicitly set auto-increment behavior
+    pub fn auto_increment(mut self) -> Self {
+        self.auto_increment = true;
+        self
+    }
+}
+
+/// Builder for creating TableSchema with sensible defaults
+impl TableSchema {
+    /// Create a new table schema with minimal required fields
+    ///
+    /// # Example
+    /// ```rust
+    /// use neuroquantum_core::storage::{TableSchema, ColumnDefinition, DataType};
+    ///
+    /// let schema = TableSchema::new("users", "id", vec![
+    ///     ColumnDefinition::new("id", DataType::BigSerial),
+    ///     ColumnDefinition::new("name", DataType::Text),
+    /// ]);
+    /// ```
+    pub fn new(
+        name: impl Into<String>,
+        primary_key: impl Into<String>,
+        columns: Vec<ColumnDefinition>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            columns,
+            primary_key: primary_key.into(),
+            created_at: chrono::Utc::now(),
+            version: 1,
+            auto_increment_columns: HashMap::new(),
+            id_strategy: IdGenerationStrategy::AutoIncrement,
+        }
+    }
+
+    /// Set a custom ID generation strategy
+    pub fn with_id_strategy(mut self, strategy: IdGenerationStrategy) -> Self {
+        self.id_strategy = strategy;
+        self
     }
 }
 
@@ -2229,5 +2539,108 @@ pub fn create_test_row(id: i64, name: &str) -> Row {
         fields,
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
+    }
+}
+
+#[cfg(test)]
+mod auto_increment_tests {
+    use super::*;
+
+    #[test]
+    fn test_auto_increment_config_default() {
+        let config = AutoIncrementConfig::default();
+        assert_eq!(config.next_value, 1);
+        assert_eq!(config.increment_by, 1);
+        assert_eq!(config.min_value, 1);
+        assert_eq!(config.max_value, i64::MAX);
+        assert!(!config.cycle);
+    }
+
+    #[test]
+    fn test_auto_increment_next_id() {
+        let mut config = AutoIncrementConfig::new("id");
+
+        // Generate sequential IDs
+        assert_eq!(config.next_id().unwrap(), 1);
+        assert_eq!(config.next_id().unwrap(), 2);
+        assert_eq!(config.next_id().unwrap(), 3);
+        assert_eq!(config.next_value, 4);
+    }
+
+    #[test]
+    fn test_auto_increment_custom_start() {
+        let mut config = AutoIncrementConfig::new("user_id").start_with(1000);
+
+        assert_eq!(config.next_id().unwrap(), 1000);
+        assert_eq!(config.next_id().unwrap(), 1001);
+    }
+
+    #[test]
+    fn test_auto_increment_custom_increment() {
+        let mut config = AutoIncrementConfig::new("id").increment_by(10);
+
+        assert_eq!(config.next_id().unwrap(), 1);
+        assert_eq!(config.next_id().unwrap(), 11);
+        assert_eq!(config.next_id().unwrap(), 21);
+    }
+
+    #[test]
+    fn test_id_generation_strategy_default() {
+        let strategy = IdGenerationStrategy::default();
+        assert_eq!(strategy, IdGenerationStrategy::AutoIncrement);
+    }
+
+    #[test]
+    fn test_column_definition_with_auto_increment() {
+        let col = ColumnDefinition {
+            name: "id".to_string(),
+            data_type: DataType::BigSerial,
+            nullable: false,
+            default_value: None,
+            auto_increment: true,
+        };
+
+        assert!(col.auto_increment);
+        assert_eq!(col.data_type, DataType::BigSerial);
+    }
+
+    #[test]
+    fn test_table_schema_with_auto_increment() {
+        let schema = TableSchema {
+            name: "users".to_string(),
+            columns: vec![
+                ColumnDefinition {
+                    name: "id".to_string(),
+                    data_type: DataType::BigSerial,
+                    nullable: false,
+                    default_value: None,
+                    auto_increment: true,
+                },
+                ColumnDefinition {
+                    name: "name".to_string(),
+                    data_type: DataType::Text,
+                    nullable: false,
+                    default_value: None,
+                    auto_increment: false,
+                },
+            ],
+            primary_key: "id".to_string(),
+            created_at: chrono::Utc::now(),
+            version: 1,
+            auto_increment_columns: HashMap::new(),
+            id_strategy: IdGenerationStrategy::AutoIncrement,
+        };
+
+        // Verify id column is marked as auto_increment
+        let id_col = schema.columns.iter().find(|c| c.name == "id").unwrap();
+        assert!(id_col.auto_increment);
+        assert_eq!(id_col.data_type, DataType::BigSerial);
+    }
+
+    #[test]
+    fn test_serial_data_types() {
+        // Serial should represent auto-increment integer types
+        assert_ne!(DataType::Serial, DataType::Integer);
+        assert_ne!(DataType::BigSerial, DataType::Integer);
     }
 }

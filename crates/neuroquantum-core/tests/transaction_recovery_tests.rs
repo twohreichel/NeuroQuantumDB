@@ -1,6 +1,6 @@
 //! Integration tests for transaction recovery and storage integration
 
-use neuroquantum_core::storage::{Row, StorageEngine, Value};
+use neuroquantum_core::storage::{IdGenerationStrategy, Row, StorageEngine, Value};
 use neuroquantum_core::transaction::{IsolationLevel, LogRecordType, TransactionId};
 use std::collections::HashMap;
 use tempfile::TempDir;
@@ -304,22 +304,27 @@ fn create_test_table_schema() -> neuroquantum_core::storage::TableSchema {
                 data_type: neuroquantum_core::storage::DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             neuroquantum_core::storage::ColumnDefinition {
                 name: "name".to_string(),
                 data_type: neuroquantum_core::storage::DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             neuroquantum_core::storage::ColumnDefinition {
                 name: "age".to_string(),
                 data_type: neuroquantum_core::storage::DataType::Integer,
                 nullable: true,
                 default_value: Some(neuroquantum_core::storage::Value::Integer(0)),
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
     }
 }

@@ -272,19 +272,34 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"users\",\n  \"columns\": [\n    {\n      \"name\": \"id\",\n      \"data_type\": \"Integer\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"name\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"email\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    }\n  ]\n}"
+							"raw": "{\n  \"name\": \"users\",\n  \"columns\": [\n    {\n      \"name\": \"id\",\n      \"data_type\": \"BigSerial\",\n      \"nullable\": false,\n      \"auto_increment\": true\n    },\n    {\n      \"name\": \"name\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"email\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    }\n  ],\n  \"id_strategy\": \"AutoIncrement\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/tables",
 							"host": ["{{base_url}}"],
 							"path": ["api", "v1", "tables"]
 						},
-						"description": "Erstellt eine neue Tabelle mit Schema-Validierung (write-Permission erforderlich)"
+						"description": "Creates a new table with schema validation (write permission required).\n\n## Auto-Increment ID Configuration\n\n### Supported Data Types for Auto-ID:\n- `BigSerial` - 64-bit auto-incrementing integer (recommended)\n- `Serial` - 32-bit auto-incrementing integer\n- `SmallSerial` - 16-bit auto-incrementing integer\n\n### ID Generation Strategies:\n- `AutoIncrement` (default) - Sequential IDs (1, 2, 3, ...)\n- `Uuid` - Random UUIDs for distributed systems\n- `Snowflake` - Time-sortable distributed IDs\n\n### When to use which strategy:\n| Strategy | Best For | Pros | Cons |\n|----------|----------|------|------|\n| AutoIncrement | Single instance, high performance | Best B+Tree perf, small storage | Predictable |\n| Uuid | Distributed systems | Globally unique | Larger storage, poor index perf |\n| Snowflake | Distributed + time-ordered | Sortable, distributed | Needs time sync |"
 					},
 					"response": []
 				},
 				{
-					"name": "Insert Record",
+					"name": "Create Table (with UUID strategy)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Table created with UUID strategy\", function () {",
+									"    pm.response.to.have.status(201);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [
@@ -300,14 +315,87 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"table_name\": \"users\",\n  \"record\": {\n    \"id\": 1,\n    \"name\": \"Max Mustermann\",\n    \"email\": \"max@example.com\"\n  }\n}"
+							"raw": "{\n  \"name\": \"distributed_events\",\n  \"columns\": [\n    {\n      \"name\": \"id\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"event_type\",\n      \"data_type\": \"Text\",\n      \"nullable\": false\n    },\n    {\n      \"name\": \"payload\",\n      \"data_type\": \"Text\",\n      \"nullable\": true\n    }\n  ],\n  \"id_strategy\": \"Uuid\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "tables"]
+						},
+						"description": "Creates a table using UUID for ID generation.\n\nUse this for distributed systems where multiple nodes need to generate IDs independently without coordination.\n\n**Note:** UUID strategy has larger storage overhead (16 bytes vs 8 bytes) and less optimal B+Tree performance due to random distribution."
+					},
+					"response": []
+				},
+				{
+					"name": "Insert Record (Auto-ID)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Record inserted with auto-generated ID\", function () {",
+									"    pm.response.to.have.status(201);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.inserted_id).to.exist;",
+									"    console.log('Auto-generated ID:', jsonData.data.inserted_id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table_name\": \"users\",\n  \"record\": {\n    \"name\": \"Max Mustermann\",\n    \"email\": \"max@example.com\"\n  }\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/records",
 							"host": ["{{base_url}}"],
 							"path": ["api", "v1", "records"]
 						},
-						"description": "Fügt einen neuen Datensatz in eine Tabelle ein (write-Permission erforderlich)"
+						"description": "Inserts a new record **without specifying an ID**.\n\n## Automatic ID Generation\n\nWhen the table has an auto-increment column (BigSerial, Serial, or AUTO_INCREMENT), the ID is automatically generated.\n\n**You do NOT need to provide the `id` field!**\n\n### Response includes:\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"inserted_id\": 1\n  }\n}\n```\n\nThe `inserted_id` field returns the auto-generated ID so you can reference it immediately."
+					},
+					"response": []
+				},
+				{
+					"name": "Insert Record (Manual ID - Legacy)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table_name\": \"users\",\n  \"record\": {\n    \"id\": 999,\n    \"name\": \"Manual ID User\",\n    \"email\": \"manual@example.com\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/records",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "records"]
+						},
+						"description": "Inserts a record with a manually specified ID.\n\n**⚠️ Warning:** Use with caution!\n\n- Only works if the column is NOT defined as `GENERATED ALWAYS AS IDENTITY`\n- May cause conflicts with auto-generated IDs\n- May break the auto-increment sequence\n\n**Recommended:** Let the database generate IDs automatically for most use cases."
 					},
 					"response": []
 				},
@@ -335,7 +423,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["api", "v1", "query"]
 						},
-						"description": "Führt eine SQL-Query aus (read-Permission erforderlich)"
+						"description": "Executes a SQL query (read permission required)"
 					},
 					"response": []
 				}

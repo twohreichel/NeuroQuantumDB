@@ -6,7 +6,8 @@
 //! Status: Addresses AUDIT.md Section 7.2 - Expanded integration tests for Transactions
 
 use neuroquantum_core::storage::{
-    ColumnDefinition, DataType, Row, SelectQuery, StorageEngine, TableSchema, Value,
+    ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
+    Value,
 };
 use neuroquantum_core::transaction::{IsolationLevel, LogManager, LogRecordType, TransactionId};
 use std::collections::HashMap;
@@ -25,23 +26,28 @@ fn create_test_table_schema(name: &str) -> TableSchema {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "name".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "balance".to_string(),
                 data_type: DataType::Integer,
                 nullable: true,
                 default_value: Some(Value::Integer(0)),
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
     }
 }
 

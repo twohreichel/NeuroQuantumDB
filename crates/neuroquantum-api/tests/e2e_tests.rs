@@ -40,28 +40,34 @@ async fn test_complete_workflow_with_query_statistics() {
                     data_type: neuroquantum_core::storage::DataType::Integer,
                     nullable: false,
                     default_value: None,
+                    auto_increment: true,
                 },
                 neuroquantum_core::storage::ColumnDefinition {
                     name: "username".to_string(),
                     data_type: neuroquantum_core::storage::DataType::Text,
                     nullable: false,
                     default_value: None,
+                    auto_increment: false,
                 },
                 neuroquantum_core::storage::ColumnDefinition {
                     name: "email".to_string(),
                     data_type: neuroquantum_core::storage::DataType::Text,
                     nullable: false,
                     default_value: None,
+                    auto_increment: false,
                 },
                 neuroquantum_core::storage::ColumnDefinition {
                     name: "active".to_string(),
                     data_type: neuroquantum_core::storage::DataType::Boolean,
                     nullable: true,
                     default_value: Some(neuroquantum_core::storage::Value::Boolean(true)),
+                    auto_increment: false,
                 },
             ],
             created_at: chrono::Utc::now(),
             version: 1,
+            auto_increment_columns: std::collections::HashMap::new(),
+            id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
         };
 
         storage
@@ -202,16 +208,20 @@ async fn test_concurrent_operations() {
                     data_type: neuroquantum_core::storage::DataType::Integer,
                     nullable: false,
                     default_value: None,
+                    auto_increment: true,
                 },
                 neuroquantum_core::storage::ColumnDefinition {
                     name: "value".to_string(),
                     data_type: neuroquantum_core::storage::DataType::Text,
                     nullable: false,
                     default_value: None,
+                    auto_increment: false,
                 },
             ],
             created_at: chrono::Utc::now(),
             version: 1,
+            auto_increment_columns: std::collections::HashMap::new(),
+            id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
         };
 
         storage
@@ -270,16 +280,20 @@ async fn test_query_statistics_accuracy() {
                     data_type: neuroquantum_core::storage::DataType::Integer,
                     nullable: false,
                     default_value: None,
+                    auto_increment: true,
                 },
                 neuroquantum_core::storage::ColumnDefinition {
                     name: "data".to_string(),
                     data_type: neuroquantum_core::storage::DataType::Text,
                     nullable: false,
                     default_value: None,
+                    auto_increment: false,
                 },
             ],
             created_at: chrono::Utc::now(),
             version: 1,
+            auto_increment_columns: std::collections::HashMap::new(),
+            id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
         };
 
         storage.create_table(schema).await.unwrap();

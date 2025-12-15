@@ -448,11 +448,14 @@ pub async fn create_table(
                     serde_json::Value::Null => neuroquantum_core::storage::Value::Null,
                     _ => neuroquantum_core::storage::Value::Text(v.to_string()),
                 }),
+                auto_increment: false,
             })
             .collect(),
         primary_key,
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     // Create table in database

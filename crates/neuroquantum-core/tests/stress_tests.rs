@@ -9,8 +9,8 @@
 //! ACID compliance in concurrent scenarios.
 
 use neuroquantum_core::storage::{
-    ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
-    StorageEngine, TableSchema, Value, WhereClause,
+    ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, IdGenerationStrategy,
+    Row, SelectQuery, StorageEngine, TableSchema, Value, WhereClause,
 };
 use neuroquantum_core::transaction::{IsolationLevel, LockManager, LockType, TransactionManager};
 use std::collections::HashMap;
@@ -34,23 +34,28 @@ fn create_test_table_schema() -> TableSchema {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "counter".to_string(),
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "data".to_string(),
                 data_type: DataType::Text,
                 nullable: true,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
     }
 }
 

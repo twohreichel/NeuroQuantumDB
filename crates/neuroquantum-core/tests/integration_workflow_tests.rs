@@ -23,39 +23,24 @@ async fn test_complete_crud_workflow() -> anyhow::Result<()> {
         .build()
         .await?;
 
-    // CREATE TABLE
+    // CREATE TABLE - using new builder pattern
     {
         let storage = db.storage_mut();
-        let schema = TableSchema {
-            name: "employees".to_string(),
-            primary_key: "id".to_string(),
-            columns: vec![
-                ColumnDefinition {
-                    name: "id".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
-                ColumnDefinition {
-                    name: "name".to_string(),
-                    data_type: DataType::Text,
-                    nullable: false,
-                    default_value: None,
-                },
-                ColumnDefinition {
-                    name: "salary".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: true,
-                    default_value: Some(Value::Integer(50000)),
-                },
+        let schema = TableSchema::new(
+            "employees",
+            "id",
+            vec![
+                ColumnDefinition::new("id", DataType::BigSerial), // Auto-increment ID
+                ColumnDefinition::new("name", DataType::Text),
+                ColumnDefinition::new("salary", DataType::Integer)
+                    .nullable()
+                    .with_default(Value::Integer(50000)),
             ],
-            created_at: chrono::Utc::now(),
-            version: 1,
-        };
+        );
         storage.create_table(schema).await?;
     }
 
-    // INSERT
+    // INSERT - note: id is auto-generated now!
     {
         let storage = db.storage_mut();
         for i in 1..=3 {
@@ -168,26 +153,14 @@ async fn test_update_delete_operations() -> anyhow::Result<()> {
     // Setup
     {
         let storage = db.storage_mut();
-        let schema = TableSchema {
-            name: "accounts".to_string(),
-            primary_key: "id".to_string(),
-            columns: vec![
-                ColumnDefinition {
-                    name: "id".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
-                ColumnDefinition {
-                    name: "balance".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
+        let schema = TableSchema::new(
+            "accounts",
+            "id",
+            vec![
+                ColumnDefinition::new("id", DataType::BigSerial),
+                ColumnDefinition::new("balance", DataType::Integer),
             ],
-            created_at: chrono::Utc::now(),
-            version: 1,
-        };
+        );
         storage.create_table(schema).await?;
 
         let mut fields = HashMap::new();
@@ -248,32 +221,15 @@ async fn test_complex_queries() -> anyhow::Result<()> {
             .await?;
 
         let storage = db.storage_mut();
-        let schema = TableSchema {
-            name: "products".to_string(),
-            primary_key: "id".to_string(),
-            columns: vec![
-                ColumnDefinition {
-                    name: "id".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
-                ColumnDefinition {
-                    name: "name".to_string(),
-                    data_type: DataType::Text,
-                    nullable: false,
-                    default_value: None,
-                },
-                ColumnDefinition {
-                    name: "price".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
+        let schema = TableSchema::new(
+            "products",
+            "id",
+            vec![
+                ColumnDefinition::new("id", DataType::BigSerial),
+                ColumnDefinition::new("name", DataType::Text),
+                ColumnDefinition::new("price", DataType::Integer),
             ],
-            created_at: chrono::Utc::now(),
-            version: 1,
-        };
+        );
         storage.create_table(schema).await?;
 
         // Insert test data
@@ -329,26 +285,14 @@ async fn test_persistence_across_restarts() -> anyhow::Result<()> {
             .await?;
 
         let storage = db.storage_mut();
-        let schema = TableSchema {
-            name: "persistent_test".to_string(),
-            primary_key: "id".to_string(),
-            columns: vec![
-                ColumnDefinition {
-                    name: "id".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
-                ColumnDefinition {
-                    name: "value".to_string(),
-                    data_type: DataType::Text,
-                    nullable: false,
-                    default_value: None,
-                },
+        let schema = TableSchema::new(
+            "persistent_test",
+            "id",
+            vec![
+                ColumnDefinition::new("id", DataType::BigSerial),
+                ColumnDefinition::new("value", DataType::Text),
             ],
-            created_at: chrono::Utc::now(),
-            version: 1,
-        };
+        );
         storage.create_table(schema).await?;
 
         let mut fields = HashMap::new();
@@ -408,26 +352,14 @@ async fn test_bulk_operations() -> anyhow::Result<()> {
 
     {
         let storage = db.storage_mut();
-        let schema = TableSchema {
-            name: "bulk_test".to_string(),
-            primary_key: "id".to_string(),
-            columns: vec![
-                ColumnDefinition {
-                    name: "id".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
-                ColumnDefinition {
-                    name: "value".to_string(),
-                    data_type: DataType::Integer,
-                    nullable: false,
-                    default_value: None,
-                },
+        let schema = TableSchema::new(
+            "bulk_test",
+            "id",
+            vec![
+                ColumnDefinition::new("id", DataType::BigSerial),
+                ColumnDefinition::new("value", DataType::Integer),
             ],
-            created_at: chrono::Utc::now(),
-            version: 1,
-        };
+        );
         storage.create_table(schema).await?;
 
         // Bulk insert

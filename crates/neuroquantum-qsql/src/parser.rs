@@ -140,6 +140,20 @@ pub enum TokenType {
     Null,
     With,
 
+    // Data type keywords
+    Serial,
+    BigSerial,
+    SmallSerial,
+    AutoIncrement,
+    Primary,
+    Key,
+    Unique,
+    References,
+    Default,
+    Generated,
+    Always,
+    Identity,
+
     // Neuromorphic keywords
     NeuroMatch,
     SynapticWeight,
@@ -1384,6 +1398,21 @@ impl QSQLParser {
         keywords.insert("UPDATE".to_string(), TokenType::Update);
         keywords.insert("SET".to_string(), TokenType::Identifier("SET".to_string()));
         keywords.insert("DELETE".to_string(), TokenType::Delete);
+
+        // Auto-increment and identity keywords
+        keywords.insert("SERIAL".to_string(), TokenType::Serial);
+        keywords.insert("BIGSERIAL".to_string(), TokenType::BigSerial);
+        keywords.insert("SMALLSERIAL".to_string(), TokenType::SmallSerial);
+        keywords.insert("AUTO_INCREMENT".to_string(), TokenType::AutoIncrement);
+        keywords.insert("AUTOINCREMENT".to_string(), TokenType::AutoIncrement); // SQLite style
+        keywords.insert("PRIMARY".to_string(), TokenType::Primary);
+        keywords.insert("KEY".to_string(), TokenType::Key);
+        keywords.insert("UNIQUE".to_string(), TokenType::Unique);
+        keywords.insert("REFERENCES".to_string(), TokenType::References);
+        keywords.insert("DEFAULT".to_string(), TokenType::Default);
+        keywords.insert("GENERATED".to_string(), TokenType::Generated);
+        keywords.insert("ALWAYS".to_string(), TokenType::Always);
+        keywords.insert("IDENTITY".to_string(), TokenType::Identity);
 
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);

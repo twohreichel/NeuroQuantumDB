@@ -4,14 +4,11 @@ Base URL: `http://localhost:8080/api/v1`
 
 ## Authentication
 
-All requests require an API key or JWT token:
+All requests require an API key:
 
 ```bash
-# API Key
-Authorization: Bearer nqdb_xxxxxxxxxxxx
-
-# JWT Token
-Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+# API Key Header
+X-API-Key: nqdb_xxxxxxxxxxxx
 ```
 
 ## Endpoints
@@ -24,6 +21,103 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 | GET | `/metrics` | Prometheus metrics |
 | GET | `/api/v1/stats` | Database statistics |
 
+### Table Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/tables` | Create table |
+| GET | `/api/v1/tables` | List tables |
+| DELETE | `/api/v1/tables/{name}` | Drop table |
+
+#### Create Table with Auto-Increment
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tables \
+  -H "X-API-Key: your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "users",
+    "columns": [
+      {
+        "name": "id",
+        "data_type": "BigSerial",
+        "nullable": false,
+        "auto_increment": true
+      },
+      {
+        "name": "name",
+        "data_type": "Text",
+        "nullable": false
+      },
+      {
+        "name": "email",
+        "data_type": "Text",
+        "nullable": true
+      }
+    ],
+    "id_strategy": "AutoIncrement"
+  }'
+```
+
+**Column Data Types:**
+
+| Type | Description |
+|------|-------------|
+| `BigSerial` | Auto-incrementing 64-bit integer |
+| `Serial` | Auto-incrementing 32-bit integer |
+| `SmallSerial` | Auto-incrementing 16-bit integer |
+| `Integer` | 64-bit integer |
+| `Float` | 64-bit floating point |
+| `Text` | Variable-length string |
+| `Boolean` | true/false |
+| `Timestamp` | Date and time |
+| `Binary` | Binary data |
+
+**ID Strategy Options:**
+
+| Strategy | Description |
+|----------|-------------|
+| `AutoIncrement` | Sequential integers (default, recommended) |
+| `Uuid` | Random UUIDs |
+| `Snowflake` | Time-based distributed IDs |
+
+### Record Operations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/records` | Insert record |
+| PUT | `/api/v1/records` | Update record |
+| DELETE | `/api/v1/records` | Delete record |
+
+#### Insert Record (Auto-Generated ID)
+
+```bash
+# ID is automatically generated - don't include it!
+curl -X POST http://localhost:8080/api/v1/records \
+  -H "X-API-Key: your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "table_name": "users",
+    "record": {
+      "name": "Alice",
+      "email": "alice@example.com"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "inserted_id": 1,
+    "rows_affected": 1
+  }
+}
+```
+
+The `inserted_id` field returns the auto-generated ID.
+
 ### Query Execution
 
 | Method | Endpoint | Description |
@@ -34,7 +128,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 **Request:**
 ```json
 {
-  "query": "SELECT * FROM users",
+  "query": "SELECT * FROM users WHERE id > 10",
   "params": {}
 }
 ```
@@ -44,7 +138,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 {
   "columns": ["id", "name", "email"],
   "rows": [
-    [1, "Alice", "alice@example.com"]
+    [11, "Alice", "alice@example.com"],
+    [12, "Bob", "bob@example.com"]
   ],
   "execution_time_ms": 12
 }
@@ -72,12 +167,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 | POST | `/api/v1/neural/predict` | Get prediction |
 | GET | `/api/v1/neural/status` | Training status |
 
-### Authentication
+### API Key Management
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/auth/keys` | Create API key |
-| DELETE | `/api/v1/auth/keys/{id}` | Revoke API key |
+| POST | `/api/v1/auth/generate-key` | Create API key |
+| POST | `/api/v1/auth/revoke-key` | Revoke API key |
 | GET | `/api/v1/auth/keys` | List API keys |
 
 ## WebSocket
@@ -96,6 +191,7 @@ ws.send(JSON.stringify({
 
 ```json
 {
+  "success": false,
   "error": {
     "code": "INVALID_QUERY",
     "message": "Syntax error near 'SELEC'"
@@ -103,6 +199,17 @@ ws.send(JSON.stringify({
 }
 ```
 
+### Common Error Codes
+
+| Code | Description |
+|------|-------------|
+| `INVALID_QUERY` | SQL syntax error |
+| `TABLE_NOT_FOUND` | Table does not exist |
+| `PERMISSION_DENIED` | API key lacks permission |
+| `VALIDATION_ERROR` | Invalid request data |
+| `INTERNAL_ERROR` | Server error |
+
 ## Next Steps
 
-→ [Features](features.md)
+- [Features](features.md)
+- [Auto-Increment Configuration](features/auto-increment.md)

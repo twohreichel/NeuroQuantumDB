@@ -6,6 +6,7 @@ NeuroQuantumDB provides unique features for edge computing:
 
 | Feature | Description | Use Case |
 |---------|-------------|----------|
+| [Auto-Increment IDs](features/auto-increment.md) | Automatic ID generation | Simplified inserts |
 | [DNA Compression](features/dna-compression.md) | 4:1 quaternary encoding | Storage optimization |
 | [Quantum Search](features/quantum-search.md) | Grover's algorithm | Fast lookups |
 | [Neural Networks](features/neural-networks.md) | Hebbian learning | Pattern recognition |
@@ -15,6 +16,8 @@ NeuroQuantumDB provides unique features for edge computing:
 
 | Feature | Community | Enterprise |
 |---------|:---------:|:----------:|
+| Auto-Increment IDs | ✅ | ✅ |
+| UUID/Snowflake IDs | ✅ | ✅ |
 | DNA Compression | ✅ | ✅ |
 | Quantum Search | ✅ | ✅ |
 | Neural Networks | ✅ | ✅ |

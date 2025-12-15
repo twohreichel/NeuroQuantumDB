@@ -8,8 +8,8 @@
 //! Status: Addresses AUDIT.md open points (Lines 978-980, 1203-1205)
 
 use neuroquantum_core::storage::{
-    ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
-    TableSchema, UpdateQuery, Value, WhereClause,
+    ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, IdGenerationStrategy,
+    Row, SelectQuery, TableSchema, UpdateQuery, Value, WhereClause,
 };
 use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
 use std::collections::HashMap;
@@ -57,28 +57,34 @@ fn create_test_schema(table_name: &str) -> TableSchema {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: true,
             },
             ColumnDefinition {
                 name: "name".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "value".to_string(),
                 data_type: DataType::Integer,
                 nullable: true,
                 default_value: Some(Value::Integer(0)),
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "active".to_string(),
                 data_type: DataType::Boolean,
                 nullable: true,
                 default_value: Some(Value::Boolean(true)),
+                auto_increment: false,
             },
         ],
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
     }
 }
 
@@ -311,16 +317,20 @@ async fn test_complex_multi_table_workflow() {
                     data_type: DataType::Integer,
                     nullable: false,
                     default_value: None,
+                    auto_increment: true,
                 },
                 ColumnDefinition {
                     name: "username".to_string(),
                     data_type: DataType::Text,
                     nullable: false,
                     default_value: None,
+                    auto_increment: false,
                 },
             ],
             created_at: chrono::Utc::now(),
             version: 1,
+            auto_increment_columns: std::collections::HashMap::new(),
+            id_strategy: IdGenerationStrategy::AutoIncrement,
         };
 
         // Posts table
@@ -333,22 +343,27 @@ async fn test_complex_multi_table_workflow() {
                     data_type: DataType::Integer,
                     nullable: false,
                     default_value: None,
+                    auto_increment: true,
                 },
                 ColumnDefinition {
                     name: "user_id".to_string(),
                     data_type: DataType::Integer,
                     nullable: false,
                     default_value: None,
+                    auto_increment: false,
                 },
                 ColumnDefinition {
                     name: "content".to_string(),
                     data_type: DataType::Text,
                     nullable: false,
                     default_value: None,
+                    auto_increment: false,
                 },
             ],
             created_at: chrono::Utc::now(),
             version: 1,
+            auto_increment_columns: std::collections::HashMap::new(),
+            id_strategy: IdGenerationStrategy::AutoIncrement,
         };
 
         storage.create_table(users_schema).await.unwrap();

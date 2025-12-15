@@ -28,23 +28,28 @@ async fn test_insert_with_dna_compression() {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: true,
             },
             ColumnDefinition {
                 name: "name".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "email".to_string(),
                 data_type: DataType::Text,
                 nullable: true,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     storage.create_table(schema).await.unwrap();
@@ -114,23 +119,28 @@ async fn test_select_with_dna_decompression() {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: true,
             },
             ColumnDefinition {
                 name: "name".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "price".to_string(),
                 data_type: DataType::Float,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     storage.create_table(schema).await.unwrap();
@@ -186,17 +196,21 @@ async fn test_update_with_dna_recompression() {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: true,
             },
             ColumnDefinition {
                 name: "salary".to_string(),
                 data_type: DataType::Float,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     storage.create_table(schema).await.unwrap();
@@ -297,17 +311,21 @@ async fn test_delete_with_dna_cleanup() {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: true,
             },
             ColumnDefinition {
                 name: "message".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     storage.create_table(schema).await.unwrap();

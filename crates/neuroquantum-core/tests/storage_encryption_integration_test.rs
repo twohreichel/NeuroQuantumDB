@@ -3,7 +3,8 @@
 //! and encrypted with AES-256-GCM before being written to disk
 
 use neuroquantum_core::storage::{
-    ColumnDefinition, DataType, Row, SelectQuery, StorageEngine, TableSchema, Value,
+    ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
+    Value,
 };
 use std::collections::HashMap;
 use tempfile::TempDir;
@@ -28,23 +29,28 @@ async fn test_dna_compression_and_encryption_roundtrip() {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "name".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "email".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
     };
 
     storage
@@ -163,17 +169,21 @@ async fn test_compression_ratio_with_encryption() {
                 data_type: DataType::Integer,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "content".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
     };
 
     storage.create_table(schema).await.unwrap();
