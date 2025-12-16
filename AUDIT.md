@@ -163,20 +163,24 @@ secret = "CHANGE_THIS_IMMEDIATELY_USE_openssl_rand_base64_48_MINIMUM_32_CHARS"
 2. Lade das Secret ausschließlich aus Umgebungsvariablen
 3. Implementiere Startup-Check: Wenn Secret = Default, Abbruch
 
-#### 4.3.2 Keychain-Fallback zu File-Storage
+#### 4.3.2 ~~Keychain-Fallback zu File-Storage~~ ✅ Behoben (16. Dez 2025)
 **Datei:** [crates/neuroquantum-core/src/storage/encryption.rs](crates/neuroquantum-core/src/storage/encryption.rs#L107)
 
 ```rust
 KeyStorageStrategy::KeychainWithFileFallback => { ... }
 ```
 
-**Risiko:** ⚠️ MITTEL
-- Wenn OS-Keychain nicht verfügbar, wird Key in Datei gespeichert
-- Datei-basierter Key-Speicher ist weniger sicher
+**~~Risiko:~~** ✅ Behoben
+- ~~Wenn OS-Keychain nicht verfügbar, wird Key in Datei gespeichert~~
+- ~~Datei-basierter Key-Speicher ist weniger sicher~~
 
-**Empfehlung:**
-- Warning-Log ist vorhanden (gut)
-- Füge Option hinzu, um Fallback in Production zu verbieten
+**Lösung:**
+- ✅ `EncryptionConfig` mit `forbid_file_fallback` und `production_mode` Optionen implementiert
+- ✅ `EncryptionManager::with_config()` Methode hinzugefügt für vollständige Kontrolle
+- ✅ In Production-Modus: File-basierter Fallback wird verweigert und Startup schlägt fehl
+- ✅ `SecurityStatus` und `is_using_secure_storage()` Methoden für Security-Audits
+- ✅ `prod.toml` konfiguriert mit `forbid_file_fallback = true` und `production_mode = true`
+- ✅ API-Konfiguration um `EncryptionAtRestConfig` in `SecurityConfig` erweitert
 
 #### 4.3.3 Admin-IP-Whitelist
 **Datei:** [config/prod.toml](config/prod.toml#L58)

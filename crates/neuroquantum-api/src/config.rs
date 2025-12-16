@@ -199,6 +199,35 @@ pub struct SecurityConfig {
     /// Whitelist of IP addresses allowed to access admin endpoints
     /// Empty list = no restrictions (not recommended for production)
     pub admin_ip_whitelist: Vec<String>,
+    /// Encryption-at-rest configuration
+    #[serde(default)]
+    pub encryption: EncryptionAtRestConfig,
+}
+
+/// Encryption-at-rest configuration for production security
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EncryptionAtRestConfig {
+    /// If true, file-based key storage fallback is forbidden.
+    /// The application will fail to start if the OS keychain is unavailable.
+    ///
+    /// **Recommended: `true` for production deployments.**
+    ///
+    /// When enabled, the encryption manager will refuse to fall back to
+    /// file-based key storage, ensuring that encryption keys are always
+    /// stored in the OS keychain (macOS Keychain, Windows Credential Manager,
+    /// or Linux Secret Service).
+    #[serde(default)]
+    pub forbid_file_fallback: bool,
+
+    /// Treat this as a production environment with stricter security checks.
+    /// When combined with `forbid_file_fallback`, this provides maximum security.
+    ///
+    /// When enabled:
+    /// - File-based key storage is not allowed
+    /// - Keychain unavailability causes startup failure
+    /// - Additional security warnings are logged
+    #[serde(default)]
+    pub production_mode: bool,
 }
 
 impl Default for SecurityConfig {
@@ -214,6 +243,7 @@ impl Default for SecurityConfig {
                 "127.0.0.1".to_string(),
                 "::1".to_string(), // IPv6 localhost
             ],
+            encryption: EncryptionAtRestConfig::default(),
         }
     }
 }

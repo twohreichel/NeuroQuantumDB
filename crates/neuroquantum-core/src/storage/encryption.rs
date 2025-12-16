@@ -39,6 +39,36 @@ pub enum KeyStorageStrategy {
     KeychainWithFileFallback,
 }
 
+/// Configuration for the encryption manager
+///
+/// This struct allows fine-grained control over encryption behavior,
+/// particularly for production environments where security requirements
+/// are stricter.
+#[derive(Debug, Clone, Default)]
+pub struct EncryptionConfig {
+    /// The key storage strategy to use
+    pub strategy: KeyStorageStrategy,
+
+    /// If true, the encryption manager will return an error instead of
+    /// falling back to file-based storage when the OS keychain is unavailable.
+    ///
+    /// **Recommended for production deployments.**
+    ///
+    /// When enabled:
+    /// - `KeyStorageStrategy::OsKeychain` will fail if keychain is unavailable
+    /// - `KeyStorageStrategy::KeychainWithFileFallback` will fail instead of falling back
+    /// - `KeyStorageStrategy::FileBased` is not affected (will work but log a warning)
+    ///
+    /// This ensures that production systems never accidentally use less secure
+    /// file-based key storage.
+    pub forbid_file_fallback: bool,
+
+    /// If true, treat this as a production environment with stricter security checks.
+    /// When combined with `forbid_file_fallback`, this will cause startup to fail
+    /// if the keychain is unavailable.
+    pub production_mode: bool,
+}
+
 /// Result of a keychain operation
 #[derive(Debug)]
 pub struct KeychainStatus {
@@ -76,6 +106,18 @@ pub struct EncryptionManager {
     storage_strategy: KeyStorageStrategy,
 }
 
+// Manual Debug implementation to avoid exposing the master key
+impl std::fmt::Debug for EncryptionManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EncryptionManager")
+            .field("key_path", &self.key_path)
+            .field("instance_id", &self.instance_id)
+            .field("storage_strategy", &self.storage_strategy)
+            .field("master_key", &"[REDACTED]")
+            .finish()
+    }
+}
+
 impl EncryptionManager {
     /// Create a new encryption manager with OS keychain support
     ///
@@ -89,17 +131,99 @@ impl EncryptionManager {
 
     /// Create an encryption manager with a specific storage strategy
     pub async fn with_strategy(data_dir: &Path, strategy: KeyStorageStrategy) -> Result<Self> {
+        Self::with_config(
+            data_dir,
+            EncryptionConfig {
+                strategy,
+                forbid_file_fallback: false,
+                production_mode: false,
+            },
+        )
+        .await
+    }
+
+    /// Create an encryption manager with full configuration options
+    ///
+    /// This method provides the most control over encryption behavior,
+    /// including the ability to forbid file-based fallback in production.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use neuroquantum_core::storage::encryption::{EncryptionManager, EncryptionConfig, KeyStorageStrategy};
+    ///
+    /// let config = EncryptionConfig {
+    ///     strategy: KeyStorageStrategy::KeychainWithFileFallback,
+    ///     forbid_file_fallback: true,  // Fail if keychain unavailable
+    ///     production_mode: true,
+    /// };
+    ///
+    /// let manager = EncryptionManager::with_config(&data_dir, config).await?;
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `forbid_file_fallback` is true and the OS keychain is unavailable
+    /// - `production_mode` is true and `FileBased` strategy is explicitly requested
+    /// - Key generation or storage fails
+    pub async fn with_config(data_dir: &Path, config: EncryptionConfig) -> Result<Self> {
         let key_path = data_dir.join(".encryption_key");
 
         // Generate a unique instance ID based on the data directory
         let instance_id = Self::generate_instance_id(data_dir);
 
-        let (master_key, actual_strategy) = match strategy {
+        // Check for forbidden configurations in production mode
+        if config.production_mode && config.strategy == KeyStorageStrategy::FileBased {
+            tracing::error!(
+                "🚨 SECURITY: File-based key storage is not allowed in production mode"
+            );
+            return Err(anyhow!(
+                "Security policy violation: File-based key storage is explicitly forbidden in production mode. \
+                Use KeyStorageStrategy::OsKeychain or KeyStorageStrategy::KeychainWithFileFallback instead."
+            ));
+        }
+
+        let (master_key, actual_strategy) = match config.strategy {
             KeyStorageStrategy::OsKeychain => {
-                let key = Self::load_or_create_keychain_key(&instance_id, &key_path).await?;
-                (key, KeyStorageStrategy::OsKeychain)
+                match Self::load_or_create_keychain_key(&instance_id, &key_path).await {
+                    Ok(key) => (key, KeyStorageStrategy::OsKeychain),
+                    Err(e) if config.forbid_file_fallback => {
+                        tracing::error!(
+                            "🚨 SECURITY: OS keychain unavailable and file fallback is forbidden: {}",
+                            e
+                        );
+                        return Err(anyhow!(
+                            "Security policy violation: OS keychain is unavailable ({}) and file-based fallback \
+                            is forbidden by configuration. Either:\n\
+                            1. Ensure the OS keychain service is running and accessible\n\
+                            2. Set 'forbid_file_fallback = false' (not recommended for production)\n\
+                            3. Check system logs for keychain-related errors",
+                            e
+                        ));
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "⚠️ OS keychain unavailable ({}), falling back to file-based storage",
+                            e
+                        );
+                        let key = Self::load_or_create_file_key(&key_path).await?;
+                        (key, KeyStorageStrategy::FileBased)
+                    }
+                }
             }
             KeyStorageStrategy::FileBased => {
+                if config.forbid_file_fallback && config.production_mode {
+                    // This case is already handled above, but double-check
+                    return Err(anyhow!(
+                        "Security policy violation: File-based storage is forbidden in production"
+                    ));
+                }
+                if config.production_mode {
+                    tracing::warn!(
+                        "⚠️ SECURITY WARNING: Using file-based key storage in production is not recommended"
+                    );
+                }
                 let key = Self::load_or_create_file_key(&key_path).await?;
                 (key, KeyStorageStrategy::FileBased)
             }
@@ -109,6 +233,23 @@ impl EncryptionManager {
                 // If data was encrypted with a file-based key, we must use that key,
                 // not a potentially different key from the keychain.
                 if key_path.exists() {
+                    if config.forbid_file_fallback && config.production_mode {
+                        tracing::error!(
+                            "🚨 SECURITY: Existing file-based key found but file storage is forbidden in production. \
+                            Please migrate the key to the OS keychain using `migrate_to_keychain()` before enabling \
+                            production mode with `forbid_file_fallback`."
+                        );
+                        return Err(anyhow!(
+                            "Security policy violation: An existing file-based encryption key was found at '{}', \
+                            but file-based storage is forbidden in production mode.\n\
+                            To resolve this:\n\
+                            1. Start the database without production mode to migrate the key\n\
+                            2. Call `encryption_manager.migrate_to_keychain()` to move the key to the OS keychain\n\
+                            3. Securely delete the file-based key after successful migration\n\
+                            4. Restart with production mode enabled",
+                            key_path.display()
+                        ));
+                    }
                     tracing::info!("🔑 Found existing file-based key, using it for compatibility");
                     let key = Self::load_master_key_from_file(&key_path).await?;
                     (key, KeyStorageStrategy::FileBased)
@@ -121,6 +262,20 @@ impl EncryptionManager {
                                 instance_id
                             );
                             (key, KeyStorageStrategy::OsKeychain)
+                        }
+                        Err(e) if config.forbid_file_fallback => {
+                            tracing::error!(
+                                "🚨 SECURITY: OS keychain unavailable and file fallback is forbidden: {}",
+                                e
+                            );
+                            return Err(anyhow!(
+                                "Security policy violation: OS keychain is unavailable ({}) and file-based fallback \
+                                is forbidden by configuration. Either:\n\
+                                1. Ensure the OS keychain service is running and accessible\n\
+                                2. Set 'forbid_file_fallback = false' (not recommended for production)\n\
+                                3. Check system logs for keychain-related errors",
+                                e
+                            ));
                         }
                         Err(e) => {
                             tracing::warn!(
@@ -447,6 +602,46 @@ impl EncryptionManager {
         self.storage_strategy
     }
 
+    /// Check if the encryption manager is using secure (keychain) storage
+    ///
+    /// Returns `true` if keys are stored in the OS keychain, `false` if using file-based storage.
+    /// This is useful for security audits and production readiness checks.
+    pub fn is_using_secure_storage(&self) -> bool {
+        self.storage_strategy == KeyStorageStrategy::OsKeychain
+    }
+
+    /// Check if the current configuration is production-ready
+    ///
+    /// Returns a security status report indicating whether the current key storage
+    /// configuration is suitable for production use.
+    pub fn security_status(&self) -> SecurityStatus {
+        let is_secure = self.is_using_secure_storage();
+        let keychain_status = Self::check_keychain_status();
+
+        SecurityStatus {
+            is_production_ready: is_secure,
+            storage_strategy: self.storage_strategy,
+            keychain_available: keychain_status.available,
+            keychain_backend: keychain_status.backend,
+            warnings: if is_secure {
+                vec![]
+            } else {
+                vec![
+                    "⚠️ Using file-based key storage is not recommended for production".to_string(),
+                    "Consider migrating to OS keychain using `migrate_to_keychain()`".to_string(),
+                ]
+            },
+            recommendations: if is_secure {
+                vec!["Key storage configuration is secure".to_string()]
+            } else {
+                vec![
+                    "Enable 'forbid_file_fallback' in production configuration".to_string(),
+                    "Ensure OS keychain service is running and accessible".to_string(),
+                ]
+            },
+        }
+    }
+
     /// Get the instance ID
     pub fn instance_id(&self) -> &str {
         &self.instance_id
@@ -595,6 +790,26 @@ pub struct KeyRotationResult {
     pub new_fingerprint: String,
     /// Warning message about data re-encryption
     pub warning: Option<String>,
+}
+
+/// Security status report for the encryption manager
+///
+/// This struct provides a comprehensive view of the encryption manager's
+/// security posture, useful for auditing and production readiness checks.
+#[derive(Debug)]
+pub struct SecurityStatus {
+    /// Whether the current configuration is suitable for production
+    pub is_production_ready: bool,
+    /// The key storage strategy currently in use
+    pub storage_strategy: KeyStorageStrategy,
+    /// Whether the OS keychain is available on this system
+    pub keychain_available: bool,
+    /// The keychain backend being used (if available)
+    pub keychain_backend: String,
+    /// Security warnings (if any)
+    pub warnings: Vec<String>,
+    /// Recommendations for improving security
+    pub recommendations: Vec<String>,
 }
 
 #[cfg(test)]
@@ -746,5 +961,93 @@ mod tests {
 
         // Cleanup
         fs::remove_dir_all(&temp_dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_with_config_file_based() {
+        let temp_dir = std::env::temp_dir().join("neuroquantum_test_with_config");
+        fs::create_dir_all(&temp_dir).await.unwrap();
+
+        let config = EncryptionConfig {
+            strategy: KeyStorageStrategy::FileBased,
+            forbid_file_fallback: false,
+            production_mode: false,
+        };
+
+        let manager = EncryptionManager::with_config(&temp_dir, config)
+            .await
+            .unwrap();
+        assert_eq!(manager.storage_strategy(), KeyStorageStrategy::FileBased);
+
+        // Cleanup
+        fs::remove_dir_all(&temp_dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_production_mode_forbids_file_based_strategy() {
+        let temp_dir = std::env::temp_dir().join("neuroquantum_test_prod_mode");
+        fs::create_dir_all(&temp_dir).await.unwrap();
+
+        // Explicitly requesting FileBased in production mode should fail
+        let config = EncryptionConfig {
+            strategy: KeyStorageStrategy::FileBased,
+            forbid_file_fallback: false,
+            production_mode: true,
+        };
+
+        let result = EncryptionManager::with_config(&temp_dir, config).await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Security policy violation"));
+        assert!(err_msg.contains("forbidden in production"));
+
+        // Cleanup
+        fs::remove_dir_all(&temp_dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_security_status() {
+        let temp_dir = std::env::temp_dir().join("neuroquantum_test_security_status");
+        fs::create_dir_all(&temp_dir).await.unwrap();
+
+        let manager = EncryptionManager::with_strategy(&temp_dir, KeyStorageStrategy::FileBased)
+            .await
+            .unwrap();
+
+        let status = manager.security_status();
+
+        // File-based storage should not be production ready
+        assert!(!status.is_production_ready);
+        assert_eq!(status.storage_strategy, KeyStorageStrategy::FileBased);
+        assert!(!status.warnings.is_empty());
+        assert!(!status.recommendations.is_empty());
+
+        // Cleanup
+        fs::remove_dir_all(&temp_dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_is_using_secure_storage() {
+        let temp_dir = std::env::temp_dir().join("neuroquantum_test_secure_storage");
+        fs::create_dir_all(&temp_dir).await.unwrap();
+
+        let manager = EncryptionManager::with_strategy(&temp_dir, KeyStorageStrategy::FileBased)
+            .await
+            .unwrap();
+
+        // File-based is not secure
+        assert!(!manager.is_using_secure_storage());
+
+        // Cleanup
+        fs::remove_dir_all(&temp_dir).await.ok();
+    }
+
+    #[test]
+    fn test_encryption_config_default() {
+        let config = EncryptionConfig::default();
+        // Default strategy is OsKeychain (most secure option)
+        assert_eq!(config.strategy, KeyStorageStrategy::OsKeychain);
+        assert!(!config.forbid_file_fallback);
+        assert!(!config.production_mode);
     }
 }
