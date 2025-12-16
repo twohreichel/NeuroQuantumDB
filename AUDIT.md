@@ -337,7 +337,7 @@ pub allow_legacy_mode: bool,
 | Modul | Integration Tests | Unit Tests | Property Tests |
 |-------|------------------|------------|----------------|
 | neuroquantum-core | ✅ 8 Dateien | ✅ Vorhanden | ✅ proptest |
-| neuroquantum-api | ✅ 4 Dateien | ✅ Vorhanden | ⚠️ Begrenzt |
+| neuroquantum-api | ✅ 5 Dateien | ✅ Vorhanden | ⚠️ Begrenzt |
 | neuroquantum-qsql | ⚠️ 1 Datei | ✅ Vorhanden | ✅ proptest |
 
 ### 7.2 Fuzz Testing
@@ -352,7 +352,7 @@ pub allow_legacy_mode: bool,
 ### 7.3 Fehlende Tests
 
 **Empfehlung:**
-1. ⚠️ Mehr API-Endpoint-Tests (aktuell nur 4 Dateien)
+1. ~~⚠️ Mehr API-Endpoint-Tests (aktuell nur 4 Dateien)~~ ✅ Erledigt (16. Dez 2025) - 5 Test-Dateien mit 26+ neuen Tests
 2. ⚠️ Chaos-Engineering Tests für Crash-Recovery
 3. ⚠️ Load-Tests für Concurrency
 4. ⚠️ Security Penetration Tests
@@ -407,7 +407,7 @@ Ignorierte Advisories:
 1. ~~Row-Cache LRU-Eviction implementieren~~ ✅ Erledigt (16. Dez 2025) - LRU-Cache implementiert via `lru::LruCache`, automatische Eviction bei 10k Einträgen, `Clone` von `StorageEngine` und `NeuroQuantumDB` entfernt für bessere Thread-Sicherheit
 2. ~~Legacy Mode aus Query Executor entfernen~~ ✅ Erledigt (15. Dez 2025) - Legacy Mode ist nun nur in `#[cfg(test)]`-Builds verfügbar
 3. ~~Lock-Hierarchie dokumentieren~~ ✅ Erledigt (16. Dez 2025) - Umfassende Dokumentation in `neuroquantum-core/src/concurrency.rs` erstellt, inkl. 6-stufiger Lock-Hierarchie, WebSocket-Hierarchie, Deadlock-Präventionsregeln und Code-Beispiele
-4. Mehr Integration Tests
+4. ~~Mehr Integration Tests~~ ✅ Erledigt (16. Dez 2025) - 26 neue API-Handler-Integration-Tests in `crates/neuroquantum-api/tests/api_handler_integration_tests.rs`
 
 ---
 
@@ -469,7 +469,7 @@ Das Projekt ist **technisch beeindruckend und innovativ**. Die Kernfunktionalit�
 | ⚠️ HOCH | Legacy Mode entfernen oder #[cfg(test)] markieren | 1 Std | ✅ Erledigt |
 | ⚠️ HOCH | LRU-Cache für Row-Cache | 4 Std | ✅ Erledigt |
 | 📝 MITTEL | Lock-Hierarchie dokumentieren | 2 Std | ✅ Erledigt |
-| 📝 MITTEL | Mehr API-Integration-Tests | 8 Std | ⏳ Offen |
+| 📝 MITTEL | Mehr API-Integration-Tests | 8 Std | ✅ Erledigt (16. Dez 2025) - 26 neue Tests in `api_handler_integration_tests.rs` |
 
 ---
 
