@@ -10,8 +10,10 @@ pub mod pager;
 pub mod wal;
 
 use anyhow::{anyhow, Result};
+use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -406,7 +408,10 @@ pub struct DatabaseMetadata {
 }
 
 /// Main storage engine providing persistent file-based storage
-#[derive(Clone)]
+///
+/// Note: StorageEngine is intentionally not Clone. Use `Arc<RwLock<StorageEngine>>`
+/// for shared access across multiple tasks/threads. This prevents accidental
+/// cloning of large internal data structures and ensures consistent cache state.
 pub struct StorageEngine {
     /// Base directory for all database files
     data_dir: PathBuf,
@@ -432,11 +437,9 @@ pub struct StorageEngine {
     /// Next available LSN
     next_lsn: LSN,
 
-    /// In-memory cache for frequently accessed data
-    row_cache: HashMap<RowId, Row>,
-
-    /// Cache size limit
-    cache_limit: usize,
+    /// In-memory LRU cache for frequently accessed data
+    /// Uses proper LRU eviction strategy for optimal memory management
+    row_cache: LruCache<RowId, Row>,
 
     /// Transaction manager for ACID compliance
     transaction_manager: TransactionManager,
@@ -489,8 +492,7 @@ impl StorageEngine {
             dna_compressor: QuantumDNACompressor::new(),
             next_row_id: 1,
             next_lsn: 1,
-            row_cache: HashMap::new(),
-            cache_limit: 10000,
+            row_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
             transaction_manager: TransactionManager::new(),
             encryption_manager: None,
             last_query_stats: QueryExecutionStats::default(),
@@ -537,8 +539,7 @@ impl StorageEngine {
             dna_compressor,
             next_row_id: 1,
             next_lsn: 1,
-            row_cache: HashMap::new(),
-            cache_limit: 10000, // 10k rows in cache
+            row_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()), // 10k rows LRU cache
             transaction_manager,
             encryption_manager: Some(encryption_manager),
             last_query_stats: QueryExecutionStats::default(),
@@ -831,7 +832,7 @@ impl StorageEngine {
 
         // Track cache hits/misses during row loading
         for row in &rows {
-            if self.row_cache.contains_key(&row.id) {
+            if self.row_cache.contains(&row.id) {
                 stats.cache_hits += 1;
             } else {
                 stats.cache_misses += 1;
@@ -959,8 +960,8 @@ impl StorageEngine {
             // Remove from compressed blocks
             self.compressed_blocks.remove(&row.id);
 
-            // Remove from cache
-            self.row_cache.remove(&row.id);
+            // Remove from LRU cache
+            self.row_cache.pop(&row.id);
 
             // Update indexes - clone schema to avoid borrow checker issues
             let schema = self.metadata.tables.get(&query.table).unwrap().clone();
@@ -1251,14 +1252,15 @@ impl StorageEngine {
     }
 
     /// Add row to cache with LRU eviction
+    ///
+    /// Uses proper LRU (Least Recently Used) eviction strategy:
+    /// - When cache is full, the least recently accessed entry is automatically evicted
+    /// - Each access (get/put) moves the entry to "most recently used" position
+    /// - Provides O(1) amortized time complexity for all operations
     fn add_to_cache(&mut self, row: Row) {
-        if self.row_cache.len() >= self.cache_limit {
-            // Simple eviction: remove oldest entry
-            if let Some(first_key) = self.row_cache.keys().next().cloned() {
-                self.row_cache.remove(&first_key);
-            }
-        }
-        self.row_cache.insert(row.id, row);
+        // LruCache handles eviction automatically when capacity is exceeded
+        // put() returns the evicted entry if any (we don't need it)
+        self.row_cache.put(row.id, row);
     }
 
     /// Apply WHERE clause to filter rows
@@ -2134,7 +2136,7 @@ impl StorageEngine {
 
             // Apply changes
             self.compressed_blocks.remove(&row.id);
-            self.row_cache.remove(&row.id);
+            self.row_cache.pop(&row.id);
 
             let schema = self.metadata.tables.get(&query.table).unwrap().clone();
             self.update_indexes_for_delete(&schema, &row)?;
@@ -2304,7 +2306,7 @@ impl StorageEngine {
             // Parse row ID from key
             if let Ok(row_id) = key.parse::<RowId>() {
                 self.compressed_blocks.remove(&row_id);
-                self.row_cache.remove(&row_id);
+                self.row_cache.pop(&row_id);
 
                 debug!("✅ UNDO applied: removed row ID {}", row_id);
             } else {

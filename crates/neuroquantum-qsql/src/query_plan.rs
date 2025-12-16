@@ -7,6 +7,7 @@ use crate::ast::*;
 use crate::error::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 #[cfg(test)]
 use tracing::warn;
@@ -90,8 +91,10 @@ impl ExecutorConfig {
 pub struct QueryExecutor {
     config: ExecutorConfig,
     execution_stats: ExecutionStats,
-    // Storage engine integration (optional for backward compatibility)
-    storage_engine: Option<StorageEngine>,
+    // Storage engine integration via Arc for shared access
+    // None: executor not configured for production use
+    // Some: production mode with real storage
+    storage_engine: Option<Arc<tokio::sync::RwLock<StorageEngine>>>,
     // Neuromorphic learning integration (optional)
     learning_engine: Option<HebbianLearningEngine>,
     synaptic_network: Option<SynapticNetwork>,
@@ -173,7 +176,13 @@ impl QueryExecutor {
 
     /// Create executor with storage engine integration (production mode)
     /// This enables DNA compression, neuromorphic learning, and full query execution
-    pub fn with_storage(config: ExecutorConfig, storage_engine: StorageEngine) -> QSQLResult<Self> {
+    ///
+    /// Note: Uses `Arc<RwLock<StorageEngine>>` for thread-safe shared access,
+    /// allowing multiple query executors to share the same storage engine.
+    pub fn with_storage(
+        config: ExecutorConfig,
+        storage_engine: Arc<tokio::sync::RwLock<StorageEngine>>,
+    ) -> QSQLResult<Self> {
         // Initialize neuromorphic learning if enabled
         let learning_engine = if config.enable_neuromorphic_learning {
             Some(
@@ -206,7 +215,9 @@ impl QueryExecutor {
     }
 
     /// Set storage engine (for existing executors)
-    pub fn set_storage_engine(&mut self, storage_engine: StorageEngine) {
+    ///
+    /// Uses `Arc<RwLock<StorageEngine>>` for thread-safe shared access.
+    pub fn set_storage_engine(&mut self, storage_engine: Arc<tokio::sync::RwLock<StorageEngine>>) {
         self.storage_engine = Some(storage_engine);
     }
 
@@ -328,15 +339,15 @@ impl QueryExecutor {
             let storage_query = self.convert_select_to_storage_query(select)?;
 
             // Execute query via storage engine (automatically DNA-decompressed!)
-            let storage_rows = self
-                .storage_engine
-                .as_ref()
-                .unwrap()
+            // Acquire read lock for query execution
+            let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+            let storage_rows = storage_guard
                 .select_rows(&storage_query)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
                     message: format!("Storage select failed: {}", e),
                 })?;
+            drop(storage_guard); // Release lock early
 
             // Neuromorphic learning: learn from access pattern
             if self.config.enable_synaptic_optimization && select.synaptic_weight.is_some() {
@@ -434,15 +445,15 @@ impl QueryExecutor {
                 let row = Self::convert_insert_to_row_static(insert, value_set)?;
 
                 // Insert via storage engine (automatically DNA-compressed!)
-                let row_id = self
-                    .storage_engine
-                    .as_mut()
-                    .unwrap()
+                // Acquire write lock for mutation
+                let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
+                let row_id = storage_guard
                     .insert_row(&insert.table_name, row)
                     .await
                     .map_err(|e| QSQLError::ExecutionError {
                         message: format!("Storage insert failed: {}", e),
                     })?;
+                drop(storage_guard); // Release lock early
 
                 inserted_ids.push(row_id);
                 total_rows_affected += 1;
@@ -525,15 +536,15 @@ impl QueryExecutor {
             let storage_query = Self::convert_update_to_storage_query_static(update)?;
 
             // Execute update via storage engine (automatically DNA re-compressed!)
-            let rows_affected = self
-                .storage_engine
-                .as_mut()
-                .unwrap()
+            // Acquire write lock for mutation
+            let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
+            let rows_affected = storage_guard
                 .update_rows(&storage_query)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
                     message: format!("Storage update failed: {}", e),
                 })?;
+            drop(storage_guard); // Release lock early
 
             // Plasticity adaptation: strengthen connections for updated patterns
             if self.config.enable_neuromorphic_learning && update.plasticity_adaptation.is_some() {
@@ -595,15 +606,15 @@ impl QueryExecutor {
             let storage_query = Self::convert_delete_to_storage_query_static(delete)?;
 
             // Execute delete via storage engine (frees compressed DNA blocks!)
-            let rows_affected = self
-                .storage_engine
-                .as_mut()
-                .unwrap()
+            // Acquire write lock for mutation
+            let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
+            let rows_affected = storage_guard
                 .delete_rows(&storage_query)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
                     message: format!("Storage delete failed: {}", e),
                 })?;
+            drop(storage_guard); // Release lock early
 
             // Synaptic pruning: weaken connections for deleted data patterns
             if self.config.enable_neuromorphic_learning && delete.synaptic_pruning {

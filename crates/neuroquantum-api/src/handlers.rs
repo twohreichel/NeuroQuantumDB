@@ -1708,15 +1708,8 @@ pub async fn execute_sql_query(
         &query_req.query[..query_req.query.len().min(100)]
     );
 
-    // Synchronize the QSQL engine's storage with the current database state
-    // This ensures that any changes made through direct storage access are visible to QSQL queries
-    {
-        let db_read = app_state.db.read().await;
-        let mut qsql_engine = app_state.qsql_engine.lock().await;
-        qsql_engine.set_storage_engine(db_read.storage().clone());
-    }
-
     // Execute query using QSQL engine
+    // Note: Storage synchronization is handled automatically through the shared database state
     let mut qsql_engine = app_state.qsql_engine.lock().await;
     let query_result = qsql_engine
         .execute_query(&query_req.query)

@@ -202,37 +202,48 @@ admin_ip_whitelist = ["127.0.0.1", "::1"]
 - ✅ ACID-Transaktionen
 - ✅ Auto-Increment / SERIAL Columns
 
-**Potenzielle Performance-Probleme:**
+**~~Potenzielle Performance-Probleme:~~** ✅ Behoben (16. Dez 2025)
 
-#### 5.1.1 Row-Cache ohne LRU-Eviction
-**Zeile:** [storage.rs#L390](crates/neuroquantum-core/src/storage.rs#L390)
+#### 5.1.1 ~~Row-Cache ohne LRU-Eviction~~ ✅ Behoben
+**Zeile:** [storage.rs#L436](crates/neuroquantum-core/src/storage.rs#L436)
 
 ```rust
+// Vorher:
 row_cache: HashMap<RowId, Row>,
 cache_limit: usize,
+
+// Nachher:
+row_cache: LruCache<RowId, Row>,  // Automatische LRU-Eviction bei 10k Einträgen
 ```
 
-**Problem:** Der Cache hat ein Limit, aber keine Eviction-Strategie.
+**~~Problem:~~** Der Cache hat jetzt eine echte LRU-Eviction-Strategie.
 
-**Empfehlung:** 
-- Implementiere LRU-Cache (Dependency `lru` ist bereits vorhanden)
-- Oder verwende `hashbrown` mit TTL
+**Lösung:** 
+- ✅ LRU-Cache via `lru::LruCache` implementiert
+- ✅ Automatische Eviction der am längsten nicht zugegriffenen Einträge
+- ✅ O(1) amortisierte Zeitkomplexität für alle Operationen
 
-#### 5.1.2 Clone-Heavy StorageEngine
-**Zeile:** [storage.rs#L380](crates/neuroquantum-core/src/storage.rs#L380)
+#### 5.1.2 ~~Clone-Heavy StorageEngine~~ ✅ Behoben
+**Zeile:** [storage.rs#L415](crates/neuroquantum-core/src/storage.rs#L415)
 
 ```rust
+// Vorher:
 #[derive(Clone)]
 pub struct StorageEngine { ... }
+
+// Nachher:
+pub struct StorageEngine { ... }  // Kein Clone mehr - verwende Arc<RwLock<StorageEngine>>
 ```
 
-**Problem:** `StorageEngine` ist `Clone`, aber enthält große HashMap-Strukturen.
+**~~Problem:~~** `StorageEngine` ist nicht mehr `Clone`.
 
-**Risiko:** ⚠️ MITTEL - Unbeabsichtigtes Cloning kann zu Memory-Problemen führen.
+**~~Risiko:~~** ✅ Behoben - Kein unbeabsichtigtes Cloning mehr möglich.
 
-**Empfehlung:** 
-- Entferne `#[derive(Clone)]` 
-- Verwende `Arc<StorageEngine>` für Sharing
+**Lösung:** 
+- ✅ `#[derive(Clone)]` von `StorageEngine` entfernt
+- ✅ `#[derive(Clone)]` von `NeuroQuantumDB` entfernt
+- ✅ `Arc<tokio::sync::RwLock<StorageEngine>>` für Sharing im QSQL-Engine
+- ✅ `Arc<tokio::sync::RwLock<NeuroQuantumDB>>` in API-Server
 
 ### 5.2 Concurrency Model
 **Dateien:** Diverse
@@ -393,7 +404,7 @@ Ignorierte Advisories:
 3. ~~**Startup-Validierung für kritische Konfiguration**~~ ✅ Erledigt (15. Dez 2025)
 
 ### 9.3 Empfohlen ⚠️
-1. Row-Cache LRU-Eviction implementieren
+1. ~~Row-Cache LRU-Eviction implementieren~~ ✅ Erledigt (16. Dez 2025) - LRU-Cache implementiert via `lru::LruCache`, automatische Eviction bei 10k Einträgen, `Clone` von `StorageEngine` und `NeuroQuantumDB` entfernt für bessere Thread-Sicherheit
 2. ~~Legacy Mode aus Query Executor entfernen~~ ✅ Erledigt (15. Dez 2025) - Legacy Mode ist nun nur in `#[cfg(test)]`-Builds verfügbar
 3. Lock-Hierarchie dokumentieren
 4. Mehr Integration Tests
@@ -456,7 +467,7 @@ Das Projekt ist **technisch beeindruckend und innovativ**. Die Kernfunktionalit�
 | 🔴 KRITISCH | JWT Secret aus prod.toml entfernen | 30 Min | ✅ Erledigt |
 | 🔴 KRITISCH | Startup-Check für Secrets implementieren | 2 Std | ✅ Erledigt |
 | ⚠️ HOCH | Legacy Mode entfernen oder #[cfg(test)] markieren | 1 Std | ✅ Erledigt |
-| ⚠️ HOCH | LRU-Cache für Row-Cache | 4 Std | ⏳ Offen |
+| ⚠️ HOCH | LRU-Cache für Row-Cache | 4 Std | ✅ Erledigt |
 | 📝 MITTEL | Lock-Hierarchie dokumentieren | 2 Std | ⏳ Offen |
 | 📝 MITTEL | Mehr API-Integration-Tests | 8 Std | ⏳ Offen |
 

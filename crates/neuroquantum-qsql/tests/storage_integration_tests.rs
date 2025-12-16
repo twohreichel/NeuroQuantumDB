@@ -7,6 +7,7 @@
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
 use neuroquantum_qsql::{query_plan::QueryValue, ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Test that INSERT queries use DNA compression via storage engine
@@ -16,8 +17,9 @@ async fn test_insert_with_dna_compression() {
     let temp_dir = TempDir::new().unwrap();
     let storage_path = temp_dir.path();
 
-    // Initialize storage engine
-    let mut storage = StorageEngine::new(storage_path).await.unwrap();
+    // Initialize storage engine wrapped in Arc<RwLock> for shared access
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
 
     // Create test table
     let schema = TableSchema {
@@ -52,7 +54,10 @@ async fn test_insert_with_dna_compression() {
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
-    storage.create_table(schema).await.unwrap();
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
+    }
 
     // Create query executor with storage integration
     let config = ExecutorConfig {
@@ -62,7 +67,7 @@ async fn test_insert_with_dna_compression() {
         ..Default::default()
     };
 
-    let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
 
     // Parse and execute INSERT
     let parser = Parser::new();
@@ -86,7 +91,8 @@ async fn test_insert_with_dna_compression() {
         offset: None,
     };
 
-    let rows = storage.select_rows(&query).await.unwrap();
+    let storage_guard = storage_arc.read().await;
+    let rows = storage_guard.select_rows(&query).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(
         rows[0].fields.get("name"),
@@ -107,8 +113,9 @@ async fn test_select_with_dna_decompression() {
     let temp_dir = TempDir::new().unwrap();
     let storage_path = temp_dir.path();
 
-    // Initialize storage engine
-    let mut storage = StorageEngine::new(storage_path).await.unwrap();
+    // Initialize storage engine wrapped in Arc<RwLock>
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
 
     // Create test table
     let schema = TableSchema {
@@ -143,25 +150,28 @@ async fn test_select_with_dna_decompression() {
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
-    storage.create_table(schema).await.unwrap();
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
 
-    // Insert test data directly via storage (will be DNA compressed)
-    let mut row = neuroquantum_core::storage::Row {
-        id: 0,
-        fields: HashMap::new(),
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
-    row.fields.insert("id".to_string(), Value::Integer(1));
-    row.fields
-        .insert("name".to_string(), Value::Text("Widget".to_string()));
-    row.fields.insert("price".to_string(), Value::Float(19.99));
+        // Insert test data directly via storage (will be DNA compressed)
+        let mut row = neuroquantum_core::storage::Row {
+            id: 0,
+            fields: HashMap::new(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        row.fields.insert("id".to_string(), Value::Integer(1));
+        row.fields
+            .insert("name".to_string(), Value::Text("Widget".to_string()));
+        row.fields.insert("price".to_string(), Value::Float(19.99));
 
-    storage.insert_row("products", row).await.unwrap();
+        storage_guard.insert_row("products", row).await.unwrap();
+    }
 
     // Create query executor with storage integration
     let config = ExecutorConfig::default();
-    let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
 
     // Parse and execute SELECT
     let parser = Parser::new();
@@ -185,7 +195,8 @@ async fn test_update_with_dna_recompression() {
     let temp_dir = TempDir::new().unwrap();
     let storage_path = temp_dir.path();
 
-    let mut storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
 
     // Create and populate table
     let schema = TableSchema {
@@ -213,39 +224,42 @@ async fn test_update_with_dna_recompression() {
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
-    storage.create_table(schema).await.unwrap();
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
 
-    // Insert initial data
-    let mut row = neuroquantum_core::storage::Row {
-        id: 0,
-        fields: HashMap::new(),
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
-    row.fields.insert("id".to_string(), Value::Integer(1));
-    row.fields
-        .insert("salary".to_string(), Value::Float(50000.0));
+        // Insert initial data
+        let mut row = neuroquantum_core::storage::Row {
+            id: 0,
+            fields: HashMap::new(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        row.fields.insert("id".to_string(), Value::Integer(1));
+        row.fields
+            .insert("salary".to_string(), Value::Float(50000.0));
 
-    storage.insert_row("employees", row).await.unwrap();
+        storage_guard.insert_row("employees", row).await.unwrap();
 
-    // Verify the row was actually inserted
-    let verify_query = neuroquantum_core::storage::SelectQuery {
-        table: "employees".to_string(),
-        columns: vec!["*".to_string()],
-        where_clause: None,
-        order_by: None,
-        limit: None,
-        offset: None,
-    };
-    let rows_before = storage.select_rows(&verify_query).await.unwrap();
-    println!(
-        "📊 Rows before update in original storage: {}",
-        rows_before.len()
-    );
+        // Verify the row was actually inserted
+        let verify_query = neuroquantum_core::storage::SelectQuery {
+            table: "employees".to_string(),
+            columns: vec!["*".to_string()],
+            where_clause: None,
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+        let rows_before = storage_guard.select_rows(&verify_query).await.unwrap();
+        println!(
+            "📊 Rows before update in original storage: {}",
+            rows_before.len()
+        );
+    }
 
     // Create executor and execute UPDATE
     let config = ExecutorConfig::default();
-    let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
 
     // First, test if the executor can SELECT the data
     let parser = Parser::new();
@@ -300,7 +314,8 @@ async fn test_delete_with_dna_cleanup() {
     let temp_dir = TempDir::new().unwrap();
     let storage_path = temp_dir.path();
 
-    let mut storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
 
     // Create and populate table
     let schema = TableSchema {
@@ -328,27 +343,30 @@ async fn test_delete_with_dna_cleanup() {
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
-    storage.create_table(schema).await.unwrap();
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
 
-    // Insert test data
-    for i in 1..=3 {
-        let mut row = neuroquantum_core::storage::Row {
-            id: 0,
-            fields: HashMap::new(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
-        row.fields.insert("id".to_string(), Value::Integer(i));
-        row.fields.insert(
-            "message".to_string(),
-            Value::Text(format!("Log entry {}", i)),
-        );
-        storage.insert_row("logs", row).await.unwrap();
+        // Insert test data
+        for i in 1..=3 {
+            let mut row = neuroquantum_core::storage::Row {
+                id: 0,
+                fields: HashMap::new(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            };
+            row.fields.insert("id".to_string(), Value::Integer(i));
+            row.fields.insert(
+                "message".to_string(),
+                Value::Text(format!("Log entry {}", i)),
+            );
+            storage_guard.insert_row("logs", row).await.unwrap();
+        }
     }
 
     // Create executor and execute DELETE
     let config = ExecutorConfig::default();
-    let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
 
     // Note: Parser WHERE clause support for DELETE is limited
     // For now, test DELETE without WHERE (deletes all rows)
@@ -379,7 +397,8 @@ async fn test_delete_with_dna_cleanup() {
         offset: None,
     };
 
-    let rows = storage.select_rows(&query).await.unwrap();
+    let storage_guard = storage_arc.read().await;
+    let rows = storage_guard.select_rows(&query).await.unwrap();
     assert_eq!(
         rows.len(),
         0,

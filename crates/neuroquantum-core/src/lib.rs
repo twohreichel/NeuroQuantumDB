@@ -63,8 +63,25 @@ const MIN_QUANTUM_SEARCH_SPACE: usize = 4;
 /// Minimum quantum speedup threshold to ensure quantum performance exceeds classical
 const MIN_QUANTUM_SPEEDUP: f32 = 1.01;
 
-// Main database engine that integrates all components
-#[derive(Clone)]
+/// Main database engine that integrates all components
+///
+/// Note: `NeuroQuantumDB` is intentionally not `Clone`. For shared access across
+/// multiple tasks/threads, wrap it in `Arc<tokio::sync::RwLock<NeuroQuantumDB>>`.
+/// This prevents accidental cloning of large internal data structures and ensures
+/// consistent cache state across all accessors.
+///
+/// # Example
+///
+/// ```ignore
+/// use std::sync::Arc;
+/// use tokio::sync::RwLock;
+///
+/// let db = NeuroQuantumDBBuilder::new().build().await?;
+/// let shared_db = Arc::new(RwLock::new(db));
+///
+/// // Clone the Arc for sharing, not the database itself
+/// let db_clone = shared_db.clone();
+/// ```
 pub struct NeuroQuantumDB {
     storage: storage::StorageEngine,
     dna_compressor: dna::QuantumDNACompressor,

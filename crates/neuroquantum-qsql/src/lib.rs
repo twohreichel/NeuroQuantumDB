@@ -33,6 +33,7 @@ mod proptest_suite;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, instrument, warn};
 
@@ -178,8 +179,10 @@ impl QSQLEngine {
     /// Create a QSQL engine with a storage engine for production use.
     /// This ensures queries are executed against the actual storage instead of
     /// returning simulated data.
+    ///
+    /// Note: Uses `Arc<RwLock<StorageEngine>>` for thread-safe shared access.
     pub fn with_storage(
-        storage_engine: neuroquantum_core::storage::StorageEngine,
+        storage_engine: Arc<tokio::sync::RwLock<neuroquantum_core::storage::StorageEngine>>,
     ) -> anyhow::Result<Self> {
         let config = ExecutorConfig::default();
         let executor = QueryExecutor::with_storage(config, storage_engine)?;
@@ -196,7 +199,7 @@ impl QSQLEngine {
     /// This enables production mode query execution against the actual storage.
     pub fn set_storage_engine(
         &mut self,
-        storage_engine: neuroquantum_core::storage::StorageEngine,
+        storage_engine: Arc<tokio::sync::RwLock<neuroquantum_core::storage::StorageEngine>>,
     ) {
         self.executor.set_storage_engine(storage_engine);
     }
