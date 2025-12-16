@@ -28,8 +28,8 @@ async fn test_complete_workflow_with_query_statistics() {
     // 1. Setup database
     let (db, _temp_dir) = create_test_db().await;
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let schema = neuroquantum_core::storage::TableSchema {
             name: "users".to_string(),
@@ -78,8 +78,8 @@ async fn test_complete_workflow_with_query_statistics() {
 
     // 4. Insert test data with DNA compression
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let test_users = [
             ("alice", "alice@example.com"),
@@ -123,7 +123,7 @@ async fn test_complete_workflow_with_query_statistics() {
     // 5. Query data and verify DNA compression was used
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: "users".to_string(),
@@ -167,7 +167,7 @@ async fn test_complete_workflow_with_query_statistics() {
     // 6. Verify query statistics are properly tracked
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: "users".to_string(),
@@ -196,8 +196,8 @@ async fn test_concurrent_operations() {
 
     // Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let schema = neuroquantum_core::storage::TableSchema {
             name: "concurrent_test".to_string(),
@@ -237,7 +237,7 @@ async fn test_concurrent_operations() {
         let db_clone = Arc::clone(&db);
         let handle = tokio::spawn(async move {
             let db_lock = db_clone.read().await;
-            let storage = db_lock.storage();
+            let storage = db_lock.storage().await;
 
             let query = neuroquantum_core::storage::SelectQuery {
                 table: "concurrent_test".to_string(),
@@ -268,8 +268,8 @@ async fn test_query_statistics_accuracy() {
 
     // Create and populate table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let schema = neuroquantum_core::storage::TableSchema {
             name: "stats_test".to_string(),
@@ -324,7 +324,7 @@ async fn test_query_statistics_accuracy() {
     // Test query statistics
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: "stats_test".to_string(),

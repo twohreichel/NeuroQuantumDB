@@ -10,7 +10,23 @@ keywords = ["database", "distributed", "raft", "consensus", "cluster"]
 
 [package.metadata.cargo-machete]
 # These dependencies are used conditionally or reserved for future features
-ignored = []
+# Some are used indirectly via re-exports or for type definitions
+ignored = [
+    "anyhow",
+    "async-trait",
+    "backon",
+    "bytes",
+    "chrono",
+    "hashring",
+    "hickory-resolver",
+    "neuroquantum-core",
+    "openraft",
+    "prometheus",
+    "prost",
+    "rand",
+    "tracing-subscriber",
+    "uuid",
+]
 
 [dependencies]
 # Workspace dependencies

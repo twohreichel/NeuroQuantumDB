@@ -84,7 +84,7 @@ const MIN_QUANTUM_SPEEDUP: f32 = 1.01;
 /// let db_clone = shared_db.clone();
 /// ```
 pub struct NeuroQuantumDB {
-    storage: storage::StorageEngine,
+    storage: std::sync::Arc<tokio::sync::RwLock<storage::StorageEngine>>,
     dna_compressor: dna::QuantumDNACompressor,
     config: NeuroQuantumConfig,
 }
@@ -250,6 +250,9 @@ impl NeuroQuantumDBBuilder {
             .await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
 
+        // Wrap storage in Arc<RwLock> for thread-safe sharing with QSQL engine
+        let storage = std::sync::Arc::new(tokio::sync::RwLock::new(storage));
+
         info!("✅ NeuroQuantumDB fully initialized and ready for use");
 
         Ok(NeuroQuantumDB {
@@ -363,6 +366,7 @@ impl NeuroQuantumDB {
 
         // Create a placeholder storage engine - will be properly initialized in async init method
         let storage = storage::StorageEngine::new_placeholder(&config.storage_path);
+        let storage = std::sync::Arc::new(tokio::sync::RwLock::new(storage));
 
         Self {
             storage,
@@ -400,9 +404,10 @@ impl NeuroQuantumDB {
     )]
     pub async fn init(&mut self) -> Result<(), NeuroQuantumError> {
         // Properly initialize the storage engine
-        self.storage = storage::StorageEngine::new(&self.config.storage_path)
+        let new_storage = storage::StorageEngine::new(&self.config.storage_path)
             .await
             .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+        self.storage = std::sync::Arc::new(tokio::sync::RwLock::new(new_storage));
         Ok(())
     }
 
@@ -429,11 +434,14 @@ impl NeuroQuantumDB {
         let serialized = serde_json::to_vec(&compressed)
             .map_err(|e| NeuroQuantumError::SerializationError(e.to_string()))?;
 
-        // Store in underlying storage engine
-        self.storage
-            .store(key, &serialized)
-            .await
-            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+        // Store in underlying storage engine (acquire write lock)
+        {
+            let mut storage = self.storage.write().await;
+            storage
+                .store(key, &serialized)
+                .await
+                .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+        };
 
         tracing::info!(
             "Successfully stored compressed data: {:.2}% compression ratio",
@@ -447,12 +455,14 @@ impl NeuroQuantumDB {
     pub async fn retrieve_compressed(&self, key: &str) -> Result<Vec<u8>, NeuroQuantumError> {
         tracing::info!("Retrieving compressed data for key: {}", key);
 
-        // Retrieve from storage
-        let serialized = self
-            .storage
-            .retrieve(key)
-            .await
-            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+        // Retrieve from storage (acquire read lock)
+        let serialized = {
+            let storage = self.storage.read().await;
+            storage
+                .retrieve(key)
+                .await
+                .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?
+        };
 
         // Check if data exists
         let data = match serialized {
@@ -491,11 +501,13 @@ impl NeuroQuantumDB {
 
     /// Validate stored compressed data integrity
     pub async fn validate_data_integrity(&self, key: &str) -> Result<bool, NeuroQuantumError> {
-        let serialized = self
-            .storage
-            .retrieve(key)
-            .await
-            .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?;
+        let serialized = {
+            let storage = self.storage.read().await;
+            storage
+                .retrieve(key)
+                .await
+                .map_err(|e| NeuroQuantumError::StorageError(e.to_string()))?
+        };
 
         // Check if data exists
         let data = match serialized {
@@ -517,14 +529,30 @@ impl NeuroQuantumDB {
             .map_err(|e| NeuroQuantumError::CompressionError(e.to_string()))
     }
 
-    /// Get mutable reference to storage engine
-    pub fn storage_mut(&mut self) -> &mut storage::StorageEngine {
-        &mut self.storage
+    /// Get mutable reference to storage engine.
+    ///
+    /// This method acquires a write lock on the storage engine. The returned
+    /// guard will release the lock when dropped.
+    pub async fn storage_mut(&self) -> tokio::sync::RwLockWriteGuard<'_, storage::StorageEngine> {
+        self.storage.write().await
     }
 
-    /// Get reference to storage engine
-    pub fn storage(&self) -> &storage::StorageEngine {
-        &self.storage
+    /// Get read reference to storage engine.
+    ///
+    /// This method acquires a read lock on the storage engine. The returned
+    /// guard will release the lock when dropped.
+    pub async fn storage(&self) -> tokio::sync::RwLockReadGuard<'_, storage::StorageEngine> {
+        self.storage.read().await
+    }
+
+    /// Get a cloneable Arc reference to the storage engine.
+    ///
+    /// This is useful for sharing the storage engine with other components
+    /// like the QSQL engine that need their own reference to the storage.
+    pub fn storage_engine_arc(
+        &self,
+    ) -> std::sync::Arc<tokio::sync::RwLock<storage::StorageEngine>> {
+        self.storage.clone()
     }
 }
 

@@ -90,8 +90,8 @@ fn create_test_schema(table_name: &str) -> TableSchema {
 
 /// Helper to insert test data
 async fn insert_test_data(db: &Arc<RwLock<NeuroQuantumDB>>, table: &str, count: usize) {
-    let mut db_lock = db.write().await;
-    let storage = db_lock.storage_mut();
+    let db_lock = db.write().await;
+    let mut storage = db_lock.storage_mut().await;
 
     for i in 0..count {
         let mut fields = HashMap::new();
@@ -123,8 +123,8 @@ async fn test_complete_api_workflow_crud() {
 
     // 1. Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage
             .create_table(schema)
@@ -139,7 +139,7 @@ async fn test_complete_api_workflow_crud() {
     // 3. Read data with various filters
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         // Query all
         let query = SelectQuery {
@@ -184,8 +184,8 @@ async fn test_complete_api_workflow_crud() {
 
     // 4. Update data
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         // Update a specific row using UpdateQuery
         let mut set_values = HashMap::new();
@@ -216,7 +216,7 @@ async fn test_complete_api_workflow_crud() {
     // 5. Verify update
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = SelectQuery {
             table: table_name.to_string(),
@@ -249,8 +249,8 @@ async fn test_complete_api_workflow_crud() {
 
     // 6. Delete data
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let delete_query = DeleteQuery {
             table: table_name.to_string(),
@@ -274,7 +274,7 @@ async fn test_complete_api_workflow_crud() {
     // 7. Verify deletion
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = SelectQuery {
             table: table_name.to_string(),
@@ -304,8 +304,8 @@ async fn test_complex_multi_table_workflow() {
 
     // Create multiple related tables
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         // Users table
         let users_schema = TableSchema {
@@ -372,8 +372,8 @@ async fn test_complex_multi_table_workflow() {
 
     // Insert users
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         for i in 1..=10 {
             let mut fields = HashMap::new();
@@ -393,8 +393,8 @@ async fn test_complex_multi_table_workflow() {
 
     // Insert posts for users
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         for i in 1..=30 {
             let mut fields = HashMap::new();
@@ -419,7 +419,7 @@ async fn test_complex_multi_table_workflow() {
     // Query and verify relationships
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let users = storage
             .select_rows(&SelectQuery {
@@ -459,16 +459,16 @@ async fn test_transaction_like_workflow() {
 
     // Setup table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
 
     // Simulate a multi-step transaction
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         // Step 1: Insert initial data
         for i in 0..5 {
@@ -505,7 +505,7 @@ async fn test_transaction_like_workflow() {
     // Verify all updates succeeded
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = SelectQuery {
             table: table_name.to_string(),
@@ -633,21 +633,21 @@ async fn test_crash_recovery_wal_replay() {
 
     // Phase 1: Create database and insert data
     {
-        let mut db = NeuroQuantumDBBuilder::new()
+        let db = NeuroQuantumDBBuilder::new()
             .storage_path(storage_path.clone())
             .build()
             .await
             .expect("Failed to initialize");
 
         {
-            let storage = db.storage_mut();
+            let mut storage = db.storage_mut().await;
             let schema = create_test_schema("recovery_test");
             storage.create_table(schema).await.unwrap();
         }
 
         // Insert data
         {
-            let storage = db.storage_mut();
+            let mut storage = db.storage_mut().await;
             for i in 0..20 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
@@ -667,7 +667,7 @@ async fn test_crash_recovery_wal_replay() {
         }
 
         // Ensure data is persisted
-        db.storage_mut().flush_to_disk().await.unwrap();
+        db.storage_mut().await.flush_to_disk().await.unwrap();
     }
     // Database "crashes" here (dropped)
 
@@ -680,7 +680,7 @@ async fn test_crash_recovery_wal_replay() {
             .expect("Failed to recover database");
 
         // Verify data is intact
-        let storage = db.storage();
+        let storage = db.storage().await;
         let rows = storage
             .select_rows(&SelectQuery {
                 table: "recovery_test".to_string(),
@@ -719,21 +719,21 @@ async fn test_backup_and_restore() {
 
     // Create database with data
     {
-        let mut db = NeuroQuantumDBBuilder::new()
+        let db = NeuroQuantumDBBuilder::new()
             .storage_path(storage_path.clone())
             .build()
             .await
             .unwrap();
 
         {
-            let storage = db.storage_mut();
+            let mut storage = db.storage_mut().await;
             let schema = create_test_schema("backup_test");
             storage.create_table(schema).await.unwrap();
         }
 
         // Insert test data
         {
-            let storage = db.storage_mut();
+            let mut storage = db.storage_mut().await;
             for i in 0..10 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
@@ -776,6 +776,7 @@ async fn test_backup_and_restore() {
         // Verify data is intact after "restore"
         let rows = db
             .storage()
+            .await
             .select_rows(&SelectQuery {
                 table: "backup_test".to_string(),
                 columns: vec!["*".to_string()],
@@ -810,8 +811,8 @@ async fn test_data_corruption_detection() {
 
     // Create table and insert data
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -821,7 +822,7 @@ async fn test_data_corruption_detection() {
     // Verify data integrity through checksums
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let rows = storage
             .select_rows(&SelectQuery {
@@ -857,21 +858,21 @@ async fn test_concurrent_recovery_operations() {
 
     // Setup database with data
     {
-        let mut db = NeuroQuantumDBBuilder::new()
+        let db = NeuroQuantumDBBuilder::new()
             .storage_path(storage_path.clone())
             .build()
             .await
             .unwrap();
 
         {
-            let storage = db.storage_mut();
+            let mut storage = db.storage_mut().await;
             let schema = create_test_schema("concurrent_recovery");
             storage.create_table(schema).await.unwrap();
         }
 
         // Insert data
         {
-            let storage = db.storage_mut();
+            let mut storage = db.storage_mut().await;
             for i in 0..50 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));

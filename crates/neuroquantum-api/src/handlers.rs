@@ -459,9 +459,10 @@ pub async fn create_table(
     };
 
     // Create table in database
-    let mut db_lock = db.as_ref().write().await;
+    let db_lock = db.as_ref().read().await;
     db_lock
         .storage_mut()
+        .await
         .create_table(storage_schema.clone())
         .await
         .map_err(|e| ApiError::InternalServerError {
@@ -553,7 +554,7 @@ pub async fn insert_data(
     let mut failed_count = 0;
     let mut errors = Vec::new();
 
-    let mut db_lock = db.as_ref().write().await;
+    let db_lock = db.as_ref().read().await;
 
     for (idx, record) in insert_req.records.iter().enumerate() {
         if record.is_empty() {
@@ -590,7 +591,12 @@ pub async fn insert_data(
             updated_at: chrono::Utc::now(),
         };
 
-        match db_lock.storage_mut().insert_row(&table_name, row).await {
+        match db_lock
+            .storage_mut()
+            .await
+            .insert_row(&table_name, row)
+            .await
+        {
             Ok(row_id) => {
                 inserted_ids.push(row_id.to_string());
             }
@@ -686,8 +692,8 @@ pub async fn query_data(
     // Execute real query on storage engine
     use neuroquantum_core::storage::SelectQuery;
 
-    let mut db_lock = db.as_ref().write().await;
-    let storage = db_lock.storage_mut();
+    let db_lock = db.as_ref().read().await;
+    let storage = db_lock.storage_mut().await;
 
     // Build SelectQuery from request
     let select_query = SelectQuery {

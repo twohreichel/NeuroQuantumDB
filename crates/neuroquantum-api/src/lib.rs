@@ -75,16 +75,18 @@ impl AppState {
         };
         let rate_limit_service = RateLimitService::new(rate_limit_config).await?;
 
+        // Get the storage engine Arc from the database for sharing with QSQL engine
+        let storage_engine_arc = db.storage_engine_arc();
+
         // Wrap the database in Arc<RwLock> for shared access
         let db_arc = Arc::new(tokio::sync::RwLock::new(db));
 
-        // Initialize QSQL engine without storage initially
-        // The storage will be accessed through the shared db_arc when executing queries
-        let qsql_engine = neuroquantum_qsql::QSQLEngine::new()
+        // Initialize QSQL engine with the shared storage engine
+        let qsql_engine = neuroquantum_qsql::QSQLEngine::with_storage(storage_engine_arc)
             .map_err(|e| anyhow::anyhow!("Failed to initialize QSQL engine: {}", e))?;
         let qsql_engine_arc = Arc::new(tokio::sync::Mutex::new(qsql_engine));
 
-        tracing::info!("🔗 QSQL engine initialized (storage access via shared database)");
+        tracing::info!("🔗 QSQL engine initialized with shared storage engine");
 
         // Initialize WebSocket service with QSQL engine
         let ws_config = ConnectionConfig::default();

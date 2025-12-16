@@ -80,8 +80,8 @@ fn create_test_schema(table_name: &str) -> neuroquantum_core::storage::TableSche
 
 /// Insert test data into a table
 async fn insert_test_data(db: &Arc<RwLock<NeuroQuantumDB>>, table: &str, count: usize) {
-    let mut db_lock = db.write().await;
-    let storage = db_lock.storage_mut();
+    let db_lock = db.write().await;
+    let mut storage = db_lock.storage_mut().await;
 
     for i in 0..count {
         let mut fields = HashMap::new();
@@ -172,8 +172,8 @@ async fn test_create_table_with_valid_schema() {
 
     // Create table with valid schema
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
 
         let result = storage.create_table(schema).await;
@@ -183,7 +183,7 @@ async fn test_create_table_with_valid_schema() {
     // Verify table exists by querying it
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -210,8 +210,8 @@ async fn test_create_table_with_duplicate_name_fails() {
 
     // Create first table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
 
         storage
@@ -222,8 +222,8 @@ async fn test_create_table_with_duplicate_name_fails() {
 
     // Try to create duplicate table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
 
         let result = storage.create_table(schema).await;
@@ -284,8 +284,8 @@ async fn test_create_table_with_various_column_types() {
     };
 
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let result = storage.create_table(schema).await;
         assert!(
@@ -306,16 +306,16 @@ async fn test_insert_single_record() {
 
     // Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
 
     // Insert single record
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let mut fields = HashMap::new();
         fields.insert(
@@ -349,7 +349,7 @@ async fn test_insert_single_record() {
     // Verify record exists
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -372,8 +372,8 @@ async fn test_insert_batch_records() {
 
     // Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -385,7 +385,7 @@ async fn test_insert_batch_records() {
     // Verify all records exist
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -413,16 +413,16 @@ async fn test_insert_with_null_values() {
 
     // Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
 
     // Insert record with null values
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let mut fields = HashMap::new();
         fields.insert(
@@ -465,8 +465,8 @@ async fn test_query_all_records() {
 
     // Setup: Create table and insert data
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -476,7 +476,7 @@ async fn test_query_all_records() {
     // Query all records
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -499,8 +499,8 @@ async fn test_query_with_limit_and_offset() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -510,7 +510,7 @@ async fn test_query_with_limit_and_offset() {
     // Query with limit
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -528,7 +528,7 @@ async fn test_query_with_limit_and_offset() {
     // Query with limit and offset
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -550,7 +550,7 @@ async fn test_query_with_limit_and_offset() {
     // Query with offset beyond data
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -577,8 +577,8 @@ async fn test_query_with_where_clause() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -588,7 +588,7 @@ async fn test_query_with_where_clause() {
     // Query with WHERE clause (id = 5)
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -621,8 +621,8 @@ async fn test_query_with_column_projection() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -632,7 +632,7 @@ async fn test_query_with_column_projection() {
     // Query with specific columns
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -665,8 +665,8 @@ async fn test_update_single_record() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -675,8 +675,8 @@ async fn test_update_single_record() {
 
     // Update record with id=5
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let mut set_values = HashMap::new();
         set_values.insert(
@@ -707,7 +707,7 @@ async fn test_update_single_record() {
     // Verify update
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -746,8 +746,8 @@ async fn test_update_multiple_records() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -756,8 +756,8 @@ async fn test_update_multiple_records() {
 
     // Update all records with active=true (should be half)
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let mut set_values = HashMap::new();
         set_values.insert(
@@ -793,8 +793,8 @@ async fn test_delete_single_record() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -803,8 +803,8 @@ async fn test_delete_single_record() {
 
     // Delete record with id=5
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let delete_query = neuroquantum_core::storage::DeleteQuery {
             table: table_name.to_string(),
@@ -824,7 +824,7 @@ async fn test_delete_single_record() {
     // Verify deletion
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -848,7 +848,7 @@ async fn test_delete_single_record() {
     // Verify other records still exist
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -871,8 +871,8 @@ async fn test_delete_multiple_records() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -881,8 +881,8 @@ async fn test_delete_multiple_records() {
 
     // Delete all inactive records (active=false)
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let delete_query = neuroquantum_core::storage::DeleteQuery {
             table: table_name.to_string(),
@@ -902,7 +902,7 @@ async fn test_delete_multiple_records() {
     // Verify remaining records
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -929,8 +929,8 @@ async fn test_query_statistics_tracking() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -940,7 +940,7 @@ async fn test_query_statistics_tracking() {
     // Query with statistics
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -977,8 +977,8 @@ async fn test_concurrent_read_operations() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -994,7 +994,7 @@ async fn test_concurrent_read_operations() {
 
         let handle = tokio::spawn(async move {
             let db_lock = db_clone.read().await;
-            let storage = db_lock.storage();
+            let storage = db_lock.storage().await;
 
             let query = neuroquantum_core::storage::SelectQuery {
                 table,
@@ -1032,8 +1032,8 @@ async fn test_concurrent_read_write_operations() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -1050,7 +1050,7 @@ async fn test_concurrent_read_write_operations() {
     let read_handle = tokio::spawn(async move {
         for _ in 0..5 {
             let db_lock = db_clone1.read().await;
-            let storage = db_lock.storage();
+            let storage = db_lock.storage().await;
 
             let query = neuroquantum_core::storage::SelectQuery {
                 table: table1.clone(),
@@ -1069,8 +1069,8 @@ async fn test_concurrent_read_write_operations() {
     // Write task
     let write_handle = tokio::spawn(async move {
         for i in 100..105 {
-            let mut db_lock = db_clone2.write().await;
-            let storage = db_lock.storage_mut();
+            let db_lock = db_clone2.write().await;
+            let mut storage = db_lock.storage_mut().await;
 
             let mut fields = HashMap::new();
             fields.insert(
@@ -1098,7 +1098,8 @@ async fn test_concurrent_read_write_operations() {
             };
 
             let _ = storage.insert_row(&table2, row).await;
-            drop(db_lock); // Explicitly release lock
+            drop(storage); // Release storage guard first
+            drop(db_lock); // Then release db lock
             tokio::time::sleep(tokio::time::Duration::from_millis(5)).await;
         }
     });
@@ -1109,7 +1110,7 @@ async fn test_concurrent_read_write_operations() {
     // Verify final state
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -1139,8 +1140,8 @@ async fn test_query_empty_table() {
 
     // Create empty table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -1148,7 +1149,7 @@ async fn test_query_empty_table() {
     // Query empty table
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -1171,7 +1172,7 @@ async fn test_query_nonexistent_table() {
     // Query non-existent table
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: "nonexistent_table".to_string(),
@@ -1194,8 +1195,8 @@ async fn test_large_text_values() {
 
     // Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -1204,8 +1205,8 @@ async fn test_large_text_values() {
     let large_text = "x".repeat(100_000); // 100KB text
 
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let mut fields = HashMap::new();
         fields.insert(
@@ -1239,7 +1240,7 @@ async fn test_large_text_values() {
     // Verify large text was stored correctly
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -1272,8 +1273,8 @@ async fn test_special_characters_in_text() {
 
     // Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -1291,8 +1292,8 @@ async fn test_special_characters_in_text() {
     ];
 
     for (i, text) in special_texts.iter().enumerate() {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let mut fields = HashMap::new();
         fields.insert(
@@ -1330,7 +1331,7 @@ async fn test_special_characters_in_text() {
     // Verify all records were stored
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -1357,8 +1358,8 @@ async fn test_integer_boundary_values() {
 
     // Use the standard test schema
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -1375,8 +1376,8 @@ async fn test_integer_boundary_values() {
 
     let mut inserted_count = 0;
     for (i, &value) in test_values.iter().enumerate() {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
 
         let mut fields = HashMap::new();
         fields.insert(
@@ -1417,7 +1418,7 @@ async fn test_integer_boundary_values() {
     // Verify we can retrieve records
     {
         let db_lock = db.read().await;
-        let storage = db_lock.storage();
+        let storage = db_lock.storage().await;
 
         let query = neuroquantum_core::storage::SelectQuery {
             table: table_name.to_string(),
@@ -1464,8 +1465,8 @@ async fn test_insert_and_immediate_read() {
 
     // Create table
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -1474,8 +1475,8 @@ async fn test_insert_and_immediate_read() {
     for i in 0..10 {
         // Insert
         {
-            let mut db_lock = db.write().await;
-            let storage = db_lock.storage_mut();
+            let db_lock = db.write().await;
+            let mut storage = db_lock.storage_mut().await;
 
             let mut fields = HashMap::new();
             fields.insert(
@@ -1508,7 +1509,7 @@ async fn test_insert_and_immediate_read() {
         // Immediately verify
         {
             let db_lock = db.read().await;
-            let storage = db_lock.storage();
+            let storage = db_lock.storage().await;
 
             let query = neuroquantum_core::storage::SelectQuery {
                 table: table_name.to_string(),
@@ -1543,8 +1544,8 @@ async fn test_update_and_immediate_verify() {
 
     // Setup
     {
-        let mut db_lock = db.write().await;
-        let storage = db_lock.storage_mut();
+        let db_lock = db.write().await;
+        let mut storage = db_lock.storage_mut().await;
         let schema = create_test_schema(table_name);
         storage.create_table(schema).await.unwrap();
     }
@@ -1557,8 +1558,8 @@ async fn test_update_and_immediate_verify() {
 
         // Update
         {
-            let mut db_lock = db.write().await;
-            let storage = db_lock.storage_mut();
+            let db_lock = db.write().await;
+            let mut storage = db_lock.storage_mut().await;
 
             let mut set_values = HashMap::new();
             set_values.insert(
@@ -1584,7 +1585,7 @@ async fn test_update_and_immediate_verify() {
         // Immediately verify
         {
             let db_lock = db.read().await;
-            let storage = db_lock.storage();
+            let storage = db_lock.storage().await;
 
             let query = neuroquantum_core::storage::SelectQuery {
                 table: table_name.to_string(),
