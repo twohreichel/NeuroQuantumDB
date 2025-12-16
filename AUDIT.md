@@ -322,17 +322,21 @@ Alle kortikalen Neuronentypen implementiert:
 ### 6.3 Query Executor
 **Datei:** [crates/neuroquantum-qsql/src/query_plan.rs](crates/neuroquantum-qsql/src/query_plan.rs)
 
-**Problem:** Legacy Mode
+**~~Problem:~~** ✅ Behoben (15. Dez 2025) - Legacy Mode
 
 ```rust
+#[cfg(test)]
 pub allow_legacy_mode: bool,
 ```
 
-**Risiko:** ⚠️ MITTEL
-- Legacy Mode gibt simulierte Daten zurück statt echte Storage-Daten
-- Default ist `false` (gut), aber sollte in Production komplett deaktiviert sein
+**~~Risiko:~~** ✅ Behoben
+- ~~Legacy Mode gibt simulierte Daten zurück statt echte Storage-Daten~~
+- ~~Default ist `false` (gut), aber sollte in Production komplett deaktiviert sein~~
 
-**Empfehlung:** Entferne Legacy Mode komplett oder markiere als `#[cfg(test)]`
+**Lösung:**
+- ✅ `allow_legacy_mode` Feld ist nun mit `#[cfg(test)]` markiert und nur in Test-Builds verfügbar
+- ✅ `ExecutorConfig::testing()` Methode ebenfalls nur in Test-Builds verfügbar
+- ✅ In Release-Builds existiert das Feld nicht, daher kann Legacy Mode nicht versehentlich aktiviert werden
 
 ---
 
