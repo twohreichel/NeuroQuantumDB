@@ -407,8 +407,14 @@ impl SynapticNetwork {
 
     /// Hebbian learning update - "Neurons that fire together, wire together"
     pub fn hebbian_update(&self, _input_pattern: &[f32], _target_output: &[f32]) -> CoreResult<()> {
-        let mut synapses = self.synapses.write().unwrap();
-        let neurons = self.neurons.read().unwrap();
+        let mut synapses = self
+            .synapses
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on synapses".into()))?;
+        let neurons = self
+            .neurons
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on neurons".into()))?;
 
         for synapse in synapses.iter_mut() {
             if let (Some(pre_neuron), Some(post_neuron)) = (
@@ -440,7 +446,9 @@ impl SynapticNetwork {
         performance_metric: f32,
     ) -> CoreResult<()> {
         let query_hash = self.hash_query_pattern(query_embedding);
-        let mut patterns = self.query_patterns.write().unwrap();
+        let mut patterns = self.query_patterns.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on query_patterns".into())
+        })?;
 
         let pattern = patterns
             .entry(query_hash.clone())
@@ -489,7 +497,10 @@ impl SynapticNetwork {
 
     /// Find optimal neurons for a query pattern
     fn find_optimal_neurons_for_pattern(&self, embedding: &[f32]) -> CoreResult<Vec<u64>> {
-        let neurons = self.neurons.read().unwrap();
+        let neurons = self
+            .neurons
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on neurons".into()))?;
         let mut scored_neurons: Vec<(u64, f32)> = Vec::new();
 
         for (id, neuron) in neurons.iter() {
@@ -514,7 +525,10 @@ impl SynapticNetwork {
 
     /// Strengthen synaptic pathway for frequently used routes
     fn strengthen_pathway(&self, neuron_ids: &[u64]) -> CoreResult<()> {
-        let mut synapses = self.synapses.write().unwrap();
+        let mut synapses = self
+            .synapses
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on synapses".into()))?;
 
         for window in neuron_ids.windows(2) {
             let (pre_id, post_id) = (window[0], window[1]);
@@ -534,7 +548,10 @@ impl SynapticNetwork {
 
     /// Add a neuron to the network
     pub fn add_neuron(&self, neuron: Neuron) -> CoreResult<()> {
-        let mut neurons = self.neurons.write().unwrap();
+        let mut neurons = self
+            .neurons
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on neurons".into()))?;
 
         if neurons.contains_key(&neuron.id) {
             return Err(CoreError::InvalidOperation(format!(
@@ -549,8 +566,13 @@ impl SynapticNetwork {
 
     /// Add a synapse connecting two neurons
     pub fn add_synapse(&self, synapse: Synapse) -> CoreResult<()> {
-        let mut synapses = self.synapses.write().unwrap();
-        let mut total_connections = self.total_connections.write().unwrap();
+        let mut synapses = self
+            .synapses
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on synapses".into()))?;
+        let mut total_connections = self.total_connections.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on total_connections".into())
+        })?;
 
         synapses.push(synapse);
         *total_connections += 1;
@@ -560,8 +582,14 @@ impl SynapticNetwork {
 
     /// Forward propagation through the network
     pub fn forward_propagate(&self, inputs: &[f32]) -> CoreResult<Vec<f32>> {
-        let mut neurons = self.neurons.write().unwrap();
-        let synapses = self.synapses.read().unwrap();
+        let mut neurons = self
+            .neurons
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on neurons".into()))?;
+        let synapses = self
+            .synapses
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on synapses".into()))?;
 
         // Reset neuron inputs
         for neuron in neurons.values_mut() {
@@ -600,7 +628,9 @@ impl SynapticNetwork {
 
     /// Select optimal index based on learned patterns
     pub fn select_adaptive_index(&self, query_embedding: &[f32]) -> CoreResult<Option<String>> {
-        let patterns = self.query_patterns.read().unwrap();
+        let patterns = self.query_patterns.read().map_err(|_| {
+            CoreError::LockError("Failed to acquire read lock on query_patterns".into())
+        })?;
         let query_hash = self.hash_query_pattern(query_embedding);
 
         // Check if we have learned an optimal pattern for this query
@@ -624,7 +654,10 @@ impl SynapticNetwork {
         &self,
         activation_pairs: &[(u64, u64, f32)],
     ) -> CoreResult<()> {
-        let mut synapses = self.synapses.write().unwrap();
+        let mut synapses = self
+            .synapses
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on synapses".into()))?;
 
         for &(pre_id, post_id, correlation) in activation_pairs {
             for synapse in synapses.iter_mut() {
@@ -652,7 +685,9 @@ impl SynapticNetwork {
 
     /// Consolidate memory by strengthening important pathways
     pub fn consolidate_memory(&self, importance_threshold: f32) -> CoreResult<()> {
-        let patterns = self.query_patterns.read().unwrap();
+        let patterns = self.query_patterns.read().map_err(|_| {
+            CoreError::LockError("Failed to acquire read lock on query_patterns".into())
+        })?;
         let mut ltp_pairs = Vec::new();
 
         // Identify important patterns for consolidation
@@ -676,7 +711,10 @@ impl SynapticNetwork {
     /// Add a node to the network
     #[instrument(level = "debug", skip(self, node))]
     pub fn add_node(&self, node: SynapticNode) -> CoreResult<()> {
-        let mut nodes = self.nodes.write().unwrap();
+        let mut nodes = self
+            .nodes
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on nodes".into()))?;
 
         if nodes.len() >= self.max_nodes {
             return Err(CoreError::ResourceExhausted(format!(
@@ -692,7 +730,9 @@ impl SynapticNetwork {
             )));
         }
 
-        let mut memory_usage = self.memory_usage.write().unwrap();
+        let mut memory_usage = self.memory_usage.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on memory_usage".into())
+        })?;
         *memory_usage += node.memory_usage();
         nodes.insert(node.id, node);
 
@@ -703,7 +743,12 @@ impl SynapticNetwork {
     /// Store data in the network and return an ID
     pub async fn store_data(&self, data: crate::dna::EncodedData) -> CoreResult<String> {
         // Generate a new node ID
-        let node_id = self.nodes.read().unwrap().len() as u64 + 1;
+        let node_id = self
+            .nodes
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on nodes".into()))?
+            .len() as u64
+            + 1;
 
         // Create a new node with the encoded data
         let mut node = SynapticNode::new(node_id);
@@ -754,7 +799,10 @@ impl SynapticNetwork {
         let mut weak_connections = Vec::new();
 
         // Use read lock and process in chunks to avoid long lock times
-        let nodes = self.nodes.read().unwrap();
+        let nodes = self
+            .nodes
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on nodes".into()))?;
 
         for (node_id, node) in nodes.iter() {
             for (i, connection) in node.connections.iter().enumerate() {
@@ -787,8 +835,13 @@ impl SynapticNetwork {
                 .push(connection_idx);
         }
 
-        let mut nodes = self.nodes.write().unwrap();
-        let mut total_connections = self.total_connections.write().unwrap();
+        let mut nodes = self
+            .nodes
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on nodes".into()))?;
+        let mut total_connections = self.total_connections.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on total_connections".into())
+        })?;
         let mut removed_count = 0;
 
         for (node_id, mut indices) in removals_by_node {
@@ -813,19 +866,21 @@ impl SynapticNetwork {
 
     /// Update memory usage cache efficiently
     fn update_memory_usage_cache(&self) {
-        let nodes = self.nodes.read().unwrap();
-        let total_memory: usize = nodes.values().map(|node| node.memory_usage()).sum();
+        if let Ok(nodes) = self.nodes.read() {
+            let total_memory: usize = nodes.values().map(|node| node.memory_usage()).sum();
 
-        if let Ok(mut memory_usage) = self.memory_usage.write() {
-            *memory_usage = total_memory;
+            if let Ok(mut memory_usage) = self.memory_usage.write() {
+                *memory_usage = total_memory;
+            }
         }
     }
 
     /// Apply decay to all nodes (simulating natural forgetting)
     pub fn apply_global_decay(&self) {
-        let mut nodes = self.nodes.write().unwrap();
-        for node in nodes.values_mut() {
-            node.apply_decay();
+        if let Ok(mut nodes) = self.nodes.write() {
+            for node in nodes.values_mut() {
+                node.apply_decay();
+            }
         }
     }
 
@@ -842,7 +897,9 @@ impl SynapticNetwork {
     pub fn optimize_connections_with_neon(&self) -> CoreResult<()> {
         if let Some(ref optimizer) = self.neon_optimizer {
             if optimizer.is_enabled() {
-                let mut nodes = self.nodes.write().unwrap();
+                let mut nodes = self.nodes.write().map_err(|_| {
+                    CoreError::LockError("Failed to acquire write lock on nodes".into())
+                })?;
                 debug!(
                     "Applying NEON-optimized connection weight updates to {} nodes",
                     nodes.len()
@@ -892,7 +949,11 @@ impl SynapticNetwork {
         let mut total_activation = 0.0;
 
         // Find nodes that match the query pattern
-        for (node_id, node) in self.nodes.read().unwrap().iter() {
+        let nodes = self
+            .nodes
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on nodes".into()))?;
+        for (node_id, node) in nodes.iter() {
             let match_score = self.calculate_match_score(node, &query.content);
 
             if match_score > self.activation_threshold {
@@ -943,12 +1004,15 @@ impl SynapticNetwork {
 
     /// Get the number of nodes in the network
     pub fn node_count(&self) -> usize {
-        self.nodes.read().unwrap().len()
+        self.nodes.read().map(|n| n.len()).unwrap_or(0)
     }
 
     /// Get a reference to a node
     pub fn get_node(&self, node_id: u64) -> Option<SynapticNode> {
-        self.nodes.read().unwrap().get(&node_id).cloned()
+        self.nodes
+            .read()
+            .ok()
+            .and_then(|nodes| nodes.get(&node_id).cloned())
     }
 
     /// Get a mutable reference to a node
@@ -975,7 +1039,10 @@ impl SynapticNetwork {
 
     /// Strengthen neural pathways for a given query
     pub async fn strengthen_pathways_for_query(&self, query: &str) -> CoreResult<()> {
-        let mut nodes = self.nodes.write().unwrap();
+        let mut nodes = self
+            .nodes
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on nodes".into()))?;
 
         // Find nodes that match the query and strengthen them
         for node in nodes.values_mut() {
@@ -1044,27 +1111,37 @@ impl SynapticNetwork {
         let nodes: Vec<_> = self
             .nodes
             .read()
-            .unwrap()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on nodes".into()))?
             .iter()
             .map(|(k, v)| (*k, v.clone()))
             .collect();
         let neurons: Vec<_> = self
             .neurons
             .read()
-            .unwrap()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on neurons".into()))?
             .iter()
             .map(|(k, v)| (*k, v.clone()))
             .collect();
-        let synapses = self.synapses.read().unwrap().clone();
+        let synapses = self
+            .synapses
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on synapses".into()))?
+            .clone();
         let query_patterns: Vec<_> = self
             .query_patterns
             .read()
-            .unwrap()
+            .map_err(|_| {
+                CoreError::LockError("Failed to acquire read lock on query_patterns".into())
+            })?
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        let total_connections = *self.total_connections.read().unwrap();
-        let memory_usage = *self.memory_usage.read().unwrap();
+        let total_connections = *self.total_connections.read().map_err(|_| {
+            CoreError::LockError("Failed to acquire read lock on total_connections".into())
+        })?;
+        let memory_usage = *self.memory_usage.read().map_err(|_| {
+            CoreError::LockError("Failed to acquire read lock on memory_usage".into())
+        })?;
 
         let state = NetworkState {
             nodes,
@@ -1097,7 +1174,10 @@ impl SynapticNetwork {
         })?;
 
         // Restore nodes
-        let mut nodes = self.nodes.write().unwrap();
+        let mut nodes = self
+            .nodes
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on nodes".into()))?;
         nodes.clear();
         for (id, node) in state.nodes {
             nodes.insert(id, node);
@@ -1105,7 +1185,10 @@ impl SynapticNetwork {
         drop(nodes);
 
         // Restore neurons
-        let mut neurons = self.neurons.write().unwrap();
+        let mut neurons = self
+            .neurons
+            .write()
+            .map_err(|_| CoreError::LockError("Failed to acquire write lock on neurons".into()))?;
         neurons.clear();
         for (id, neuron) in state.neurons {
             neurons.insert(id, neuron);
@@ -1113,10 +1196,14 @@ impl SynapticNetwork {
         drop(neurons);
 
         // Restore synapses
-        *self.synapses.write().unwrap() = state.synapses;
+        *self.synapses.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on synapses".into())
+        })? = state.synapses;
 
         // Restore query patterns
-        let mut query_patterns = self.query_patterns.write().unwrap();
+        let mut query_patterns = self.query_patterns.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on query_patterns".into())
+        })?;
         query_patterns.clear();
         for (key, pattern) in state.query_patterns {
             query_patterns.insert(key, pattern);
@@ -1124,8 +1211,12 @@ impl SynapticNetwork {
         drop(query_patterns);
 
         // Restore statistics
-        *self.total_connections.write().unwrap() = state.total_connections;
-        *self.memory_usage.write().unwrap() = state.memory_usage;
+        *self.total_connections.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on total_connections".into())
+        })? = state.total_connections;
+        *self.memory_usage.write().map_err(|_| {
+            CoreError::LockError("Failed to acquire write lock on memory_usage".into())
+        })? = state.memory_usage;
 
         Ok(())
     }
@@ -1133,7 +1224,10 @@ impl SynapticNetwork {
     /// Get serialized network data
     pub async fn get_serialized_data(&self) -> CoreResult<Vec<u8>> {
         // For now, return a simple serialized representation
-        let nodes = self.nodes.read().unwrap();
+        let nodes = self
+            .nodes
+            .read()
+            .map_err(|_| CoreError::LockError("Failed to acquire read lock on nodes".into()))?;
         let node_count = nodes.len() as u32;
 
         let mut data = Vec::new();
@@ -1180,9 +1274,15 @@ impl SynapticNetwork {
 
     /// Get network statistics
     pub fn stats(&self) -> NetworkStats {
-        let nodes = self.nodes.read().unwrap();
-        let total_connections = self.total_connections.read().unwrap();
-        let memory_usage = self.memory_usage.read().unwrap();
+        let Ok(nodes) = self.nodes.read() else {
+            return NetworkStats::default();
+        };
+        let Ok(total_connections) = self.total_connections.read() else {
+            return NetworkStats::default();
+        };
+        let Ok(memory_usage) = self.memory_usage.read() else {
+            return NetworkStats::default();
+        };
 
         NetworkStats {
             node_count: nodes.len(),
@@ -1197,12 +1297,18 @@ impl SynapticNetwork {
     where
         F: FnOnce(&mut SynapticNode) -> R,
     {
-        self.nodes.write().unwrap().get_mut(&node_id).map(f)
+        self.nodes
+            .write()
+            .ok()
+            .and_then(|mut nodes| nodes.get_mut(&node_id).map(f))
     }
 
     /// Get all node IDs
     pub fn get_node_ids(&self) -> Vec<u64> {
-        self.nodes.read().unwrap().keys().cloned().collect()
+        self.nodes
+            .read()
+            .map(|nodes| nodes.keys().cloned().collect())
+            .unwrap_or_default()
     }
 
     /// Remove weak connections below threshold
@@ -1212,7 +1318,9 @@ impl SynapticNetwork {
 
         // Collect weak connections
         {
-            let nodes = self.nodes.read().unwrap();
+            let Ok(nodes) = self.nodes.read() else {
+                return 0;
+            };
             for (&node_id, node) in nodes.iter() {
                 for (conn_idx, connection) in node.connections.iter().enumerate() {
                     if connection.weight.abs() < threshold {
@@ -1224,7 +1332,9 @@ impl SynapticNetwork {
 
         // Remove weak connections (in reverse order to maintain indices)
         {
-            let mut nodes = self.nodes.write().unwrap();
+            let Ok(mut nodes) = self.nodes.write() else {
+                return 0;
+            };
             for (node_id, conn_idx) in connections_to_prune.into_iter().rev() {
                 if let Some(node) = nodes.get_mut(&node_id) {
                     if conn_idx < node.connections.len() {
@@ -1254,7 +1364,7 @@ impl SynapticNetwork {
 }
 
 /// Network statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NetworkStats {
     pub node_count: usize,
     pub connection_count: usize,
