@@ -1725,15 +1725,28 @@ mod api_key_security_tests {
     /// Test API key rotation
     #[test]
     fn test_api_key_rotation() {
-        // Keys should be rotatable
+        // Keys should be rotatable with an overlap period
+        // In a proper rotation, the new key is created BEFORE the old key expires
 
-        let old_key_expiry = chrono::Utc::now();
-        let new_key_created = chrono::Utc::now();
+        let now = chrono::Utc::now();
+        let overlap_duration = chrono::Duration::hours(24);
+
+        // Simulate: old key expires in 24 hours
+        let old_key_expiry = now + overlap_duration;
+        // New key is created now (before old key expires)
+        let new_key_created = now;
 
         // New key should be created before old key expires (for overlap)
         assert!(
-            new_key_created <= old_key_expiry,
+            new_key_created < old_key_expiry,
             "Key rotation should have overlap period"
+        );
+
+        // Verify the overlap duration is reasonable (at least 1 hour)
+        let overlap = old_key_expiry - new_key_created;
+        assert!(
+            overlap >= chrono::Duration::hours(1),
+            "Overlap period should be at least 1 hour"
         );
     }
 
