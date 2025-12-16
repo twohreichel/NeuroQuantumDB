@@ -240,6 +240,50 @@ impl BTreeNode {
             _ => panic!("Not a leaf node"),
         }
     }
+
+    /// Try to get as internal node (returns None if not internal)
+    ///
+    /// This is the safe alternative to `as_internal()` that doesn't panic.
+    #[must_use]
+    pub fn try_as_internal(&self) -> Option<&InternalNode> {
+        match self {
+            BTreeNode::Internal(node) => Some(node),
+            BTreeNode::Leaf(_) => None,
+        }
+    }
+
+    /// Try to get as mutable internal node (returns None if not internal)
+    ///
+    /// This is the safe alternative to `as_internal_mut()` that doesn't panic.
+    #[must_use]
+    pub fn try_as_internal_mut(&mut self) -> Option<&mut InternalNode> {
+        match self {
+            BTreeNode::Internal(node) => Some(node),
+            BTreeNode::Leaf(_) => None,
+        }
+    }
+
+    /// Try to get as leaf node (returns None if not leaf)
+    ///
+    /// This is the safe alternative to `as_leaf()` that doesn't panic.
+    #[must_use]
+    pub fn try_as_leaf(&self) -> Option<&LeafNode> {
+        match self {
+            BTreeNode::Leaf(node) => Some(node),
+            BTreeNode::Internal(_) => None,
+        }
+    }
+
+    /// Try to get as mutable leaf node (returns None if not leaf)
+    ///
+    /// This is the safe alternative to `as_leaf_mut()` that doesn't panic.
+    #[must_use]
+    pub fn try_as_leaf_mut(&mut self) -> Option<&mut LeafNode> {
+        match self {
+            BTreeNode::Leaf(node) => Some(node),
+            BTreeNode::Internal(_) => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -356,5 +400,53 @@ mod tests {
 
         let result = leaf.insert(b"key1".to_vec(), 200);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_try_as_internal() {
+        let internal = BTreeNode::Internal(InternalNode::new(5));
+        let leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // try_as_internal on internal node should return Some
+        assert!(internal.try_as_internal().is_some());
+
+        // try_as_internal on leaf node should return None
+        assert!(leaf.try_as_internal().is_none());
+    }
+
+    #[test]
+    fn test_try_as_internal_mut() {
+        let mut internal = BTreeNode::Internal(InternalNode::new(5));
+        let mut leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // try_as_internal_mut on internal node should return Some
+        assert!(internal.try_as_internal_mut().is_some());
+
+        // try_as_internal_mut on leaf node should return None
+        assert!(leaf.try_as_internal_mut().is_none());
+    }
+
+    #[test]
+    fn test_try_as_leaf() {
+        let internal = BTreeNode::Internal(InternalNode::new(5));
+        let leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // try_as_leaf on leaf node should return Some
+        assert!(leaf.try_as_leaf().is_some());
+
+        // try_as_leaf on internal node should return None
+        assert!(internal.try_as_leaf().is_none());
+    }
+
+    #[test]
+    fn test_try_as_leaf_mut() {
+        let mut internal = BTreeNode::Internal(InternalNode::new(5));
+        let mut leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // try_as_leaf_mut on leaf node should return Some
+        assert!(leaf.try_as_leaf_mut().is_some());
+
+        // try_as_leaf_mut on internal node should return None
+        assert!(internal.try_as_leaf_mut().is_none());
     }
 }

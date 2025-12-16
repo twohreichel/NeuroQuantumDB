@@ -267,7 +267,7 @@ production_mode = true
 | Priorität | Item | Geschätzter Aufwand | Status |
 |-----------|------|---------------------|--------|
 | Niedrig | RwLock-Error-Handling in synaptic.rs | 2 Std | ✅ Erledigt |
-| Niedrig | BTree try_as_* Methoden | 1 Std | Offen |
+| Niedrig | BTree try_as_* Methoden | 1 Std | ✅ Erledigt |
 | Mittel | Multi-Node Architektur-Design | 40 Std | Offen |
 | Mittel | Multi-Node Implementation | 160 Std | Offen |
 
