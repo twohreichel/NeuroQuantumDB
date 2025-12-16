@@ -253,13 +253,15 @@ Verwendete Patterns:
 - `tokio::sync::RwLock` für async contexts
 - `std::sync::RwLock` für sync contexts
 
-**Bewertung:** ⚠️ Inkonsistent
-- Mischung von `std::sync` und `tokio::sync` Locks
-- Kann zu Deadlocks führen, wenn sync Locks in async Context gehalten werden
+**~~Bewertung:~~ ✅ Behoben**
+- ~~Mischung von `std::sync` und `tokio::sync` Locks~~
+- ~~Kann zu Deadlocks führen, wenn sync Locks in async Context gehalten werden~~
 
-**Empfehlung:**
-- Standardisiere auf `tokio::sync::RwLock` für alle async-Codepfade
-- Dokumentiere Lock-Hierarchie
+**Lösung (16. Dez 2025):**
+- ✅ Lock-Hierarchie vollständig dokumentiert in `neuroquantum-core/src/concurrency.rs`
+- ✅ `std::sync::RwLock` wird nur in sync-Modulen (`synaptic.rs`, `spiking.rs`) verwendet, die als Level 6 (Utility) klassifiziert sind
+- ✅ Alle async-Codepfade (`NeuroQuantumDB`, `StorageEngine`, `QSQLEngine`) verwenden `tokio::sync::RwLock`/`Mutex`
+- ✅ Dokumentierte Regel: Locks werden nie über `.await`-Punkte gehalten
 
 ### 5.3 Neuromorphic Learning Engine
 **Datei:** [crates/neuroquantum-core/src/learning.rs](crates/neuroquantum-core/src/learning.rs)
