@@ -86,3 +86,7 @@ neuroquantum_data
 
 .neuroquantum
 corpus/
+
+prod.toml
+dev.toml
+test.toml
