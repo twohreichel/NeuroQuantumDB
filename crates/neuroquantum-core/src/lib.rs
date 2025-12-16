@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 /// Module exports
+pub mod concurrency; // Lock hierarchy documentation and concurrency guidelines
 pub mod dna;
 pub mod error;
 pub mod learning;
