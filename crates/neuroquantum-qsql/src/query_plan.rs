@@ -148,6 +148,19 @@ pub struct ExecutionStats {
     pub memory_usage_peak: usize,
 }
 
+/// Represents an aggregate function to be computed
+#[derive(Debug, Clone)]
+struct AggregateFunction {
+    /// The aggregate function name (COUNT, SUM, AVG, MIN, MAX)
+    name: String,
+    /// The column or expression to aggregate (None for COUNT(*))
+    column: Option<String>,
+    /// Optional alias for the result
+    alias: Option<String>,
+    /// Whether DISTINCT should be applied
+    distinct: bool,
+}
+
 impl QueryExecutor {
     /// Create a new query executor without storage integration.
     ///
@@ -1147,6 +1160,22 @@ impl QueryExecutor {
         })
     }
 
+    /// Check if select list contains aggregate functions
+    fn has_aggregate_functions(select_list: &[SelectItem]) -> bool {
+        select_list.iter().any(|item| {
+            if let SelectItem::Expression {
+                expr: Expression::FunctionCall { name, .. },
+                ..
+            } = item
+            {
+                let upper_name = name.to_uppercase();
+                matches!(upper_name.as_str(), "COUNT" | "SUM" | "AVG" | "MIN" | "MAX")
+            } else {
+                false
+            }
+        })
+    }
+
     /// Convert SQL SELECT to storage SelectQuery
     fn convert_select_to_storage_query(&self, select: &SelectStatement) -> QSQLResult<SelectQuery> {
         // Extract table name from FROM clause
@@ -1164,17 +1193,21 @@ impl QueryExecutor {
             });
         };
 
-        // Extract column list
-        let columns = select
-            .select_list
-            .iter()
-            .map(|item| match item {
-                SelectItem::Wildcard => "*".to_string(),
-                SelectItem::Expression { expr, alias } => alias
-                    .clone()
-                    .unwrap_or_else(|| Self::expression_to_string_static(expr)),
-            })
-            .collect();
+        // Extract column list - use "*" for aggregate queries to load all data
+        let columns = if Self::has_aggregate_functions(&select.select_list) {
+            vec!["*".to_string()]
+        } else {
+            select
+                .select_list
+                .iter()
+                .map(|item| match item {
+                    SelectItem::Wildcard => "*".to_string(),
+                    SelectItem::Expression { expr, alias } => alias
+                        .clone()
+                        .unwrap_or_else(|| Self::expression_to_string_static(expr)),
+                })
+                .collect()
+        };
 
         // Convert WHERE clause
         let where_clause = if let Some(expr) = &select.where_clause {
@@ -1280,8 +1313,16 @@ impl QueryExecutor {
     fn convert_storage_rows_to_result(
         &self,
         storage_rows: Vec<Row>,
-        _select: &SelectStatement,
+        select: &SelectStatement,
     ) -> QSQLResult<QueryResultData> {
+        // Check if we have aggregate functions in the select list
+        let aggregates = self.extract_aggregate_functions(&select.select_list);
+
+        if !aggregates.is_empty() {
+            // Process aggregate functions
+            return self.execute_aggregates(&storage_rows, &aggregates, select);
+        }
+
         let mut result_rows = Vec::new();
         let mut columns = Vec::new();
 
@@ -1310,6 +1351,399 @@ impl QueryExecutor {
         }
 
         Ok((result_rows, columns))
+    }
+
+    /// Extract aggregate functions from select list
+    fn extract_aggregate_functions(&self, select_list: &[SelectItem]) -> Vec<AggregateFunction> {
+        let mut aggregates = Vec::new();
+
+        for item in select_list {
+            if let SelectItem::Expression { expr, alias } = item {
+                if let Some(agg) = self.extract_aggregate_from_expr(expr, alias.clone()) {
+                    aggregates.push(agg);
+                }
+            }
+        }
+
+        aggregates
+    }
+
+    /// Extract aggregate function from expression
+    fn extract_aggregate_from_expr(
+        &self,
+        expr: &Expression,
+        alias: Option<String>,
+    ) -> Option<AggregateFunction> {
+        if let Expression::FunctionCall { name, args } = expr {
+            let upper_name = name.to_uppercase();
+            match upper_name.as_str() {
+                "COUNT" | "SUM" | "AVG" | "MIN" | "MAX" => {
+                    // Check for COUNT(*)
+                    let (column, distinct) = if args.is_empty() {
+                        (None, false)
+                    } else {
+                        // Check for DISTINCT
+                        let first_arg = &args[0];
+                        match first_arg {
+                            Expression::Identifier(col) => {
+                                // Check if it starts with "DISTINCT "
+                                if col.to_uppercase().starts_with("DISTINCT ") {
+                                    let actual_col = col[9..].trim().to_string();
+                                    (Some(actual_col), true)
+                                } else {
+                                    (Some(col.clone()), false)
+                                }
+                            }
+                            Expression::Literal(Literal::String(s)) if s == "*" => (None, false),
+                            _ => (Some(Self::expression_to_string_static(first_arg)), false),
+                        }
+                    };
+
+                    Some(AggregateFunction {
+                        name: upper_name,
+                        column,
+                        alias,
+                        distinct,
+                    })
+                }
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Execute aggregate functions on the storage rows
+    fn execute_aggregates(
+        &self,
+        storage_rows: &[Row],
+        aggregates: &[AggregateFunction],
+        _select: &SelectStatement,
+    ) -> QSQLResult<QueryResultData> {
+        let mut result_row = HashMap::new();
+        let mut columns = Vec::new();
+
+        for agg in aggregates {
+            let result_name = agg.alias.clone().unwrap_or_else(|| {
+                format!("{}({})", agg.name, agg.column.as_deref().unwrap_or("*"))
+            });
+
+            let value = self.compute_aggregate(storage_rows, agg)?;
+
+            // Determine data type based on aggregate function
+            let data_type = match agg.name.as_str() {
+                "COUNT" => DataType::BigInt,
+                "AVG" => DataType::Double,
+                "SUM" | "MIN" | "MAX" => {
+                    // Infer from the column type or default to Double
+                    if let Some(col) = &agg.column {
+                        self.infer_column_type_from_rows(storage_rows, col)
+                    } else {
+                        DataType::BigInt
+                    }
+                }
+                _ => DataType::Double,
+            };
+
+            columns.push(ColumnInfo {
+                name: result_name.clone(),
+                data_type,
+                nullable: false,
+            });
+
+            result_row.insert(result_name, value);
+        }
+
+        Ok((vec![result_row], columns))
+    }
+
+    /// Compute a single aggregate value
+    fn compute_aggregate(
+        &self,
+        storage_rows: &[Row],
+        agg: &AggregateFunction,
+    ) -> QSQLResult<QueryValue> {
+        match agg.name.as_str() {
+            "COUNT" => self.compute_count(storage_rows, &agg.column, agg.distinct),
+            "SUM" => self.compute_sum(storage_rows, &agg.column),
+            "AVG" => self.compute_avg(storage_rows, &agg.column),
+            "MIN" => self.compute_min(storage_rows, &agg.column),
+            "MAX" => self.compute_max(storage_rows, &agg.column),
+            _ => Err(QSQLError::ExecutionError {
+                message: format!("Unknown aggregate function: {}", agg.name),
+            }),
+        }
+    }
+
+    /// Compute COUNT aggregate
+    fn compute_count(
+        &self,
+        storage_rows: &[Row],
+        column: &Option<String>,
+        distinct: bool,
+    ) -> QSQLResult<QueryValue> {
+        match column {
+            None => {
+                // COUNT(*) - count all rows
+                Ok(QueryValue::Integer(storage_rows.len() as i64))
+            }
+            Some(col) => {
+                if distinct {
+                    // COUNT(DISTINCT column) - count unique non-null values
+                    let mut unique_values = std::collections::HashSet::new();
+                    for row in storage_rows {
+                        if let Some(value) = row.fields.get(col) {
+                            if !matches!(value, Value::Null) {
+                                unique_values.insert(self.value_to_string(value));
+                            }
+                        }
+                    }
+                    Ok(QueryValue::Integer(unique_values.len() as i64))
+                } else {
+                    // COUNT(column) - count non-null values
+                    let count = storage_rows
+                        .iter()
+                        .filter(|row| {
+                            row.fields
+                                .get(col)
+                                .map(|v| !matches!(v, Value::Null))
+                                .unwrap_or(false)
+                        })
+                        .count();
+                    Ok(QueryValue::Integer(count as i64))
+                }
+            }
+        }
+    }
+
+    /// Compute SUM aggregate
+    fn compute_sum(&self, storage_rows: &[Row], column: &Option<String>) -> QSQLResult<QueryValue> {
+        let col = column.as_ref().ok_or_else(|| QSQLError::ExecutionError {
+            message: "SUM requires a column argument".to_string(),
+        })?;
+
+        let mut sum_int: i64 = 0;
+        let mut sum_float: f64 = 0.0;
+        let mut has_float = false;
+        let mut count = 0;
+
+        for row in storage_rows {
+            if let Some(value) = row.fields.get(col) {
+                match value {
+                    Value::Integer(i) => {
+                        sum_int += i;
+                        count += 1;
+                    }
+                    Value::Float(f) => {
+                        sum_float += f;
+                        has_float = true;
+                        count += 1;
+                    }
+                    Value::Null => {} // Ignore NULL values
+                    _ => {}           // Ignore non-numeric values
+                }
+            }
+        }
+
+        if count == 0 {
+            return Ok(QueryValue::Null);
+        }
+
+        if has_float {
+            Ok(QueryValue::Float(sum_float + sum_int as f64))
+        } else {
+            Ok(QueryValue::Integer(sum_int))
+        }
+    }
+
+    /// Compute AVG aggregate
+    fn compute_avg(&self, storage_rows: &[Row], column: &Option<String>) -> QSQLResult<QueryValue> {
+        let col = column.as_ref().ok_or_else(|| QSQLError::ExecutionError {
+            message: "AVG requires a column argument".to_string(),
+        })?;
+
+        let mut sum: f64 = 0.0;
+        let mut count: i64 = 0;
+
+        for row in storage_rows {
+            if let Some(value) = row.fields.get(col) {
+                match value {
+                    Value::Integer(i) => {
+                        sum += *i as f64;
+                        count += 1;
+                    }
+                    Value::Float(f) => {
+                        sum += f;
+                        count += 1;
+                    }
+                    Value::Null => {} // Ignore NULL values
+                    _ => {}           // Ignore non-numeric values
+                }
+            }
+        }
+
+        if count == 0 {
+            return Ok(QueryValue::Null);
+        }
+
+        Ok(QueryValue::Float(sum / count as f64))
+    }
+
+    /// Compute MIN aggregate
+    fn compute_min(&self, storage_rows: &[Row], column: &Option<String>) -> QSQLResult<QueryValue> {
+        let col = column.as_ref().ok_or_else(|| QSQLError::ExecutionError {
+            message: "MIN requires a column argument".to_string(),
+        })?;
+
+        let mut min_value: Option<QueryValue> = None;
+
+        for row in storage_rows {
+            if let Some(value) = row.fields.get(col) {
+                if matches!(value, Value::Null) {
+                    continue;
+                }
+
+                let current = self.storage_value_to_query_value(value);
+                min_value = Some(match min_value {
+                    None => current,
+                    Some(existing) => self.min_query_value(existing, current),
+                });
+            }
+        }
+
+        Ok(min_value.unwrap_or(QueryValue::Null))
+    }
+
+    /// Compute MAX aggregate
+    fn compute_max(&self, storage_rows: &[Row], column: &Option<String>) -> QSQLResult<QueryValue> {
+        let col = column.as_ref().ok_or_else(|| QSQLError::ExecutionError {
+            message: "MAX requires a column argument".to_string(),
+        })?;
+
+        let mut max_value: Option<QueryValue> = None;
+
+        for row in storage_rows {
+            if let Some(value) = row.fields.get(col) {
+                if matches!(value, Value::Null) {
+                    continue;
+                }
+
+                let current = self.storage_value_to_query_value(value);
+                max_value = Some(match max_value {
+                    None => current,
+                    Some(existing) => self.max_query_value(existing, current),
+                });
+            }
+        }
+
+        Ok(max_value.unwrap_or(QueryValue::Null))
+    }
+
+    /// Compare two QueryValues and return the minimum
+    fn min_query_value(&self, a: QueryValue, b: QueryValue) -> QueryValue {
+        match (&a, &b) {
+            (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
+                if i1 <= i2 {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::Float(f1), QueryValue::Float(f2)) => {
+                if f1 <= f2 {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::Integer(i), QueryValue::Float(f)) => {
+                if (*i as f64) <= *f {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::Float(f), QueryValue::Integer(i)) => {
+                if *f <= (*i as f64) {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::String(s1), QueryValue::String(s2)) => {
+                if s1 <= s2 {
+                    a
+                } else {
+                    b
+                }
+            }
+            _ => a, // Default to first value for incompatible types
+        }
+    }
+
+    /// Compare two QueryValues and return the maximum
+    fn max_query_value(&self, a: QueryValue, b: QueryValue) -> QueryValue {
+        match (&a, &b) {
+            (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
+                if i1 >= i2 {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::Float(f1), QueryValue::Float(f2)) => {
+                if f1 >= f2 {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::Integer(i), QueryValue::Float(f)) => {
+                if (*i as f64) >= *f {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::Float(f), QueryValue::Integer(i)) => {
+                if *f >= (*i as f64) {
+                    a
+                } else {
+                    b
+                }
+            }
+            (QueryValue::String(s1), QueryValue::String(s2)) => {
+                if s1 >= s2 {
+                    a
+                } else {
+                    b
+                }
+            }
+            _ => a, // Default to first value for incompatible types
+        }
+    }
+
+    /// Convert Value to string for DISTINCT comparison
+    fn value_to_string(&self, value: &Value) -> String {
+        match value {
+            Value::Integer(i) => i.to_string(),
+            Value::Float(f) => f.to_string(),
+            Value::Text(s) => s.clone(),
+            Value::Boolean(b) => b.to_string(),
+            Value::Binary(b) => format!("{:?}", b),
+            Value::Null => "NULL".to_string(),
+            Value::Timestamp(ts) => ts.to_rfc3339(),
+        }
+    }
+
+    /// Infer column type from storage rows
+    fn infer_column_type_from_rows(&self, storage_rows: &[Row], column: &str) -> DataType {
+        for row in storage_rows {
+            if let Some(value) = row.fields.get(column) {
+                return self.storage_value_to_datatype(value);
+            }
+        }
+        DataType::Double // Default
     }
 
     /// Convert storage Value to QueryValue

@@ -139,6 +139,7 @@ pub enum TokenType {
     Is,
     Null,
     With,
+    Distinct,
 
     // Data type keywords
     Serial,
@@ -631,6 +632,11 @@ impl QSQLParser {
             i += 1;
         }
 
+        // Skip optional DISTINCT
+        if i < tokens.len() && matches!(tokens[i], TokenType::Distinct) {
+            i += 1;
+        }
+
         // Parse SELECT list
         loop {
             if i >= tokens.len() || matches!(tokens[i], TokenType::From | TokenType::EOF) {
@@ -639,11 +645,56 @@ impl QSQLParser {
 
             match &tokens[i] {
                 TokenType::Identifier(name) => {
-                    select_list.push(SelectItem::Expression {
-                        expr: Expression::Identifier(name.clone()),
-                        alias: None,
-                    });
-                    i += 1;
+                    // Check if this is a function call (next token is '(')
+                    if i + 1 < tokens.len() && matches!(tokens[i + 1], TokenType::LeftParen) {
+                        let func_name = name.clone();
+                        i += 1; // Move past identifier
+                        let expr = self.parse_function_call(tokens, &mut i, func_name)?;
+
+                        // Check for optional AS alias
+                        let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                            i += 1;
+                            if i < tokens.len() {
+                                if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                    i += 1;
+                                    Some(alias_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression { expr, alias });
+                    } else {
+                        // Check for optional AS alias
+                        let name_clone = name.clone();
+                        i += 1;
+
+                        let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                            i += 1;
+                            if i < tokens.len() {
+                                if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                    i += 1;
+                                    Some(alias_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression {
+                            expr: Expression::Identifier(name_clone),
+                            alias,
+                        });
+                    }
                 }
                 TokenType::Multiply => {
                     select_list.push(SelectItem::Wildcard);
@@ -1384,6 +1435,7 @@ impl QSQLParser {
         keywords.insert("OR".to_string(), TokenType::Or);
         keywords.insert("NOT".to_string(), TokenType::Not);
         keywords.insert("WITH".to_string(), TokenType::With);
+        keywords.insert("DISTINCT".to_string(), TokenType::Distinct);
 
         // Added missing keywords for INSERT, UPDATE, DELETE
         keywords.insert("INSERT".to_string(), TokenType::Insert);
@@ -1869,9 +1921,34 @@ impl QSQLParser {
                 break;
             }
 
-            // Parse argument expression
-            let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
-            args.push(arg);
+            // Special handling for COUNT(*) - treat * as a special argument
+            if matches!(tokens[*i], TokenType::Multiply) {
+                *i += 1;
+                args.push(Expression::Literal(Literal::String("*".to_string())));
+                // Check for closing paren after *
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
+                    *i += 1;
+                    break;
+                }
+                continue;
+            }
+
+            // Check for DISTINCT keyword (for COUNT(DISTINCT column))
+            if matches!(tokens[*i], TokenType::Distinct) {
+                *i += 1;
+                // Parse the column after DISTINCT
+                let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                // Wrap it to indicate DISTINCT
+                if let Expression::Identifier(col) = arg {
+                    args.push(Expression::Identifier(format!("DISTINCT {}", col)));
+                } else {
+                    args.push(arg);
+                }
+            } else {
+                // Parse argument expression
+                let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                args.push(arg);
+            }
 
             // Check for comma or closing paren
             if *i < tokens.len() {

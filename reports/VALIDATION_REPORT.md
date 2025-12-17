@@ -3,7 +3,7 @@
 **Testdatum:** 17. Dezember 2025 (Aktualisiert)  
 **Tester:** Senior Rust-Entwickler / Datenbank-Experte  
 **Version:** 0.1.0  
-**Letzte Aktualisierung:** 17.12.2025, 08:39 Uhr
+**Letzte Aktualisierung:** 17.12.2025, 09:50 Uhr
 
 ---
 
@@ -14,15 +14,15 @@
 | **Unit-Tests** | ✅ | 717 | 0 |
 | **Integrationstests** | ✅ | 13 | 0 |
 | **API-Endpunkt-Tests** | ✅ | 15 | 6* |
-| **SQL-Feature-Tests** | ⚠️ | 44 | 70** |
+| **SQL-Feature-Tests** | ⚠️ | 49 | 65** |
 | **Stress-Tests** | ✅ | 17 | 0 |
 | **E2E-Tests** | ✅ | 12+ | 0 |
 
 *\*Fehlgeschlagene API-Tests beziehen sich auf erweiterte Features (DNA/Quantum/Neural), die zusätzliche Konfiguration erfordern.*
 
-**\*\*Fehlende SQL-Features umfassen Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX), JOINs, GROUP BY, und erweiterte Funktionen.**
+**\*\*Fehlende SQL-Features umfassen JOINs, GROUP BY, und erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert.**
 
-**SQL-Feature Erfolgsrate: 38.6%**  
+**SQL-Feature Erfolgsrate: 43.0%** (verbessert von 38.6%)  
 **API Success Rate: 71.4%**
 
 ---
@@ -89,16 +89,16 @@
 | | Mehrere Spalten | `UPDATE users SET name = 'X', age = 50 WHERE ...` |
 | **DELETE** | DELETE mit WHERE | `DELETE FROM users WHERE name = 'Test'` |
 | | DELETE mit LIKE | `DELETE FROM users WHERE name LIKE 'Test%'` |
+| **Aggregatfunktionen** | COUNT(*) | `SELECT COUNT(*) FROM users` |
+| | COUNT(column) | `SELECT COUNT(name) FROM users` |
+| | SUM | `SELECT SUM(age) FROM users` |
+| | AVG | `SELECT AVG(age) FROM users` |
+| | MIN / MAX | `SELECT MIN(age) FROM users`, `SELECT MAX(age) FROM users` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
 | Kategorie | Feature | Beispiel | Priorität |
 |-----------|---------|----------|-----------|
-| **Aggregatfunktionen** | COUNT(*) | `SELECT COUNT(*) FROM users` | 🔴 Kritisch |
-| | COUNT(column) | `SELECT COUNT(name) FROM users` | 🔴 Kritisch |
-| | SUM | `SELECT SUM(age) FROM users` | 🔴 Kritisch |
-| | AVG | `SELECT AVG(age) FROM users` | 🔴 Kritisch |
-| | MIN / MAX | `SELECT MIN(age), MAX(age) FROM users` | 🔴 Kritisch |
 | **GROUP BY** | GROUP BY | `SELECT name, COUNT(*) FROM users GROUP BY name` | 🔴 Kritisch |
 | | HAVING | `SELECT ... GROUP BY name HAVING COUNT(*) > 1` | 🔴 Kritisch |
 | **JOINs** | INNER JOIN | `SELECT * FROM users u JOIN orders o ON u.id = o.user_id` | 🔴 Kritisch |
@@ -333,11 +333,11 @@ POST /api/v1/tables/users/query
 6. **Basis-SQL:** SELECT, INSERT, UPDATE, DELETE mit WHERE, ORDER BY, LIMIT funktioniert
 7. **REST-API:** Vollständige CRUD-Operationen über REST verfügbar
 8. **Pattern Matching:** LIKE, ILIKE, NOT LIKE funktionieren
+9. **Aggregatfunktionen:** ✅ COUNT(*), COUNT(column), SUM, AVG, MIN, MAX implementiert (17.12.2025)
 
 ### Schwächen 🔧
 
-1. **SQL-Funktionsumfang eingeschränkt (38.6% Erfolgsrate):**
-   - ❌ Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) fehlen
+1. **SQL-Funktionsumfang eingeschränkt:**
    - ❌ GROUP BY / HAVING nicht implementiert
    - ❌ JOINs (INNER, LEFT, RIGHT, FULL) nicht implementiert
    - ❌ IN-Operator in WHERE-Klauseln fehlerhaft
@@ -351,7 +351,7 @@ POST /api/v1/tables/users/query
 ### Empfehlungen 📋 (Priorität nach Kritikalität)
 
 **🔴 Kritisch (Für produktiven Einsatz erforderlich):**
-1. **Aggregatfunktionen:** COUNT, SUM, AVG, MIN, MAX implementieren
+1. ~~**Aggregatfunktionen:** COUNT, SUM, AVG, MIN, MAX implementieren~~ ✅ ERLEDIGT (17.12.2025)
 2. **GROUP BY / HAVING:** Für Reporting und Analysen essenziell
 3. **JOINs:** INNER JOIN und LEFT JOIN für relationale Abfragen
 4. **IN-Operator:** `WHERE column IN (1, 2, 3)` reparieren
