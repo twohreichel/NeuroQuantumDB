@@ -3,7 +3,7 @@
 **Testdatum:** 17. Dezember 2025 (Aktualisiert)  
 **Tester:** Senior Rust-Entwickler / Datenbank-Experte  
 **Version:** 0.1.0  
-**Letzte Aktualisierung:** 17.12.2025, 09:50 Uhr
+**Letzte Aktualisierung:** 17.12.2025, 14:30 Uhr
 
 ---
 
@@ -11,18 +11,18 @@
 
 | Kategorie | Status | Bestanden | Fehlgeschlagen |
 |-----------|--------|-----------|----------------|
-| **Unit-Tests** | ✅ | 717 | 0 |
+| **Unit-Tests** | ✅ | 722 | 0 |
 | **Integrationstests** | ✅ | 13 | 0 |
 | **API-Endpunkt-Tests** | ✅ | 15 | 6* |
-| **SQL-Feature-Tests** | ⚠️ | 49 | 65** |
+| **SQL-Feature-Tests** | ⚠️ | 52 | 62** |
 | **Stress-Tests** | ✅ | 17 | 0 |
 | **E2E-Tests** | ✅ | 12+ | 0 |
 
 *\*Fehlgeschlagene API-Tests beziehen sich auf erweiterte Features (DNA/Quantum/Neural), die zusätzliche Konfiguration erfordern.*
 
-**\*\*Fehlende SQL-Features umfassen JOINs, GROUP BY, und erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert.**
+**\*\*Fehlende SQL-Features umfassen JOINs und erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert.**
 
-**SQL-Feature Erfolgsrate: 43.0%** (verbessert von 38.6%)  
+**SQL-Feature Erfolgsrate: 45.6%** (verbessert von 43.0%)  
 **API Success Rate: 71.4%**
 
 ---
@@ -94,13 +94,14 @@
 | | SUM | `SELECT SUM(age) FROM users` |
 | | AVG | `SELECT AVG(age) FROM users` |
 | | MIN / MAX | `SELECT MIN(age) FROM users`, `SELECT MAX(age) FROM users` |
+| **GROUP BY** | GROUP BY | `SELECT name, COUNT(*) FROM users GROUP BY name` |
+| | GROUP BY mehrere Spalten | `SELECT name, email, COUNT(*) FROM users GROUP BY name, email` |
+| | HAVING | `SELECT name, COUNT(*) FROM users GROUP BY name HAVING COUNT(*) > 1` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
 | Kategorie | Feature | Beispiel | Priorität |
 |-----------|---------|----------|-----------|
-| **GROUP BY** | GROUP BY | `SELECT name, COUNT(*) FROM users GROUP BY name` | 🔴 Kritisch |
-| | HAVING | `SELECT ... GROUP BY name HAVING COUNT(*) > 1` | 🔴 Kritisch |
 | **JOINs** | INNER JOIN | `SELECT * FROM users u JOIN orders o ON u.id = o.user_id` | 🔴 Kritisch |
 | | LEFT JOIN | `SELECT * FROM users u LEFT JOIN orders o ON ...` | 🔴 Kritisch |
 | | RIGHT JOIN | `SELECT * FROM users u RIGHT JOIN orders o ON ...` | 🟡 Mittel |
@@ -325,7 +326,7 @@ POST /api/v1/tables/users/query
 
 ### Stärken 💪
 
-1. **Robuste Core-Engine:** Alle 717 Unit-Tests bestehen
+1. **Robuste Core-Engine:** Alle 722 Unit-Tests bestehen
 2. **ACID-Transaktionen:** WAL, Locking, Recovery vollständig implementiert
 3. **Stress-Resistenz:** 17 Stress-Tests bestanden ohne Fehler
 4. **Sicherheit:** API-Key-Authentifizierung, Post-Quantum-Kryptographie
@@ -334,11 +335,11 @@ POST /api/v1/tables/users/query
 7. **REST-API:** Vollständige CRUD-Operationen über REST verfügbar
 8. **Pattern Matching:** LIKE, ILIKE, NOT LIKE funktionieren
 9. **Aggregatfunktionen:** ✅ COUNT(*), COUNT(column), SUM, AVG, MIN, MAX implementiert (17.12.2025)
+10. **GROUP BY / HAVING:** ✅ Gruppierung und HAVING-Filter implementiert (17.12.2025)
 
 ### Schwächen 🔧
 
 1. **SQL-Funktionsumfang eingeschränkt:**
-   - ❌ GROUP BY / HAVING nicht implementiert
    - ❌ JOINs (INNER, LEFT, RIGHT, FULL) nicht implementiert
    - ❌ IN-Operator in WHERE-Klauseln fehlerhaft
    - ❌ String-/Math-/Datum-Funktionen fehlen
@@ -352,7 +353,7 @@ POST /api/v1/tables/users/query
 
 **🔴 Kritisch (Für produktiven Einsatz erforderlich):**
 1. ~~**Aggregatfunktionen:** COUNT, SUM, AVG, MIN, MAX implementieren~~ ✅ ERLEDIGT (17.12.2025)
-2. **GROUP BY / HAVING:** Für Reporting und Analysen essenziell
+2. ~~**GROUP BY / HAVING:** Für Reporting und Analysen essenziell~~ ✅ ERLEDIGT (17.12.2025)
 3. **JOINs:** INNER JOIN und LEFT JOIN für relationale Abfragen
 4. **IN-Operator:** `WHERE column IN (1, 2, 3)` reparieren
 
@@ -372,7 +373,7 @@ POST /api/v1/tables/users/query
 
 ## 6. Detaillierte SQL-Testergebnisse
 
-### 6.1 Funktionierende SQL-Features (44 von 114)
+### 6.1 Funktionierende SQL-Features (52 von 114)
 
 | Kategorie | Features |
 |-----------|----------|
@@ -385,13 +386,13 @@ POST /api/v1/tables/users/query
 | **Subqueries** | EXISTS, Correlated Subqueries |
 | **Mengenoperationen** | UNION, UNION ALL, INTERSECT, EXCEPT |
 | **DML** | INSERT (single, multiple), UPDATE mit WHERE, DELETE mit WHERE/LIKE |
+| **Aggregatfunktionen** | COUNT(*), COUNT(col), SUM, AVG, MIN, MAX |
+| **GROUP BY** | GROUP BY, HAVING, mehrere Spalten |
 
-### 6.2 Nicht-Funktionierende SQL-Features (70 von 114)
+### 6.2 Nicht-Funktionierende SQL-Features (62 von 114)
 
 | Kategorie | Fehlende Features | Priorität |
 |-----------|-------------------|-----------|
-| **Aggregatfunktionen** | COUNT(*), COUNT(col), SUM, AVG, MIN, MAX | 🔴 Kritisch |
-| **GROUP BY** | GROUP BY, HAVING, mehrere Spalten | 🔴 Kritisch |
 | **JOINs** | INNER, LEFT, RIGHT, FULL OUTER, CROSS, Self | 🔴 Kritisch |
 | **WHERE** | IN (Liste) - `WHERE age IN (25, 30)` | 🔴 Kritisch |
 | **Subqueries** | IN (Subquery), FROM (Subquery) | 🟡 Mittel |
@@ -469,8 +470,8 @@ python3 test_sql_functions.py
 | REST API (Tables) | 🟢 Funktional | Create, Insert, Query via REST |
 | Authentifizierung | 🟢 Funktional | API-Key, Post-Quantum-Crypto |
 | Transaktionen/ACID | 🟢 Funktional | WAL, Recovery, Locking |
-| **Aggregatfunktionen** | 🔴 Fehlt | COUNT, SUM, AVG, MIN, MAX |
-| **GROUP BY / HAVING** | 🔴 Fehlt | Für Reporting kritisch |
+| **Aggregatfunktionen** | � Funktional | COUNT, SUM, AVG, MIN, MAX ✅ |
+| **GROUP BY / HAVING** | 🟢 Funktional | Gruppierung und HAVING-Filter ✅ |
 | **JOINs** | 🔴 Fehlt | INNER, LEFT, RIGHT, FULL |
 | **IN-Operator** | 🔴 Fehlerhaft | WHERE col IN (1,2,3) |
 | String/Math/Datum-Funktionen | 🔴 Fehlt | UPPER, CONCAT, NOW(), etc. |
@@ -483,20 +484,21 @@ python3 test_sql_functions.py
 
 ```
 Getestet: 114 SQL-Features
-Funktioniert: 44 (38.6%)
-Fehlt: 70 (61.4%)
+Funktioniert: 52 (45.6%)
+Fehlt: 62 (54.4%)
 ```
 
 ### Empfehlung
 
 **Für einfache CRUD-Anwendungen:** ✅ Einsatzbereit  
-**Für Reporting/Analytics (COUNT, GROUP BY, JOINs):** ❌ Nicht einsatzbereit  
+**Für Reporting/Analytics (COUNT, GROUP BY):** ✅ Einsatzbereit (17.12.2025)  
+**Für relationale Abfragen (JOINs):** ❌ Nicht einsatzbereit  
 **Für erweiterte SQL-Anwendungen:** ❌ Signifikante Lücken  
 
 ### Prioritäten für Weiterentwicklung
 
-1. 🔴 **Aggregatfunktionen** (COUNT, SUM, AVG) - Kritisch
-2. 🔴 **GROUP BY / HAVING** - Kritisch
+1. ~~🔴 **Aggregatfunktionen** (COUNT, SUM, AVG) - Kritisch~~ ✅ ERLEDIGT
+2. ~~🔴 **GROUP BY / HAVING** - Kritisch~~ ✅ ERLEDIGT
 3. 🔴 **JOINs** (INNER, LEFT) - Kritisch
 4. 🔴 **IN-Operator reparieren** - Kritisch
 5. 🟡 **String-Funktionen** - Mittel
@@ -506,6 +508,6 @@ Fehlt: 70 (61.4%)
 ---
 
 *Bericht erstellt am 17. Dezember 2025*  
-*Letzte Aktualisierung: 17.12.2025, 09:00 Uhr*  
+*Letzte Aktualisierung: 17.12.2025, 14:30 Uhr*  
 *Testumgebung: macOS, ARM64 (Apple Silicon), Rust 1.80+*  
 *SQL-Tests: 114 Features getestet*

@@ -1413,13 +1413,28 @@ impl QueryExecutor {
         }
     }
 
-    /// Execute aggregate functions on the storage rows
+    /// Execute aggregate functions on the storage rows with GROUP BY and HAVING support
     fn execute_aggregates(
         &self,
         storage_rows: &[Row],
         aggregates: &[AggregateFunction],
-        _select: &SelectStatement,
+        select: &SelectStatement,
     ) -> QSQLResult<QueryResultData> {
+        // Extract GROUP BY column names
+        let group_by_columns = self.extract_group_by_columns(&select.group_by);
+
+        // If we have GROUP BY, group the rows first
+        if !group_by_columns.is_empty() {
+            return self.execute_grouped_aggregates(
+                storage_rows,
+                aggregates,
+                &group_by_columns,
+                &select.having,
+                &select.select_list,
+            );
+        }
+
+        // No GROUP BY: compute aggregates over all rows (existing behavior)
         let mut result_row = HashMap::new();
         let mut columns = Vec::new();
 
@@ -1455,6 +1470,351 @@ impl QueryExecutor {
         }
 
         Ok((vec![result_row], columns))
+    }
+
+    /// Extract column names from GROUP BY expressions
+    fn extract_group_by_columns(&self, group_by: &[Expression]) -> Vec<String> {
+        group_by
+            .iter()
+            .map(Self::expression_to_string_static)
+            .collect()
+    }
+
+    /// Execute aggregates with GROUP BY grouping
+    fn execute_grouped_aggregates(
+        &self,
+        storage_rows: &[Row],
+        aggregates: &[AggregateFunction],
+        group_by_columns: &[String],
+        having: &Option<Expression>,
+        select_list: &[SelectItem],
+    ) -> QSQLResult<QueryResultData> {
+        // Group rows by the GROUP BY columns
+        let groups = self.group_rows_by_columns(storage_rows, group_by_columns);
+
+        let mut result_rows = Vec::new();
+        let mut columns = Vec::new();
+        let mut columns_initialized = false;
+
+        for (group_key, group_rows) in groups {
+            let mut result_row = HashMap::new();
+
+            // Add GROUP BY column values to result
+            for (idx, col_name) in group_by_columns.iter().enumerate() {
+                if idx < group_key.len() {
+                    let value = self.parse_group_key_value(&group_key[idx]);
+                    result_row.insert(col_name.clone(), value);
+
+                    if !columns_initialized {
+                        // Try to infer data type from first group
+                        let data_type = if !group_rows.is_empty() {
+                            if let Some(val) = group_rows[0].fields.get(col_name) {
+                                self.storage_value_to_datatype(val)
+                            } else {
+                                DataType::Text
+                            }
+                        } else {
+                            DataType::Text
+                        };
+                        columns.push(ColumnInfo {
+                            name: col_name.clone(),
+                            data_type,
+                            nullable: true,
+                        });
+                    }
+                }
+            }
+
+            // Add non-aggregate columns from SELECT list that are in GROUP BY
+            for item in select_list {
+                if let SelectItem::Expression { expr, alias } = item {
+                    let col_name = Self::expression_to_string_static(expr);
+                    // Skip if it's an aggregate function
+                    if !self.is_aggregate_expression(expr)
+                        && !group_by_columns.contains(&col_name)
+                        && !result_row.contains_key(&col_name)
+                    {
+                        // Check if this column exists in group_by_columns
+                        let display_name = alias.clone().unwrap_or_else(|| col_name.clone());
+                        if group_by_columns.contains(&col_name) {
+                            if let Some(first_row) = group_rows.first() {
+                                if let Some(val) = first_row.fields.get(&col_name) {
+                                    result_row.insert(
+                                        display_name.clone(),
+                                        self.storage_value_to_query_value(val),
+                                    );
+                                    if !columns_initialized {
+                                        columns.push(ColumnInfo {
+                                            name: display_name,
+                                            data_type: self.storage_value_to_datatype(val),
+                                            nullable: true,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Compute aggregates for this group
+            for agg in aggregates {
+                let result_name = agg.alias.clone().unwrap_or_else(|| {
+                    format!("{}({})", agg.name, agg.column.as_deref().unwrap_or("*"))
+                });
+
+                let value = self.compute_aggregate(&group_rows, agg)?;
+
+                if !columns_initialized {
+                    let data_type = match agg.name.as_str() {
+                        "COUNT" => DataType::BigInt,
+                        "AVG" => DataType::Double,
+                        "SUM" | "MIN" | "MAX" => {
+                            if let Some(col) = &agg.column {
+                                self.infer_column_type_from_rows(&group_rows, col)
+                            } else {
+                                DataType::BigInt
+                            }
+                        }
+                        _ => DataType::Double,
+                    };
+                    columns.push(ColumnInfo {
+                        name: result_name.clone(),
+                        data_type,
+                        nullable: false,
+                    });
+                }
+
+                result_row.insert(result_name, value);
+            }
+
+            columns_initialized = true;
+
+            // Apply HAVING filter if present
+            if let Some(having_expr) = having {
+                if self.evaluate_having_condition(having_expr, &result_row)? {
+                    result_rows.push(result_row);
+                }
+            } else {
+                result_rows.push(result_row);
+            }
+        }
+
+        Ok((result_rows, columns))
+    }
+
+    /// Group rows by specified columns
+    fn group_rows_by_columns(
+        &self,
+        storage_rows: &[Row],
+        group_by_columns: &[String],
+    ) -> Vec<(Vec<String>, Vec<Row>)> {
+        use std::collections::BTreeMap;
+
+        let mut groups: BTreeMap<Vec<String>, Vec<Row>> = BTreeMap::new();
+
+        for row in storage_rows {
+            let mut key = Vec::new();
+            for col in group_by_columns {
+                let value_str = row
+                    .fields
+                    .get(col)
+                    .map(|v| self.value_to_string(v))
+                    .unwrap_or_else(|| "NULL".to_string());
+                key.push(value_str);
+            }
+            groups.entry(key).or_default().push(row.clone());
+        }
+
+        groups.into_iter().collect()
+    }
+
+    /// Parse group key value back to QueryValue
+    fn parse_group_key_value(&self, key: &str) -> QueryValue {
+        if key == "NULL" {
+            return QueryValue::Null;
+        }
+
+        // Try to parse as integer
+        if let Ok(i) = key.parse::<i64>() {
+            return QueryValue::Integer(i);
+        }
+
+        // Try to parse as float
+        if let Ok(f) = key.parse::<f64>() {
+            return QueryValue::Float(f);
+        }
+
+        // Try to parse as boolean
+        if key == "true" || key == "false" {
+            return QueryValue::Boolean(key == "true");
+        }
+
+        // Default to string
+        QueryValue::String(key.to_string())
+    }
+
+    /// Check if an expression is an aggregate function
+    fn is_aggregate_expression(&self, expr: &Expression) -> bool {
+        if let Expression::FunctionCall { name, .. } = expr {
+            let upper = name.to_uppercase();
+            matches!(
+                upper.as_str(),
+                "COUNT" | "SUM" | "AVG" | "MIN" | "MAX" | "COUNT_DISTINCT"
+            )
+        } else {
+            false
+        }
+    }
+
+    /// Evaluate HAVING condition against a result row
+    fn evaluate_having_condition(
+        &self,
+        having: &Expression,
+        row: &HashMap<String, QueryValue>,
+    ) -> QSQLResult<bool> {
+        match having {
+            Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => {
+                let left_val = self.evaluate_having_expr(left, row)?;
+                let right_val = self.evaluate_having_expr(right, row)?;
+
+                match operator {
+                    BinaryOperator::Equal => {
+                        Ok(self.compare_query_values(&left_val, &right_val) == 0)
+                    }
+                    BinaryOperator::NotEqual => {
+                        Ok(self.compare_query_values(&left_val, &right_val) != 0)
+                    }
+                    BinaryOperator::LessThan => {
+                        Ok(self.compare_query_values(&left_val, &right_val) < 0)
+                    }
+                    BinaryOperator::LessThanOrEqual => {
+                        Ok(self.compare_query_values(&left_val, &right_val) <= 0)
+                    }
+                    BinaryOperator::GreaterThan => {
+                        Ok(self.compare_query_values(&left_val, &right_val) > 0)
+                    }
+                    BinaryOperator::GreaterThanOrEqual => {
+                        Ok(self.compare_query_values(&left_val, &right_val) >= 0)
+                    }
+                    BinaryOperator::And => {
+                        let left_bool = self.evaluate_having_condition(left, row)?;
+                        let right_bool = self.evaluate_having_condition(right, row)?;
+                        Ok(left_bool && right_bool)
+                    }
+                    BinaryOperator::Or => {
+                        let left_bool = self.evaluate_having_condition(left, row)?;
+                        let right_bool = self.evaluate_having_condition(right, row)?;
+                        Ok(left_bool || right_bool)
+                    }
+                    _ => Ok(true), // Default to true for unsupported operators
+                }
+            }
+            Expression::UnaryOp {
+                operator: UnaryOperator::Not,
+                operand,
+            } => {
+                let val = self.evaluate_having_condition(operand, row)?;
+                Ok(!val)
+            }
+            Expression::UnaryOp { .. } => Ok(true),
+            _ => Ok(true), // Default to true for unsupported expressions
+        }
+    }
+
+    /// Evaluate an expression in the context of HAVING
+    fn evaluate_having_expr(
+        &self,
+        expr: &Expression,
+        row: &HashMap<String, QueryValue>,
+    ) -> QSQLResult<QueryValue> {
+        match expr {
+            Expression::Literal(lit) => Ok(self.literal_to_query_value(lit)),
+            Expression::Identifier(name) => {
+                // Look up the column value in the result row
+                row.get(name)
+                    .cloned()
+                    .ok_or_else(|| QSQLError::ExecutionError {
+                        message: format!("Column '{}' not found in HAVING clause", name),
+                    })
+            }
+            Expression::FunctionCall { name, args } => {
+                // For aggregate functions in HAVING, look up the computed result
+                let agg_name = if args.is_empty() {
+                    format!("{}(*)", name.to_uppercase())
+                } else {
+                    let arg_str = Self::expression_to_string_static(&args[0]);
+                    format!("{}({})", name.to_uppercase(), arg_str)
+                };
+
+                row.get(&agg_name)
+                    .cloned()
+                    .ok_or_else(|| QSQLError::ExecutionError {
+                        message: format!("Aggregate '{}' not found in HAVING clause", agg_name),
+                    })
+            }
+            _ => Ok(QueryValue::Null),
+        }
+    }
+
+    /// Convert literal to QueryValue
+    fn literal_to_query_value(&self, lit: &Literal) -> QueryValue {
+        match lit {
+            Literal::Integer(i) => QueryValue::Integer(*i),
+            Literal::Float(f) => QueryValue::Float(*f),
+            Literal::String(s) => QueryValue::String(s.clone()),
+            Literal::Boolean(b) => QueryValue::Boolean(*b),
+            Literal::Null => QueryValue::Null,
+            Literal::DNA(s) => QueryValue::DNASequence(s.clone()),
+            Literal::QuantumBit(state, amplitude) => {
+                QueryValue::QuantumState(format!("{}:{}", state, amplitude))
+            }
+        }
+    }
+
+    /// Compare two QueryValues, returns -1, 0, or 1
+    fn compare_query_values(&self, a: &QueryValue, b: &QueryValue) -> i32 {
+        match (a, b) {
+            (QueryValue::Integer(i1), QueryValue::Integer(i2)) => i1.cmp(i2) as i32,
+            (QueryValue::Float(f1), QueryValue::Float(f2)) => {
+                if f1 < f2 {
+                    -1
+                } else if f1 > f2 {
+                    1
+                } else {
+                    0
+                }
+            }
+            (QueryValue::Integer(i), QueryValue::Float(f)) => {
+                let i_f = *i as f64;
+                if i_f < *f {
+                    -1
+                } else if i_f > *f {
+                    1
+                } else {
+                    0
+                }
+            }
+            (QueryValue::Float(f), QueryValue::Integer(i)) => {
+                let i_f = *i as f64;
+                if *f < i_f {
+                    -1
+                } else if *f > i_f {
+                    1
+                } else {
+                    0
+                }
+            }
+            (QueryValue::String(s1), QueryValue::String(s2)) => s1.cmp(s2) as i32,
+            (QueryValue::Null, QueryValue::Null) => 0,
+            (QueryValue::Null, _) => -1,
+            (_, QueryValue::Null) => 1,
+            _ => 0, // Default for incompatible types
+        }
     }
 
     /// Compute a single aggregate value

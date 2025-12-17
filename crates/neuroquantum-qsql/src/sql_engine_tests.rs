@@ -784,3 +784,109 @@ fn test_division_and_modulo() {
         _ => panic!("Expected SELECT statement"),
     }
 }
+
+// ============================================================================
+// GROUP BY and HAVING Tests
+// ============================================================================
+
+#[test]
+fn test_group_by_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT name, COUNT(*) FROM users GROUP BY name");
+
+    assert!(result.is_ok());
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert!(
+                !select.group_by.is_empty(),
+                "GROUP BY clause should be parsed"
+            );
+            assert_eq!(
+                select.group_by.len(),
+                1,
+                "Should have exactly one GROUP BY column"
+            );
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_group_by_with_having() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT name, COUNT(*) FROM users GROUP BY name HAVING COUNT(*) > 1");
+
+    assert!(result.is_ok());
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert!(
+                !select.group_by.is_empty(),
+                "GROUP BY clause should be parsed"
+            );
+            assert!(select.having.is_some(), "HAVING clause should be parsed");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_group_by_multiple_columns() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT name, email, COUNT(*) FROM users GROUP BY name, email");
+
+    assert!(result.is_ok());
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(
+                select.group_by.len(),
+                2,
+                "Should have exactly two GROUP BY columns"
+            );
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_group_by_with_aggregate_functions() {
+    let parser = QSQLParser::new();
+    let result =
+        parser.parse("SELECT category, SUM(price), AVG(quantity) FROM products GROUP BY category");
+
+    assert!(result.is_ok());
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(
+                select.select_list.len(),
+                3,
+                "Should have three select items"
+            );
+            assert!(!select.group_by.is_empty(), "GROUP BY should be parsed");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_group_by_with_where_and_having() {
+    let parser = QSQLParser::new();
+    let result = parser.parse(
+        "SELECT department, COUNT(*) FROM employees WHERE active = true GROUP BY department HAVING COUNT(*) >= 5",
+    );
+
+    assert!(result.is_ok());
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert!(
+                select.where_clause.is_some(),
+                "WHERE clause should be parsed"
+            );
+            assert!(
+                !select.group_by.is_empty(),
+                "GROUP BY clause should be parsed"
+            );
+            assert!(select.having.is_some(), "HAVING clause should be parsed");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
