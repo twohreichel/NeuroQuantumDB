@@ -348,6 +348,13 @@ impl QueryExecutor {
         if self.storage_engine.is_some() {
             // Real execution with storage engine
 
+            // Check if we need post-filtering for InList expressions
+            let needs_post_filter = select
+                .where_clause
+                .as_ref()
+                .map(Self::contains_in_list_expression)
+                .unwrap_or(false);
+
             // Convert SQL SELECT to storage query (no borrow of self.storage_engine)
             let storage_query = self.convert_select_to_storage_query(select)?;
 
@@ -362,14 +369,39 @@ impl QueryExecutor {
                 })?;
             drop(storage_guard); // Release lock early
 
+            // Apply post-filtering for InList expressions
+            let filtered_rows = if needs_post_filter {
+                if let Some(where_expr) = &select.where_clause {
+                    let mut filtered = Self::apply_post_filter(storage_rows, where_expr)?;
+
+                    // Apply limit/offset after filtering
+                    if let Some(offset) = select.offset {
+                        if offset as usize >= filtered.len() {
+                            filtered = Vec::new();
+                        } else {
+                            filtered = filtered.into_iter().skip(offset as usize).collect();
+                        }
+                    }
+                    if let Some(limit) = select.limit {
+                        filtered.truncate(limit as usize);
+                    }
+
+                    filtered
+                } else {
+                    storage_rows
+                }
+            } else {
+                storage_rows
+            };
+
             // Neuromorphic learning: learn from access pattern
             if self.config.enable_synaptic_optimization && select.synaptic_weight.is_some() {
-                self.learn_from_select(select, &storage_rows).await?;
+                self.learn_from_select(select, &filtered_rows).await?;
             }
 
             // Convert storage rows to query result
             let (result_rows, columns) =
-                self.convert_storage_rows_to_result(storage_rows, select)?;
+                self.convert_storage_rows_to_result(filtered_rows, select)?;
 
             let rows_affected = result_rows.len() as u64;
 
@@ -1176,6 +1208,182 @@ impl QueryExecutor {
         })
     }
 
+    /// Check if an expression contains an InList that needs post-filtering
+    fn contains_in_list_expression(expr: &Expression) -> bool {
+        match expr {
+            Expression::InList { .. } => true,
+            Expression::BinaryOp { left, right, .. } => {
+                Self::contains_in_list_expression(left) || Self::contains_in_list_expression(right)
+            }
+            Expression::UnaryOp { operand, .. } => Self::contains_in_list_expression(operand),
+            _ => false,
+        }
+    }
+
+    /// Evaluate a WHERE expression against a storage Row
+    fn evaluate_where_expression(expr: &Expression, row: &Row) -> QSQLResult<bool> {
+        match expr {
+            Expression::InList {
+                expr: field_expr,
+                list,
+                negated,
+            } => {
+                // Get the field value from the row
+                let field_name = Self::expression_to_string_static(field_expr);
+                let field_value = row.fields.get(&field_name);
+
+                match field_value {
+                    Some(val) => {
+                        // Check if field value matches any value in the list
+                        let matches = list.iter().any(|list_item| {
+                            if let Ok(list_val) =
+                                Self::convert_expression_to_value_static(list_item)
+                            {
+                                Self::values_equal(val, &list_val)
+                            } else {
+                                false
+                            }
+                        });
+                        Ok(if *negated { !matches } else { matches })
+                    }
+                    None => Ok(*negated), // NULL NOT IN (...) is true, NULL IN (...) is false
+                }
+            }
+            Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => {
+                match operator {
+                    BinaryOperator::And => {
+                        let left_result = Self::evaluate_where_expression(left, row)?;
+                        let right_result = Self::evaluate_where_expression(right, row)?;
+                        Ok(left_result && right_result)
+                    }
+                    BinaryOperator::Or => {
+                        let left_result = Self::evaluate_where_expression(left, row)?;
+                        let right_result = Self::evaluate_where_expression(right, row)?;
+                        Ok(left_result || right_result)
+                    }
+                    _ => {
+                        // For other operators, evaluate as a simple comparison
+                        if let Expression::Identifier(field) = left.as_ref() {
+                            let field_value = row.fields.get(field);
+                            let compare_value = Self::convert_expression_to_value_static(right)?;
+
+                            match field_value {
+                                Some(val) => {
+                                    Self::evaluate_comparison(val, operator, &compare_value)
+                                }
+                                None => Ok(false),
+                            }
+                        } else {
+                            Ok(true) // Default to true for unsupported patterns
+                        }
+                    }
+                }
+            }
+            Expression::UnaryOp {
+                operator: UnaryOperator::Not,
+                operand,
+            } => {
+                let result = Self::evaluate_where_expression(operand, row)?;
+                Ok(!result)
+            }
+            _ => Ok(true), // Default to true for unsupported expressions
+        }
+    }
+
+    /// Compare two Values for equality
+    fn values_equal(a: &Value, b: &Value) -> bool {
+        match (a, b) {
+            (Value::Integer(a), Value::Integer(b)) => a == b,
+            (Value::Float(a), Value::Float(b)) => (a - b).abs() < f64::EPSILON,
+            (Value::Text(a), Value::Text(b)) => a == b,
+            (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            (Value::Null, Value::Null) => true,
+            // Handle cross-type comparisons
+            (Value::Integer(a), Value::Float(b)) => (*a as f64 - b).abs() < f64::EPSILON,
+            (Value::Float(a), Value::Integer(b)) => (a - *b as f64).abs() < f64::EPSILON,
+            _ => false,
+        }
+    }
+
+    /// Evaluate a comparison operator
+    fn evaluate_comparison(
+        field_val: &Value,
+        op: &BinaryOperator,
+        compare_val: &Value,
+    ) -> QSQLResult<bool> {
+        match op {
+            BinaryOperator::Equal => Ok(Self::values_equal(field_val, compare_val)),
+            BinaryOperator::NotEqual => Ok(!Self::values_equal(field_val, compare_val)),
+            BinaryOperator::LessThan => {
+                Self::compare_values_order(field_val, compare_val, |o| o.is_lt())
+            }
+            BinaryOperator::LessThanOrEqual => {
+                Self::compare_values_order(field_val, compare_val, |o| o.is_le())
+            }
+            BinaryOperator::GreaterThan => {
+                Self::compare_values_order(field_val, compare_val, |o| o.is_gt())
+            }
+            BinaryOperator::GreaterThanOrEqual => {
+                Self::compare_values_order(field_val, compare_val, |o| o.is_ge())
+            }
+            BinaryOperator::Like => {
+                if let (Value::Text(field_text), Value::Text(pattern)) = (field_val, compare_val) {
+                    // Simple LIKE implementation: convert SQL pattern to contains check
+                    let pattern_trimmed = pattern.trim_matches('%');
+                    Ok(field_text.contains(pattern_trimmed))
+                } else {
+                    Ok(false)
+                }
+            }
+            BinaryOperator::NotLike => {
+                if let (Value::Text(field_text), Value::Text(pattern)) = (field_val, compare_val) {
+                    let pattern_trimmed = pattern.trim_matches('%');
+                    Ok(!field_text.contains(pattern_trimmed))
+                } else {
+                    Ok(true)
+                }
+            }
+            _ => Ok(true), // Default to true for unsupported operators
+        }
+    }
+
+    /// Compare values and apply ordering predicate
+    fn compare_values_order<F>(a: &Value, b: &Value, pred: F) -> QSQLResult<bool>
+    where
+        F: Fn(std::cmp::Ordering) -> bool,
+    {
+        let ordering = match (a, b) {
+            (Value::Integer(a), Value::Integer(b)) => a.cmp(b),
+            (Value::Float(a), Value::Float(b)) => {
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+            }
+            (Value::Text(a), Value::Text(b)) => a.cmp(b),
+            (Value::Integer(a), Value::Float(b)) => (*a as f64)
+                .partial_cmp(b)
+                .unwrap_or(std::cmp::Ordering::Equal),
+            (Value::Float(a), Value::Integer(b)) => a
+                .partial_cmp(&(*b as f64))
+                .unwrap_or(std::cmp::Ordering::Equal),
+            _ => return Ok(false),
+        };
+        Ok(pred(ordering))
+    }
+
+    /// Apply post-filtering for complex WHERE expressions (including InList)
+    fn apply_post_filter(rows: Vec<Row>, where_expr: &Expression) -> QSQLResult<Vec<Row>> {
+        let mut filtered = Vec::new();
+        for row in rows {
+            if Self::evaluate_where_expression(where_expr, &row)? {
+                filtered.push(row);
+            }
+        }
+        Ok(filtered)
+    }
+
     /// Convert SQL SELECT to storage SelectQuery
     fn convert_select_to_storage_query(&self, select: &SelectStatement) -> QSQLResult<SelectQuery> {
         // Extract table name from FROM clause
@@ -1193,8 +1401,14 @@ impl QueryExecutor {
             });
         };
 
-        // Extract column list - use "*" for aggregate queries to load all data
-        let columns = if Self::has_aggregate_functions(&select.select_list) {
+        // Extract column list - use "*" for aggregate queries or when we need post-filtering
+        let needs_post_filter = select
+            .where_clause
+            .as_ref()
+            .map(Self::contains_in_list_expression)
+            .unwrap_or(false);
+
+        let columns = if Self::has_aggregate_functions(&select.select_list) || needs_post_filter {
             vec!["*".to_string()]
         } else {
             select
@@ -1209,9 +1423,14 @@ impl QueryExecutor {
                 .collect()
         };
 
-        // Convert WHERE clause
+        // Convert WHERE clause - skip if it contains InList (we'll post-filter)
         let where_clause = if let Some(expr) = &select.where_clause {
-            Some(Self::convert_expression_to_where_clause_static(expr)?)
+            if Self::contains_in_list_expression(expr) {
+                // We'll handle this in post-filtering
+                None
+            } else {
+                Some(Self::convert_expression_to_where_clause_static(expr)?)
+            }
         } else {
             None
         };
@@ -1223,13 +1442,21 @@ impl QueryExecutor {
             None
         };
 
+        // Note: When we have InList, we don't pass limit/offset to storage
+        // because we need to filter first, then apply limit/offset
+        let (limit, offset) = if needs_post_filter {
+            (None, None)
+        } else {
+            (select.limit, select.offset)
+        };
+
         Ok(SelectQuery {
             table,
             columns,
             where_clause,
             order_by,
-            limit: select.limit,
-            offset: select.offset,
+            limit,
+            offset,
         })
     }
 

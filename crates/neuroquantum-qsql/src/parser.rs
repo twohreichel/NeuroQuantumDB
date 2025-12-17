@@ -1436,6 +1436,11 @@ impl QSQLParser {
         keywords.insert("NOT".to_string(), TokenType::Not);
         keywords.insert("WITH".to_string(), TokenType::With);
         keywords.insert("DISTINCT".to_string(), TokenType::Distinct);
+        keywords.insert("IN".to_string(), TokenType::In);
+        keywords.insert("LIKE".to_string(), TokenType::Like);
+        keywords.insert("BETWEEN".to_string(), TokenType::Between);
+        keywords.insert("IS".to_string(), TokenType::Is);
+        keywords.insert("NULL".to_string(), TokenType::Null);
 
         // Added missing keywords for INSERT, UPDATE, DELETE
         keywords.insert("INSERT".to_string(), TokenType::Insert);
@@ -1741,6 +1746,23 @@ impl QSQLParser {
 
         // Then, handle infix operators using precedence climbing
         while *i < tokens.len() {
+            // Check for NOT IN (two-token sequence)
+            if matches!(tokens[*i], TokenType::Not)
+                && *i + 1 < tokens.len()
+                && matches!(tokens[*i + 1], TokenType::In)
+            {
+                *i += 2; // consume NOT IN
+                left = self.parse_in_list(tokens, i, left, true)?;
+                continue;
+            }
+
+            // Check for IN operator - special handling for IN (list)
+            if matches!(tokens[*i], TokenType::In) {
+                *i += 1; // consume IN
+                left = self.parse_in_list(tokens, i, left, false)?;
+                continue;
+            }
+
             // Get operator info for current token
             let op_info = match self.get_operator_info(&tokens[*i]) {
                 Some(info) => info,
@@ -1776,6 +1798,65 @@ impl QSQLParser {
         }
 
         Ok(left)
+    }
+
+    /// Parse IN list expression: IN (value1, value2, ...) or NOT IN (value1, value2, ...)
+    fn parse_in_list(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+        left: Expression,
+        negated: bool,
+    ) -> QSQLResult<Expression> {
+        // Expect opening parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after IN".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume '('
+
+        let mut list = Vec::new();
+
+        // Parse the list of values
+        loop {
+            if *i >= tokens.len() {
+                return Err(QSQLError::ParseError {
+                    message: "Unclosed IN list".to_string(),
+                    position: *i,
+                });
+            }
+
+            // Check for closing paren (empty list is allowed)
+            if matches!(tokens[*i], TokenType::RightParen) {
+                *i += 1; // consume ')'
+                break;
+            }
+
+            // Parse the next value in the list
+            let value = self.parse_prefix_expression(tokens, i)?;
+            list.push(value);
+
+            // Check for comma or closing paren
+            if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                *i += 1; // consume ','
+            } else if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
+                *i += 1; // consume ')'
+                break;
+            } else if *i >= tokens.len() {
+                return Err(QSQLError::ParseError {
+                    message: "Expected ',' or ')' in IN list".to_string(),
+                    position: *i,
+                });
+            }
+        }
+
+        Ok(Expression::InList {
+            expr: Box::new(left),
+            list,
+            negated,
+        })
     }
 
     /// Parse prefix expression (primary expressions and unary operators)

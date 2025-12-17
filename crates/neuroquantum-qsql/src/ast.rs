@@ -290,6 +290,13 @@ pub enum Expression {
         target: Box<Expression>,
         oracle: String,
     },
+
+    // IN list expression for WHERE column IN (value1, value2, ...)
+    InList {
+        expr: Box<Expression>,
+        list: Vec<Expression>,
+        negated: bool, // true for NOT IN
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

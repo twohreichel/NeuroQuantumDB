@@ -3,7 +3,7 @@
 **Testdatum:** 17. Dezember 2025 (Aktualisiert)  
 **Tester:** Senior Rust-Entwickler / Datenbank-Experte  
 **Version:** 0.1.0  
-**Letzte Aktualisierung:** 17.12.2025, 14:30 Uhr
+**Letzte Aktualisierung:** 17.12.2025, 16:00 Uhr
 
 ---
 
@@ -11,18 +11,18 @@
 
 | Kategorie | Status | Bestanden | Fehlgeschlagen |
 |-----------|--------|-----------|----------------|
-| **Unit-Tests** | ✅ | 722 | 0 |
+| **Unit-Tests** | ✅ | 725 | 0 |
 | **Integrationstests** | ✅ | 13 | 0 |
 | **API-Endpunkt-Tests** | ✅ | 15 | 6* |
-| **SQL-Feature-Tests** | ⚠️ | 52 | 62** |
+| **SQL-Feature-Tests** | ⚠️ | 54 | 60** |
 | **Stress-Tests** | ✅ | 17 | 0 |
 | **E2E-Tests** | ✅ | 12+ | 0 |
 
 *\*Fehlgeschlagene API-Tests beziehen sich auf erweiterte Features (DNA/Quantum/Neural), die zusätzliche Konfiguration erfordern.*
 
-**\*\*Fehlende SQL-Features umfassen JOINs und erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert.**
+**\*\*Fehlende SQL-Features umfassen JOINs und erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert.**
 
-**SQL-Feature Erfolgsrate: 45.6%** (verbessert von 43.0%)  
+**SQL-Feature Erfolgsrate: 47.4%** (verbessert von 45.6%)  
 **API Success Rate: 71.4%**
 
 ---
@@ -97,6 +97,8 @@
 | **GROUP BY** | GROUP BY | `SELECT name, COUNT(*) FROM users GROUP BY name` |
 | | GROUP BY mehrere Spalten | `SELECT name, email, COUNT(*) FROM users GROUP BY name, email` |
 | | HAVING | `SELECT name, COUNT(*) FROM users GROUP BY name HAVING COUNT(*) > 1` |
+| **IN-Operator** | IN (Liste) | `SELECT * FROM users WHERE age IN (25, 30, 35)` |
+| | NOT IN (Liste) | `SELECT * FROM users WHERE status NOT IN ('inactive', 'banned')` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
@@ -109,7 +111,6 @@
 | | CROSS JOIN | `SELECT * FROM users u CROSS JOIN orders o` | 🟡 Mittel |
 | **Subqueries** | IN (Subquery) | `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)` | 🔴 Kritisch |
 | | FROM (Subquery) | `SELECT * FROM (SELECT name FROM users) AS subq` | 🟡 Mittel |
-| **WHERE** | IN (Liste) | `SELECT * FROM users WHERE age IN (25, 30, 35)` | 🔴 Kritisch |
 | **DDL** | CREATE TABLE | `CREATE TABLE test (id INT PRIMARY KEY)` | 🟡 REST-API nutzen |
 | | DROP TABLE | `DROP TABLE test` | 🟡 REST-API nutzen |
 | | ALTER TABLE | `ALTER TABLE users ADD COLUMN status TEXT` | 🟡 Mittel |
@@ -326,7 +327,7 @@ POST /api/v1/tables/users/query
 
 ### Stärken 💪
 
-1. **Robuste Core-Engine:** Alle 722 Unit-Tests bestehen
+1. **Robuste Core-Engine:** Alle 725 Unit-Tests bestehen
 2. **ACID-Transaktionen:** WAL, Locking, Recovery vollständig implementiert
 3. **Stress-Resistenz:** 17 Stress-Tests bestanden ohne Fehler
 4. **Sicherheit:** API-Key-Authentifizierung, Post-Quantum-Kryptographie
@@ -336,12 +337,12 @@ POST /api/v1/tables/users/query
 8. **Pattern Matching:** LIKE, ILIKE, NOT LIKE funktionieren
 9. **Aggregatfunktionen:** ✅ COUNT(*), COUNT(column), SUM, AVG, MIN, MAX implementiert (17.12.2025)
 10. **GROUP BY / HAVING:** ✅ Gruppierung und HAVING-Filter implementiert (17.12.2025)
+11. **IN-Operator:** ✅ WHERE column IN (1, 2, 3) und NOT IN implementiert (17.12.2025)
 
 ### Schwächen 🔧
 
 1. **SQL-Funktionsumfang eingeschränkt:**
    - ❌ JOINs (INNER, LEFT, RIGHT, FULL) nicht implementiert
-   - ❌ IN-Operator in WHERE-Klauseln fehlerhaft
    - ❌ String-/Math-/Datum-Funktionen fehlen
    - ❌ Window Functions fehlen
    - ❌ CTEs (WITH ... AS) fehlen
@@ -355,7 +356,7 @@ POST /api/v1/tables/users/query
 1. ~~**Aggregatfunktionen:** COUNT, SUM, AVG, MIN, MAX implementieren~~ ✅ ERLEDIGT (17.12.2025)
 2. ~~**GROUP BY / HAVING:** Für Reporting und Analysen essenziell~~ ✅ ERLEDIGT (17.12.2025)
 3. **JOINs:** INNER JOIN und LEFT JOIN für relationale Abfragen
-4. **IN-Operator:** `WHERE column IN (1, 2, 3)` reparieren
+4. ~~**IN-Operator:** `WHERE column IN (1, 2, 3)` reparieren~~ ✅ ERLEDIGT (17.12.2025)
 
 **🟡 Mittel (Für erweiterte Anwendungsfälle):**
 5. **String-Funktionen:** UPPER, LOWER, CONCAT, SUBSTRING, LENGTH
@@ -373,7 +374,7 @@ POST /api/v1/tables/users/query
 
 ## 6. Detaillierte SQL-Testergebnisse
 
-### 6.1 Funktionierende SQL-Features (52 von 114)
+### 6.1 Funktionierende SQL-Features (54 von 114)
 
 | Kategorie | Features |
 |-----------|----------|
@@ -388,13 +389,13 @@ POST /api/v1/tables/users/query
 | **DML** | INSERT (single, multiple), UPDATE mit WHERE, DELETE mit WHERE/LIKE |
 | **Aggregatfunktionen** | COUNT(*), COUNT(col), SUM, AVG, MIN, MAX |
 | **GROUP BY** | GROUP BY, HAVING, mehrere Spalten |
+| **IN-Operator** | IN (Liste), NOT IN (Liste) ✅ NEU (17.12.2025) |
 
-### 6.2 Nicht-Funktionierende SQL-Features (62 von 114)
+### 6.2 Nicht-Funktionierende SQL-Features (60 von 114)
 
 | Kategorie | Fehlende Features | Priorität |
 |-----------|-------------------|-----------|
 | **JOINs** | INNER, LEFT, RIGHT, FULL OUTER, CROSS, Self | 🔴 Kritisch |
-| **WHERE** | IN (Liste) - `WHERE age IN (25, 30)` | 🔴 Kritisch |
 | **Subqueries** | IN (Subquery), FROM (Subquery) | 🟡 Mittel |
 | **DDL** | CREATE TABLE, DROP TABLE, ALTER, TRUNCATE, INDEX | 🟡 REST nutzen |
 | **Transaktionen** | BEGIN, COMMIT, ROLLBACK, SAVEPOINT | 🟡 Mittel |
@@ -470,10 +471,10 @@ python3 test_sql_functions.py
 | REST API (Tables) | 🟢 Funktional | Create, Insert, Query via REST |
 | Authentifizierung | 🟢 Funktional | API-Key, Post-Quantum-Crypto |
 | Transaktionen/ACID | 🟢 Funktional | WAL, Recovery, Locking |
-| **Aggregatfunktionen** | � Funktional | COUNT, SUM, AVG, MIN, MAX ✅ |
+| **Aggregatfunktionen** | 🟢 Funktional | COUNT, SUM, AVG, MIN, MAX ✅ |
 | **GROUP BY / HAVING** | 🟢 Funktional | Gruppierung und HAVING-Filter ✅ |
+| **IN-Operator** | 🟢 Funktional | WHERE col IN (1,2,3), NOT IN ✅ (17.12.2025) |
 | **JOINs** | 🔴 Fehlt | INNER, LEFT, RIGHT, FULL |
-| **IN-Operator** | 🔴 Fehlerhaft | WHERE col IN (1,2,3) |
 | String/Math/Datum-Funktionen | 🔴 Fehlt | UPPER, CONCAT, NOW(), etc. |
 | Window Functions | 🔴 Fehlt | ROW_NUMBER, RANK, etc. |
 | CTEs | 🔴 Fehlt | WITH ... AS |
@@ -484,14 +485,15 @@ python3 test_sql_functions.py
 
 ```
 Getestet: 114 SQL-Features
-Funktioniert: 52 (45.6%)
-Fehlt: 62 (54.4%)
+Funktioniert: 54 (47.4%)
+Fehlt: 60 (52.6%)
 ```
 
 ### Empfehlung
 
 **Für einfache CRUD-Anwendungen:** ✅ Einsatzbereit  
 **Für Reporting/Analytics (COUNT, GROUP BY):** ✅ Einsatzbereit (17.12.2025)  
+**Für IN-Listen-Abfragen:** ✅ Einsatzbereit (17.12.2025)  
 **Für relationale Abfragen (JOINs):** ❌ Nicht einsatzbereit  
 **Für erweiterte SQL-Anwendungen:** ❌ Signifikante Lücken  
 
@@ -500,7 +502,7 @@ Fehlt: 62 (54.4%)
 1. ~~🔴 **Aggregatfunktionen** (COUNT, SUM, AVG) - Kritisch~~ ✅ ERLEDIGT
 2. ~~🔴 **GROUP BY / HAVING** - Kritisch~~ ✅ ERLEDIGT
 3. 🔴 **JOINs** (INNER, LEFT) - Kritisch
-4. 🔴 **IN-Operator reparieren** - Kritisch
+4. ~~🔴 **IN-Operator reparieren** - Kritisch~~ ✅ ERLEDIGT (17.12.2025)
 5. 🟡 **String-Funktionen** - Mittel
 6. 🟡 **Subqueries in WHERE** - Mittel
 7. 🟢 **Window Functions** - Niedrig
@@ -508,6 +510,6 @@ Fehlt: 62 (54.4%)
 ---
 
 *Bericht erstellt am 17. Dezember 2025*  
-*Letzte Aktualisierung: 17.12.2025, 14:30 Uhr*  
+*Letzte Aktualisierung: 17.12.2025, 16:00 Uhr*  
 *Testumgebung: macOS, ARM64 (Apple Silicon), Rust 1.80+*  
 *SQL-Tests: 114 Features getestet*

@@ -890,3 +890,109 @@ fn test_group_by_with_where_and_having() {
         _ => panic!("Expected SELECT statement"),
     }
 }
+
+/// Test IN operator parsing with list of values
+#[test]
+fn test_in_operator_parsing() {
+    let parser = QSQLParser::new();
+
+    // Test basic IN with integer list
+    let result = parser.parse("SELECT * FROM users WHERE age IN (25, 30, 35)");
+    assert!(result.is_ok(), "IN operator should parse successfully");
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::InList {
+                expr,
+                list,
+                negated,
+            }) = &select.where_clause
+            {
+                assert!(!negated, "Should not be negated");
+                assert_eq!(list.len(), 3, "Should have 3 values in list");
+
+                // Check the field expression
+                if let Expression::Identifier(name) = expr.as_ref() {
+                    assert_eq!(name, "age");
+                } else {
+                    panic!("Expected identifier 'age'");
+                }
+
+                // Check the list values
+                if let Expression::Literal(crate::ast::Literal::Integer(v)) = &list[0] {
+                    assert_eq!(*v, 25);
+                } else {
+                    panic!("Expected integer 25");
+                }
+            } else {
+                panic!("Expected InList expression, got: {:?}", select.where_clause);
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test NOT IN operator parsing
+#[test]
+fn test_not_in_operator_parsing() {
+    let parser = QSQLParser::new();
+
+    let result = parser.parse("SELECT * FROM users WHERE status NOT IN ('inactive', 'banned')");
+    assert!(result.is_ok(), "NOT IN operator should parse successfully");
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::InList {
+                expr,
+                list,
+                negated,
+            }) = &select.where_clause
+            {
+                assert!(*negated, "Should be negated (NOT IN)");
+                assert_eq!(list.len(), 2, "Should have 2 values in list");
+
+                // Check the field expression
+                if let Expression::Identifier(name) = expr.as_ref() {
+                    assert_eq!(name, "status");
+                } else {
+                    panic!("Expected identifier 'status'");
+                }
+            } else {
+                panic!("Expected InList expression");
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test IN operator with complex expressions
+#[test]
+fn test_in_operator_with_and_or() {
+    let parser = QSQLParser::new();
+
+    let result = parser.parse("SELECT * FROM users WHERE age IN (25, 30) AND active = true");
+    assert!(result.is_ok(), "IN with AND should parse successfully");
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            // Should be AND at top level
+            if let Some(Expression::BinaryOp {
+                operator: crate::ast::BinaryOperator::And,
+                left,
+                ..
+            }) = &select.where_clause
+            {
+                // Left side should be InList
+                if let Expression::InList { list, negated, .. } = left.as_ref() {
+                    assert!(!negated);
+                    assert_eq!(list.len(), 2);
+                } else {
+                    panic!("Expected InList on left side of AND");
+                }
+            } else {
+                panic!("Expected AND expression at top level");
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
