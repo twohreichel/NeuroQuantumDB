@@ -340,11 +340,12 @@ POST /api/v1/tables/users/query
 9. **Aggregatfunktionen:** ✅ COUNT(*), COUNT(column), SUM, AVG, MIN, MAX implementiert (17.12.2025)
 10. **GROUP BY / HAVING:** ✅ Gruppierung und HAVING-Filter implementiert (17.12.2025)
 11. **IN-Operator:** ✅ WHERE column IN (1, 2, 3) und NOT IN implementiert (17.12.2025)
+12. **JOINs:** ✅ INNER, LEFT, RIGHT, FULL OUTER, CROSS JOIN implementiert (17.12.2025)
 
 ### Schwächen 🔧
 
 1. **SQL-Funktionsumfang eingeschränkt:**
-   - ❌ JOINs (INNER, LEFT, RIGHT, FULL) nicht implementiert
+   - ✅ ~~JOINs (INNER, LEFT, RIGHT, FULL)~~ implementiert (17.12.2025)
    - ❌ String-/Math-/Datum-Funktionen fehlen
    - ❌ Window Functions fehlen
    - ❌ CTEs (WITH ... AS) fehlen
@@ -357,7 +358,7 @@ POST /api/v1/tables/users/query
 **🔴 Kritisch (Für produktiven Einsatz erforderlich):**
 1. ~~**Aggregatfunktionen:** COUNT, SUM, AVG, MIN, MAX implementieren~~ ✅ ERLEDIGT (17.12.2025)
 2. ~~**GROUP BY / HAVING:** Für Reporting und Analysen essenziell~~ ✅ ERLEDIGT (17.12.2025)
-3. **JOINs:** INNER JOIN und LEFT JOIN für relationale Abfragen
+3. ~~**JOINs:** INNER JOIN und LEFT JOIN für relationale Abfragen~~ ✅ ERLEDIGT (17.12.2025)
 4. ~~**IN-Operator:** `WHERE column IN (1, 2, 3)` reparieren~~ ✅ ERLEDIGT (17.12.2025)
 
 **🟡 Mittel (Für erweiterte Anwendungsfälle):**
@@ -376,7 +377,7 @@ POST /api/v1/tables/users/query
 
 ## 6. Detaillierte SQL-Testergebnisse
 
-### 6.1 Funktionierende SQL-Features (54 von 114)
+### 6.1 Funktionierende SQL-Features (61 von 114)
 
 | Kategorie | Features |
 |-----------|----------|
@@ -392,12 +393,13 @@ POST /api/v1/tables/users/query
 | **Aggregatfunktionen** | COUNT(*), COUNT(col), SUM, AVG, MIN, MAX |
 | **GROUP BY** | GROUP BY, HAVING, mehrere Spalten |
 | **IN-Operator** | IN (Liste), NOT IN (Liste) ✅ NEU (17.12.2025) |
+| **JOINs** | INNER, LEFT, RIGHT, FULL OUTER, CROSS ✅ NEU (17.12.2025) |
 
-### 6.2 Nicht-Funktionierende SQL-Features (60 von 114)
+### 6.2 Nicht-Funktionierende SQL-Features (53 von 114)
 
 | Kategorie | Fehlende Features | Priorität |
 |-----------|-------------------|-----------|
-| **JOINs** | INNER, LEFT, RIGHT, FULL OUTER, CROSS, Self | 🔴 Kritisch |
+| **JOINs** | ✅ INNER, LEFT, RIGHT, FULL OUTER, CROSS implementiert (17.12.2025) | ~~🔴 Kritisch~~ |
 | **Subqueries** | IN (Subquery), FROM (Subquery) | 🟡 Mittel |
 | **DDL** | CREATE TABLE, DROP TABLE, ALTER, TRUNCATE, INDEX | 🟡 REST nutzen |
 | **Transaktionen** | BEGIN, COMMIT, ROLLBACK, SAVEPOINT | 🟡 Mittel |
@@ -476,7 +478,7 @@ python3 test_sql_functions.py
 | **Aggregatfunktionen** | 🟢 Funktional | COUNT, SUM, AVG, MIN, MAX ✅ |
 | **GROUP BY / HAVING** | 🟢 Funktional | Gruppierung und HAVING-Filter ✅ |
 | **IN-Operator** | 🟢 Funktional | WHERE col IN (1,2,3), NOT IN ✅ (17.12.2025) |
-| **JOINs** | 🔴 Fehlt | INNER, LEFT, RIGHT, FULL |
+| **JOINs** | � Funktional | INNER, LEFT, RIGHT, FULL, CROSS ✅ (17.12.2025) |
 | String/Math/Datum-Funktionen | 🔴 Fehlt | UPPER, CONCAT, NOW(), etc. |
 | Window Functions | 🔴 Fehlt | ROW_NUMBER, RANK, etc. |
 | CTEs | 🔴 Fehlt | WITH ... AS |
@@ -487,8 +489,8 @@ python3 test_sql_functions.py
 
 ```
 Getestet: 114 SQL-Features
-Funktioniert: 54 (47.4%)
-Fehlt: 60 (52.6%)
+Funktioniert: 61 (53.5%)
+Fehlt: 53 (46.5%)
 ```
 
 ### Empfehlung
@@ -496,14 +498,14 @@ Fehlt: 60 (52.6%)
 **Für einfache CRUD-Anwendungen:** ✅ Einsatzbereit  
 **Für Reporting/Analytics (COUNT, GROUP BY):** ✅ Einsatzbereit (17.12.2025)  
 **Für IN-Listen-Abfragen:** ✅ Einsatzbereit (17.12.2025)  
-**Für relationale Abfragen (JOINs):** ❌ Nicht einsatzbereit  
+**Für relationale Abfragen (JOINs):** ✅ Einsatzbereit (17.12.2025)  
 **Für erweiterte SQL-Anwendungen:** ❌ Signifikante Lücken  
 
 ### Prioritäten für Weiterentwicklung
 
 1. ~~🔴 **Aggregatfunktionen** (COUNT, SUM, AVG) - Kritisch~~ ✅ ERLEDIGT
 2. ~~🔴 **GROUP BY / HAVING** - Kritisch~~ ✅ ERLEDIGT
-3. 🔴 **JOINs** (INNER, LEFT) - Kritisch
+3. ~~🔴 **JOINs** (INNER, LEFT, RIGHT, FULL, CROSS) - Kritisch~~ ✅ ERLEDIGT (17.12.2025)
 4. ~~🔴 **IN-Operator reparieren** - Kritisch~~ ✅ ERLEDIGT (17.12.2025)
 5. 🟡 **String-Funktionen** - Mittel
 6. 🟡 **Subqueries in WHERE** - Mittel
@@ -512,6 +514,6 @@ Fehlt: 60 (52.6%)
 ---
 
 *Bericht erstellt am 17. Dezember 2025*  
-*Letzte Aktualisierung: 17.12.2025, 16:00 Uhr*  
+*Letzte Aktualisierung: 17.12.2025, 19:00 Uhr*  
 *Testumgebung: macOS, ARM64 (Apple Silicon), Rust 1.80+*  
 *SQL-Tests: 114 Features getestet*
