@@ -3,7 +3,7 @@
 **Testdatum:** 17. Dezember 2025 (Aktualisiert)  
 **Tester:** Senior Rust-Entwickler / Datenbank-Experte  
 **Version:** 0.1.0  
-**Letzte Aktualisierung:** 17.12.2025, 16:00 Uhr
+**Letzte Aktualisierung:** 17.12.2025, 13:45 Uhr
 
 ---
 
@@ -14,15 +14,15 @@
 | **Unit-Tests** | ✅ | 725 | 0 |
 | **Integrationstests** | ✅ | 13 | 0 |
 | **API-Endpunkt-Tests** | ✅ | 15 | 6* |
-| **SQL-Feature-Tests** | ⚠️ | 54 | 60** |
+| **SQL-Feature-Tests** | ⚠️ | 61 | 53** |
 | **Stress-Tests** | ✅ | 17 | 0 |
 | **E2E-Tests** | ✅ | 12+ | 0 |
 
 *\*Fehlgeschlagene API-Tests beziehen sich auf erweiterte Features (DNA/Quantum/Neural), die zusätzliche Konfiguration erfordern.*
 
-**\*\*Fehlende SQL-Features umfassen JOINs und erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert.**
+**\*\*Fehlende SQL-Features umfassen erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert. JOINs (INNER, LEFT, RIGHT, FULL, CROSS) wurden am 17.12.2025 implementiert.**
 
-**SQL-Feature Erfolgsrate: 47.4%** (verbessert von 45.6%)  
+**SQL-Feature Erfolgsrate: 53.5%** (verbessert von 47.4%)  
 **API Success Rate: 71.4%**
 
 ---
@@ -99,16 +99,18 @@
 | | HAVING | `SELECT name, COUNT(*) FROM users GROUP BY name HAVING COUNT(*) > 1` |
 | **IN-Operator** | IN (Liste) | `SELECT * FROM users WHERE age IN (25, 30, 35)` |
 | | NOT IN (Liste) | `SELECT * FROM users WHERE status NOT IN ('inactive', 'banned')` |
+| **JOINs** | INNER JOIN | `SELECT u.name, o.amount FROM users u INNER JOIN orders o ON u.id = o.user_id` |
+| | LEFT JOIN | `SELECT u.name, o.amount FROM users u LEFT JOIN orders o ON u.id = o.user_id` |
+| | RIGHT JOIN | `SELECT u.name, o.amount FROM users u RIGHT JOIN orders o ON u.id = o.user_id` |
+| | FULL OUTER JOIN | `SELECT u.name, o.amount FROM users u FULL OUTER JOIN orders o ON u.id = o.user_id` |
+| | CROSS JOIN | `SELECT u.name, o.amount FROM users u CROSS JOIN orders o` |
+| | Self JOIN | `SELECT a.name, b.name FROM users a, users b WHERE a.id != b.id` |
+| | JOIN mit WHERE | `SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.amount > 100` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
 | Kategorie | Feature | Beispiel | Priorität |
 |-----------|---------|----------|-----------|
-| **JOINs** | INNER JOIN | `SELECT * FROM users u JOIN orders o ON u.id = o.user_id` | 🔴 Kritisch |
-| | LEFT JOIN | `SELECT * FROM users u LEFT JOIN orders o ON ...` | 🔴 Kritisch |
-| | RIGHT JOIN | `SELECT * FROM users u RIGHT JOIN orders o ON ...` | 🟡 Mittel |
-| | FULL OUTER JOIN | `SELECT * FROM users u FULL OUTER JOIN ...` | 🟡 Mittel |
-| | CROSS JOIN | `SELECT * FROM users u CROSS JOIN orders o` | 🟡 Mittel |
 | **Subqueries** | IN (Subquery) | `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)` | 🔴 Kritisch |
 | | FROM (Subquery) | `SELECT * FROM (SELECT name FROM users) AS subq` | 🟡 Mittel |
 | **DDL** | CREATE TABLE | `CREATE TABLE test (id INT PRIMARY KEY)` | 🟡 REST-API nutzen |

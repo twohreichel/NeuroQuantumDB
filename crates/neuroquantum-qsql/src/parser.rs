@@ -645,11 +645,24 @@ impl QSQLParser {
 
             match &tokens[i] {
                 TokenType::Identifier(name) => {
+                    // Build full qualified name (e.g., u.name, table.column)
+                    let mut full_name = name.clone();
+                    i += 1;
+
+                    // Check for qualified name (e.g., u.id, table.column)
+                    while i + 1 < tokens.len() && matches!(tokens[i], TokenType::Dot) {
+                        if let TokenType::Identifier(next_part) = &tokens[i + 1] {
+                            full_name.push('.');
+                            full_name.push_str(next_part);
+                            i += 2; // consume '.' and identifier
+                        } else {
+                            break;
+                        }
+                    }
+
                     // Check if this is a function call (next token is '(')
-                    if i + 1 < tokens.len() && matches!(tokens[i + 1], TokenType::LeftParen) {
-                        let func_name = name.clone();
-                        i += 1; // Move past identifier
-                        let expr = self.parse_function_call(tokens, &mut i, func_name)?;
+                    if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
+                        let expr = self.parse_function_call(tokens, &mut i, full_name)?;
 
                         // Check for optional AS alias
                         let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
@@ -671,9 +684,6 @@ impl QSQLParser {
                         select_list.push(SelectItem::Expression { expr, alias });
                     } else {
                         // Check for optional AS alias
-                        let name_clone = name.clone();
-                        i += 1;
-
                         let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
                             i += 1;
                             if i < tokens.len() {
@@ -691,7 +701,7 @@ impl QSQLParser {
                         };
 
                         select_list.push(SelectItem::Expression {
-                            expr: Expression::Identifier(name_clone),
+                            expr: Expression::Identifier(full_name),
                             alias,
                         });
                     }
@@ -720,16 +730,26 @@ impl QSQLParser {
             i += 1;
             if i < tokens.len() {
                 if let TokenType::Identifier(table_name) = &tokens[i] {
-                    from = Some(FromClause {
-                        relations: vec![TableReference {
-                            name: table_name.clone(),
-                            alias: None,
-                            synaptic_weight: None,
-                            quantum_state: None,
-                        }],
-                        joins: vec![],
-                    });
+                    let first_table_name = table_name.clone();
                     i += 1;
+
+                    // Check for table alias (AS or direct identifier)
+                    let first_alias = self.parse_table_alias(tokens, &mut i);
+
+                    let first_relation = TableReference {
+                        name: first_table_name,
+                        alias: first_alias,
+                        synaptic_weight: None,
+                        quantum_state: None,
+                    };
+
+                    // Parse JOINs
+                    let joins = self.parse_join_clauses(tokens, &mut i)?;
+
+                    from = Some(FromClause {
+                        relations: vec![first_relation],
+                        joins,
+                    });
                 }
             }
         }
@@ -1418,6 +1438,196 @@ impl QSQLParser {
         Ok(Statement::QuantumJoin(quantum_join))
     }
 
+    /// Parse an optional table alias (AS alias or just identifier after table name)
+    fn parse_table_alias(&self, tokens: &[TokenType], i: &mut usize) -> Option<String> {
+        if *i >= tokens.len() {
+            return None;
+        }
+
+        // Check for AS keyword
+        if let TokenType::As = &tokens[*i] {
+            *i += 1;
+            if *i < tokens.len() {
+                if let TokenType::Identifier(alias) = &tokens[*i] {
+                    *i += 1;
+                    return Some(alias.clone());
+                }
+            }
+            return None;
+        }
+
+        // Check for direct identifier as alias (not a keyword)
+        if let TokenType::Identifier(alias) = &tokens[*i] {
+            // Avoid treating SQL keywords as aliases
+            let upper = alias.to_uppercase();
+            if !matches!(
+                upper.as_str(),
+                "WHERE"
+                    | "JOIN"
+                    | "INNER"
+                    | "LEFT"
+                    | "RIGHT"
+                    | "FULL"
+                    | "CROSS"
+                    | "ON"
+                    | "ORDER"
+                    | "GROUP"
+                    | "HAVING"
+                    | "LIMIT"
+                    | "OFFSET"
+                    | "UNION"
+                    | "INTERSECT"
+                    | "EXCEPT"
+            ) {
+                *i += 1;
+                return Some(alias.clone());
+            }
+        }
+
+        None
+    }
+
+    /// Parse JOIN clauses after the first table in FROM
+    fn parse_join_clauses(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Vec<JoinClause>> {
+        let mut joins = Vec::new();
+
+        loop {
+            if *i >= tokens.len() {
+                break;
+            }
+
+            // Determine join type
+            let join_type = match &tokens[*i] {
+                TokenType::Inner => {
+                    *i += 1;
+                    // Expect JOIN after INNER
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Join) {
+                        *i += 1;
+                    }
+                    JoinType::Inner
+                }
+                TokenType::Left => {
+                    *i += 1;
+                    // Optional OUTER keyword
+                    if *i < tokens.len() {
+                        if let TokenType::Identifier(s) = &tokens[*i] {
+                            if s.to_uppercase() == "OUTER" {
+                                *i += 1;
+                            }
+                        }
+                    }
+                    // Expect JOIN
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Join) {
+                        *i += 1;
+                    }
+                    JoinType::Left
+                }
+                TokenType::Right => {
+                    *i += 1;
+                    // Optional OUTER keyword
+                    if *i < tokens.len() {
+                        if let TokenType::Identifier(s) = &tokens[*i] {
+                            if s.to_uppercase() == "OUTER" {
+                                *i += 1;
+                            }
+                        }
+                    }
+                    // Expect JOIN
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Join) {
+                        *i += 1;
+                    }
+                    JoinType::Right
+                }
+                TokenType::Full => {
+                    *i += 1;
+                    // Optional OUTER keyword
+                    if *i < tokens.len() {
+                        if let TokenType::Identifier(s) = &tokens[*i] {
+                            if s.to_uppercase() == "OUTER" {
+                                *i += 1;
+                            }
+                        }
+                    }
+                    // Expect JOIN
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Join) {
+                        *i += 1;
+                    }
+                    JoinType::Full
+                }
+                TokenType::Cross => {
+                    *i += 1;
+                    // Expect JOIN
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Join) {
+                        *i += 1;
+                    }
+                    JoinType::Cross
+                }
+                TokenType::Join => {
+                    // Plain JOIN defaults to INNER JOIN
+                    *i += 1;
+                    JoinType::Inner
+                }
+                _ => break, // No more joins
+            };
+
+            // Parse the table name for the join
+            if *i >= tokens.len() {
+                return Err(QSQLError::ParseError {
+                    message: "Expected table name after JOIN".to_string(),
+                    position: *i,
+                });
+            }
+
+            let table_name = if let TokenType::Identifier(name) = &tokens[*i] {
+                *i += 1;
+                name.clone()
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected table name after JOIN".to_string(),
+                    position: *i,
+                });
+            };
+
+            // Parse optional alias
+            let alias = self.parse_table_alias(tokens, i);
+
+            let relation = TableReference {
+                name: table_name,
+                alias,
+                synaptic_weight: None,
+                quantum_state: None,
+            };
+
+            // Parse ON condition (not required for CROSS JOIN)
+            let condition = if *i < tokens.len() && matches!(tokens[*i], TokenType::On) {
+                *i += 1;
+                Some(self.parse_expression(tokens, i)?)
+            } else if matches!(join_type, JoinType::Cross) {
+                None // CROSS JOIN doesn't require ON
+            } else {
+                // For other joins, ON is expected
+                return Err(QSQLError::ParseError {
+                    message: format!("Expected ON clause for {:?} JOIN", join_type),
+                    position: *i,
+                });
+            };
+
+            joins.push(JoinClause {
+                join_type,
+                relation,
+                condition,
+                quantum_entanglement: false,
+                superposition_join: false,
+            });
+        }
+
+        Ok(joins)
+    }
+
     /// Initialize keyword mappings
     fn initialize_keywords(keywords: &mut HashMap<String, TokenType>) {
         // Standard SQL keywords
@@ -1430,6 +1640,15 @@ impl QSQLParser {
         keywords.insert("LIMIT".to_string(), TokenType::Limit);
         keywords.insert("OFFSET".to_string(), TokenType::Offset);
         keywords.insert("JOIN".to_string(), TokenType::Join);
+        keywords.insert("INNER".to_string(), TokenType::Inner);
+        keywords.insert("LEFT".to_string(), TokenType::Left);
+        keywords.insert("RIGHT".to_string(), TokenType::Right);
+        keywords.insert("FULL".to_string(), TokenType::Full);
+        keywords.insert("CROSS".to_string(), TokenType::Cross);
+        keywords.insert(
+            "OUTER".to_string(),
+            TokenType::Identifier("OUTER".to_string()),
+        );
         keywords.insert("ON".to_string(), TokenType::On);
         keywords.insert("AND".to_string(), TokenType::And);
         keywords.insert("OR".to_string(), TokenType::Or);
@@ -1946,16 +2165,27 @@ impl QSQLParser {
                 Ok(Expression::Literal(Literal::Null))
             }
 
-            // Identifier or function call
+            // Identifier or function call (including qualified names like table.column)
             TokenType::Identifier(name) => {
-                let name_clone = name.clone();
+                let mut full_name = name.clone();
                 *i += 1;
+
+                // Check for qualified name (e.g., u.id, table.column)
+                while *i + 1 < tokens.len() && matches!(tokens[*i], TokenType::Dot) {
+                    if let TokenType::Identifier(next_part) = &tokens[*i + 1] {
+                        full_name.push('.');
+                        full_name.push_str(next_part);
+                        *i += 2; // consume '.' and identifier
+                    } else {
+                        break;
+                    }
+                }
 
                 // Check if this is a function call
                 if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
-                    self.parse_function_call(tokens, i, name_clone)
+                    self.parse_function_call(tokens, i, full_name)
                 } else {
-                    Ok(Expression::Identifier(name_clone))
+                    Ok(Expression::Identifier(full_name))
                 }
             }
 

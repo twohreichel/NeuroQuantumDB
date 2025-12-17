@@ -996,3 +996,223 @@ fn test_in_operator_with_and_or() {
         _ => panic!("Expected SELECT statement"),
     }
 }
+
+// ========== JOIN Tests ==========
+
+/// Test INNER JOIN parsing
+#[test]
+fn test_inner_join_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT * FROM users u INNER JOIN orders o ON u.id = o.user_id");
+
+    assert!(result.is_ok(), "INNER JOIN should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.relations.len(), 1, "Should have one base relation");
+            assert_eq!(from.relations[0].name, "users");
+            assert_eq!(from.relations[0].alias, Some("u".to_string()));
+
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            let join = &from.joins[0];
+            assert_eq!(join.join_type, JoinType::Inner);
+            assert_eq!(join.relation.name, "orders");
+            assert_eq!(join.relation.alias, Some("o".to_string()));
+            assert!(join.condition.is_some(), "Should have ON condition");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test LEFT JOIN parsing
+#[test]
+fn test_left_join_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT * FROM users u LEFT JOIN orders o ON u.id = o.user_id");
+
+    assert!(result.is_ok(), "LEFT JOIN should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert_eq!(from.joins[0].join_type, JoinType::Left);
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test LEFT OUTER JOIN parsing
+#[test]
+fn test_left_outer_join_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT * FROM users u LEFT OUTER JOIN orders o ON u.id = o.user_id");
+
+    assert!(result.is_ok(), "LEFT OUTER JOIN should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert_eq!(from.joins[0].join_type, JoinType::Left);
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test RIGHT JOIN parsing
+#[test]
+fn test_right_join_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT * FROM users u RIGHT JOIN orders o ON u.id = o.user_id");
+
+    assert!(result.is_ok(), "RIGHT JOIN should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert_eq!(from.joins[0].join_type, JoinType::Right);
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test FULL OUTER JOIN parsing
+#[test]
+fn test_full_outer_join_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT * FROM users u FULL OUTER JOIN orders o ON u.id = o.user_id");
+
+    assert!(result.is_ok(), "FULL OUTER JOIN should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert_eq!(from.joins[0].join_type, JoinType::Full);
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test CROSS JOIN parsing
+#[test]
+fn test_cross_join_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT * FROM users u CROSS JOIN products p");
+
+    assert!(result.is_ok(), "CROSS JOIN should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert_eq!(from.joins[0].join_type, JoinType::Cross);
+            assert!(
+                from.joins[0].condition.is_none(),
+                "CROSS JOIN should not have ON condition"
+            );
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test plain JOIN (defaults to INNER JOIN)
+#[test]
+fn test_plain_join_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT * FROM users u JOIN orders o ON u.id = o.user_id");
+
+    assert!(result.is_ok(), "Plain JOIN should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert_eq!(
+                from.joins[0].join_type,
+                JoinType::Inner,
+                "Plain JOIN defaults to INNER"
+            );
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test multiple JOINs
+#[test]
+fn test_multiple_joins_parsing() {
+    let parser = QSQLParser::new();
+    let result = parser.parse(
+        "SELECT * FROM users u \
+         INNER JOIN orders o ON u.id = o.user_id \
+         LEFT JOIN products p ON o.product_id = p.id",
+    );
+
+    assert!(result.is_ok(), "Multiple JOINs should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 2, "Should have two JOINs");
+            assert_eq!(from.joins[0].join_type, JoinType::Inner);
+            assert_eq!(from.joins[0].relation.name, "orders");
+            assert_eq!(from.joins[1].join_type, JoinType::Left);
+            assert_eq!(from.joins[1].relation.name, "products");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test JOIN with WHERE clause
+#[test]
+fn test_join_with_where_clause() {
+    let parser = QSQLParser::new();
+    let result = parser.parse(
+        "SELECT * FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.active = true",
+    );
+
+    assert!(result.is_ok(), "JOIN with WHERE should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert!(select.where_clause.is_some(), "Should have WHERE clause");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test JOIN with ORDER BY
+#[test]
+fn test_join_with_order_by() {
+    let parser = QSQLParser::new();
+    let result = parser.parse(
+        "SELECT * FROM users u INNER JOIN orders o ON u.id = o.user_id ORDER BY o.created_at",
+    );
+
+    assert!(
+        result.is_ok(),
+        "JOIN with ORDER BY should parse successfully"
+    );
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert!(!select.order_by.is_empty(), "Should have ORDER BY clause");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test JOIN with LIMIT
+#[test]
+fn test_join_with_limit() {
+    let parser = QSQLParser::new();
+    let result =
+        parser.parse("SELECT * FROM users u INNER JOIN orders o ON u.id = o.user_id LIMIT 10");
+
+    assert!(result.is_ok(), "JOIN with LIMIT should parse successfully");
+    match result.unwrap() {
+        Statement::Select(select) => {
+            let from = select.from.expect("Should have FROM clause");
+            assert_eq!(from.joins.len(), 1, "Should have one JOIN");
+            assert_eq!(select.limit, Some(10), "Should have LIMIT 10");
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}

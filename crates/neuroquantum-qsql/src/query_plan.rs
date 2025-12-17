@@ -348,6 +348,20 @@ impl QueryExecutor {
         if self.storage_engine.is_some() {
             // Real execution with storage engine
 
+            // Check if we have JOINs in the query
+            let has_joins = select
+                .from
+                .as_ref()
+                .map(|f| !f.joins.is_empty())
+                .unwrap_or(false);
+
+            if has_joins {
+                // Execute with JOIN logic
+                return self
+                    .execute_select_with_joins(select, plan, start_time)
+                    .await;
+            }
+
             // Check if we need post-filtering for InList expressions
             let needs_post_filter = select
                 .where_clause
@@ -468,6 +482,525 @@ impl QueryExecutor {
                 })
             }
         }
+    }
+
+    /// Execute SELECT with JOIN operations
+    async fn execute_select_with_joins(
+        &mut self,
+        select: &SelectStatement,
+        plan: &QueryPlan,
+        start_time: std::time::Instant,
+    ) -> QSQLResult<QueryResult> {
+        let from = select
+            .from
+            .as_ref()
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "Missing FROM clause for JOIN".to_string(),
+            })?;
+
+        // Get the base table
+        let base_table = from
+            .relations
+            .first()
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "No table specified in FROM clause".to_string(),
+            })?;
+
+        // Fetch all rows from the base table
+        let base_query = SelectQuery {
+            table: base_table.name.clone(),
+            columns: vec!["*".to_string()],
+            where_clause: None,
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+
+        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let base_rows = storage_guard.select_rows(&base_query).await.map_err(|e| {
+            QSQLError::ExecutionError {
+                message: format!("Failed to fetch base table: {}", e),
+            }
+        })?;
+
+        // Process each JOIN
+        let mut result_rows = base_rows;
+        let base_alias = base_table
+            .alias
+            .clone()
+            .unwrap_or_else(|| base_table.name.clone());
+
+        for join in &from.joins {
+            let join_table_name = &join.relation.name;
+            let join_alias = join
+                .relation
+                .alias
+                .clone()
+                .unwrap_or_else(|| join_table_name.clone());
+
+            // Fetch all rows from the joined table
+            let join_query = SelectQuery {
+                table: join_table_name.clone(),
+                columns: vec!["*".to_string()],
+                where_clause: None,
+                order_by: None,
+                limit: None,
+                offset: None,
+            };
+
+            let join_rows = storage_guard.select_rows(&join_query).await.map_err(|e| {
+                QSQLError::ExecutionError {
+                    message: format!("Failed to fetch join table: {}", e),
+                }
+            })?;
+
+            // Perform the JOIN based on type
+            result_rows = self.perform_join(
+                result_rows,
+                &base_alias,
+                join_rows,
+                &join_alias,
+                &join.join_type,
+                join.condition.as_ref(),
+            )?;
+        }
+
+        drop(storage_guard); // Release lock
+
+        // Apply WHERE clause filtering
+        let filtered_rows = if let Some(where_expr) = &select.where_clause {
+            Self::apply_post_filter(result_rows, where_expr)?
+        } else {
+            result_rows
+        };
+
+        // Apply ORDER BY
+        let ordered_rows = if !select.order_by.is_empty() {
+            Self::apply_order_by(filtered_rows, &select.order_by)?
+        } else {
+            filtered_rows
+        };
+
+        // Apply LIMIT and OFFSET
+        let mut final_rows = ordered_rows;
+        if let Some(offset) = select.offset {
+            if offset as usize >= final_rows.len() {
+                final_rows = Vec::new();
+            } else {
+                final_rows = final_rows.into_iter().skip(offset as usize).collect();
+            }
+        }
+        if let Some(limit) = select.limit {
+            final_rows.truncate(limit as usize);
+        }
+
+        // Convert to result format
+        let (result_rows, columns) = self.convert_storage_rows_to_result(final_rows, select)?;
+        let rows_affected = result_rows.len() as u64;
+
+        Ok(QueryResult {
+            rows: result_rows,
+            columns,
+            execution_time: start_time.elapsed(),
+            rows_affected,
+            optimization_applied: !plan.synaptic_pathways.is_empty(),
+            synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
+            quantum_operations: 0,
+        })
+    }
+
+    /// Perform a JOIN operation between two sets of rows
+    fn perform_join(
+        &self,
+        left_rows: Vec<Row>,
+        left_alias: &str,
+        right_rows: Vec<Row>,
+        right_alias: &str,
+        join_type: &JoinType,
+        condition: Option<&Expression>,
+    ) -> QSQLResult<Vec<Row>> {
+        let mut result = Vec::new();
+
+        match join_type {
+            JoinType::Inner => {
+                // INNER JOIN: Only matching rows
+                for left_row in &left_rows {
+                    for right_row in &right_rows {
+                        if Self::evaluate_join_condition(
+                            left_row,
+                            left_alias,
+                            right_row,
+                            right_alias,
+                            condition,
+                        )? {
+                            let merged =
+                                Self::merge_rows(left_row, left_alias, right_row, right_alias);
+                            result.push(merged);
+                        }
+                    }
+                }
+            }
+            JoinType::Left => {
+                // LEFT JOIN: All left rows, matching right rows or NULLs
+                for left_row in &left_rows {
+                    let mut found_match = false;
+                    for right_row in &right_rows {
+                        if Self::evaluate_join_condition(
+                            left_row,
+                            left_alias,
+                            right_row,
+                            right_alias,
+                            condition,
+                        )? {
+                            let merged =
+                                Self::merge_rows(left_row, left_alias, right_row, right_alias);
+                            result.push(merged);
+                            found_match = true;
+                        }
+                    }
+                    if !found_match {
+                        // Add left row with NULLs for right columns
+                        let merged = Self::merge_rows_with_nulls(
+                            left_row,
+                            left_alias,
+                            &right_rows,
+                            right_alias,
+                            true,
+                        );
+                        result.push(merged);
+                    }
+                }
+            }
+            JoinType::Right => {
+                // RIGHT JOIN: All right rows, matching left rows or NULLs
+                for right_row in &right_rows {
+                    let mut found_match = false;
+                    for left_row in &left_rows {
+                        if Self::evaluate_join_condition(
+                            left_row,
+                            left_alias,
+                            right_row,
+                            right_alias,
+                            condition,
+                        )? {
+                            let merged =
+                                Self::merge_rows(left_row, left_alias, right_row, right_alias);
+                            result.push(merged);
+                            found_match = true;
+                        }
+                    }
+                    if !found_match {
+                        // Add right row with NULLs for left columns
+                        let merged = Self::merge_rows_with_nulls(
+                            right_row,
+                            right_alias,
+                            &left_rows,
+                            left_alias,
+                            false,
+                        );
+                        result.push(merged);
+                    }
+                }
+            }
+            JoinType::Full => {
+                // FULL OUTER JOIN: All rows from both sides
+                let mut matched_right_indices = std::collections::HashSet::new();
+
+                for left_row in &left_rows {
+                    let mut found_match = false;
+                    for (idx, right_row) in right_rows.iter().enumerate() {
+                        if Self::evaluate_join_condition(
+                            left_row,
+                            left_alias,
+                            right_row,
+                            right_alias,
+                            condition,
+                        )? {
+                            let merged =
+                                Self::merge_rows(left_row, left_alias, right_row, right_alias);
+                            result.push(merged);
+                            found_match = true;
+                            matched_right_indices.insert(idx);
+                        }
+                    }
+                    if !found_match {
+                        let merged = Self::merge_rows_with_nulls(
+                            left_row,
+                            left_alias,
+                            &right_rows,
+                            right_alias,
+                            true,
+                        );
+                        result.push(merged);
+                    }
+                }
+
+                // Add unmatched right rows
+                for (idx, right_row) in right_rows.iter().enumerate() {
+                    if !matched_right_indices.contains(&idx) {
+                        let merged = Self::merge_rows_with_nulls(
+                            right_row,
+                            right_alias,
+                            &left_rows,
+                            left_alias,
+                            false,
+                        );
+                        result.push(merged);
+                    }
+                }
+            }
+            JoinType::Cross => {
+                // CROSS JOIN: Cartesian product
+                for left_row in &left_rows {
+                    for right_row in &right_rows {
+                        let merged = Self::merge_rows(left_row, left_alias, right_row, right_alias);
+                        result.push(merged);
+                    }
+                }
+            }
+            _ => {
+                return Err(QSQLError::ExecutionError {
+                    message: format!("Unsupported join type: {:?}", join_type),
+                });
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Evaluate JOIN condition (e.g., ON u.id = o.user_id)
+    fn evaluate_join_condition(
+        left_row: &Row,
+        left_alias: &str,
+        right_row: &Row,
+        right_alias: &str,
+        condition: Option<&Expression>,
+    ) -> QSQLResult<bool> {
+        let Some(expr) = condition else {
+            // No condition means always match (CROSS JOIN behavior)
+            return Ok(true);
+        };
+
+        Self::evaluate_join_expression(left_row, left_alias, right_row, right_alias, expr)
+    }
+
+    /// Evaluate a JOIN expression against two rows
+    fn evaluate_join_expression(
+        left_row: &Row,
+        left_alias: &str,
+        right_row: &Row,
+        right_alias: &str,
+        expr: &Expression,
+    ) -> QSQLResult<bool> {
+        match expr {
+            Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => match operator {
+                BinaryOperator::And => {
+                    let left_result = Self::evaluate_join_expression(
+                        left_row,
+                        left_alias,
+                        right_row,
+                        right_alias,
+                        left,
+                    )?;
+                    let right_result = Self::evaluate_join_expression(
+                        left_row,
+                        left_alias,
+                        right_row,
+                        right_alias,
+                        right,
+                    )?;
+                    Ok(left_result && right_result)
+                }
+                BinaryOperator::Or => {
+                    let left_result = Self::evaluate_join_expression(
+                        left_row,
+                        left_alias,
+                        right_row,
+                        right_alias,
+                        left,
+                    )?;
+                    let right_result = Self::evaluate_join_expression(
+                        left_row,
+                        left_alias,
+                        right_row,
+                        right_alias,
+                        right,
+                    )?;
+                    Ok(left_result || right_result)
+                }
+                BinaryOperator::Equal => {
+                    let left_val =
+                        Self::get_join_value(left_row, left_alias, right_row, right_alias, left)?;
+                    let right_val =
+                        Self::get_join_value(left_row, left_alias, right_row, right_alias, right)?;
+                    Ok(Self::values_equal(&left_val, &right_val))
+                }
+                _ => Ok(false),
+            },
+            _ => Ok(false),
+        }
+    }
+
+    /// Get value from a row based on expression (handles qualified column names like u.id)
+    fn get_join_value(
+        left_row: &Row,
+        left_alias: &str,
+        right_row: &Row,
+        right_alias: &str,
+        expr: &Expression,
+    ) -> QSQLResult<Value> {
+        match expr {
+            Expression::Identifier(name) => {
+                // Handle qualified names like "u.id" or unqualified names like "id"
+                if let Some((table, col)) = name.split_once('.') {
+                    if table == left_alias {
+                        return left_row.fields.get(col).cloned().ok_or_else(|| {
+                            QSQLError::ExecutionError {
+                                message: format!("Column {} not found in left table", col),
+                            }
+                        });
+                    } else if table == right_alias {
+                        return right_row.fields.get(col).cloned().ok_or_else(|| {
+                            QSQLError::ExecutionError {
+                                message: format!("Column {} not found in right table", col),
+                            }
+                        });
+                    }
+                }
+                // Unqualified name - try both tables
+                if let Some(val) = left_row.fields.get(name) {
+                    return Ok(val.clone());
+                }
+                if let Some(val) = right_row.fields.get(name) {
+                    return Ok(val.clone());
+                }
+                Err(QSQLError::ExecutionError {
+                    message: format!("Column {} not found in any table", name),
+                })
+            }
+            Expression::Literal(lit) => {
+                Self::convert_expression_to_value_static(&Expression::Literal(lit.clone()))
+            }
+            _ => Err(QSQLError::ExecutionError {
+                message: "Unsupported expression in JOIN condition".to_string(),
+            }),
+        }
+    }
+
+    /// Merge two rows from different tables into one
+    fn merge_rows(left_row: &Row, left_alias: &str, right_row: &Row, right_alias: &str) -> Row {
+        let mut merged_fields = HashMap::new();
+
+        // Add left row fields with alias prefix
+        for (col, val) in &left_row.fields {
+            merged_fields.insert(format!("{}.{}", left_alias, col), val.clone());
+            // Also add without prefix for compatibility
+            merged_fields.insert(col.clone(), val.clone());
+        }
+
+        // Add right row fields with alias prefix
+        for (col, val) in &right_row.fields {
+            merged_fields.insert(format!("{}.{}", right_alias, col), val.clone());
+            // Add without prefix if not already present (left takes precedence)
+            if !merged_fields.contains_key(col) {
+                merged_fields.insert(col.clone(), val.clone());
+            }
+        }
+
+        Row {
+            id: left_row.id,
+            fields: merged_fields,
+            created_at: left_row.created_at,
+            updated_at: left_row.updated_at,
+        }
+    }
+
+    /// Merge a row with NULLs for the other table's fields
+    fn merge_rows_with_nulls(
+        row: &Row,
+        row_alias: &str,
+        other_rows: &[Row],
+        other_alias: &str,
+        row_is_left: bool,
+    ) -> Row {
+        let mut merged_fields = HashMap::new();
+
+        // Get field names from other table (use first row as template)
+        let other_field_names: Vec<String> = if let Some(first_row) = other_rows.first() {
+            first_row.fields.keys().cloned().collect()
+        } else {
+            Vec::new()
+        };
+
+        if row_is_left {
+            // Row is from left table
+            for (col, val) in &row.fields {
+                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
+                merged_fields.insert(col.clone(), val.clone());
+            }
+            // Add NULLs for right fields
+            for col in &other_field_names {
+                merged_fields.insert(format!("{}.{}", other_alias, col), Value::Null);
+            }
+        } else {
+            // Row is from right table - add NULLs for left fields first
+            for col in &other_field_names {
+                merged_fields.insert(format!("{}.{}", other_alias, col), Value::Null);
+            }
+            // Add right row fields
+            for (col, val) in &row.fields {
+                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
+                merged_fields.insert(col.clone(), val.clone());
+            }
+        }
+
+        Row {
+            id: row.id,
+            fields: merged_fields,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
+
+    /// Apply ORDER BY sorting to rows
+    fn apply_order_by(mut rows: Vec<Row>, order_by: &[OrderByItem]) -> QSQLResult<Vec<Row>> {
+        if order_by.is_empty() {
+            return Ok(rows);
+        }
+
+        rows.sort_by(|a, b| {
+            for order_item in order_by {
+                let col_name = Self::expression_to_string_static(&order_item.expression);
+
+                let a_val = a.fields.get(&col_name);
+                let b_val = b.fields.get(&col_name);
+
+                let cmp = match (a_val, b_val) {
+                    (Some(Value::Integer(a)), Some(Value::Integer(b))) => a.cmp(b),
+                    (Some(Value::Float(a)), Some(Value::Float(b))) => {
+                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                    }
+                    (Some(Value::Text(a)), Some(Value::Text(b))) => a.cmp(b),
+                    (Some(Value::Boolean(a)), Some(Value::Boolean(b))) => a.cmp(b),
+                    _ => std::cmp::Ordering::Equal,
+                };
+
+                if cmp != std::cmp::Ordering::Equal {
+                    return if order_item.ascending {
+                        cmp
+                    } else {
+                        cmp.reverse()
+                    };
+                }
+            }
+            std::cmp::Ordering::Equal
+        });
+
+        Ok(rows)
     }
 
     /// Execute INSERT statement with DNA compression and neuromorphic learning
