@@ -1741,6 +1741,48 @@ impl QueryExecutor {
         })
     }
 
+    /// Check if select list contains scalar functions (string, math, etc.)
+    fn has_scalar_functions(select_list: &[SelectItem]) -> bool {
+        select_list.iter().any(|item| {
+            if let SelectItem::Expression {
+                expr: Expression::FunctionCall { name, .. },
+                ..
+            } = item
+            {
+                let upper_name = name.to_uppercase();
+                matches!(
+                    upper_name.as_str(),
+                    "UPPER"
+                        | "LOWER"
+                        | "LENGTH"
+                        | "LEN"
+                        | "CONCAT"
+                        | "SUBSTRING"
+                        | "SUBSTR"
+                        | "TRIM"
+                        | "LTRIM"
+                        | "RTRIM"
+                        | "REPLACE"
+                        | "LEFT"
+                        | "RIGHT"
+                        | "REVERSE"
+                        | "REPEAT"
+                        | "LPAD"
+                        | "RPAD"
+                        | "POSITION"
+                        | "INSTR"
+                        | "CHAR_LENGTH"
+                        | "CHARACTER_LENGTH"
+                        | "INITCAP"
+                        | "ASCII"
+                        | "CHR"
+                )
+            } else {
+                false
+            }
+        })
+    }
+
     /// Check if an expression contains an InList that needs post-filtering
     fn contains_in_list_expression(expr: &Expression) -> bool {
         match expr {
@@ -1934,14 +1976,19 @@ impl QueryExecutor {
             });
         };
 
-        // Extract column list - use "*" for aggregate queries or when we need post-filtering
+        // Extract column list - use "*" for aggregate queries, scalar functions, or when we need post-filtering
         let needs_post_filter = select
             .where_clause
             .as_ref()
             .map(Self::contains_in_list_expression)
             .unwrap_or(false);
 
-        let columns = if Self::has_aggregate_functions(&select.select_list) || needs_post_filter {
+        let has_scalar_funcs = Self::has_scalar_functions(&select.select_list);
+
+        let columns = if Self::has_aggregate_functions(&select.select_list)
+            || has_scalar_funcs
+            || needs_post_filter
+        {
             vec!["*".to_string()]
         } else {
             select
@@ -2081,6 +2128,14 @@ impl QueryExecutor {
         if !aggregates.is_empty() {
             // Process aggregate functions
             return self.execute_aggregates(&storage_rows, &aggregates, select);
+        }
+
+        // Check if we have scalar functions (UPPER, LOWER, LENGTH, etc.) in the select list
+        let has_scalar_functions = Self::has_scalar_functions(&select.select_list);
+
+        if has_scalar_functions {
+            // Process scalar functions
+            return self.execute_scalar_functions(&storage_rows, &select.select_list);
         }
 
         let mut result_rows = Vec::new();
@@ -2230,6 +2285,333 @@ impl QueryExecutor {
         }
 
         Ok((vec![result_row], columns))
+    }
+
+    /// Execute scalar functions (string functions) on storage rows
+    fn execute_scalar_functions(
+        &self,
+        storage_rows: &[Row],
+        select_list: &[SelectItem],
+    ) -> QSQLResult<QueryResultData> {
+        let mut result_rows = Vec::new();
+        let mut columns = Vec::new();
+        let mut columns_initialized = false;
+
+        for storage_row in storage_rows {
+            let mut result_row = HashMap::new();
+
+            for item in select_list {
+                match item {
+                    SelectItem::Wildcard => {
+                        // Add all columns from the row
+                        for (col_name, value) in &storage_row.fields {
+                            let query_value = self.storage_value_to_query_value(value);
+                            result_row.insert(col_name.clone(), query_value);
+
+                            if !columns_initialized {
+                                columns.push(ColumnInfo {
+                                    name: col_name.clone(),
+                                    data_type: self.storage_value_to_datatype(value),
+                                    nullable: matches!(value, Value::Null),
+                                });
+                            }
+                        }
+                    }
+                    SelectItem::Expression { expr, alias } => {
+                        let (result_name, query_value, data_type) =
+                            self.evaluate_select_expression(expr, alias, storage_row)?;
+
+                        result_row.insert(result_name.clone(), query_value);
+
+                        if !columns_initialized {
+                            columns.push(ColumnInfo {
+                                name: result_name,
+                                data_type,
+                                nullable: true,
+                            });
+                        }
+                    }
+                }
+            }
+
+            columns_initialized = true;
+            result_rows.push(result_row);
+        }
+
+        Ok((result_rows, columns))
+    }
+
+    /// Evaluate a SELECT expression (including scalar functions) against a row
+    fn evaluate_select_expression(
+        &self,
+        expr: &Expression,
+        alias: &Option<String>,
+        row: &Row,
+    ) -> QSQLResult<(String, QueryValue, DataType)> {
+        match expr {
+            Expression::Identifier(col_name) => {
+                let result_name = alias.clone().unwrap_or_else(|| col_name.clone());
+                if let Some(value) = row.fields.get(col_name) {
+                    let query_value = self.storage_value_to_query_value(value);
+                    let data_type = self.storage_value_to_datatype(value);
+                    Ok((result_name, query_value, data_type))
+                } else {
+                    Ok((result_name, QueryValue::Null, DataType::Text))
+                }
+            }
+            Expression::Literal(lit) => {
+                let result_name = alias
+                    .clone()
+                    .unwrap_or_else(|| Self::expression_to_string_static(expr));
+                let query_value = self.literal_to_query_value(lit);
+                let data_type = match lit {
+                    Literal::Integer(_) => DataType::BigInt,
+                    Literal::Float(_) => DataType::Double,
+                    Literal::String(_) => DataType::Text,
+                    Literal::Boolean(_) => DataType::Boolean,
+                    _ => DataType::Text,
+                };
+                Ok((result_name, query_value, data_type))
+            }
+            Expression::FunctionCall { name, args } => {
+                let upper_name = name.to_uppercase();
+                let result_name = alias
+                    .clone()
+                    .unwrap_or_else(|| Self::expression_to_string_static(expr));
+
+                let query_value = self.evaluate_scalar_function(&upper_name, args, row)?;
+                let data_type = self.infer_scalar_function_type(&upper_name);
+
+                Ok((result_name, query_value, data_type))
+            }
+            _ => {
+                // For other expressions, try to convert to string
+                let result_name = alias
+                    .clone()
+                    .unwrap_or_else(|| Self::expression_to_string_static(expr));
+                Ok((result_name, QueryValue::Null, DataType::Text))
+            }
+        }
+    }
+
+    /// Evaluate a scalar function with given arguments
+    fn evaluate_scalar_function(
+        &self,
+        func_name: &str,
+        args: &[Expression],
+        row: &Row,
+    ) -> QSQLResult<QueryValue> {
+        // Get the first argument value (most scalar functions need at least one)
+        let get_arg_value = |idx: usize| -> QSQLResult<QueryValue> {
+            if idx >= args.len() {
+                return Err(QSQLError::ExecutionError {
+                    message: format!("Function {} requires more arguments", func_name),
+                });
+            }
+            self.evaluate_expression_value(&args[idx], row)
+        };
+
+        let get_string_arg = |idx: usize| -> QSQLResult<String> {
+            let val = get_arg_value(idx)?;
+            match val {
+                QueryValue::String(s) => Ok(s),
+                QueryValue::Integer(i) => Ok(i.to_string()),
+                QueryValue::Float(f) => Ok(f.to_string()),
+                QueryValue::Boolean(b) => Ok(b.to_string()),
+                QueryValue::Null => Ok(String::new()),
+                _ => Ok(String::new()),
+            }
+        };
+
+        let get_int_arg = |idx: usize| -> QSQLResult<i64> {
+            let val = get_arg_value(idx)?;
+            match val {
+                QueryValue::Integer(i) => Ok(i),
+                QueryValue::Float(f) => Ok(f as i64),
+                QueryValue::String(s) => s.parse().map_err(|_| QSQLError::ExecutionError {
+                    message: format!("Cannot convert '{}' to integer", s),
+                }),
+                _ => Ok(0),
+            }
+        };
+
+        match func_name {
+            // String functions
+            "UPPER" => {
+                let s = get_string_arg(0)?;
+                Ok(QueryValue::String(s.to_uppercase()))
+            }
+            "LOWER" => {
+                let s = get_string_arg(0)?;
+                Ok(QueryValue::String(s.to_lowercase()))
+            }
+            "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" => {
+                let s = get_string_arg(0)?;
+                Ok(QueryValue::Integer(s.len() as i64))
+            }
+            "TRIM" => {
+                let s = get_string_arg(0)?;
+                Ok(QueryValue::String(s.trim().to_string()))
+            }
+            "LTRIM" => {
+                let s = get_string_arg(0)?;
+                Ok(QueryValue::String(s.trim_start().to_string()))
+            }
+            "RTRIM" => {
+                let s = get_string_arg(0)?;
+                Ok(QueryValue::String(s.trim_end().to_string()))
+            }
+            "REVERSE" => {
+                let s = get_string_arg(0)?;
+                Ok(QueryValue::String(s.chars().rev().collect()))
+            }
+            "INITCAP" => {
+                let s = get_string_arg(0)?;
+                let result = s
+                    .split_whitespace()
+                    .map(|word| {
+                        let mut chars = word.chars();
+                        match chars.next() {
+                            None => String::new(),
+                            Some(first) => {
+                                first.to_uppercase().to_string() + &chars.as_str().to_lowercase()
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                Ok(QueryValue::String(result))
+            }
+            "ASCII" => {
+                let s = get_string_arg(0)?;
+                let ascii = s.chars().next().map(|c| c as i64).unwrap_or(0);
+                Ok(QueryValue::Integer(ascii))
+            }
+            "CHR" => {
+                let code = get_int_arg(0)?;
+                let ch = char::from_u32(code as u32).unwrap_or('\0');
+                Ok(QueryValue::String(ch.to_string()))
+            }
+            "CONCAT" => {
+                let mut result = String::new();
+                for (i, _) in args.iter().enumerate() {
+                    result.push_str(&get_string_arg(i)?);
+                }
+                Ok(QueryValue::String(result))
+            }
+            "SUBSTRING" | "SUBSTR" => {
+                let s = get_string_arg(0)?;
+                let start = get_int_arg(1)? as usize;
+                // SQL SUBSTRING is 1-indexed
+                let start_idx = if start > 0 { start - 1 } else { 0 };
+
+                let result = if args.len() >= 3 {
+                    let len = get_int_arg(2)? as usize;
+                    s.chars().skip(start_idx).take(len).collect()
+                } else {
+                    s.chars().skip(start_idx).collect()
+                };
+                Ok(QueryValue::String(result))
+            }
+            "LEFT" => {
+                let s = get_string_arg(0)?;
+                let n = get_int_arg(1)? as usize;
+                Ok(QueryValue::String(s.chars().take(n).collect()))
+            }
+            "RIGHT" => {
+                let s = get_string_arg(0)?;
+                let n = get_int_arg(1)? as usize;
+                let len = s.chars().count();
+                let skip = len.saturating_sub(n);
+                Ok(QueryValue::String(s.chars().skip(skip).collect()))
+            }
+            "REPLACE" => {
+                let s = get_string_arg(0)?;
+                let from = get_string_arg(1)?;
+                let to = get_string_arg(2)?;
+                Ok(QueryValue::String(s.replace(&from, &to)))
+            }
+            "REPEAT" => {
+                let s = get_string_arg(0)?;
+                let n = get_int_arg(1)? as usize;
+                Ok(QueryValue::String(s.repeat(n)))
+            }
+            "LPAD" => {
+                let s = get_string_arg(0)?;
+                let len = get_int_arg(1)? as usize;
+                let pad = if args.len() >= 3 {
+                    get_string_arg(2)?
+                } else {
+                    " ".to_string()
+                };
+                let current_len = s.chars().count();
+                if current_len >= len {
+                    Ok(QueryValue::String(s))
+                } else {
+                    let pad_len = len - current_len;
+                    let pad_chars: String = pad.chars().cycle().take(pad_len).collect();
+                    Ok(QueryValue::String(pad_chars + &s))
+                }
+            }
+            "RPAD" => {
+                let s = get_string_arg(0)?;
+                let len = get_int_arg(1)? as usize;
+                let pad = if args.len() >= 3 {
+                    get_string_arg(2)?
+                } else {
+                    " ".to_string()
+                };
+                let current_len = s.chars().count();
+                if current_len >= len {
+                    Ok(QueryValue::String(s))
+                } else {
+                    let pad_len = len - current_len;
+                    let pad_chars: String = pad.chars().cycle().take(pad_len).collect();
+                    Ok(QueryValue::String(s + &pad_chars))
+                }
+            }
+            "POSITION" | "INSTR" => {
+                let haystack = get_string_arg(0)?;
+                let needle = get_string_arg(1)?;
+                // Returns 1-indexed position, 0 if not found
+                let pos = haystack.find(&needle).map(|i| i as i64 + 1).unwrap_or(0);
+                Ok(QueryValue::Integer(pos))
+            }
+            _ => Err(QSQLError::ExecutionError {
+                message: format!("Unknown scalar function: {}", func_name),
+            }),
+        }
+    }
+
+    /// Evaluate an expression to a QueryValue (for scalar function arguments)
+    fn evaluate_expression_value(&self, expr: &Expression, row: &Row) -> QSQLResult<QueryValue> {
+        match expr {
+            Expression::Identifier(col_name) => {
+                if let Some(value) = row.fields.get(col_name) {
+                    Ok(self.storage_value_to_query_value(value))
+                } else {
+                    Ok(QueryValue::Null)
+                }
+            }
+            Expression::Literal(lit) => Ok(self.literal_to_query_value(lit)),
+            Expression::FunctionCall { name, args } => {
+                let upper_name = name.to_uppercase();
+                self.evaluate_scalar_function(&upper_name, args, row)
+            }
+            _ => Ok(QueryValue::Null),
+        }
+    }
+
+    /// Infer the return type of a scalar function
+    fn infer_scalar_function_type(&self, func_name: &str) -> DataType {
+        match func_name {
+            "UPPER" | "LOWER" | "TRIM" | "LTRIM" | "RTRIM" | "CONCAT" | "SUBSTRING" | "SUBSTR"
+            | "LEFT" | "RIGHT" | "REPLACE" | "REVERSE" | "REPEAT" | "LPAD" | "RPAD" | "INITCAP"
+            | "CHR" => DataType::Text,
+            "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" | "POSITION" | "INSTR"
+            | "ASCII" => DataType::BigInt,
+            _ => DataType::Text,
+        }
     }
 
     /// Extract column names from GROUP BY expressions
