@@ -28,7 +28,9 @@ yanked = "warn"
 # A list of advisory IDs to ignore
 ignore = [
     # Allow unmaintained crates that are still functional
-    "RUSTSEC-2020-0168", # mach crate - unmaintained but functional
+    # Note: actix-web-prometheus replaced with actix-web-prom, eliminating mach dependency
+    "RUSTSEC-2024-0384", # instant crate - unmaintained but comes from reed-solomon-erasure dependency
+    "RUSTSEC-2024-0436", # paste crate - unmaintained but required by pqcrypto-mldsa (transitive dependency)
 ]
 
 [licenses]
@@ -37,6 +39,7 @@ confidence-threshold = 0.8
 # List of explicitly allowed licenses
 allow = [
     "MIT",
+    "MIT-0",
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
@@ -44,6 +47,7 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Zlib",
+    "CDLA-Permissive-2.0", # Community Data License Agreement - used by webpki-roots
 ]
 
 [bans]

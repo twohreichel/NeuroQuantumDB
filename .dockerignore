@@ -1,55 +1,80 @@
-# Docker ignore file for NeuroQuantumDB
-# Reduces build context size by ~90%
+# Docker build ignore file
+# Reduces context size and build time
 
-# Build artifacts
+# Target directories
 target/
-**/target/
-
-# Development files
-.git/
-.gitignore
-.github/
-hooks/
 
 # Documentation
 docs/
-target/book/
-target/doc/
-*.md
 book.toml
+*.md
+!README.md
 
-# IDE and editor files
+# Tests
+tests/
+proptest-regressions/
+
+# Benchmarks - Keep bench dir structure but ignore content
+# Cargo needs bench declarations but we don't run them in Docker
+# benches/
+# **/benches/
+
+# Examples (not needed in production)
+examples/
+**/examples/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+hooks/
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# Monitoring configs (use volume mounts instead)
+docker/monitoring/
+
+# Scripts
+scripts/
+
+# Development configs
+config/dev.toml
+deny.toml
+rustfmt.toml
+
+# Python Integration Test Project
+python-integration-test/
+Cargo.toml.clippy
+
+# Logs
+logs/
+
 # OS files
 .DS_Store
 Thumbs.db
 
-# Test and coverage files
-target/coverage/
-target/criterion/
-tests/
-
-# Scripts and tools
-scripts/
-Makefile
-deny.toml
-rustfmt.toml
-
-# Docker files (avoid recursive copying)
-Dockerfile
-docker-compose*.yml
-.dockerignore
-
 # Temporary files
-tmp/
 temp/
 *.tmp
-*.log
 
-# Development configs
-config/dev.toml
+# Docker files (avoid recursion)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+
+# License (not needed in runtime)
+LICENSE
+
+# Makefile (development only)
+Makefile
+
+.neuroquantum

@@ -37,44 +37,75 @@ ENV STRIP=aarch64-linux-gnu-strip
 
 WORKDIR /app
 
-# Copy workspace configuration and create production version without tests
+# Add Rust target first (cacheable layer)
+RUN rustup target add aarch64-unknown-linux-gnu
+
+# Copy only dependency files first for better caching
 COPY Cargo.toml ./Cargo.toml.full
 COPY Cargo.lock ./Cargo.lock
-COPY crates/ crates/
+COPY crates/neuroquantum-core/Cargo.toml crates/neuroquantum-core/Cargo.toml
+COPY crates/neuroquantum-qsql/Cargo.toml crates/neuroquantum-qsql/Cargo.toml
+COPY crates/neuroquantum-api/Cargo.toml crates/neuroquantum-api/Cargo.toml
+COPY neuroquantum_data /neuroquantum_data
 
 # Create production Cargo.toml without tests workspace member
 RUN sed '/^[[:space:]]*"tests"/d' Cargo.toml.full > Cargo.toml
 
-# Add Rust target and build with proper environment
-RUN rustup target add aarch64-unknown-linux-gnu
+# Create dummy source files to cache dependencies
+RUN mkdir -p crates/neuroquantum-core/src && \
+    mkdir -p crates/neuroquantum-qsql/src && \
+    mkdir -p crates/neuroquantum-api/src && \
+    echo "fn main() {}" > crates/neuroquantum-api/src/main.rs && \
+    echo "pub fn dummy() {}" > crates/neuroquantum-core/src/lib.rs && \
+    echo "pub fn dummy() {}" > crates/neuroquantum-qsql/src/lib.rs
 
-# Build with explicit target and feature flags
+# Build dependencies only (cached layer)
 RUN cargo build --release --target aarch64-unknown-linux-gnu \
     --features neon-optimizations,neuromorphic,quantum,natural-language \
-    --bin neuroquantum-api
+    --bin neuroquantum-api || true
+
+# Now copy actual source code
+COPY crates/ crates/
+
+# Build final binary with all optimizations
+RUN cargo build --release --target aarch64-unknown-linux-gnu \
+    --features neon-optimizations,neuromorphic,quantum,natural-language \
+    --bin neuroquantum-api && \
+    aarch64-linux-gnu-strip target/aarch64-unknown-linux-gnu/release/neuroquantum-api
 
 # Stage 2: Production runtime (ultra-minimal)
 FROM gcr.io/distroless/cc-debian12:latest
-
-# Create non-root user for security
-USER nonroot:nonroot
 
 # Set production environment
 ENV RUST_LOG=info
 ENV NEUROQUANTUM_ENV=production
 ENV NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
+ENV NEUROQUANTUM_DATA_PATH=/data
+
+# Create data directory with proper permissions in builder stage, then copy
+# Note: distroless doesn't have shell, so we create directories in builder
+COPY --from=rust-builder --chown=65532:65532 /tmp /data
+
+# Create non-root user for security (nonroot UID/GID is 65532 in distroless)
+USER nonroot:nonroot
+
+# Set working directory
+WORKDIR /data
 
 # Copy optimized binary
 COPY --from=rust-builder --chown=nonroot:nonroot \
     /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-api \
-    /usr/local/bin/neuroquantumdb
+    /usr/local/bin/neuroquantum-api
 
 # Copy production configuration
 COPY --chown=nonroot:nonroot config/prod.toml /etc/neuroquantumdb/config.toml
 
+# Define volume for persistent data
+VOLUME ["/data"]
+
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD ["/usr/local/bin/neuroquantumdb", "health-check"]
+    CMD ["/usr/local/bin/neuroquantum-api", "health-check"]
 
 # Expose ports
 EXPOSE 8080 9090
@@ -89,5 +120,5 @@ LABEL com.neuroquantumdb.security="quantum-resistant"
 LABEL com.neuroquantumdb.encryption="kyber-dilithium"
 
 # Production entrypoint
-ENTRYPOINT ["/usr/local/bin/neuroquantumdb"]
-CMD ["--config", "/etc/neuroquantumdb/config.toml"]
+ENTRYPOINT ["/usr/local/bin/neuroquantum-api"]
+CMD ["serve", "--config", "/etc/neuroquantumdb/config.toml"]

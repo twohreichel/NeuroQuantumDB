@@ -1,0 +1,1011 @@
+{
+	"info": {
+		"_postman_id": "neuroquantum-api-v2-collection",
+		"name": "NeuroQuantumDB API v2 (API-Key Only)",
+		"description": "**SECURITY UPDATE**: API-Key-Only Authentication für NeuroQuantumDB\n\n## Authentifizierung\n\nDie API verwendet jetzt ausschließlich API-Key-Authentifizierung. JWT-Login wurde aus Sicherheitsgründen deaktiviert.\n\n### Setup:\n1. Erstelle einen Admin-Key: `neuroquantum-api init`\n2. Setze den API-Key als Environment Variable: `NEUROQUANTUM_API_KEY`\n3. Verwende den `X-API-Key` Header für alle Requests\n\n### API-Key Management:\n- Admin-Keys können weitere Keys erstellen\n- Keys haben Permissions: admin, read, write, quantum, neuromorphic, dna\n- Keys sind persistent in SQLite gespeichert",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{api_key}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "X-API-Key",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "🏥 Health & Status",
+			"item": [
+				{
+					"name": "Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has success status\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.status).to.eql(\"healthy\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Überprüft den Health-Status der API (keine Authentifizierung erforderlich)"
+					},
+					"response": []
+				},
+				{
+					"name": "Metrics (Admin Only)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/metrics",
+							"host": ["{{base_url}}"],
+							"path": ["metrics"]
+						},
+						"description": "Prometheus-Metriken (Admin-Permission erforderlich)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔐 Authentication (DISABLED)",
+			"item": [
+				{
+					"name": "⚠️ Login (DEAKTIVIERT)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Login endpoint is disabled\", function () {",
+									"    pm.response.to.have.status(501);",
+									"});",
+									"",
+									"pm.test(\"Error message explains API-Key requirement\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.include(\"API-Key\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"quantum_enabled\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "⚠️ Dieser Endpunkt wurde aus Sicherheitsgründen deaktiviert.\n\nVerwenden Sie stattdessen API-Keys:\n1. `neuroquantum-api init` - Erstellt ersten Admin-Key\n2. Verwenden Sie X-API-Key Header für Authentifizierung"
+					},
+					"response": []
+				},
+				{
+					"name": "⚠️ Refresh Token (DEAKTIVIERT)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh_token\": \"refresh_token_here\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/refresh",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						},
+						"description": "⚠️ Token-Refresh wurde deaktiviert. API-Keys haben feste Ablaufdaten."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔑 API Key Management",
+			"item": [
+				{
+					"name": "Generate New API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"API key generated successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.api_key).to.exist;",
+									"    ",
+									"    // Speichere den neuen API Key (optional)",
+									"    // pm.environment.set(\"new_api_key\", jsonData.data.api_key);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"description": "Admin API Key erforderlich",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"developer-key\",\n  \"permissions\": [\"read\", \"write\", \"quantum\"],\n  \"expiry_hours\": 720,\n  \"rate_limit_per_hour\": 1000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/generate-key",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "generate-key"]
+						},
+						"description": "Erstellt einen neuen API Key (Admin-Permission erforderlich)\n\n**Berechtigungen:**\n- `admin`: Voller Zugriff, kann weitere Keys erstellen\n- `read`: Lesen von Daten\n- `write`: Schreiben von Daten\n- `quantum`: Quantum-Operationen\n- `neuromorphic`: Neuromorphic-Operationen\n- `dna`: DNA-Compression"
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke API Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"api_key\": \"nqdb_key_to_revoke_here\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/revoke-key",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "revoke-key"]
+						},
+						"description": "Widerruft einen API Key (Admin-Permission erforderlich)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📊 CRUD Operations",
+			"item": [
+				{
+					"name": "Create Table",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Table created successfully\", function () {",
+									"    pm.response.to.have.status(201);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"schema\": {\n    \"name\": \"users\",\n    \"columns\": [\n      {\n        \"name\": \"id\",\n        \"data_type\": \"Integer\",\n        \"nullable\": false,\n        \"auto_increment\": true\n      },\n      {\n        \"name\": \"name\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      },\n      {\n        \"name\": \"email\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      }\n    ]\n  },\n  \"if_not_exists\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "tables"]
+						},
+						"description": "Creates a new table with schema validation (write permission required).\n\n## Auto-Increment ID Configuration\n\n### Supported Data Types for Auto-ID:\n- `BigSerial` - 64-bit auto-incrementing integer (recommended)\n- `Serial` - 32-bit auto-incrementing integer\n- `SmallSerial` - 16-bit auto-incrementing integer\n\n### ID Generation Strategies:\n- `AutoIncrement` (default) - Sequential IDs (1, 2, 3, ...)\n- `Uuid` - Random UUIDs for distributed systems\n- `Snowflake` - Time-sortable distributed IDs\n\n### When to use which strategy:\n| Strategy | Best For | Pros | Cons |\n|----------|----------|------|------|\n| AutoIncrement | Single instance, high performance | Best B+Tree perf, small storage | Predictable |\n| Uuid | Distributed systems | Globally unique | Larger storage, poor index perf |\n| Snowflake | Distributed + time-ordered | Sortable, distributed | Needs time sync |"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Table (with UUID strategy)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Table created with UUID strategy\", function () {",
+									"    pm.response.to.have.status(201);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"schema\": {\n    \"name\": \"distributed_events\",\n    \"columns\": [\n      {\n        \"name\": \"id\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      },\n      {\n        \"name\": \"event_type\",\n        \"data_type\": \"Text\",\n        \"nullable\": false\n      },\n      {\n        \"name\": \"payload\",\n        \"data_type\": \"Text\",\n        \"nullable\": true\n      }\n    ]\n  },\n  \"if_not_exists\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "tables"]
+						},
+						"description": "Creates a table using UUID for ID generation.\n\nUse this for distributed systems where multiple nodes need to generate IDs independently without coordination.\n\n**Note:** UUID strategy has larger storage overhead (16 bytes vs 8 bytes) and less optimal B+Tree performance due to random distribution."
+					},
+					"response": []
+				},
+				{
+					"name": "Insert Record (Auto-ID)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Record inserted with auto-generated ID\", function () {",
+									"    pm.response.to.have.status(201);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.inserted_id).to.exist;",
+									"    console.log('Auto-generated ID:', jsonData.data.inserted_id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table_name\": \"users\",\n  \"records\": [\n    {\n      \"name\": \"Max Mustermann\",\n      \"email\": \"max@example.com\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables/users/data",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "tables", "users", "data"]
+						},
+						"description": "Inserts a new record **without specifying an ID**.\n\n## Automatic ID Generation\n\nWhen the table has an auto-increment column (BigSerial, Serial, or AUTO_INCREMENT), the ID is automatically generated.\n\n**You do NOT need to provide the `id` field!**\n\n### Response includes:\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"inserted_id\": 1\n  }\n}\n```\n\nThe `inserted_id` field returns the auto-generated ID so you can reference it immediately."
+					},
+					"response": []
+				},
+				{
+					"name": "Insert Record (Manual ID - Legacy)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table_name\": \"users\",\n  \"records\": [\n    {\n      \"id\": 999,\n      \"name\": \"Manual ID User\",\n      \"email\": \"manual@example.com\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables/users/data",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "tables", "users", "data"]
+						},
+						"description": "Inserts a record with a manually specified ID.\n\n**⚠️ Warning:** Use with caution!\n\n- Only works if the column is NOT defined as `GENERATED ALWAYS AS IDENTITY`\n- May cause conflicts with auto-generated IDs\n- May break the auto-increment sequence\n\n**Recommended:** Let the database generate IDs automatically for most use cases."
+					},
+					"response": []
+				},
+				{
+					"name": "Query Records",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"SELECT * FROM users WHERE id = 1\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "Executes a SQL query (read permission required)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🧠 Neuromorphic Learning",
+			"item": [
+				{
+					"name": "Train Neural Network",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table_name\": \"sensor_data\",\n  \"network_config\": {\n    \"layers\": [\n      {\n        \"layer_type\": \"Dense\",\n        \"size\": 128,\n        \"activation\": \"ReLU\"\n      },\n      {\n        \"layer_type\": \"Neuromorphic\",\n        \"size\": 64,\n        \"activation\": \"SpikingNeuron\"\n      }\n    ],\n    \"learning_rate\": 0.001,\n    \"epochs\": 100,\n    \"batch_size\": 32,\n    \"optimizer\": \"Adam\",\n    \"loss_function\": \"MeanSquaredError\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/neuromorphic/train",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "neuromorphic", "train"]
+						},
+						"description": "Trainiert ein neuromorphisches neuronales Netzwerk (neuromorphic-Permission erforderlich)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "⚛️ Quantum Search",
+			"item": [
+				{
+					"name": "Quantum Vector Search",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table_name\": \"embeddings\",\n  \"query_vector\": [0.1, 0.2, 0.3, 0.4],\n  \"similarity_threshold\": 0.8,\n  \"max_results\": 10,\n  \"entanglement_boost\": 1.5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/quantum/search",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "quantum", "search"]
+						},
+						"description": "Führt eine quantenbasierte Vektorsuche durch (quantum-Permission erforderlich)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🧬 DNA Compression",
+			"item": [
+				{
+					"name": "Compress Data",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"data\": \"Dies ist ein langer Text, der komprimiert werden soll...\",\n  \"compression_level\": 5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/dna/compress",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "dna", "compress"]
+						},
+						"description": "Komprimiert Daten mit DNA-basierter Kompression (dna-Permission erforderlich)"
+					},
+					"response": []
+				},
+				{
+					"name": "Decompress Data",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"compressed_data\": \"ATCG...\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/dna/decompress",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "dna", "decompress"]
+						},
+						"description": "Dekomprimiert DNA-komprimierte Daten (dna-Permission erforderlich)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🧠🧬 Neural Queries (QSQL)",
+			"description": "**Neuronale Query-Verarbeitung mit DNA-Kompression**\n\n## Wie funktioniert es?\n\nJede QSQL/SQL-Query durchläuft automatisch diese neuronalen Prozesse:\n\n### 1. DNA-Kompression (automatisch)\n- **INSERT**: Daten werden mit Quaternary-Encoding (ATCG) 4:1 komprimiert\n- **SELECT**: Daten werden automatisch dekomprimiert\n- **UPDATE**: Alte Daten werden dekomprimiert, neue re-komprimiert\n- **DELETE**: DNA-komprimierte Blöcke werden freigegeben\n\n### 2. Synaptische Optimierung\n- **Hebbian Learning**: \"Neurons that fire together, wire together\"\n- Häufig genutzte Query-Pfade werden verstärkt (Long-Term Potentiation)\n- Ungenutzte Pfade werden geschwächt (Synaptic Pruning)\n\n### 3. Neuronale Lernprozesse\n| Operation | Neuronaler Prozess | Biologische Entsprechung |\n|-----------|-------------------|-------------------------|\n| INSERT | Synaptische Adaptation | Gedächtnisbildung (LTP) |\n| SELECT | Pathway Activation | Gedächtnisabruf |\n| UPDATE | Plasticity Adaptation | Gedächtniskonsolidierung |\n| DELETE | Synaptic Pruning | Vergessen |\n\n### Vorteile:\n- ✅ 4:1 Speicherkompression durch DNA-Encoding\n- ✅ Selbstoptimierende Indizes durch Hebbian Learning\n- ✅ Schnellere Queries durch synaptische Pfadverstärkung\n- ✅ SIMD-beschleunigte Verarbeitung (ARM NEON/x86 AVX2)\n\n### Nachteile:\n- ⚠️ CPU-Overhead durch Kompression/Dekompression\n- ⚠️ Lernphase benötigt initiale Trainingszeit\n- ⚠️ Speicher für synaptische Gewichte",
+			"item": [
+				{
+					"name": "📖 INSERT mit Synaptic Adaptation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Neural INSERT executed successfully\", function () {",
+									"    pm.response.to.have.status(201);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    console.log('🧠 Synaptic Adaptation aktiviert:', jsonData.data);",
+									"});",
+									"",
+									"pm.test(\"DNA compression was applied\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    // DNA compression happens automatically in storage layer",
+									"    pm.expect(jsonData.data.inserted_id).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"INSERT INTO neural_data (pattern, weight, activation) VALUES ('sensor_pattern_001', 0.85, 0.92) WITH SYNAPTIC_ADAPTATION\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**INSERT mit synaptischer Adaptation**\n\n## Neuronale Prozesse:\n\n1. **DNA-Kompression**: Die Daten werden automatisch mit Quaternary-Encoding komprimiert (4 Bytes → 1 Byte)\n2. **Synaptische Adaptation**: Hebbian Learning stärkt die Verbindungen für das neue Muster\n3. **Pattern Learning**: Das System lernt Zugriffspatterns für zukünftige Optimierung\n\n## Biologische Entsprechung:\n- **Long-Term Potentiation (LTP)**: Wie beim Lernen im Hippocampus werden neue Verbindungen verstärkt\n- **NMDA-Rezeptor-Aktivierung**: Simuliert durch synaptische Gewichtsanpassung\n\n## Keyword: `WITH SYNAPTIC_ADAPTATION`\nAktiviert explizit das neuromorphe Lernen für diesen INSERT."
+					},
+					"response": []
+				},
+				{
+					"name": "🔍 SELECT mit Synaptic Weight",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Neural SELECT executed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Synaptic optimization was applied\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data.optimization_applied) {",
+									"        console.log('🧠 Synaptic pathways used:', jsonData.data.synaptic_pathways_used);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"SELECT * FROM neural_data WHERE activation > 0.5 WITH SYNAPTIC_WEIGHT 0.8\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**SELECT mit synaptischer Gewichtung**\n\n## Neuronale Prozesse:\n\n1. **DNA-Dekompression**: Quaternary-Decoding dekomprimiert die Daten automatisch\n2. **Synaptic Pathway Activation**: Häufig genutzte Pfade werden bevorzugt\n3. **Pattern Recognition**: Das System lernt welche Abfragen zusammengehören\n\n## Biologische Entsprechung:\n- **Gedächtnisabruf im Hippocampus**: Aktivierungsmuster triggern assoziierte Erinnerungen\n- **Pattern Completion**: Teilweise Muster aktivieren vollständige Repräsentationen\n\n## Keyword: `WITH SYNAPTIC_WEIGHT 0.8`\nSetzt die initiale synaptische Gewichtung für die Query (0.0-1.0).\nHöhere Werte = stärkere Pathway-Verstärkung."
+					},
+					"response": []
+				},
+				{
+					"name": "✏️ UPDATE mit Plasticity Adaptation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Neural UPDATE executed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Plasticity adaptation applied\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    console.log('🧠 Rows affected:', jsonData.data.rows_affected);",
+									"    console.log('🧠 DNA re-compression applied to updated data');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"UPDATE neural_data SET weight = 0.95 WHERE pattern = 'sensor_pattern_001' WITH PLASTICITY_ADAPTATION 0.7\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**UPDATE mit synaptischer Plastizität**\n\n## Neuronale Prozesse:\n\n1. **DNA-Dekompression**: Alte Daten werden dekomprimiert\n2. **Plasticity Adaptation**: Synaptische Verbindungen werden angepasst\n3. **DNA-Rekompression**: Neue Daten werden wieder komprimiert\n\n## Biologische Entsprechung:\n- **Gedächtniskonsolidierung**: Wie im Schlaf werden Erinnerungen verstärkt/modifiziert\n- **Synaptische Plastizität**: LTP und LTD passen Verbindungsstärken an\n- **Reconsolidation**: Reaktivierte Erinnerungen werden modifizierbar\n\n## Keyword: `WITH PLASTICITY_ADAPTATION 0.7`\nAktiviert Plastizitäts-basierte Gewichtsanpassung.\nWert 0.0-1.0 bestimmt die Anpassungsrate."
+					},
+					"response": []
+				},
+				{
+					"name": "🗑️ DELETE mit Synaptic Pruning",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Neural DELETE executed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Synaptic pruning applied\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    console.log('🧠 Synaptic connections pruned for deleted data');",
+									"    console.log('🧠 DNA blocks freed:', jsonData.data.rows_affected);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"DELETE FROM neural_data WHERE activation < 0.1 WITH SYNAPTIC_PRUNING\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**DELETE mit synaptischem Pruning**\n\n## Neuronale Prozesse:\n\n1. **DNA-Block Freigabe**: Komprimierte Datenblöcke werden freigegeben\n2. **Synaptic Pruning**: Zugehörige synaptische Verbindungen werden geschwächt\n3. **Anti-Hebbian Learning**: Ungenutzte Pfade werden eliminiert\n\n## Biologische Entsprechung:\n- **Synaptisches Pruning in der Entwicklung**: Unnötige Verbindungen werden entfernt\n- **Vergessen (Active Forgetting)**: Irrelevante Informationen werden aktiv gelöscht\n- **Mikrogliale Phagozytose**: Gliazellen entfernen ungenutzte Synapsen\n\n## Keyword: `WITH SYNAPTIC_PRUNING`\nAktiviert das Entfernen zugehöriger synaptischer Verbindungen."
+					},
+					"response": []
+				},
+				{
+					"name": "🧠 NEUROMATCH Pattern Query",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"NEUROMATCH executed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Match scores returned\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data.rows) {",
+									"        jsonData.data.rows.forEach(function(row, i) {",
+									"            console.log('🧠 Match ' + (i+1) + ' score:', row.match_score);",
+									"        });",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"NEUROMATCH neural_data PATTERN 'sensor_%' WITH SYNAPTIC_WEIGHT 0.9 LEARNING_RATE 0.01 HEBBIAN_STRENGTHENING\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**NEUROMATCH - Neuromorphes Pattern Matching**\n\n## Exklusive QSQL-Operation:\n\nDies ist eine neuromorphe Erweiterung, die es in klassischem SQL nicht gibt!\n\n## Neuronale Prozesse:\n\n1. **Pattern Encoding**: Das Suchmuster wird als neuronale Aktivierung kodiert\n2. **Associative Retrieval**: Ähnliche Muster werden durch synaptische Ausbreitung gefunden\n3. **Hebbian Strengthening**: Erfolgreiche Matches verstärken die Pfade\n\n## Biologische Entsprechung:\n- **Hippocampale Pattern Completion**: Teilmuster aktivieren vollständige Erinnerungen\n- **Assoziativspeicher**: Wie im biologischen Gedächtnis werden ähnliche Muster gefunden\n- **Sparse Distributed Memory**: Robuste Speicherung und Abruf\n\n## Keywords:\n- `PATTERN 'sensor_%'` - Das zu suchende Muster\n- `WITH SYNAPTIC_WEIGHT 0.9` - Initiale synaptische Stärke\n- `LEARNING_RATE 0.01` - Lerngeschwindigkeit\n- `HEBBIAN_STRENGTHENING` - Aktiviert Hebbian Learning"
+					},
+					"response": []
+				},
+				{
+					"name": "⚡ QUANTUM_SEARCH mit Grover",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"QUANTUM_SEARCH executed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Quantum operations performed\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    console.log('⚛️ Quantum operations:', jsonData.data.quantum_operations);",
+									"    console.log('⚛️ Quadratic speedup achieved');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"QUANTUM_SEARCH neural_data WHERE pattern MATCHES 'critical_%' WITH AMPLITUDE_AMPLIFICATION MAX_ITERATIONS 10\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**QUANTUM_SEARCH - Grover-Algorithmus Suche**\n\n## Quantum-inspirierte Suche:\n\nSimuliert Grover's Suchalgorithmus für quadratische Beschleunigung.\n\n## Prozess:\n\n1. **Superposition**: Alle möglichen Zustände werden parallel betrachtet\n2. **Oracle Function**: Markiert gesuchte Elemente\n3. **Amplitude Amplification**: Verstärkt Wahrscheinlichkeit für Treffer\n4. **Measurement**: Kollabiert zum Ergebnis\n\n## Vorteile:\n- O(√N) statt O(N) für unstrukturierte Suche\n- Massive Parallelisierung durch Superposition\n\n## Keywords:\n- `WITH AMPLITUDE_AMPLIFICATION` - Aktiviert Grover-Verstärkung\n- `MAX_ITERATIONS 10` - Maximale Iterationen"
+					},
+					"response": []
+				},
+				{
+					"name": "🔗 SYNAPTIC_OPTIMIZE Index",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Synaptic optimization executed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Index optimized\", function () {",
+									"    console.log('🧠 Index synaptic optimization complete');",
+									"    console.log('🧠 Hebbian learning applied to index pathways');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"SYNAPTIC_OPTIMIZE INDEX idx_neural_pattern USING HEBBIAN_LEARNING LEARNING_RATE 0.01 PLASTICITY_THRESHOLD 0.3\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**SYNAPTIC_OPTIMIZE - Index-Selbstoptimierung**\n\n## Neuromorphe Index-Optimierung:\n\nMacht Indizes selbstoptimierend durch Hebbian Learning.\n\n## Optimierungstypen:\n- `HEBBIAN_LEARNING` - Verstärkt häufig genutzte Pfade\n- `SYNAPTIC_PLASTICITY` - Adaptive Strukturanpassung\n- `PATHWAY_STRENGTHENING` - Explizite Pfadverstärkung\n- `NEURAL_PRUNING` - Entfernt ungenutzte Pfade\n\n## Biologische Entsprechung:\n- **Langzeit-Potenzierung (LTP)**: Dauerhafte Verstärkung synaptischer Verbindungen\n- **Oja's Rule**: Normalisierte Hebbian-Lernregel\n- **BCM Theory**: Bienenstock-Cooper-Munro Lernregel\n\n## Keywords:\n- `LEARNING_RATE 0.01` - Lerngeschwindigkeit\n- `PLASTICITY_THRESHOLD 0.3` - Schwelle für Plastizitätsänderung"
+					},
+					"response": []
+				},
+				{
+					"name": "📊 EXPLAIN Neural Query",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"EXPLAIN executed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Query plan shows neural operations\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    console.log('📊 Query Plan:', JSON.stringify(jsonData.data, null, 2));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"EXPLAIN SELECT * FROM neural_data WHERE activation > 0.5 WITH SYNAPTIC_WEIGHT 0.8\",\n  \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "query"]
+						},
+						"description": "**EXPLAIN - Zeigt den Query-Ausführungsplan**\n\nZeigt an, welche neuronalen Operationen für eine Query ausgeführt werden:\n\n- DNA Compression/Decompression Steps\n- Synaptic Pathway Selection\n- Hebbian Learning Events\n- Quantum Operations\n- Estimated Cost"
+					},
+					"response": []
+				},
+				{
+					"name": "📈 Neural Stats abrufen",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Neural stats retrieved\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Stats contain neural metrics\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    console.log('📈 Total queries:', jsonData.data.queries_executed);",
+									"    console.log('📈 Synaptic optimizations:', jsonData.data.synaptic_optimizations);",
+									"    console.log('📈 Quantum operations:', jsonData.data.quantum_operations);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stats/neural",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "stats", "neural"]
+						},
+						"description": "**Neurale Statistiken**\n\nRuft Statistiken über die neuromorphen Operationen ab:\n\n- `queries_executed`: Anzahl ausgeführter Queries\n- `synaptic_optimizations`: Anzahl synaptischer Optimierungen\n- `quantum_operations`: Anzahl Quantum-Operationen\n- `learning_efficiency`: Effizienz des Hebbian Learning\n- `dna_compression_ratio`: DNA-Kompressionsrate"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	]
+}
+

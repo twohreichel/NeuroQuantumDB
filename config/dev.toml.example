@@ -1,0 +1,74 @@
+# NeuroQuantumDB Development Configuration
+# Optimized for local development with debug capabilities
+
+[server]
+host = "127.0.0.1"
+port = 8080
+workers = 2  # Reduced for dev - fewer CPU cores needed
+max_connections = 1000  # Lower limit for dev environment
+keep_alive = 75
+client_timeout = 5000
+client_shutdown = 5000
+
+[database]
+data_path = "./neuroquantum_data"
+max_connections = 50  # Reduced for dev
+connection_timeout_seconds = 30
+
+[jwt]
+# DEV SECRET - DO NOT USE IN PRODUCTION!
+secret = "dev_secret_key_min_32_chars_1234567890abcdef"
+expiration_hours = 24  # Longer expiration for dev convenience
+refresh_threshold_minutes = 60
+quantum_enabled = false  # Disabled for faster dev iterations
+algorithm = "HS256"
+issuer = "neuroquantum-db"
+audience = "neuroquantum-api"
+
+# JWT Secret Key Rotation (disabled in dev for convenience)
+rotation_enabled = false  # Set to true to test rotation in dev
+rotation_interval_days = 7  # Shorter interval for testing (7 days)
+rotation_grace_period_hours = 2  # Shorter grace period for testing
+
+[rate_limit]
+requests_per_hour = 100000  # Very high limit for dev testing
+burst_allowance = 1000
+enabled = false  # Disabled for easier dev testing
+strategy = "TokenBucket"
+
+[cors]
+allowed_origins = ["http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:3000"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+allowed_headers = ["Authorization", "Content-Type", "X-API-Key", "X-Request-ID", "X-Quantum-Level"]
+expose_headers = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID"]
+max_age = 3600
+allow_credentials = true
+
+[security]
+max_payload_size = 16777216  # 16MB - larger for dev testing
+request_timeout_seconds = 120  # Longer timeout for debugging
+security_headers = true
+csrf_protection = false
+quantum_encryption = false  # Disabled for faster dev
+admin_ip_whitelist = ["127.0.0.1", "::1"]
+
+[security.circuit_breaker]
+failure_threshold = 50  # Higher threshold for dev
+success_threshold = 5
+timeout_seconds = 60
+enabled = false  # Disabled for easier dev debugging
+
+[monitoring]
+metrics_enabled = true
+prometheus_endpoint = "/metrics"
+health_check_endpoint = "/health"
+performance_stats = true
+detailed_logging = true  # Enable detailed logs for dev
+websocket_enabled = true
+
+[logging]
+level = "debug"  # Debug level for development
+format = "Plain"  # Plain text easier to read during dev
+max_file_size_mb = 100
+max_files = 3  # Fewer log files in dev
+structured_logging = false  # Plain logs for dev

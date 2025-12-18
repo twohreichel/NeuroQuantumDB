@@ -1,24 +1,114 @@
 use actix_cors::Cors;
+use actix_web::body::MessageBody;
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
-use actix_web_prometheus::PrometheusMetricsBuilder;
-use actix_ws::Message;
+use actix_web_prom::PrometheusMetricsBuilder;
 use anyhow::Result;
-use futures_util::StreamExt;
-use neuroquantum_core::{DatabaseConfig, NeuroQuantumDB};
+use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
 use std::time::Instant;
-use tracing::{info, warn};
+use tracing::info;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 pub mod auth;
+pub mod biometric_auth;
+pub mod cli;
 pub mod config;
 pub mod error;
 pub mod handlers;
+pub mod jwt;
+pub mod metrics;
 pub mod middleware;
+pub mod permissions;
+pub mod rate_limit;
+pub mod storage;
+pub mod websocket;
 
 use auth::AuthService;
 pub use config::ApiConfig;
 pub use error::{ApiError, ApiResponse, ResponseMetadata};
-use middleware as custom_middleware;
+use handlers::ApiDoc;
+use jwt::JwtService;
+use rate_limit::{RateLimitConfig, RateLimitService};
+use std::sync::Arc;
+use websocket::{ConnectionConfig, ConnectionManager, PubSubManager, WebSocketService};
+
+/// Application state shared across handlers
+#[derive(Clone)]
+pub struct AppState {
+    pub db: Arc<tokio::sync::RwLock<NeuroQuantumDB>>,
+    pub qsql_engine: Arc<tokio::sync::Mutex<neuroquantum_qsql::QSQLEngine>>,
+    pub auth_service: AuthService,
+    pub jwt_service: JwtService,
+    pub rate_limit_service: RateLimitService,
+    pub websocket_service: Arc<WebSocketService>,
+    pub config: ApiConfig,
+}
+
+impl AppState {
+    pub async fn new(config: ApiConfig) -> Result<Self> {
+        // Initialize the database using the new builder pattern with compile-time guarantees
+        let db = NeuroQuantumDBBuilder::new()
+            .build()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to initialize database: {}", e))?;
+
+        let auth_service = AuthService::new()
+            .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+
+        // Warn if no admin keys exist - database needs initialization
+        if !auth_service.has_admin_keys() {
+            tracing::warn!("⚠️  No admin keys found! Run 'neuroquantum-api init' to create the first admin key.");
+            tracing::warn!(
+                "⚠️  The API server will start but authentication will fail until initialized."
+            );
+        }
+
+        let jwt_service = JwtService::new(config.jwt.secret.as_bytes());
+
+        let rate_limit_config = RateLimitConfig {
+            requests_per_window: config.rate_limit.requests_per_hour,
+            window_size_seconds: 3600,
+            burst_allowance: config.rate_limit.burst_allowance,
+            redis_url: config.redis.as_ref().map(|r| r.url.clone()),
+            fallback_to_memory: true,
+        };
+        let rate_limit_service = RateLimitService::new(rate_limit_config).await?;
+
+        // Get the storage engine Arc from the database for sharing with QSQL engine
+        let storage_engine_arc = db.storage_engine_arc();
+
+        // Wrap the database in Arc<RwLock> for shared access
+        let db_arc = Arc::new(tokio::sync::RwLock::new(db));
+
+        // Initialize QSQL engine with the shared storage engine
+        let qsql_engine = neuroquantum_qsql::QSQLEngine::with_storage(storage_engine_arc)
+            .map_err(|e| anyhow::anyhow!("Failed to initialize QSQL engine: {}", e))?;
+        let qsql_engine_arc = Arc::new(tokio::sync::Mutex::new(qsql_engine));
+
+        tracing::info!("🔗 QSQL engine initialized with shared storage engine");
+
+        // Initialize WebSocket service with QSQL engine
+        let ws_config = ConnectionConfig::default();
+        let connection_manager = Arc::new(ConnectionManager::new(ws_config));
+        let pubsub_manager = Arc::new(PubSubManager::new());
+        let websocket_service = Arc::new(WebSocketService::with_qsql_engine(
+            connection_manager,
+            pubsub_manager,
+            qsql_engine_arc.clone(),
+        ));
+
+        Ok(Self {
+            db: db_arc,
+            qsql_engine: qsql_engine_arc,
+            auth_service,
+            jwt_service,
+            rate_limit_service,
+            websocket_service,
+            config,
+        })
+    }
+}
 
 /// 🏥 Health check endpoint
 pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
@@ -30,11 +120,20 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
         "uptime_seconds": 0,
         "system_metrics": {
             "memory_usage_mb": 128,
-            "power_consumption_w": 45
+            "power_consumption_w": 45,
+            "temperature_c": 42.5
         },
         "security": {
             "authentication_enabled": true,
-            "api_key_required": true
+            "jwt_enabled": true,
+            "rate_limiting_enabled": true,
+            "quantum_security": true
+        },
+        "features": {
+            "neuromorphic_processing": true,
+            "quantum_search": true,
+            "dna_compression": true,
+            "real_time_updates": true
         }
     });
 
@@ -46,225 +145,272 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
 
 /// 📊 Prometheus metrics endpoint (requires admin permission)
 pub async fn metrics() -> HttpResponse {
-    let metrics = r#"
-# HELP neuroquantum_queries_total Total number of queries processed
-# TYPE neuroquantum_queries_total counter
-neuroquantum_queries_total{type="neuromorphic"} 1234
-neuroquantum_queries_total{type="quantum"} 567
-neuroquantum_queries_total{type="dna"} 89
-
-# HELP neuroquantum_auth_requests_total Total authentication requests
-# TYPE neuroquantum_auth_requests_total counter
-neuroquantum_auth_requests_total{status="success"} 5678
-neuroquantum_auth_requests_total{status="failed"} 123
-
-# HELP neuroquantum_response_time_seconds Query response time in seconds
-# TYPE neuroquantum_response_time_seconds histogram
-neuroquantum_response_time_seconds_bucket{le="0.001"} 500
-neuroquantum_response_time_seconds_bucket{le="0.01"} 1200
-neuroquantum_response_time_seconds_bucket{le="0.1"} 1800
-neuroquantum_response_time_seconds_bucket{le="+Inf"} 2000
-neuroquantum_response_time_seconds_sum 15.5
-neuroquantum_response_time_seconds_count 2000
-
-# HELP neuroquantum_active_connections Current active connections
-# TYPE neuroquantum_active_connections gauge
-neuroquantum_active_connections 42
-"#;
-
-    HttpResponse::Ok()
-        .content_type("text/plain; version=0.0.4")
-        .body(metrics)
+    match crate::metrics::render_metrics() {
+        Ok(metrics_text) => HttpResponse::Ok()
+            .content_type("text/plain; version=0.0.4; charset=utf-8")
+            .body(metrics_text),
+        Err(e) => {
+            tracing::error!("Failed to render metrics: {}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to collect metrics",
+                "details": e.to_string()
+            }))
+        }
+    }
 }
 
 /// 🔍 WebSocket handler for real-time communication (requires authentication)
 pub async fn websocket_handler(
     req: actix_web::HttpRequest,
     stream: actix_web::web::Payload,
+    state: web::Data<AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    // Check if user is authenticated (API key should be in extensions from middleware)
+    use tracing::error;
+    use websocket::ConnectionMetadata;
+
+    // Check if user is authenticated (JWT token should be in extensions from middleware)
     let extensions = req.extensions();
-    if extensions.get::<auth::ApiKey>().is_none() {
+    let user_id = if let Some(token) = extensions.get::<error::AuthToken>() {
+        Some(token.sub.clone())
+    } else if let Some(api_key) = extensions.get::<auth::ApiKey>() {
+        Some(api_key.name.clone())
+    } else {
         return Ok(HttpResponse::Unauthorized().json(serde_json::json!({
             "error": "Authentication required for WebSocket connection",
             "code": "WEBSOCKET_AUTH_REQUIRED"
         })));
-    }
+    };
 
-    let (response, mut session, mut msg_stream) = actix_ws::handle(&req, stream)?;
+    // Get connection info
+    let remote_addr = req
+        .connection_info()
+        .realip_remote_addr()
+        .unwrap_or("unknown")
+        .to_string();
+    let user_agent = req
+        .headers()
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
 
+    // Create connection metadata
+    let mut metadata = ConnectionMetadata::new(remote_addr);
+    metadata.user_id = user_id;
+    metadata.user_agent = user_agent;
+
+    // Handle WebSocket upgrade
+    let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
+
+    // Record WebSocket connection metrics
+    crate::metrics::record_websocket_connection("connected");
+
+    // Spawn handler task
+    let ws_service = state.websocket_service.clone();
     actix_web::rt::spawn(async move {
-        while let Some(Ok(msg)) = msg_stream.next().await {
-            match msg {
-                Message::Text(text) => {
-                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text) {
-                        match parsed.get("type").and_then(|t| t.as_str()) {
-                            Some("subscribe") => {
-                                let response = serde_json::json!({
-                                    "type": "subscribed",
-                                    "channels": parsed.get("channels").unwrap_or(&serde_json::json!([]))
-                                });
-                                let _ = session.text(response.to_string()).await;
-
-                                // Send a sample real-time update
-                                let update = serde_json::json!({
-                                    "type": "neuromorphic_learning",
-                                    "data": {
-                                        "synaptic_strength": 0.87,
-                                        "learning_rate": 0.012,
-                                        "timestamp": chrono::Utc::now().to_rfc3339()
-                                    }
-                                });
-                                let _ = session.text(update.to_string()).await;
-                            }
-                            _ => {
-                                let error = serde_json::json!({
-                                    "type": "error",
-                                    "message": "Unknown message type or insufficient permissions"
-                                });
-                                let _ = session.text(error.to_string()).await;
-                            }
-                        }
-                    }
-                }
-                Message::Close(_) => break,
-                _ => {}
-            }
+        if let Err(e) = ws_service
+            .handle_connection(session, msg_stream, metadata)
+            .await
+        {
+            error!("WebSocket connection error: {:?}", e);
+            crate::metrics::record_websocket_connection("error");
+        } else {
+            crate::metrics::record_websocket_connection("disconnected");
         }
     });
 
     Ok(response)
 }
 
-/// 🚀 API Server
-pub struct ApiServer {
-    config: ApiConfig,
-    auth_service: AuthService,
+/// Configure application routes and middleware
+pub fn configure_app(
+    app_state: AppState,
+) -> App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse<impl MessageBody>,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    // Create Prometheus metrics
+    let prometheus = PrometheusMetricsBuilder::new("neuroquantum_api")
+        .endpoint("/internal/metrics")
+        .build()
+        .unwrap();
+
+    let cors_origins = app_state.config.cors.allowed_origins.clone();
+
+    App::new()
+        // Add application state
+        .app_data(web::Data::new(app_state.clone()))
+        .app_data(web::Data::new(app_state.db.clone()))
+        .app_data(web::Data::new(app_state.auth_service.clone()))
+        .app_data(web::Data::new(app_state.jwt_service.clone()))
+        .app_data(web::Data::new(app_state.rate_limit_service.clone()))
+        .app_data(web::Data::new(app_state.config.clone()))
+
+        // Add middleware
+        .wrap(prometheus.clone())
+        .wrap(Logger::default())
+        .wrap(Compress::default())
+        .wrap({
+            let mut cors = Cors::default()
+                .allowed_origin("http://localhost:3000")
+                .allowed_origin("http://localhost:8080");
+
+            // Add configured origins
+            for origin in &cors_origins {
+                cors = cors.allowed_origin(origin);
+            }
+
+            cors.allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+                .allowed_headers(vec![
+                    "Authorization",
+                    "Content-Type",
+                    "X-API-Key",
+                    "X-Request-ID",
+                    "X-Quantum-Level"
+                ])
+                .expose_headers(vec![
+                    "X-RateLimit-Limit",
+                    "X-RateLimit-Remaining",
+                    "X-RateLimit-Reset"
+                ])
+                .max_age(3600)
+        })
+
+        // OpenAPI Documentation
+        .service(
+            SwaggerUi::new("/api-docs/{_:.*}")
+                .url("/api-docs/openapi.json", ApiDoc::openapi())
+        )
+
+        // Health and system endpoints
+        .route("/health", web::get().to(health_check))
+        .route("/metrics", web::get().to(handlers::get_metrics))
+        .route("/ws", web::get().to(websocket_handler))
+
+        // API v1 routes
+        .service(
+            web::scope("/api/v1")
+                // Authentication routes (public)
+                .service(
+                    web::scope("/auth")
+                        .route("/login", web::post().to(handlers::login))
+                        .route("/refresh", web::post().to(handlers::refresh_token))
+                )
+
+                // Protected admin routes
+                .service(
+                    web::scope("/auth")
+                        .wrap(middleware::auth_middleware())
+                        .route("/generate-key", web::post().to(handlers::generate_api_key))
+                        .route("/revoke-key", web::post().to(handlers::revoke_api_key))
+                )
+
+                // Protected API routes (require authentication)
+                .service(
+                    web::scope("")
+                        .wrap(middleware::auth_middleware())
+
+                        // Generic SQL query endpoint
+                        .route("/query", web::post().to(handlers::execute_sql_query))
+
+                        // CRUD Operations
+                        .service(
+                            web::scope("/tables")
+                                .route("", web::post().to(handlers::create_table))
+                                .route("/{table_name}/data", web::post().to(handlers::insert_data))
+                                .route("/{table_name}/query", web::post().to(handlers::query_data))
+                                .route("/{table_name}/data", web::put().to(handlers::update_data))
+                                .route("/{table_name}/data", web::delete().to(handlers::delete_data))
+                        )
+
+                        // Advanced Features
+                        .service(
+                            web::scope("/neural")
+                                .route("/train", web::post().to(handlers::train_neural_network))
+                                .route("/train/{network_id}", web::get().to(handlers::get_training_status))
+                        )
+                        .service(
+                            web::scope("/quantum")
+                                .route("/search", web::post().to(handlers::quantum_search))
+                        )
+                        .service(
+                            web::scope("/dna")
+                                .route("/compress", web::post().to(handlers::compress_dna))
+                        )
+
+                        // Biometric Authentication
+                        .service(
+                            web::scope("/biometric/eeg")
+                                .route("/enroll", web::post().to(handlers::eeg_enroll))
+                                .route("/authenticate", web::post().to(handlers::eeg_authenticate))
+                                .route("/update", web::post().to(handlers::eeg_update_signature))
+                                .route("/users", web::get().to(handlers::eeg_list_users))
+                        )
+
+                        // Monitoring
+                        .service(
+                            web::scope("/stats")
+                                .route("/performance", web::get().to(handlers::get_performance_stats))
+                        )
+                )
+        )
 }
 
-impl ApiServer {
-    pub fn new(config: ApiConfig) -> Self {
-        Self {
-            config,
-            auth_service: AuthService::new(),
-        }
-    }
+/// Start the HTTP server with the given configuration
+pub async fn start_server(config: ApiConfig) -> Result<()> {
+    let bind_address = format!("{}:{}", config.server.host, config.server.port);
+    let app_state = AppState::new(config.clone()).await?;
 
-    pub async fn start(self) -> Result<()> {
-        let bind_address = format!("{}:{}", self.config.server.host, self.config.server.port);
+    info!("🚀 Starting NeuroQuantumDB API Server on {}", bind_address);
+    info!(
+        "📖 API Documentation available at: http://{}/api-docs/",
+        bind_address
+    );
+    info!(
+        "🏥 Health check available at: http://{}/health",
+        bind_address
+    );
+    info!("📊 Metrics available at: http://{}/metrics", bind_address);
 
-        info!(
-            "🧠⚛️🧬 Starting NeuroQuantumDB API Server on {}",
-            bind_address
-        );
-        info!("🔐 Security: API key authentication is ENABLED");
-        warn!("⚠️ All endpoints (except /health) require valid API key authentication");
-
-        // Initialize the database with config
-        let db_config = DatabaseConfig {
-            connection_string: "neuroquantum://localhost".to_string(),
-            max_connections: self.config.database.max_connections.unwrap_or(1000),
-        };
-        let db = NeuroQuantumDB::new(&db_config).await?;
-
-        // Set up Prometheus metrics
-        let prometheus = PrometheusMetricsBuilder::new("neuroquantum")
-            .endpoint("/metrics")
-            .build()
-            .map_err(|e| anyhow::anyhow!("Failed to build Prometheus metrics: {}", e))?;
-
-        // Create auth service instance
-        let auth_service = self.auth_service;
-
-        HttpServer::new(move || {
-            // Restrict CORS for security - only allow specific origins in production
-            let cors = if cfg!(debug_assertions) {
-                // Development: allow any origin
-                Cors::default()
-                    .allow_any_origin()
-                    .allow_any_method()
-                    .allow_any_header()
-                    .max_age(3600)
-            } else {
-                // Production: restrict to specific origins
-                Cors::default()
-                    .allowed_origin("https://your-frontend-domain.com")
-                    .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
-                    .allowed_headers(vec!["X-API-Key", "Content-Type", "Authorization"])
-                    .max_age(3600)
-            };
-
-            App::new()
-                .app_data(web::Data::new(db.clone()))
-                .app_data(web::Data::new(auth_service.clone()))
-                .wrap(cors)
-                .wrap(prometheus.clone())
-                .wrap(Logger::default())
-                .wrap(Compress::default())
-                .wrap(custom_middleware::ApiKeyAuth::new(auth_service.clone()))
-
-                // Public health endpoint
-                .route("/health", web::get().to(health_check))
-                .route("/api/v1/health", web::get().to(health_check))
-
-                // Admin endpoints (require admin permission)
-                .route("/metrics", web::get().to(metrics))
-
-                // Authentication endpoints (require existing admin key to generate new keys)
-                .service(
-                    web::scope("/api/v1/auth")
-                        .route("/generate-key", web::post().to(handlers::generate_api_key))
-                        .route("/revoke-key", web::delete().to(handlers::revoke_api_key))
-                        .route("/list-keys", web::get().to(handlers::list_api_keys))
-                        .route("/key-stats/{key}", web::get().to(handlers::get_key_stats))
-                )
-
-                // Neuromorphic endpoints (require neuromorphic permission)
-                .service(
-                    web::scope("/api/v1/neuromorphic")
-                        .route("/query", web::post().to(handlers::neuromorphic_query))
-                        .route("/network-status", web::get().to(handlers::network_status))
-                        .route("/train", web::post().to(handlers::train_network))
-                )
-
-                // Quantum endpoints (require quantum permission)
-                .service(
-                    web::scope("/api/v1/quantum")
-                        .route("/search", web::post().to(handlers::quantum_search))
-                        .route("/optimize", web::post().to(handlers::quantum_optimize))
-                        .route("/status", web::get().to(handlers::quantum_status))
-                )
-
-                // DNA Storage endpoints (require dna permission)
-                .service(
-                    web::scope("/api/v1/dna")
-                        .route("/compress", web::post().to(handlers::dna_compress))
-                        .route("/decompress", web::post().to(handlers::dna_decompress))
-                        .route("/status", web::get().to(handlers::dna_status))
-                )
-
-                // WebSocket endpoint (requires authentication)
-                .route("/api/v1/ws", web::get().to(websocket_handler))
-        })
-        .workers(self.config.server.workers)
-        .bind(bind_address)?
+    HttpServer::new(move || configure_app(app_state.clone()))
+        .bind(&bind_address)?
         .run()
         .await?;
 
-        Ok(())
-    }
-}
-
-/// Initialize observability (logging and metrics)
-pub fn init_observability(_config: &ApiConfig) -> Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
-
-    info!("Observability initialized");
     Ok(())
 }
 
+// Property-based tests for API robustness
 #[cfg(test)]
-mod tests;
+mod proptest_suite;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, web, App};
+
+    #[actix_web::test]
+    async fn test_health_check() {
+        let app =
+            test::init_service(App::new().route("/health", web::get().to(health_check))).await;
+
+        let req = test::TestRequest::get().uri("/health").to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_metrics_endpoint() {
+        let app = test::init_service(App::new().route("/metrics", web::get().to(metrics))).await;
+
+        let req = test::TestRequest::get().uri("/metrics").to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert!(resp.status().is_success());
+    }
+}

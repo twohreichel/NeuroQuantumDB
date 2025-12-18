@@ -1,4 +1,40 @@
 services:
+  # Redis for rate limiting and caching
+  redis:
+    image: redis:7-alpine
+    platform: linux/arm64
+    container_name: neuroquantum-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 50mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.5'
+        reservations:
+          memory: 32M
+          cpus: '0.25'
+    networks:
+      - neuroquantum-net
+
   # NeuroQuantumDB main application
   neuroquantumdb:
     image: neuroquantumdb:latest
@@ -12,9 +48,11 @@ services:
       - RUST_LOG=info
       - NEUROQUANTUM_ENV=production
       - NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
+      - REDIS_URL=redis://redis:6379
     volumes:
       - ./config/prod.toml:/etc/neuroquantumdb/config.toml:ro
       - neuroquantum_data:/var/lib/neuroquantumdb
+      - neuroquantum_logs:/var/log/neuroquantumdb
     healthcheck:
       test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
       interval: 30s
@@ -29,6 +67,9 @@ services:
         reservations:
           memory: 50M
           cpus: '0.5'
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - neuroquantum-net
 
@@ -118,6 +159,10 @@ services:
 
 volumes:
   neuroquantum_data:
+    driver: local
+  neuroquantum_logs:
+    driver: local
+  redis_data:
     driver: local
   prometheus_data:
     driver: local

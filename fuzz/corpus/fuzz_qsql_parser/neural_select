@@ -1,0 +1,1 @@
+NEURAL SELECT * FROM patterns WHERE synaptic_similarity(embedding, $query) > 0.8

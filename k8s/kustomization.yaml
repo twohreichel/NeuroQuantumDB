@@ -1,0 +1,38 @@
+# Kustomization file for NeuroQuantumDB Kubernetes deployment
+# Use: kubectl apply -k k8s/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: neuroquantumdb
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - pvc.yaml
+  - serviceaccount.yaml
+  - redis.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+  - prometheus.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: neuroquantumdb-system
+
+# Image customization (override in overlays)
+images:
+  - name: neuroquantumdb
+    newName: neuroquantumdb
+    newTag: latest
+
+# Config generation (for staging/production overlays)
+# configMapGenerator:
+#   - name: neuroquantumdb-config
+#     behavior: merge
+#     files:
+#       - prod.toml=config/prod.toml

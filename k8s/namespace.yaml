@@ -1,0 +1,10 @@
+# NeuroQuantumDB Kubernetes Namespace
+# This namespace isolates all NeuroQuantumDB resources
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: neuroquantumdb
+  labels:
+    app.kubernetes.io/name: neuroquantumdb
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: neuroquantumdb-system

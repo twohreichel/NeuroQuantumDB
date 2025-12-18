@@ -1,0 +1,280 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feat/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+# Automatically cancel in-progress workflows for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+  # Code quality checks
+  lint:
+    name: Lint and Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: false
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  # Security audit
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-tools-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked || true
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked || true
+
+      - name: Run cargo audit
+        run: cargo audit --ignore RUSTSEC-2020-0168 --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2024-0436
+
+      - name: Run cargo deny
+        run: cargo deny check
+
+  # Dependency review (PRs only)
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+
+  # Test suite
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust: [stable, nightly]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.rust }}
+          cache-on-failure: false
+
+      - name: Create data directory
+        run: mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
+
+      - name: Run tests
+        run: cargo test --workspace --all-features --verbose
+
+      - name: Run doc tests
+        run: cargo test --workspace --doc
+
+  # Documentation generation
+  docs:
+    name: Generate Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for GitHub Pages deployment
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: false
+
+      - name: Install mdbook
+        run: cargo install mdbook --locked
+
+      - name: Generate all documentation
+        run: make docs
+
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: target/book/
+          retention-days: 30
+
+      - name: Deploy to GitHub Pages (main branch only)
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/book
+          cname: docs.neuroquantumdb.org  # Optional: your custom domain
+
+  # Build for release
+  build:
+    name: Build Release Binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: false
+
+      - name: Build release binary
+        run: cargo build --release --bin neuroquantum-api
+
+      - name: Strip binary
+        run: strip target/release/neuroquantum-api
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuroquantum-api-linux-amd64
+          path: target/release/neuroquantum-api
+          retention-days: 7
+
+  # NOTE: Benchmarks are now handled by the dedicated benchmarks.yml workflow
+  # which provides regression tracking, PR comments, and historical comparisons.
+  # See: .github/workflows/benchmarks.yml
+
+  # Docker image build and push
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    needs: [lint, test, security]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # For provenance attestation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: neuroquantumdb/neuroquantum-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: neuroquantumdb/neuroquantum-api:${{ steps.meta.outputs.version }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-sbom
+          path: sbom.spdx.json
+          retention-days: 90
+
+  # Release (on tags)
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [lint, test, security, build, docs]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            neuroquantum-api-*/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

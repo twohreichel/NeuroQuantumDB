@@ -1,0 +1,131 @@
+# NeuroQuantumDB Main Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neuroquantumdb
+  namespace: neuroquantumdb
+  labels:
+    app.kubernetes.io/name: neuroquantumdb
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: neuroquantumdb
+      app.kubernetes.io/component: api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: neuroquantumdb
+        app.kubernetes.io/component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: neuroquantumdb
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: neuroquantumdb
+          image: neuroquantumdb:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: websocket
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: RUST_LOG
+              value: "info"
+            - name: NEUROQUANTUM_ENV
+              value: "production"
+            - name: NEUROQUANTUM_CONFIG
+              value: "/etc/neuroquantumdb/config.toml"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: neuroquantumdb-secrets
+                  key: JWT_SECRET
+          volumeMounts:
+            - name: config
+              mountPath: /etc/neuroquantumdb
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/neuroquantumdb
+            - name: logs
+              mountPath: /var/log/neuroquantumdb
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: config
+          configMap:
+            name: neuroquantumdb-config
+            items:
+              - key: prod.toml
+                path: config.toml
+        - name: data
+          persistentVolumeClaim:
+            claimName: neuroquantumdb-data
+        - name: logs
+          persistentVolumeClaim:
+            claimName: neuroquantumdb-logs
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - neuroquantumdb
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: neuroquantumdb

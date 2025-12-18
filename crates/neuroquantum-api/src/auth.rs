@@ -1,3 +1,5 @@
+use crate::permissions::Permission;
+use crate::storage::{ApiKeyInfo, ApiKeyStorage, StorageStats};
 #[cfg(not(test))]
 use bcrypt::DEFAULT_COST;
 use bcrypt::{hash, verify};
@@ -25,45 +27,82 @@ pub struct ApiKey {
 
 #[derive(Debug, Clone)]
 pub struct AuthService {
-    // In production, this would be stored in a secure database
-    api_keys: HashMap<String, ApiKey>,
-    // Store hashed keys for security
-    key_hashes: HashMap<String, String>,
-    // Rate limiting tracking
+    // Persistent storage for API keys
+    storage: ApiKeyStorage,
+    // Rate limiting tracking (in-memory for performance)
     usage_tracking: HashMap<String, Vec<DateTime<Utc>>>,
+    // Track API key generation attempts per IP
+    key_generation_tracking: HashMap<String, Vec<DateTime<Utc>>>,
 }
 
 impl AuthService {
-    pub fn new() -> Self {
-        let mut service = Self {
-            api_keys: HashMap::new(),
-            key_hashes: HashMap::new(),
-            usage_tracking: HashMap::new(),
-        };
-
-        // Create a default admin key on startup
-        service.create_default_admin_key();
-        service
+    /// Create a new AuthService with persistent storage
+    /// Storage path defaults to .neuroquantum/api_keys.db
+    pub fn new() -> Result<Self, String> {
+        Self::new_with_path(".neuroquantum/api_keys.db")
     }
 
-    /// Create default admin key for initial setup
-    fn create_default_admin_key(&mut self) {
-        let admin_key = self.generate_api_key(
-            "default-admin".to_string(),
-            vec![
-                "admin".to_string(),
-                "neuromorphic".to_string(),
-                "quantum".to_string(),
-                "dna".to_string(),
-                "read".to_string(),
-                "write".to_string(),
-            ],
-            Some(365 * 24), // 1 year expiry
-            Some(1000),     // 1000 requests per hour
-        );
+    /// Create a new AuthService with custom storage path
+    pub fn new_with_path(db_path: &str) -> Result<Self, String> {
+        // Ensure directory exists
+        if let Some(parent) = std::path::Path::new(db_path).parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create storage directory: {}", e))?;
+        }
 
-        info!("🔐 Default admin API key created: {}", admin_key.key);
-        warn!("⚠️ SECURITY: Change the default admin key in production!");
+        let storage = ApiKeyStorage::new(db_path)
+            .map_err(|e| format!("Failed to initialize API key storage: {}", e))?;
+
+        // Cleanup expired keys on startup
+        if let Err(e) = storage.cleanup_expired_keys() {
+            warn!("Failed to cleanup expired keys: {}", e);
+        }
+
+        let service = Self {
+            storage,
+            usage_tracking: HashMap::new(),
+            key_generation_tracking: HashMap::new(),
+        };
+
+        info!("🔧 AuthService initialized with persistent storage");
+
+        // Check if we have admin keys
+        if !service.has_admin_keys() {
+            warn!("⚠️  No admin keys found!");
+            warn!("💡 Run 'neuroquantum-api init' to create your first admin key");
+        }
+
+        Ok(service)
+    }
+
+    /// Check if any admin keys exist
+    pub fn has_admin_keys(&self) -> bool {
+        self.storage.has_admin_keys().unwrap_or(false)
+    }
+
+    /// Create an admin key - only allowed if no admin keys exist yet (setup mode)
+    pub fn create_initial_admin_key(
+        &mut self,
+        name: String,
+        expiry_hours: Option<u32>,
+    ) -> Result<ApiKey, String> {
+        if self.has_admin_keys() {
+            return Err(
+                "Admin key already exists. Use API endpoints to create additional keys."
+                    .to_string(),
+            );
+        }
+
+        let admin_key = self.generate_api_key(
+            name,
+            Permission::admin_permissions(),
+            expiry_hours,
+            Some(10000), // High rate limit for admin
+        )?;
+
+        info!("🔐 Initial admin API key created: {}", &admin_key.key[..12]);
+        warn!("⚠️ SECURITY: Store this key securely - it will not be shown again!");
+        Ok(admin_key)
     }
 
     pub fn generate_api_key(
@@ -72,7 +111,7 @@ impl AuthService {
         permissions: Vec<String>,
         expiry_hours: Option<u32>,
         rate_limit_per_hour: Option<u32>,
-    ) -> ApiKey {
+    ) -> Result<ApiKey, String> {
         let key = format!("nqdb_{}", Uuid::new_v4().to_string().replace('-', ""));
 
         // Use lower cost for tests to speed up execution
@@ -81,22 +120,7 @@ impl AuthService {
         #[cfg(not(test))]
         let cost = DEFAULT_COST;
 
-        let key_hash = match hash(&key, cost) {
-            Ok(hash) => hash,
-            Err(e) => {
-                warn!("Failed to hash API key: {}", e);
-                return ApiKey {
-                    key: "error".to_string(),
-                    name,
-                    permissions,
-                    expires_at: Utc::now(),
-                    created_at: Utc::now(),
-                    last_used: None,
-                    usage_count: 0,
-                    rate_limit_per_hour,
-                };
-            }
-        };
+        let key_hash = hash(&key, cost).map_err(|e| format!("Failed to hash API key: {}", e))?;
 
         let expires_at = match expiry_hours {
             Some(hours) => Utc::now() + chrono::Duration::hours(hours as i64),
@@ -105,7 +129,7 @@ impl AuthService {
 
         let api_key = ApiKey {
             key: key.clone(),
-            name,
+            name: name.clone(),
             permissions,
             expires_at,
             created_at: Utc::now(),
@@ -114,40 +138,60 @@ impl AuthService {
             rate_limit_per_hour,
         };
 
-        self.key_hashes.insert(key.clone(), key_hash);
-        self.api_keys.insert(key.clone(), api_key.clone());
+        // Store in persistent database
+        self.storage
+            .store_key(&api_key, &key_hash)
+            .map_err(|e| format!("Failed to store API key: {}", e))?;
+
         self.usage_tracking.insert(key.clone(), Vec::new());
 
-        info!(
-            "🔑 Generated new API key: {} for {}",
-            &key[..12],
-            api_key.name
-        );
-        api_key
+        info!("🔑 Generated new API key: {} for {}", &key[..12], name);
+        Ok(api_key)
     }
 
     pub async fn validate_api_key(&self, key: &str) -> Option<ApiKey> {
-        // In production, this would query a database
-        if let Some(api_key_data) = self.api_keys.get(key) {
-            // Verify the key hash for additional security
-            if let Some(stored_hash) = self.key_hashes.get(key) {
-                if verify(key, stored_hash).unwrap_or(false) {
-                    // Check rate limiting
-                    if self.is_rate_limited(key) {
-                        warn!("Rate limit exceeded for API key: {}", &key[..8]);
-                        return None;
-                    }
-
-                    // Update last used timestamp (in production, this would update the database)
-                    let mut updated_key = api_key_data.clone();
-                    updated_key.last_used = Some(Utc::now());
-                    updated_key.usage_count += 1;
-
-                    return Some(updated_key);
-                }
+        // Retrieve from persistent storage
+        let (api_key_data, stored_hash) = match self.storage.get_key(key) {
+            Ok(Some(data)) => data,
+            Ok(None) => {
+                warn!("API key not found: {}", &key[..8.min(key.len())]);
+                return None;
             }
+            Err(e) => {
+                warn!("Failed to retrieve API key: {}", e);
+                return None;
+            }
+        };
+
+        // Verify the key hash for additional security
+        if !verify(key, &stored_hash).unwrap_or(false) {
+            warn!("API key hash verification failed: {}", &key[..8]);
+            return None;
         }
-        None
+
+        // Check if key is expired
+        if self.is_key_expired(&api_key_data) {
+            warn!("API key expired: {}", &key[..8]);
+            return None;
+        }
+
+        // Check rate limiting
+        if self.is_rate_limited(key) {
+            warn!("Rate limit exceeded for API key: {}", &key[..8]);
+            return None;
+        }
+
+        // Update last used timestamp in database
+        if let Err(e) = self.storage.update_usage(key) {
+            warn!("Failed to update API key usage: {}", e);
+        }
+
+        // Return updated key with current timestamp
+        let mut updated_key = api_key_data;
+        updated_key.last_used = Some(Utc::now());
+        updated_key.usage_count += 1;
+
+        Some(updated_key)
     }
 
     pub fn is_key_expired(&self, api_key: &ApiKey) -> bool {
@@ -176,7 +220,8 @@ impl AuthService {
     }
 
     fn is_rate_limited(&self, key: &str) -> bool {
-        if let Some(api_key) = self.api_keys.get(key) {
+        // Get API key from storage to check rate limit
+        if let Ok(Some((api_key, _))) = self.storage.get_key(key) {
             if let Some(rate_limit) = api_key.rate_limit_per_hour {
                 if let Some(usage_times) = self.usage_tracking.get(key) {
                     let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
@@ -192,20 +237,76 @@ impl AuthService {
         false
     }
 
-    pub fn revoke_api_key(&mut self, key: &str) -> bool {
-        info!("🗑️ Revoking API key: {}", &key[..8]);
-        let removed_key = self.api_keys.remove(key).is_some();
-        self.key_hashes.remove(key);
-        self.usage_tracking.remove(key);
-        removed_key
+    pub fn revoke_api_key(&mut self, key: &str, revoked_by: Option<&str>) -> bool {
+        info!("🗑️ Revoking API key: {}", &key[..8.min(key.len())]);
+
+        match self.storage.revoke_key(key, revoked_by) {
+            Ok(revoked) => {
+                if revoked {
+                    self.usage_tracking.remove(key);
+                }
+                revoked
+            }
+            Err(e) => {
+                warn!("Failed to revoke API key: {}", e);
+                false
+            }
+        }
     }
 
-    pub fn list_api_keys(&self) -> Vec<ApiKey> {
-        self.api_keys.values().cloned().collect()
+    pub fn list_api_keys(&self) -> Vec<ApiKeyInfo> {
+        self.storage.list_keys().unwrap_or_default()
+    }
+
+    pub fn get_storage_stats(&self) -> StorageStats {
+        self.storage.get_stats().unwrap_or(StorageStats {
+            total_active_keys: 0,
+            total_revoked_keys: 0,
+            admin_keys: 0,
+        })
+    }
+
+    /// Check if API key generation is rate limited for a given IP address
+    /// Default: Max 5 key generations per hour per IP
+    pub fn check_key_generation_rate_limit(&self, ip_address: &str) -> Result<(), String> {
+        const MAX_GENERATIONS_PER_HOUR: usize = 5;
+
+        if let Some(generation_times) = self.key_generation_tracking.get(ip_address) {
+            let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
+            let recent_generations = generation_times
+                .iter()
+                .filter(|&&time| time > one_hour_ago)
+                .count();
+
+            if recent_generations >= MAX_GENERATIONS_PER_HOUR {
+                warn!(
+                    "⚠️ API key generation rate limit exceeded for IP: {} ({}/{} in last hour)",
+                    ip_address, recent_generations, MAX_GENERATIONS_PER_HOUR
+                );
+                return Err(format!(
+                    "Rate limit exceeded: Maximum {} key generations per hour. Try again later.",
+                    MAX_GENERATIONS_PER_HOUR
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Track API key generation attempt from an IP address
+    pub fn track_key_generation(&mut self, ip_address: &str) {
+        let entry = self
+            .key_generation_tracking
+            .entry(ip_address.to_string())
+            .or_default();
+        entry.push(Utc::now());
+
+        // Clean up old entries (older than 24 hours) to prevent memory growth
+        let cutoff = Utc::now() - chrono::Duration::hours(24);
+        entry.retain(|&time| time > cutoff);
     }
 
     pub fn get_api_key_stats(&self, key: &str) -> Option<ApiKeyStats> {
-        if let Some(api_key) = self.api_keys.get(key) {
+        if let Ok(Some((api_key, _hash))) = self.storage.get_key(key) {
             let usage_times = self.usage_tracking.get(key)?;
             let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
             let recent_usage = usage_times
@@ -218,7 +319,7 @@ impl AuthService {
                 recent_usage: recent_usage as u64,
                 last_used: api_key.last_used,
                 expires_at: api_key.expires_at,
-                is_expired: self.is_key_expired(api_key),
+                is_expired: self.is_key_expired(&api_key),
             })
         } else {
             None
@@ -237,6 +338,6 @@ pub struct ApiKeyStats {
 
 impl Default for AuthService {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Failed to initialize AuthService with default storage")
     }
 }

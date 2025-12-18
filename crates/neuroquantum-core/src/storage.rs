@@ -2,25 +2,185 @@
 //! Provides persistent file-based storage with DNA compression, B+ tree indexes,
 //! and ACID transaction support for production deployment
 
+pub mod backup;
+pub mod btree;
+pub mod buffer;
+pub mod encryption;
+pub mod pager;
+pub mod wal;
+
 use anyhow::{anyhow, Result};
+use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::dna::{DNACompressor, EncodedData};
+pub use backup::{
+    BackupConfig, BackupManager, BackupMetadata, BackupStats, BackupStorageBackend,
+    BackupStorageType, BackupType, IncrementalBackup, LocalBackend, RestoreManager, RestoreOptions,
+    RestoreStats, S3Backend, S3Config,
+};
+pub use btree::{BTree, BTreeConfig};
+pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
+pub use encryption::{EncryptedData, EncryptionManager};
+pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
+pub use wal::{RecoveryStats, WALConfig, WALManager};
+
+use crate::dna::{DNACompressor, EncodedData, QuantumDNACompressor};
+use crate::transaction::{IsolationLevel, TransactionManager};
 
 /// Unique identifier for database rows
 pub type RowId = u64;
+
+/// Compressed row entry for binary storage format
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CompressedRowEntry {
+    row_id: RowId,
+    compressed_data: EncodedData,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+    /// Encrypted wrapper for additional security (optional)
+    encrypted_wrapper: Option<EncryptedData>,
+    /// Format version for backward compatibility
+    format_version: u32,
+}
 
 /// Transaction identifier
 pub type TransactionId = Uuid;
 
 /// Log Sequence Number for write-ahead logging
 pub type LSN = u64;
+
+/// Strategy for automatic ID generation
+///
+/// This determines how unique identifiers are generated for new rows.
+/// Choose based on your use case:
+/// - `AutoIncrement`: Best for single-instance, high-performance scenarios
+/// - `Uuid`: Best for distributed systems or when IDs should be unpredictable
+/// - `Snowflake`: Best for distributed systems requiring sortable IDs
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum IdGenerationStrategy {
+    /// Sequential auto-incrementing integer (1, 2, 3, ...)
+    ///
+    /// **Pros:**
+    /// - Minimal storage (8 bytes)
+    /// - Excellent B+ tree performance (sequential inserts)
+    /// - Human-readable and debuggable
+    /// - Perfect for synaptic/neural ID references
+    ///
+    /// **Cons:**
+    /// - Predictable (potential security concern for public APIs)
+    /// - Single point of generation (not ideal for distributed systems)
+    #[default]
+    AutoIncrement,
+
+    /// UUID v4 (random 128-bit identifier)
+    ///
+    /// **Pros:**
+    /// - Globally unique without coordination
+    /// - Unpredictable (good for security)
+    /// - Works in distributed systems
+    ///
+    /// **Cons:**
+    /// - Larger storage (16 bytes)
+    /// - Poor B+ tree performance (random distribution causes page splits)
+    /// - Not human-readable
+    Uuid,
+
+    /// Snowflake-style ID (64-bit time-based with machine ID)
+    ///
+    /// **Pros:**
+    /// - Time-sortable (roughly ordered by creation time)
+    /// - Distributed generation with machine ID
+    /// - Same storage as auto-increment (8 bytes)
+    ///
+    /// **Cons:**
+    /// - Requires time synchronization
+    /// - More complex implementation
+    Snowflake {
+        /// Machine/node identifier (0-1023)
+        machine_id: u16,
+    },
+}
+
+/// Auto-increment column configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoIncrementConfig {
+    /// Column name that uses auto-increment
+    pub column_name: String,
+    /// Current next value to be assigned
+    pub next_value: i64,
+    /// Increment step (default: 1)
+    pub increment_by: i64,
+    /// Minimum value (default: 1)
+    pub min_value: i64,
+    /// Maximum value (default: i64::MAX)
+    pub max_value: i64,
+    /// Whether to cycle when max is reached
+    pub cycle: bool,
+}
+
+impl Default for AutoIncrementConfig {
+    fn default() -> Self {
+        Self {
+            column_name: "id".to_string(),
+            next_value: 1,
+            increment_by: 1,
+            min_value: 1,
+            max_value: i64::MAX,
+            cycle: false,
+        }
+    }
+}
+
+impl AutoIncrementConfig {
+    /// Create a new auto-increment config for a column
+    pub fn new(column_name: impl Into<String>) -> Self {
+        Self {
+            column_name: column_name.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Set the starting value
+    pub fn start_with(mut self, start: i64) -> Self {
+        self.next_value = start;
+        self
+    }
+
+    /// Set the increment step
+    pub fn increment_by(mut self, step: i64) -> Self {
+        self.increment_by = step;
+        self
+    }
+
+    /// Generate the next ID and advance the counter
+    pub fn next_id(&mut self) -> Result<i64> {
+        let current = self.next_value;
+
+        // Check for overflow
+        if self.increment_by > 0 && current > self.max_value - self.increment_by {
+            if self.cycle {
+                self.next_value = self.min_value;
+            } else {
+                return Err(anyhow!(
+                    "Auto-increment column '{}' has reached maximum value {}",
+                    self.column_name,
+                    self.max_value
+                ));
+            }
+        } else {
+            self.next_value = current + self.increment_by;
+        }
+
+        Ok(current)
+    }
+}
 
 /// Table schema definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +190,12 @@ pub struct TableSchema {
     pub primary_key: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub version: u32,
+    /// Auto-increment configurations for columns (column_name -> config)
+    #[serde(default)]
+    pub auto_increment_columns: HashMap<String, AutoIncrementConfig>,
+    /// ID generation strategy for internal row IDs
+    #[serde(default)]
+    pub id_strategy: IdGenerationStrategy,
 }
 
 /// Column definition in table schema
@@ -39,6 +205,9 @@ pub struct ColumnDefinition {
     pub data_type: DataType,
     pub nullable: bool,
     pub default_value: Option<Value>,
+    /// Whether this column auto-increments
+    #[serde(default)]
+    pub auto_increment: bool,
 }
 
 /// Supported data types
@@ -50,6 +219,10 @@ pub enum DataType {
     Boolean,
     Timestamp,
     Binary,
+    /// Auto-incrementing integer (SERIAL in PostgreSQL)
+    Serial,
+    /// Auto-incrementing big integer (BIGSERIAL in PostgreSQL)
+    BigSerial,
 }
 
 /// Generic value type for database operations
@@ -62,6 +235,20 @@ pub enum Value {
     Timestamp(chrono::DateTime<chrono::Utc>),
     Binary(Vec<u8>),
     Null,
+}
+
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Integer(i) => write!(f, "{}", i),
+            Value::Float(fl) => write!(f, "{}", fl),
+            Value::Text(s) => write!(f, "{}", s),
+            Value::Boolean(b) => write!(f, "{}", b),
+            Value::Timestamp(ts) => write!(f, "{}", ts.to_rfc3339()),
+            Value::Binary(b) => write!(f, "Binary[{} bytes]", b.len()),
+            Value::Null => write!(f, "NULL"),
+        }
+    }
 }
 
 /// Database row containing field values
@@ -183,8 +370,34 @@ pub enum TransactionStatus {
     Aborted,
 }
 
+/// Query execution statistics for monitoring and optimization
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct QueryExecutionStats {
+    /// Number of cache hits
+    pub cache_hits: usize,
+    /// Number of cache misses
+    pub cache_misses: usize,
+    /// Indexes used in the query
+    pub indexes_used: Vec<String>,
+    /// Whether index was actually used for query optimization
+    pub index_scan: bool,
+    /// Number of rows examined from storage
+    pub rows_examined: usize,
+}
+
+impl QueryExecutionStats {
+    pub fn cache_hit_rate(&self) -> Option<f32> {
+        let total = self.cache_hits + self.cache_misses;
+        if total > 0 {
+            Some(self.cache_hits as f32 / total as f32)
+        } else {
+            None
+        }
+    }
+}
+
 /// Database metadata
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseMetadata {
     pub version: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -195,6 +408,10 @@ pub struct DatabaseMetadata {
 }
 
 /// Main storage engine providing persistent file-based storage
+///
+/// Note: StorageEngine is intentionally not Clone. Use `Arc<RwLock<StorageEngine>>`
+/// for shared access across multiple tasks/threads. This prevents accidental
+/// cloning of large internal data structures and ensures consistent cache state.
 pub struct StorageEngine {
     /// Base directory for all database files
     data_dir: PathBuf,
@@ -212,7 +429,7 @@ pub struct StorageEngine {
     metadata: DatabaseMetadata,
 
     /// DNA compressor for data compression
-    dna_compressor: DNACompressor,
+    dna_compressor: QuantumDNACompressor,
 
     /// Next available row ID
     next_row_id: RowId,
@@ -220,14 +437,68 @@ pub struct StorageEngine {
     /// Next available LSN
     next_lsn: LSN,
 
-    /// In-memory cache for frequently accessed data
-    row_cache: HashMap<RowId, Row>,
+    /// In-memory LRU cache for frequently accessed data
+    /// Uses proper LRU eviction strategy for optimal memory management
+    row_cache: LruCache<RowId, Row>,
 
-    /// Cache size limit
-    cache_limit: usize,
+    /// Transaction manager for ACID compliance
+    transaction_manager: TransactionManager,
+
+    /// Encryption manager for data-at-rest encryption
+    encryption_manager: Option<EncryptionManager>,
+
+    /// Query execution statistics for the last query
+    last_query_stats: QueryExecutionStats,
 }
 
 impl StorageEngine {
+    /// Create a placeholder storage engine for two-phase initialization
+    ///
+    /// This is used for synchronous construction of StorageEngine,
+    /// which is then properly initialized with async `new()` method.
+    ///
+    /// **Important:** This should NOT be used directly for production.
+    /// Always follow with proper async initialization via `new()`.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use neuroquantum_core::storage::StorageEngine;
+    /// use std::path::Path;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let data_dir = Path::new("./data");
+    /// // Don't use new_placeholder directly - use new() instead
+    /// let storage = StorageEngine::new(data_dir).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[doc(hidden)] // Hide from public API docs
+    pub fn new_placeholder(data_dir: &std::path::Path) -> Self {
+        let metadata = DatabaseMetadata {
+            version: "1.0.0".to_string(),
+            created_at: chrono::Utc::now(),
+            last_backup: None,
+            tables: HashMap::new(),
+            next_row_id: 1,
+            next_lsn: 1,
+        };
+
+        Self {
+            data_dir: data_dir.to_path_buf(),
+            indexes: HashMap::new(),
+            transaction_log: Vec::new(),
+            compressed_blocks: HashMap::new(),
+            metadata,
+            dna_compressor: QuantumDNACompressor::new(),
+            next_row_id: 1,
+            next_lsn: 1,
+            row_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
+            transaction_manager: TransactionManager::new(),
+            encryption_manager: None,
+            last_query_stats: QueryExecutionStats::default(),
+        }
+    }
+
     /// Create new storage engine instance
     pub async fn new<P: AsRef<Path>>(data_dir: P) -> Result<Self> {
         let data_dir = data_dir.as_ref().to_path_buf();
@@ -238,13 +509,29 @@ impl StorageEngine {
         Self::create_directory_structure(&data_dir).await?;
 
         // Initialize DNA compressor
-        let dna_compressor = DNACompressor::new();
+        let dna_compressor = QuantumDNACompressor::new();
 
         // Load existing metadata or create new
         let metadata = Self::load_or_create_metadata(&data_dir).await?;
 
+        // Initialize transaction manager with real log manager
+        let log_dir = data_dir.join("logs");
+        let transaction_manager = crate::transaction::TransactionManager::new_async(&log_dir)
+            .await
+            .map_err(|e| anyhow!("Failed to initialize transaction manager: {}", e))?;
+
+        // Initialize encryption manager for data-at-rest encryption
+        let encryption_manager = EncryptionManager::new(&data_dir)
+            .await
+            .map_err(|e| anyhow!("Failed to initialize encryption manager: {}", e))?;
+
+        info!(
+            "🔐 Encryption-at-rest enabled with key fingerprint: {}",
+            encryption_manager.get_key_fingerprint()
+        );
+
         let mut engine = Self {
-            data_dir,
+            data_dir: data_dir.clone(),
             indexes: HashMap::new(),
             transaction_log: Vec::new(),
             compressed_blocks: HashMap::new(),
@@ -252,8 +539,10 @@ impl StorageEngine {
             dna_compressor,
             next_row_id: 1,
             next_lsn: 1,
-            row_cache: HashMap::new(),
-            cache_limit: 10000, // 10k rows in cache
+            row_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()), // 10k rows LRU cache
+            transaction_manager,
+            encryption_manager: Some(encryption_manager),
+            last_query_stats: QueryExecutionStats::default(),
         };
 
         // Load existing data
@@ -274,8 +563,17 @@ impl StorageEngine {
 
         for dir in &dirs {
             if !dir.exists() {
-                fs::create_dir_all(dir).await?;
+                fs::create_dir_all(dir).await.map_err(|e| {
+                    anyhow!(
+                        "Failed to create directory '{}': {} (Error code: {})",
+                        dir.display(),
+                        e,
+                        e.raw_os_error().unwrap_or(-1)
+                    )
+                })?;
                 info!("📁 Created directory: {}", dir.display());
+            } else {
+                debug!("📁 Directory already exists: {}", dir.display());
             }
         }
 
@@ -338,9 +636,22 @@ impl StorageEngine {
         fs::File::create(&index_path).await?;
 
         // Add to metadata
+        let mut schema_to_store = schema.clone();
+
+        // Initialize auto_increment_columns for columns with auto_increment: true or Serial/BigSerial types
+        for column in &schema_to_store.columns {
+            if column.auto_increment
+                || matches!(column.data_type, DataType::Serial | DataType::BigSerial)
+            {
+                schema_to_store
+                    .auto_increment_columns
+                    .insert(column.name.clone(), AutoIncrementConfig::new(&column.name));
+            }
+        }
+
         self.metadata
             .tables
-            .insert(schema.name.clone(), schema.clone());
+            .insert(schema_to_store.name.clone(), schema_to_store.clone());
 
         // Create index in memory
         self.indexes.insert(
@@ -360,10 +671,25 @@ impl StorageEngine {
     }
 
     /// Insert a new row into the specified table
+    ///
+    /// Automatically handles:
+    /// - Row ID assignment (internal, always auto-increment)
+    /// - AUTO_INCREMENT columns (user-defined)
+    /// - SERIAL/BIGSERIAL columns (PostgreSQL-style)
+    /// - Timestamp fields (created_at, updated_at)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // ID is automatically generated - no need to specify it!
+    /// let mut row = Row::new();
+    /// row.set("name", Value::Text("Alice".to_string()));
+    /// row.set("email", Value::Text("alice@example.com".to_string()));
+    /// let id = storage.insert_row("users", row).await?;
+    /// ```
     pub async fn insert_row(&mut self, table: &str, mut row: Row) -> Result<RowId> {
         debug!("➕ Inserting row into table: {}", table);
 
-        // Get table schema
+        // Get table schema (clone to avoid borrow issues)
         let schema = self
             .metadata
             .tables
@@ -371,9 +697,12 @@ impl StorageEngine {
             .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
             .clone();
 
-        // Assign row ID
+        // Assign internal row ID (always auto-increment for B+ tree efficiency)
         row.id = self.next_row_id;
         self.next_row_id += 1;
+
+        // Process AUTO_INCREMENT columns
+        self.populate_auto_increment_columns(table, &schema, &mut row)?;
 
         // Validate row against schema
         self.validate_row(&schema, &row)?;
@@ -398,26 +727,117 @@ impl StorageEngine {
         };
         self.log_operation(operation).await?;
 
-        // Append to table file
+        // Append to table file with DNA compression
         self.append_row_to_file(table, &row).await?;
 
-        debug!("✅ Row inserted with ID: {}", row.id);
+        debug!("✅ Row inserted with ID: {} (DNA compressed)", row.id);
         Ok(row.id)
+    }
+
+    /// Populate auto-increment columns with generated values
+    ///
+    /// This handles columns marked as:
+    /// - AUTO_INCREMENT (MySQL-style)
+    /// - SERIAL/BIGSERIAL (PostgreSQL-style)
+    /// - GENERATED AS IDENTITY (SQL standard)
+    fn populate_auto_increment_columns(
+        &mut self,
+        table: &str,
+        schema: &TableSchema,
+        row: &mut Row,
+    ) -> Result<()> {
+        for column in &schema.columns {
+            // Skip if value is already provided and is not NULL
+            if let Some(value) = row.fields.get(&column.name) {
+                if *value != Value::Null {
+                    continue;
+                }
+            }
+
+            // Check if this column needs auto-increment
+            let needs_auto_increment = column.auto_increment
+                || matches!(column.data_type, DataType::Serial | DataType::BigSerial);
+
+            if needs_auto_increment {
+                // Get or create auto-increment config for this column
+                let next_value = if let Some(config) = self
+                    .metadata
+                    .tables
+                    .get_mut(table)
+                    .and_then(|s| s.auto_increment_columns.get_mut(&column.name))
+                {
+                    config.next_id()?
+                } else {
+                    // First time: initialize auto-increment for this column
+                    let mut config = AutoIncrementConfig::new(&column.name);
+                    let value = config.next_id()?;
+
+                    // Store config in schema
+                    if let Some(schema) = self.metadata.tables.get_mut(table) {
+                        schema
+                            .auto_increment_columns
+                            .insert(column.name.clone(), config);
+                    }
+                    value
+                };
+
+                // Set the auto-generated value
+                row.fields
+                    .insert(column.name.clone(), Value::Integer(next_value));
+
+                debug!(
+                    "🔢 Auto-generated value {} for column '{}.{}'",
+                    next_value, table, column.name
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// Select rows matching the given query
     pub async fn select_rows(&self, query: &SelectQuery) -> Result<Vec<Row>> {
+        let (rows, _stats) = self.select_rows_with_stats(query).await?;
+        Ok(rows)
+    }
+
+    /// Select rows matching the given query with execution statistics
+    pub async fn select_rows_with_stats(
+        &self,
+        query: &SelectQuery,
+    ) -> Result<(Vec<Row>, QueryExecutionStats)> {
         debug!("🔍 Selecting rows from table: {}", query.table);
 
-        // Get table schema - unused but kept for future optimization
-        let _schema = self
+        let mut stats = QueryExecutionStats::default();
+
+        // Get table schema
+        let schema = self
             .metadata
             .tables
             .get(&query.table)
             .ok_or_else(|| anyhow!("Table '{}' does not exist", query.table))?;
 
-        // Load all rows for the table (in a real implementation, this would be optimized)
+        // Check if we can use an index for this query
+        let index_key = format!("{}_{}", query.table, schema.primary_key);
+        if self.indexes.contains_key(&index_key) {
+            stats.indexes_used.push(index_key.clone());
+            // Index exists but we're doing a full scan for now
+            // In a more optimized implementation, we'd use the index for WHERE clauses
+            stats.index_scan = false;
+        }
+
+        // Load all rows for the table
         let mut rows = self.load_table_rows(&query.table).await?;
+        stats.rows_examined = rows.len();
+
+        // Track cache hits/misses during row loading
+        for row in &rows {
+            if self.row_cache.contains(&row.id) {
+                stats.cache_hits += 1;
+            } else {
+                stats.cache_misses += 1;
+            }
+        }
 
         // Apply WHERE clause
         if let Some(where_clause) = &query.where_clause {
@@ -444,7 +864,12 @@ impl StorageEngine {
         }
 
         debug!("✅ Selected {} rows", rows.len());
-        Ok(rows)
+        Ok((rows, stats))
+    }
+
+    /// Get the last query execution statistics
+    pub fn get_last_query_stats(&self) -> &QueryExecutionStats {
+        &self.last_query_stats
     }
 
     /// Update rows matching the given query
@@ -535,8 +960,8 @@ impl StorageEngine {
             // Remove from compressed blocks
             self.compressed_blocks.remove(&row.id);
 
-            // Remove from cache
-            self.row_cache.remove(&row.id);
+            // Remove from LRU cache
+            self.row_cache.pop(&row.id);
 
             // Update indexes - clone schema to avoid borrow checker issues
             let schema = self.metadata.tables.get(&query.table).unwrap().clone();
@@ -602,6 +1027,89 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Store data with a key (used by the main API)
+    pub async fn store(&mut self, key: &str, data: &[u8]) -> Result<()> {
+        // Create a simple row structure for generic storage
+        // Note: 'id' is not set here - it will be auto-generated by insert_row
+        let mut fields = HashMap::new();
+        fields.insert("key".to_string(), Value::Text(key.to_string()));
+        fields.insert("data".to_string(), Value::Binary(data.to_vec()));
+
+        let row = Row {
+            id: 0, // Will be set by auto-increment
+            fields,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        // Ensure we have a generic storage table
+        if !self.metadata.tables.contains_key("_storage") {
+            let schema = TableSchema {
+                name: "_storage".to_string(),
+                columns: vec![
+                    ColumnDefinition {
+                        name: "id".to_string(),
+                        data_type: DataType::BigSerial, // Auto-increment ID
+                        nullable: false,
+                        default_value: None,
+                        auto_increment: true,
+                    },
+                    ColumnDefinition {
+                        name: "key".to_string(),
+                        data_type: DataType::Text,
+                        nullable: false,
+                        default_value: None,
+                        auto_increment: false,
+                    },
+                    ColumnDefinition {
+                        name: "data".to_string(),
+                        data_type: DataType::Binary,
+                        nullable: false,
+                        default_value: None,
+                        auto_increment: false,
+                    },
+                ],
+                primary_key: "id".to_string(),
+                created_at: chrono::Utc::now(),
+                version: 1,
+                auto_increment_columns: HashMap::new(),
+                id_strategy: IdGenerationStrategy::AutoIncrement,
+            };
+            self.create_table(schema).await?;
+        }
+
+        self.insert_row("_storage", row).await?;
+        Ok(())
+    }
+
+    /// Retrieve data by key (used by the main API)
+    pub async fn retrieve(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        // Query for the key in the generic storage table
+        let query = SelectQuery {
+            table: "_storage".to_string(),
+            columns: vec!["data".to_string()],
+            where_clause: Some(WhereClause {
+                conditions: vec![Condition {
+                    field: "key".to_string(),
+                    operator: ComparisonOperator::Equal,
+                    value: Value::Text(key.to_string()),
+                }],
+            }),
+            order_by: None,
+            limit: Some(1),
+            offset: None,
+        };
+
+        let rows = self.select_rows(&query).await?;
+        if let Some(row) = rows.first() {
+            if let Some(Value::Binary(data)) = row.fields.get("data") {
+                return Ok(Some(data.clone()));
+            }
+        }
+
+        Ok(None)
+    }
+
     // === PRIVATE HELPER METHODS ===
 
     /// Validate table schema
@@ -641,6 +1149,9 @@ impl StorageEngine {
                     (DataType::Boolean, Value::Boolean(_)) => true,
                     (DataType::Timestamp, Value::Timestamp(_)) => true,
                     (DataType::Binary, Value::Binary(_)) => true,
+                    // Serial types store as Integer values
+                    (DataType::BigSerial, Value::Integer(_)) => true,
+                    (DataType::Serial, Value::Integer(_)) => true,
                     (_, Value::Null) => column.nullable,
                     _ => false,
                 };
@@ -653,7 +1164,11 @@ impl StorageEngine {
                         value
                     ));
                 }
-            } else if !column.nullable && column.default_value.is_none() {
+            } else if !column.nullable
+                && column.default_value.is_none()
+                && !column.auto_increment
+                && !matches!(column.data_type, DataType::Serial | DataType::BigSerial)
+            {
                 return Err(anyhow!("Required column '{}' is missing", column.name));
             }
         }
@@ -663,17 +1178,33 @@ impl StorageEngine {
 
     /// Compress row data using DNA compression
     async fn compress_row(&mut self, row: &Row) -> Result<EncodedData> {
-        let serialized = serde_json::to_vec(row)?;
-        let compressed = self.dna_compressor.compress(&serialized)?;
+        // Use bincode for efficient binary serialization (more compatible with HashMap)
+        let serialized =
+            bincode::serialize(row).map_err(|e| anyhow!("Failed to serialize row: {}", e))?;
+        let compressed = self.dna_compressor.compress(&serialized).await?;
         Ok(compressed)
     }
 
     /// Decompress row data from DNA compression
-    #[allow(dead_code)]
-    async fn decompress_row(&mut self, encoded: &EncodedData) -> Result<Row> {
-        let decompressed = self.dna_compressor.decompress(encoded)?;
-        let row: Row = serde_json::from_slice(&decompressed)?;
-        Ok(row)
+    ///
+    /// This method provides async decompression of DNA-compressed row data,
+    /// supporting both modern bincode and legacy JSON formats for backwards
+    /// compatibility with older data files.
+    async fn decompress_row(&self, encoded: &EncodedData) -> Result<Row> {
+        let decompressed = self.dna_compressor.decompress(encoded).await?;
+
+        // Try bincode first (modern format), fall back to JSON (legacy format)
+        if let Ok(row) = bincode::deserialize::<Row>(&decompressed) {
+            return Ok(row);
+        }
+
+        // Fall back to JSON for legacy compatibility
+        serde_json::from_slice::<Row>(&decompressed).map_err(|e| {
+            anyhow!(
+                "Failed to deserialize row with both bincode and JSON: {}",
+                e
+            )
+        })
     }
 
     /// Update indexes for inserted row
@@ -721,14 +1252,15 @@ impl StorageEngine {
     }
 
     /// Add row to cache with LRU eviction
+    ///
+    /// Uses proper LRU (Least Recently Used) eviction strategy:
+    /// - When cache is full, the least recently accessed entry is automatically evicted
+    /// - Each access (get/put) moves the entry to "most recently used" position
+    /// - Provides O(1) amortized time complexity for all operations
     fn add_to_cache(&mut self, row: Row) {
-        if self.row_cache.len() >= self.cache_limit {
-            // Simple eviction: remove oldest entry
-            if let Some(first_key) = self.row_cache.keys().next().cloned() {
-                self.row_cache.remove(&first_key);
-            }
-        }
-        self.row_cache.insert(row.id, row);
+        // LruCache handles eviction automatically when capacity is exceeded
+        // put() returns the evicted entry if any (we don't need it)
+        self.row_cache.put(row.id, row);
     }
 
     /// Apply WHERE clause to filter rows
@@ -860,7 +1392,7 @@ impl StorageEngine {
         Ok(projected_rows)
     }
 
-    /// Load all rows for a table
+    /// Load all rows for a table with DNA decompression
     async fn load_table_rows(&self, table: &str) -> Result<Vec<Row>> {
         let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
 
@@ -868,35 +1400,174 @@ impl StorageEngine {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(&table_path).await?;
-        let mut rows = Vec::new();
+        let file_content = fs::read(&table_path).await?;
 
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
+        // If file is empty, return empty vector
+        if file_content.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut rows = Vec::new();
+        let mut offset = 0;
+
+        // Try to read as binary compressed format first
+        while offset < file_content.len() {
+            // Check if we have enough bytes for length prefix
+            if offset + 4 > file_content.len() {
+                break;
             }
 
-            let row: Row = serde_json::from_str(line)?;
-            rows.push(row);
+            // Read length prefix
+            let len_bytes: [u8; 4] = file_content[offset..offset + 4]
+                .try_into()
+                .map_err(|_| anyhow!("Failed to read length prefix"))?;
+            let entry_len = u32::from_le_bytes(len_bytes) as usize;
+            offset += 4;
+
+            // Check if we have enough bytes for entry
+            if offset + entry_len > file_content.len() {
+                break;
+            }
+
+            // Read and deserialize compressed entry
+            let entry_bytes = &file_content[offset..offset + entry_len];
+            offset += entry_len;
+
+            match bincode::deserialize::<CompressedRowEntry>(entry_bytes) {
+                Ok(entry) => {
+                    // Get the compressed data (decrypt first if encrypted)
+                    let compressed_data = if let Some(ref encrypted_wrapper) =
+                        entry.encrypted_wrapper
+                    {
+                        // Data is encrypted, decrypt it first
+                        if let Some(ref encryption_manager) = self.encryption_manager {
+                            match encryption_manager.decrypt(encrypted_wrapper) {
+                                Ok(decrypted_bytes) => {
+                                    // Deserialize the decrypted compressed data
+                                    match bincode::deserialize::<EncodedData>(&decrypted_bytes) {
+                                        Ok(data) => data,
+                                        Err(e) => {
+                                            debug!("Failed to deserialize decrypted data: {}", e);
+                                            continue;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    debug!("Failed to decrypt row: {}", e);
+                                    continue;
+                                }
+                            }
+                        } else {
+                            debug!("Encrypted data found but no encryption manager available");
+                            continue;
+                        }
+                    } else {
+                        // Data is not encrypted, use directly
+                        entry.compressed_data
+                    };
+
+                    // Decompress the row data using the async decompress_row method
+                    match self.decompress_row(&compressed_data).await {
+                        Ok(row) => {
+                            rows.push(row);
+                        }
+                        Err(e) => {
+                            debug!("Failed to decompress row: {}", e);
+                            continue;
+                        }
+                    }
+                }
+                Err(_) => {
+                    // Might be legacy JSON format, try to read as text
+                    break;
+                }
+            }
+        }
+
+        // If no rows were read, try legacy JSON format
+        if rows.is_empty() && offset == 0 {
+            let content = String::from_utf8_lossy(&file_content);
+            for line in content.lines() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+
+                if let Ok(row) = serde_json::from_str::<Row>(line) {
+                    rows.push(row);
+                }
+            }
         }
 
         Ok(rows)
     }
 
-    /// Append row to table file
-    async fn append_row_to_file(&self, table: &str, row: &Row) -> Result<()> {
+    /// Append row to table file with DNA compression and encryption
+    async fn append_row_to_file(&mut self, table: &str, row: &Row) -> Result<()> {
         let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
 
-        let row_json = serde_json::to_string(row)?;
+        // Get or create compressed data for this row
+        let compressed_data = if let Some(data) = self.compressed_blocks.get(&row.id) {
+            data.clone()
+        } else {
+            // Compress the row if not already compressed
+            let serialized = serde_json::to_vec(row)?;
+            let compressed = self.dna_compressor.compress(&serialized).await?;
+            self.compressed_blocks.insert(row.id, compressed.clone());
+            compressed
+        };
+
+        // Optionally encrypt the compressed data
+        let encrypted_wrapper = if let Some(ref encryption_manager) = self.encryption_manager {
+            // Serialize the compressed data
+            let compressed_bytes = bincode::serialize(&compressed_data)
+                .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+
+            // Encrypt the serialized compressed data
+            let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
+            Some(encrypted)
+        } else {
+            None
+        };
+
+        // Create a storage entry with metadata, compressed data, and optional encryption
+        let storage_entry = CompressedRowEntry {
+            row_id: row.id,
+            compressed_data,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            encrypted_wrapper,
+            format_version: 1,
+        };
+
+        // Serialize and write the entry
+        let entry_bytes = bincode::serialize(&storage_entry)
+            .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+
         let mut file = fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(&table_path)
             .await?;
 
-        file.write_all(row_json.as_bytes()).await?;
-        file.write_all(b"\n").await?;
+        // Write length prefix (4 bytes) followed by entry data
+        let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
+        file.write_all(&len_bytes).await?;
+        file.write_all(&entry_bytes).await?;
         file.flush().await?;
+
+        // Immediately persist compressed blocks to quantum directory
+        self.save_compressed_blocks().await?;
+
+        debug!(
+            "💾 Row {} written (DNA compressed{}, {} bytes)",
+            row.id,
+            if self.encryption_manager.is_some() {
+                " + encrypted"
+            } else {
+                ""
+            },
+            entry_bytes.len()
+        );
 
         Ok(())
     }
@@ -920,6 +1591,7 @@ impl StorageEngine {
         let mut temp_file = fs::File::create(&temp_path).await?;
 
         // Write all rows to temporary file (updated ones with new data, others as-is)
+        // Using the same binary format as append_row_to_file
         for existing_row in existing_rows {
             let row_to_write = if let Some(updated_row) = updated_map.get(&existing_row.id) {
                 updated_row
@@ -927,15 +1599,58 @@ impl StorageEngine {
                 &existing_row
             };
 
-            let row_json = serde_json::to_string(row_to_write)?;
-            temp_file.write_all(row_json.as_bytes()).await?;
-            temp_file.write_all(b"\n").await?;
+            // Get or create compressed data for this row
+            let compressed_data = if let Some(data) = self.compressed_blocks.get(&row_to_write.id) {
+                data.clone()
+            } else {
+                // Compress the row if not already compressed
+                let serialized = serde_json::to_vec(row_to_write)?;
+                let compressed = self.dna_compressor.compress(&serialized).await?;
+                self.compressed_blocks
+                    .insert(row_to_write.id, compressed.clone());
+                compressed
+            };
+
+            // Optionally encrypt the compressed data
+            let encrypted_wrapper = if let Some(ref encryption_manager) = self.encryption_manager {
+                // Serialize the compressed data
+                let compressed_bytes = bincode::serialize(&compressed_data)
+                    .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+
+                // Encrypt the serialized compressed data
+                let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
+                Some(encrypted)
+            } else {
+                None
+            };
+
+            // Create a storage entry with metadata, compressed data, and optional encryption
+            let storage_entry = CompressedRowEntry {
+                row_id: row_to_write.id,
+                compressed_data,
+                created_at: row_to_write.created_at,
+                updated_at: row_to_write.updated_at,
+                encrypted_wrapper,
+                format_version: 1,
+            };
+
+            // Serialize and write the entry using the same format as append_row_to_file
+            let entry_bytes = bincode::serialize(&storage_entry)
+                .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+
+            // Write length prefix (4 bytes) followed by entry data
+            let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
+            temp_file.write_all(&len_bytes).await?;
+            temp_file.write_all(&entry_bytes).await?;
         }
 
         temp_file.flush().await?;
 
         // Replace the original file with the temporary file
         fs::rename(&temp_path, &table_path).await?;
+
+        // Immediately persist compressed blocks to quantum directory
+        self.save_compressed_blocks().await?;
 
         Ok(())
     }
@@ -956,11 +1671,52 @@ impl StorageEngine {
         let existing_rows = self.load_table_rows(table).await?;
 
         // Write rows that are not deleted to temporary file
+        // Using the same binary format as append_row_to_file
         for row in existing_rows {
             if !deleted_row_ids.contains(&row.id) {
-                let row_json = serde_json::to_string(&row)?;
-                temp_file.write_all(row_json.as_bytes()).await?;
-                temp_file.write_all(b"\n").await?;
+                // Get or create compressed data for this row
+                let compressed_data = if let Some(data) = self.compressed_blocks.get(&row.id) {
+                    data.clone()
+                } else {
+                    // Compress the row if not already compressed
+                    let serialized = serde_json::to_vec(&row)?;
+                    let compressed = self.dna_compressor.compress(&serialized).await?;
+                    self.compressed_blocks.insert(row.id, compressed.clone());
+                    compressed
+                };
+
+                // Optionally encrypt the compressed data
+                let encrypted_wrapper =
+                    if let Some(ref encryption_manager) = self.encryption_manager {
+                        // Serialize the compressed data
+                        let compressed_bytes = bincode::serialize(&compressed_data)
+                            .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+
+                        // Encrypt the serialized compressed data
+                        let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
+                        Some(encrypted)
+                    } else {
+                        None
+                    };
+
+                // Create a storage entry with metadata, compressed data, and optional encryption
+                let storage_entry = CompressedRowEntry {
+                    row_id: row.id,
+                    compressed_data,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    encrypted_wrapper,
+                    format_version: 1,
+                };
+
+                // Serialize and write the entry using the same format as append_row_to_file
+                let entry_bytes = bincode::serialize(&storage_entry)
+                    .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+
+                // Write length prefix (4 bytes) followed by entry data
+                let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
+                temp_file.write_all(&len_bytes).await?;
+                temp_file.write_all(&entry_bytes).await?;
             }
         }
 
@@ -968,6 +1724,9 @@ impl StorageEngine {
 
         // Replace the original file with the temporary file
         fs::rename(&temp_path, &table_path).await?;
+
+        // Immediately persist compressed blocks to quantum directory
+        self.save_compressed_blocks().await?;
 
         Ok(())
     }
@@ -984,11 +1743,24 @@ impl StorageEngine {
         };
 
         self.next_lsn += 1;
-        self.transaction_log.push(transaction);
 
-        // Keep transaction log size manageable
-        if self.transaction_log.len() > 10000 {
-            self.transaction_log.drain(0..5000);
+        // Try to push transaction - if serialization fails, log warning but don't fail operation
+        match bincode::serialize(&transaction) {
+            Ok(_) => {
+                self.transaction_log.push(transaction);
+
+                // Keep transaction log size manageable
+                if self.transaction_log.len() > 10000 {
+                    self.transaction_log.drain(0..5000);
+                }
+            }
+            Err(e) => {
+                // Log warning but don't fail the operation
+                debug!(
+                    "⚠️  Warning: Failed to serialize transaction for logging: {}",
+                    e
+                );
+            }
         }
 
         Ok(())
@@ -1076,7 +1848,10 @@ impl StorageEngine {
             .data_dir
             .join("quantum")
             .join("compressed_blocks.qdata");
-        let content = serde_json::to_string_pretty(&self.compressed_blocks)?;
+        // Use bincode instead of JSON because CompressedDNA contains HashMap with Vec<u8> keys
+        // which cannot be serialized to JSON (JSON only supports string keys)
+        let content = bincode::serialize(&self.compressed_blocks)
+            .map_err(|e| anyhow!("Failed to serialize compressed blocks: {}", e))?;
         fs::write(&blocks_path, content).await?;
 
         Ok(())
@@ -1090,11 +1865,563 @@ impl StorageEngine {
             .join("compressed_blocks.qdata");
 
         if blocks_path.exists() {
-            let content = fs::read_to_string(&blocks_path).await?;
-            if !content.trim().is_empty() {
-                self.compressed_blocks = serde_json::from_str(&content)?;
+            let content = fs::read(&blocks_path).await?;
+            if !content.is_empty() {
+                // Use bincode to deserialize (consistent with save_compressed_blocks)
+                self.compressed_blocks = bincode::deserialize(&content)
+                    .map_err(|e| anyhow!("Failed to deserialize compressed blocks: {}", e))?;
             }
         }
+
+        Ok(())
+    }
+
+    /// Initialize transaction manager properly after construction
+    pub async fn init_transaction_manager(&mut self) -> Result<()> {
+        let log_dir = self.data_dir.join("logs");
+        self.transaction_manager = crate::transaction::TransactionManager::new_async(&log_dir)
+            .await
+            .map_err(|e| anyhow!("Failed to initialize transaction manager: {}", e))?;
+
+        info!("✅ Transaction manager initialized with ACID support");
+        Ok(())
+    }
+
+    /// Begin a new transaction
+    pub async fn begin_transaction(&self) -> Result<crate::transaction::TransactionId> {
+        self.transaction_manager
+            .begin_transaction(IsolationLevel::ReadCommitted)
+            .await
+            .map_err(|e| anyhow!("Failed to begin transaction: {}", e))
+    }
+
+    /// Begin a transaction with specific isolation level
+    pub async fn begin_transaction_with_isolation(
+        &self,
+        isolation_level: crate::transaction::IsolationLevel,
+    ) -> Result<crate::transaction::TransactionId> {
+        self.transaction_manager
+            .begin_transaction(isolation_level)
+            .await
+            .map_err(|e| anyhow!("Failed to begin transaction: {}", e))
+    }
+
+    /// Commit a transaction
+    pub async fn commit_transaction(&self, tx_id: crate::transaction::TransactionId) -> Result<()> {
+        self.transaction_manager
+            .commit(tx_id)
+            .await
+            .map_err(|e| anyhow!("Failed to commit transaction: {}", e))
+    }
+
+    /// Rollback a transaction
+    pub async fn rollback_transaction(
+        &self,
+        tx_id: crate::transaction::TransactionId,
+    ) -> Result<()> {
+        self.transaction_manager
+            .rollback(tx_id)
+            .await
+            .map_err(|e| anyhow!("Failed to rollback transaction: {}", e))
+    }
+
+    /// Insert a row within a transaction
+    pub async fn insert_row_transactional(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+        table: &str,
+        mut row: Row,
+    ) -> Result<RowId> {
+        use crate::transaction::LockType;
+
+        debug!("➕ Transactional insert into table: {}", table);
+
+        // Acquire exclusive lock on table
+        let resource_id = format!("table:{}", table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Get table schema
+        let schema = self
+            .metadata
+            .tables
+            .get(table)
+            .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+            .clone();
+
+        // Assign row ID
+        row.id = self.next_row_id;
+        self.next_row_id += 1;
+
+        // Validate row against schema
+        self.validate_row(&schema, &row)?;
+
+        // Compress row data
+        let compressed_data = self.compress_row(&row).await?;
+
+        // Log the operation to WAL before applying changes
+        let after_image = serde_json::to_vec(&row)?;
+        self.transaction_manager
+            .log_update(
+                tx_id,
+                table.to_string(),
+                row.id.to_string(),
+                None, // No before-image for INSERT
+                after_image,
+            )
+            .await
+            .map_err(|e| anyhow!("Failed to log update: {}", e))?;
+
+        // Apply changes
+        self.compressed_blocks.insert(row.id, compressed_data);
+        self.update_indexes_for_insert(&schema, &row)?;
+        self.add_to_cache(row.clone());
+
+        // Log operation to local transaction log
+        let operation = Operation::Insert {
+            table: table.to_string(),
+            row_id: row.id,
+            data: row.clone(),
+        };
+        self.log_operation(operation).await?;
+
+        // Append to table file
+        self.append_row_to_file(table, &row).await?;
+
+        debug!("✅ Row inserted with ID: {} (tx: {:?})", row.id, tx_id);
+        Ok(row.id)
+    }
+
+    /// Update rows within a transaction
+    pub async fn update_rows_transactional(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+        query: &UpdateQuery,
+    ) -> Result<u64> {
+        use crate::transaction::LockType;
+
+        debug!("✏️ Transactional update in table: {}", query.table);
+
+        // Acquire exclusive lock on table
+        let resource_id = format!("table:{}", query.table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Get existing rows that match the condition
+        let select_query = SelectQuery {
+            table: query.table.clone(),
+            columns: vec!["*".to_string()],
+            where_clause: query.where_clause.clone(),
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+
+        let existing_rows = self.select_rows(&select_query).await?;
+        let mut updated_count = 0;
+        let mut updated_rows = Vec::new();
+
+        for mut row in existing_rows {
+            let old_row = row.clone();
+
+            // Serialize before-image for WAL
+            let before_image = serde_json::to_vec(&old_row)?;
+
+            // Apply updates
+            for (field, new_value) in &query.set_values {
+                row.fields.insert(field.clone(), new_value.clone());
+            }
+            row.updated_at = chrono::Utc::now();
+
+            // Validate updated row
+            let schema = self.metadata.tables.get(&query.table).unwrap();
+            self.validate_row(schema, &row)?;
+
+            // Serialize after-image for WAL
+            let after_image = serde_json::to_vec(&row)?;
+
+            // Log to WAL
+            self.transaction_manager
+                .log_update(
+                    tx_id,
+                    query.table.clone(),
+                    row.id.to_string(),
+                    Some(before_image),
+                    after_image,
+                )
+                .await
+                .map_err(|e| anyhow!("Failed to log update: {}", e))?;
+
+            // Apply changes
+            let compressed_data = self.compress_row(&row).await?;
+            self.compressed_blocks.insert(row.id, compressed_data);
+            self.add_to_cache(row.clone());
+            updated_rows.push(row.clone());
+
+            // Log operation
+            let operation = Operation::Update {
+                table: query.table.clone(),
+                row_id: row.id,
+                old_data: old_row,
+                new_data: row,
+            };
+            self.log_operation(operation).await?;
+
+            updated_count += 1;
+        }
+
+        // Rewrite table file with updated data
+        if updated_count > 0 {
+            self.rewrite_table_file_with_updates(&query.table, &updated_rows)
+                .await?;
+        }
+
+        debug!("✅ Updated {} rows (tx: {:?})", updated_count, tx_id);
+        Ok(updated_count)
+    }
+
+    /// Delete rows within a transaction
+    pub async fn delete_rows_transactional(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+        query: &DeleteQuery,
+    ) -> Result<u64> {
+        use crate::transaction::LockType;
+
+        debug!("🗑️ Transactional delete from table: {}", query.table);
+
+        // Acquire exclusive lock on table
+        let resource_id = format!("table:{}", query.table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Get existing rows that match the condition
+        let select_query = SelectQuery {
+            table: query.table.clone(),
+            columns: vec!["*".to_string()],
+            where_clause: query.where_clause.clone(),
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+
+        let rows_to_delete = self.select_rows(&select_query).await?;
+        let deleted_count = rows_to_delete.len();
+        let mut deleted_row_ids = Vec::new();
+
+        for row in rows_to_delete {
+            // Serialize before-image for WAL
+            let before_image = serde_json::to_vec(&row)?;
+
+            // Log to WAL (DELETE has before-image, empty after-image)
+            self.transaction_manager
+                .log_update(
+                    tx_id,
+                    query.table.clone(),
+                    row.id.to_string(),
+                    Some(before_image),
+                    vec![], // Empty after-image indicates DELETE
+                )
+                .await
+                .map_err(|e| anyhow!("Failed to log delete: {}", e))?;
+
+            // Keep track of deleted row IDs
+            deleted_row_ids.push(row.id);
+
+            // Apply changes
+            self.compressed_blocks.remove(&row.id);
+            self.row_cache.pop(&row.id);
+
+            let schema = self.metadata.tables.get(&query.table).unwrap().clone();
+            self.update_indexes_for_delete(&schema, &row)?;
+
+            // Log operation
+            let operation = Operation::Delete {
+                table: query.table.clone(),
+                row_id: row.id,
+                data: row,
+            };
+            self.log_operation(operation).await?;
+        }
+
+        // Rewrite table file without deleted rows
+        if deleted_count > 0 {
+            self.rewrite_table_file_with_deletions(&query.table, &deleted_row_ids)
+                .await?;
+        }
+
+        debug!("✅ Deleted {} rows (tx: {:?})", deleted_count, tx_id);
+        Ok(deleted_count as u64)
+    }
+
+    /// Select rows within a transaction (with appropriate locking)
+    pub async fn select_rows_transactional(
+        &self,
+        tx_id: crate::transaction::TransactionId,
+        query: &SelectQuery,
+    ) -> Result<Vec<Row>> {
+        use crate::transaction::LockType;
+
+        debug!("🔍 Transactional select from table: {}", query.table);
+
+        // Acquire shared lock on table for consistent reads
+        let resource_id = format!("table:{}", query.table);
+        self.transaction_manager
+            .acquire_lock(tx_id, resource_id.clone(), LockType::Shared)
+            .await
+            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+
+        // Perform the select (now protected by lock)
+        self.select_rows(query).await
+    }
+
+    /// Execute a full transaction with automatic commit/rollback
+    pub async fn execute_transaction<F, T>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(
+            &mut Self,
+            crate::transaction::TransactionId,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send + '_>>,
+    {
+        // Begin transaction
+        let tx_id = self.begin_transaction().await?;
+
+        // Execute the transaction function
+        let result = f(self, tx_id).await;
+
+        match result {
+            Ok(value) => {
+                // Commit on success
+                self.commit_transaction(tx_id).await?;
+                Ok(value)
+            }
+            Err(e) => {
+                // Rollback on error
+                let _ = self.rollback_transaction(tx_id).await; // Ignore rollback errors
+                Err(e)
+            }
+        }
+    }
+
+    /// Get transaction statistics
+    pub async fn get_transaction_statistics(&self) -> crate::transaction::TransactionStatistics {
+        self.transaction_manager.get_statistics().await
+    }
+
+    /// Write a checkpoint for recovery
+    pub async fn checkpoint(&self) -> Result<()> {
+        self.transaction_manager
+            .checkpoint()
+            .await
+            .map_err(|e| anyhow!("Failed to write checkpoint: {}", e))
+    }
+
+    /// Cleanup timed out transactions
+    pub async fn cleanup_timed_out_transactions(&self) -> Result<()> {
+        self.transaction_manager
+            .cleanup_timed_out_transactions()
+            .await
+            .map_err(|e| anyhow!("Failed to cleanup transactions: {}", e))
+    }
+
+    // === RECOVERY OPERATIONS ===
+
+    /// Apply after-image to storage (REDO operation for recovery)
+    pub async fn apply_after_image(
+        &mut self,
+        table: &str,
+        key: &str,
+        after_image: &[u8],
+    ) -> Result<()> {
+        debug!("♻️  Applying after-image (REDO) for {}.{}", table, key);
+
+        // Deserialize the row from after-image
+        let row: Row = serde_json::from_slice(after_image)
+            .map_err(|e| anyhow!("Failed to deserialize after-image: {}", e))?;
+
+        // Check if table exists
+        let schema = self
+            .metadata
+            .tables
+            .get(table)
+            .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+            .clone();
+
+        // Apply the row to storage
+        let compressed_data = self.compress_row(&row).await?;
+        self.compressed_blocks.insert(row.id, compressed_data);
+
+        // Update indexes
+        self.update_indexes_for_insert(&schema, &row)?;
+
+        // Add to cache
+        self.add_to_cache(row.clone());
+
+        debug!("✅ REDO applied for row ID: {}", row.id);
+        Ok(())
+    }
+
+    /// Apply before-image to storage (UNDO operation for recovery)
+    pub async fn apply_before_image(
+        &mut self,
+        table: &str,
+        key: &str,
+        before_image: Option<&[u8]>,
+    ) -> Result<()> {
+        debug!("⏪ Applying before-image (UNDO) for {}.{}", table, key);
+
+        if let Some(before_data) = before_image {
+            // Deserialize the old row from before-image
+            let old_row: Row = serde_json::from_slice(before_data)
+                .map_err(|e| anyhow!("Failed to deserialize before-image: {}", e))?;
+
+            // Check if table exists
+            let schema = self
+                .metadata
+                .tables
+                .get(table)
+                .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+                .clone();
+
+            // Restore the old row to storage
+            let compressed_data = self.compress_row(&old_row).await?;
+            self.compressed_blocks.insert(old_row.id, compressed_data);
+
+            // Update indexes to old state
+            self.update_indexes_for_insert(&schema, &old_row)?;
+
+            // Update cache
+            self.add_to_cache(old_row.clone());
+
+            debug!("✅ UNDO applied for row ID: {}", old_row.id);
+        } else {
+            // No before-image means this was an INSERT - we need to remove the row
+            // Parse row ID from key
+            if let Ok(row_id) = key.parse::<RowId>() {
+                self.compressed_blocks.remove(&row_id);
+                self.row_cache.pop(&row_id);
+
+                debug!("✅ UNDO applied: removed row ID {}", row_id);
+            } else {
+                tracing::warn!("Could not parse row ID from key: {}", key);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply a log record during recovery (convenience method)
+    pub async fn apply_log_record(
+        &mut self,
+        record: &crate::transaction::LogRecord,
+        is_redo: bool,
+    ) -> Result<()> {
+        use crate::transaction::LogRecordType;
+
+        match &record.record_type {
+            LogRecordType::Update {
+                table,
+                key,
+                before_image,
+                after_image,
+                ..
+            } => {
+                if is_redo {
+                    self.apply_after_image(table, key, after_image).await?;
+                } else {
+                    self.apply_before_image(table, key, before_image.as_deref())
+                        .await?;
+                }
+            }
+            _ => {
+                // Other log record types don't need storage application
+                debug!("Skipping non-update log record type");
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Perform crash recovery by replaying WAL logs
+    /// This integrates the TransactionManager's recovery with storage operations
+    pub async fn perform_recovery(&mut self) -> Result<()> {
+        use crate::transaction::{LogRecordType, TransactionId};
+        use std::collections::HashSet;
+
+        info!("🔄 Starting storage-level crash recovery...");
+
+        // Get the WAL log manager from transaction manager (via shared reference)
+        // For now, we'll read the logs directly using the internal log manager
+        let log_dir = self.data_dir.join("logs");
+        let log_manager = crate::transaction::LogManager::new(&log_dir)
+            .await
+            .map_err(|e| anyhow!("Failed to initialize log manager: {}", e))?;
+
+        let log_records = log_manager
+            .read_log()
+            .await
+            .map_err(|e| anyhow!("Failed to read log: {}", e))?;
+
+        if log_records.is_empty() {
+            info!("No log records to recover");
+            return Ok(());
+        }
+
+        // Phase 1: Analysis - determine which transactions to undo/redo
+        let mut active_txs: HashSet<TransactionId> = HashSet::new();
+        let mut committed_txs: HashSet<TransactionId> = HashSet::new();
+
+        for record in &log_records {
+            match &record.record_type {
+                LogRecordType::Begin { tx_id, .. } => {
+                    active_txs.insert(*tx_id);
+                }
+                LogRecordType::Commit { tx_id } => {
+                    active_txs.remove(tx_id);
+                    committed_txs.insert(*tx_id);
+                }
+                LogRecordType::Abort { tx_id } => {
+                    active_txs.remove(tx_id);
+                }
+                _ => {}
+            }
+        }
+
+        info!(
+            "Analysis: {} transactions to undo, {} to redo",
+            active_txs.len(),
+            committed_txs.len()
+        );
+
+        // Phase 2: REDO - reapply committed transactions
+        for record in &log_records {
+            if let Some(tx_id) = record.tx_id {
+                if committed_txs.contains(&tx_id) {
+                    self.apply_log_record(record, true).await?;
+                }
+            }
+        }
+
+        info!("REDO phase completed");
+
+        // Phase 3: UNDO - rollback uncommitted transactions
+        for record in log_records.iter().rev() {
+            if let Some(tx_id) = record.tx_id {
+                if active_txs.contains(&tx_id) {
+                    self.apply_log_record(record, false).await?;
+                }
+            }
+        }
+
+        info!("UNDO phase completed");
+        info!("✅ Storage-level crash recovery completed");
 
         Ok(())
     }
@@ -1109,26 +2436,110 @@ pub fn create_test_schema(name: &str) -> TableSchema {
         columns: vec![
             ColumnDefinition {
                 name: "id".to_string(),
-                data_type: DataType::Integer,
+                data_type: DataType::BigSerial, // Auto-increment ID
                 nullable: false,
                 default_value: None,
+                auto_increment: true,
             },
             ColumnDefinition {
                 name: "name".to_string(),
                 data_type: DataType::Text,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
             ColumnDefinition {
                 name: "created_at".to_string(),
                 data_type: DataType::Timestamp,
                 nullable: false,
                 default_value: None,
+                auto_increment: false,
             },
         ],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
+        auto_increment_columns: HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
+    }
+}
+
+/// Builder for creating ColumnDefinition with sensible defaults
+impl ColumnDefinition {
+    /// Create a new column definition with minimal required fields
+    ///
+    /// # Example
+    /// ```rust
+    /// use neuroquantum_core::storage::{ColumnDefinition, DataType};
+    ///
+    /// let col = ColumnDefinition::new("name", DataType::Text);
+    /// assert!(!col.nullable);
+    /// assert!(!col.auto_increment);
+    /// ```
+    pub fn new(name: impl Into<String>, data_type: DataType) -> Self {
+        let name = name.into();
+        let auto_increment = matches!(data_type, DataType::Serial | DataType::BigSerial);
+        Self {
+            name,
+            data_type,
+            nullable: false,
+            default_value: None,
+            auto_increment,
+        }
+    }
+
+    /// Set the column as nullable
+    pub fn nullable(mut self) -> Self {
+        self.nullable = true;
+        self
+    }
+
+    /// Set a default value for the column
+    pub fn with_default(mut self, value: Value) -> Self {
+        self.default_value = Some(value);
+        self
+    }
+
+    /// Explicitly set auto-increment behavior
+    pub fn auto_increment(mut self) -> Self {
+        self.auto_increment = true;
+        self
+    }
+}
+
+/// Builder for creating TableSchema with sensible defaults
+impl TableSchema {
+    /// Create a new table schema with minimal required fields
+    ///
+    /// # Example
+    /// ```rust
+    /// use neuroquantum_core::storage::{TableSchema, ColumnDefinition, DataType};
+    ///
+    /// let schema = TableSchema::new("users", "id", vec![
+    ///     ColumnDefinition::new("id", DataType::BigSerial),
+    ///     ColumnDefinition::new("name", DataType::Text),
+    /// ]);
+    /// ```
+    pub fn new(
+        name: impl Into<String>,
+        primary_key: impl Into<String>,
+        columns: Vec<ColumnDefinition>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            columns,
+            primary_key: primary_key.into(),
+            created_at: chrono::Utc::now(),
+            version: 1,
+            auto_increment_columns: HashMap::new(),
+            id_strategy: IdGenerationStrategy::AutoIncrement,
+        }
+    }
+
+    /// Set a custom ID generation strategy
+    pub fn with_id_strategy(mut self, strategy: IdGenerationStrategy) -> Self {
+        self.id_strategy = strategy;
+        self
     }
 }
 
@@ -1147,5 +2558,108 @@ pub fn create_test_row(id: i64, name: &str) -> Row {
         fields,
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
+    }
+}
+
+#[cfg(test)]
+mod auto_increment_tests {
+    use super::*;
+
+    #[test]
+    fn test_auto_increment_config_default() {
+        let config = AutoIncrementConfig::default();
+        assert_eq!(config.next_value, 1);
+        assert_eq!(config.increment_by, 1);
+        assert_eq!(config.min_value, 1);
+        assert_eq!(config.max_value, i64::MAX);
+        assert!(!config.cycle);
+    }
+
+    #[test]
+    fn test_auto_increment_next_id() {
+        let mut config = AutoIncrementConfig::new("id");
+
+        // Generate sequential IDs
+        assert_eq!(config.next_id().unwrap(), 1);
+        assert_eq!(config.next_id().unwrap(), 2);
+        assert_eq!(config.next_id().unwrap(), 3);
+        assert_eq!(config.next_value, 4);
+    }
+
+    #[test]
+    fn test_auto_increment_custom_start() {
+        let mut config = AutoIncrementConfig::new("user_id").start_with(1000);
+
+        assert_eq!(config.next_id().unwrap(), 1000);
+        assert_eq!(config.next_id().unwrap(), 1001);
+    }
+
+    #[test]
+    fn test_auto_increment_custom_increment() {
+        let mut config = AutoIncrementConfig::new("id").increment_by(10);
+
+        assert_eq!(config.next_id().unwrap(), 1);
+        assert_eq!(config.next_id().unwrap(), 11);
+        assert_eq!(config.next_id().unwrap(), 21);
+    }
+
+    #[test]
+    fn test_id_generation_strategy_default() {
+        let strategy = IdGenerationStrategy::default();
+        assert_eq!(strategy, IdGenerationStrategy::AutoIncrement);
+    }
+
+    #[test]
+    fn test_column_definition_with_auto_increment() {
+        let col = ColumnDefinition {
+            name: "id".to_string(),
+            data_type: DataType::BigSerial,
+            nullable: false,
+            default_value: None,
+            auto_increment: true,
+        };
+
+        assert!(col.auto_increment);
+        assert_eq!(col.data_type, DataType::BigSerial);
+    }
+
+    #[test]
+    fn test_table_schema_with_auto_increment() {
+        let schema = TableSchema {
+            name: "users".to_string(),
+            columns: vec![
+                ColumnDefinition {
+                    name: "id".to_string(),
+                    data_type: DataType::BigSerial,
+                    nullable: false,
+                    default_value: None,
+                    auto_increment: true,
+                },
+                ColumnDefinition {
+                    name: "name".to_string(),
+                    data_type: DataType::Text,
+                    nullable: false,
+                    default_value: None,
+                    auto_increment: false,
+                },
+            ],
+            primary_key: "id".to_string(),
+            created_at: chrono::Utc::now(),
+            version: 1,
+            auto_increment_columns: HashMap::new(),
+            id_strategy: IdGenerationStrategy::AutoIncrement,
+        };
+
+        // Verify id column is marked as auto_increment
+        let id_col = schema.columns.iter().find(|c| c.name == "id").unwrap();
+        assert!(id_col.auto_increment);
+        assert_eq!(id_col.data_type, DataType::BigSerial);
+    }
+
+    #[test]
+    fn test_serial_data_types() {
+        // Serial should represent auto-increment integer types
+        assert_ne!(DataType::Serial, DataType::Integer);
+        assert_ne!(DataType::BigSerial, DataType::Integer);
     }
 }

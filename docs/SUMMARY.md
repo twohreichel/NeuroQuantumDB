@@ -1,42 +1,56 @@
-# NeuroQuantumDB Documentation
+# Summary
 
-[Einführung](./introduction.md)
+[Introduction](README.md)
 
-# Benutzer-Dokumentation
-- [Installation](./user/installation.md)
-- [Schnellstart](./user/quickstart.md)
-- [Grundlegende Konzepte](./user/concepts.md)
-- [Datenbankoperationen](./user/operations.md)
-- [QSQL Query Language](./user/qsql.md)
-- [Natural Language Interface](./user/natural-language.md)
-- [Konfiguration](./user/configuration.md)
-- [Monitoring](./user/monitoring.md)
-- [Fehlerbehebung](./user/troubleshooting.md)
+---
 
-# Entwickler-Dokumentation
-- [Entwicklungsumgebung](./dev/setup.md)
-- [Architektur Übersicht](./dev/architecture.md)
-- [Core Module](./dev/core.md)
-- [API Module](./dev/api.md)
-- [QSQL Module](./dev/qsql.md)
-- [Neuromorphic Computing](./dev/neuromorphic.md)
-- [Quantum Optimizations](./dev/quantum.md)
-- [Testing](./dev/testing.md)
-- [Performance](./dev/performance.md)
-- [Contributing](./dev/contributing.md)
+# Concept & Vision
 
-# API Referenz
-- [REST API](./api/rest.md)
-- [Rust API](./api/rust.md)
-- [WebSocket API](./api/websocket.md)
+- [Overview](concept/README.md)
+- [Genesis — From Idea to Vision](concept/01-genesis.md)
+- [Neuroscience Foundations](concept/02-neuroscience-foundations.md)
+- [Core Principles](concept/03-core-principles.md)
+- [Technical Evolution](concept/04-technical-evolution.md)
+- [Architecture](concept/05-architecture.md)
+- [Future Vision](concept/06-future-vision.md)
 
-# Deployment
-- [Production Setup](./deployment/production.md)
-- [Docker Deployment](./deployment/docker.md)
-- [Raspberry Pi](./deployment/raspberry-pi.md)
-- [Monitoring Setup](./deployment/monitoring.md)
+---
 
-# Appendix
-- [FAQ](./appendix/faq.md)
-- [Glossar](./appendix/glossary.md)
-- [Changelog](./appendix/changelog.md)
+# User Guide
+
+- [Installation](user-guide/installation.md)
+- [Configuration](user-guide/configuration.md)
+- [Getting Started](user-guide/getting-started.md)
+- [QSQL Query Language](user-guide/qsql.md)
+- [REST API](user-guide/rest-api.md)
+- [Features](user-guide/features.md)
+  - [DNA Compression](user-guide/features/dna-compression.md)
+  - [Quantum Search](user-guide/features/quantum-search.md)
+  - [Neural Networks](user-guide/features/neural-networks.md)
+  - [Biometric Auth](user-guide/features/biometric-auth.md)
+- [Monitoring](user-guide/monitoring.md)
+- [Troubleshooting](user-guide/troubleshooting.md)
+
+---
+
+# Developer Guide
+
+- [Architecture](developer-guide/architecture.md)
+- [Project Structure](developer-guide/project-structure.md)
+- [Core Components](developer-guide/core-components.md)
+  - [Storage Engine](developer-guide/components/storage-engine.md)
+  - [Transaction Manager](developer-guide/components/transaction-manager.md)
+  - [Quantum Processor](developer-guide/components/quantum-processor.md)
+  - [Synaptic Network](developer-guide/components/synaptic-network.md)
+- [Security](developer-guide/security.md)
+- [Building & Testing](developer-guide/building-testing.md)
+- [Contributing](developer-guide/contributing.md)
+
+---
+
+# Reference
+
+- [API Reference](reference/api.md)
+- [Performance Benchmarks](reference/benchmarks.md)
+- [Error Codes](reference/errors.md)
+- [Glossary](reference/glossary.md)

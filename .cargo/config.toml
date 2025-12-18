@@ -1,0 +1,26 @@
+# Cargo configuration for NeuroQuantumDB
+# This file sets default environment variables for test execution
+
+[env]
+# PropTest case count: Controls property-based test thoroughness
+# - 32: Fast development tests (default)
+# - 64: Standard CI tests
+# - 256: Thorough pre-release tests
+PROPTEST_CASES = { value = "32", force = false }
+
+# E2E test data size: Controls end-to-end test data volume
+# - 10: Fast development tests (default)
+# - 25: Standard CI tests
+# - 50: Thorough pre-release tests
+E2E_DATA_SIZE = { value = "10", force = false }
+
+# Enable backtraces for debugging test failures
+RUST_BACKTRACE = { value = "1", force = false }
+
+[build]
+# Use parallel compilation for faster builds
+jobs = 4
+
+[profile.test]
+# Optimize tests slightly for faster execution
+opt-level = 1

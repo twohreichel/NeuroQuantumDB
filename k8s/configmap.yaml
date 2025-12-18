@@ -1,0 +1,84 @@
+# NeuroQuantumDB Configuration ConfigMap
+# Contains non-sensitive configuration values
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: neuroquantumdb-config
+  namespace: neuroquantumdb
+  labels:
+    app.kubernetes.io/name: neuroquantumdb
+    app.kubernetes.io/component: config
+data:
+  prod.toml: |
+    # NeuroQuantumDB Production Configuration for Kubernetes
+    # Managed by ConfigMap - do not edit directly in container
+
+    [server]
+    host = "0.0.0.0"
+    port = 8080
+    workers = 8
+    max_connections = 10000
+    keep_alive = 75
+    client_timeout = 5000
+    client_shutdown = 5000
+
+    [database]
+    data_path = "/var/lib/neuroquantumdb/data"
+    max_connections = 500
+    connection_timeout_seconds = 30
+
+    [jwt]
+    # Secret is injected via environment variable from Secret
+    expiration_hours = 1
+    refresh_threshold_minutes = 15
+    quantum_enabled = true
+    algorithm = "HS256"
+    issuer = "neuroquantum-db"
+    audience = "neuroquantum-api"
+    rotation_enabled = true
+    rotation_interval_days = 90
+    rotation_grace_period_hours = 24
+
+    [rate_limit]
+    requests_per_hour = 10000
+    burst_allowance = 100
+    enabled = true
+    strategy = "TokenBucket"
+
+    [cors]
+    allowed_origins = ["https://app.neuroquantumdb.com", "https://dashboard.neuroquantumdb.com"]
+    allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    allowed_headers = ["Authorization", "Content-Type", "X-API-Key", "X-Request-ID", "X-Quantum-Level"]
+    expose_headers = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID"]
+    max_age = 3600
+    allow_credentials = true
+
+    [security]
+    max_payload_size = 5242880
+    request_timeout_seconds = 60
+    security_headers = true
+    csrf_protection = false
+    quantum_encryption = true
+    admin_ip_whitelist = ["127.0.0.1", "::1"]
+
+    [security.circuit_breaker]
+    failure_threshold = 10
+    success_threshold = 5
+    timeout_seconds = 120
+    enabled = true
+
+    [monitoring]
+    metrics_enabled = true
+    prometheus_endpoint = "/metrics"
+    health_check_endpoint = "/health"
+    performance_stats = true
+    detailed_logging = false
+    websocket_enabled = true
+
+    [logging]
+    level = "info"
+    format = "Json"
+    file_path = "/var/log/neuroquantumdb/api.log"
+    max_file_size_mb = 100
+    max_files = 10
+    structured_logging = true

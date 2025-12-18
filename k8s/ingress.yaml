@@ -1,0 +1,55 @@
+# NeuroQuantumDB Ingress
+# Exposes the API externally with TLS termination
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: neuroquantumdb
+  namespace: neuroquantumdb
+  labels:
+    app.kubernetes.io/name: neuroquantumdb
+    app.kubernetes.io/component: ingress
+  annotations:
+    # NGINX Ingress Controller annotations
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "5m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    # WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "neuroquantumdb"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+    # Rate limiting at ingress level
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "DENY" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # cert-manager for automatic TLS certificates
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.neuroquantumdb.com
+      secretName: neuroquantumdb-tls
+  rules:
+    - host: api.neuroquantumdb.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: neuroquantumdb
+                port:
+                  number: 8080
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: neuroquantumdb
+                port:
+                  number: 9090

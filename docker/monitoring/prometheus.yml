@@ -1,54 +1,52 @@
-# Prometheus Configuration for NeuroQuantumDB
-# Production monitoring with ARM64 optimization
+# Prometheus Configuration for NeuroQuantumDB Monitoring
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'neuroquantum-edge'
-    replica: 'primary'
+    cluster: 'neuroquantum-production'
+    environment: 'production'
 
-rule_files:
-  - "neuroquantum-alerts.yml"
-
-scrape_configs:
-  # NeuroQuantumDB main metrics
-  - job_name: 'neuroquantumdb'
-    static_configs:
-      - targets: ['neuroquantumdb:9090']
-    scrape_interval: 5s
-    metrics_path: /metrics
-    params:
-      format: ['prometheus']
-
-  # System metrics for Raspberry Pi 4
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['localhost:9100']
-    scrape_interval: 10s
-
-  # ARM64 specific metrics
-  - job_name: 'arm64-metrics'
-    static_configs:
-      - targets: ['neuroquantumdb:9090']
-    scrape_interval: 5s
-    metrics_path: /arm64-metrics
-
-  # Performance target monitoring
-  - job_name: 'performance-targets'
-    static_configs:
-      - targets: ['neuroquantumdb:9090']
-    scrape_interval: 1s  # High frequency for <1μs query monitoring
-    metrics_path: /performance
-
+# Alertmanager configuration
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          - alertmanager:9093
+            - alertmanager:9093
 
-# Storage configuration optimized for edge devices
-storage:
-  tsdb:
-    retention_time: 30d
-    retention_size: 1GB  # Limit for Raspberry Pi storage
+# Load rules once and periodically evaluate them
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # NeuroQuantumDB API metrics
+  - job_name: 'neuroquantum-api'
+    static_configs:
+      - targets: ['neuroquantum-api:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # NeuroQuantumDB Core metrics
+  - job_name: 'neuroquantum-core'
+    static_configs:
+      - targets: ['neuroquantum-api:8081']
+    metrics_path: '/metrics/core'
+    scrape_interval: 15s
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # PostgreSQL Exporter (if using external DB for metadata)
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+

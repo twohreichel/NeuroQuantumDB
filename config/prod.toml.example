@@ -1,0 +1,80 @@
+# NeuroQuantumDB Production Configuration
+# ⚠️  CRITICAL: Review and customize all values before deployment!
+# Last Updated: November 2025
+
+[server]
+host = "0.0.0.0"  # Bind to all interfaces (use reverse proxy/firewall for security)
+port = 8080
+workers = 8  # Should match CPU cores (adjust based on your hardware)
+max_connections = 10000  # Conservative limit - adjust based on RAM (1000 connections ≈ 2GB RAM)
+keep_alive = 75
+client_timeout = 5000
+client_shutdown = 5000
+
+[database]
+data_path = "/var/lib/neuroquantumdb/data"  # Production data path
+max_connections = 500  # Higher for production load
+connection_timeout_seconds = 30
+
+[jwt]
+# ⚠️  SECURITY CRITICAL: JWT secret MUST be provided via environment variable!
+# The secret is intentionally NOT stored in this file for security reasons.
+# Set the environment variable: export NEUROQUANTUM_JWT_SECRET=$(openssl rand -base64 48)
+# Minimum 32 characters required.
+secret = ""
+expiration_hours = 1  # Short expiration for security
+refresh_threshold_minutes = 15
+quantum_enabled = true  # Enable quantum-resistant features
+algorithm = "HS256"
+issuer = "neuroquantum-db"
+audience = "neuroquantum-api"
+
+# JWT Secret Key Rotation (Security Best Practice)
+rotation_enabled = true  # Enable automatic key rotation
+rotation_interval_days = 90  # Rotate keys every 90 days (industry standard)
+rotation_grace_period_hours = 24  # Keep previous key valid for 24h during rotation
+
+[rate_limit]
+requests_per_hour = 10000  # Per user/IP - adjust based on expected load
+burst_allowance = 100
+enabled = true
+strategy = "TokenBucket"
+
+[cors]
+# ⚠️  Update with your actual frontend domain(s)
+allowed_origins = ["https://app.neuroquantumdb.com", "https://dashboard.neuroquantumdb.com"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+allowed_headers = ["Authorization", "Content-Type", "X-API-Key", "X-Request-ID", "X-Quantum-Level"]
+expose_headers = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID"]
+max_age = 3600
+allow_credentials = true
+
+[security]
+max_payload_size = 5242880  # 5MB - prevent memory exhaustion attacks
+request_timeout_seconds = 60
+security_headers = true  # Enable security headers (X-Frame-Options, etc.)
+csrf_protection = false  # Disabled for API-only service (enable if serving HTML)
+quantum_encryption = true  # Enable post-quantum cryptography
+admin_ip_whitelist = ["127.0.0.1", "::1"]  # ⚠️  Add your admin IPs here
+
+[security.circuit_breaker]
+failure_threshold = 10  # Open circuit after 10 failures
+success_threshold = 5   # Close circuit after 5 successes
+timeout_seconds = 120   # Try again after 2 minutes
+enabled = true
+
+[monitoring]
+metrics_enabled = true
+prometheus_endpoint = "/metrics"
+health_check_endpoint = "/health"
+performance_stats = true
+detailed_logging = false  # Disable in prod to reduce overhead
+websocket_enabled = true
+
+[logging]
+level = "info"  # Use "warn" for even less verbosity in production
+format = "Json"  # Structured JSON for log aggregation (ELK, Splunk, etc.)
+file_path = "/var/log/neuroquantumdb/api.log"
+max_file_size_mb = 100
+max_files = 10
+structured_logging = true

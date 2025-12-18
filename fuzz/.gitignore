@@ -1,0 +1,9 @@
+# Fuzzing artifacts (crash-inducing inputs)
+artifacts/
+
+# Fuzzing target binaries
+target/
+
+# LibFuzzer temporary files
+.cur_input
+fuzz-*.log

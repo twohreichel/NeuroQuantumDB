@@ -16,6 +16,7 @@
 pub mod ast;
 pub mod error;
 pub mod executor;
+pub mod explain;
 pub mod natural_language;
 pub mod optimizer;
 pub mod parser;
@@ -25,18 +26,29 @@ pub mod query_plan;
 #[cfg(test)]
 pub mod sql_engine_tests;
 
+// Property-based tests for parser robustness
+#[cfg(test)]
+mod proptest_suite;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, instrument, warn};
 
 // Import types from modules to avoid duplicates
 use optimizer::{NeuromorphicOptimizer, OptimizerConfig};
 use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
-use query_plan::{
-    ExecutionStrategy, ExecutorConfig, OptimizationMetadata, QueryExecutor, QueryPlan, QueryResult,
-};
+
+// Internal use
+use query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
+
+// Re-export key types for external use (avoid conflicts)
+pub use parser::QSQLParser as Parser;
+pub use query_plan::ExecutorConfig;
+pub use query_plan::QueryExecutor;
+pub use query_plan::QueryResult;
 
 // Use the QueryPlan from query_plan module (what the executor expects)
 // pub use query_plan::QueryPlan; // Commented out to avoid duplicate definition
@@ -142,8 +154,8 @@ pub struct QSQLMetrics {
 }
 
 impl QSQLEngine {
-    /// Create a new QSQL engine with default configuration
-    pub fn new() -> Result<Self> {
+    /// Create new QSQL engine with default configuration
+    pub fn new() -> anyhow::Result<Self> {
         Ok(Self {
             parser: ParserQSQLParser::new(),
             optimizer: NeuromorphicOptimizer::new()?,
@@ -162,6 +174,39 @@ impl QSQLEngine {
             cache: HashMap::with_capacity(config.cache_size),
             metrics: QSQLMetrics::default(),
         })
+    }
+
+    /// Create a QSQL engine with a storage engine for production use.
+    /// This ensures queries are executed against the actual storage instead of
+    /// returning simulated data.
+    ///
+    /// Note: Uses `Arc<RwLock<StorageEngine>>` for thread-safe shared access.
+    pub fn with_storage(
+        storage_engine: Arc<tokio::sync::RwLock<neuroquantum_core::storage::StorageEngine>>,
+    ) -> anyhow::Result<Self> {
+        let config = ExecutorConfig::default();
+        let executor = QueryExecutor::with_storage(config, storage_engine)?;
+        Ok(Self {
+            parser: ParserQSQLParser::new(),
+            optimizer: NeuromorphicOptimizer::new()?,
+            executor,
+            cache: HashMap::new(),
+            metrics: QSQLMetrics::default(),
+        })
+    }
+
+    /// Set the storage engine for an existing QSQL engine.
+    /// This enables production mode query execution against the actual storage.
+    pub fn set_storage_engine(
+        &mut self,
+        storage_engine: Arc<tokio::sync::RwLock<neuroquantum_core::storage::StorageEngine>>,
+    ) {
+        self.executor.set_storage_engine(storage_engine);
+    }
+
+    /// Check if the engine has a storage engine configured for production use.
+    pub fn has_storage_engine(&self) -> bool {
+        self.executor.has_storage_engine()
     }
 
     /// Execute a query with full pipeline processing

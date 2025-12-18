@@ -11,17 +11,15 @@ use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::synaptic::SynapticNetwork;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::{Duration, SystemTime};
 use tracing::{debug, info, instrument};
 
 /// Neuromorphic query optimizer with synaptic learning
 pub struct NeuromorphicOptimizer {
     config: OptimizerConfig,
-    #[allow(dead_code)] // Will be implemented in Phase 2
     synaptic_network: Option<SynapticNetwork>,
-    #[allow(dead_code)] // Will be implemented in Phase 2
     plasticity_matrix: Option<PlasticityMatrix>,
-    #[allow(dead_code)] // Will be implemented in Phase 2
     hebbian_learner: Option<HebbianLearningEngine>,
     query_patterns: HashMap<String, QueryPattern>,
     optimization_stats: OptimizationStats,
@@ -184,6 +182,10 @@ pub struct OptimizationStats {
     pub cache_hits: u64,
     pub cache_misses: u64,
     pub average_improvement: f64,
+    /// Count of neuromorphic operations performed (synaptic network activations)
+    pub neural_operation_count: u32,
+    /// Count of quantum operations performed (Grover iterations, QUBO optimizations)
+    pub quantum_operation_count: u32,
 }
 
 impl NeuromorphicOptimizer {
@@ -321,23 +323,105 @@ impl NeuromorphicOptimizer {
     fn apply_synaptic_optimizations(&mut self, mut plan: QueryPlan) -> QSQLResult<QueryPlan> {
         let mut synaptic_adaptations = 0;
 
-        // Create synaptic pathways for optimization
-        let pathway = SynapticPathway {
-            pathway_id: "main_optimization".to_string(),
-            source_node: "query_processor".to_string(),
-            target_node: "storage_engine".to_string(),
-            strength: 0.8,
-            access_pattern: AccessPattern::Sequential,
-            optimization_hint: OptimizationHint::PreferMemory,
-        };
+        // Use synaptic network if available for real pathway optimization
+        if let Some(network) = &self.synaptic_network {
+            // Analyze statement to determine key nodes for activation
+            let key_nodes = self.extract_key_nodes_from_statement(&plan.statement);
 
-        plan.synaptic_pathways.push(pathway);
-        synaptic_adaptations += 1;
+            // Activate neural pathways for these nodes
+            for node_id in &key_nodes {
+                if let Some(node) = network.get_node(*node_id) {
+                    // Find strongly connected pathways
+                    for connection in &node.connections {
+                        if connection.weight > 0.7 {
+                            let pathway = SynapticPathway {
+                                pathway_id: format!("pathway_{}_{}", node_id, connection.target_id),
+                                source_node: format!("node_{}", node_id),
+                                target_node: format!("node_{}", connection.target_id),
+                                strength: connection.weight,
+                                access_pattern: self.determine_access_pattern(&plan.statement),
+                                optimization_hint: self
+                                    .generate_optimization_hint(connection.weight),
+                            };
+                            plan.synaptic_pathways.push(pathway);
+                            synaptic_adaptations += 1;
+                        }
+                    }
+                }
+            }
+        } else {
+            // Fallback: Create default optimization pathway
+            let pathway = SynapticPathway {
+                pathway_id: "main_optimization".to_string(),
+                source_node: "query_processor".to_string(),
+                target_node: "storage_engine".to_string(),
+                strength: 0.8,
+                access_pattern: AccessPattern::Sequential,
+                optimization_hint: OptimizationHint::PreferMemory,
+            };
+            plan.synaptic_pathways.push(pathway);
+            synaptic_adaptations += 1;
+        }
 
         plan.optimization_metadata.synaptic_adaptations = synaptic_adaptations;
         self.optimization_stats.synaptic_strengthening_events += synaptic_adaptations as u64;
+        self.optimization_stats.neural_operation_count += 1;
 
         Ok(plan)
+    }
+
+    /// Extract key node IDs from statement for synaptic activation
+    fn extract_key_nodes_from_statement(&self, statement: &Statement) -> Vec<u64> {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut nodes = Vec::new();
+
+        match statement {
+            Statement::Select(select) => {
+                if let Some(from) = &select.from {
+                    for relation in &from.relations {
+                        let mut hasher = DefaultHasher::new();
+                        relation.name.hash(&mut hasher);
+                        nodes.push(hasher.finish());
+                    }
+                }
+            }
+            Statement::NeuroMatch(neuromatch) => {
+                let mut hasher = DefaultHasher::new();
+                neuromatch.target_table.hash(&mut hasher);
+                nodes.push(hasher.finish());
+            }
+            Statement::QuantumSearch(quantum) => {
+                let mut hasher = DefaultHasher::new();
+                quantum.target_table.hash(&mut hasher);
+                nodes.push(hasher.finish());
+            }
+            _ => {}
+        }
+
+        nodes
+    }
+
+    /// Determine access pattern from statement type
+    fn determine_access_pattern(&self, statement: &Statement) -> AccessPattern {
+        match statement {
+            Statement::Select(_) => AccessPattern::Sequential,
+            Statement::NeuroMatch(_) => AccessPattern::Clustered,
+            Statement::QuantumSearch(_) => AccessPattern::Random,
+            _ => AccessPattern::Sequential,
+        }
+    }
+
+    /// Generate optimization hint based on connection strength
+    fn generate_optimization_hint(&self, strength: f32) -> OptimizationHint {
+        if strength > 0.9 {
+            OptimizationHint::CacheResult
+        } else if strength > 0.75 {
+            OptimizationHint::PreferMemory
+        } else {
+            OptimizationHint::Vectorize
+        }
     }
 
     /// Apply Hebbian learning to strengthen frequently used patterns
@@ -357,29 +441,149 @@ impl NeuromorphicOptimizer {
             }
         }
 
+        // Use Hebbian learner if available for deeper learning
+        let should_train = if let Some(learner) = &mut self.hebbian_learner {
+            // Create query pattern for learning
+            let query_pattern = Self::create_learning_pattern_static(&plan.statement);
+
+            // Track pattern in learner
+            learner.track_query_pattern(query_pattern)
+        } else {
+            false
+        };
+
+        // Train if threshold reached
+        if should_train {
+            if let (Some(learner), Some(network)) =
+                (&mut self.hebbian_learner, &self.synaptic_network)
+            {
+                let _ =
+                    learner.train_on_frequent_patterns(network, self.config.learning_rate as u64);
+
+                // Update statistics
+                self.optimization_stats.synaptic_strengthening_events += 1;
+            }
+        }
+
         Ok(plan)
+    }
+
+    /// Create learning pattern from statement (static to avoid borrowing issues)
+    fn create_learning_pattern_static(
+        statement: &Statement,
+    ) -> neuroquantum_core::learning::QueryPattern {
+        use neuroquantum_core::learning::QueryPattern;
+
+        match statement {
+            Statement::Select(select) => {
+                let table = if let Some(from) = &select.from {
+                    if !from.relations.is_empty() {
+                        from.relations[0].name.clone()
+                    } else {
+                        "unknown".to_string()
+                    }
+                } else {
+                    "unknown".to_string()
+                };
+
+                let columns = select
+                    .select_list
+                    .iter()
+                    .filter_map(|item| match item {
+                        SelectItem::Expression { expr, alias } => {
+                            Some(alias.clone().unwrap_or_else(|| format!("{:?}", expr)))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+
+                QueryPattern {
+                    table,
+                    query_type: "SELECT".to_string(),
+                    columns,
+                }
+            }
+            Statement::NeuroMatch(neuromatch) => QueryPattern {
+                table: neuromatch.target_table.clone(),
+                query_type: "NEUROMATCH".to_string(),
+                columns: vec![],
+            },
+            Statement::QuantumSearch(quantum) => QueryPattern {
+                table: quantum.target_table.clone(),
+                query_type: "QUANTUM_SEARCH".to_string(),
+                columns: vec![],
+            },
+            _ => QueryPattern {
+                table: "unknown".to_string(),
+                query_type: "UNKNOWN".to_string(),
+                columns: vec![],
+            },
+        }
     }
 
     /// Apply plasticity adaptation for dynamic optimization
     fn apply_plasticity_adaptation(&mut self, mut plan: QueryPlan) -> QSQLResult<QueryPlan> {
-        // Simplified plasticity adaptation
-        let adaptation_factor = 0.5f32;
+        let mut adaptation_factor = 0.5f32;
 
-        // Adjust execution strategy based on adaptation
-        if adaptation_factor > 0.7 {
-            plan.execution_strategy = match plan.execution_strategy {
-                ExecutionStrategy::Sequential => ExecutionStrategy::Parallel,
-                ExecutionStrategy::Parallel => ExecutionStrategy::SynapticPipeline,
-                ExecutionStrategy::SynapticPipeline => ExecutionStrategy::HybridNeuralQuantum,
-                _ => plan.execution_strategy,
-            };
+        // Use plasticity matrix if available for real adaptation
+        if let Some(matrix) = &mut self.plasticity_matrix {
+            // Update plasticity matrix with current execution pattern
+            let pattern_id = Self::hash_statement_static(&plan.statement);
+
+            // Record access in plasticity matrix
+            matrix.record_access(pattern_id, std::time::Instant::now());
+
+            // Get plasticity stats to determine adaptation factor
+            let stats = matrix.get_plasticity_stats();
+            adaptation_factor = stats.average_plasticity_score;
+
+            // Apply plasticity-driven optimizations
+            if adaptation_factor > 0.8 {
+                // High plasticity: aggressive optimization
+                plan.execution_strategy = ExecutionStrategy::HybridNeuralQuantum;
+                plan.estimated_cost *= 0.6; // 40% cost reduction
+            } else if adaptation_factor > 0.5 {
+                // Medium plasticity: balanced optimization
+                plan.execution_strategy = ExecutionStrategy::SynapticPipeline;
+                plan.estimated_cost *= 0.8; // 20% cost reduction
+            }
+        } else {
+            // Fallback: simple adaptation logic
+            if adaptation_factor > 0.7 {
+                plan.execution_strategy = match plan.execution_strategy {
+                    ExecutionStrategy::Sequential => ExecutionStrategy::Parallel,
+                    ExecutionStrategy::Parallel => ExecutionStrategy::SynapticPipeline,
+                    ExecutionStrategy::SynapticPipeline => ExecutionStrategy::HybridNeuralQuantum,
+                    _ => plan.execution_strategy,
+                };
+            }
+
+            // Update estimated cost based on adaptations
+            plan.estimated_cost *= 1.0 - adaptation_factor as f64 * 0.5;
         }
-
-        // Update estimated cost based on adaptations
-        plan.estimated_cost *= 1.0 - adaptation_factor as f64 * 0.5;
 
         self.optimization_stats.plasticity_adaptations += 1;
         Ok(plan)
+    }
+
+    /// Hash statement for pattern identification (static to avoid borrowing issues)
+    fn hash_statement_static(statement: &Statement) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+
+        match statement {
+            Statement::Select(_) => "SELECT".hash(&mut hasher),
+            Statement::Insert(_) => "INSERT".hash(&mut hasher),
+            Statement::Update(_) => "UPDATE".hash(&mut hasher),
+            Statement::Delete(_) => "DELETE".hash(&mut hasher),
+            Statement::NeuroMatch(_) => "NEUROMATCH".hash(&mut hasher),
+            Statement::QuantumSearch(_) => "QUANTUM_SEARCH".hash(&mut hasher),
+            _ => "UNKNOWN".hash(&mut hasher),
+        }
+
+        hasher.finish()
     }
 
     /// Update synaptic weights based on learned query patterns
@@ -415,7 +619,9 @@ impl NeuromorphicOptimizer {
             _ => "UNKNOWN".to_string(),
         };
 
-        Ok(format!("{:x}", md5::compute(pattern.as_bytes())))
+        let mut hasher = DefaultHasher::new();
+        pattern.hash(&mut hasher);
+        Ok(format!("{:016x}", hasher.finish()))
     }
 
     /// Cache optimization pattern for future use
@@ -554,6 +760,7 @@ impl NeuromorphicOptimizer {
                 });
 
                 plan.execution_strategy = ExecutionStrategy::QuantumInspired;
+                self.optimization_stats.quantum_operation_count += 1;
             }
             _ => {
                 // Apply general quantum optimizations
@@ -566,6 +773,7 @@ impl NeuromorphicOptimizer {
                     parameters: params,
                     expected_speedup: 2.0,
                 });
+                self.optimization_stats.quantum_operation_count += 1;
             }
         }
 
