@@ -3,7 +3,7 @@
 **Testdatum:** 17. Dezember 2025 (Aktualisiert)  
 **Tester:** Senior Rust-Entwickler / Datenbank-Experte  
 **Version:** 0.1.0  
-**Letzte Aktualisierung:** 18.12.2025, 10:30 Uhr
+**Letzte Aktualisierung:** 18.12.2025, 11:50 Uhr
 
 ---
 
@@ -14,15 +14,15 @@
 | **Unit-Tests** | ✅ | 725 | 0 |
 | **Integrationstests** | ✅ | 13 | 0 |
 | **API-Endpunkt-Tests** | ✅ | 15 | 6* |
-| **SQL-Feature-Tests** | ⚠️ | 75 | 39** |
+| **SQL-Feature-Tests** | ⚠️ | 87 | 27** |
 | **Stress-Tests** | ✅ | 17 | 0 |
 | **E2E-Tests** | ✅ | 12+ | 0 |
 
 *\*Fehlgeschlagene API-Tests beziehen sich auf erweiterte Features (DNA/Quantum/Neural), die zusätzliche Konfiguration erfordern.*
 
-**\*\*Fehlende SQL-Features umfassen erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert. JOINs (INNER, LEFT, RIGHT, FULL, CROSS) wurden am 17.12.2025 implementiert. CASE Expressions und NULL Handling (COALESCE, NULLIF, IFNULL, NVL) wurden am 18.12.2025 implementiert. Mathematische Funktionen (ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM) wurden am 18.12.2025 implementiert.**
+**\*\*Fehlende SQL-Features umfassen erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert. JOINs (INNER, LEFT, RIGHT, FULL, CROSS) wurden am 17.12.2025 implementiert. CASE Expressions und NULL Handling (COALESCE, NULLIF, IFNULL, NVL) wurden am 18.12.2025 implementiert. Mathematische Funktionen (ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM) wurden am 18.12.2025 implementiert. Datum/Zeit-Funktionen (NOW, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, UNIX_TIMESTAMP, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DAYOFWEEK, DAYOFYEAR, WEEK, QUARTER, DATE_FORMAT, DATEDIFF) wurden am 18.12.2025 implementiert.**
 
-**SQL-Feature Erfolgsrate: 65.8%** (verbessert von 53.5%)  
+**SQL-Feature Erfolgsrate: 76.3%** (verbessert von 65.8%)  
 **API Success Rate: 71.4%**
 
 ---
@@ -139,6 +139,20 @@
 | | LOG10/LOG2 | `SELECT LOG10(100) FROM users`, `SELECT LOG2(8) FROM users` |
 | | PI | `SELECT PI() FROM users` |
 | | RANDOM/RAND | `SELECT RANDOM() FROM users`, `SELECT RAND() FROM users` |
+| **Datum/Zeit-Funktionen** | NOW/CURRENT_TIMESTAMP | `SELECT NOW() FROM users`, `SELECT CURRENT_TIMESTAMP() FROM users` |
+| | CURRENT_DATE/CURDATE | `SELECT CURRENT_DATE() FROM users`, `SELECT CURDATE() FROM users` |
+| | CURRENT_TIME/CURTIME | `SELECT CURRENT_TIME() FROM users`, `SELECT CURTIME() FROM users` |
+| | LOCALTIME/LOCALTIMESTAMP | `SELECT LOCALTIME() FROM users`, `SELECT LOCALTIMESTAMP() FROM users` |
+| | UTC_DATE/UTC_TIME/UTC_TIMESTAMP | `SELECT UTC_DATE() FROM users` |
+| | UNIX_TIMESTAMP/EPOCH | `SELECT UNIX_TIMESTAMP() FROM users` |
+| | YEAR/MONTH/DAY | `SELECT YEAR('2025-12-18') FROM users`, `SELECT MONTH('2025-12-18') FROM users` |
+| | HOUR/MINUTE/SECOND | `SELECT HOUR('10:30:00') FROM users` |
+| | DAYOFWEEK/WEEKDAY | `SELECT DAYOFWEEK('2025-12-18') FROM users` |
+| | DAYOFYEAR | `SELECT DAYOFYEAR('2025-12-18') FROM users` |
+| | WEEK/WEEKOFYEAR | `SELECT WEEK('2025-12-18') FROM users` |
+| | QUARTER | `SELECT QUARTER('2025-12-18') FROM users` |
+| | DATE_FORMAT/STRFTIME | `SELECT DATE_FORMAT('2025-12-18 10:30:00', '%Y-%m-%d')` |
+| | DATEDIFF | `SELECT DATEDIFF('2025-12-31', '2025-12-18')` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
@@ -160,10 +174,19 @@
 | | ✅ SIGN/TRUNCATE/TRUNC | `SELECT SIGN(age) FROM users` | ✅ (18.12.2025) |
 | | ✅ EXP/LN/LOG/LOG10/LOG2 | `SELECT EXP(1), LN(10) FROM users` | ✅ (18.12.2025) |
 | | ✅ PI/RANDOM/RAND | `SELECT PI(), RANDOM() FROM users` | ✅ (18.12.2025) |
-| **Datum/Zeit** | CURRENT_DATE | `SELECT CURRENT_DATE` | 🟡 Mittel |
-| | NOW() | `SELECT NOW()` | 🟡 Mittel |
-| | DATE_ADD/DATE_SUB | `SELECT DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY)` | 🟢 Niedrig |
-| | EXTRACT | `SELECT EXTRACT(YEAR FROM CURRENT_DATE)` | 🟢 Niedrig |
+| **Datum/Zeit** | ✅ CURRENT_DATE | `SELECT CURRENT_DATE()` | ~~🟡 Mittel~~ ✅ (18.12.2025) |
+| | ✅ NOW() | `SELECT NOW()` | ~~🟡 Mittel~~ ✅ (18.12.2025) |
+| | ✅ CURRENT_TIME | `SELECT CURRENT_TIME()` | ✅ (18.12.2025) |
+| | ✅ CURRENT_TIMESTAMP | `SELECT CURRENT_TIMESTAMP()` | ✅ (18.12.2025) |
+| | ✅ UNIX_TIMESTAMP | `SELECT UNIX_TIMESTAMP()` | ✅ (18.12.2025) |
+| | ✅ YEAR/MONTH/DAY | `SELECT YEAR(created_at)` | ✅ (18.12.2025) |
+| | ✅ HOUR/MINUTE/SECOND | `SELECT HOUR(created_at)` | ✅ (18.12.2025) |
+| | ✅ DAYOFWEEK/DAYOFYEAR | `SELECT DAYOFWEEK(created_at)` | ✅ (18.12.2025) |
+| | ✅ WEEK/QUARTER | `SELECT WEEK(created_at)` | ✅ (18.12.2025) |
+| | ✅ DATE_FORMAT | `SELECT DATE_FORMAT(created_at, '%Y-%m-%d')` | ✅ (18.12.2025) |
+| | ✅ DATEDIFF | `SELECT DATEDIFF(date1, date2)` | ✅ (18.12.2025) |
+| | DATE_ADD/DATE_SUB | `SELECT DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY)` | 🟢 Niedrig (INTERVAL Syntax) |
+| | EXTRACT | `SELECT EXTRACT(YEAR FROM CURRENT_DATE)` | 🟢 Niedrig (EXTRACT Syntax) |
 | **NULL Handling** | ✅ COALESCE | `SELECT COALESCE(email, 'no-email') FROM users` | ~~🟡 Mittel~~ ✅ (18.12.2025) |
 | | ✅ NULLIF/IFNULL/NVL | `SELECT NULLIF(age, 0) FROM users` | ~~🟢 Niedrig~~ ✅ (18.12.2025) |
 | **Window Functions** | ROW_NUMBER | `SELECT ROW_NUMBER() OVER (ORDER BY age) FROM users` | 🟢 Niedrig |
@@ -375,6 +398,8 @@ POST /api/v1/tables/users/query
 13. **String-Funktionen:** ✅ UPPER, LOWER, LENGTH, CONCAT, SUBSTRING, TRIM, REPLACE, LEFT, RIGHT, REVERSE, REPEAT, LPAD, RPAD, INITCAP, ASCII, CHR, POSITION implementiert (17.12.2025)
 14. **CASE Expressions:** ✅ CASE WHEN ... THEN ... ELSE ... END implementiert (18.12.2025)
 15. **NULL Handling:** ✅ COALESCE, NULLIF, IFNULL, NVL implementiert (18.12.2025)
+16. **Math-Funktionen:** ✅ ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM implementiert (18.12.2025)
+17. **Datum/Zeit-Funktionen:** ✅ NOW, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, UNIX_TIMESTAMP, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DAYOFWEEK, DAYOFYEAR, WEEK, QUARTER, DATE_FORMAT, DATEDIFF implementiert (18.12.2025)
 
 ### Schwächen 🔧
 
@@ -383,7 +408,8 @@ POST /api/v1/tables/users/query
    - ✅ ~~String-Funktionen~~ implementiert (17.12.2025)
    - ✅ ~~CASE Expressions~~ implementiert (18.12.2025)
    - ✅ ~~NULL Handling (COALESCE, NULLIF, IFNULL)~~ implementiert (18.12.2025)
-   - ❌ Math-/Datum-Funktionen fehlen
+   - ✅ ~~Math-Funktionen~~ implementiert (18.12.2025)
+   - ✅ ~~Datum/Zeit-Funktionen~~ implementiert (18.12.2025)
    - ❌ Window Functions fehlen
    - ❌ CTEs (WITH ... AS) fehlen
 2. **QSQL via Query-Endpunkt:** NEUROMATCH/QUANTUM_SEARCH Parser-Integration unvollständig
@@ -402,19 +428,20 @@ POST /api/v1/tables/users/query
 5. ~~**String-Funktionen:** UPPER, LOWER, CONCAT, SUBSTRING, LENGTH~~ ✅ ERLEDIGT (17.12.2025)
 6. ~~**CASE Expressions:** Bedingte Logik in Queries~~ ✅ ERLEDIGT (18.12.2025)
 7. ~~**COALESCE:** NULL-Handling~~ ✅ ERLEDIGT (18.12.2025)
-8. **Subqueries in WHERE:** `WHERE id IN (SELECT ...)`
-9. **Transaktionskontrolle:** BEGIN/COMMIT/ROLLBACK via SQL
+8. ~~**Datum/Zeit-Funktionen:** NOW(), CURRENT_DATE, YEAR, MONTH, etc.~~ ✅ ERLEDIGT (18.12.2025)
+9. **Subqueries in WHERE:** `WHERE id IN (SELECT ...)`
+10. **Transaktionskontrolle:** BEGIN/COMMIT/ROLLBACK via SQL
 
 **🟢 Niedrig (Nice-to-have):**
-10. **Window Functions:** ROW_NUMBER, RANK, LAG, LEAD
-11. **CTEs:** WITH ... AS für komplexe Queries
-12. **Datum/Zeit-Funktionen:** NOW(), CURRENT_DATE
+11. **Window Functions:** ROW_NUMBER, RANK, LAG, LEAD
+12. **CTEs:** WITH ... AS für komplexe Queries
+13. **DATE_ADD/DATE_SUB mit INTERVAL Syntax:** Erweiterte Datumsarithmetik
 
 ---
 
 ## 6. Detaillierte SQL-Testergebnisse
 
-### 6.1 Funktionierende SQL-Features (61 von 114)
+### 6.1 Funktionierende SQL-Features (87 von 114)
 
 | Kategorie | Features |
 |-----------|----------|
@@ -432,6 +459,8 @@ POST /api/v1/tables/users/query
 | **IN-Operator** | IN (Liste), NOT IN (Liste) ✅ NEU (17.12.2025) |
 | **JOINs** | INNER, LEFT, RIGHT, FULL OUTER, CROSS ✅ NEU (17.12.2025) |
 | **NULL Handling** | COALESCE, NULLIF, IFNULL, NVL ✅ NEU (18.12.2025) |
+| **Math-Funktionen** | ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM ✅ NEU (18.12.2025) |
+| **Datum/Zeit** | NOW, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, UNIX_TIMESTAMP, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DAYOFWEEK, DAYOFYEAR, WEEK, QUARTER, DATE_FORMAT, DATEDIFF ✅ NEU (18.12.2025) |
 
 ### 6.2 Nicht-Funktionierende SQL-Features (53 von 114)
 

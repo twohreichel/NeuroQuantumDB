@@ -2934,6 +2934,302 @@ impl QueryExecutor {
                 Ok(QueryValue::Float(random))
             }
 
+            // Date/Time functions
+            "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" => {
+                // Returns current date and time as ISO 8601 string
+                use chrono::prelude::*;
+                let now: DateTime<Utc> = Utc::now();
+                Ok(QueryValue::String(
+                    now.format("%Y-%m-%d %H:%M:%S").to_string(),
+                ))
+            }
+            "CURRENT_DATE" | "CURDATE" | "DATE" => {
+                // Returns current date as YYYY-MM-DD
+                use chrono::prelude::*;
+                let today = Utc::now().date_naive();
+                Ok(QueryValue::String(today.format("%Y-%m-%d").to_string()))
+            }
+            "CURRENT_TIME" | "CURTIME" => {
+                // Returns current time as HH:MM:SS
+                use chrono::prelude::*;
+                let now = Utc::now();
+                Ok(QueryValue::String(now.format("%H:%M:%S").to_string()))
+            }
+            "LOCALTIME" | "LOCALTIMESTAMP" => {
+                // Returns local time/timestamp
+                use chrono::prelude::*;
+                let local: DateTime<Local> = Local::now();
+                Ok(QueryValue::String(
+                    local.format("%Y-%m-%d %H:%M:%S").to_string(),
+                ))
+            }
+            "UTC_DATE" => {
+                // Returns UTC date
+                use chrono::prelude::*;
+                let today = Utc::now().date_naive();
+                Ok(QueryValue::String(today.format("%Y-%m-%d").to_string()))
+            }
+            "UTC_TIME" => {
+                // Returns UTC time
+                use chrono::prelude::*;
+                let now = Utc::now();
+                Ok(QueryValue::String(now.format("%H:%M:%S").to_string()))
+            }
+            "UTC_TIMESTAMP" => {
+                // Returns UTC timestamp
+                use chrono::prelude::*;
+                let now: DateTime<Utc> = Utc::now();
+                Ok(QueryValue::String(
+                    now.format("%Y-%m-%d %H:%M:%S").to_string(),
+                ))
+            }
+            "UNIX_TIMESTAMP" | "EPOCH" => {
+                // Returns current Unix timestamp (seconds since 1970-01-01)
+                use chrono::prelude::*;
+                let now: DateTime<Utc> = Utc::now();
+                Ok(QueryValue::Integer(now.timestamp()))
+            }
+            "YEAR" => {
+                // YEAR(date_string) - extracts year from date
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    // No argument - return current year
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.year() as i64))
+                } else {
+                    let date_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                        Ok(QueryValue::Integer(parsed.year() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.year() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "MONTH" => {
+                // MONTH(date_string) - extracts month from date
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.month() as i64))
+                } else {
+                    let date_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                        Ok(QueryValue::Integer(parsed.month() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.month() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "DAY" | "DAYOFMONTH" => {
+                // DAY(date_string) - extracts day from date
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.day() as i64))
+                } else {
+                    let date_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                        Ok(QueryValue::Integer(parsed.day() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.day() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "HOUR" => {
+                // HOUR(time_string) - extracts hour from time/datetime
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.hour() as i64))
+                } else {
+                    let time_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
+                        Ok(QueryValue::Integer(parsed.hour() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&time_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.hour() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "MINUTE" => {
+                // MINUTE(time_string) - extracts minute from time/datetime
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.minute() as i64))
+                } else {
+                    let time_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
+                        Ok(QueryValue::Integer(parsed.minute() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&time_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.minute() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "SECOND" => {
+                // SECOND(time_string) - extracts second from time/datetime
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.second() as i64))
+                } else {
+                    let time_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
+                        Ok(QueryValue::Integer(parsed.second() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&time_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.second() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "DAYOFWEEK" | "WEEKDAY" => {
+                // DAYOFWEEK(date_string) - returns day of week (1=Sunday to 7=Saturday for MySQL)
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    // Chrono uses Mon=0 to Sun=6, MySQL uses Sun=1 to Sat=7
+                    let dow = now.weekday().num_days_from_sunday() + 1;
+                    Ok(QueryValue::Integer(dow as i64))
+                } else {
+                    let date_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                        let dow = parsed.weekday().num_days_from_sunday() + 1;
+                        Ok(QueryValue::Integer(dow as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        let dow = parsed.weekday().num_days_from_sunday() + 1;
+                        Ok(QueryValue::Integer(dow as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "DAYOFYEAR" => {
+                // DAYOFYEAR(date_string) - returns day of year (1-366)
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.ordinal() as i64))
+                } else {
+                    let date_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                        Ok(QueryValue::Integer(parsed.ordinal() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.ordinal() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "WEEK" | "WEEKOFYEAR" => {
+                // WEEK(date_string) - returns week of year (0-53)
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(now.iso_week().week() as i64))
+                } else {
+                    let date_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                        Ok(QueryValue::Integer(parsed.iso_week().week() as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(parsed.date().iso_week().week() as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "QUARTER" => {
+                // QUARTER(date_string) - returns quarter (1-4)
+                use chrono::prelude::*;
+                if args.is_empty() {
+                    let now = Utc::now();
+                    Ok(QueryValue::Integer(((now.month() - 1) / 3 + 1) as i64))
+                } else {
+                    let date_str = get_string_arg(0)?;
+                    if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                        Ok(QueryValue::Integer(((parsed.month() - 1) / 3 + 1) as i64))
+                    } else if let Ok(parsed) =
+                        NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        Ok(QueryValue::Integer(((parsed.month() - 1) / 3 + 1) as i64))
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                }
+            }
+            "DATE_FORMAT" | "STRFTIME" => {
+                // DATE_FORMAT(date_string, format_string)
+                use chrono::prelude::*;
+                if args.len() < 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "DATE_FORMAT requires exactly 2 arguments".to_string(),
+                    });
+                }
+                let date_str = get_string_arg(0)?;
+                let format_str = get_string_arg(1)?;
+
+                if let Ok(parsed) = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
+                    Ok(QueryValue::String(parsed.format(&format_str).to_string()))
+                } else if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                    Ok(QueryValue::String(parsed.format(&format_str).to_string()))
+                } else {
+                    Ok(QueryValue::Null)
+                }
+            }
+            "DATEDIFF" => {
+                // DATEDIFF(date1, date2) - returns difference in days
+                use chrono::prelude::*;
+                if args.len() < 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "DATEDIFF requires exactly 2 arguments".to_string(),
+                    });
+                }
+                let date1_str = get_string_arg(0)?;
+                let date2_str = get_string_arg(1)?;
+
+                let parse_date = |s: &str| -> Option<NaiveDate> {
+                    NaiveDate::parse_from_str(s, "%Y-%m-%d").ok().or_else(|| {
+                        NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
+                            .ok()
+                            .map(|dt| dt.date())
+                    })
+                };
+
+                if let (Some(d1), Some(d2)) = (parse_date(&date1_str), parse_date(&date2_str)) {
+                    let diff = d1.signed_duration_since(d2).num_days();
+                    Ok(QueryValue::Integer(diff))
+                } else {
+                    Ok(QueryValue::Null)
+                }
+            }
+
             _ => Err(QSQLError::ExecutionError {
                 message: format!("Unknown scalar function: {}", func_name),
             }),
@@ -2980,6 +3276,7 @@ impl QueryExecutor {
     /// Infer the return type of a scalar function
     fn infer_scalar_function_type(&self, func_name: &str) -> DataType {
         match func_name {
+            // String functions
             "UPPER" | "LOWER" | "TRIM" | "LTRIM" | "RTRIM" | "CONCAT" | "SUBSTRING" | "SUBSTR"
             | "LEFT" | "RIGHT" | "REPLACE" | "REVERSE" | "REPEAT" | "LPAD" | "RPAD" | "INITCAP"
             | "CHR" => DataType::Text,
@@ -2987,6 +3284,18 @@ impl QueryExecutor {
             | "ASCII" => DataType::BigInt,
             // NULL handling functions return dynamic types based on input
             "COALESCE" | "NULLIF" | "IFNULL" | "NVL" => DataType::Text,
+            // Date/Time functions returning timestamps/dates as text
+            "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" | "LOCALTIME"
+            | "LOCALTIMESTAMP" | "UTC_TIMESTAMP" | "CURRENT_DATE" | "CURDATE" | "CURRENT_TIME"
+            | "CURTIME" | "UTC_DATE" | "UTC_TIME" | "DATE_FORMAT" | "STRFTIME" => DataType::Text,
+            // Date/Time functions returning integers
+            "UNIX_TIMESTAMP" | "EPOCH" | "YEAR" | "MONTH" | "DAY" | "DAYOFMONTH" | "HOUR"
+            | "MINUTE" | "SECOND" | "DAYOFWEEK" | "WEEKDAY" | "DAYOFYEAR" | "WEEK"
+            | "WEEKOFYEAR" | "QUARTER" | "DATEDIFF" => DataType::BigInt,
+            // Math functions
+            "ABS" | "ROUND" | "CEIL" | "CEILING" | "FLOOR" | "MOD" | "POWER" | "POW" | "SQRT"
+            | "SIGN" | "TRUNCATE" | "TRUNC" | "EXP" | "LN" | "LOG" | "LOG10" | "LOG2" | "PI"
+            | "RANDOM" | "RAND" => DataType::Double,
             _ => DataType::Text,
         }
     }
