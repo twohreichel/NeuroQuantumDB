@@ -2604,6 +2604,52 @@ impl QueryExecutor {
                 let pos = haystack.find(&needle).map(|i| i as i64 + 1).unwrap_or(0);
                 Ok(QueryValue::Integer(pos))
             }
+
+            // NULL handling functions
+            "COALESCE" => {
+                // COALESCE returns the first non-NULL argument
+                for arg in args {
+                    let val = self.evaluate_expression_value(arg, row)?;
+                    if !matches!(val, QueryValue::Null) {
+                        return Ok(val);
+                    }
+                }
+                // All arguments are NULL, return NULL
+                Ok(QueryValue::Null)
+            }
+            "NULLIF" => {
+                // NULLIF(expr1, expr2) returns NULL if expr1 = expr2, otherwise expr1
+                if args.len() < 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "NULLIF requires exactly 2 arguments".to_string(),
+                    });
+                }
+                let val1 = self.evaluate_expression_value(&args[0], row)?;
+                let val2 = self.evaluate_expression_value(&args[1], row)?;
+
+                // Compare values - if equal, return NULL
+                if Self::query_values_equal(&val1, &val2) {
+                    Ok(QueryValue::Null)
+                } else {
+                    Ok(val1)
+                }
+            }
+            "IFNULL" | "NVL" => {
+                // IFNULL(expr1, expr2) returns expr2 if expr1 is NULL, otherwise expr1
+                // NVL is the Oracle equivalent
+                if args.len() < 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "IFNULL requires exactly 2 arguments".to_string(),
+                    });
+                }
+                let val1 = self.evaluate_expression_value(&args[0], row)?;
+                if matches!(val1, QueryValue::Null) {
+                    self.evaluate_expression_value(&args[1], row)
+                } else {
+                    Ok(val1)
+                }
+            }
+
             _ => Err(QSQLError::ExecutionError {
                 message: format!("Unknown scalar function: {}", func_name),
             }),
@@ -2655,6 +2701,8 @@ impl QueryExecutor {
             | "CHR" => DataType::Text,
             "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" | "POSITION" | "INSTR"
             | "ASCII" => DataType::BigInt,
+            // NULL handling functions return dynamic types based on input
+            "COALESCE" | "NULLIF" | "IFNULL" | "NVL" => DataType::Text,
             _ => DataType::Text,
         }
     }
@@ -3331,6 +3379,23 @@ impl QueryExecutor {
             Value::Binary(_) => DataType::Blob,
             Value::Null => DataType::VarChar(Some(255)),
             Value::Timestamp(_) => DataType::Timestamp,
+        }
+    }
+
+    /// Compare two QueryValues for equality (used by NULLIF)
+    fn query_values_equal(val1: &QueryValue, val2: &QueryValue) -> bool {
+        match (val1, val2) {
+            (QueryValue::Null, QueryValue::Null) => true,
+            (QueryValue::Integer(a), QueryValue::Integer(b)) => a == b,
+            (QueryValue::Float(a), QueryValue::Float(b)) => (a - b).abs() < f64::EPSILON,
+            (QueryValue::Integer(a), QueryValue::Float(b))
+            | (QueryValue::Float(b), QueryValue::Integer(a)) => {
+                (*a as f64 - b).abs() < f64::EPSILON
+            }
+            (QueryValue::String(a), QueryValue::String(b)) => a == b,
+            (QueryValue::Boolean(a), QueryValue::Boolean(b)) => a == b,
+            (QueryValue::Blob(a), QueryValue::Blob(b)) => a == b,
+            _ => false,
         }
     }
 

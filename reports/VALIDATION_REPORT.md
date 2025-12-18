@@ -122,6 +122,9 @@
 | **CASE Expressions** | CASE WHEN THEN ELSE END | `SELECT CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END FROM users` |
 | | Mehrere WHEN | `SELECT CASE WHEN age < 20 THEN 'Teen' WHEN age < 40 THEN 'Adult' ELSE 'Senior' END` |
 | | CASE ohne ELSE | `SELECT CASE WHEN status = 'active' THEN 1 END FROM users` |
+| **NULL Handling** | COALESCE | `SELECT COALESCE(email, 'no-email') FROM users` |
+| | NULLIF | `SELECT NULLIF(age, 0) FROM users` |
+| | IFNULL/NVL | `SELECT IFNULL(email, 'default') FROM users`, `SELECT NVL(email, 'default') FROM users` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
@@ -144,8 +147,8 @@
 | | NOW() | `SELECT NOW()` | 🟡 Mittel |
 | | DATE_ADD/DATE_SUB | `SELECT DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY)` | 🟢 Niedrig |
 | | EXTRACT | `SELECT EXTRACT(YEAR FROM CURRENT_DATE)` | 🟢 Niedrig |
-| **NULL Handling** | COALESCE | `SELECT COALESCE(email, 'no-email') FROM users` | 🟡 Mittel |
-| | NULLIF/IFNULL | `SELECT NULLIF(age, 0) FROM users` | 🟢 Niedrig |
+| **NULL Handling** | ✅ COALESCE | `SELECT COALESCE(email, 'no-email') FROM users` | ~~🟡 Mittel~~ ✅ (18.12.2025) |
+| | ✅ NULLIF/IFNULL/NVL | `SELECT NULLIF(age, 0) FROM users` | ~~🟢 Niedrig~~ ✅ (18.12.2025) |
 | **Window Functions** | ROW_NUMBER | `SELECT ROW_NUMBER() OVER (ORDER BY age) FROM users` | 🟢 Niedrig |
 | | RANK/DENSE_RANK | `SELECT RANK() OVER (ORDER BY age) FROM users` | 🟢 Niedrig |
 | | LAG/LEAD | `SELECT LAG(age) OVER (ORDER BY id) FROM users` | 🟢 Niedrig |
@@ -354,6 +357,7 @@ POST /api/v1/tables/users/query
 12. **JOINs:** ✅ INNER, LEFT, RIGHT, FULL OUTER, CROSS JOIN implementiert (17.12.2025)
 13. **String-Funktionen:** ✅ UPPER, LOWER, LENGTH, CONCAT, SUBSTRING, TRIM, REPLACE, LEFT, RIGHT, REVERSE, REPEAT, LPAD, RPAD, INITCAP, ASCII, CHR, POSITION implementiert (17.12.2025)
 14. **CASE Expressions:** ✅ CASE WHEN ... THEN ... ELSE ... END implementiert (18.12.2025)
+15. **NULL Handling:** ✅ COALESCE, NULLIF, IFNULL, NVL implementiert (18.12.2025)
 
 ### Schwächen 🔧
 
@@ -361,6 +365,7 @@ POST /api/v1/tables/users/query
    - ✅ ~~JOINs (INNER, LEFT, RIGHT, FULL)~~ implementiert (17.12.2025)
    - ✅ ~~String-Funktionen~~ implementiert (17.12.2025)
    - ✅ ~~CASE Expressions~~ implementiert (18.12.2025)
+   - ✅ ~~NULL Handling (COALESCE, NULLIF, IFNULL)~~ implementiert (18.12.2025)
    - ❌ Math-/Datum-Funktionen fehlen
    - ❌ Window Functions fehlen
    - ❌ CTEs (WITH ... AS) fehlen
@@ -379,7 +384,7 @@ POST /api/v1/tables/users/query
 **🟡 Mittel (Für erweiterte Anwendungsfälle):**
 5. ~~**String-Funktionen:** UPPER, LOWER, CONCAT, SUBSTRING, LENGTH~~ ✅ ERLEDIGT (17.12.2025)
 6. ~~**CASE Expressions:** Bedingte Logik in Queries~~ ✅ ERLEDIGT (18.12.2025)
-7. **COALESCE:** NULL-Handling
+7. ~~**COALESCE:** NULL-Handling~~ ✅ ERLEDIGT (18.12.2025)
 8. **Subqueries in WHERE:** `WHERE id IN (SELECT ...)`
 9. **Transaktionskontrolle:** BEGIN/COMMIT/ROLLBACK via SQL
 
@@ -409,6 +414,7 @@ POST /api/v1/tables/users/query
 | **GROUP BY** | GROUP BY, HAVING, mehrere Spalten |
 | **IN-Operator** | IN (Liste), NOT IN (Liste) ✅ NEU (17.12.2025) |
 | **JOINs** | INNER, LEFT, RIGHT, FULL OUTER, CROSS ✅ NEU (17.12.2025) |
+| **NULL Handling** | COALESCE, NULLIF, IFNULL, NVL ✅ NEU (18.12.2025) |
 
 ### 6.2 Nicht-Funktionierende SQL-Features (53 von 114)
 
@@ -422,7 +428,7 @@ POST /api/v1/tables/users/query
 | **Transaktionen** | BEGIN, COMMIT, ROLLBACK, SAVEPOINT | 🟡 Mittel |
 | **Math-Funktionen** | ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT | 🟢 Niedrig |
 | **Datum/Zeit** | CURRENT_DATE, NOW(), DATE_ADD, EXTRACT | 🟡 Mittel |
-| **NULL Handling** | COALESCE, NULLIF, IFNULL | 🟡 Mittel |
+| **NULL Handling** | ✅ COALESCE, NULLIF, IFNULL, NVL implementiert (18.12.2025) | ~~🟡 Mittel~~ |
 | **Window Functions** | ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, OVER | 🟢 Niedrig |
 | **CTEs** | WITH ... AS, Rekursive CTEs | 🟢 Niedrig |
 
@@ -496,6 +502,7 @@ python3 test_sql_functions.py
 | **JOINs** | 🟢 Funktional | INNER, LEFT, RIGHT, FULL, CROSS ✅ (17.12.2025) |
 | **String-Funktionen** | 🟢 Funktional | UPPER, LOWER, LENGTH, CONCAT, SUBSTRING, TRIM, REPLACE, etc. ✅ (17.12.2025) |
 | **CASE Expressions** | 🟢 Funktional | CASE WHEN ... THEN ... ELSE ... END ✅ (18.12.2025) |
+| **NULL Handling** | 🟢 Funktional | COALESCE, NULLIF, IFNULL, NVL ✅ (18.12.2025) |
 | Math/Datum-Funktionen | 🔴 Fehlt | ABS, ROUND, NOW(), etc. |
 | Window Functions | 🔴 Fehlt | ROW_NUMBER, RANK, etc. |
 | CTEs | 🔴 Fehlt | WITH ... AS |
@@ -506,8 +513,8 @@ python3 test_sql_functions.py
 
 ```
 Getestet: 114 SQL-Features
-Funktioniert: 71 (62.3%) ← verbessert von 59.6%
-Fehlt: 43 (37.7%)
+Funktioniert: 74 (64.9%) ← verbessert von 62.3%
+Fehlt: 40 (35.1%)
 ```
 
 ### Empfehlung
@@ -518,6 +525,7 @@ Fehlt: 43 (37.7%)
 **Für relationale Abfragen (JOINs):** ✅ Einsatzbereit (17.12.2025)
 **Für String-Manipulation:** ✅ Einsatzbereit (17.12.2025)  
 **Für bedingte Logik (CASE):** ✅ Einsatzbereit (18.12.2025)
+**Für NULL-Handling (COALESCE, NULLIF, IFNULL):** ✅ Einsatzbereit (18.12.2025)
 **Für erweiterte SQL-Anwendungen:** ❌ Signifikante Lücken  
 
 ### Prioritäten für Weiterentwicklung
@@ -528,14 +536,15 @@ Fehlt: 43 (37.7%)
 4. ~~🔴 **IN-Operator reparieren** - Kritisch~~ ✅ ERLEDIGT (17.12.2025)
 5. ~~🟡 **String-Funktionen** - Mittel~~ ✅ ERLEDIGT (17.12.2025)
 6. ~~🟡 **CASE Expressions** - Mittel~~ ✅ ERLEDIGT (18.12.2025)
-7. 🟡 **Subqueries in WHERE** - Mittel
-8. 🟢 **Window Functions** - Niedrig
+7. ~~🟡 **NULL Handling (COALESCE, NULLIF, IFNULL)** - Mittel~~ ✅ ERLEDIGT (18.12.2025)
+8. 🟡 **Subqueries in WHERE** - Mittel
+9. 🟢 **Window Functions** - Niedrig
 
 ---
 
 ---
 
 *Bericht erstellt am 17. Dezember 2025*  
-*Letzte Aktualisierung: 18.12.2025, 10:30 Uhr*  
+*Letzte Aktualisierung: 18.12.2025, 09:15 Uhr*  
 *Testumgebung: macOS, ARM64 (Apple Silicon), Rust 1.80+*  
 *SQL-Tests: 114 Features getestet*
