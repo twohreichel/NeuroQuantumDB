@@ -90,4 +90,4 @@ corpus/
 prod.toml
 dev.toml
 test.toml
-reports/tests/sql_test_results.json
+sql_test_results.json
