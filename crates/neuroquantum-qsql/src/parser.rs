@@ -141,6 +141,13 @@ pub enum TokenType {
     With,
     Distinct,
 
+    // CASE expression keywords
+    Case,
+    When,
+    Then,
+    Else,
+    End,
+
     // Data type keywords
     Serial,
     BigSerial,
@@ -709,6 +716,29 @@ impl QSQLParser {
                 TokenType::Multiply => {
                     select_list.push(SelectItem::Wildcard);
                     i += 1;
+                }
+                TokenType::Case => {
+                    // Parse CASE expression
+                    let expr = self.parse_case_expression(tokens, &mut i)?;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
                 }
                 TokenType::Comma => {
                     i += 1; // Skip comma and continue
@@ -1650,6 +1680,7 @@ impl QSQLParser {
             TokenType::Identifier("OUTER".to_string()),
         );
         keywords.insert("ON".to_string(), TokenType::On);
+        keywords.insert("AS".to_string(), TokenType::As);
         keywords.insert("AND".to_string(), TokenType::And);
         keywords.insert("OR".to_string(), TokenType::Or);
         keywords.insert("NOT".to_string(), TokenType::Not);
@@ -1660,6 +1691,13 @@ impl QSQLParser {
         keywords.insert("BETWEEN".to_string(), TokenType::Between);
         keywords.insert("IS".to_string(), TokenType::Is);
         keywords.insert("NULL".to_string(), TokenType::Null);
+
+        // CASE expression keywords
+        keywords.insert("CASE".to_string(), TokenType::Case);
+        keywords.insert("WHEN".to_string(), TokenType::When);
+        keywords.insert("THEN".to_string(), TokenType::Then);
+        keywords.insert("ELSE".to_string(), TokenType::Else);
+        keywords.insert("END".to_string(), TokenType::End);
 
         // Added missing keywords for INSERT, UPDATE, DELETE
         keywords.insert("INSERT".to_string(), TokenType::Insert);
@@ -2078,6 +2116,94 @@ impl QSQLParser {
         })
     }
 
+    /// Parse CASE expression: CASE WHEN condition THEN result [WHEN ...] [ELSE result] END
+    fn parse_case_expression(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<Expression> {
+        // Consume CASE token
+        *i += 1;
+
+        let mut when_clauses = Vec::new();
+        let mut else_result = None;
+
+        // Parse WHEN clauses
+        loop {
+            if *i >= tokens.len() {
+                return Err(QSQLError::ParseError {
+                    message: "Unexpected end of CASE expression".to_string(),
+                    position: *i,
+                });
+            }
+
+            match &tokens[*i] {
+                TokenType::When => {
+                    *i += 1; // consume WHEN
+
+                    // Parse condition
+                    let condition =
+                        self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+                    // Expect THEN
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Then) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected THEN after WHEN condition".to_string(),
+                            position: *i,
+                        });
+                    }
+                    *i += 1; // consume THEN
+
+                    // Parse result expression
+                    let result =
+                        self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+                    when_clauses.push((Box::new(condition), Box::new(result)));
+                }
+                TokenType::Else => {
+                    *i += 1; // consume ELSE
+
+                    // Parse else result
+                    let result =
+                        self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                    else_result = Some(Box::new(result));
+
+                    // After ELSE, we expect END
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::End) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected END after ELSE clause".to_string(),
+                            position: *i,
+                        });
+                    }
+                    *i += 1; // consume END
+                    break;
+                }
+                TokenType::End => {
+                    *i += 1; // consume END
+                    break;
+                }
+                _ => {
+                    return Err(QSQLError::ParseError {
+                        message: format!(
+                            "Expected WHEN, ELSE, or END in CASE expression, found {:?}",
+                            tokens[*i]
+                        ),
+                        position: *i,
+                    });
+                }
+            }
+        }
+
+        // Must have at least one WHEN clause
+        if when_clauses.is_empty() {
+            return Err(QSQLError::ParseError {
+                message: "CASE expression must have at least one WHEN clause".to_string(),
+                position: *i,
+            });
+        }
+
+        Ok(Expression::Case {
+            when_clauses,
+            else_result,
+        })
+    }
+
     /// Parse prefix expression (primary expressions and unary operators)
     fn parse_prefix_expression(
         &self,
@@ -2092,6 +2218,9 @@ impl QSQLParser {
         }
 
         match &tokens[*i] {
+            // CASE expression: CASE WHEN ... THEN ... [ELSE ...] END
+            TokenType::Case => self.parse_case_expression(tokens, i),
+
             // Unary NOT operator
             TokenType::Not => {
                 *i += 1;

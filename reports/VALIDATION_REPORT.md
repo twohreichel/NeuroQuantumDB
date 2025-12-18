@@ -119,6 +119,9 @@
 | | INITCAP | `SELECT INITCAP(name) FROM users` |
 | | ASCII/CHR | `SELECT ASCII(name) FROM users`, `SELECT CHR(65) FROM users` |
 | | POSITION/INSTR | `SELECT POSITION('a' IN name) FROM users` |
+| **CASE Expressions** | CASE WHEN THEN ELSE END | `SELECT CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END FROM users` |
+| | Mehrere WHEN | `SELECT CASE WHEN age < 20 THEN 'Teen' WHEN age < 40 THEN 'Adult' ELSE 'Senior' END` |
+| | CASE ohne ELSE | `SELECT CASE WHEN status = 'active' THEN 1 END FROM users` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
@@ -133,7 +136,7 @@
 | | TRUNCATE | `TRUNCATE TABLE test` | 🟡 Mittel |
 | **Transaktionen** | BEGIN/COMMIT/ROLLBACK | `BEGIN; ... COMMIT;` | 🟡 Mittel |
 | | SAVEPOINT | `SAVEPOINT sp1` | 🟢 Niedrig |
-| **CASE** | CASE WHEN | `SELECT CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END` | 🟡 Mittel |
+| **CASE** | ✅ CASE WHEN | `SELECT CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END` | ~~🟡 Mittel~~ ✅ (18.12.2025) |
 | **Math-Funktionen** | ABS/ROUND | `SELECT ABS(age), ROUND(age/3.0, 2) FROM users` | 🟡 Mittel |
 | | CEIL/FLOOR | `SELECT CEIL(age/3.0) FROM users` | 🟢 Niedrig |
 | | MOD/POWER/SQRT | `SELECT MOD(age, 10) FROM users` | 🟢 Niedrig |
@@ -350,12 +353,14 @@ POST /api/v1/tables/users/query
 11. **IN-Operator:** ✅ WHERE column IN (1, 2, 3) und NOT IN implementiert (17.12.2025)
 12. **JOINs:** ✅ INNER, LEFT, RIGHT, FULL OUTER, CROSS JOIN implementiert (17.12.2025)
 13. **String-Funktionen:** ✅ UPPER, LOWER, LENGTH, CONCAT, SUBSTRING, TRIM, REPLACE, LEFT, RIGHT, REVERSE, REPEAT, LPAD, RPAD, INITCAP, ASCII, CHR, POSITION implementiert (17.12.2025)
+14. **CASE Expressions:** ✅ CASE WHEN ... THEN ... ELSE ... END implementiert (18.12.2025)
 
 ### Schwächen 🔧
 
 1. **SQL-Funktionsumfang eingeschränkt:**
    - ✅ ~~JOINs (INNER, LEFT, RIGHT, FULL)~~ implementiert (17.12.2025)
    - ✅ ~~String-Funktionen~~ implementiert (17.12.2025)
+   - ✅ ~~CASE Expressions~~ implementiert (18.12.2025)
    - ❌ Math-/Datum-Funktionen fehlen
    - ❌ Window Functions fehlen
    - ❌ CTEs (WITH ... AS) fehlen
@@ -373,7 +378,7 @@ POST /api/v1/tables/users/query
 
 **🟡 Mittel (Für erweiterte Anwendungsfälle):**
 5. ~~**String-Funktionen:** UPPER, LOWER, CONCAT, SUBSTRING, LENGTH~~ ✅ ERLEDIGT (17.12.2025)
-6. **CASE Expressions:** Bedingte Logik in Queries
+6. ~~**CASE Expressions:** Bedingte Logik in Queries~~ ✅ ERLEDIGT (18.12.2025)
 7. **COALESCE:** NULL-Handling
 8. **Subqueries in WHERE:** `WHERE id IN (SELECT ...)`
 9. **Transaktionskontrolle:** BEGIN/COMMIT/ROLLBACK via SQL
@@ -411,10 +416,10 @@ POST /api/v1/tables/users/query
 |-----------|-------------------|-----------|
 | **JOINs** | ✅ INNER, LEFT, RIGHT, FULL OUTER, CROSS implementiert (17.12.2025) | ~~🔴 Kritisch~~ |
 | **String-Funktionen** | ✅ UPPER, LOWER, LENGTH, CONCAT, SUBSTRING, TRIM, REPLACE, LEFT, RIGHT, REVERSE, REPEAT, LPAD, RPAD, INITCAP, ASCII, CHR, POSITION implementiert (17.12.2025) | ~~🟡 Mittel~~ |
+| **CASE Expressions** | ✅ CASE WHEN ... THEN ... ELSE ... END implementiert (18.12.2025) | ~~🟡 Mittel~~ |
 | **Subqueries** | IN (Subquery), FROM (Subquery) | 🟡 Mittel |
 | **DDL** | CREATE TABLE, DROP TABLE, ALTER, TRUNCATE, INDEX | 🟡 REST nutzen |
 | **Transaktionen** | BEGIN, COMMIT, ROLLBACK, SAVEPOINT | 🟡 Mittel |
-| **CASE** | CASE WHEN ... THEN ... ELSE ... END | 🟡 Mittel |
 | **Math-Funktionen** | ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT | 🟢 Niedrig |
 | **Datum/Zeit** | CURRENT_DATE, NOW(), DATE_ADD, EXTRACT | 🟡 Mittel |
 | **NULL Handling** | COALESCE, NULLIF, IFNULL | 🟡 Mittel |
@@ -490,6 +495,7 @@ python3 test_sql_functions.py
 | **IN-Operator** | 🟢 Funktional | WHERE col IN (1,2,3), NOT IN ✅ (17.12.2025) |
 | **JOINs** | 🟢 Funktional | INNER, LEFT, RIGHT, FULL, CROSS ✅ (17.12.2025) |
 | **String-Funktionen** | 🟢 Funktional | UPPER, LOWER, LENGTH, CONCAT, SUBSTRING, TRIM, REPLACE, etc. ✅ (17.12.2025) |
+| **CASE Expressions** | 🟢 Funktional | CASE WHEN ... THEN ... ELSE ... END ✅ (18.12.2025) |
 | Math/Datum-Funktionen | 🔴 Fehlt | ABS, ROUND, NOW(), etc. |
 | Window Functions | 🔴 Fehlt | ROW_NUMBER, RANK, etc. |
 | CTEs | 🔴 Fehlt | WITH ... AS |
@@ -500,8 +506,8 @@ python3 test_sql_functions.py
 
 ```
 Getestet: 114 SQL-Features
-Funktioniert: 68 (59.6%) ← verbessert von 53.5%
-Fehlt: 46 (40.4%)
+Funktioniert: 71 (62.3%) ← verbessert von 59.6%
+Fehlt: 43 (37.7%)
 ```
 
 ### Empfehlung
@@ -511,6 +517,7 @@ Fehlt: 46 (40.4%)
 **Für IN-Listen-Abfragen:** ✅ Einsatzbereit (17.12.2025)  
 **Für relationale Abfragen (JOINs):** ✅ Einsatzbereit (17.12.2025)
 **Für String-Manipulation:** ✅ Einsatzbereit (17.12.2025)  
+**Für bedingte Logik (CASE):** ✅ Einsatzbereit (18.12.2025)
 **Für erweiterte SQL-Anwendungen:** ❌ Signifikante Lücken  
 
 ### Prioritäten für Weiterentwicklung
@@ -520,12 +527,15 @@ Fehlt: 46 (40.4%)
 3. ~~🔴 **JOINs** (INNER, LEFT, RIGHT, FULL, CROSS) - Kritisch~~ ✅ ERLEDIGT (17.12.2025)
 4. ~~🔴 **IN-Operator reparieren** - Kritisch~~ ✅ ERLEDIGT (17.12.2025)
 5. ~~🟡 **String-Funktionen** - Mittel~~ ✅ ERLEDIGT (17.12.2025)
-6. 🟡 **Subqueries in WHERE** - Mittel
-7. 🟢 **Window Functions** - Niedrig
+6. ~~🟡 **CASE Expressions** - Mittel~~ ✅ ERLEDIGT (18.12.2025)
+7. 🟡 **Subqueries in WHERE** - Mittel
+8. 🟢 **Window Functions** - Niedrig
+
+---
 
 ---
 
 *Bericht erstellt am 17. Dezember 2025*  
-*Letzte Aktualisierung: 17.12.2025, 14:10 Uhr*  
+*Letzte Aktualisierung: 18.12.2025, 10:30 Uhr*  
 *Testumgebung: macOS, ARM64 (Apple Silicon), Rust 1.80+*  
 *SQL-Tests: 114 Features getestet*

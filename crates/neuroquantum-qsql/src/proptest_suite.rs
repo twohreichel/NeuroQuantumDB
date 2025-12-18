@@ -44,6 +44,90 @@ fn get_proptest_config() -> ProptestConfig {
 // Strategy Generators for SQL Components
 // ============================================================================
 
+/// SQL reserved keywords that cannot be used as identifiers
+const SQL_RESERVED_KEYWORDS: &[&str] = &[
+    "SELECT",
+    "FROM",
+    "WHERE",
+    "AND",
+    "OR",
+    "NOT",
+    "IN",
+    "LIKE",
+    "BETWEEN",
+    "IS",
+    "NULL",
+    "AS",
+    "ON",
+    "JOIN",
+    "LEFT",
+    "RIGHT",
+    "INNER",
+    "OUTER",
+    "FULL",
+    "CROSS",
+    "ORDER",
+    "BY",
+    "ASC",
+    "DESC",
+    "LIMIT",
+    "OFFSET",
+    "GROUP",
+    "HAVING",
+    "DISTINCT",
+    "INSERT",
+    "INTO",
+    "VALUES",
+    "UPDATE",
+    "SET",
+    "DELETE",
+    "CREATE",
+    "DROP",
+    "TABLE",
+    "INDEX",
+    "ALTER",
+    "ADD",
+    "COLUMN",
+    "PRIMARY",
+    "KEY",
+    "FOREIGN",
+    "REFERENCES",
+    "UNIQUE",
+    "CHECK",
+    "DEFAULT",
+    "CONSTRAINT",
+    "CASCADE",
+    "RESTRICT",
+    "WITH",
+    "CASE",
+    "WHEN",
+    "THEN",
+    "ELSE",
+    "END",
+    "UNION",
+    "ALL",
+    "EXCEPT",
+    "INTERSECT",
+    "EXISTS",
+    "TRUE",
+    "FALSE",
+    "SERIAL",
+    "BIGSERIAL",
+    "SMALLSERIAL",
+    "AUTO_INCREMENT",
+    "GENERATED",
+    "ALWAYS",
+    "IDENTITY",
+    "IF",
+    "TRUNCATE",
+];
+
+/// Check if a string is a SQL reserved keyword (case-insensitive)
+fn is_reserved_keyword(s: &str) -> bool {
+    let upper = s.to_uppercase();
+    SQL_RESERVED_KEYWORDS.contains(&upper.as_str())
+}
+
 /// Generate valid SQL identifiers (column names, table names, etc.)
 fn sql_identifier() -> impl Strategy<Value = String> {
     // SQL identifiers: start with letter, followed by at least one more alphanumeric
@@ -51,6 +135,9 @@ fn sql_identifier() -> impl Strategy<Value = String> {
     prop::string::string_regex("[a-zA-Z][a-zA-Z0-9_]{1,31}")
         .unwrap()
         .prop_filter("identifier must have at least 2 chars", |s| s.len() >= 2)
+        .prop_filter("identifier must not be a reserved keyword", |s| {
+            !is_reserved_keyword(s)
+        })
 }
 
 /// Generate valid table names

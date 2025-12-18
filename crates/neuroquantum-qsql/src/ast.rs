@@ -297,6 +297,15 @@ pub enum Expression {
         list: Vec<Expression>,
         negated: bool, // true for NOT IN
     },
+
+    // CASE expression for conditional logic
+    // CASE WHEN condition1 THEN result1 WHEN condition2 THEN result2 ... ELSE else_result END
+    Case {
+        /// List of (condition, result) pairs for WHEN clauses
+        when_clauses: Vec<(Box<Expression>, Box<Expression>)>,
+        /// Optional ELSE result (if None, returns NULL when no condition matches)
+        else_result: Option<Box<Expression>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

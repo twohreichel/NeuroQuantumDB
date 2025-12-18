@@ -1216,3 +1216,163 @@ fn test_join_with_limit() {
         _ => panic!("Expected SELECT statement"),
     }
 }
+
+// =============================================================================
+// CASE Expression Tests
+// =============================================================================
+
+/// Test simple CASE WHEN THEN ELSE END
+#[test]
+fn test_case_expression_simple() {
+    let parser = QSQLParser::new();
+    let result =
+        parser.parse("SELECT name, CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END FROM users");
+
+    assert!(
+        result.is_ok(),
+        "Simple CASE expression should parse successfully: {:?}",
+        result
+    );
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 2, "Should have 2 select items");
+            // Verify second item is a CASE expression
+            if let SelectItem::Expression { expr, .. } = &select.select_list[1] {
+                match expr {
+                    Expression::Case {
+                        when_clauses,
+                        else_result,
+                    } => {
+                        assert_eq!(when_clauses.len(), 1, "Should have 1 WHEN clause");
+                        assert!(else_result.is_some(), "Should have ELSE clause");
+                    }
+                    _ => panic!("Expected CASE expression"),
+                }
+            } else {
+                panic!("Expected Expression select item");
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test CASE with multiple WHEN clauses
+#[test]
+fn test_case_expression_multiple_when() {
+    let parser = QSQLParser::new();
+    let result = parser.parse(
+        "SELECT name, CASE WHEN age < 20 THEN 'Teen' WHEN age < 40 THEN 'Adult' ELSE 'Senior' END FROM users",
+    );
+
+    assert!(
+        result.is_ok(),
+        "CASE with multiple WHEN should parse successfully: {:?}",
+        result
+    );
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let SelectItem::Expression { expr, .. } = &select.select_list[1] {
+                match expr {
+                    Expression::Case {
+                        when_clauses,
+                        else_result,
+                    } => {
+                        assert_eq!(when_clauses.len(), 2, "Should have 2 WHEN clauses");
+                        assert!(else_result.is_some(), "Should have ELSE clause");
+                    }
+                    _ => panic!("Expected CASE expression"),
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test CASE without ELSE
+#[test]
+fn test_case_expression_without_else() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT name, CASE WHEN age > 30 THEN 'Senior' END FROM users");
+
+    assert!(
+        result.is_ok(),
+        "CASE without ELSE should parse successfully: {:?}",
+        result
+    );
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let SelectItem::Expression { expr, .. } = &select.select_list[1] {
+                match expr {
+                    Expression::Case {
+                        when_clauses,
+                        else_result,
+                    } => {
+                        assert_eq!(when_clauses.len(), 1, "Should have 1 WHEN clause");
+                        assert!(else_result.is_none(), "Should NOT have ELSE clause");
+                    }
+                    _ => panic!("Expected CASE expression"),
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test CASE with alias
+#[test]
+fn test_case_expression_with_alias() {
+    let parser = QSQLParser::new();
+    let result = parser.parse(
+        "SELECT name, CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END AS status FROM users",
+    );
+
+    assert!(
+        result.is_ok(),
+        "CASE with alias should parse successfully: {:?}",
+        result
+    );
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let SelectItem::Expression { expr, alias } = &select.select_list[1] {
+                assert!(
+                    matches!(expr, Expression::Case { .. }),
+                    "Should be CASE expression"
+                );
+                assert_eq!(
+                    alias.as_deref(),
+                    Some("status"),
+                    "Should have alias 'status'"
+                );
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test CASE with string comparison
+#[test]
+fn test_case_expression_string_comparison() {
+    let parser = QSQLParser::new();
+    let result = parser.parse("SELECT CASE WHEN status = 'active' THEN 1 ELSE 0 END FROM users");
+
+    assert!(
+        result.is_ok(),
+        "CASE with string comparison should parse: {:?}",
+        result
+    );
+}
+
+/// Test nested CASE expressions
+#[test]
+fn test_case_expression_with_complex_condition() {
+    let parser = QSQLParser::new();
+    let result = parser.parse(
+        "SELECT CASE WHEN age > 30 AND status = 'active' THEN 'Senior Active' ELSE 'Other' END FROM users",
+    );
+
+    assert!(
+        result.is_ok(),
+        "CASE with complex AND condition should parse: {:?}",
+        result
+    );
+}

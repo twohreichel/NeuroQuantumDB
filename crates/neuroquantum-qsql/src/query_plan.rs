@@ -2384,6 +2384,33 @@ impl QueryExecutor {
 
                 Ok((result_name, query_value, data_type))
             }
+            Expression::Case {
+                when_clauses,
+                else_result,
+            } => {
+                let result_name = alias
+                    .clone()
+                    .unwrap_or_else(|| Self::expression_to_string_static(expr));
+
+                // Evaluate CASE expression: check each WHEN condition in order
+                for (condition, result) in when_clauses {
+                    if Self::evaluate_where_expression(condition, row)? {
+                        // Condition is true, evaluate and return the result
+                        let query_value = self.evaluate_expression_value(result, row)?;
+                        let data_type = self.infer_query_value_type(&query_value);
+                        return Ok((result_name, query_value, data_type));
+                    }
+                }
+                // No condition matched, return ELSE result or NULL
+                match else_result {
+                    Some(else_expr) => {
+                        let query_value = self.evaluate_expression_value(else_expr, row)?;
+                        let data_type = self.infer_query_value_type(&query_value);
+                        Ok((result_name, query_value, data_type))
+                    }
+                    None => Ok((result_name, QueryValue::Null, DataType::Text)),
+                }
+            }
             _ => {
                 // For other expressions, try to convert to string
                 let result_name = alias
@@ -2598,6 +2625,24 @@ impl QueryExecutor {
                 let upper_name = name.to_uppercase();
                 self.evaluate_scalar_function(&upper_name, args, row)
             }
+            Expression::Case {
+                when_clauses,
+                else_result,
+            } => {
+                // Evaluate CASE expression: check each WHEN condition in order
+                for (condition, result) in when_clauses {
+                    // Evaluate the condition
+                    if Self::evaluate_where_expression(condition, row)? {
+                        // Condition is true, return the result
+                        return self.evaluate_expression_value(result, row);
+                    }
+                }
+                // No condition matched, return ELSE result or NULL
+                match else_result {
+                    Some(else_expr) => self.evaluate_expression_value(else_expr, row),
+                    None => Ok(QueryValue::Null),
+                }
+            }
             _ => Ok(QueryValue::Null),
         }
     }
@@ -2611,6 +2656,21 @@ impl QueryExecutor {
             "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" | "POSITION" | "INSTR"
             | "ASCII" => DataType::BigInt,
             _ => DataType::Text,
+        }
+    }
+
+    /// Infer the data type from a QueryValue
+    fn infer_query_value_type(&self, value: &QueryValue) -> DataType {
+        match value {
+            QueryValue::Null => DataType::Text,
+            QueryValue::Boolean(_) => DataType::Boolean,
+            QueryValue::Integer(_) => DataType::BigInt,
+            QueryValue::Float(_) => DataType::Double,
+            QueryValue::String(_) => DataType::Text,
+            QueryValue::Blob(_) => DataType::Blob,
+            QueryValue::DNASequence(_) => DataType::DNASequence,
+            QueryValue::SynapticWeight(_) => DataType::SynapticWeight,
+            QueryValue::QuantumState(_) => DataType::SuperpositionState,
         }
     }
 
@@ -3279,6 +3339,12 @@ impl QueryExecutor {
         match expr {
             Expression::Identifier(name) => name.clone(),
             Expression::Literal(lit) => format!("{:?}", lit),
+            Expression::FunctionCall { name, args } => {
+                let args_str: Vec<String> =
+                    args.iter().map(Self::expression_to_string_static).collect();
+                format!("{}({})", name, args_str.join(", "))
+            }
+            Expression::Case { .. } => "CASE".to_string(),
             _ => "unknown".to_string(),
         }
     }
