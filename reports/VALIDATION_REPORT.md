@@ -3,7 +3,7 @@
 **Testdatum:** 17. Dezember 2025 (Aktualisiert)  
 **Tester:** Senior Rust-Entwickler / Datenbank-Experte  
 **Version:** 0.1.0  
-**Letzte Aktualisierung:** 17.12.2025, 13:45 Uhr
+**Letzte Aktualisierung:** 18.12.2025, 10:30 Uhr
 
 ---
 
@@ -14,15 +14,15 @@
 | **Unit-Tests** | ✅ | 725 | 0 |
 | **Integrationstests** | ✅ | 13 | 0 |
 | **API-Endpunkt-Tests** | ✅ | 15 | 6* |
-| **SQL-Feature-Tests** | ⚠️ | 61 | 53** |
+| **SQL-Feature-Tests** | ⚠️ | 75 | 39** |
 | **Stress-Tests** | ✅ | 17 | 0 |
 | **E2E-Tests** | ✅ | 12+ | 0 |
 
 *\*Fehlgeschlagene API-Tests beziehen sich auf erweiterte Features (DNA/Quantum/Neural), die zusätzliche Konfiguration erfordern.*
 
-**\*\*Fehlende SQL-Features umfassen erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert. JOINs (INNER, LEFT, RIGHT, FULL, CROSS) wurden am 17.12.2025 implementiert.**
+**\*\*Fehlende SQL-Features umfassen erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert. JOINs (INNER, LEFT, RIGHT, FULL, CROSS) wurden am 17.12.2025 implementiert. CASE Expressions und NULL Handling (COALESCE, NULLIF, IFNULL, NVL) wurden am 18.12.2025 implementiert. Mathematische Funktionen (ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM) wurden am 18.12.2025 implementiert.**
 
-**SQL-Feature Erfolgsrate: 53.5%** (verbessert von 47.4%)  
+**SQL-Feature Erfolgsrate: 65.8%** (verbessert von 53.5%)  
 **API Success Rate: 71.4%**
 
 ---
@@ -125,6 +125,20 @@
 | **NULL Handling** | COALESCE | `SELECT COALESCE(email, 'no-email') FROM users` |
 | | NULLIF | `SELECT NULLIF(age, 0) FROM users` |
 | | IFNULL/NVL | `SELECT IFNULL(email, 'default') FROM users`, `SELECT NVL(email, 'default') FROM users` |
+| **Math-Funktionen** | ABS | `SELECT ABS(-5) FROM users` |
+| | ROUND | `SELECT ROUND(age/3.0, 2) FROM users` |
+| | CEIL/CEILING | `SELECT CEIL(age/3.0) FROM users`, `SELECT CEILING(3.2) FROM users` |
+| | FLOOR | `SELECT FLOOR(age/3.0) FROM users` |
+| | MOD | `SELECT MOD(age, 10) FROM users` |
+| | POWER/POW | `SELECT POWER(age, 2) FROM users`, `SELECT POW(2, 10) FROM users` |
+| | SQRT | `SELECT SQRT(age) FROM users` |
+| | SIGN | `SELECT SIGN(-5) FROM users` |
+| | TRUNCATE/TRUNC | `SELECT TRUNCATE(3.7) FROM users`, `SELECT TRUNC(3.7, 1) FROM users` |
+| | EXP | `SELECT EXP(1) FROM users` |
+| | LN/LOG | `SELECT LN(10) FROM users`, `SELECT LOG(100, 10) FROM users` |
+| | LOG10/LOG2 | `SELECT LOG10(100) FROM users`, `SELECT LOG2(8) FROM users` |
+| | PI | `SELECT PI() FROM users` |
+| | RANDOM/RAND | `SELECT RANDOM() FROM users`, `SELECT RAND() FROM users` |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
@@ -140,9 +154,12 @@
 | **Transaktionen** | BEGIN/COMMIT/ROLLBACK | `BEGIN; ... COMMIT;` | 🟡 Mittel |
 | | SAVEPOINT | `SAVEPOINT sp1` | 🟢 Niedrig |
 | **CASE** | ✅ CASE WHEN | `SELECT CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END` | ~~🟡 Mittel~~ ✅ (18.12.2025) |
-| **Math-Funktionen** | ABS/ROUND | `SELECT ABS(age), ROUND(age/3.0, 2) FROM users` | 🟡 Mittel |
-| | CEIL/FLOOR | `SELECT CEIL(age/3.0) FROM users` | 🟢 Niedrig |
-| | MOD/POWER/SQRT | `SELECT MOD(age, 10) FROM users` | 🟢 Niedrig |
+| **Math-Funktionen** | ✅ ABS/ROUND | `SELECT ABS(age), ROUND(age/3.0, 2) FROM users` | ~~🟡 Mittel~~ ✅ (18.12.2025) |
+| | ✅ CEIL/CEILING/FLOOR | `SELECT CEIL(age/3.0) FROM users` | ~~🟢 Niedrig~~ ✅ (18.12.2025) |
+| | ✅ MOD/POWER/POW/SQRT | `SELECT MOD(age, 10) FROM users` | ~~🟢 Niedrig~~ ✅ (18.12.2025) |
+| | ✅ SIGN/TRUNCATE/TRUNC | `SELECT SIGN(age) FROM users` | ✅ (18.12.2025) |
+| | ✅ EXP/LN/LOG/LOG10/LOG2 | `SELECT EXP(1), LN(10) FROM users` | ✅ (18.12.2025) |
+| | ✅ PI/RANDOM/RAND | `SELECT PI(), RANDOM() FROM users` | ✅ (18.12.2025) |
 | **Datum/Zeit** | CURRENT_DATE | `SELECT CURRENT_DATE` | 🟡 Mittel |
 | | NOW() | `SELECT NOW()` | 🟡 Mittel |
 | | DATE_ADD/DATE_SUB | `SELECT DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY)` | 🟢 Niedrig |

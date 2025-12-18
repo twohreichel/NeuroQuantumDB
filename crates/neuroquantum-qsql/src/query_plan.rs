@@ -124,7 +124,7 @@ pub struct ColumnInfo {
 }
 
 /// Value types in query results
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum QueryValue {
     Null,
     Boolean(bool),
@@ -2648,6 +2648,290 @@ impl QueryExecutor {
                 } else {
                     Ok(val1)
                 }
+            }
+
+            // Math functions
+            "ABS" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i.abs())),
+                    QueryValue::Float(f) => Ok(QueryValue::Float(f.abs())),
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "ABS requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "ROUND" => {
+                let val = get_arg_value(0)?;
+                let decimals = if args.len() >= 2 { get_int_arg(1)? } else { 0 };
+                match val {
+                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    QueryValue::Float(f) => {
+                        let multiplier = 10_f64.powi(decimals as i32);
+                        let rounded = (f * multiplier).round() / multiplier;
+                        if decimals == 0 {
+                            Ok(QueryValue::Integer(rounded as i64))
+                        } else {
+                            Ok(QueryValue::Float(rounded))
+                        }
+                    }
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "ROUND requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "CEIL" | "CEILING" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    QueryValue::Float(f) => Ok(QueryValue::Integer(f.ceil() as i64)),
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "CEIL requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "FLOOR" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    QueryValue::Float(f) => Ok(QueryValue::Integer(f.floor() as i64)),
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "FLOOR requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "MOD" => {
+                if args.len() < 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "MOD requires exactly 2 arguments".to_string(),
+                    });
+                }
+                let val1 = get_arg_value(0)?;
+                let val2 = get_arg_value(1)?;
+                match (val1, val2) {
+                    (QueryValue::Integer(a), QueryValue::Integer(b)) => {
+                        if b == 0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Integer(a % b))
+                        }
+                    }
+                    (QueryValue::Float(a), QueryValue::Float(b)) => {
+                        if b == 0.0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float(a % b))
+                        }
+                    }
+                    (QueryValue::Integer(a), QueryValue::Float(b)) => {
+                        if b == 0.0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float((a as f64) % b))
+                        }
+                    }
+                    (QueryValue::Float(a), QueryValue::Integer(b)) => {
+                        if b == 0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float(a % (b as f64)))
+                        }
+                    }
+                    (QueryValue::Null, _) | (_, QueryValue::Null) => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "MOD requires numeric arguments".to_string(),
+                    }),
+                }
+            }
+            "POWER" | "POW" => {
+                if args.len() < 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "POWER requires exactly 2 arguments".to_string(),
+                    });
+                }
+                let val1 = get_arg_value(0)?;
+                let val2 = get_arg_value(1)?;
+                match (val1, val2) {
+                    (QueryValue::Integer(base), QueryValue::Integer(exp)) => {
+                        if exp >= 0 {
+                            Ok(QueryValue::Integer((base as f64).powi(exp as i32) as i64))
+                        } else {
+                            Ok(QueryValue::Float((base as f64).powi(exp as i32)))
+                        }
+                    }
+                    (QueryValue::Float(base), QueryValue::Integer(exp)) => {
+                        Ok(QueryValue::Float(base.powi(exp as i32)))
+                    }
+                    (QueryValue::Integer(base), QueryValue::Float(exp)) => {
+                        Ok(QueryValue::Float((base as f64).powf(exp)))
+                    }
+                    (QueryValue::Float(base), QueryValue::Float(exp)) => {
+                        Ok(QueryValue::Float(base.powf(exp)))
+                    }
+                    (QueryValue::Null, _) | (_, QueryValue::Null) => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "POWER requires numeric arguments".to_string(),
+                    }),
+                }
+            }
+            "SQRT" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => {
+                        if i < 0 {
+                            Ok(QueryValue::Null) // SQL standard: SQRT of negative is NULL
+                        } else {
+                            Ok(QueryValue::Float((i as f64).sqrt()))
+                        }
+                    }
+                    QueryValue::Float(f) => {
+                        if f < 0.0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float(f.sqrt()))
+                        }
+                    }
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "SQRT requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "SIGN" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i.signum())),
+                    QueryValue::Float(f) => {
+                        if f > 0.0 {
+                            Ok(QueryValue::Integer(1))
+                        } else if f < 0.0 {
+                            Ok(QueryValue::Integer(-1))
+                        } else {
+                            Ok(QueryValue::Integer(0))
+                        }
+                    }
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "SIGN requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "TRUNCATE" | "TRUNC" => {
+                let val = get_arg_value(0)?;
+                let decimals = if args.len() >= 2 { get_int_arg(1)? } else { 0 };
+                match val {
+                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    QueryValue::Float(f) => {
+                        let multiplier = 10_f64.powi(decimals as i32);
+                        let truncated = (f * multiplier).trunc() / multiplier;
+                        if decimals == 0 {
+                            Ok(QueryValue::Integer(truncated as i64))
+                        } else {
+                            Ok(QueryValue::Float(truncated))
+                        }
+                    }
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "TRUNCATE requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "EXP" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => Ok(QueryValue::Float((i as f64).exp())),
+                    QueryValue::Float(f) => Ok(QueryValue::Float(f.exp())),
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "EXP requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "LN" | "LOG" => {
+                // LOG with one argument is natural logarithm (LN)
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => {
+                        if i <= 0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float((i as f64).ln()))
+                        }
+                    }
+                    QueryValue::Float(f) => {
+                        if f <= 0.0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float(f.ln()))
+                        }
+                    }
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "LN/LOG requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "LOG10" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => {
+                        if i <= 0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float((i as f64).log10()))
+                        }
+                    }
+                    QueryValue::Float(f) => {
+                        if f <= 0.0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float(f.log10()))
+                        }
+                    }
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "LOG10 requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "LOG2" => {
+                let val = get_arg_value(0)?;
+                match val {
+                    QueryValue::Integer(i) => {
+                        if i <= 0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float((i as f64).log2()))
+                        }
+                    }
+                    QueryValue::Float(f) => {
+                        if f <= 0.0 {
+                            Ok(QueryValue::Null)
+                        } else {
+                            Ok(QueryValue::Float(f.log2()))
+                        }
+                    }
+                    QueryValue::Null => Ok(QueryValue::Null),
+                    _ => Err(QSQLError::ExecutionError {
+                        message: "LOG2 requires a numeric argument".to_string(),
+                    }),
+                }
+            }
+            "PI" => Ok(QueryValue::Float(std::f64::consts::PI)),
+            "RANDOM" | "RAND" => {
+                // Returns a random float between 0 and 1
+                use std::time::{SystemTime, UNIX_EPOCH};
+                let seed = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos();
+                // Simple pseudo-random using seed
+                let random = ((seed % 10000) as f64) / 10000.0;
+                Ok(QueryValue::Float(random))
             }
 
             _ => Err(QSQLError::ExecutionError {
