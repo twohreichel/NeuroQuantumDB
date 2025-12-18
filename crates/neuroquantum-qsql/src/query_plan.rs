@@ -362,15 +362,56 @@ impl QueryExecutor {
                     .await;
             }
 
+            // Check if we have subqueries that need to be resolved first
+            let has_subqueries = select
+                .where_clause
+                .as_ref()
+                .map(Self::contains_subquery_expression)
+                .unwrap_or(false);
+
+            // Resolve subqueries if present
+            let resolved_where_clause = if has_subqueries {
+                if let Some(where_expr) = &select.where_clause {
+                    Some(
+                        self.resolve_subqueries_in_expression(where_expr.clone())
+                            .await?,
+                    )
+                } else {
+                    None
+                }
+            } else {
+                select.where_clause.clone()
+            };
+
+            // Create a modified select statement with resolved subqueries
+            let resolved_select = if has_subqueries {
+                SelectStatement {
+                    select_list: select.select_list.clone(),
+                    from: select.from.clone(),
+                    where_clause: resolved_where_clause.clone(),
+                    group_by: select.group_by.clone(),
+                    having: select.having.clone(),
+                    order_by: select.order_by.clone(),
+                    limit: select.limit,
+                    offset: select.offset,
+                    synaptic_weight: select.synaptic_weight,
+                    plasticity_threshold: select.plasticity_threshold,
+                    quantum_parallel: select.quantum_parallel,
+                    grover_iterations: select.grover_iterations,
+                }
+            } else {
+                select.clone()
+            };
+
             // Check if we need post-filtering for InList expressions
-            let needs_post_filter = select
+            let needs_post_filter = resolved_select
                 .where_clause
                 .as_ref()
                 .map(Self::contains_in_list_expression)
                 .unwrap_or(false);
 
             // Convert SQL SELECT to storage query (no borrow of self.storage_engine)
-            let storage_query = self.convert_select_to_storage_query(select)?;
+            let storage_query = self.convert_select_to_storage_query(&resolved_select)?;
 
             // Execute query via storage engine (automatically DNA-decompressed!)
             // Acquire read lock for query execution
@@ -385,18 +426,18 @@ impl QueryExecutor {
 
             // Apply post-filtering for InList expressions
             let filtered_rows = if needs_post_filter {
-                if let Some(where_expr) = &select.where_clause {
+                if let Some(where_expr) = &resolved_select.where_clause {
                     let mut filtered = Self::apply_post_filter(storage_rows, where_expr)?;
 
                     // Apply limit/offset after filtering
-                    if let Some(offset) = select.offset {
+                    if let Some(offset) = resolved_select.offset {
                         if offset as usize >= filtered.len() {
                             filtered = Vec::new();
                         } else {
                             filtered = filtered.into_iter().skip(offset as usize).collect();
                         }
                     }
-                    if let Some(limit) = select.limit {
+                    if let Some(limit) = resolved_select.limit {
                         filtered.truncate(limit as usize);
                     }
 
@@ -1783,10 +1824,11 @@ impl QueryExecutor {
         })
     }
 
-    /// Check if an expression contains an InList that needs post-filtering
+    /// Check if an expression contains an InList or InSubquery that needs post-filtering
     fn contains_in_list_expression(expr: &Expression) -> bool {
         match expr {
             Expression::InList { .. } => true,
+            Expression::InSubquery { .. } => true,
             Expression::BinaryOp { left, right, .. } => {
                 Self::contains_in_list_expression(left) || Self::contains_in_list_expression(right)
             }
@@ -4097,6 +4139,160 @@ impl QueryExecutor {
     /// Reset execution statistics
     pub fn reset_stats(&mut self) {
         self.execution_stats = ExecutionStats::default();
+    }
+
+    /// Check if an expression contains a subquery that needs resolution
+    fn contains_subquery_expression(expr: &Expression) -> bool {
+        match expr {
+            Expression::InSubquery { .. } => true,
+            Expression::BinaryOp { left, right, .. } => {
+                Self::contains_subquery_expression(left)
+                    || Self::contains_subquery_expression(right)
+            }
+            Expression::UnaryOp { operand, .. } => Self::contains_subquery_expression(operand),
+            _ => false,
+        }
+    }
+
+    /// Resolve all InSubquery expressions in a WHERE clause by executing them
+    /// and converting them to InList expressions
+    fn resolve_subqueries_in_expression<'a>(
+        &'a mut self,
+        expr: Expression,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = QSQLResult<Expression>> + Send + 'a>>
+    {
+        Box::pin(async move {
+            match expr {
+                Expression::InSubquery {
+                    expr: field_expr,
+                    subquery,
+                    negated,
+                } => {
+                    // Execute the subquery to get the list of values
+                    let subquery_values = self.execute_subquery_for_in(&subquery).await?;
+
+                    // Convert the subquery result to a list of literal expressions
+                    let list: Vec<Expression> = subquery_values
+                        .into_iter()
+                        .map(|v| Expression::Literal(Self::value_to_literal(v)))
+                        .collect();
+
+                    // Return an InList expression with the resolved values
+                    Ok(Expression::InList {
+                        expr: field_expr,
+                        list,
+                        negated,
+                    })
+                }
+                Expression::BinaryOp {
+                    left,
+                    operator,
+                    right,
+                } => {
+                    // Recursively resolve subqueries in both sides
+                    let resolved_left = self.resolve_subqueries_in_expression(*left).await?;
+                    let resolved_right = self.resolve_subqueries_in_expression(*right).await?;
+                    Ok(Expression::BinaryOp {
+                        left: Box::new(resolved_left),
+                        operator,
+                        right: Box::new(resolved_right),
+                    })
+                }
+                Expression::UnaryOp { operator, operand } => {
+                    let resolved_operand = self.resolve_subqueries_in_expression(*operand).await?;
+                    Ok(Expression::UnaryOp {
+                        operator,
+                        operand: Box::new(resolved_operand),
+                    })
+                }
+                // For all other expressions, return as-is
+                other => Ok(other),
+            }
+        })
+    }
+
+    /// Execute a subquery for IN clause and return the first column values
+    async fn execute_subquery_for_in(
+        &mut self,
+        subquery: &SelectStatement,
+    ) -> QSQLResult<Vec<Value>> {
+        // Get the table name from the subquery
+        let table_name = if let Some(from) = &subquery.from {
+            if !from.relations.is_empty() {
+                from.relations[0].name.clone()
+            } else {
+                return Err(QSQLError::ExecutionError {
+                    message: "Subquery has no table in FROM clause".to_string(),
+                });
+            }
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "Subquery missing FROM clause".to_string(),
+            });
+        };
+
+        // Build a storage query for the subquery
+        let storage_query = SelectQuery {
+            table: table_name,
+            columns: vec!["*".to_string()], // Get all columns, we'll extract the first one
+            where_clause: subquery
+                .where_clause
+                .as_ref()
+                .and_then(|w| Self::convert_expression_to_where_clause_static(w).ok()),
+            order_by: None,
+            limit: subquery.limit,
+            offset: subquery.offset,
+        };
+
+        // Execute the subquery
+        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let rows = storage_guard
+            .select_rows(&storage_query)
+            .await
+            .map_err(|e| QSQLError::ExecutionError {
+                message: format!("Subquery execution failed: {}", e),
+            })?;
+        drop(storage_guard);
+
+        // Extract the first column from each row
+        let column_name = if !subquery.select_list.is_empty() {
+            match &subquery.select_list[0] {
+                SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
+                SelectItem::Wildcard => {
+                    // For wildcard, use the first field in the row
+                    if let Some(first_row) = rows.first() {
+                        first_row.fields.keys().next().cloned().unwrap_or_default()
+                    } else {
+                        String::new()
+                    }
+                }
+            }
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "Subquery has no columns in SELECT list".to_string(),
+            });
+        };
+
+        // Collect values from the first column
+        let values: Vec<Value> = rows
+            .into_iter()
+            .filter_map(|row| row.fields.get(&column_name).cloned())
+            .collect();
+
+        Ok(values)
+    }
+
+    /// Convert a Value to a Literal
+    fn value_to_literal(value: Value) -> Literal {
+        match value {
+            Value::Integer(i) => Literal::Integer(i),
+            Value::Float(f) => Literal::Float(f),
+            Value::Text(s) => Literal::String(s),
+            Value::Boolean(b) => Literal::Boolean(b),
+            Value::Null => Literal::Null,
+            Value::Timestamp(ts) => Literal::String(ts.to_rfc3339()),
+            Value::Binary(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
+        }
     }
 }
 

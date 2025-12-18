@@ -3,7 +3,7 @@
 **Testdatum:** 17. Dezember 2025 (Aktualisiert)  
 **Tester:** Senior Rust-Entwickler / Datenbank-Experte  
 **Version:** 0.1.0  
-**Letzte Aktualisierung:** 18.12.2025, 11:50 Uhr
+**Letzte Aktualisierung:** 18.12.2025, 12:30 Uhr
 
 ---
 
@@ -11,18 +11,18 @@
 
 | Kategorie | Status | Bestanden | Fehlgeschlagen |
 |-----------|--------|-----------|----------------|
-| **Unit-Tests** | ✅ | 725 | 0 |
+| **Unit-Tests** | ✅ | 728 | 0 |
 | **Integrationstests** | ✅ | 13 | 0 |
 | **API-Endpunkt-Tests** | ✅ | 15 | 6* |
-| **SQL-Feature-Tests** | ⚠️ | 87 | 27** |
+| **SQL-Feature-Tests** | ⚠️ | 89 | 25** |
 | **Stress-Tests** | ✅ | 17 | 0 |
 | **E2E-Tests** | ✅ | 12+ | 0 |
 
 *\*Fehlgeschlagene API-Tests beziehen sich auf erweiterte Features (DNA/Quantum/Neural), die zusätzliche Konfiguration erfordern.*
 
-**\*\*Fehlende SQL-Features umfassen erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert. JOINs (INNER, LEFT, RIGHT, FULL, CROSS) wurden am 17.12.2025 implementiert. CASE Expressions und NULL Handling (COALESCE, NULLIF, IFNULL, NVL) wurden am 18.12.2025 implementiert. Mathematische Funktionen (ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM) wurden am 18.12.2025 implementiert. Datum/Zeit-Funktionen (NOW, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, UNIX_TIMESTAMP, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DAYOFWEEK, DAYOFYEAR, WEEK, QUARTER, DATE_FORMAT, DATEDIFF) wurden am 18.12.2025 implementiert.**
+**\*\*Fehlende SQL-Features umfassen erweiterte Funktionen. Aggregatfunktionen (COUNT, SUM, AVG, MIN, MAX) wurden am 17.12.2025 implementiert. GROUP BY / HAVING wurden am 17.12.2025 implementiert. IN-Operator wurde am 17.12.2025 implementiert. JOINs (INNER, LEFT, RIGHT, FULL, CROSS) wurden am 17.12.2025 implementiert. CASE Expressions und NULL Handling (COALESCE, NULLIF, IFNULL, NVL) wurden am 18.12.2025 implementiert. Mathematische Funktionen (ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM) wurden am 18.12.2025 implementiert. Datum/Zeit-Funktionen (NOW, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, UNIX_TIMESTAMP, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DAYOFWEEK, DAYOFYEAR, WEEK, QUARTER, DATE_FORMAT, DATEDIFF) wurden am 18.12.2025 implementiert. Subqueries in WHERE (IN/NOT IN) wurden am 18.12.2025 implementiert.**
 
-**SQL-Feature Erfolgsrate: 76.3%** (verbessert von 65.8%)  
+**SQL-Feature Erfolgsrate: 78.1%** (verbessert von 76.3%)  
 **API Success Rate: 71.4%**
 
 ---
@@ -153,12 +153,14 @@
 | | QUARTER | `SELECT QUARTER('2025-12-18') FROM users` |
 | | DATE_FORMAT/STRFTIME | `SELECT DATE_FORMAT('2025-12-18 10:30:00', '%Y-%m-%d')` |
 | | DATEDIFF | `SELECT DATEDIFF('2025-12-31', '2025-12-18')` |
+| **Subqueries in WHERE** | IN (Subquery) | `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)` | ✅ NEU (18.12.2025) |
+| | NOT IN (Subquery) | `SELECT * FROM users WHERE id NOT IN (SELECT user_id FROM inactive)` | ✅ NEU (18.12.2025) |
 
 #### ❌ Nicht-Funktionierende SQL-Features (Kritisch für vollständigen SQL-Support)
 
 | Kategorie | Feature | Beispiel | Priorität |
 |-----------|---------|----------|-----------|
-| **Subqueries** | IN (Subquery) | `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)` | 🔴 Kritisch |
+| **Subqueries** | ✅ IN (Subquery) | `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)` | ~~🔴 Kritisch~~ ✅ (18.12.2025) |
 | | FROM (Subquery) | `SELECT * FROM (SELECT name FROM users) AS subq` | 🟡 Mittel |
 | **DDL** | CREATE TABLE | `CREATE TABLE test (id INT PRIMARY KEY)` | 🟡 REST-API nutzen |
 | | DROP TABLE | `DROP TABLE test` | 🟡 REST-API nutzen |
@@ -400,6 +402,7 @@ POST /api/v1/tables/users/query
 15. **NULL Handling:** ✅ COALESCE, NULLIF, IFNULL, NVL implementiert (18.12.2025)
 16. **Math-Funktionen:** ✅ ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM implementiert (18.12.2025)
 17. **Datum/Zeit-Funktionen:** ✅ NOW, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, UNIX_TIMESTAMP, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DAYOFWEEK, DAYOFYEAR, WEEK, QUARTER, DATE_FORMAT, DATEDIFF implementiert (18.12.2025)
+18. **Subqueries in WHERE:** ✅ WHERE id IN (SELECT ...) und NOT IN (SELECT ...) implementiert (18.12.2025)
 
 ### Schwächen 🔧
 
@@ -410,12 +413,13 @@ POST /api/v1/tables/users/query
    - ✅ ~~NULL Handling (COALESCE, NULLIF, IFNULL)~~ implementiert (18.12.2025)
    - ✅ ~~Math-Funktionen~~ implementiert (18.12.2025)
    - ✅ ~~Datum/Zeit-Funktionen~~ implementiert (18.12.2025)
+   - ✅ ~~Subqueries in WHERE (IN/NOT IN)~~ implementiert (18.12.2025)
    - ❌ Window Functions fehlen
    - ❌ CTEs (WITH ... AS) fehlen
+   - ❌ Subqueries in FROM fehlen
 2. **QSQL via Query-Endpunkt:** NEUROMATCH/QUANTUM_SEARCH Parser-Integration unvollständig
 3. **Erweiterte REST-Features:** DNA/Quantum/Neural-Endpunkte erfordern zusätzliche AppState-Konfiguration
 4. **DDL via SQL:** CREATE TABLE, DROP TABLE, ALTER nur via REST-API möglich
-
 ### Empfehlungen 📋 (Priorität nach Kritikalität)
 
 **🔴 Kritisch (Für produktiven Einsatz erforderlich):**
@@ -429,7 +433,7 @@ POST /api/v1/tables/users/query
 6. ~~**CASE Expressions:** Bedingte Logik in Queries~~ ✅ ERLEDIGT (18.12.2025)
 7. ~~**COALESCE:** NULL-Handling~~ ✅ ERLEDIGT (18.12.2025)
 8. ~~**Datum/Zeit-Funktionen:** NOW(), CURRENT_DATE, YEAR, MONTH, etc.~~ ✅ ERLEDIGT (18.12.2025)
-9. **Subqueries in WHERE:** `WHERE id IN (SELECT ...)`
+9. ~~**Subqueries in WHERE:** `WHERE id IN (SELECT ...)`~~ ✅ ERLEDIGT (18.12.2025)
 10. **Transaktionskontrolle:** BEGIN/COMMIT/ROLLBACK via SQL
 
 **🟢 Niedrig (Nice-to-have):**
@@ -440,7 +444,6 @@ POST /api/v1/tables/users/query
 ---
 
 ## 6. Detaillierte SQL-Testergebnisse
-
 ### 6.1 Funktionierende SQL-Features (87 von 114)
 
 | Kategorie | Features |
@@ -461,19 +464,20 @@ POST /api/v1/tables/users/query
 | **NULL Handling** | COALESCE, NULLIF, IFNULL, NVL ✅ NEU (18.12.2025) |
 | **Math-Funktionen** | ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT, SIGN, TRUNCATE, EXP, LN, LOG, LOG10, LOG2, PI, RANDOM ✅ NEU (18.12.2025) |
 | **Datum/Zeit** | NOW, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, UNIX_TIMESTAMP, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DAYOFWEEK, DAYOFYEAR, WEEK, QUARTER, DATE_FORMAT, DATEDIFF ✅ NEU (18.12.2025) |
+| **Subqueries in WHERE** | IN (Subquery), NOT IN (Subquery) ✅ NEU (18.12.2025) |
 
-### 6.2 Nicht-Funktionierende SQL-Features (53 von 114)
+### 6.2 Nicht-Funktionierende SQL-Features (51 von 114)
 
 | Kategorie | Fehlende Features | Priorität |
 |-----------|-------------------|-----------|
 | **JOINs** | ✅ INNER, LEFT, RIGHT, FULL OUTER, CROSS implementiert (17.12.2025) | ~~🔴 Kritisch~~ |
 | **String-Funktionen** | ✅ UPPER, LOWER, LENGTH, CONCAT, SUBSTRING, TRIM, REPLACE, LEFT, RIGHT, REVERSE, REPEAT, LPAD, RPAD, INITCAP, ASCII, CHR, POSITION implementiert (17.12.2025) | ~~🟡 Mittel~~ |
 | **CASE Expressions** | ✅ CASE WHEN ... THEN ... ELSE ... END implementiert (18.12.2025) | ~~🟡 Mittel~~ |
-| **Subqueries** | IN (Subquery), FROM (Subquery) | 🟡 Mittel |
+| **Subqueries** | ✅ IN (Subquery) implementiert (18.12.2025), FROM (Subquery) fehlt | ~~🟡 Mittel~~ → 🟢 Niedrig |
 | **DDL** | CREATE TABLE, DROP TABLE, ALTER, TRUNCATE, INDEX | 🟡 REST nutzen |
 | **Transaktionen** | BEGIN, COMMIT, ROLLBACK, SAVEPOINT | 🟡 Mittel |
-| **Math-Funktionen** | ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT | 🟢 Niedrig |
-| **Datum/Zeit** | CURRENT_DATE, NOW(), DATE_ADD, EXTRACT | 🟡 Mittel |
+| **Math-Funktionen** | ✅ ABS, ROUND, CEIL, FLOOR, MOD, POWER, SQRT implementiert (18.12.2025) | ~~🟢 Niedrig~~ |
+| **Datum/Zeit** | ✅ CURRENT_DATE, NOW(), etc. implementiert (18.12.2025), DATE_ADD, EXTRACT fehlen | ~~🟡 Mittel~~ → 🟢 Niedrig |
 | **NULL Handling** | ✅ COALESCE, NULLIF, IFNULL, NVL implementiert (18.12.2025) | ~~🟡 Mittel~~ |
 | **Window Functions** | ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, OVER | 🟢 Niedrig |
 | **CTEs** | WITH ... AS, Rekursive CTEs | 🟢 Niedrig |
@@ -572,7 +576,8 @@ Fehlt: 40 (35.1%)
 **Für String-Manipulation:** ✅ Einsatzbereit (17.12.2025)  
 **Für bedingte Logik (CASE):** ✅ Einsatzbereit (18.12.2025)
 **Für NULL-Handling (COALESCE, NULLIF, IFNULL):** ✅ Einsatzbereit (18.12.2025)
-**Für erweiterte SQL-Anwendungen:** ❌ Signifikante Lücken  
+**Für Subqueries in WHERE (IN/NOT IN):** ✅ Einsatzbereit (18.12.2025)
+**Für erweiterte SQL-Anwendungen:** ❌ Signifikante Lücken (Window Functions, CTEs)
 
 ### Prioritäten für Weiterentwicklung
 
@@ -583,14 +588,16 @@ Fehlt: 40 (35.1%)
 5. ~~🟡 **String-Funktionen** - Mittel~~ ✅ ERLEDIGT (17.12.2025)
 6. ~~🟡 **CASE Expressions** - Mittel~~ ✅ ERLEDIGT (18.12.2025)
 7. ~~🟡 **NULL Handling (COALESCE, NULLIF, IFNULL)** - Mittel~~ ✅ ERLEDIGT (18.12.2025)
-8. 🟡 **Subqueries in WHERE** - Mittel
+8. ~~🟡 **Subqueries in WHERE** - Mittel~~ ✅ ERLEDIGT (18.12.2025)
 9. 🟢 **Window Functions** - Niedrig
+10. 🟢 **CTEs (WITH ... AS)** - Niedrig
+11. 🟢 **Subqueries in FROM** - Niedrig
 
 ---
 
 ---
 
 *Bericht erstellt am 17. Dezember 2025*  
-*Letzte Aktualisierung: 18.12.2025, 09:15 Uhr*  
+*Letzte Aktualisierung: 18.12.2025, 12:30 Uhr*  
 *Testumgebung: macOS, ARM64 (Apple Silicon), Rust 1.80+*  
 *SQL-Tests: 114 Features getestet*

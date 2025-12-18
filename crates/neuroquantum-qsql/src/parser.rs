@@ -863,6 +863,355 @@ impl QSQLParser {
         }))
     }
 
+    /// Parse SELECT statement starting at a specific position (for subqueries)
+    /// This method is similar to parse_select_statement but accepts and updates an index.
+    fn parse_select_statement_at(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<SelectStatement> {
+        let mut select_list = Vec::new();
+        let mut from = None;
+        let mut where_clause = None;
+        let mut group_by = Vec::new();
+        let mut having = None;
+        let mut order_by = Vec::new();
+        let mut limit = None;
+        let offset = None;
+        let synaptic_weight = None;
+        let plasticity_threshold = None;
+        let quantum_parallel = false;
+        let grover_iterations = None;
+
+        // Skip SELECT keyword
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Select) {
+            *i += 1;
+        }
+
+        // Skip optional DISTINCT
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Distinct) {
+            *i += 1;
+        }
+
+        // Parse SELECT list
+        loop {
+            if *i >= tokens.len()
+                || matches!(
+                    tokens[*i],
+                    TokenType::From | TokenType::EOF | TokenType::RightParen
+                )
+            {
+                break;
+            }
+
+            match &tokens[*i] {
+                TokenType::Identifier(name) => {
+                    // Build full qualified name (e.g., u.name, table.column)
+                    let mut full_name = name.clone();
+                    *i += 1;
+
+                    // Check for qualified name (e.g., u.id, table.column)
+                    while *i + 1 < tokens.len() && matches!(tokens[*i], TokenType::Dot) {
+                        if let TokenType::Identifier(next_part) = &tokens[*i + 1] {
+                            full_name.push('.');
+                            full_name.push_str(next_part);
+                            *i += 2; // consume '.' and identifier
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // Check if this is a function call (next token is '(')
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                        let expr = self.parse_function_call(tokens, i, full_name)?;
+
+                        // Check for optional AS alias
+                        let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                            *i += 1;
+                            if *i < tokens.len() {
+                                if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                    *i += 1;
+                                    Some(alias_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression { expr, alias });
+                    } else {
+                        // Check for optional AS alias
+                        let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                            *i += 1;
+                            if *i < tokens.len() {
+                                if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                    *i += 1;
+                                    Some(alias_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression {
+                            expr: Expression::Identifier(full_name),
+                            alias,
+                        });
+                    }
+                }
+                TokenType::Multiply => {
+                    select_list.push(SelectItem::Wildcard);
+                    *i += 1;
+                }
+                TokenType::Case => {
+                    // Parse CASE expression
+                    let expr = self.parse_case_expression(tokens, i)?;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                TokenType::Comma => {
+                    *i += 1; // Skip comma and continue
+                }
+                _ => break,
+            }
+        }
+
+        // Validate that we have at least one column in SELECT list
+        if select_list.is_empty() {
+            return Err(QSQLError::ParseError {
+                message: "SELECT statement must specify at least one column".to_string(),
+                position: *i,
+            });
+        }
+
+        // Parse FROM clause
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::From) {
+            *i += 1;
+            if *i < tokens.len() {
+                if let TokenType::Identifier(table_name) = &tokens[*i] {
+                    let first_table_name = table_name.clone();
+                    *i += 1;
+
+                    // Check for table alias (AS or direct identifier)
+                    let first_alias = self.parse_table_alias(tokens, i);
+
+                    let first_relation = TableReference {
+                        name: first_table_name,
+                        alias: first_alias,
+                        synaptic_weight: None,
+                        quantum_state: None,
+                    };
+
+                    // Parse JOINs
+                    let joins = self.parse_join_clauses(tokens, i)?;
+
+                    from = Some(FromClause {
+                        relations: vec![first_relation],
+                        joins,
+                    });
+                }
+            }
+        }
+
+        // Parse WHERE clause (but stop before RightParen for subqueries)
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Where) {
+            *i += 1;
+            where_clause = Some(self.parse_subquery_where_expression(tokens, i)?);
+        }
+
+        // Parse GROUP BY clause
+        if *i + 1 < tokens.len() && matches!(tokens[*i], TokenType::GroupBy) {
+            *i += 2; // Skip "GROUP BY"
+            loop {
+                if *i >= tokens.len()
+                    || matches!(
+                        tokens[*i],
+                        TokenType::Having
+                            | TokenType::OrderBy
+                            | TokenType::Limit
+                            | TokenType::EOF
+                            | TokenType::RightParen
+                    )
+                {
+                    break;
+                }
+                group_by.push(self.parse_expression(tokens, i)?);
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                    *i += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Parse HAVING clause
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Having) {
+            *i += 1;
+            having = Some(self.parse_subquery_where_expression(tokens, i)?);
+        }
+
+        // Parse ORDER BY clause
+        if *i + 1 < tokens.len() && matches!(tokens[*i], TokenType::OrderBy) {
+            *i += 2; // Skip "ORDER BY"
+            loop {
+                if *i >= tokens.len()
+                    || matches!(
+                        tokens[*i],
+                        TokenType::Limit | TokenType::EOF | TokenType::RightParen
+                    )
+                {
+                    break;
+                }
+                let expr = self.parse_expression(tokens, i)?;
+                order_by.push(OrderByItem {
+                    expression: expr,
+                    ascending: true, // Default to ASC
+                });
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                    *i += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Parse LIMIT clause
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Limit) {
+            *i += 1;
+            if *i < tokens.len() {
+                if let TokenType::IntegerLiteral(n) = tokens[*i] {
+                    limit = Some(n as u64);
+                    *i += 1;
+                }
+            }
+        }
+
+        Ok(SelectStatement {
+            select_list,
+            from,
+            where_clause,
+            group_by,
+            having,
+            order_by,
+            limit,
+            offset,
+            synaptic_weight,
+            plasticity_threshold,
+            quantum_parallel,
+            grover_iterations,
+        })
+    }
+
+    /// Parse a WHERE expression for subqueries (stops at RightParen)
+    fn parse_subquery_where_expression(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Expression> {
+        self.parse_subquery_expression_with_precedence(tokens, i, Precedence::None)
+    }
+
+    /// Parse expression for subqueries, stopping at RightParen
+    fn parse_subquery_expression_with_precedence(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+        min_precedence: Precedence,
+    ) -> QSQLResult<Expression> {
+        // First, parse the left-hand side (prefix expression)
+        let mut left = self.parse_prefix_expression(tokens, i)?;
+
+        // Then, handle infix operators using precedence climbing
+        while *i < tokens.len() {
+            // Stop at RightParen for subqueries
+            if matches!(tokens[*i], TokenType::RightParen) {
+                break;
+            }
+
+            // Check for NOT IN (two-token sequence)
+            if matches!(tokens[*i], TokenType::Not)
+                && *i + 1 < tokens.len()
+                && matches!(tokens[*i + 1], TokenType::In)
+            {
+                *i += 2; // consume NOT IN
+                left = self.parse_in_list(tokens, i, left, true)?;
+                continue;
+            }
+
+            // Check for IN operator - special handling for IN (list)
+            if matches!(tokens[*i], TokenType::In) {
+                *i += 1; // consume IN
+                left = self.parse_in_list(tokens, i, left, false)?;
+                continue;
+            }
+
+            // Get operator info for current token
+            let op_info = match self.get_operator_info(&tokens[*i]) {
+                Some(info) => info,
+                None => break, // Not an operator, stop parsing
+            };
+
+            // If operator precedence is too low, stop
+            if op_info.precedence < min_precedence {
+                break;
+            }
+
+            // Consume the operator
+            *i += 1;
+
+            // Parse right-hand side with appropriate precedence
+            let next_precedence = if op_info.right_associative {
+                op_info.precedence
+            } else {
+                op_info.precedence.next()
+            };
+
+            // Stop at RightParen for subqueries
+            if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Unexpected ) in expression".to_string(),
+                    position: *i,
+                });
+            }
+
+            let right =
+                self.parse_subquery_expression_with_precedence(tokens, i, next_precedence)?;
+
+            left = Expression::BinaryOp {
+                left: Box::new(left),
+                operator: op_info.operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
     /// Parse INSERT statement
     fn parse_insert_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut i = 0;
@@ -2073,6 +2422,27 @@ impl QSQLParser {
             });
         }
         *i += 1; // consume '('
+
+        // Check if this is a subquery (starts with SELECT)
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Select) {
+            // Parse the subquery
+            let subquery = self.parse_select_statement_at(tokens, i)?;
+
+            // Expect closing paren
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected ')' after subquery in IN clause".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1; // consume ')'
+
+            return Ok(Expression::InSubquery {
+                expr: Box::new(left),
+                subquery: Box::new(subquery),
+                negated,
+            });
+        }
 
         let mut list = Vec::new();
 

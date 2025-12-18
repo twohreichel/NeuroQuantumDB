@@ -298,6 +298,13 @@ pub enum Expression {
         negated: bool, // true for NOT IN
     },
 
+    // IN subquery expression for WHERE column IN (SELECT ...)
+    InSubquery {
+        expr: Box<Expression>,
+        subquery: Box<SelectStatement>,
+        negated: bool, // true for NOT IN
+    },
+
     // CASE expression for conditional logic
     // CASE WHEN condition1 THEN result1 WHEN condition2 THEN result2 ... ELSE else_result END
     Case {

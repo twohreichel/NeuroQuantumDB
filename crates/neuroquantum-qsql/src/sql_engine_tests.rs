@@ -1376,3 +1376,129 @@ fn test_case_expression_with_complex_condition() {
         result
     );
 }
+
+/// Test IN subquery parsing: WHERE column IN (SELECT ...)
+#[test]
+fn test_in_subquery_parsing() {
+    let parser = QSQLParser::new();
+
+    // Test basic IN with subquery
+    let result = parser.parse("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)");
+    assert!(
+        result.is_ok(),
+        "IN subquery should parse successfully: {:?}",
+        result
+    );
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::InSubquery {
+                expr,
+                subquery,
+                negated,
+            }) = &select.where_clause
+            {
+                assert!(!negated, "Should not be negated");
+
+                // Check the field expression
+                if let Expression::Identifier(name) = expr.as_ref() {
+                    assert_eq!(name, "id");
+                } else {
+                    panic!("Expected identifier 'id'");
+                }
+
+                // Check the subquery has proper structure
+                assert!(subquery.from.is_some(), "Subquery should have FROM clause");
+                if let Some(from) = &subquery.from {
+                    assert!(!from.relations.is_empty());
+                    assert_eq!(from.relations[0].name, "orders");
+                }
+            } else {
+                panic!(
+                    "Expected InSubquery expression, got: {:?}",
+                    select.where_clause
+                );
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test NOT IN subquery parsing: WHERE column NOT IN (SELECT ...)
+#[test]
+fn test_not_in_subquery_parsing() {
+    let parser = QSQLParser::new();
+
+    let result =
+        parser.parse("SELECT * FROM users WHERE id NOT IN (SELECT user_id FROM inactive_users)");
+    assert!(
+        result.is_ok(),
+        "NOT IN subquery should parse successfully: {:?}",
+        result
+    );
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::InSubquery {
+                expr,
+                subquery,
+                negated,
+            }) = &select.where_clause
+            {
+                assert!(*negated, "Should be negated (NOT IN)");
+
+                // Check the field expression
+                if let Expression::Identifier(name) = expr.as_ref() {
+                    assert_eq!(name, "id");
+                } else {
+                    panic!("Expected identifier 'id'");
+                }
+
+                // Check the subquery has proper structure
+                assert!(subquery.from.is_some(), "Subquery should have FROM clause");
+                if let Some(from) = &subquery.from {
+                    assert!(!from.relations.is_empty());
+                    assert_eq!(from.relations[0].name, "inactive_users");
+                }
+            } else {
+                panic!(
+                    "Expected InSubquery expression, got: {:?}",
+                    select.where_clause
+                );
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+/// Test IN subquery with WHERE clause in subquery
+#[test]
+fn test_in_subquery_with_where_clause() {
+    let parser = QSQLParser::new();
+
+    let result = parser
+        .parse("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE amount > 100)");
+    assert!(
+        result.is_ok(),
+        "IN subquery with WHERE should parse successfully: {:?}",
+        result
+    );
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            if let Some(Expression::InSubquery { subquery, .. }) = &select.where_clause {
+                // Check the subquery has a WHERE clause
+                assert!(
+                    subquery.where_clause.is_some(),
+                    "Subquery should have WHERE clause"
+                );
+            } else {
+                panic!(
+                    "Expected InSubquery expression, got: {:?}",
+                    select.where_clause
+                );
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
