@@ -16,9 +16,9 @@ body:
       label: Preflight Checklist
       description: Please ensure you've completed all of the following.
       options:
-        - label: I have searched the [existing issues](https://github.com/your-org/NeuroQuantumDB/issues) to make sure this feature has not already been requested.
+        - label: I have searched the [existing issues](https://github.com/twoh-me/NeuroQuantumDB/issues) to make sure this feature has not already been requested.
           required: true
-        - label: I have read the [documentation](https://github.com/your-org/NeuroQuantumDB/tree/main/docs) to confirm this feature doesn't already exist.
+        - label: I have read the [documentation](https://github.com/twoh-me/NeuroQuantumDB/tree/main/docs) to confirm this feature doesn't already exist.
           required: false
 
   - type: dropdown

@@ -15,7 +15,7 @@ body:
     attributes:
       label: Preflight Checklist
       options:
-        - label: I have searched the [existing issues](https://github.com/your-org/NeuroQuantumDB/issues) for similar performance reports.
+        - label: I have searched the [existing issues](https://github.com/twoh-me/NeuroQuantumDB/issues) for similar performance reports.
           required: true
         - label: I have run benchmarks to confirm this is a reproducible issue.
           required: false

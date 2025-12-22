@@ -16,7 +16,7 @@ body:
       label: Preflight Checklist
       description: Please ensure you've completed all of the following.
       options:
-        - label: I have searched the [existing issues](https://github.com/your-org/NeuroQuantumDB/issues) to make sure this bug has not already been reported.
+        - label: I have searched the [existing issues](https://github.com/twoh-me/NeuroQuantumDB/issues) to make sure this bug has not already been reported.
           required: true
         - label: I am using the latest version of NeuroQuantumDB.
           required: false

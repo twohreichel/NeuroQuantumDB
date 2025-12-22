@@ -11,9 +11,9 @@ body:
         Have a question about NeuroQuantumDB? We're here to help!
         
         Before asking, please check:
-        - 📖 [Documentation](https://github.com/your-org/NeuroQuantumDB/tree/main/docs)
-        - 💬 [Discussions](https://github.com/your-org/NeuroQuantumDB/discussions) (for general questions)
-        - 🔍 [Existing Issues](https://github.com/your-org/NeuroQuantumDB/issues)
+        - 📖 [Documentation](https://github.com/twoh-me/NeuroQuantumDB/tree/main/docs)
+        - 💬 [Discussions](https://github.com/twoh-me/NeuroQuantumDB/discussions) (for general questions)
+        - 🔍 [Existing Issues](https://github.com/twoh-me/NeuroQuantumDB/issues)
 
   - type: checkboxes
     id: preflight
