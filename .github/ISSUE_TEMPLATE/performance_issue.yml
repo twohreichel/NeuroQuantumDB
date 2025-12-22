@@ -1,0 +1,145 @@
+name: 🚀 Performance Issue
+description: Report a performance problem or regression in NeuroQuantumDB
+title: "[Performance]: "
+labels: ["performance", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a performance issue! Please provide as much detail as possible to help us investigate.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight Checklist
+      options:
+        - label: I have searched the [existing issues](https://github.com/your-org/NeuroQuantumDB/issues) for similar performance reports.
+          required: true
+        - label: I have run benchmarks to confirm this is a reproducible issue.
+          required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which component has the performance issue?
+      options:
+        - Query Execution
+        - Storage/IO
+        - Indexing
+        - Clustering/Replication
+        - API Layer
+        - Memory Usage
+        - Startup Time
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Issue Type
+      description: What type of performance issue is this?
+      options:
+        - Slow Query
+        - High Memory Usage
+        - High CPU Usage
+        - Slow Startup
+        - I/O Bottleneck
+        - Network Latency
+        - Performance Regression
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Performance Issue Description
+      description: Describe the performance problem you're experiencing.
+      placeholder: Queries are taking X seconds when they should take Y...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide steps to reproduce the performance issue.
+      placeholder: |
+        1. Create a table with X rows
+        2. Run the following query
+        3. Observe the slow response time
+    validations:
+      required: true
+
+  - type: textarea
+    id: query
+    attributes:
+      label: Query / Code
+      description: If applicable, provide the query or code that exhibits poor performance.
+      render: sql
+      placeholder: |
+        -- Your QSQL query here
+        SELECT * FROM large_table WHERE ...
+
+  - type: textarea
+    id: benchmarks
+    attributes:
+      label: Benchmark Results
+      description: Provide any benchmark results or timing information.
+      render: shell
+      placeholder: |
+        Query execution time: 5.2s
+        Memory usage: 2.5GB
+        CPU usage: 95%
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Performance
+      description: What performance do you expect? Provide comparison if available.
+      placeholder: |
+        Expected execution time: < 100ms
+        Similar query in version X.Y took 50ms
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment & Hardware
+      description: Please provide your environment and hardware details.
+      value: |
+        - NeuroQuantumDB version: 
+        - Rust version: 
+        - OS: 
+        - CPU: 
+        - RAM: 
+        - Storage type (SSD/HDD): 
+        - Dataset size: 
+    validations:
+      required: true
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data
+      description: If you have profiling data (flamegraphs, perf output, etc.), please attach or describe it.
+      placeholder: |
+        Flamegraph shows most time spent in...
+        
+        Or attach profiling files
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Paste relevant configuration that might affect performance.
+      render: toml
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the performance issue.

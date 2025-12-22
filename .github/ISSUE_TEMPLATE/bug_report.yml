@@ -1,0 +1,135 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in NeuroQuantumDB
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below to help us understand and reproduce the issue.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight Checklist
+      description: Please ensure you've completed all of the following.
+      options:
+        - label: I have searched the [existing issues](https://github.com/your-org/NeuroQuantumDB/issues) to make sure this bug has not already been reported.
+          required: true
+        - label: I am using the latest version of NeuroQuantumDB.
+          required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which component of NeuroQuantumDB is affected?
+      options:
+        - neuroquantum-core
+        - neuroquantum-api
+        - neuroquantum-qsql
+        - neuroquantum-cluster
+        - neuroquantum-wasm
+        - Docker/Deployment
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: I expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Instead, what happened was...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide a minimal set of steps to reproduce the issue.
+      placeholder: |
+        1. Start the server with `cargo run`
+        2. Execute query `...`
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code Sample / QSQL Query
+      description: If applicable, provide a minimal code sample or QSQL query that reproduces the issue.
+      render: rust
+      placeholder: |
+        // Your code or query here
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs / Stack Trace
+      description: Please paste any relevant error messages or stack traces.
+      render: shell
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please provide your environment details.
+      value: |
+        - NeuroQuantumDB version: 
+        - Rust version (`rustc --version`): 
+        - OS: 
+        - Architecture: 
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: If relevant, paste your configuration (without sensitive data).
+      render: toml
+      placeholder: |
+        # Paste relevant parts of your dev.toml or prod.toml
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (Data loss, security issue, crash)
+        - High (Major feature broken, no workaround)
+        - Medium (Feature broken, workaround available)
+        - Low (Minor issue, cosmetic)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or files about the problem here.

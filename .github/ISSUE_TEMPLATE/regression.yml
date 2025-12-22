@@ -1,0 +1,128 @@
+name: 📉 Regression Report
+description: Report a feature that worked in a previous version but is now broken
+title: "[Regression]: "
+labels: ["regression", "bug", "priority-high"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Something that used to work is now broken? Let us know! Regressions are high-priority issues.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight Checklist
+      options:
+        - label: I have confirmed this worked in a previous version of NeuroQuantumDB.
+          required: true
+        - label: I have searched for existing issues about this regression.
+          required: true
+
+  - type: input
+    id: working-version
+    attributes:
+      label: Last Working Version
+      description: What was the last version where this feature worked correctly?
+      placeholder: "v1.2.3"
+    validations:
+      required: true
+
+  - type: input
+    id: broken-version
+    attributes:
+      label: First Broken Version
+      description: What is the first version where you noticed this regression?
+      placeholder: "v1.3.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which component has the regression?
+      options:
+        - neuroquantum-core
+        - neuroquantum-api
+        - neuroquantum-qsql
+        - neuroquantum-cluster
+        - neuroquantum-wasm
+        - CLI
+        - Configuration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Regression Description
+      description: Describe what was working before and what is broken now.
+      placeholder: |
+        Previously: The feature did X...
+        Now: The feature does Y instead...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide steps to reproduce the regression.
+      placeholder: |
+        1. Upgrade from version X to version Y
+        2. Run the following command/query
+        3. Observe the error/incorrect behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code Sample
+      description: Provide a minimal code sample or query that demonstrates the regression.
+      render: rust
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Paste any relevant error messages or logs.
+      render: shell
+
+  - type: textarea
+    id: bisect
+    attributes:
+      label: Git Bisect Results
+      description: If you've done a git bisect to find the breaking commit, please share the results.
+      placeholder: |
+        The regression was introduced in commit abc1234...
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please provide your environment details.
+      value: |
+        - Working version: 
+        - Broken version: 
+        - Rust version: 
+        - OS: 
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Have you found any workaround for this regression?
+      placeholder: |
+        As a temporary workaround, I've been...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the regression.

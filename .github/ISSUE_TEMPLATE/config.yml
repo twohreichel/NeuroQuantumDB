@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/your-org/NeuroQuantumDB/discussions
+    about: Ask questions, share ideas, and discuss NeuroQuantumDB with the community
+
+  - name: 📖 Documentation
+    url: https://github.com/your-org/NeuroQuantumDB/tree/main/docs
+    about: Read the documentation before opening an issue
+
+  - name: 🔒 Report Security Vulnerability (Private)
+    url: https://github.com/your-org/NeuroQuantumDB/security/advisories/new
+    about: For critical security vulnerabilities, please report privately
+
+  - name: 📊 Benchmarks
+    url: https://github.com/your-org/NeuroQuantumDB/tree/main/docs/reference/benchmarks.md
+    about: Check out our performance benchmarks
