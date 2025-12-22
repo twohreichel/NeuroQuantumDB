@@ -1,0 +1,88 @@
+name: ❓ Question / Support
+description: Ask a question about using NeuroQuantumDB
+title: "[Question]: "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about NeuroQuantumDB? We're here to help!
+        
+        Before asking, please check:
+        - 📖 [Documentation](https://github.com/twoh-me/NeuroQuantumDB/tree/main/docs)
+        - 💬 [Discussions](https://github.com/twoh-me/NeuroQuantumDB/discussions) (for general questions)
+        - 🔍 [Existing Issues](https://github.com/twoh-me/NeuroQuantumDB/issues)
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight Checklist
+      options:
+        - label: I have searched the documentation and existing issues/discussions.
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Installation / Setup
+        - Configuration
+        - QSQL Queries
+        - API Usage
+        - Performance Tuning
+        - Clustering / Scaling
+        - Integration
+        - Best Practices
+        - Migration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: Ask your question clearly and provide as much context as possible.
+      placeholder: |
+        I'm trying to...
+        
+        How do I...?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context, code, or configuration.
+      render: rust
+      placeholder: |
+        // Your code or configuration here
+
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What Have You Tried?
+      description: Describe any solutions you've already attempted.
+      placeholder: |
+        I've tried...
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (if relevant)
+      description: Provide environment details if relevant to your question.
+      placeholder: |
+        - NeuroQuantumDB version: 
+        - OS: 
+        - Rust version: 
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, links, or references.

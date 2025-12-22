@@ -1,0 +1,97 @@
+name: 📚 Documentation
+description: Report an issue or suggest improvements for documentation
+title: "[Docs]: "
+labels: ["documentation"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us improve the NeuroQuantumDB documentation! Whether it's a typo, missing information, or a suggestion for new content, we appreciate your feedback.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Documentation Issue Type
+      description: What type of documentation issue is this?
+      options:
+        - Incorrect/Outdated Information
+        - Missing Documentation
+        - Typo/Grammar
+        - Unclear/Confusing Content
+        - Missing Code Examples
+        - Broken Links
+        - New Documentation Request
+        - Translation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: section
+    attributes:
+      label: Documentation Section
+      description: Which section of the documentation is affected?
+      options:
+        - Getting Started
+        - Installation Guide
+        - User Guide
+        - Developer Guide
+        - API Reference
+        - QSQL Reference
+        - Configuration
+        - Architecture
+        - Benchmarks
+        - Contributing Guide
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Documentation URL / File Path
+      description: Link to the documentation page or file path in the repository.
+      placeholder: https://... or docs/user-guide/getting-started.md
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Content
+      description: Quote the current documentation that needs to be changed (if applicable).
+      render: markdown
+      placeholder: |
+        > Current documentation states...
+
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested Change
+      description: Describe the change you'd like to see, or provide the corrected content.
+      placeholder: |
+        The documentation should be updated to say...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason for Change
+      description: Explain why this change would improve the documentation.
+      placeholder: |
+        This change would help because...
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you like to contribute this documentation change?
+      options:
+        - label: I would like to submit a PR with this documentation change.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or references.
