@@ -1836,18 +1836,18 @@ impl QSQLParser {
 
     /// Parse BEGIN or START TRANSACTION statement
     fn parse_begin_transaction(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut i = 0;
+        let mut _i = 0;
 
         // Skip BEGIN or START keyword
-        if i < tokens.len()
-            && (matches!(tokens[i], TokenType::Begin) || matches!(tokens[i], TokenType::Start))
+        if _i < tokens.len()
+            && (matches!(tokens[_i], TokenType::Begin) || matches!(tokens[_i], TokenType::Start))
         {
-            i += 1;
+            _i += 1;
         }
 
         // Check for optional TRANSACTION keyword
-        if i < tokens.len() && matches!(tokens[i], TokenType::Transaction) {
-            i += 1;
+        if _i < tokens.len() && matches!(tokens[_i], TokenType::Transaction) {
+            _i += 1;
         }
 
         // For now, we don't parse isolation levels, but we could extend this
@@ -1860,7 +1860,7 @@ impl QSQLParser {
     }
 
     /// Parse COMMIT statement
-    fn parse_commit(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+    fn parse_commit(&self, _tokens: &[TokenType]) -> QSQLResult<Statement> {
         // Simple: just COMMIT (optionally followed by TRANSACTION, which we ignore)
         Ok(Statement::Commit(CommitStatement {}))
     }

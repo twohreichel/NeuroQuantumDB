@@ -4552,6 +4552,9 @@ impl Default for QueryExecutor {
                     storage_engine: None,
                     learning_engine: None,
                     synaptic_network: None,
+                    transaction_manager: None,
+                    current_transaction: None,
+                    savepoints: HashMap::new(),
                 }
             }
         }
