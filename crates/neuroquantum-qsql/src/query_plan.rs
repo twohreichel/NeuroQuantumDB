@@ -398,6 +398,7 @@ impl QueryExecutor {
                     plasticity_threshold: select.plasticity_threshold,
                     quantum_parallel: select.quantum_parallel,
                     grover_iterations: select.grover_iterations,
+                    with_clause: select.with_clause.clone(),
                 }
             } else {
                 select.clone()
@@ -4388,6 +4389,7 @@ mod tests {
             plasticity_threshold: None,
             quantum_parallel: false,
             grover_iterations: None,
+            with_clause: None,
         };
 
         let plan = QueryPlan {
