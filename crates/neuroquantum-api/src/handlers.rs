@@ -1,7 +1,7 @@
 use crate::auth::{ApiKey, AuthService};
 use crate::error::*;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
-use neuroquantum_core::NeuroQuantumDB;
+use neuroquantum_core::{DNACompressor, NeuroQuantumDB};
 use neuroquantum_qsql::query_plan::QueryValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -1165,10 +1165,13 @@ pub async fn compress_dna(
         compress_req.algorithm
     );
 
-    // Simulate DNA compression
+    // Use real DNA compression from the core
     let mut compressed_sequences = Vec::new();
     let mut total_input_size = 0;
     let mut total_compressed_size = 0;
+
+    // Access the database from AppState
+    let db = app_state.db.read().await;
 
     for (i, sequence) in compress_req.sequences.iter().enumerate() {
         // Validate DNA sequence (should only contain A, T, G, C)
@@ -1185,20 +1188,46 @@ pub async fn compress_dna(
         }
 
         let original_length = sequence.len();
-        let compressed_data = base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            format!("compressed_{}", sequence),
-        );
-        let compression_ratio = original_length as f32 / compressed_data.len() as f32;
+
+        // Convert DNA sequence string to bytes for compression
+        let sequence_bytes = sequence.as_bytes();
+
+        // Use the database's DNA compression functionality
+        let compressed = db
+            .dna_compressor()
+            .compress(sequence_bytes)
+            .await
+            .map_err(|e| ApiError::CompressionError {
+                reason: format!("Compression failed for sequence {}: {}", i, e),
+            })?;
+
+        // Convert DNA bases to packed bytes (4 bases per byte, 2 bits each)
+        let mut packed_bytes = Vec::with_capacity(compressed.sequence.bases.len().div_ceil(4));
+        for chunk in compressed.sequence.bases.chunks(4) {
+            let mut byte = 0u8;
+            for (i, base) in chunk.iter().enumerate() {
+                byte |= (*base as u8) << (i * 2);
+            }
+            packed_bytes.push(byte);
+        }
+
+        // Encode only the raw compressed bytes as base64 for JSON response
+        let compressed_data =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &packed_bytes);
+
+        let compressed_size = compressed.compressed_size;
+        // Calculate compression ratio directly from sizes
+        let compression_ratio = original_length as f32 / compressed_size as f32;
+        let checksum = format!("{:x}", compressed.sequence.checksum);
 
         total_input_size += original_length;
-        total_compressed_size += compressed_data.len();
+        total_compressed_size += compressed_size;
 
         compressed_sequences.push(CompressedSequence {
             original_length,
             compressed_data,
             compression_ratio,
-            checksum: format!("md5_{}", i), // Mock checksum
+            checksum,
         });
     }
 
