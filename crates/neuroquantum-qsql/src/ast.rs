@@ -313,6 +313,15 @@ pub enum Expression {
         /// Optional ELSE result (if None, returns NULL when no condition matches)
         else_result: Option<Box<Expression>>,
     },
+
+    // EXTRACT expression for date/time parts
+    // EXTRACT(field FROM source)
+    Extract {
+        /// The field to extract (e.g., YEAR, MONTH, DAY, etc.)
+        field: String,
+        /// The source expression (date/time value)
+        source: Box<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

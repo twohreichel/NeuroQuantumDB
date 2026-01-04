@@ -140,6 +140,7 @@ pub enum TokenType {
     Null,
     With,
     Distinct,
+    Extract,
 
     // CASE expression keywords
     Case,
@@ -740,6 +741,29 @@ impl QSQLParser {
 
                     select_list.push(SelectItem::Expression { expr, alias });
                 }
+                TokenType::Extract => {
+                    // Parse EXTRACT expression
+                    let expr = self.parse_extract_expression(tokens, &mut i)?;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
                 TokenType::Comma => {
                     i += 1; // Skip comma and continue
                 }
@@ -974,6 +998,29 @@ impl QSQLParser {
                 TokenType::Case => {
                     // Parse CASE expression
                     let expr = self.parse_case_expression(tokens, i)?;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                TokenType::Extract => {
+                    // Parse EXTRACT expression
+                    let expr = self.parse_extract_expression(tokens, i)?;
 
                     // Check for optional AS alias
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
@@ -2035,6 +2082,7 @@ impl QSQLParser {
         keywords.insert("NOT".to_string(), TokenType::Not);
         keywords.insert("WITH".to_string(), TokenType::With);
         keywords.insert("DISTINCT".to_string(), TokenType::Distinct);
+        keywords.insert("EXTRACT".to_string(), TokenType::Extract);
         keywords.insert("IN".to_string(), TokenType::In);
         keywords.insert("LIKE".to_string(), TokenType::Like);
         keywords.insert("BETWEEN".to_string(), TokenType::Between);
@@ -2574,6 +2622,66 @@ impl QSQLParser {
         })
     }
 
+    /// Parse EXTRACT expression: EXTRACT(field FROM source)
+    fn parse_extract_expression(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Expression> {
+        // Consume EXTRACT token
+        *i += 1;
+
+        // Expect opening parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after EXTRACT".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume '('
+
+        // Parse the field identifier (YEAR, MONTH, DAY, etc.)
+        let field = match &tokens[*i] {
+            TokenType::Identifier(name) => name.to_uppercase(),
+            _ => {
+                return Err(QSQLError::ParseError {
+                    message: format!(
+                        "Expected field identifier in EXTRACT expression, found {:?}",
+                        tokens[*i]
+                    ),
+                    position: *i,
+                });
+            }
+        };
+        *i += 1; // consume field identifier
+
+        // Expect FROM keyword
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::From) {
+            return Err(QSQLError::ParseError {
+                message: "Expected FROM keyword in EXTRACT expression".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume FROM
+
+        // Parse source expression
+        let source = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+        // Expect closing parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected ')' at end of EXTRACT expression".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume ')'
+
+        Ok(Expression::Extract {
+            field,
+            source: Box::new(source),
+        })
+    }
+
     /// Parse prefix expression (primary expressions and unary operators)
     fn parse_prefix_expression(
         &self,
@@ -2590,6 +2698,9 @@ impl QSQLParser {
         match &tokens[*i] {
             // CASE expression: CASE WHEN ... THEN ... [ELSE ...] END
             TokenType::Case => self.parse_case_expression(tokens, i),
+
+            // EXTRACT expression: EXTRACT(field FROM source)
+            TokenType::Extract => self.parse_extract_expression(tokens, i),
 
             // Unary NOT operator
             TokenType::Not => {

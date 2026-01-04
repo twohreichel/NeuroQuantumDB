@@ -3311,7 +3311,94 @@ impl QueryExecutor {
                     None => Ok(QueryValue::Null),
                 }
             }
+            Expression::Extract { field, source } => {
+                // Evaluate EXTRACT expression: EXTRACT(field FROM source)
+                self.evaluate_extract_expression(field, source, row)
+            }
             _ => Ok(QueryValue::Null),
+        }
+    }
+
+    /// Evaluate EXTRACT expression: EXTRACT(field FROM source)
+    fn evaluate_extract_expression(
+        &self,
+        field: &str,
+        source: &Expression,
+        row: &Row,
+    ) -> QSQLResult<QueryValue> {
+        use chrono::prelude::*;
+
+        // Evaluate the source expression to get the date/time value
+        let source_value = self.evaluate_expression_value(source, row)?;
+
+        // Convert the source value to a string
+        let date_str = match &source_value {
+            QueryValue::String(s) => s.clone(),
+            QueryValue::Integer(i) => i.to_string(),
+            QueryValue::Null => return Ok(QueryValue::Null),
+            _ => {
+                return Err(QSQLError::ExecutionError {
+                    message: format!("EXTRACT requires a date/time value, got {:?}", source_value),
+                });
+            }
+        };
+
+        // Helper to parse date/time strings
+        let parse_datetime = |s: &str| -> Option<NaiveDateTime> {
+            // Try parsing as full datetime
+            if let Ok(parsed) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+                return Some(parsed);
+            }
+            // Try parsing as date only and add midnight time
+            if let Ok(parsed) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                return Some(parsed.and_hms_opt(0, 0, 0).unwrap_or_default());
+            }
+            None
+        };
+
+        // If no argument was given (NULL), use current time for fields that support it
+        let datetime = if date_str.is_empty() {
+            Utc::now().naive_utc()
+        } else {
+            match parse_datetime(&date_str) {
+                Some(dt) => dt,
+                None => return Ok(QueryValue::Null),
+            }
+        };
+
+        // Extract the requested field
+        match field.to_uppercase().as_str() {
+            "YEAR" => Ok(QueryValue::Integer(datetime.year() as i64)),
+            "MONTH" => Ok(QueryValue::Integer(datetime.month() as i64)),
+            "DAY" => Ok(QueryValue::Integer(datetime.day() as i64)),
+            "HOUR" => Ok(QueryValue::Integer(datetime.hour() as i64)),
+            "MINUTE" => Ok(QueryValue::Integer(datetime.minute() as i64)),
+            "SECOND" => Ok(QueryValue::Integer(datetime.second() as i64)),
+            "DOW" | "DAYOFWEEK" => {
+                // Day of week (1=Sunday to 7=Saturday, matching MySQL)
+                let dow = datetime.weekday().num_days_from_sunday() + 1;
+                Ok(QueryValue::Integer(dow as i64))
+            }
+            "DOY" | "DAYOFYEAR" => {
+                // Day of year (1-366)
+                Ok(QueryValue::Integer(datetime.ordinal() as i64))
+            }
+            "WEEK" | "WEEKOFYEAR" => {
+                // Week of year (ISO week)
+                Ok(QueryValue::Integer(datetime.date().iso_week().week() as i64))
+            }
+            "QUARTER" => {
+                // Quarter (1-4)
+                let quarter = (datetime.month() - 1) / 3 + 1;
+                Ok(QueryValue::Integer(quarter as i64))
+            }
+            "EPOCH" => {
+                // Unix timestamp
+                Ok(QueryValue::Integer(datetime.and_utc().timestamp()))
+            }
+            _ => Err(QSQLError::ExecutionError {
+                message: format!("Unsupported EXTRACT field: {}", field),
+            }),
         }
     }
 
@@ -4369,6 +4456,7 @@ pub struct OptimizationMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::QSQLParser;
 
     #[tokio::test]
     async fn test_basic_select_execution() {
@@ -4485,4 +4573,64 @@ mod tests {
         assert_eq!(query_result.quantum_operations, 10);
         assert!(query_result.execution_time < Duration::from_millis(1));
     }
+
+    #[test]
+    fn test_extract_year_parsing() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(YEAR FROM '2025-12-23')";
+        let result = parser.parse_query(sql);
+        
+        if let Err(e) = &result {
+            eprintln!("Parse error: {:?}", e);
+        }
+        
+        assert!(result.is_ok(), "Failed to parse EXTRACT(YEAR FROM date)");
+
+        let stmt = result.unwrap();
+        if let Statement::Select(select) = stmt {
+            assert_eq!(select.select_list.len(), 1);
+            if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
+                match expr {
+                    Expression::Extract { field, .. } => {
+                        assert_eq!(field, "YEAR");
+                    }
+                    _ => panic!("Expected Extract expression"),
+                }
+            }
+        } else {
+            panic!("Expected SELECT statement");
+        }
+    }
+
+    #[test]
+    fn test_extract_all_fields() {
+        let parser = QSQLParser::new();
+        let fields = vec![
+            "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND", 
+            "DOW", "DOY", "WEEK", "QUARTER", "EPOCH"
+        ];
+
+        for field in fields {
+            let sql = format!("SELECT EXTRACT({} FROM '2025-12-23 14:30:45')", field);
+            let result = parser.parse_query(&sql);
+            assert!(result.is_ok(), "Failed to parse EXTRACT({} FROM date)", field);
+        }
+    }
+
+    #[test]
+    fn test_extract_in_where_clause() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT * FROM events WHERE EXTRACT(YEAR FROM created_at) = 2025";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT in WHERE clause");
+    }
+
+    #[test]
+    fn test_extract_missing_from_keyword() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(YEAR '2025-12-23')";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without FROM keyword");
+    }
 }
+
