@@ -731,6 +731,7 @@ mod tests {
             plasticity_threshold: None,
             quantum_parallel: false,
             grover_iterations: None,
+            with_clause: None,
         };
 
         let query_plan = QueryPlan {
@@ -781,6 +782,7 @@ mod tests {
             plasticity_threshold: None,
             quantum_parallel: false,
             grover_iterations: None,
+            with_clause: None,
         };
 
         let query_plan = QueryPlan {
@@ -912,6 +914,7 @@ mod tests {
             plasticity_threshold: None,
             quantum_parallel: false,
             grover_iterations: None,
+            with_clause: None,
         };
 
         let query_plan = QueryPlan {

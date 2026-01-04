@@ -26,9 +26,17 @@ pub mod query_plan;
 #[cfg(test)]
 pub mod sql_engine_tests;
 
+// Comprehensive test suite
+#[cfg(test)]
+mod tests;
+
 // Property-based tests for parser robustness
 #[cfg(test)]
 mod proptest_suite;
+
+// Comprehensive test suite
+#[cfg(test)]
+mod tests;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -116,6 +124,7 @@ impl Default for CachedQueryPlan {
                     plasticity_threshold: None,
                     quantum_parallel: false,
                     grover_iterations: None,
+                    with_clause: None,
                 }),
                 execution_strategy: ExecutionStrategy::Sequential,
                 synaptic_pathways: vec![],
