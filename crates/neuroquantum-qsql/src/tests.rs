@@ -11,7 +11,13 @@
 use std::time::{Duration, Instant};
 
 use crate::{
-    ast::*, error::*, natural_language::*, optimizer::*, parser::*, query_plan::*, QSQLEngine,
+    ast::*,
+    error::*,
+    natural_language::*,
+    optimizer::NeuromorphicOptimizer,
+    parser::*,
+    query_plan::{ExecutionStrategy, OptimizationMetadata, QueryExecutor, QueryPlan},
+    QSQLEngine,
 };
 
 #[cfg(test)]
@@ -328,6 +334,7 @@ mod optimizer_tests {
             plasticity_threshold: None,
             quantum_parallel: false,
             grover_iterations: None,
+            with_clause: None,
         });
 
         let optimized = optimizer.optimize(statement);
@@ -393,6 +400,7 @@ mod optimizer_tests {
             plasticity_threshold: None,
             quantum_parallel: false,
             grover_iterations: None,
+            with_clause: None,
         });
 
         // Optimizer should handle the statement
@@ -426,6 +434,7 @@ mod optimizer_tests {
             plasticity_threshold: None,
             quantum_parallel: false,
             grover_iterations: None,
+            with_clause: None,
         });
 
         // Test that optimizer can handle the statement
@@ -470,6 +479,7 @@ mod executor_tests {
                 plasticity_threshold: None,
                 quantum_parallel: false,
                 grover_iterations: None,
+                with_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -515,6 +525,7 @@ mod executor_tests {
                 plasticity_threshold: None,
                 quantum_parallel: false,
                 grover_iterations: None,
+                with_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -560,6 +571,7 @@ mod executor_tests {
                 plasticity_threshold: None,
                 quantum_parallel: false,
                 grover_iterations: None,
+                with_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -921,6 +933,7 @@ mod property_tests {
                 plasticity_threshold: None,
                 quantum_parallel: false,
                 grover_iterations: None,
+                with_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],

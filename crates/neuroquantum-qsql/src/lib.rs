@@ -34,10 +34,6 @@ mod tests;
 #[cfg(test)]
 mod proptest_suite;
 
-// Comprehensive test suite
-#[cfg(test)]
-mod tests;
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

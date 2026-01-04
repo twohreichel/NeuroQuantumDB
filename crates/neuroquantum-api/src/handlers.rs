@@ -1129,6 +1129,7 @@ pub async fn quantum_search(
 )]
 pub async fn compress_dna(
     req: HttpRequest,
+    app_state: web::Data<crate::AppState>,
     compress_req: web::Json<CompressDnaRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -1141,15 +1142,18 @@ pub async fn compress_dna(
             message: e.to_string(),
         })?;
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - extract data before any await points
+    let has_permission = {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"dna".to_string())
-        && !api_key.permissions.contains(&"admin".to_string())
-    {
+        api_key.permissions.contains(&"dna".to_string())
+            || api_key.permissions.contains(&"admin".to_string())
+    };
+
+    if !has_permission {
         return Err(ApiError::Forbidden("DNA permission required".to_string()));
     }
 

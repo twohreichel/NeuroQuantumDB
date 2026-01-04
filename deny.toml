@@ -29,7 +29,6 @@ yanked = "warn"
 ignore = [
     # Allow unmaintained crates that are still functional
     # Note: actix-web-prometheus replaced with actix-web-prom, eliminating mach dependency
-    "RUSTSEC-2024-0384", # instant crate - unmaintained but comes from reed-solomon-erasure dependency
     "RUSTSEC-2024-0436", # paste crate - unmaintained but required by pqcrypto-mldsa (transitive dependency)
 ]
 
