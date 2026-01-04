@@ -62,6 +62,10 @@ pub enum Statement {
     Delete(DeleteStatement),
     CreateTable(CreateTableStatement),
     DropTable(DropTableStatement),
+    AlterTable(AlterTableStatement),
+    CreateIndex(CreateIndexStatement),
+    DropIndex(DropIndexStatement),
+    TruncateTable(TruncateTableStatement),
     // Neuromorphic extensions
     NeuroMatch(NeuroMatchStatement),
     SynapticOptimize(SynapticOptimizeStatement),
@@ -83,6 +87,14 @@ pub enum Statement {
     ReleaseSavepoint(ReleaseSavepointStatement),
 }
 
+/// Common Table Expression (CTE) for WITH clauses
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommonTableExpression {
+    pub name: String,
+    pub query: Box<SelectStatement>,
+    pub columns: Option<Vec<String>>, // Optional column names
+}
+
 /// Standard SQL SELECT with neuromorphic and quantum extensions
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectStatement {
@@ -100,6 +112,15 @@ pub struct SelectStatement {
     // Quantum extensions
     pub quantum_parallel: bool,
     pub grover_iterations: Option<u32>,
+    // WITH clause for CTEs
+    pub with_clause: Option<WithClause>,
+}
+
+/// WITH clause containing one or more CTEs
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WithClause {
+    pub recursive: bool,
+    pub ctes: Vec<CommonTableExpression>,
 }
 
 /// Neuromorphic NEUROMATCH statement for brain-inspired pattern matching
@@ -178,6 +199,7 @@ pub struct DeleteStatement {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreateTableStatement {
     pub table_name: String,
+    pub if_not_exists: bool,
     pub columns: Vec<ColumnDefinition>,
     pub constraints: Vec<TableConstraint>,
     // Neuromorphic extensions
@@ -191,6 +213,50 @@ pub struct DropTableStatement {
     pub if_exists: bool,
     // Neuromorphic extensions
     pub preserve_synaptic_patterns: bool,
+}
+
+/// ALTER TABLE statement for modifying table structure
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AlterTableStatement {
+    pub table_name: String,
+    pub operation: AlterTableOperation,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AlterTableOperation {
+    AddColumn {
+        column: ColumnDefinition,
+    },
+    DropColumn {
+        column_name: String,
+    },
+    ModifyColumn {
+        column_name: String,
+        new_data_type: DataType,
+    },
+}
+
+/// CREATE INDEX statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateIndexStatement {
+    pub index_name: String,
+    pub table_name: String,
+    pub columns: Vec<String>,
+    pub unique: bool,
+    pub if_not_exists: bool,
+}
+
+/// DROP INDEX statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DropIndexStatement {
+    pub index_name: String,
+    pub if_exists: bool,
+}
+
+/// TRUNCATE TABLE statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TruncateTableStatement {
+    pub table_name: String,
 }
 
 /// FROM clause with quantum join support
@@ -319,6 +385,15 @@ pub enum Expression {
         when_clauses: Vec<(Box<Expression>, Box<Expression>)>,
         /// Optional ELSE result (if None, returns NULL when no condition matches)
         else_result: Option<Box<Expression>>,
+    },
+
+    // EXTRACT expression for date/time parts
+    // EXTRACT(field FROM source)
+    Extract {
+        /// The field to extract (e.g., YEAR, MONTH, DAY, etc.)
+        field: String,
+        /// The source expression (date/time value)
+        source: Box<Expression>,
     },
 }
 
@@ -626,6 +701,12 @@ impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Statement::Select(_s) => write!(f, "SELECT"),
+            Statement::CreateTable(ct) => write!(f, "CREATE TABLE {}", ct.table_name),
+            Statement::DropTable(dt) => write!(f, "DROP TABLE {}", dt.table_name),
+            Statement::AlterTable(at) => write!(f, "ALTER TABLE {}", at.table_name),
+            Statement::CreateIndex(ci) => write!(f, "CREATE INDEX {}", ci.index_name),
+            Statement::DropIndex(di) => write!(f, "DROP INDEX {}", di.index_name),
+            Statement::TruncateTable(tt) => write!(f, "TRUNCATE TABLE {}", tt.table_name),
             Statement::NeuroMatch(n) => write!(f, "NEUROMATCH {}", n.target_table),
             Statement::QuantumSearch(q) => write!(f, "QUANTUM_SEARCH {}", q.target_table),
             Statement::Explain(e) => {

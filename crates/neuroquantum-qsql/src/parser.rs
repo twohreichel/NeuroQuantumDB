@@ -120,8 +120,15 @@ pub enum TokenType {
     Delete,
     Create,
     Drop,
+    Alter,
+    Truncate,
     Table,
     Index,
+    Add,
+    Column,
+    Modify,
+    If,
+    Exists,
     Inner,
     Left,
     Right,
@@ -139,7 +146,9 @@ pub enum TokenType {
     Is,
     Null,
     With,
+    Recursive,
     Distinct,
+    Extract,
 
     // CASE expression keywords
     Case,
@@ -161,6 +170,9 @@ pub enum TokenType {
     Generated,
     Always,
     Identity,
+
+    // Date/Time keywords
+    Interval,
 
     // Neuromorphic keywords
     NeuroMatch,
@@ -592,41 +604,20 @@ impl QSQLParser {
 
         // Check the first token to determine statement type
         match tokens.first() {
+            Some(TokenType::With) => self.parse_select_statement(tokens),
             Some(TokenType::Select) => self.parse_select_statement(tokens),
             Some(TokenType::Insert) => self.parse_insert_statement(tokens),
             Some(TokenType::Update) => self.parse_update_statement(tokens),
             Some(TokenType::Delete) => self.parse_delete_statement(tokens),
+            Some(TokenType::Create) => self.parse_create_statement(tokens),
+            Some(TokenType::Drop) => self.parse_drop_statement(tokens),
+            Some(TokenType::Alter) => self.parse_alter_table_statement(tokens),
+            Some(TokenType::Truncate) => self.parse_truncate_table_statement(tokens),
             Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
             Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
             Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
             Some(TokenType::Adapt) => self.parse_adapt_weights_statement(tokens),
             Some(TokenType::QuantumJoin) => self.parse_quantum_join_statement(tokens),
-            // Transaction control statements
-            Some(TokenType::Begin) => self.parse_begin_transaction(tokens),
-            Some(TokenType::Start) => self.parse_begin_transaction(tokens),
-            Some(TokenType::Commit) => self.parse_commit(tokens),
-            Some(TokenType::Rollback) => self.parse_rollback(tokens),
-            Some(TokenType::Savepoint) => self.parse_savepoint(tokens),
-            Some(TokenType::Release) => self.parse_release_savepoint(tokens),
-            Some(TokenType::Identifier(name)) => {
-                // Only allow specific known SQL keywords that might start statements
-                match name.to_uppercase().as_str() {
-                    "WITH" | "CTE" => {
-                        // Could be extended to support WITH clauses in the future
-                        Err(QSQLError::ParseError {
-                            message: format!("Unsupported statement type: {}", name),
-                            position: 0,
-                        })
-                    }
-                    _ => {
-                        // Any other identifier starting a statement is invalid SQL
-                        Err(QSQLError::ParseError {
-                            message: format!("Invalid SQL syntax starting with: {}", name),
-                            position: 0,
-                        })
-                    }
-                }
-            }
             _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
                 position: 0,
@@ -648,8 +639,14 @@ impl QSQLParser {
         let plasticity_threshold = None;
         let quantum_parallel = false;
         let grover_iterations = None;
+        let mut with_clause = None;
 
         let mut i = 0;
+
+        // Parse optional WITH clause
+        if i < tokens.len() && matches!(tokens[i], TokenType::With) {
+            with_clause = Some(self.parse_with_clause(tokens, &mut i)?);
+        }
 
         // Skip SELECT keyword
         if i < tokens.len() && matches!(tokens[i], TokenType::Select) {
@@ -737,6 +734,29 @@ impl QSQLParser {
                 TokenType::Case => {
                     // Parse CASE expression
                     let expr = self.parse_case_expression(tokens, &mut i)?;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                TokenType::Extract => {
+                    // Parse EXTRACT expression
+                    let expr = self.parse_extract_expression(tokens, &mut i)?;
 
                     // Check for optional AS alias
                     let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
@@ -877,6 +897,7 @@ impl QSQLParser {
             plasticity_threshold,
             quantum_parallel,
             grover_iterations,
+            with_clause,
         }))
     }
 
@@ -991,6 +1012,29 @@ impl QSQLParser {
                 TokenType::Case => {
                     // Parse CASE expression
                     let expr = self.parse_case_expression(tokens, i)?;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                TokenType::Extract => {
+                    // Parse EXTRACT expression
+                    let expr = self.parse_extract_expression(tokens, i)?;
 
                     // Check for optional AS alias
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
@@ -1141,6 +1185,7 @@ impl QSQLParser {
             plasticity_threshold,
             quantum_parallel,
             grover_iterations,
+            with_clause: None, // Subqueries don't support WITH clauses (for now)
         })
     }
 
@@ -1834,137 +1879,792 @@ impl QSQLParser {
         Ok(Statement::QuantumJoin(quantum_join))
     }
 
-    /// Parse BEGIN or START TRANSACTION statement
-    fn parse_begin_transaction(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut _i = 0;
-
-        // Skip BEGIN or START keyword
-        if _i < tokens.len()
-            && (matches!(tokens[_i], TokenType::Begin) || matches!(tokens[_i], TokenType::Start))
-        {
-            _i += 1;
+    /// Parse CREATE statement (TABLE or INDEX)
+    fn parse_create_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        if tokens.len() < 2 {
+            return Err(QSQLError::ParseError {
+                message: "Incomplete CREATE statement".to_string(),
+                position: 0,
+            });
         }
 
-        // Check for optional TRANSACTION keyword
-        if _i < tokens.len() && matches!(tokens[_i], TokenType::Transaction) {
-            _i += 1;
+        match &tokens[1] {
+            TokenType::Table => self.parse_create_table_statement(tokens),
+            TokenType::Index | TokenType::Unique => self.parse_create_index_statement(tokens),
+            _ => Err(QSQLError::ParseError {
+                message: "Expected TABLE or INDEX after CREATE".to_string(),
+                position: 1,
+            }),
         }
-
-        // For now, we don't parse isolation levels, but we could extend this
-        // to support: BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED, etc.
-        let isolation_level = None;
-
-        Ok(Statement::BeginTransaction(BeginTransactionStatement {
-            isolation_level,
-        }))
     }
 
-    /// Parse COMMIT statement
-    fn parse_commit(&self, _tokens: &[TokenType]) -> QSQLResult<Statement> {
-        // Simple: just COMMIT (optionally followed by TRANSACTION, which we ignore)
-        Ok(Statement::Commit(CommitStatement {}))
-    }
-
-    /// Parse ROLLBACK statement (or ROLLBACK TO SAVEPOINT)
-    fn parse_rollback(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+    /// Parse CREATE TABLE statement
+    fn parse_create_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut i = 0;
 
-        // Skip ROLLBACK keyword
-        if i < tokens.len() && matches!(tokens[i], TokenType::Rollback) {
+        // Skip CREATE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Create) {
             i += 1;
         }
 
-        // Check for TO keyword (indicates ROLLBACK TO SAVEPOINT)
-        if i < tokens.len() && matches!(tokens[i], TokenType::To) {
+        // Skip TABLE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Table) {
             i += 1;
+        }
 
-            // Check for SAVEPOINT keyword
-            if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
-                i += 1;
+        // Check for IF NOT EXISTS
+        let mut if_not_exists = false;
+        if i + 2 < tokens.len()
+            && matches!(tokens[i], TokenType::If)
+            && matches!(tokens[i + 1], TokenType::Not)
+            && matches!(tokens[i + 2], TokenType::Exists)
+        {
+            if_not_exists = true;
+            i += 3;
+        }
 
-                // Get savepoint name
-                if i < tokens.len() {
-                    if let TokenType::Identifier(name) = &tokens[i] {
-                        return Ok(Statement::RollbackToSavepoint(
-                            RollbackToSavepointStatement {
-                                name: name.clone(),
-                            },
-                        ));
-                    }
-                }
+        // Parse table name
+        let table_name = if let TokenType::Identifier(name) = &tokens[i] {
+            i += 1;
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected table name".to_string(),
+                position: i,
+            });
+        };
 
+        // Expect '('
+        if i >= tokens.len() || !matches!(tokens[i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after table name".to_string(),
+                position: i,
+            });
+        }
+        i += 1;
+
+        // Parse column definitions and constraints
+        let mut columns = Vec::new();
+        let mut constraints = Vec::new();
+
+        while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
+            // Check if this is a table constraint
+            if matches!(tokens[i], TokenType::Primary | TokenType::Unique) {
+                // Parse table constraint
+                let constraint = self.parse_table_constraint(tokens, &mut i)?;
+                constraints.push(constraint);
+            } else if let TokenType::Identifier(_) = &tokens[i] {
+                // Parse column definition
+                let column = self.parse_column_definition(tokens, &mut i)?;
+                columns.push(column);
+            } else {
                 return Err(QSQLError::ParseError {
-                    message: "Expected savepoint name after ROLLBACK TO SAVEPOINT".to_string(),
+                    message: format!("Unexpected token in CREATE TABLE: {:?}", tokens[i]),
                     position: i,
                 });
             }
 
+            // Handle comma separator
+            if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                i += 1;
+            } else if i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected ',' or ')' in column list".to_string(),
+                    position: i,
+                });
+            }
+        }
+
+        // Expect ')'
+        if i >= tokens.len() || !matches!(tokens[i], TokenType::RightParen) {
             return Err(QSQLError::ParseError {
-                message: "Expected SAVEPOINT keyword after ROLLBACK TO".to_string(),
+                message: "Expected ')' after column definitions".to_string(),
                 position: i,
             });
         }
 
-        // Simple ROLLBACK without savepoint
-        Ok(Statement::Rollback(RollbackStatement {}))
+        Ok(Statement::CreateTable(CreateTableStatement {
+            table_name,
+            if_not_exists,
+            columns,
+            constraints,
+            synaptic_indexing: false,
+            plasticity_config: None,
+        }))
     }
 
-    /// Parse SAVEPOINT statement
-    fn parse_savepoint(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut i = 0;
+    /// Parse column definition
+    fn parse_column_definition(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<ColumnDefinition> {
+        // Parse column name
+        let name = if let TokenType::Identifier(col_name) = &tokens[*i] {
+            *i += 1;
+            col_name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected column name".to_string(),
+                position: *i,
+            });
+        };
 
-        // Skip SAVEPOINT keyword
-        if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
-            i += 1;
+        // Parse data type
+        let data_type = self.parse_data_type(tokens, i)?;
+
+        // Parse column constraints
+        let mut constraints = Vec::new();
+        while *i < tokens.len() {
+            let constraint = match &tokens[*i] {
+                TokenType::Primary => {
+                    *i += 1;
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Key) {
+                        *i += 1;
+                    }
+                    ColumnConstraint::PrimaryKey
+                }
+                TokenType::Not => {
+                    *i += 1;
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Null) {
+                        *i += 1;
+                        ColumnConstraint::NotNull
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected NULL after NOT".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+                TokenType::Unique => {
+                    *i += 1;
+                    ColumnConstraint::Unique
+                }
+                TokenType::Default => {
+                    *i += 1;
+                    let default_expr = self.parse_expression(tokens, i)?;
+                    ColumnConstraint::Default(default_expr)
+                }
+                TokenType::AutoIncrement => {
+                    *i += 1;
+                    ColumnConstraint::AutoIncrement
+                }
+                TokenType::References => {
+                    *i += 1;
+                    let table = if let TokenType::Identifier(t) = &tokens[*i] {
+                        *i += 1;
+                        t.clone()
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected table name after REFERENCES".to_string(),
+                            position: *i,
+                        });
+                    };
+
+                    // Expect '('
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected '(' after referenced table".to_string(),
+                            position: *i,
+                        });
+                    }
+                    *i += 1;
+
+                    let column = if let TokenType::Identifier(c) = &tokens[*i] {
+                        *i += 1;
+                        c.clone()
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in REFERENCES".to_string(),
+                            position: *i,
+                        });
+                    };
+
+                    // Expect ')'
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected ')' after referenced column".to_string(),
+                            position: *i,
+                        });
+                    }
+                    *i += 1;
+
+                    ColumnConstraint::ForeignKey { table, column }
+                }
+                _ => break,
+            };
+            constraints.push(constraint);
         }
 
-        // Get savepoint name
-        if i < tokens.len() {
-            if let TokenType::Identifier(name) = &tokens[i] {
-                return Ok(Statement::Savepoint(SavepointStatement {
-                    name: name.clone(),
-                }));
-            }
-        }
-
-        Err(QSQLError::ParseError {
-            message: "Expected savepoint name after SAVEPOINT".to_string(),
-            position: i,
+        Ok(ColumnDefinition {
+            name,
+            data_type,
+            constraints,
+            synaptic_properties: None,
         })
     }
 
-    /// Parse RELEASE SAVEPOINT statement
-    fn parse_release_savepoint(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
-        let mut i = 0;
-
-        // Skip RELEASE keyword
-        if i < tokens.len() && matches!(tokens[i], TokenType::Release) {
-            i += 1;
+    /// Parse data type
+    fn parse_data_type(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<DataType> {
+        if *i >= tokens.len() {
+            return Err(QSQLError::ParseError {
+                message: "Expected data type".to_string(),
+                position: *i,
+            });
         }
 
-        // Check for SAVEPOINT keyword
-        if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
-            i += 1;
+        let data_type = match &tokens[*i] {
+            TokenType::Identifier(type_name) => {
+                *i += 1;
+                match type_name.to_uppercase().as_str() {
+                    "INTEGER" | "INT" => DataType::Integer,
+                    "BIGINT" => DataType::BigInt,
+                    "SMALLINT" => DataType::SmallInt,
+                    "REAL" | "FLOAT" => DataType::Real,
+                    "DOUBLE" => DataType::Double,
+                    "TEXT" => DataType::Text,
+                    "BOOLEAN" | "BOOL" => DataType::Boolean,
+                    "DATE" => DataType::Date,
+                    "TIME" => DataType::Time,
+                    "TIMESTAMP" => DataType::Timestamp,
+                    "BLOB" => DataType::Blob,
+                    "VARCHAR" => {
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                            *i += 1;
+                            if let TokenType::IntegerLiteral(size) = tokens[*i] {
+                                *i += 1;
+                                if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen)
+                                {
+                                    *i += 1;
+                                    DataType::Varchar(size as u32)
+                                } else {
+                                    return Err(QSQLError::ParseError {
+                                        message: "Expected ')' after VARCHAR size".to_string(),
+                                        position: *i,
+                                    });
+                                }
+                            } else {
+                                return Err(QSQLError::ParseError {
+                                    message: "Expected size for VARCHAR".to_string(),
+                                    position: *i,
+                                });
+                            }
+                        } else {
+                            DataType::VarChar(None)
+                        }
+                    }
+                    "DECIMAL" => {
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                            *i += 1;
+                            let precision = if let TokenType::IntegerLiteral(p) = tokens[*i] {
+                                *i += 1;
+                                p as u8
+                            } else {
+                                return Err(QSQLError::ParseError {
+                                    message: "Expected precision for DECIMAL".to_string(),
+                                    position: *i,
+                                });
+                            };
 
-            // Get savepoint name
-            if i < tokens.len() {
-                if let TokenType::Identifier(name) = &tokens[i] {
-                    return Ok(Statement::ReleaseSavepoint(ReleaseSavepointStatement {
-                        name: name.clone(),
-                    }));
+                            let scale =
+                                if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                                    *i += 1;
+                                    if let TokenType::IntegerLiteral(s) = tokens[*i] {
+                                        *i += 1;
+                                        s as u8
+                                    } else {
+                                        return Err(QSQLError::ParseError {
+                                            message: "Expected scale for DECIMAL".to_string(),
+                                            position: *i,
+                                        });
+                                    }
+                                } else {
+                                    0
+                                };
+
+                            if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
+                                *i += 1;
+                                DataType::Decimal(precision, scale)
+                            } else {
+                                return Err(QSQLError::ParseError {
+                                    message: "Expected ')' after DECIMAL parameters".to_string(),
+                                    position: *i,
+                                });
+                            }
+                        } else {
+                            DataType::Decimal(10, 2)
+                        }
+                    }
+                    _ => {
+                        return Err(QSQLError::ParseError {
+                            message: format!("Unknown data type: {}", type_name),
+                            position: *i - 1,
+                        })
+                    }
                 }
             }
+            TokenType::Serial => {
+                *i += 1;
+                DataType::Serial
+            }
+            TokenType::BigSerial => {
+                *i += 1;
+                DataType::BigSerial
+            }
+            TokenType::SmallSerial => {
+                *i += 1;
+                DataType::SmallSerial
+            }
+            _ => {
+                return Err(QSQLError::ParseError {
+                    message: format!("Expected data type, found {:?}", tokens[*i]),
+                    position: *i,
+                })
+            }
+        };
 
+        Ok(data_type)
+    }
+
+    /// Parse table constraint (PRIMARY KEY, UNIQUE, etc.)
+    fn parse_table_constraint(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<TableConstraint> {
+        match &tokens[*i] {
+            TokenType::Primary => {
+                *i += 1;
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Key) {
+                    *i += 1;
+                }
+
+                // Expect '('
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected '(' after PRIMARY KEY".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Parse column list
+                let mut columns = Vec::new();
+                while *i < tokens.len() && !matches!(tokens[*i], TokenType::RightParen) {
+                    if let TokenType::Identifier(col) = &tokens[*i] {
+                        columns.push(col.clone());
+                        *i += 1;
+
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                            *i += 1;
+                        }
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in PRIMARY KEY".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+
+                // Expect ')'
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected ')' after PRIMARY KEY columns".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                Ok(TableConstraint::PrimaryKey(columns))
+            }
+            TokenType::Unique => {
+                *i += 1;
+
+                // Expect '('
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected '(' after UNIQUE".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Parse column list
+                let mut columns = Vec::new();
+                while *i < tokens.len() && !matches!(tokens[*i], TokenType::RightParen) {
+                    if let TokenType::Identifier(col) = &tokens[*i] {
+                        columns.push(col.clone());
+                        *i += 1;
+
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                            *i += 1;
+                        }
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in UNIQUE".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+
+                // Expect ')'
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected ')' after UNIQUE columns".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                Ok(TableConstraint::Unique(columns))
+            }
+            _ => Err(QSQLError::ParseError {
+                message: format!("Unexpected constraint token: {:?}", tokens[*i]),
+                position: *i,
+            }),
+        }
+    }
+
+    /// Parse DROP statement (TABLE or INDEX)
+    fn parse_drop_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        if tokens.len() < 2 {
             return Err(QSQLError::ParseError {
-                message: "Expected savepoint name after RELEASE SAVEPOINT".to_string(),
+                message: "Incomplete DROP statement".to_string(),
+                position: 0,
+            });
+        }
+
+        match &tokens[1] {
+            TokenType::Table => self.parse_drop_table_statement(tokens),
+            TokenType::Index => self.parse_drop_index_statement(tokens),
+            _ => Err(QSQLError::ParseError {
+                message: "Expected TABLE or INDEX after DROP".to_string(),
+                position: 1,
+            }),
+        }
+    }
+
+    /// Parse DROP TABLE statement
+    fn parse_drop_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip DROP keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Drop) {
+            i += 1;
+        }
+
+        // Skip TABLE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Table) {
+            i += 1;
+        }
+
+        // Check for IF EXISTS
+        let mut if_exists = false;
+        if i + 1 < tokens.len()
+            && matches!(tokens[i], TokenType::If)
+            && matches!(tokens[i + 1], TokenType::Exists)
+        {
+            if_exists = true;
+            i += 2;
+        }
+
+        // Parse table name
+        let table_name = if let TokenType::Identifier(name) = &tokens[i] {
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected table name".to_string(),
+                position: i,
+            });
+        };
+
+        Ok(Statement::DropTable(DropTableStatement {
+            table_name,
+            if_exists,
+            preserve_synaptic_patterns: false,
+        }))
+    }
+
+    /// Parse ALTER TABLE statement
+    fn parse_alter_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip ALTER keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Alter) {
+            i += 1;
+        }
+
+        // Skip TABLE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Table) {
+            i += 1;
+        }
+
+        // Parse table name
+        let table_name = if let TokenType::Identifier(name) = &tokens[i] {
+            i += 1;
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected table name".to_string(),
+                position: i,
+            });
+        };
+
+        // Parse operation (ADD, DROP, MODIFY)
+        let operation = match &tokens[i] {
+            TokenType::Add => {
+                i += 1;
+                // Skip optional COLUMN keyword
+                if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
+                    i += 1;
+                }
+
+                let column = self.parse_column_definition(tokens, &mut i)?;
+                AlterTableOperation::AddColumn { column }
+            }
+            TokenType::Drop => {
+                i += 1;
+                // Skip optional COLUMN keyword
+                if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
+                    i += 1;
+                }
+
+                let column_name = if let TokenType::Identifier(name) = &tokens[i] {
+                    name.clone()
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected column name after DROP".to_string(),
+                        position: i,
+                    });
+                };
+
+                AlterTableOperation::DropColumn { column_name }
+            }
+            TokenType::Modify => {
+                i += 1;
+                // Skip optional COLUMN keyword
+                if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
+                    i += 1;
+                }
+
+                let column_name = if let TokenType::Identifier(name) = &tokens[i] {
+                    i += 1;
+                    name.clone()
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected column name after MODIFY".to_string(),
+                        position: i,
+                    });
+                };
+
+                let new_data_type = self.parse_data_type(tokens, &mut i)?;
+
+                AlterTableOperation::ModifyColumn {
+                    column_name,
+                    new_data_type,
+                }
+            }
+            _ => {
+                return Err(QSQLError::ParseError {
+                    message: "Expected ADD, DROP, or MODIFY after ALTER TABLE".to_string(),
+                    position: i,
+                })
+            }
+        };
+
+        Ok(Statement::AlterTable(AlterTableStatement {
+            table_name,
+            operation,
+        }))
+    }
+
+    /// Parse CREATE INDEX statement
+    fn parse_create_index_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip CREATE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Create) {
+            i += 1;
+        }
+
+        // Check for UNIQUE
+        let unique = if i < tokens.len() && matches!(tokens[i], TokenType::Unique) {
+            i += 1;
+            true
+        } else {
+            false
+        };
+
+        // Skip INDEX keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Index) {
+            i += 1;
+        }
+
+        // Check for IF NOT EXISTS
+        let mut if_not_exists = false;
+        if i + 2 < tokens.len()
+            && matches!(tokens[i], TokenType::If)
+            && matches!(tokens[i + 1], TokenType::Not)
+            && matches!(tokens[i + 2], TokenType::Exists)
+        {
+            if_not_exists = true;
+            i += 3;
+        }
+
+        // Parse index name
+        let index_name = if let TokenType::Identifier(name) = &tokens[i] {
+            i += 1;
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected index name".to_string(),
+                position: i,
+            });
+        };
+
+        // Expect ON
+        let on_keyword_found = if i < tokens.len() {
+            matches!(tokens[i], TokenType::On) || {
+                if let TokenType::Identifier(s) = &tokens[i] {
+                    s.to_uppercase() == "ON"
+                } else {
+                    false
+                }
+            }
+        } else {
+            false
+        };
+
+        if !on_keyword_found {
+            return Err(QSQLError::ParseError {
+                message: "Expected ON after index name".to_string(),
+                position: i,
+            });
+        }
+        i += 1;
+
+        // Parse table name
+        let table_name = if let TokenType::Identifier(name) = &tokens[i] {
+            i += 1;
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected table name after ON".to_string(),
+                position: i,
+            });
+        };
+
+        // Expect '('
+        if i >= tokens.len() || !matches!(tokens[i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after table name".to_string(),
+                position: i,
+            });
+        }
+        i += 1;
+
+        // Parse column list
+        let mut columns = Vec::new();
+        while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
+            if let TokenType::Identifier(col) = &tokens[i] {
+                columns.push(col.clone());
+                i += 1;
+
+                if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                    i += 1;
+                }
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected column name in index".to_string(),
+                    position: i,
+                });
+            }
+        }
+
+        // Expect ')'
+        if i >= tokens.len() || !matches!(tokens[i], TokenType::RightParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected ')' after index columns".to_string(),
                 position: i,
             });
         }
 
-        Err(QSQLError::ParseError {
-            message: "Expected SAVEPOINT keyword after RELEASE".to_string(),
-            position: i,
-        })
+        Ok(Statement::CreateIndex(CreateIndexStatement {
+            index_name,
+            table_name,
+            columns,
+            unique,
+            if_not_exists,
+        }))
+    }
+
+    /// Parse DROP INDEX statement
+    fn parse_drop_index_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip DROP keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Drop) {
+            i += 1;
+        }
+
+        // Skip INDEX keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Index) {
+            i += 1;
+        }
+
+        // Check for IF EXISTS
+        let mut if_exists = false;
+        if i + 1 < tokens.len()
+            && matches!(tokens[i], TokenType::If)
+            && matches!(tokens[i + 1], TokenType::Exists)
+        {
+            if_exists = true;
+            i += 2;
+        }
+
+        // Parse index name
+        let index_name = if let TokenType::Identifier(name) = &tokens[i] {
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected index name".to_string(),
+                position: i,
+            });
+        };
+
+        Ok(Statement::DropIndex(DropIndexStatement {
+            index_name,
+            if_exists,
+        }))
+    }
+
+    /// Parse TRUNCATE TABLE statement
+    fn parse_truncate_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip TRUNCATE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Truncate) {
+            i += 1;
+        }
+
+        // Skip optional TABLE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Table) {
+            i += 1;
+        }
+
+        // Parse table name
+        let table_name = if let TokenType::Identifier(name) = &tokens[i] {
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected table name".to_string(),
+                position: i,
+            });
+        };
+
+        Ok(Statement::TruncateTable(TruncateTableStatement {
+            table_name,
+        }))
     }
 
     /// Parse an optional table alias (AS alias or just identifier after table name)
@@ -2014,6 +2714,138 @@ impl QSQLParser {
         }
 
         None
+    }
+
+    /// Parse WITH clause for Common Table Expressions (CTEs)
+    fn parse_with_clause(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<WithClause> {
+        // Consume WITH keyword
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::With) {
+            return Err(QSQLError::ParseError {
+                message: "Expected WITH keyword".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1;
+
+        // Check for optional RECURSIVE keyword
+        let recursive = if *i < tokens.len() && matches!(tokens[*i], TokenType::Recursive) {
+            *i += 1;
+            true
+        } else {
+            false
+        };
+
+        let mut ctes = Vec::new();
+
+        // Parse one or more CTEs
+        loop {
+            // Parse CTE name
+            let name = if let Some(TokenType::Identifier(cte_name)) = tokens.get(*i) {
+                let name = cte_name.clone();
+                *i += 1;
+                name
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected CTE name after WITH".to_string(),
+                    position: *i,
+                });
+            };
+
+            // Parse optional column list: (col1, col2, ...)
+            let columns = if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                *i += 1; // consume '('
+                let mut cols = Vec::new();
+
+                loop {
+                    if *i >= tokens.len() {
+                        return Err(QSQLError::ParseError {
+                            message: "Unclosed column list in CTE".to_string(),
+                            position: *i,
+                        });
+                    }
+
+                    // Check for closing paren
+                    if matches!(tokens[*i], TokenType::RightParen) {
+                        *i += 1; // consume ')'
+                        break;
+                    }
+
+                    // Parse column name
+                    if let TokenType::Identifier(col_name) = &tokens[*i] {
+                        cols.push(col_name.clone());
+                        *i += 1;
+
+                        // Check for comma or closing paren
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                            *i += 1; // consume ','
+                        } else if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
+                            *i += 1; // consume ')'
+                            break;
+                        }
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in CTE column list".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+
+                Some(cols)
+            } else {
+                None
+            };
+
+            // Expect AS keyword
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::As) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected AS keyword after CTE name".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1;
+
+            // Expect opening paren for CTE query
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected '(' after AS in CTE".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1;
+
+            // Parse the SELECT statement inside the CTE
+            let query = self.parse_select_statement_at(tokens, i)?;
+
+            // Expect closing paren
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected ')' after CTE query".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1;
+
+            // Add the CTE to the list
+            ctes.push(CommonTableExpression {
+                name,
+                query: Box::new(query),
+                columns,
+            });
+
+            // Check for comma (more CTEs) or end of WITH clause
+            if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                *i += 1; // consume ','
+                continue; // Parse next CTE
+            } else {
+                break; // End of CTE list
+            }
+        }
+
+        Ok(WithClause { recursive, ctes })
     }
 
     /// Parse JOIN clauses after the first table in FROM
@@ -2184,7 +3016,9 @@ impl QSQLParser {
         keywords.insert("OR".to_string(), TokenType::Or);
         keywords.insert("NOT".to_string(), TokenType::Not);
         keywords.insert("WITH".to_string(), TokenType::With);
+        keywords.insert("RECURSIVE".to_string(), TokenType::Recursive);
         keywords.insert("DISTINCT".to_string(), TokenType::Distinct);
+        keywords.insert("EXTRACT".to_string(), TokenType::Extract);
         keywords.insert("IN".to_string(), TokenType::In);
         keywords.insert("LIKE".to_string(), TokenType::Like);
         keywords.insert("BETWEEN".to_string(), TokenType::Between);
@@ -2212,6 +3046,19 @@ impl QSQLParser {
         keywords.insert("SET".to_string(), TokenType::Identifier("SET".to_string()));
         keywords.insert("DELETE".to_string(), TokenType::Delete);
 
+        // DDL keywords
+        keywords.insert("CREATE".to_string(), TokenType::Create);
+        keywords.insert("DROP".to_string(), TokenType::Drop);
+        keywords.insert("ALTER".to_string(), TokenType::Alter);
+        keywords.insert("TRUNCATE".to_string(), TokenType::Truncate);
+        keywords.insert("TABLE".to_string(), TokenType::Table);
+        keywords.insert("INDEX".to_string(), TokenType::Index);
+        keywords.insert("ADD".to_string(), TokenType::Add);
+        keywords.insert("COLUMN".to_string(), TokenType::Column);
+        keywords.insert("MODIFY".to_string(), TokenType::Modify);
+        keywords.insert("IF".to_string(), TokenType::If);
+        keywords.insert("EXISTS".to_string(), TokenType::Exists);
+
         // Auto-increment and identity keywords
         keywords.insert("SERIAL".to_string(), TokenType::Serial);
         keywords.insert("BIGSERIAL".to_string(), TokenType::BigSerial);
@@ -2226,6 +3073,9 @@ impl QSQLParser {
         keywords.insert("GENERATED".to_string(), TokenType::Generated);
         keywords.insert("ALWAYS".to_string(), TokenType::Always);
         keywords.insert("IDENTITY".to_string(), TokenType::Identity);
+
+        // Date/Time keywords
+        keywords.insert("INTERVAL".to_string(), TokenType::Interval);
 
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
@@ -2734,6 +3584,66 @@ impl QSQLParser {
         })
     }
 
+    /// Parse EXTRACT expression: EXTRACT(field FROM source)
+    fn parse_extract_expression(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Expression> {
+        // Consume EXTRACT token
+        *i += 1;
+
+        // Expect opening parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after EXTRACT".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume '('
+
+        // Parse the field identifier (YEAR, MONTH, DAY, etc.)
+        let field = match &tokens[*i] {
+            TokenType::Identifier(name) => name.to_uppercase(),
+            _ => {
+                return Err(QSQLError::ParseError {
+                    message: format!(
+                        "Expected field identifier in EXTRACT expression, found {:?}",
+                        tokens[*i]
+                    ),
+                    position: *i,
+                });
+            }
+        };
+        *i += 1; // consume field identifier
+
+        // Expect FROM keyword
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::From) {
+            return Err(QSQLError::ParseError {
+                message: "Expected FROM keyword in EXTRACT expression".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume FROM
+
+        // Parse source expression
+        let source = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+        // Expect closing parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected ')' at end of EXTRACT expression".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume ')'
+
+        Ok(Expression::Extract {
+            field,
+            source: Box::new(source),
+        })
+    }
+
     /// Parse prefix expression (primary expressions and unary operators)
     fn parse_prefix_expression(
         &self,
@@ -2750,6 +3660,9 @@ impl QSQLParser {
         match &tokens[*i] {
             // CASE expression: CASE WHEN ... THEN ... [ELSE ...] END
             TokenType::Case => self.parse_case_expression(tokens, i),
+
+            // EXTRACT expression: EXTRACT(field FROM source)
+            TokenType::Extract => self.parse_extract_expression(tokens, i),
 
             // Unary NOT operator
             TokenType::Not => {
@@ -2914,6 +3827,37 @@ impl QSQLParser {
                 } else {
                     args.push(arg);
                 }
+            } else if matches!(tokens[*i], TokenType::Interval) {
+                // Special handling for INTERVAL syntax (DATE_ADD/DATE_SUB)
+                // INTERVAL expr unit -> encoded as string "expr unit"
+                *i += 1; // consume INTERVAL
+                
+                // Parse the interval expression (could be number or expression)
+                let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                
+                // Parse the unit (DAY, MONTH, YEAR, HOUR, etc.)
+                if *i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected time unit after INTERVAL expression".to_string(),
+                        position: *i,
+                    });
+                }
+                
+                let unit = match &tokens[*i] {
+                    TokenType::Identifier(s) => s.to_uppercase(),
+                    _ => {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected time unit (DAY, MONTH, YEAR, etc.) after INTERVAL expression".to_string(),
+                            position: *i,
+                        });
+                    }
+                };
+                *i += 1; // consume unit
+                
+                // Encode INTERVAL as a special string: "INTERVAL:<expr>:<unit>"
+                // We'll extract the expression value at execution time
+                args.push(expr);
+                args.push(Expression::Literal(Literal::String(format!("INTERVAL_UNIT:{}", unit))));
             } else {
                 // Parse argument expression
                 let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;

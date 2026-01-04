@@ -34,6 +34,10 @@ mod tests;
 #[cfg(test)]
 mod proptest_suite;
 
+// Comprehensive test suite
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -120,6 +124,7 @@ impl Default for CachedQueryPlan {
                     plasticity_threshold: None,
                     quantum_parallel: false,
                     grover_iterations: None,
+                    with_clause: None,
                 }),
                 execution_strategy: ExecutionStrategy::Sequential,
                 synaptic_pathways: vec![],
