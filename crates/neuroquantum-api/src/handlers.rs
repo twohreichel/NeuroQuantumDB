@@ -1194,10 +1194,10 @@ pub async fn compress_dna(
         }
 
         let original_length = sequence.len();
-        
+
         // Convert DNA sequence string to bytes for compression
         let sequence_bytes = sequence.as_bytes();
-        
+
         // Use the database's DNA compression functionality
         let compressed = db
             .dna_compressor()
@@ -1214,7 +1214,7 @@ pub async fn compress_dna(
                 reason: format!("Serialization failed: {}", e),
             })?,
         );
-        
+
         let compressed_size = compressed.compressed_size;
         let compression_ratio = compressed.sequence.metadata.compression_ratio as f32;
         let checksum = format!("{:x}", compressed.sequence.checksum);
