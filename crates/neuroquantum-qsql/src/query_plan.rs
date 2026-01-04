@@ -3298,10 +3298,34 @@ impl QueryExecutor {
                 let result = if let Ok(dt) = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
                     // DateTime input
                     let new_dt = match unit.as_str() {
-                        "YEAR" => dt.checked_add_months(chrono::Months::new((interval_value * 12) as u32)),
-                        "MONTH" => dt.checked_add_months(chrono::Months::new(interval_value as u32)),
-                        "WEEK" => dt.checked_add_days(chrono::Days::new((interval_value * 7) as u64)),
-                        "DAY" => dt.checked_add_days(chrono::Days::new(interval_value as u64)),
+                        "YEAR" => {
+                            if interval_value >= 0 {
+                                dt.checked_add_months(chrono::Months::new((interval_value * 12) as u32))
+                            } else {
+                                dt.checked_sub_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                            }
+                        }
+                        "MONTH" => {
+                            if interval_value >= 0 {
+                                dt.checked_add_months(chrono::Months::new(interval_value as u32))
+                            } else {
+                                dt.checked_sub_months(chrono::Months::new((-interval_value) as u32))
+                            }
+                        }
+                        "WEEK" => {
+                            if interval_value >= 0 {
+                                dt.checked_add_days(chrono::Days::new((interval_value * 7) as u64))
+                            } else {
+                                dt.checked_sub_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                            }
+                        }
+                        "DAY" => {
+                            if interval_value >= 0 {
+                                dt.checked_add_days(chrono::Days::new(interval_value as u64))
+                            } else {
+                                dt.checked_sub_days(chrono::Days::new((-interval_value) as u64))
+                            }
+                        }
                         "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
                         "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
                         "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
@@ -3313,10 +3337,34 @@ impl QueryExecutor {
                 } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
                     // Date only input
                     let new_date = match unit.as_str() {
-                        "YEAR" => date.checked_add_months(chrono::Months::new((interval_value * 12) as u32)),
-                        "MONTH" => date.checked_add_months(chrono::Months::new(interval_value as u32)),
-                        "WEEK" => date.checked_add_days(chrono::Days::new((interval_value * 7) as u64)),
-                        "DAY" => date.checked_add_days(chrono::Days::new(interval_value as u64)),
+                        "YEAR" => {
+                            if interval_value >= 0 {
+                                date.checked_add_months(chrono::Months::new((interval_value * 12) as u32))
+                            } else {
+                                date.checked_sub_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                            }
+                        }
+                        "MONTH" => {
+                            if interval_value >= 0 {
+                                date.checked_add_months(chrono::Months::new(interval_value as u32))
+                            } else {
+                                date.checked_sub_months(chrono::Months::new((-interval_value) as u32))
+                            }
+                        }
+                        "WEEK" => {
+                            if interval_value >= 0 {
+                                date.checked_add_days(chrono::Days::new((interval_value * 7) as u64))
+                            } else {
+                                date.checked_sub_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                            }
+                        }
+                        "DAY" => {
+                            if interval_value >= 0 {
+                                date.checked_add_days(chrono::Days::new(interval_value as u64))
+                            } else {
+                                date.checked_sub_days(chrono::Days::new((-interval_value) as u64))
+                            }
+                        }
                         "HOUR" | "MINUTE" | "SECOND" => {
                             // Convert to datetime for time-based operations
                             let dt = match date.and_hms_opt(0, 0, 0) {
@@ -3369,10 +3417,34 @@ impl QueryExecutor {
                 let result = if let Ok(dt) = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
                     // DateTime input
                     let new_dt = match unit.as_str() {
-                        "YEAR" => dt.checked_sub_months(chrono::Months::new((interval_value * 12) as u32)),
-                        "MONTH" => dt.checked_sub_months(chrono::Months::new(interval_value as u32)),
-                        "WEEK" => dt.checked_sub_days(chrono::Days::new((interval_value * 7) as u64)),
-                        "DAY" => dt.checked_sub_days(chrono::Days::new(interval_value as u64)),
+                        "YEAR" => {
+                            if interval_value >= 0 {
+                                dt.checked_sub_months(chrono::Months::new((interval_value * 12) as u32))
+                            } else {
+                                dt.checked_add_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                            }
+                        }
+                        "MONTH" => {
+                            if interval_value >= 0 {
+                                dt.checked_sub_months(chrono::Months::new(interval_value as u32))
+                            } else {
+                                dt.checked_add_months(chrono::Months::new((-interval_value) as u32))
+                            }
+                        }
+                        "WEEK" => {
+                            if interval_value >= 0 {
+                                dt.checked_sub_days(chrono::Days::new((interval_value * 7) as u64))
+                            } else {
+                                dt.checked_add_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                            }
+                        }
+                        "DAY" => {
+                            if interval_value >= 0 {
+                                dt.checked_sub_days(chrono::Days::new(interval_value as u64))
+                            } else {
+                                dt.checked_add_days(chrono::Days::new((-interval_value) as u64))
+                            }
+                        }
                         "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
                         "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
                         "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
@@ -3384,10 +3456,34 @@ impl QueryExecutor {
                 } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
                     // Date only input
                     let new_date = match unit.as_str() {
-                        "YEAR" => date.checked_sub_months(chrono::Months::new((interval_value * 12) as u32)),
-                        "MONTH" => date.checked_sub_months(chrono::Months::new(interval_value as u32)),
-                        "WEEK" => date.checked_sub_days(chrono::Days::new((interval_value * 7) as u64)),
-                        "DAY" => date.checked_sub_days(chrono::Days::new(interval_value as u64)),
+                        "YEAR" => {
+                            if interval_value >= 0 {
+                                date.checked_sub_months(chrono::Months::new((interval_value * 12) as u32))
+                            } else {
+                                date.checked_add_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                            }
+                        }
+                        "MONTH" => {
+                            if interval_value >= 0 {
+                                date.checked_sub_months(chrono::Months::new(interval_value as u32))
+                            } else {
+                                date.checked_add_months(chrono::Months::new((-interval_value) as u32))
+                            }
+                        }
+                        "WEEK" => {
+                            if interval_value >= 0 {
+                                date.checked_sub_days(chrono::Days::new((interval_value * 7) as u64))
+                            } else {
+                                date.checked_add_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                            }
+                        }
+                        "DAY" => {
+                            if interval_value >= 0 {
+                                date.checked_sub_days(chrono::Days::new(interval_value as u64))
+                            } else {
+                                date.checked_add_days(chrono::Days::new((-interval_value) as u64))
+                            }
+                        }
                         "HOUR" | "MINUTE" | "SECOND" => {
                             // Convert to datetime for time-based operations
                             let dt = match date.and_hms_opt(0, 0, 0) {

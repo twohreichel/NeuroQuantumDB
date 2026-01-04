@@ -1624,3 +1624,21 @@ fn test_date_sub_in_where_clause() {
         _ => panic!("Expected SELECT statement"),
     }
 }
+
+#[test]
+fn test_date_add_negative_interval() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_ADD with negative interval (should subtract)
+    let result = parser.parse("SELECT DATE_ADD('2025-06-15', INTERVAL -3 MONTH)");
+    assert!(result.is_ok(), "Failed to parse DATE_ADD with negative interval");
+}
+
+#[test]
+fn test_date_sub_negative_interval() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_SUB with negative interval (should add)
+    let result = parser.parse("SELECT DATE_SUB('2025-01-01', INTERVAL -7 DAY)");
+    assert!(result.is_ok(), "Failed to parse DATE_SUB with negative interval");
+}
