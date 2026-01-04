@@ -34,10 +34,6 @@ mod tests;
 #[cfg(test)]
 mod proptest_suite;
 
-// Comprehensive test suite
-#[cfg(test)]
-mod tests;
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -426,6 +422,23 @@ impl Default for QSQLConfig {
             cache_size: 1000,
             enable_natural_language: true,
             enable_quantum_optimization: true,
+            synaptic_learning_rate: 0.01,
+        }
+    }
+}
+
+impl QSQLConfig {
+    /// Create a testing configuration that uses mock/simulated storage
+    /// instead of requiring a real storage engine.
+    #[cfg(test)]
+    pub fn testing() -> Self {
+        Self {
+            parser_config: ParserConfig::default(),
+            optimizer_config: OptimizerConfig::default(),
+            executor_config: ExecutorConfig::testing(),
+            cache_size: 100,
+            enable_natural_language: true,
+            enable_quantum_optimization: false,
             synaptic_learning_rate: 0.01,
         }
     }

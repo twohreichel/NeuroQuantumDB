@@ -395,6 +395,12 @@ pub enum Expression {
         /// The source expression (date/time value)
         source: Box<Expression>,
     },
+
+    // IS NULL / IS NOT NULL expression
+    IsNull {
+        expr: Box<Expression>,
+        negated: bool, // true for IS NOT NULL
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

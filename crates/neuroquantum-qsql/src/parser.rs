@@ -618,6 +618,13 @@ impl QSQLParser {
             Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
             Some(TokenType::Adapt) => self.parse_adapt_weights_statement(tokens),
             Some(TokenType::QuantumJoin) => self.parse_quantum_join_statement(tokens),
+            // Transaction control statements
+            Some(TokenType::Begin) => self.parse_begin_transaction(tokens),
+            Some(TokenType::Start) => self.parse_start_transaction(tokens),
+            Some(TokenType::Commit) => self.parse_commit(tokens),
+            Some(TokenType::Rollback) => self.parse_rollback(tokens),
+            Some(TokenType::Savepoint) => self.parse_savepoint(tokens),
+            Some(TokenType::Release) => self.parse_release_savepoint(tokens),
             _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
                 position: 0,
@@ -1213,6 +1220,32 @@ impl QSQLParser {
             // Stop at RightParen for subqueries
             if matches!(tokens[*i], TokenType::RightParen) {
                 break;
+            }
+
+            // Check for IS NULL or IS NOT NULL
+            if matches!(tokens[*i], TokenType::Is) {
+                *i += 1; // consume IS
+                let negated = if *i < tokens.len() && matches!(tokens[*i], TokenType::Not) {
+                    *i += 1; // consume NOT
+                    true
+                } else {
+                    false
+                };
+
+                // Expect NULL
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Null) {
+                    *i += 1; // consume NULL
+                    left = Expression::IsNull {
+                        expr: Box::new(left),
+                        negated,
+                    };
+                    continue;
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected NULL after IS".to_string(),
+                        position: *i,
+                    });
+                }
             }
 
             // Check for NOT IN (two-token sequence)
@@ -1877,6 +1910,143 @@ impl QSQLParser {
         };
 
         Ok(Statement::QuantumJoin(quantum_join))
+    }
+
+    /// Parse BEGIN or BEGIN TRANSACTION statement
+    fn parse_begin_transaction(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip BEGIN keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Begin) {
+            i += 1;
+        }
+
+        // Skip optional TRANSACTION keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Transaction) {
+            i += 1;
+        }
+
+        // Silence unused variable warning (i would be used if we parsed isolation level)
+        let _ = i;
+
+        // Parse optional isolation level (e.g., ISOLATION LEVEL SERIALIZABLE)
+        let isolation_level = None; // TODO: Parse isolation level if needed
+
+        Ok(Statement::BeginTransaction(
+            crate::ast::BeginTransactionStatement { isolation_level },
+        ))
+    }
+
+    /// Parse START TRANSACTION statement
+    fn parse_start_transaction(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip START keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Start) {
+            i += 1;
+        }
+
+        // Skip TRANSACTION keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Transaction) {
+            i += 1;
+        }
+
+        // Silence unused variable warning
+        let _ = i;
+
+        Ok(Statement::BeginTransaction(
+            crate::ast::BeginTransactionStatement {
+                isolation_level: None,
+            },
+        ))
+    }
+
+    /// Parse COMMIT statement
+    fn parse_commit(&self, _tokens: &[TokenType]) -> QSQLResult<Statement> {
+        Ok(Statement::Commit(crate::ast::CommitStatement {}))
+    }
+
+    /// Parse ROLLBACK statement (with optional TO SAVEPOINT)
+    fn parse_rollback(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip ROLLBACK keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Rollback) {
+            i += 1;
+        }
+
+        // Check for TO SAVEPOINT
+        if i < tokens.len() && matches!(tokens[i], TokenType::To) {
+            i += 1; // skip TO
+
+            // Skip optional SAVEPOINT keyword
+            if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
+                i += 1;
+            }
+
+            // Get savepoint name
+            if let Some(TokenType::Identifier(name)) = tokens.get(i) {
+                return Ok(Statement::RollbackToSavepoint(
+                    crate::ast::RollbackToSavepointStatement { name: name.clone() },
+                ));
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected savepoint name after ROLLBACK TO".to_string(),
+                    position: i,
+                });
+            }
+        }
+
+        Ok(Statement::Rollback(crate::ast::RollbackStatement {}))
+    }
+
+    /// Parse SAVEPOINT statement
+    fn parse_savepoint(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip SAVEPOINT keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
+            i += 1;
+        }
+
+        // Get savepoint name
+        if let Some(TokenType::Identifier(name)) = tokens.get(i) {
+            Ok(Statement::Savepoint(crate::ast::SavepointStatement {
+                name: name.clone(),
+            }))
+        } else {
+            Err(QSQLError::ParseError {
+                message: "Expected savepoint name after SAVEPOINT".to_string(),
+                position: i,
+            })
+        }
+    }
+
+    /// Parse RELEASE SAVEPOINT statement
+    fn parse_release_savepoint(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip RELEASE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Release) {
+            i += 1;
+        }
+
+        // Skip optional SAVEPOINT keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
+            i += 1;
+        }
+
+        // Get savepoint name
+        if let Some(TokenType::Identifier(name)) = tokens.get(i) {
+            Ok(Statement::ReleaseSavepoint(
+                crate::ast::ReleaseSavepointStatement { name: name.clone() },
+            ))
+        } else {
+            Err(QSQLError::ParseError {
+                message: "Expected savepoint name after RELEASE".to_string(),
+                position: i,
+            })
+        }
     }
 
     /// Parse CREATE statement (TABLE or INDEX)
@@ -3358,6 +3528,32 @@ impl QSQLParser {
 
         // Then, handle infix operators using precedence climbing
         while *i < tokens.len() {
+            // Check for IS NULL or IS NOT NULL
+            if matches!(tokens[*i], TokenType::Is) {
+                *i += 1; // consume IS
+                let negated = if *i < tokens.len() && matches!(tokens[*i], TokenType::Not) {
+                    *i += 1; // consume NOT
+                    true
+                } else {
+                    false
+                };
+
+                // Expect NULL
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Null) {
+                    *i += 1; // consume NULL
+                    left = Expression::IsNull {
+                        expr: Box::new(left),
+                        negated,
+                    };
+                    continue;
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected NULL after IS".to_string(),
+                        position: *i,
+                    });
+                }
+            }
+
             // Check for NOT IN (two-token sequence)
             if matches!(tokens[*i], TokenType::Not)
                 && *i + 1 < tokens.len()

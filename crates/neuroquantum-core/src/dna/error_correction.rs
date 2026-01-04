@@ -49,8 +49,9 @@ impl ReedSolomonCorrector {
         let max_data_shards = 255 - parity_shards;
         let data_shards = (parity_shards * 4).clamp(16, max_data_shards.min(191));
 
-        // reed-solomon-simd works with fixed shard sizes - we use 1 byte shards
-        let shard_bytes = 1;
+        // reed-solomon-simd requires shard_bytes to be a non-zero multiple of 2
+        // We use 2 bytes per shard, padding each byte with a zero byte
+        let shard_bytes = 2;
 
         let max_correctable_errors = parity_shards / 2;
 
@@ -106,9 +107,9 @@ impl ReedSolomonCorrector {
                     DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
                 })?;
 
-        // Add each data shard (each byte becomes a shard)
+        // Add each data shard (each byte becomes a 2-byte shard, padded with 0)
         for &byte in &padded_data {
-            encoder.add_original_shard([byte]).map_err(|e| {
+            encoder.add_original_shard([byte, 0]).map_err(|e| {
                 DNAError::ErrorCorrectionFailed(format!("Failed to add data shard: {:?}", e))
             })?;
         }
@@ -145,7 +146,8 @@ impl ReedSolomonCorrector {
         let mut corrected_data = Vec::with_capacity(data.len());
         let mut total_errors_corrected = 0;
 
-        let expected_parity_per_block = self.parity_shards;
+        // Each parity shard is shard_bytes (2) bytes
+        let expected_parity_per_block = self.parity_shards * self.shard_bytes;
         let mut parity_offset = 0;
 
         // Process data in blocks
@@ -198,14 +200,18 @@ impl ReedSolomonCorrector {
         let mut shards: Vec<Option<Vec<u8>>> =
             Vec::with_capacity(self.data_shards + self.parity_shards);
 
-        // Fill data shards
+        // Fill data shards (each byte padded to 2 bytes to match shard_bytes = 2)
         for &byte in padded_data.iter() {
-            shards.push(Some(vec![byte]));
+            shards.push(Some(vec![byte, 0]));
         }
 
-        // Fill parity shards
-        for &byte in parity_block.iter().take(self.parity_shards) {
-            shards.push(Some(vec![byte]));
+        // Fill parity shards (parity data is already 2 bytes per shard)
+        for chunk in parity_block.chunks(2).take(self.parity_shards) {
+            if chunk.len() == 2 {
+                shards.push(Some(chunk.to_vec()));
+            } else if chunk.len() == 1 {
+                shards.push(Some(vec![chunk[0], 0]));
+            }
         }
 
         // Pad with None if needed
@@ -336,21 +342,29 @@ impl ReedSolomonCorrector {
                     continue;
                 }
 
-                // For data shards, validate checksum if available
-                // Check if all bytes are the same (likely corruption)
-                if shard_data.len() > 1 {
-                    let first_byte = shard_data[0];
-                    let all_same = shard_data.iter().all(|&b| b == first_byte);
+                // Verify shard has expected size
+                if shard_data.len() != self.shard_bytes {
+                    debug!(
+                        "Detected corrupted shard at index {}: expected {} bytes, got {} bytes",
+                        idx,
+                        self.shard_bytes,
+                        shard_data.len()
+                    );
+                    corrupted_count += 1;
+                    continue;
+                }
 
-                    // If all bytes are 0xFF or 0x00, likely corrupted
-                    if all_same && (first_byte == 0xFF || first_byte == 0x00) {
-                        debug!(
-                            "Detected corrupted shard at index {}: all bytes are 0x{:02X}",
-                            idx, first_byte
-                        );
-                        corrupted_count += 1;
-                        continue;
-                    }
+                // With 2-byte shards where second byte is padding (0), only mark as
+                // corrupted if ALL bytes (including the data byte) are 0xFF
+                // A shard like [0, 0] is valid (represents the byte value 0)
+                let all_0xff = shard_data.iter().all(|&b| b == 0xFF);
+                if all_0xff {
+                    debug!(
+                        "Detected corrupted shard at index {}: all bytes are 0xFF",
+                        idx
+                    );
+                    corrupted_count += 1;
+                    continue;
                 }
 
                 // Additional validation: check for expected shard size
@@ -427,7 +441,8 @@ impl ReedSolomonCorrector {
     /// Calculate the required parity length for a given data size
     pub fn calculate_parity_length(&self, data_size: usize) -> usize {
         let blocks = data_size.div_ceil(self.data_shards);
-        blocks * self.parity_shards
+        // Each parity shard is shard_bytes (2) bytes
+        blocks * self.parity_shards * self.shard_bytes
     }
 
     /// Validate Reed-Solomon parameters
@@ -628,9 +643,9 @@ impl ReedSolomonCorrector {
                     DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
                 })?;
 
-        // Add each data shard
+        // Add each data shard (padded to 2 bytes to match shard_bytes = 2)
         for &byte in &padded_data {
-            encoder.add_original_shard([byte]).map_err(|e| {
+            encoder.add_original_shard([byte, 0]).map_err(|e| {
                 DNAError::ErrorCorrectionFailed(format!("Failed to add shard: {:?}", e))
             })?;
         }

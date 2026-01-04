@@ -343,7 +343,11 @@ async fn test_insert_single_record() {
         };
 
         let result = storage.insert_row(table_name, row).await;
-        assert!(result.is_ok(), "Should insert single record successfully");
+        assert!(
+            result.is_ok(),
+            "Should insert single record successfully: {:?}",
+            result.err()
+        );
     }
 
     // Verify record exists
