@@ -2472,9 +2472,19 @@ impl QSQLParser {
         };
 
         // Expect ON
-        if i >= tokens.len()
-            || !matches!(tokens[i], TokenType::On | TokenType::Identifier(s) if s.to_uppercase() == "ON")
-        {
+        let on_keyword_found = if i < tokens.len() {
+            matches!(tokens[i], TokenType::On) || {
+                if let TokenType::Identifier(s) = &tokens[i] {
+                    s.to_uppercase() == "ON"
+                } else {
+                    false
+                }
+            }
+        } else {
+            false
+        };
+
+        if !on_keyword_found {
             return Err(QSQLError::ParseError {
                 message: "Expected ON after index name".to_string(),
                 position: i,
