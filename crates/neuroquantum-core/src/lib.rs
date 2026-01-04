@@ -554,6 +554,14 @@ impl NeuroQuantumDB {
     ) -> std::sync::Arc<tokio::sync::RwLock<storage::StorageEngine>> {
         self.storage.clone()
     }
+
+    /// Get a reference to the DNA compressor.
+    ///
+    /// This allows external components to perform DNA compression operations
+    /// directly using the configured compressor.
+    pub fn dna_compressor(&self) -> &dna::QuantumDNACompressor {
+        &self.dna_compressor
+    }
 }
 
 #[allow(deprecated)]
