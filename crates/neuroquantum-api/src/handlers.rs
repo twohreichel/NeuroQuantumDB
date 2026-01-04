@@ -1,7 +1,7 @@
 use crate::auth::{ApiKey, AuthService};
 use crate::error::*;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
-use neuroquantum_core::NeuroQuantumDB;
+use neuroquantum_core::{DNACompressor, NeuroQuantumDB};
 use neuroquantum_qsql::query_plan::QueryValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -929,7 +929,7 @@ pub async fn delete_data(
 )]
 pub async fn train_neural_network(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
+    _app_state: web::Data<crate::AppState>,
     train_req: web::Json<TrainNeuralNetworkRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -1040,7 +1040,7 @@ pub async fn get_training_status(
 )]
 pub async fn quantum_search(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
+    _app_state: web::Data<crate::AppState>,
     search_req: web::Json<QuantumSearchRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -1134,7 +1134,7 @@ pub async fn quantum_search(
 )]
 pub async fn compress_dna(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
+    app_state: web::Data<crate::AppState>,
     compress_req: web::Json<CompressDnaRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -1171,10 +1171,13 @@ pub async fn compress_dna(
         compress_req.algorithm
     );
 
-    // Simulate DNA compression
+    // Use real DNA compression from the core
     let mut compressed_sequences = Vec::new();
     let mut total_input_size = 0;
     let mut total_compressed_size = 0;
+
+    // Access the database from AppState
+    let db = app_state.db.read().await;
 
     for (i, sequence) in compress_req.sequences.iter().enumerate() {
         // Validate DNA sequence (should only contain A, T, G, C)
@@ -1191,20 +1194,39 @@ pub async fn compress_dna(
         }
 
         let original_length = sequence.len();
+        
+        // Convert DNA sequence string to bytes for compression
+        let sequence_bytes = sequence.as_bytes();
+        
+        // Use the database's DNA compression functionality
+        let compressed = db
+            .dna_compressor()
+            .compress(sequence_bytes)
+            .await
+            .map_err(|e| ApiError::CompressionError {
+                reason: format!("Compression failed for sequence {}: {}", i, e),
+            })?;
+
+        // Encode compressed data as base64 for JSON response
         let compressed_data = base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD,
-            format!("compressed_{}", sequence),
+            &serde_json::to_vec(&compressed).map_err(|e| ApiError::CompressionError {
+                reason: format!("Serialization failed: {}", e),
+            })?,
         );
-        let compression_ratio = original_length as f32 / compressed_data.len() as f32;
+        
+        let compressed_size = compressed.compressed_size;
+        let compression_ratio = compressed.sequence.metadata.compression_ratio as f32;
+        let checksum = format!("{:x}", compressed.sequence.checksum);
 
         total_input_size += original_length;
-        total_compressed_size += compressed_data.len();
+        total_compressed_size += compressed_size;
 
         compressed_sequences.push(CompressedSequence {
             original_length,
             compressed_data,
             compression_ratio,
-            checksum: format!("md5_{}", i), // Mock checksum
+            checksum,
         });
     }
 
