@@ -3286,7 +3286,11 @@ impl QueryExecutor {
                 let interval_value = match self.evaluate_expression_value(&args[1], row)? {
                     QueryValue::Integer(i) => i,
                     QueryValue::Float(f) => f as i64,
-                    QueryValue::String(s) => s.parse::<i64>().unwrap_or(0),
+                    QueryValue::String(s) => {
+                        s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
+                            message: format!("Invalid interval value: '{}' is not a valid number", s),
+                        })?
+                    }
                     _ => return Ok(QueryValue::Null),
                 };
                 
@@ -3405,7 +3409,11 @@ impl QueryExecutor {
                 let interval_value = match self.evaluate_expression_value(&args[1], row)? {
                     QueryValue::Integer(i) => i,
                     QueryValue::Float(f) => f as i64,
-                    QueryValue::String(s) => s.parse::<i64>().unwrap_or(0),
+                    QueryValue::String(s) => {
+                        s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
+                            message: format!("Invalid interval value: '{}' is not a valid number", s),
+                        })?
+                    }
                     _ => return Ok(QueryValue::Null),
                 };
                 
