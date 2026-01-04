@@ -120,6 +120,12 @@ const SQL_RESERVED_KEYWORDS: &[&str] = &[
     "IDENTITY",
     "IF",
     "TRUNCATE",
+    "TO",
+    "DO",
+    "GO",
+    "NO",
+    "AT",
+    "OF",
 ];
 
 /// Check if a string is a SQL reserved keyword (case-insensitive)
