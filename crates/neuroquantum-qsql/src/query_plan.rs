@@ -1916,7 +1916,7 @@ impl QueryExecutor {
         }
 
         // Check if savepoint exists
-        if !self.savepoints.remove(&release.name).is_some() {
+        if self.savepoints.remove(&release.name).is_none() {
             return Err(QSQLError::ExecutionError {
                 message: format!("Savepoint '{}' does not exist", release.name),
             });
