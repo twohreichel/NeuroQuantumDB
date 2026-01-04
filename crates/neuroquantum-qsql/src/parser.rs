@@ -209,6 +209,16 @@ pub enum TokenType {
     Using,
     QuantumState,
 
+    // Transaction control keywords
+    Begin,
+    Start,
+    Transaction,
+    Commit,
+    Rollback,
+    Savepoint,
+    Release,
+    To,
+
     // Operators and punctuation
     Equal,
     NotEqual,
@@ -3118,6 +3128,16 @@ impl QSQLParser {
         keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
         keywords.insert("GROVER".to_string(), TokenType::GroverSearch);
         keywords.insert("QUANTUM".to_string(), TokenType::QuantumSearch);
+
+        // Transaction control keywords
+        keywords.insert("BEGIN".to_string(), TokenType::Begin);
+        keywords.insert("START".to_string(), TokenType::Start);
+        keywords.insert("TRANSACTION".to_string(), TokenType::Transaction);
+        keywords.insert("COMMIT".to_string(), TokenType::Commit);
+        keywords.insert("ROLLBACK".to_string(), TokenType::Rollback);
+        keywords.insert("SAVEPOINT".to_string(), TokenType::Savepoint);
+        keywords.insert("RELEASE".to_string(), TokenType::Release);
+        keywords.insert("TO".to_string(), TokenType::To);
     }
 
     /// Initialize operator mappings with precedence for Pratt parsing

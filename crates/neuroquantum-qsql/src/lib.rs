@@ -26,6 +26,10 @@ pub mod query_plan;
 #[cfg(test)]
 pub mod sql_engine_tests;
 
+// Comprehensive test suite
+#[cfg(test)]
+mod tests;
+
 // Property-based tests for parser robustness
 #[cfg(test)]
 mod proptest_suite;

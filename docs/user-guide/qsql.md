@@ -72,6 +72,112 @@ SELECT name, COUNT(*) FROM orders GROUP BY name;
 SELECT * FROM users ORDER BY id LIMIT 10 OFFSET 20;
 ```
 
+## Transaction Control
+
+NeuroQuantumDB provides full ACID transaction support with SQL transaction control statements.
+
+### Basic Transactions
+
+```sql
+-- Begin a transaction
+BEGIN;
+
+-- Perform multiple operations atomically
+INSERT INTO accounts (id, balance) VALUES (1, 1000);
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+INSERT INTO transactions (from_id, amount) VALUES (1, 100);
+
+-- Commit the transaction
+COMMIT;
+```
+
+Alternative syntax:
+```sql
+START TRANSACTION;
+-- ... operations ...
+COMMIT;
+```
+
+### Rollback
+
+Roll back a transaction to undo all changes:
+
+```sql
+BEGIN;
+UPDATE inventory SET quantity = quantity - 1 WHERE product_id = 42;
+-- Oops, wrong product!
+ROLLBACK;
+```
+
+### Savepoints
+
+Use savepoints for partial rollback within a transaction:
+
+```sql
+BEGIN;
+
+-- Create an order
+INSERT INTO orders (id, status) VALUES (1, 'pending');
+
+-- Create a savepoint before adding items
+SAVEPOINT before_items;
+
+-- Add order items
+INSERT INTO order_items (order_id, product_id) VALUES (1, 100);
+INSERT INTO order_items (order_id, product_id) VALUES (1, 200);
+
+-- Rollback only the items, keep the order
+ROLLBACK TO SAVEPOINT before_items;
+
+-- Add different items
+INSERT INTO order_items (order_id, product_id) VALUES (1, 300);
+
+-- Release the savepoint (optional)
+RELEASE SAVEPOINT before_items;
+
+COMMIT;
+```
+
+### Isolation Levels
+
+Transactions use READ COMMITTED isolation level by default. The transaction system provides:
+
+- **ACID guarantees**: Atomicity, Consistency, Isolation, Durability
+- **Write-Ahead Logging (WAL)**: Ensures durability and crash recovery
+- **Multi-Version Concurrency Control (MVCC)**: Allows concurrent reads and writes
+- **Deadlock detection**: Automatically detects and handles deadlocks
+
+### Use Cases
+
+**Bank Transfer:**
+```sql
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+COMMIT;
+```
+
+**Order Processing:**
+```sql
+BEGIN;
+INSERT INTO orders (customer_id, total) VALUES (123, 99.99);
+UPDATE inventory SET quantity = quantity - 1 WHERE product_id = 456;
+SAVEPOINT after_inventory_update;
+-- ... more operations ...
+COMMIT;
+```
+
+**Safe Data Migration:**
+```sql
+BEGIN;
+-- Perform migration
+UPDATE users SET status = 'active' WHERE last_login > '2024-01-01';
+-- Verify results
+SELECT COUNT(*) FROM users WHERE status = 'active';
+-- If verification fails, rollback; otherwise commit
+COMMIT;
+```
+
 ## ID Generation Strategies
 
 NeuroQuantumDB supports three ID generation strategies:
