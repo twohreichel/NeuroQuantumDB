@@ -827,7 +827,6 @@ mod property_tests {
     }
 }
 
-#[cfg(test)]
 mod extract_function_tests {
     use super::*;
 

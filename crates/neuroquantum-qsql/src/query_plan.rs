@@ -3351,7 +3351,7 @@ impl QueryExecutor {
             }
             // Try parsing as date only and add midnight time
             if let Ok(parsed) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-                return Some(parsed.and_hms_opt(0, 0, 0).unwrap_or_default());
+                return parsed.and_hms_opt(0, 0, 0);
             }
             None
         };
