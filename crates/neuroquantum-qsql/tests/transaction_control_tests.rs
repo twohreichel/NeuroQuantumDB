@@ -1,7 +1,7 @@
 //! Integration tests for SQL transaction control features
 
-use neuroquantum_qsql::parser::QSQLParser;
 use neuroquantum_qsql::ast::Statement;
+use neuroquantum_qsql::parser::QSQLParser;
 
 #[test]
 fn test_parse_transaction_statements() {
@@ -11,7 +11,7 @@ fn test_parse_transaction_statements() {
     let result = parser.parse("BEGIN");
     assert!(result.is_ok(), "Failed to parse BEGIN");
     match result.unwrap() {
-        Statement::BeginTransaction(_) => {},
+        Statement::BeginTransaction(_) => {}
         other => panic!("Expected BeginTransaction, got {:?}", other),
     }
 
@@ -36,7 +36,7 @@ fn test_parse_transaction_statements() {
     match result.unwrap() {
         Statement::Savepoint(sp) => {
             assert_eq!(sp.name, "sp1", "Savepoint name mismatch");
-        },
+        }
         other => panic!("Expected Savepoint, got {:?}", other),
     }
 
@@ -46,7 +46,7 @@ fn test_parse_transaction_statements() {
     match result.unwrap() {
         Statement::RollbackToSavepoint(rts) => {
             assert_eq!(rts.name, "sp1", "Savepoint name mismatch");
-        },
+        }
         other => panic!("Expected RollbackToSavepoint, got {:?}", other),
     }
 
@@ -56,7 +56,7 @@ fn test_parse_transaction_statements() {
     match result.unwrap() {
         Statement::ReleaseSavepoint(rs) => {
             assert_eq!(rs.name, "sp1", "Savepoint name mismatch");
-        },
+        }
         other => panic!("Expected ReleaseSavepoint, got {:?}", other),
     }
 }
@@ -96,11 +96,11 @@ fn test_multiple_savepoints() {
         let sql = format!("SAVEPOINT {}", name);
         let result = parser.parse(&sql);
         assert!(result.is_ok(), "Failed to parse: {}", sql);
-        
+
         match result.unwrap() {
             Statement::Savepoint(sp) => {
                 assert_eq!(sp.name, name, "Savepoint name mismatch");
-            },
+            }
             other => panic!("Expected Savepoint, got {:?}", other),
         }
     }
