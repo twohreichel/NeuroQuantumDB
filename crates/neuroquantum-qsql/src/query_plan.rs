@@ -3271,6 +3271,148 @@ impl QueryExecutor {
                     Ok(QueryValue::Null)
                 }
             }
+            "DATE_ADD" => {
+                // DATE_ADD(date, INTERVAL expr unit) - adds time interval to date
+                use chrono::prelude::*;
+                if args.len() < 3 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "DATE_ADD requires date and INTERVAL arguments (date, expr, unit)".to_string(),
+                    });
+                }
+                
+                let date_str = get_string_arg(0)?;
+                
+                // Second arg is the interval value
+                let interval_value = match self.evaluate_expression_value(&args[1], row)? {
+                    QueryValue::Integer(i) => i,
+                    QueryValue::Float(f) => f as i64,
+                    QueryValue::String(s) => s.parse::<i64>().unwrap_or(0),
+                    _ => return Ok(QueryValue::Null),
+                };
+                
+                // Third arg is the unit marker (INTERVAL_UNIT:DAY, etc.)
+                let unit_str = get_string_arg(2)?;
+                let unit = unit_str.strip_prefix("INTERVAL_UNIT:").unwrap_or(&unit_str).to_uppercase();
+                
+                // Parse the input date/datetime
+                let result = if let Ok(dt) = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
+                    // DateTime input
+                    let new_dt = match unit.as_str() {
+                        "YEAR" => dt.checked_add_months(chrono::Months::new((interval_value * 12) as u32)),
+                        "MONTH" => dt.checked_add_months(chrono::Months::new(interval_value as u32)),
+                        "WEEK" => dt.checked_add_days(chrono::Days::new((interval_value * 7) as u64)),
+                        "DAY" => dt.checked_add_days(chrono::Days::new(interval_value as u64)),
+                        "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
+                        "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
+                        "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
+                        _ => return Err(QSQLError::ExecutionError {
+                            message: format!("Unsupported time unit: {}", unit),
+                        }),
+                    };
+                    new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string()))
+                } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                    // Date only input
+                    let new_date = match unit.as_str() {
+                        "YEAR" => date.checked_add_months(chrono::Months::new((interval_value * 12) as u32)),
+                        "MONTH" => date.checked_add_months(chrono::Months::new(interval_value as u32)),
+                        "WEEK" => date.checked_add_days(chrono::Days::new((interval_value * 7) as u64)),
+                        "DAY" => date.checked_add_days(chrono::Days::new(interval_value as u64)),
+                        "HOUR" | "MINUTE" | "SECOND" => {
+                            // Convert to datetime for time-based operations
+                            let dt = match date.and_hms_opt(0, 0, 0) {
+                                Some(dt) => dt,
+                                None => return Ok(QueryValue::Null),
+                            };
+                            let new_dt = match unit.as_str() {
+                                "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
+                                "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
+                                "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
+                                _ => None,
+                            };
+                            return Ok(new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(QueryValue::Null));
+                        }
+                        _ => return Err(QSQLError::ExecutionError {
+                            message: format!("Unsupported time unit: {}", unit),
+                        }),
+                    };
+                    new_date.map(|d| QueryValue::String(d.format("%Y-%m-%d").to_string()))
+                } else {
+                    None
+                };
+                
+                Ok(result.unwrap_or(QueryValue::Null))
+            }
+            "DATE_SUB" => {
+                // DATE_SUB(date, INTERVAL expr unit) - subtracts time interval from date
+                use chrono::prelude::*;
+                if args.len() < 3 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "DATE_SUB requires date and INTERVAL arguments (date, expr, unit)".to_string(),
+                    });
+                }
+                
+                let date_str = get_string_arg(0)?;
+                
+                // Second arg is the interval value
+                let interval_value = match self.evaluate_expression_value(&args[1], row)? {
+                    QueryValue::Integer(i) => i,
+                    QueryValue::Float(f) => f as i64,
+                    QueryValue::String(s) => s.parse::<i64>().unwrap_or(0),
+                    _ => return Ok(QueryValue::Null),
+                };
+                
+                // Third arg is the unit marker (INTERVAL_UNIT:DAY, etc.)
+                let unit_str = get_string_arg(2)?;
+                let unit = unit_str.strip_prefix("INTERVAL_UNIT:").unwrap_or(&unit_str).to_uppercase();
+                
+                // Parse the input date/datetime
+                let result = if let Ok(dt) = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
+                    // DateTime input
+                    let new_dt = match unit.as_str() {
+                        "YEAR" => dt.checked_sub_months(chrono::Months::new((interval_value * 12) as u32)),
+                        "MONTH" => dt.checked_sub_months(chrono::Months::new(interval_value as u32)),
+                        "WEEK" => dt.checked_sub_days(chrono::Days::new((interval_value * 7) as u64)),
+                        "DAY" => dt.checked_sub_days(chrono::Days::new(interval_value as u64)),
+                        "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
+                        "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
+                        "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
+                        _ => return Err(QSQLError::ExecutionError {
+                            message: format!("Unsupported time unit: {}", unit),
+                        }),
+                    };
+                    new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string()))
+                } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
+                    // Date only input
+                    let new_date = match unit.as_str() {
+                        "YEAR" => date.checked_sub_months(chrono::Months::new((interval_value * 12) as u32)),
+                        "MONTH" => date.checked_sub_months(chrono::Months::new(interval_value as u32)),
+                        "WEEK" => date.checked_sub_days(chrono::Days::new((interval_value * 7) as u64)),
+                        "DAY" => date.checked_sub_days(chrono::Days::new(interval_value as u64)),
+                        "HOUR" | "MINUTE" | "SECOND" => {
+                            // Convert to datetime for time-based operations
+                            let dt = match date.and_hms_opt(0, 0, 0) {
+                                Some(dt) => dt,
+                                None => return Ok(QueryValue::Null),
+                            };
+                            let new_dt = match unit.as_str() {
+                                "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
+                                "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
+                                "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
+                                _ => None,
+                            };
+                            return Ok(new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(QueryValue::Null));
+                        }
+                        _ => return Err(QSQLError::ExecutionError {
+                            message: format!("Unsupported time unit: {}", unit),
+                        }),
+                    };
+                    new_date.map(|d| QueryValue::String(d.format("%Y-%m-%d").to_string()))
+                } else {
+                    None
+                };
+                
+                Ok(result.unwrap_or(QueryValue::Null))
+            }
 
             _ => Err(QSQLError::ExecutionError {
                 message: format!("Unknown scalar function: {}", func_name),
@@ -3329,7 +3471,8 @@ impl QueryExecutor {
             // Date/Time functions returning timestamps/dates as text
             "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" | "LOCALTIME"
             | "LOCALTIMESTAMP" | "UTC_TIMESTAMP" | "CURRENT_DATE" | "CURDATE" | "CURRENT_TIME"
-            | "CURTIME" | "UTC_DATE" | "UTC_TIME" | "DATE_FORMAT" | "STRFTIME" => DataType::Text,
+            | "CURTIME" | "UTC_DATE" | "UTC_TIME" | "DATE_FORMAT" | "STRFTIME" 
+            | "DATE_ADD" | "DATE_SUB" => DataType::Text,
             // Date/Time functions returning integers
             "UNIX_TIMESTAMP" | "EPOCH" | "YEAR" | "MONTH" | "DAY" | "DAYOFMONTH" | "HOUR"
             | "MINUTE" | "SECOND" | "DAYOFWEEK" | "WEEKDAY" | "DAYOFYEAR" | "WEEK"
