@@ -1702,11 +1702,12 @@ impl QueryExecutor {
         _plan: &QueryPlan,
     ) -> QSQLResult<QueryResult> {
         // Get storage engine
-        let storage_engine = self.storage_engine.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Storage engine not configured".to_string(),
-            }
-        })?;
+        let storage_engine =
+            self.storage_engine
+                .as_ref()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: "Storage engine not configured".to_string(),
+                })?;
 
         // Convert QSQL column definitions to storage column definitions
         let columns: Vec<neuroquantum_core::storage::ColumnDefinition> = create
@@ -1721,9 +1722,10 @@ impl QueryExecutor {
                     DataType::Real | DataType::Double => {
                         neuroquantum_core::storage::DataType::Float
                     }
-                    DataType::Text | DataType::VarChar(_) | DataType::Varchar(_) | DataType::Char(_) => {
-                        neuroquantum_core::storage::DataType::Text
-                    }
+                    DataType::Text
+                    | DataType::VarChar(_)
+                    | DataType::Varchar(_)
+                    | DataType::Char(_) => neuroquantum_core::storage::DataType::Text,
                     DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
                     DataType::Timestamp | DataType::Date | DataType::Time => {
                         neuroquantum_core::storage::DataType::Timestamp
@@ -1818,8 +1820,10 @@ impl QueryExecutor {
             }),
             Err(e) => {
                 // Check if it's a "table already exists" error and if_not_exists is true
-                let error_msg = e.to_string();
-                if error_msg.contains("already exists") && create.if_not_exists {
+                let error_msg = e.to_string().to_lowercase();
+                if (error_msg.contains("already exists") || error_msg.contains("exist"))
+                    && create.if_not_exists
+                {
                     // Silently succeed
                     Ok(QueryResult {
                         rows: vec![],
@@ -1847,7 +1851,7 @@ impl QueryExecutor {
     ) -> QSQLResult<QueryResult> {
         // For now, DROP TABLE is a placeholder - storage engine doesn't expose drop_table method
         // In a full implementation, we would need to add a drop_table method to the storage engine
-        
+
         // If IF EXISTS is specified, silently succeed
         if drop.if_exists {
             return Ok(QueryResult {
@@ -1865,7 +1869,7 @@ impl QueryExecutor {
         // TODO: Implement storage engine drop_table method
         Err(QSQLError::ExecutionError {
             message: format!(
-                "DROP TABLE '{}' - operation recorded but not yet fully implemented in storage engine",
+                "DROP TABLE '{}': feature not yet fully implemented - storage engine needs drop_table() method",
                 drop.table_name
             ),
         })
@@ -1879,12 +1883,12 @@ impl QueryExecutor {
     ) -> QSQLResult<QueryResult> {
         // For now, ALTER TABLE is a placeholder - storage engine doesn't expose alter_table method
         // In a full implementation, we would need to add an alter_table method to the storage engine
-        
+
         // Return an informational message
         // TODO: Implement storage engine alter_table method
         Err(QSQLError::ExecutionError {
             message: format!(
-                "ALTER TABLE '{}' - operation recorded but not yet fully implemented in storage engine",
+                "ALTER TABLE '{}': feature not yet fully implemented - storage engine needs alter_table() method",
                 alter.table_name
             ),
         })
@@ -1943,11 +1947,12 @@ impl QueryExecutor {
         _plan: &QueryPlan,
     ) -> QSQLResult<QueryResult> {
         // Get storage engine
-        let storage_engine = self.storage_engine.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Storage engine not configured".to_string(),
-            }
-        })?;
+        let storage_engine =
+            self.storage_engine
+                .as_ref()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: "Storage engine not configured".to_string(),
+                })?;
 
         let mut storage = storage_engine.write().await;
 
@@ -1957,11 +1962,13 @@ impl QueryExecutor {
             where_clause: None, // Delete all rows
         };
 
-        let rows_affected = storage.delete_rows(&delete_query).await.map_err(|e| {
-            QSQLError::ExecutionError {
-                message: format!("Failed to truncate table: {}", e),
-            }
-        })?;
+        let rows_affected =
+            storage
+                .delete_rows(&delete_query)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to truncate table: {}", e),
+                })?;
 
         Ok(QueryResult {
             rows: vec![],

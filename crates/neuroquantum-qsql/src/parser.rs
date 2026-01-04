@@ -2115,21 +2115,21 @@ impl QSQLParser {
                                 });
                             };
 
-                            let scale = if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma)
-                            {
-                                *i += 1;
-                                if let TokenType::IntegerLiteral(s) = tokens[*i] {
+                            let scale =
+                                if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
                                     *i += 1;
-                                    s as u8
+                                    if let TokenType::IntegerLiteral(s) = tokens[*i] {
+                                        *i += 1;
+                                        s as u8
+                                    } else {
+                                        return Err(QSQLError::ParseError {
+                                            message: "Expected scale for DECIMAL".to_string(),
+                                            position: *i,
+                                        });
+                                    }
                                 } else {
-                                    return Err(QSQLError::ParseError {
-                                        message: "Expected scale for DECIMAL".to_string(),
-                                        position: *i,
-                                    });
-                                }
-                            } else {
-                                0
-                            };
+                                    0
+                                };
 
                             if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
                                 *i += 1;
