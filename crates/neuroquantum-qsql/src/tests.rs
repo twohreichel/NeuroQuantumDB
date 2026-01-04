@@ -178,6 +178,118 @@ mod parser_tests {
             _ => panic!("Expected DELETE statement"),
         }
     }
+
+    #[test]
+    fn test_parser_basic_cte() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"
+            WITH active_users AS (
+                SELECT * FROM users WHERE status = 'active'
+            )
+            SELECT * FROM active_users WHERE age > 25
+        "#;
+
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 1);
+                assert_eq!(with_clause.ctes[0].name, "active_users");
+                assert!(!with_clause.recursive);
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_multiple_ctes() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"
+            WITH 
+                active_users AS (SELECT * FROM users WHERE status = 'active'),
+                recent_orders AS (SELECT * FROM orders WHERE created_at > '2025-01-01')
+            SELECT u.name, o.amount 
+            FROM active_users u 
+            JOIN recent_orders o ON u.id = o.user_id
+        "#;
+
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 2);
+                assert_eq!(with_clause.ctes[0].name, "active_users");
+                assert_eq!(with_clause.ctes[1].name, "recent_orders");
+                assert!(!with_clause.recursive);
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_recursive_cte() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"
+            WITH RECURSIVE subordinates AS (
+                SELECT id, name, manager_id FROM employees WHERE manager_id IS NULL
+            )
+            SELECT * FROM subordinates
+        "#;
+
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 1);
+                assert_eq!(with_clause.ctes[0].name, "subordinates");
+                assert!(with_clause.recursive);
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_cte_with_column_list() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"
+            WITH user_stats (user_id, total_posts, avg_likes) AS (
+                SELECT user_id, COUNT(*), AVG(likes) FROM posts GROUP BY user_id
+            )
+            SELECT * FROM user_stats
+        "#;
+
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 1);
+                assert_eq!(with_clause.ctes[0].name, "user_stats");
+                assert!(with_clause.ctes[0].columns.is_some());
+                let columns = with_clause.ctes[0].columns.as_ref().unwrap();
+                assert_eq!(columns.len(), 3);
+                assert_eq!(columns[0], "user_id");
+                assert_eq!(columns[1], "total_posts");
+                assert_eq!(columns[2], "avg_likes");
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
 }
 
 #[cfg(test)]
