@@ -803,28 +803,38 @@ impl QSQLParser {
         if i < tokens.len() && matches!(tokens[i], TokenType::From) {
             i += 1;
             if i < tokens.len() {
-                if let TokenType::Identifier(table_name) = &tokens[i] {
+                // Check if this is a derived table (subquery) or a regular table
+                let first_relation = if matches!(tokens[i], TokenType::LeftParen) {
+                    // This is a derived table (subquery)
+                    self.parse_derived_table(tokens, &mut i)?
+                } else if let TokenType::Identifier(table_name) = &tokens[i] {
                     let first_table_name = table_name.clone();
                     i += 1;
 
                     // Check for table alias (AS or direct identifier)
                     let first_alias = self.parse_table_alias(tokens, &mut i);
 
-                    let first_relation = TableReference {
+                    TableReference {
                         name: first_table_name,
                         alias: first_alias,
                         synaptic_weight: None,
                         quantum_state: None,
-                    };
-
-                    // Parse JOINs
-                    let joins = self.parse_join_clauses(tokens, &mut i)?;
-
-                    from = Some(FromClause {
-                        relations: vec![first_relation],
-                        joins,
+                        subquery: None,
+                    }
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected table name or subquery in FROM clause".to_string(),
+                        position: i,
                     });
-                }
+                };
+
+                // Parse JOINs
+                let joins = self.parse_join_clauses(tokens, &mut i)?;
+
+                from = Some(FromClause {
+                    relations: vec![first_relation],
+                    joins,
+                });
             }
         }
 
@@ -1081,28 +1091,38 @@ impl QSQLParser {
         if *i < tokens.len() && matches!(tokens[*i], TokenType::From) {
             *i += 1;
             if *i < tokens.len() {
-                if let TokenType::Identifier(table_name) = &tokens[*i] {
+                // Check if this is a derived table (subquery) or a regular table
+                let first_relation = if matches!(tokens[*i], TokenType::LeftParen) {
+                    // This is a derived table (subquery)
+                    self.parse_derived_table(tokens, i)?
+                } else if let TokenType::Identifier(table_name) = &tokens[*i] {
                     let first_table_name = table_name.clone();
                     *i += 1;
 
                     // Check for table alias (AS or direct identifier)
                     let first_alias = self.parse_table_alias(tokens, i);
 
-                    let first_relation = TableReference {
+                    TableReference {
                         name: first_table_name,
                         alias: first_alias,
                         synaptic_weight: None,
                         quantum_state: None,
-                    };
-
-                    // Parse JOINs
-                    let joins = self.parse_join_clauses(tokens, i)?;
-
-                    from = Some(FromClause {
-                        relations: vec![first_relation],
-                        joins,
+                        subquery: None,
+                    }
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected table name or subquery in FROM clause".to_string(),
+                        position: *i,
                     });
-                }
+                };
+
+                // Parse JOINs
+                let joins = self.parse_join_clauses(tokens, i)?;
+
+                from = Some(FromClause {
+                    relations: vec![first_relation],
+                    joins,
+                });
             }
         }
 
@@ -3101,32 +3121,37 @@ impl QSQLParser {
                 _ => break, // No more joins
             };
 
-            // Parse the table name for the join
+            // Parse the table name or derived table for the join
             if *i >= tokens.len() {
                 return Err(QSQLError::ParseError {
-                    message: "Expected table name after JOIN".to_string(),
+                    message: "Expected table name or subquery after JOIN".to_string(),
                     position: *i,
                 });
             }
 
-            let table_name = if let TokenType::Identifier(name) = &tokens[*i] {
+            // Check if this is a derived table (subquery) or a regular table
+            let relation = if matches!(tokens[*i], TokenType::LeftParen) {
+                // This is a derived table (subquery)
+                self.parse_derived_table(tokens, i)?
+            } else if let TokenType::Identifier(name) = &tokens[*i] {
+                let table_name = name.clone();
                 *i += 1;
-                name.clone()
+
+                // Parse optional alias
+                let alias = self.parse_table_alias(tokens, i);
+
+                TableReference {
+                    name: table_name,
+                    alias,
+                    synaptic_weight: None,
+                    quantum_state: None,
+                    subquery: None,
+                }
             } else {
                 return Err(QSQLError::ParseError {
-                    message: "Expected table name after JOIN".to_string(),
+                    message: "Expected table name or subquery after JOIN".to_string(),
                     position: *i,
                 });
-            };
-
-            // Parse optional alias
-            let alias = self.parse_table_alias(tokens, i);
-
-            let relation = TableReference {
-                name: table_name,
-                alias,
-                synaptic_weight: None,
-                quantum_state: None,
             };
 
             // Parse ON condition (not required for CROSS JOIN)
@@ -3153,6 +3178,79 @@ impl QSQLParser {
         }
 
         Ok(joins)
+    }
+
+    /// Parse a derived table (subquery in FROM clause)
+    /// Syntax: (SELECT ...) AS alias
+    fn parse_derived_table(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<TableReference> {
+        // Expect opening parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' for derived table".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume '('
+
+        // Parse the subquery (must start with SELECT)
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Select) {
+            return Err(QSQLError::ParseError {
+                message: "Expected SELECT after '(' in derived table".to_string(),
+                position: *i,
+            });
+        }
+
+        let subquery = self.parse_select_statement_at(tokens, i)?;
+
+        // Expect closing parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected ')' after subquery in derived table".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume ')'
+
+        // Parse alias (required for derived tables)
+        // First check for optional AS keyword
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+            *i += 1; // consume 'AS'
+        }
+
+        // Parse the alias name
+        let alias = if *i < tokens.len() {
+            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                let alias = alias_name.clone();
+                *i += 1;
+                Some(alias)
+            } else {
+                // Alias is technically required for derived tables in standard SQL
+                // but we'll allow it without for flexibility
+                None
+            }
+        } else {
+            None
+        };
+
+        // For derived tables, alias is required in standard SQL
+        if alias.is_none() {
+            return Err(QSQLError::ParseError {
+                message: "Derived tables require an alias".to_string(),
+                position: *i,
+            });
+        }
+
+        Ok(TableReference {
+            name: String::new(), // Empty name for derived tables
+            alias,
+            synaptic_weight: None,
+            quantum_state: None,
+            subquery: Some(Box::new(subquery)),
+        })
     }
 
     /// Initialize keyword mappings

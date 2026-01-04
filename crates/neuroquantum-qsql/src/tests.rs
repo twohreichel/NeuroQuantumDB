@@ -323,6 +323,7 @@ mod optimizer_tests {
                     alias: None,
                     synaptic_weight: None,
                     quantum_state: None,
+                        subquery: None,
                 }],
                 joins: vec![],
             }),
@@ -389,6 +390,7 @@ mod optimizer_tests {
                     alias: None,
                     synaptic_weight: None,
                     quantum_state: None,
+                        subquery: None,
                 }],
                 joins: vec![],
             }),
@@ -423,6 +425,7 @@ mod optimizer_tests {
                     alias: None,
                     synaptic_weight: None,
                     quantum_state: None,
+                        subquery: None,
                 }],
                 joins: vec![],
             }),
@@ -468,6 +471,7 @@ mod executor_tests {
                         alias: None,
                         synaptic_weight: None,
                         quantum_state: None,
+                        subquery: None,
                     }],
                     joins: vec![],
                 }),
@@ -514,6 +518,7 @@ mod executor_tests {
                         alias: None,
                         synaptic_weight: None,
                         quantum_state: None,
+                        subquery: None,
                     }],
                     joins: vec![],
                 }),
@@ -560,6 +565,7 @@ mod executor_tests {
                         alias: None,
                         synaptic_weight: None,
                         quantum_state: None,
+                        subquery: None,
                     }],
                     joins: vec![],
                 }),
@@ -934,6 +940,7 @@ mod property_tests {
                         alias: None,
                         synaptic_weight: None,
                         quantum_state: None,
+                        subquery: None,
                     }],
                     joins: vec![],
                 }),
@@ -1119,5 +1126,192 @@ mod extract_function_tests {
         let sql = "SELECT EXTRACT YEAR FROM created_at";
         let result = parser.parse_query(sql);
         assert!(result.is_err(), "Should fail without parentheses");
+    }
+}
+
+mod derived_table_tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_derived_table() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT * FROM (SELECT name, age FROM users WHERE age > 25) AS adult_users";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse basic derived table");
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                assert!(select.from.is_some());
+                let from = select.from.unwrap();
+                assert_eq!(from.relations.len(), 1);
+                let table_ref = &from.relations[0];
+                assert!(table_ref.subquery.is_some(), "Expected subquery in table reference");
+                assert_eq!(table_ref.alias, Some("adult_users".to_string()));
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_derived_table_with_aggregation() {
+        let parser = QSQLParser::new();
+        let sql = r#"
+            SELECT dept, avg_salary FROM (
+                SELECT department AS dept, AVG(salary) AS avg_salary 
+                FROM employees 
+                GROUP BY department
+            ) AS dept_stats
+            WHERE avg_salary > 50000
+        "#;
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse derived table with aggregation");
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                assert!(select.from.is_some());
+                let from = select.from.unwrap();
+                let table_ref = &from.relations[0];
+                assert!(table_ref.subquery.is_some());
+                assert_eq!(table_ref.alias, Some("dept_stats".to_string()));
+                assert!(select.where_clause.is_some());
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_join_with_derived_table() {
+        let parser = QSQLParser::new();
+        let sql = r#"
+            SELECT u.name, s.total_orders
+            FROM users u
+            JOIN (
+                SELECT user_id, COUNT(*) AS total_orders 
+                FROM orders 
+                GROUP BY user_id
+            ) AS s ON u.id = s.user_id
+        "#;
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse join with derived table");
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                assert!(select.from.is_some());
+                let from = select.from.unwrap();
+                assert_eq!(from.relations.len(), 1);
+                assert_eq!(from.joins.len(), 1);
+                
+                // Check that the join has a derived table
+                let join = &from.joins[0];
+                assert!(join.relation.subquery.is_some(), "Expected subquery in JOIN");
+                assert_eq!(join.relation.alias, Some("s".to_string()));
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_derived_table_requires_alias() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT * FROM (SELECT name FROM users)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Derived table should require an alias");
+    }
+
+    #[test]
+    fn test_derived_table_with_as_keyword() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT * FROM (SELECT name FROM users) AS subq";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse derived table with AS keyword");
+    }
+
+    #[test]
+    fn test_nested_derived_tables() {
+        let parser = QSQLParser::new();
+        let sql = r#"
+            SELECT * FROM (
+                SELECT name FROM (
+                    SELECT name, age FROM users WHERE age > 21
+                ) AS inner_subq
+            ) AS outer_subq
+        "#;
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse nested derived tables");
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                let from = select.from.unwrap();
+                let table_ref = &from.relations[0];
+                assert!(table_ref.subquery.is_some());
+                assert_eq!(table_ref.alias, Some("outer_subq".to_string()));
+
+                // Check that inner subquery has a derived table
+                let inner_select = table_ref.subquery.as_ref().unwrap();
+                let inner_from = inner_select.from.as_ref().unwrap();
+                let inner_table_ref = &inner_from.relations[0];
+                assert!(inner_table_ref.subquery.is_some());
+                assert_eq!(inner_table_ref.alias, Some("inner_subq".to_string()));
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_derived_table_left_join() {
+        let parser = QSQLParser::new();
+        // Simplified test - just a.count instead of a.*, b.count
+        let sql = r#"
+            SELECT a.id, b.total
+            FROM users a
+            LEFT JOIN (SELECT user_id, COUNT(*) as total FROM orders GROUP BY user_id) AS b 
+            ON a.id = b.user_id
+        "#;
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse LEFT JOIN with derived table: {:?}", result.err());
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                assert!(select.from.is_some(), "FROM clause should not be None");
+                let from = select.from.unwrap();
+                assert_eq!(from.joins.len(), 1, "Expected 1 join, got {}", from.joins.len());
+                assert!(from.joins[0].relation.subquery.is_some(), "Expected subquery in join relation");
+                assert_eq!(from.joins[0].join_type, JoinType::Left);
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_derived_table_in_from_with_regular_join() {
+        let parser = QSQLParser::new();
+        let sql = r#"
+            SELECT d.name, p.product_name
+            FROM (SELECT * FROM departments WHERE active = true) AS d
+            JOIN products p ON d.id = p.department_id
+        "#;
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse derived table in FROM with regular JOIN");
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                let from = select.from.unwrap();
+                
+                // First relation is a derived table
+                assert!(from.relations[0].subquery.is_some());
+                assert_eq!(from.relations[0].alias, Some("d".to_string()));
+                
+                // Join is a regular table
+                assert!(from.joins[0].relation.subquery.is_none());
+                assert_eq!(from.joins[0].relation.name, "products");
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
     }
 }

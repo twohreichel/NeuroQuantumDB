@@ -290,12 +290,18 @@ pub enum JoinType {
 }
 
 /// Table reference with neuromorphic annotations
+/// Can be either a regular table or a derived table (subquery)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TableReference {
+    /// Table name (for regular tables). Empty string for derived tables.
     pub name: String,
+    /// Alias for the table or derived table. Required for derived tables.
     pub alias: Option<String>,
     pub synaptic_weight: Option<f32>,
     pub quantum_state: Option<QuantumState>,
+    /// Subquery for derived tables (when this is Some, this is a derived table)
+    /// Syntax: (SELECT ...) AS alias
+    pub subquery: Option<Box<SelectStatement>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
