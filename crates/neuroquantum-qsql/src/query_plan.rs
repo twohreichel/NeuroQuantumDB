@@ -2657,6 +2657,21 @@ impl QueryExecutor {
         })
     }
 
+    /// Check if select list contains window functions
+    fn has_window_functions(select_list: &[SelectItem]) -> bool {
+        select_list.iter().any(|item| {
+            if let SelectItem::Expression {
+                expr: Expression::WindowFunction { .. },
+                ..
+            } = item
+            {
+                true
+            } else {
+                false
+            }
+        })
+    }
+
     /// Check if an expression contains an InList or InSubquery that needs post-filtering
     fn contains_in_list_expression(expr: &Expression) -> bool {
         match expr {
@@ -3005,6 +3020,14 @@ impl QueryExecutor {
             return self.execute_aggregates(&storage_rows, &aggregates, select);
         }
 
+        // Check if we have window functions in the select list
+        let has_window_funcs = Self::has_window_functions(&select.select_list);
+
+        if has_window_funcs {
+            // Process window functions
+            return self.execute_window_functions(&storage_rows, &select.select_list);
+        }
+
         // Check if we have scalar functions (UPPER, LOWER, LENGTH, etc.) in the select list
         let has_scalar_functions = Self::has_scalar_functions(&select.select_list);
 
@@ -3214,6 +3237,469 @@ impl QueryExecutor {
         }
 
         Ok((result_rows, columns))
+    }
+
+    /// Execute window functions on the storage rows
+    fn execute_window_functions(
+        &self,
+        storage_rows: &[Row],
+        select_list: &[SelectItem],
+    ) -> QSQLResult<QueryResultData> {
+        let mut result_rows = Vec::new();
+        let mut columns = Vec::new();
+        let mut columns_initialized = false;
+
+        // First, we need to evaluate any window functions across all rows at once
+        // Window functions require access to the full result set
+
+        for (row_index, storage_row) in storage_rows.iter().enumerate() {
+            let mut result_row = HashMap::new();
+
+            for item in select_list {
+                match item {
+                    SelectItem::Wildcard => {
+                        // Add all columns from the row
+                        for (col_name, value) in &storage_row.fields {
+                            let query_value = self.storage_value_to_query_value(value);
+                            result_row.insert(col_name.clone(), query_value);
+
+                            if !columns_initialized {
+                                columns.push(ColumnInfo {
+                                    name: col_name.clone(),
+                                    data_type: self.storage_value_to_datatype(value),
+                                    nullable: matches!(value, Value::Null),
+                                });
+                            }
+                        }
+                    }
+                    SelectItem::Expression { expr, alias } => {
+                        match expr {
+                            Expression::WindowFunction {
+                                function,
+                                args,
+                                over_clause,
+                            } => {
+                                let result_name = alias.clone().unwrap_or_else(|| {
+                                    Self::window_function_to_string(function, args)
+                                });
+
+                                let query_value = self.evaluate_window_function(
+                                    function,
+                                    args,
+                                    over_clause,
+                                    storage_rows,
+                                    row_index,
+                                )?;
+
+                                let data_type = self.infer_window_function_type(function);
+
+                                result_row.insert(result_name.clone(), query_value);
+
+                                if !columns_initialized {
+                                    columns.push(ColumnInfo {
+                                        name: result_name,
+                                        data_type,
+                                        nullable: true,
+                                    });
+                                }
+                            }
+                            _ => {
+                                // Handle non-window function expressions
+                                let (result_name, query_value, data_type) =
+                                    self.evaluate_select_expression(expr, alias, storage_row)?;
+
+                                result_row.insert(result_name.clone(), query_value);
+
+                                if !columns_initialized {
+                                    columns.push(ColumnInfo {
+                                        name: result_name,
+                                        data_type,
+                                        nullable: true,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            columns_initialized = true;
+            result_rows.push(result_row);
+        }
+
+        Ok((result_rows, columns))
+    }
+
+    /// Convert window function to string for default naming
+    fn window_function_to_string(function: &WindowFunctionType, args: &[Expression]) -> String {
+        let func_name = match function {
+            WindowFunctionType::RowNumber => "ROW_NUMBER",
+            WindowFunctionType::Rank => "RANK",
+            WindowFunctionType::DenseRank => "DENSE_RANK",
+            WindowFunctionType::Lag => "LAG",
+            WindowFunctionType::Lead => "LEAD",
+            WindowFunctionType::Ntile => "NTILE",
+            WindowFunctionType::FirstValue => "FIRST_VALUE",
+            WindowFunctionType::LastValue => "LAST_VALUE",
+            WindowFunctionType::NthValue => "NTH_VALUE",
+        };
+
+        if args.is_empty() {
+            format!("{}()", func_name)
+        } else {
+            let args_str: Vec<String> = args.iter().map(Self::expression_to_string_static).collect();
+            format!("{}({})", func_name, args_str.join(", "))
+        }
+    }
+
+    /// Infer the data type of a window function
+    fn infer_window_function_type(&self, function: &WindowFunctionType) -> DataType {
+        match function {
+            WindowFunctionType::RowNumber
+            | WindowFunctionType::Rank
+            | WindowFunctionType::DenseRank
+            | WindowFunctionType::Ntile => DataType::BigInt,
+            WindowFunctionType::Lag
+            | WindowFunctionType::Lead
+            | WindowFunctionType::FirstValue
+            | WindowFunctionType::LastValue
+            | WindowFunctionType::NthValue => DataType::Text, // We'll use the actual column type when evaluating
+        }
+    }
+
+    /// Evaluate a window function for a specific row
+    fn evaluate_window_function(
+        &self,
+        function: &WindowFunctionType,
+        args: &[Expression],
+        over_clause: &WindowSpec,
+        all_rows: &[Row],
+        current_row_index: usize,
+    ) -> QSQLResult<QueryValue> {
+        // Get the partition for this row
+        let partition = self.get_partition(all_rows, current_row_index, &over_clause.partition_by)?;
+
+        // Sort the partition according to ORDER BY
+        let sorted_partition =
+            self.sort_partition_for_window(&partition, &over_clause.order_by)?;
+
+        // Find the current row's position in the sorted partition
+        let current_row = &all_rows[current_row_index];
+        let position_in_partition = sorted_partition
+            .iter()
+            .position(|r| std::ptr::eq(*r, current_row))
+            .unwrap_or(0);
+
+        match function {
+            WindowFunctionType::RowNumber => {
+                // ROW_NUMBER() - sequential row number within partition
+                Ok(QueryValue::Integer((position_in_partition + 1) as i64))
+            }
+
+            WindowFunctionType::Rank => {
+                // RANK() - rank with gaps for ties
+                let rank = self.compute_rank(&sorted_partition, position_in_partition, &over_clause.order_by, false)?;
+                Ok(QueryValue::Integer(rank))
+            }
+
+            WindowFunctionType::DenseRank => {
+                // DENSE_RANK() - rank without gaps for ties
+                let rank = self.compute_rank(&sorted_partition, position_in_partition, &over_clause.order_by, true)?;
+                Ok(QueryValue::Integer(rank))
+            }
+
+            WindowFunctionType::Lag => {
+                // LAG(column, offset, default)
+                let offset = if args.len() > 1 {
+                    match self.evaluate_expression_value(&args[1], current_row)? {
+                        QueryValue::Integer(i) => i as usize,
+                        _ => 1,
+                    }
+                } else {
+                    1
+                };
+
+                let default_value = if args.len() > 2 {
+                    self.evaluate_expression_value(&args[2], current_row)?
+                } else {
+                    QueryValue::Null
+                };
+
+                if position_in_partition >= offset {
+                    let target_row = sorted_partition[position_in_partition - offset];
+                    if !args.is_empty() {
+                        self.evaluate_expression_value(&args[0], target_row)
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                } else {
+                    Ok(default_value)
+                }
+            }
+
+            WindowFunctionType::Lead => {
+                // LEAD(column, offset, default)
+                let offset = if args.len() > 1 {
+                    match self.evaluate_expression_value(&args[1], current_row)? {
+                        QueryValue::Integer(i) => i as usize,
+                        _ => 1,
+                    }
+                } else {
+                    1
+                };
+
+                let default_value = if args.len() > 2 {
+                    self.evaluate_expression_value(&args[2], current_row)?
+                } else {
+                    QueryValue::Null
+                };
+
+                if position_in_partition + offset < sorted_partition.len() {
+                    let target_row = sorted_partition[position_in_partition + offset];
+                    if !args.is_empty() {
+                        self.evaluate_expression_value(&args[0], target_row)
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                } else {
+                    Ok(default_value)
+                }
+            }
+
+            WindowFunctionType::Ntile => {
+                // NTILE(n) - distribute rows into n buckets
+                let n = if !args.is_empty() {
+                    match self.evaluate_expression_value(&args[0], current_row)? {
+                        QueryValue::Integer(i) => i.max(1) as usize,
+                        _ => 1,
+                    }
+                } else {
+                    1
+                };
+
+                let total_rows = sorted_partition.len();
+                let bucket = ((position_in_partition * n) / total_rows) + 1;
+                Ok(QueryValue::Integer(bucket as i64))
+            }
+
+            WindowFunctionType::FirstValue => {
+                // FIRST_VALUE(column) - first value in the window
+                if let Some(first_row) = sorted_partition.first() {
+                    if !args.is_empty() {
+                        self.evaluate_expression_value(&args[0], first_row)
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                } else {
+                    Ok(QueryValue::Null)
+                }
+            }
+
+            WindowFunctionType::LastValue => {
+                // LAST_VALUE(column) - last value in the window
+                if let Some(last_row) = sorted_partition.last() {
+                    if !args.is_empty() {
+                        self.evaluate_expression_value(&args[0], last_row)
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                } else {
+                    Ok(QueryValue::Null)
+                }
+            }
+
+            WindowFunctionType::NthValue => {
+                // NTH_VALUE(column, n) - nth value in the window
+                let n = if args.len() > 1 {
+                    match self.evaluate_expression_value(&args[1], current_row)? {
+                        QueryValue::Integer(i) => (i.max(1) - 1) as usize, // Convert to 0-based index
+                        _ => 0,
+                    }
+                } else {
+                    0
+                };
+
+                if n < sorted_partition.len() {
+                    let target_row = sorted_partition[n];
+                    if !args.is_empty() {
+                        self.evaluate_expression_value(&args[0], target_row)
+                    } else {
+                        Ok(QueryValue::Null)
+                    }
+                } else {
+                    Ok(QueryValue::Null)
+                }
+            }
+        }
+    }
+
+    /// Get the partition of rows for a window function
+    fn get_partition<'a>(
+        &self,
+        all_rows: &'a [Row],
+        current_row_index: usize,
+        partition_by: &[Expression],
+    ) -> QSQLResult<Vec<&'a Row>> {
+        if partition_by.is_empty() {
+            // No partition by means all rows are in the same partition
+            return Ok(all_rows.iter().collect());
+        }
+
+        let current_row = &all_rows[current_row_index];
+
+        // Get the partition key values for the current row
+        let current_key: Vec<String> = partition_by
+            .iter()
+            .map(|expr| {
+                let col_name = Self::expression_to_string_static(expr);
+                current_row
+                    .fields
+                    .get(&col_name)
+                    .map(|v| self.value_to_string(v))
+                    .unwrap_or_else(|| "NULL".to_string())
+            })
+            .collect();
+
+        // Filter rows with the same partition key
+        let partition: Vec<&Row> = all_rows
+            .iter()
+            .filter(|row| {
+                let row_key: Vec<String> = partition_by
+                    .iter()
+                    .map(|expr| {
+                        let col_name = Self::expression_to_string_static(expr);
+                        row.fields
+                            .get(&col_name)
+                            .map(|v| self.value_to_string(v))
+                            .unwrap_or_else(|| "NULL".to_string())
+                    })
+                    .collect();
+                row_key == current_key
+            })
+            .collect();
+
+        Ok(partition)
+    }
+
+    /// Sort a partition according to ORDER BY
+    fn sort_partition_for_window<'a>(
+        &self,
+        partition: &[&'a Row],
+        order_by: &[OrderByItem],
+    ) -> QSQLResult<Vec<&'a Row>> {
+        if order_by.is_empty() {
+            return Ok(partition.to_vec());
+        }
+
+        let mut sorted: Vec<&'a Row> = partition.to_vec();
+
+        sorted.sort_by(|a, b| {
+            for order_item in order_by {
+                let col_name = Self::expression_to_string_static(&order_item.expression);
+
+                let a_val = a.fields.get(&col_name);
+                let b_val = b.fields.get(&col_name);
+
+                let cmp = match (a_val, b_val) {
+                    (Some(Value::Integer(av)), Some(Value::Integer(bv))) => av.cmp(bv),
+                    (Some(Value::Float(av)), Some(Value::Float(bv))) => {
+                        av.partial_cmp(bv).unwrap_or(std::cmp::Ordering::Equal)
+                    }
+                    (Some(Value::Text(av)), Some(Value::Text(bv))) => av.cmp(bv),
+                    (Some(Value::Boolean(av)), Some(Value::Boolean(bv))) => av.cmp(bv),
+                    _ => std::cmp::Ordering::Equal,
+                };
+
+                if cmp != std::cmp::Ordering::Equal {
+                    return if order_item.ascending {
+                        cmp
+                    } else {
+                        cmp.reverse()
+                    };
+                }
+            }
+            std::cmp::Ordering::Equal
+        });
+
+        Ok(sorted)
+    }
+
+    /// Compute rank (with or without gaps) for a row in a sorted partition
+    fn compute_rank(
+        &self,
+        sorted_partition: &[&Row],
+        position: usize,
+        order_by: &[OrderByItem],
+        dense: bool,
+    ) -> QSQLResult<i64> {
+        if order_by.is_empty() {
+            // Without ORDER BY, all rows have rank 1
+            return Ok(1);
+        }
+
+        let current_row = sorted_partition[position];
+        let current_key: Vec<String> = order_by
+            .iter()
+            .map(|ob| {
+                let col_name = Self::expression_to_string_static(&ob.expression);
+                current_row
+                    .fields
+                    .get(&col_name)
+                    .map(|v| self.value_to_string(v))
+                    .unwrap_or_else(|| "NULL".to_string())
+            })
+            .collect();
+
+        if dense {
+            // DENSE_RANK: count distinct values up to and including current position
+            let mut distinct_ranks = 0i64;
+            let mut prev_key: Option<Vec<String>> = None;
+
+            for (i, row) in sorted_partition.iter().enumerate() {
+                let row_key: Vec<String> = order_by
+                    .iter()
+                    .map(|ob| {
+                        let col_name = Self::expression_to_string_static(&ob.expression);
+                        row.fields
+                            .get(&col_name)
+                            .map(|v| self.value_to_string(v))
+                            .unwrap_or_else(|| "NULL".to_string())
+                    })
+                    .collect();
+
+                // Increment rank when key changes (or on first row)
+                if prev_key.as_ref() != Some(&row_key) {
+                    distinct_ranks += 1;
+                    prev_key = Some(row_key);
+                }
+
+                if i == position {
+                    return Ok(distinct_ranks);
+                }
+            }
+
+            Ok(distinct_ranks)
+        } else {
+            // RANK: find position of first row with same key
+            for (i, row) in sorted_partition.iter().enumerate() {
+                let row_key: Vec<String> = order_by
+                    .iter()
+                    .map(|ob| {
+                        let col_name = Self::expression_to_string_static(&ob.expression);
+                        row.fields
+                            .get(&col_name)
+                            .map(|v| self.value_to_string(v))
+                            .unwrap_or_else(|| "NULL".to_string())
+                    })
+                    .collect();
+
+                if row_key == current_key {
+                    return Ok((i + 1) as i64);
+                }
+            }
+
+            Ok((position + 1) as i64)
+        }
     }
 
     /// Evaluate a SELECT expression (including scalar functions) against a row
