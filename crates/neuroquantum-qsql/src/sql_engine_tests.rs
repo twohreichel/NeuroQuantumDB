@@ -1502,3 +1502,143 @@ fn test_in_subquery_with_where_clause() {
         _ => panic!("Expected SELECT statement"),
     }
 }
+
+#[test]
+fn test_date_add_parsing() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_ADD with DAY
+    let result = parser.parse("SELECT DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)");
+    assert!(result.is_ok(), "Failed to parse DATE_ADD with INTERVAL");
+    
+    // Test DATE_ADD with MONTH
+    let result = parser.parse("SELECT DATE_ADD('2025-12-23', INTERVAL 1 MONTH)");
+    assert!(result.is_ok(), "Failed to parse DATE_ADD with string date");
+    
+    // Verify the AST structure
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
+                if let Expression::FunctionCall { name, args } = expr {
+                    assert_eq!(name, "DATE_ADD");
+                    assert_eq!(args.len(), 3); // date, interval_value, unit
+                } else {
+                    panic!("Expected FunctionCall expression");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_date_sub_parsing() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_SUB with HOUR
+    let result = parser.parse("SELECT DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+    assert!(result.is_ok(), "Failed to parse DATE_SUB with INTERVAL");
+    
+    // Test DATE_SUB with WEEK
+    let result = parser.parse("SELECT DATE_SUB('2025-12-23', INTERVAL 2 WEEK)");
+    assert!(result.is_ok(), "Failed to parse DATE_SUB with string date");
+    
+    // Verify the AST structure
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
+                if let Expression::FunctionCall { name, args } = expr {
+                    assert_eq!(name, "DATE_SUB");
+                    assert_eq!(args.len(), 3); // date, interval_value, unit
+                } else {
+                    panic!("Expected FunctionCall expression");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_date_add_various_units() {
+    let parser = QSQLParser::new();
+    
+    // Test all supported time units
+    let units = vec!["YEAR", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE", "SECOND"];
+    
+    for unit in units {
+        let query = format!("SELECT DATE_ADD('2025-01-01', INTERVAL 1 {})", unit);
+        let result = parser.parse(&query);
+        assert!(result.is_ok(), "Failed to parse DATE_ADD with unit: {}", unit);
+    }
+}
+
+#[test]
+fn test_date_sub_various_units() {
+    let parser = QSQLParser::new();
+    
+    // Test all supported time units
+    let units = vec!["YEAR", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE", "SECOND"];
+    
+    for unit in units {
+        let query = format!("SELECT DATE_SUB('2025-12-31', INTERVAL 5 {})", unit);
+        let result = parser.parse(&query);
+        assert!(result.is_ok(), "Failed to parse DATE_SUB with unit: {}", unit);
+    }
+}
+
+#[test]
+fn test_date_add_in_where_clause() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_ADD in WHERE clause
+    let result = parser.parse(
+        "SELECT * FROM subscriptions WHERE expires_at < DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)"
+    );
+    assert!(result.is_ok(), "Failed to parse DATE_ADD in WHERE clause");
+    
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert!(select.where_clause.is_some());
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_date_sub_in_where_clause() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_SUB in WHERE clause
+    let result = parser.parse(
+        "SELECT * FROM sessions WHERE last_active < DATE_SUB(NOW(), INTERVAL 30 MINUTE)"
+    );
+    assert!(result.is_ok(), "Failed to parse DATE_SUB in WHERE clause");
+    
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert!(select.where_clause.is_some());
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_date_add_negative_interval() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_ADD with negative interval (should subtract)
+    let result = parser.parse("SELECT DATE_ADD('2025-06-15', INTERVAL -3 MONTH)");
+    assert!(result.is_ok(), "Failed to parse DATE_ADD with negative interval");
+}
+
+#[test]
+fn test_date_sub_negative_interval() {
+    let parser = QSQLParser::new();
+    
+    // Test DATE_SUB with negative interval (should add)
+    let result = parser.parse("SELECT DATE_SUB('2025-01-01', INTERVAL -7 DAY)");
+    assert!(result.is_ok(), "Failed to parse DATE_SUB with negative interval");
+}

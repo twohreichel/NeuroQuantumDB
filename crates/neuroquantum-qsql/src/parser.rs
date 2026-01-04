@@ -164,6 +164,9 @@ pub enum TokenType {
     Always,
     Identity,
 
+    // Date/Time keywords
+    Interval,
+
     // Neuromorphic keywords
     NeuroMatch,
     SynapticWeight,
@@ -2249,6 +2252,9 @@ impl QSQLParser {
         keywords.insert("ALWAYS".to_string(), TokenType::Always);
         keywords.insert("IDENTITY".to_string(), TokenType::Identity);
 
+        // Date/Time keywords
+        keywords.insert("INTERVAL".to_string(), TokenType::Interval);
+
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
         keywords.insert("SYNAPTIC_WEIGHT".to_string(), TokenType::SynapticWeight);
@@ -2989,6 +2995,37 @@ impl QSQLParser {
                 } else {
                     args.push(arg);
                 }
+            } else if matches!(tokens[*i], TokenType::Interval) {
+                // Special handling for INTERVAL syntax (DATE_ADD/DATE_SUB)
+                // INTERVAL expr unit -> encoded as string "expr unit"
+                *i += 1; // consume INTERVAL
+                
+                // Parse the interval expression (could be number or expression)
+                let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                
+                // Parse the unit (DAY, MONTH, YEAR, HOUR, etc.)
+                if *i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected time unit after INTERVAL expression".to_string(),
+                        position: *i,
+                    });
+                }
+                
+                let unit = match &tokens[*i] {
+                    TokenType::Identifier(s) => s.to_uppercase(),
+                    _ => {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected time unit (DAY, MONTH, YEAR, etc.) after INTERVAL expression".to_string(),
+                            position: *i,
+                        });
+                    }
+                };
+                *i += 1; // consume unit
+                
+                // Encode INTERVAL as a special string: "INTERVAL:<expr>:<unit>"
+                // We'll extract the expression value at execution time
+                args.push(expr);
+                args.push(Expression::Literal(Literal::String(format!("INTERVAL_UNIT:{}", unit))));
             } else {
                 // Parse argument expression
                 let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
