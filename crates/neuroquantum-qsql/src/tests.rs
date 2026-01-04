@@ -323,7 +323,7 @@ mod optimizer_tests {
                     alias: None,
                     synaptic_weight: None,
                     quantum_state: None,
-                        subquery: None,
+                    subquery: None,
                 }],
                 joins: vec![],
             }),
@@ -390,7 +390,7 @@ mod optimizer_tests {
                     alias: None,
                     synaptic_weight: None,
                     quantum_state: None,
-                        subquery: None,
+                    subquery: None,
                 }],
                 joins: vec![],
             }),
@@ -425,7 +425,7 @@ mod optimizer_tests {
                     alias: None,
                     synaptic_weight: None,
                     quantum_state: None,
-                        subquery: None,
+                    subquery: None,
                 }],
                 joins: vec![],
             }),
@@ -1146,7 +1146,10 @@ mod derived_table_tests {
                 let from = select.from.unwrap();
                 assert_eq!(from.relations.len(), 1);
                 let table_ref = &from.relations[0];
-                assert!(table_ref.subquery.is_some(), "Expected subquery in table reference");
+                assert!(
+                    table_ref.subquery.is_some(),
+                    "Expected subquery in table reference"
+                );
                 assert_eq!(table_ref.alias, Some("adult_users".to_string()));
             }
             _ => panic!("Expected SELECT statement"),
@@ -1165,7 +1168,10 @@ mod derived_table_tests {
             WHERE avg_salary > 50000
         "#;
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse derived table with aggregation");
+        assert!(
+            result.is_ok(),
+            "Failed to parse derived table with aggregation"
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -1203,10 +1209,13 @@ mod derived_table_tests {
                 let from = select.from.unwrap();
                 assert_eq!(from.relations.len(), 1);
                 assert_eq!(from.joins.len(), 1);
-                
+
                 // Check that the join has a derived table
                 let join = &from.joins[0];
-                assert!(join.relation.subquery.is_some(), "Expected subquery in JOIN");
+                assert!(
+                    join.relation.subquery.is_some(),
+                    "Expected subquery in JOIN"
+                );
                 assert_eq!(join.relation.alias, Some("s".to_string()));
             }
             _ => panic!("Expected SELECT statement"),
@@ -1226,7 +1235,10 @@ mod derived_table_tests {
         let parser = QSQLParser::new();
         let sql = "SELECT * FROM (SELECT name FROM users) AS subq";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse derived table with AS keyword");
+        assert!(
+            result.is_ok(),
+            "Failed to parse derived table with AS keyword"
+        );
     }
 
     #[test]
@@ -1272,15 +1284,27 @@ mod derived_table_tests {
             ON a.id = b.user_id
         "#;
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse LEFT JOIN with derived table: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to parse LEFT JOIN with derived table: {:?}",
+            result.err()
+        );
 
         let stmt = result.unwrap();
         match stmt {
             Statement::Select(select) => {
                 assert!(select.from.is_some(), "FROM clause should not be None");
                 let from = select.from.unwrap();
-                assert_eq!(from.joins.len(), 1, "Expected 1 join, got {}", from.joins.len());
-                assert!(from.joins[0].relation.subquery.is_some(), "Expected subquery in join relation");
+                assert_eq!(
+                    from.joins.len(),
+                    1,
+                    "Expected 1 join, got {}",
+                    from.joins.len()
+                );
+                assert!(
+                    from.joins[0].relation.subquery.is_some(),
+                    "Expected subquery in join relation"
+                );
                 assert_eq!(from.joins[0].join_type, JoinType::Left);
             }
             _ => panic!("Expected SELECT statement"),
@@ -1296,17 +1320,20 @@ mod derived_table_tests {
             JOIN products p ON d.id = p.department_id
         "#;
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse derived table in FROM with regular JOIN");
+        assert!(
+            result.is_ok(),
+            "Failed to parse derived table in FROM with regular JOIN"
+        );
 
         let stmt = result.unwrap();
         match stmt {
             Statement::Select(select) => {
                 let from = select.from.unwrap();
-                
+
                 // First relation is a derived table
                 assert!(from.relations[0].subquery.is_some());
                 assert_eq!(from.relations[0].alias, Some("d".to_string()));
-                
+
                 // Join is a regular table
                 assert!(from.joins[0].relation.subquery.is_none());
                 assert_eq!(from.joins[0].relation.name, "products");

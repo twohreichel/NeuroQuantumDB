@@ -3228,15 +3228,13 @@ impl QSQLParser {
                 *i += 1;
                 Some(alias)
             } else {
-                // Alias is technically required for derived tables in standard SQL
-                // but we'll allow it without for flexibility
                 None
             }
         } else {
             None
         };
 
-        // For derived tables, alias is required in standard SQL
+        // For derived tables, alias is required per SQL standard
         if alias.is_none() {
             return Err(QSQLError::ParseError {
                 message: "Derived tables require an alias".to_string(),

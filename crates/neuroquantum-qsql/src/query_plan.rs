@@ -814,7 +814,9 @@ impl QueryExecutor {
     fn get_rows_from_table_ref<'a>(
         &'a mut self,
         table_ref: &'a TableReference,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>,
+    > {
         Box::pin(async move {
             if let Some(subquery) = &table_ref.subquery {
                 // This is a derived table - execute the subquery
@@ -869,49 +871,49 @@ impl QueryExecutor {
             } else {
                 // This is a regular table - fetch from storage
                 let table_name = &table_ref.name;
-            let alias = table_ref
-                .alias
-                .clone()
-                .unwrap_or_else(|| table_name.clone());
+                let alias = table_ref
+                    .alias
+                    .clone()
+                    .unwrap_or_else(|| table_name.clone());
 
-            let storage_query = SelectQuery {
-                table: table_name.clone(),
-                columns: vec!["*".to_string()],
-                where_clause: None,
-                order_by: None,
-                limit: None,
-                offset: None,
-            };
+                let storage_query = SelectQuery {
+                    table: table_name.clone(),
+                    columns: vec!["*".to_string()],
+                    where_clause: None,
+                    order_by: None,
+                    limit: None,
+                    offset: None,
+                };
 
-            let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
-            let rows = storage_guard
-                .select_rows(&storage_query)
-                .await
-                .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to fetch table {}: {}", table_name, e),
-                })?;
-            drop(storage_guard);
+                let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+                let rows = storage_guard
+                    .select_rows(&storage_query)
+                    .await
+                    .map_err(|e| QSQLError::ExecutionError {
+                        message: format!("Failed to fetch table {}: {}", table_name, e),
+                    })?;
+                drop(storage_guard);
 
-            // Add alias prefix to all column names if alias is different from table name
-            let aliased_rows: Vec<Row> = rows
-                .into_iter()
-                .map(|row| {
-                    let mut aliased_fields = HashMap::new();
-                    for (col, val) in row.fields {
-                        // Add both aliased and unaliased versions
-                        aliased_fields.insert(format!("{}.{}", alias, col), val.clone());
-                        aliased_fields.insert(col, val);
-                    }
-                    Row {
-                        id: row.id,
-                        fields: aliased_fields,
-                        created_at: row.created_at,
-                        updated_at: row.updated_at,
-                    }
-                })
-                .collect();
+                // Add alias prefix to all column names if alias is different from table name
+                let aliased_rows: Vec<Row> = rows
+                    .into_iter()
+                    .map(|row| {
+                        let mut aliased_fields = HashMap::new();
+                        for (col, val) in row.fields {
+                            // Add both aliased and unaliased versions
+                            aliased_fields.insert(format!("{}.{}", alias, col), val.clone());
+                            aliased_fields.insert(col, val);
+                        }
+                        Row {
+                            id: row.id,
+                            fields: aliased_fields,
+                            created_at: row.created_at,
+                            updated_at: row.updated_at,
+                        }
+                    })
+                    .collect();
 
-            Ok((aliased_rows, alias))
+                Ok((aliased_rows, alias))
             }
         })
     }
