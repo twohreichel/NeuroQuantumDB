@@ -3353,17 +3353,21 @@ impl QueryExecutor {
     }
 
     /// Infer the data type of a window function
+    /// Note: For value functions (LAG, LEAD, etc.), the actual runtime type
+    /// matches the source column. This returns a default for metadata purposes.
     fn infer_window_function_type(&self, function: &WindowFunctionType) -> DataType {
         match function {
             WindowFunctionType::RowNumber
             | WindowFunctionType::Rank
             | WindowFunctionType::DenseRank
             | WindowFunctionType::Ntile => DataType::BigInt,
+            // Value functions return the type of their input column
+            // Default to Text for metadata; actual values preserve their original type
             WindowFunctionType::Lag
             | WindowFunctionType::Lead
             | WindowFunctionType::FirstValue
             | WindowFunctionType::LastValue
-            | WindowFunctionType::NthValue => DataType::Text, // We'll use the actual column type when evaluating
+            | WindowFunctionType::NthValue => DataType::Text,
         }
     }
 
@@ -3478,7 +3482,28 @@ impl QueryExecutor {
                 };
 
                 let total_rows = sorted_partition.len();
-                let bucket = ((position_in_partition * n) / total_rows) + 1;
+                // NTILE distributes rows as evenly as possible
+                // If total_rows = 6 and n = 4, we get buckets of sizes 2,2,1,1
+                // Rows 0,1 -> bucket 1; rows 2,3 -> bucket 2; row 4 -> bucket 3; row 5 -> bucket 4
+                let rows_per_bucket = total_rows / n;
+                let extra_rows = total_rows % n; // first 'extra_rows' buckets get one extra row
+                
+                // Calculate which bucket this row belongs to
+                let bucket = if rows_per_bucket == 0 {
+                    // More buckets than rows, each row gets its own bucket
+                    (position_in_partition + 1).min(n)
+                } else {
+                    // Rows in buckets with extra rows: (rows_per_bucket + 1) * extra_rows
+                    let rows_in_larger_buckets = (rows_per_bucket + 1) * extra_rows;
+                    if position_in_partition < rows_in_larger_buckets {
+                        // This row is in one of the larger buckets
+                        position_in_partition / (rows_per_bucket + 1) + 1
+                    } else {
+                        // This row is in one of the smaller buckets
+                        let remaining_position = position_in_partition - rows_in_larger_buckets;
+                        extra_rows + remaining_position / rows_per_bucket + 1
+                    }
+                };
                 Ok(QueryValue::Integer(bucket as i64))
             }
 

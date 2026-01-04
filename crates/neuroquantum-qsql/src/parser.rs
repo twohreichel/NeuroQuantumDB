@@ -4422,7 +4422,12 @@ impl QSQLParser {
 
         // Parse ORDER BY clause (optional but common)
         if *i < tokens.len() && matches!(tokens[*i], TokenType::OrderBy) {
-            *i += 2; // consume 'ORDER' 'BY' - note: these are tokenized separately
+            *i += 1; // consume 'ORDER' token (GROUP, ORDER keywords are followed by BY check)
+            
+            // Consume 'BY' if present as separate token
+            if *i < tokens.len() && matches!(tokens[*i], TokenType::By) {
+                *i += 1;
+            }
 
             // Parse order by columns
             loop {
