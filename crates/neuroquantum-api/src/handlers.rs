@@ -772,7 +772,6 @@ pub async fn query_data(
 pub async fn update_data(
     req: HttpRequest,
     path: web::Path<String>,
-    _db: web::Data<NeuroQuantumDB>,
     update_req: web::Json<UpdateDataRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -850,7 +849,6 @@ pub async fn update_data(
 pub async fn delete_data(
     req: HttpRequest,
     path: web::Path<String>,
-    _db: web::Data<NeuroQuantumDB>,
     delete_req: web::Json<DeleteDataRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -929,7 +927,6 @@ pub async fn delete_data(
 )]
 pub async fn train_neural_network(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
     train_req: web::Json<TrainNeuralNetworkRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -999,7 +996,6 @@ pub async fn train_neural_network(
 pub async fn get_training_status(
     req: HttpRequest,
     path: web::Path<String>,
-    _db: web::Data<NeuroQuantumDB>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
     let network_id = path.into_inner();
@@ -1040,7 +1036,6 @@ pub async fn get_training_status(
 )]
 pub async fn quantum_search(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
     search_req: web::Json<QuantumSearchRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -1134,7 +1129,6 @@ pub async fn quantum_search(
 )]
 pub async fn compress_dna(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
     compress_req: web::Json<CompressDnaRequest>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
@@ -1316,7 +1310,6 @@ neuroquantum_dna_compression_ratio 1250.75
 )]
 pub async fn get_performance_stats(
     req: HttpRequest,
-    _db: web::Data<NeuroQuantumDB>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
