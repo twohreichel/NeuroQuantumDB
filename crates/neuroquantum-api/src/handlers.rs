@@ -1207,16 +1207,23 @@ pub async fn compress_dna(
                 reason: format!("Compression failed for sequence {}: {}", i, e),
             })?;
 
-        // Encode compressed data as base64 for JSON response
-        let compressed_data = base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            &serde_json::to_vec(&compressed).map_err(|e| ApiError::CompressionError {
-                reason: format!("Serialization failed: {}", e),
-            })?,
-        );
+        // Convert DNA bases to packed bytes (4 bases per byte, 2 bits each)
+        let mut packed_bytes = Vec::with_capacity(compressed.sequence.bases.len().div_ceil(4));
+        for chunk in compressed.sequence.bases.chunks(4) {
+            let mut byte = 0u8;
+            for (i, base) in chunk.iter().enumerate() {
+                byte |= (*base as u8) << (i * 2);
+            }
+            packed_bytes.push(byte);
+        }
+
+        // Encode only the raw compressed bytes as base64 for JSON response
+        let compressed_data =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &packed_bytes);
 
         let compressed_size = compressed.compressed_size;
-        let compression_ratio = compressed.sequence.metadata.compression_ratio as f32;
+        // Calculate compression ratio directly from sizes
+        let compression_ratio = original_length as f32 / compressed_size as f32;
         let checksum = format!("{:x}", compressed.sequence.checksum);
 
         total_input_size += original_length;
