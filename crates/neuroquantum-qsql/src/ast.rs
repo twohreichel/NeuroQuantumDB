@@ -80,6 +80,14 @@ pub enum Statement {
     Analyze(AnalyzeStatement),
 }
 
+/// Common Table Expression (CTE) for WITH clauses
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommonTableExpression {
+    pub name: String,
+    pub query: Box<SelectStatement>,
+    pub columns: Option<Vec<String>>, // Optional column names
+}
+
 /// Standard SQL SELECT with neuromorphic and quantum extensions
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectStatement {
@@ -97,6 +105,15 @@ pub struct SelectStatement {
     // Quantum extensions
     pub quantum_parallel: bool,
     pub grover_iterations: Option<u32>,
+    // WITH clause for CTEs
+    pub with_clause: Option<WithClause>,
+}
+
+/// WITH clause containing one or more CTEs
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WithClause {
+    pub recursive: bool,
+    pub ctes: Vec<CommonTableExpression>,
 }
 
 /// Neuromorphic NEUROMATCH statement for brain-inspired pattern matching
@@ -361,6 +378,15 @@ pub enum Expression {
         when_clauses: Vec<(Box<Expression>, Box<Expression>)>,
         /// Optional ELSE result (if None, returns NULL when no condition matches)
         else_result: Option<Box<Expression>>,
+    },
+
+    // EXTRACT expression for date/time parts
+    // EXTRACT(field FROM source)
+    Extract {
+        /// The field to extract (e.g., YEAR, MONTH, DAY, etc.)
+        field: String,
+        /// The source expression (date/time value)
+        source: Box<Expression>,
     },
 }
 

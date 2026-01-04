@@ -2,9 +2,11 @@
 //!
 //! This module implements Reed-Solomon error correction codes specifically optimized
 //! for DNA compression scenarios, taking into account biological error patterns.
+//!
+//! Uses reed-solomon-simd for better performance and to avoid unmaintained dependencies.
 
 use crate::dna::{DNABase, DNAError};
-use reed_solomon_erasure::{galois_8::Field as GF8, Error as RSError, ReedSolomon};
+use reed_solomon_simd::{ReedSolomonDecoder, ReedSolomonEncoder};
 use tracing::{debug, instrument, warn};
 
 /// Error correction statistics
@@ -25,12 +27,12 @@ pub struct ErrorCorrectionStats {
 /// Reed-Solomon error corrector optimized for DNA data
 #[derive(Debug)]
 pub struct ReedSolomonCorrector {
-    /// Reed-Solomon codec instance
-    rs_codec: ReedSolomon<GF8>,
     /// Number of parity shards for error correction
     parity_shards: usize,
     /// Data shards per block
     data_shards: usize,
+    /// Shard size in bytes (fixed per block for reed-solomon-simd)
+    shard_bytes: usize,
     /// Maximum correctable errors per block
     max_correctable_errors: usize,
     /// Error correction statistics
@@ -47,15 +49,15 @@ impl ReedSolomonCorrector {
         let max_data_shards = 255 - parity_shards;
         let data_shards = (parity_shards * 4).clamp(16, max_data_shards.min(191));
 
-        let rs_codec =
-            ReedSolomon::new(data_shards, parity_shards).expect("Invalid Reed-Solomon parameters");
+        // reed-solomon-simd works with fixed shard sizes - we use 1 byte shards
+        let shard_bytes = 1;
 
         let max_correctable_errors = parity_shards / 2;
 
         Self {
-            rs_codec,
             parity_shards,
             data_shards,
+            shard_bytes,
             max_correctable_errors,
             stats: std::sync::Arc::new(std::sync::Mutex::new(ErrorCorrectionStats::default())),
         }
@@ -97,33 +99,37 @@ impl ReedSolomonCorrector {
         let mut padded_data = data_block.to_vec();
         padded_data.resize(self.data_shards, 0);
 
-        // Create shards: data shards + parity shards
-        let mut shards = vec![Vec::new(); self.data_shards + self.parity_shards];
+        // Create encoder for this block
+        let mut encoder = ReedSolomonEncoder::new(
+            self.data_shards,
+            self.parity_shards,
+            self.shard_bytes,
+        )
+        .map_err(|e| {
+            DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
+        })?;
 
-        // Fill data shards
-        for (i, &byte) in padded_data.iter().enumerate() {
-            shards[i] = vec![byte];
+        // Add each data shard (each byte becomes a shard)
+        for &byte in &padded_data {
+            encoder
+                .add_original_shard(&[byte])
+                .map_err(|e| {
+                    DNAError::ErrorCorrectionFailed(format!("Failed to add data shard: {:?}", e))
+                })?;
         }
 
-        // Initialize parity shards
-        for shard in shards
-            .iter_mut()
-            .skip(self.data_shards)
-            .take(self.parity_shards)
-        {
-            *shard = vec![0u8];
-        }
-
-        // Generate Reed-Solomon parity
-        self.rs_codec.encode(&mut shards).map_err(|e| {
+        // Encode to generate parity shards
+        let result = encoder.encode().map_err(|e| {
             DNAError::ErrorCorrectionFailed(format!("Reed-Solomon encoding failed: {:?}", e))
         })?;
 
-        // Extract parity data
-        let parity: Vec<u8> = shards[self.data_shards..]
-            .iter()
-            .flat_map(|shard| shard.iter().cloned())
-            .collect();
+        // Extract parity data (recovery shards) - need to iterate with index
+        let mut parity = Vec::with_capacity(self.parity_shards);
+        for i in 0..self.parity_shards {
+            if let Some(recovery_shard) = result.recovery(i) {
+                parity.extend_from_slice(recovery_shard);
+            }
+        }
 
         Ok(parity)
     }
@@ -186,7 +192,17 @@ impl ReedSolomonCorrector {
         let mut padded_data = data_block.to_vec();
         padded_data.resize(self.data_shards, 0);
 
-        // Reconstruct shards using Option<Vec<u8>> format for Reed-Solomon
+        // Create decoder for this block
+        let mut decoder = ReedSolomonDecoder::new(
+            self.data_shards,
+            self.parity_shards,
+            self.shard_bytes,
+        )
+        .map_err(|e| {
+            DNAError::ErrorCorrectionFailed(format!("Failed to create decoder: {:?}", e))
+        })?;
+
+        // Convert to shards format with Option for missing/corrupted shards
         let mut shards: Vec<Option<Vec<u8>>> =
             Vec::with_capacity(self.data_shards + self.parity_shards);
 
@@ -231,9 +247,51 @@ impl ReedSolomonCorrector {
                 stats.reconstructions_attempted += 1;
             }
 
+            // Mark corrupted shards as None for reconstruction
+            let corrupted_indices = self.identify_corrupted_shards(&shards);
+            for idx in corrupted_indices {
+                if idx < shards.len() {
+                    shards[idx] = None;
+                }
+            }
+
+            // Add available original shards to decoder
+            for (i, shard) in shards.iter().enumerate().take(self.data_shards) {
+                if let Some(shard_data) = shard {
+                    decoder
+                        .add_original_shard(i, shard_data)
+                        .map_err(|e| {
+                            DNAError::ErrorCorrectionFailed(format!(
+                                "Failed to add original shard {}: {:?}",
+                                i, e
+                            ))
+                        })?;
+                }
+            }
+
+            // Add available recovery (parity) shards to decoder
+            for (i, shard) in shards
+                .iter()
+                .enumerate()
+                .skip(self.data_shards)
+                .take(self.parity_shards)
+            {
+                if let Some(shard_data) = shard {
+                    let recovery_idx = i - self.data_shards;
+                    decoder
+                        .add_recovery_shard(recovery_idx, shard_data)
+                        .map_err(|e| {
+                            DNAError::ErrorCorrectionFailed(format!(
+                                "Failed to add recovery shard {}: {:?}",
+                                recovery_idx, e
+                            ))
+                        })?;
+                }
+            }
+
             // Attempt Reed-Solomon reconstruction
-            match self.rs_codec.reconstruct(&mut shards) {
-                Ok(_) => {
+            match decoder.decode() {
+                Ok(result) => {
                     debug!(
                         "Successfully reconstructed data with {} errors/missing shards",
                         total_errors
@@ -247,26 +305,26 @@ impl ReedSolomonCorrector {
                     }
 
                     // Extract corrected data
-                    let corrected: Vec<u8> = shards[0..self.data_shards]
-                        .iter()
-                        .filter_map(|shard| shard.as_ref())
-                        .flat_map(|shard| shard.iter().cloned())
-                        .take(data_block.len())
-                        .collect();
+                    let mut corrected = Vec::with_capacity(data_block.len());
+                    for i in 0..self.data_shards.min(data_block.len()) {
+                        if let Some(restored_shard) = result.restored_original(i) {
+                            if !restored_shard.is_empty() {
+                                corrected.push(restored_shard[0]);
+                            }
+                        }
+                    }
+
+                    // Truncate to original length
+                    corrected.truncate(data_block.len());
 
                     Ok((corrected, total_errors))
                 }
-                Err(RSError::TooFewShardsPresent) => Err(DNAError::ErrorCorrectionFailed(
-                    format!(
-                        "Too many errors to correct: {} missing, {} corrupted, need at least {} valid shards",
-                        missing_shards,
-                        errors_detected,
-                        self.data_shards
-                    ),
-                )),
                 Err(e) => Err(DNAError::ErrorCorrectionFailed(format!(
-                    "Reed-Solomon reconstruction failed: {:?}",
-                    e
+                    "Reed-Solomon reconstruction failed: {:?}. Too many errors to correct: {} missing, {} corrupted, need at least {} valid shards",
+                    e,
+                    missing_shards,
+                    errors_detected,
+                    self.data_shards
                 ))),
             }
         } else {
@@ -348,6 +406,32 @@ impl ReedSolomonCorrector {
         }
 
         corrupted_count
+    }
+
+    /// Identify indices of corrupted shards for reconstruction
+    fn identify_corrupted_shards(&self, shards: &[Option<Vec<u8>>]) -> Vec<usize> {
+        let mut corrupted_indices = Vec::new();
+
+        for (idx, shard) in shards.iter().enumerate() {
+            if let Some(shard_data) = shard {
+                // Check for corruption indicators
+                if shard_data.is_empty() {
+                    corrupted_indices.push(idx);
+                    continue;
+                }
+
+                // Check for suspicious patterns
+                if shard_data.len() > 1 {
+                    let first_byte = shard_data[0];
+                    let all_same = shard_data.iter().all(|&b| b == first_byte);
+                    if all_same && (first_byte == 0xFF || first_byte == 0x00) {
+                        corrupted_indices.push(idx);
+                    }
+                }
+            }
+        }
+
+        corrupted_indices
     }
 
     /// Calculate the required parity length for a given data size
@@ -547,25 +631,45 @@ impl ReedSolomonCorrector {
         let mut padded_data = data_block.to_vec();
         padded_data.resize(self.data_shards, 0);
 
-        let mut shards = vec![Vec::new(); self.data_shards + self.parity_shards];
+        // Create encoder to regenerate parity
+        let mut encoder = ReedSolomonEncoder::new(
+            self.data_shards,
+            self.parity_shards,
+            self.shard_bytes,
+        )
+        .map_err(|e| {
+            DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
+        })?;
 
-        // Fill data shards
-        for (i, &byte) in padded_data.iter().enumerate() {
-            shards[i] = vec![byte];
+        // Add each data shard
+        for &byte in &padded_data {
+            encoder
+                .add_original_shard(&[byte])
+                .map_err(|e| {
+                    DNAError::ErrorCorrectionFailed(format!("Failed to add shard: {:?}", e))
+                })?;
         }
 
-        // Fill parity shards
-        for (i, &byte) in parity_block.iter().enumerate() {
-            if i < self.parity_shards {
-                shards[self.data_shards + i] = vec![byte];
+        // Encode to generate expected parity
+        let result = encoder.encode().map_err(|e| {
+            DNAError::ErrorCorrectionFailed(format!("Encoding failed: {:?}", e))
+        })?;
+
+        // Extract generated parity - need to iterate with index
+        let mut generated_parity = Vec::with_capacity(self.parity_shards);
+        for i in 0..self.parity_shards {
+            if let Some(recovery_shard) = result.recovery(i) {
+                generated_parity.extend_from_slice(recovery_shard);
             }
         }
 
-        // Use Reed-Solomon to verify (this is a simplified check)
-        match self.rs_codec.verify(&shards) {
-            Ok(_) => Ok(true),
-            Err(_) => Ok(false),
-        }
+        // Compare with provided parity
+        let parity_matches = generated_parity
+            .iter()
+            .zip(parity_block.iter())
+            .all(|(a, b)| a == b);
+
+        Ok(parity_matches)
     }
 }
 

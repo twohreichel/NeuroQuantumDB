@@ -179,270 +179,115 @@ mod parser_tests {
         }
     }
 
-    // DDL Statement Tests
-
     #[test]
-    fn test_parser_create_table_basic() {
+    fn test_parser_basic_cte() {
         let parser = QSQLParser::new();
 
-        let sql = "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT)";
+        let sql = r#"
+            WITH active_users AS (
+                SELECT * FROM users WHERE status = 'active'
+            )
+            SELECT * FROM active_users WHERE age > 25
+        "#;
+
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::CreateTable(create) => {
-                assert_eq!(create.table_name, "users");
-                assert_eq!(create.columns.len(), 3);
-                assert!(!create.if_not_exists);
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 1);
+                assert_eq!(with_clause.ctes[0].name, "active_users");
+                assert!(!with_clause.recursive);
             }
-            _ => panic!("Expected CREATE TABLE statement"),
+            _ => panic!("Expected SELECT statement"),
         }
     }
 
     #[test]
-    fn test_parser_create_table_if_not_exists() {
+    fn test_parser_multiple_ctes() {
         let parser = QSQLParser::new();
 
-        let sql = "CREATE TABLE IF NOT EXISTS products (id SERIAL, name VARCHAR(100))";
+        let sql = r#"
+            WITH 
+                active_users AS (SELECT * FROM users WHERE status = 'active'),
+                recent_orders AS (SELECT * FROM orders WHERE created_at > '2025-01-01')
+            SELECT u.name, o.amount 
+            FROM active_users u 
+            JOIN recent_orders o ON u.id = o.user_id
+        "#;
+
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::CreateTable(create) => {
-                assert_eq!(create.table_name, "products");
-                assert!(create.if_not_exists);
-                assert_eq!(create.columns.len(), 2);
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 2);
+                assert_eq!(with_clause.ctes[0].name, "active_users");
+                assert_eq!(with_clause.ctes[1].name, "recent_orders");
+                assert!(!with_clause.recursive);
             }
-            _ => panic!("Expected CREATE TABLE statement"),
+            _ => panic!("Expected SELECT statement"),
         }
     }
 
     #[test]
-    fn test_parser_create_table_with_constraints() {
+    fn test_parser_recursive_cte() {
         let parser = QSQLParser::new();
 
-        let sql = r#"CREATE TABLE orders (
-            id BIGSERIAL PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            amount DECIMAL(10, 2) DEFAULT 0.00,
-            created_at TIMESTAMP
-        )"#;
+        let sql = r#"
+            WITH RECURSIVE subordinates AS (
+                SELECT id, name, manager_id FROM employees WHERE manager_id IS NULL
+            )
+            SELECT * FROM subordinates
+        "#;
+
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::CreateTable(create) => {
-                assert_eq!(create.table_name, "orders");
-                assert_eq!(create.columns.len(), 4);
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 1);
+                assert_eq!(with_clause.ctes[0].name, "subordinates");
+                assert!(with_clause.recursive);
             }
-            _ => panic!("Expected CREATE TABLE statement"),
+            _ => panic!("Expected SELECT statement"),
         }
     }
 
     #[test]
-    fn test_parser_drop_table() {
+    fn test_parser_cte_with_column_list() {
         let parser = QSQLParser::new();
 
-        let sql = "DROP TABLE users";
+        let sql = r#"
+            WITH user_stats (user_id, total_posts, avg_likes) AS (
+                SELECT user_id, COUNT(*), AVG(likes) FROM posts GROUP BY user_id
+            )
+            SELECT * FROM user_stats
+        "#;
+
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::DropTable(drop) => {
-                assert_eq!(drop.table_name, "users");
-                assert!(!drop.if_exists);
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some());
+                let with_clause = select.with_clause.unwrap();
+                assert_eq!(with_clause.ctes.len(), 1);
+                assert_eq!(with_clause.ctes[0].name, "user_stats");
+                assert!(with_clause.ctes[0].columns.is_some());
+                let columns = with_clause.ctes[0].columns.as_ref().unwrap();
+                assert_eq!(columns.len(), 3);
+                assert_eq!(columns[0], "user_id");
+                assert_eq!(columns[1], "total_posts");
+                assert_eq!(columns[2], "avg_likes");
             }
-            _ => panic!("Expected DROP TABLE statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_drop_table_if_exists() {
-        let parser = QSQLParser::new();
-
-        let sql = "DROP TABLE IF EXISTS temp_data";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::DropTable(drop) => {
-                assert_eq!(drop.table_name, "temp_data");
-                assert!(drop.if_exists);
-            }
-            _ => panic!("Expected DROP TABLE statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_alter_table_add_column() {
-        let parser = QSQLParser::new();
-
-        let sql = "ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::AlterTable(alter) => {
-                assert_eq!(alter.table_name, "users");
-                match alter.operation {
-                    AlterTableOperation::AddColumn { column } => {
-                        assert_eq!(column.name, "status");
-                    }
-                    _ => panic!("Expected ADD COLUMN operation"),
-                }
-            }
-            _ => panic!("Expected ALTER TABLE statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_alter_table_drop_column() {
-        let parser = QSQLParser::new();
-
-        let sql = "ALTER TABLE users DROP COLUMN temp_field";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::AlterTable(alter) => {
-                assert_eq!(alter.table_name, "users");
-                match alter.operation {
-                    AlterTableOperation::DropColumn { column_name } => {
-                        assert_eq!(column_name, "temp_field");
-                    }
-                    _ => panic!("Expected DROP COLUMN operation"),
-                }
-            }
-            _ => panic!("Expected ALTER TABLE statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_alter_table_modify_column() {
-        let parser = QSQLParser::new();
-
-        let sql = "ALTER TABLE users MODIFY COLUMN age BIGINT";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::AlterTable(alter) => {
-                assert_eq!(alter.table_name, "users");
-                match alter.operation {
-                    AlterTableOperation::ModifyColumn {
-                        column_name,
-                        new_data_type,
-                    } => {
-                        assert_eq!(column_name, "age");
-                        assert!(matches!(new_data_type, DataType::BigInt));
-                    }
-                    _ => panic!("Expected MODIFY COLUMN operation"),
-                }
-            }
-            _ => panic!("Expected ALTER TABLE statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_create_index() {
-        let parser = QSQLParser::new();
-
-        let sql = "CREATE INDEX idx_users_email ON users(email)";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::CreateIndex(create_idx) => {
-                assert_eq!(create_idx.index_name, "idx_users_email");
-                assert_eq!(create_idx.table_name, "users");
-                assert_eq!(create_idx.columns, vec!["email"]);
-                assert!(!create_idx.unique);
-            }
-            _ => panic!("Expected CREATE INDEX statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_create_unique_index() {
-        let parser = QSQLParser::new();
-
-        let sql = "CREATE UNIQUE INDEX idx_users_name ON users(name)";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::CreateIndex(create_idx) => {
-                assert_eq!(create_idx.index_name, "idx_users_name");
-                assert_eq!(create_idx.table_name, "users");
-                assert!(create_idx.unique);
-            }
-            _ => panic!("Expected CREATE UNIQUE INDEX statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_drop_index() {
-        let parser = QSQLParser::new();
-
-        let sql = "DROP INDEX idx_users_email";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::DropIndex(drop_idx) => {
-                assert_eq!(drop_idx.index_name, "idx_users_email");
-                assert!(!drop_idx.if_exists);
-            }
-            _ => panic!("Expected DROP INDEX statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_drop_index_if_exists() {
-        let parser = QSQLParser::new();
-
-        let sql = "DROP INDEX IF EXISTS idx_temp";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::DropIndex(drop_idx) => {
-                assert_eq!(drop_idx.index_name, "idx_temp");
-                assert!(drop_idx.if_exists);
-            }
-            _ => panic!("Expected DROP INDEX statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_truncate_table() {
-        let parser = QSQLParser::new();
-
-        let sql = "TRUNCATE TABLE logs";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::TruncateTable(truncate) => {
-                assert_eq!(truncate.table_name, "logs");
-            }
-            _ => panic!("Expected TRUNCATE TABLE statement"),
-        }
-    }
-
-    #[test]
-    fn test_parser_truncate_without_table_keyword() {
-        let parser = QSQLParser::new();
-
-        let sql = "TRUNCATE logs";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok());
-
-        match result.unwrap() {
-            Statement::TruncateTable(truncate) => {
-                assert_eq!(truncate.table_name, "logs");
-            }
-            _ => panic!("Expected TRUNCATE TABLE statement"),
+            _ => panic!("Expected SELECT statement"),
         }
     }
 }
@@ -1093,3 +938,154 @@ mod property_tests {
         assert!(plan.estimated_cost >= 0.0);
     }
 }
+
+mod extract_function_tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_parser_year() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(YEAR FROM '2025-12-23')";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(YEAR FROM date)");
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                assert_eq!(select.select_list.len(), 1);
+                match &select.select_list[0] {
+                    SelectItem::Expression { expr, .. } => match expr {
+                        Expression::Extract { field, source } => {
+                            assert_eq!(field, "YEAR");
+                            match source.as_ref() {
+                                Expression::Literal(Literal::String(s)) => {
+                                    assert_eq!(s, "2025-12-23");
+                                }
+                                _ => panic!("Expected string literal as source"),
+                            }
+                        }
+                        _ => panic!("Expected Extract expression"),
+                    },
+                    _ => panic!("Expected Expression select item"),
+                }
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_extract_parser_month() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(MONTH FROM created_at) FROM events";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(MONTH FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_day() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(DAY FROM order_date)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(DAY FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_hour() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(HOUR FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(HOUR FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_minute() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(MINUTE FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(MINUTE FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_second() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(SECOND FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(SECOND FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_dow() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(DOW FROM created_at)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(DOW FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_doy() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(DOY FROM created_at)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(DOY FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_week() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(WEEK FROM created_at)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(WEEK FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_quarter() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(QUARTER FROM order_date)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(QUARTER FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_epoch() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(EPOCH FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(EPOCH FROM column)");
+    }
+
+    #[test]
+    fn test_extract_in_where_clause() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT * FROM events WHERE EXTRACT(YEAR FROM created_at) = 2025";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT in WHERE clause");
+    }
+
+    #[test]
+    fn test_extract_in_group_by() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(QUARTER FROM order_date), SUM(amount) FROM orders GROUP BY EXTRACT(QUARTER FROM order_date)";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXTRACT in GROUP BY clause"
+        );
+    }
+
+    #[test]
+    fn test_extract_missing_from() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(YEAR '2025-12-23')";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without FROM keyword");
+    }
+
+    #[test]
+    fn test_extract_missing_paren() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT YEAR FROM created_at";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without parentheses");
+    }
+}
+

@@ -146,7 +146,9 @@ pub enum TokenType {
     Is,
     Null,
     With,
+    Recursive,
     Distinct,
+    Extract,
 
     // CASE expression keywords
     Case,
@@ -168,6 +170,9 @@ pub enum TokenType {
     Generated,
     Always,
     Identity,
+
+    // Date/Time keywords
+    Interval,
 
     // Neuromorphic keywords
     NeuroMatch,
@@ -589,6 +594,7 @@ impl QSQLParser {
 
         // Check the first token to determine statement type
         match tokens.first() {
+            Some(TokenType::With) => self.parse_select_statement(tokens),
             Some(TokenType::Select) => self.parse_select_statement(tokens),
             Some(TokenType::Insert) => self.parse_insert_statement(tokens),
             Some(TokenType::Update) => self.parse_update_statement(tokens),
@@ -602,25 +608,6 @@ impl QSQLParser {
             Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
             Some(TokenType::Adapt) => self.parse_adapt_weights_statement(tokens),
             Some(TokenType::QuantumJoin) => self.parse_quantum_join_statement(tokens),
-            Some(TokenType::Identifier(name)) => {
-                // Only allow specific known SQL keywords that might start statements
-                match name.to_uppercase().as_str() {
-                    "WITH" | "CTE" => {
-                        // Could be extended to support WITH clauses in the future
-                        Err(QSQLError::ParseError {
-                            message: format!("Unsupported statement type: {}", name),
-                            position: 0,
-                        })
-                    }
-                    _ => {
-                        // Any other identifier starting a statement is invalid SQL
-                        Err(QSQLError::ParseError {
-                            message: format!("Invalid SQL syntax starting with: {}", name),
-                            position: 0,
-                        })
-                    }
-                }
-            }
             _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
                 position: 0,
@@ -642,8 +629,14 @@ impl QSQLParser {
         let plasticity_threshold = None;
         let quantum_parallel = false;
         let grover_iterations = None;
+        let mut with_clause = None;
 
         let mut i = 0;
+
+        // Parse optional WITH clause
+        if i < tokens.len() && matches!(tokens[i], TokenType::With) {
+            with_clause = Some(self.parse_with_clause(tokens, &mut i)?);
+        }
 
         // Skip SELECT keyword
         if i < tokens.len() && matches!(tokens[i], TokenType::Select) {
@@ -731,6 +724,29 @@ impl QSQLParser {
                 TokenType::Case => {
                     // Parse CASE expression
                     let expr = self.parse_case_expression(tokens, &mut i)?;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                TokenType::Extract => {
+                    // Parse EXTRACT expression
+                    let expr = self.parse_extract_expression(tokens, &mut i)?;
 
                     // Check for optional AS alias
                     let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
@@ -871,6 +887,7 @@ impl QSQLParser {
             plasticity_threshold,
             quantum_parallel,
             grover_iterations,
+            with_clause,
         }))
     }
 
@@ -985,6 +1002,29 @@ impl QSQLParser {
                 TokenType::Case => {
                     // Parse CASE expression
                     let expr = self.parse_case_expression(tokens, i)?;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                TokenType::Extract => {
+                    // Parse EXTRACT expression
+                    let expr = self.parse_extract_expression(tokens, i)?;
 
                     // Check for optional AS alias
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
@@ -1135,6 +1175,7 @@ impl QSQLParser {
             plasticity_threshold,
             quantum_parallel,
             grover_iterations,
+            with_clause: None, // Subqueries don't support WITH clauses (for now)
         })
     }
 
@@ -2665,6 +2706,138 @@ impl QSQLParser {
         None
     }
 
+    /// Parse WITH clause for Common Table Expressions (CTEs)
+    fn parse_with_clause(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<WithClause> {
+        // Consume WITH keyword
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::With) {
+            return Err(QSQLError::ParseError {
+                message: "Expected WITH keyword".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1;
+
+        // Check for optional RECURSIVE keyword
+        let recursive = if *i < tokens.len() && matches!(tokens[*i], TokenType::Recursive) {
+            *i += 1;
+            true
+        } else {
+            false
+        };
+
+        let mut ctes = Vec::new();
+
+        // Parse one or more CTEs
+        loop {
+            // Parse CTE name
+            let name = if let Some(TokenType::Identifier(cte_name)) = tokens.get(*i) {
+                let name = cte_name.clone();
+                *i += 1;
+                name
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected CTE name after WITH".to_string(),
+                    position: *i,
+                });
+            };
+
+            // Parse optional column list: (col1, col2, ...)
+            let columns = if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                *i += 1; // consume '('
+                let mut cols = Vec::new();
+
+                loop {
+                    if *i >= tokens.len() {
+                        return Err(QSQLError::ParseError {
+                            message: "Unclosed column list in CTE".to_string(),
+                            position: *i,
+                        });
+                    }
+
+                    // Check for closing paren
+                    if matches!(tokens[*i], TokenType::RightParen) {
+                        *i += 1; // consume ')'
+                        break;
+                    }
+
+                    // Parse column name
+                    if let TokenType::Identifier(col_name) = &tokens[*i] {
+                        cols.push(col_name.clone());
+                        *i += 1;
+
+                        // Check for comma or closing paren
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                            *i += 1; // consume ','
+                        } else if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
+                            *i += 1; // consume ')'
+                            break;
+                        }
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in CTE column list".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+
+                Some(cols)
+            } else {
+                None
+            };
+
+            // Expect AS keyword
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::As) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected AS keyword after CTE name".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1;
+
+            // Expect opening paren for CTE query
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected '(' after AS in CTE".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1;
+
+            // Parse the SELECT statement inside the CTE
+            let query = self.parse_select_statement_at(tokens, i)?;
+
+            // Expect closing paren
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected ')' after CTE query".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1;
+
+            // Add the CTE to the list
+            ctes.push(CommonTableExpression {
+                name,
+                query: Box::new(query),
+                columns,
+            });
+
+            // Check for comma (more CTEs) or end of WITH clause
+            if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                *i += 1; // consume ','
+                continue; // Parse next CTE
+            } else {
+                break; // End of CTE list
+            }
+        }
+
+        Ok(WithClause { recursive, ctes })
+    }
+
     /// Parse JOIN clauses after the first table in FROM
     fn parse_join_clauses(
         &self,
@@ -2833,7 +3006,9 @@ impl QSQLParser {
         keywords.insert("OR".to_string(), TokenType::Or);
         keywords.insert("NOT".to_string(), TokenType::Not);
         keywords.insert("WITH".to_string(), TokenType::With);
+        keywords.insert("RECURSIVE".to_string(), TokenType::Recursive);
         keywords.insert("DISTINCT".to_string(), TokenType::Distinct);
+        keywords.insert("EXTRACT".to_string(), TokenType::Extract);
         keywords.insert("IN".to_string(), TokenType::In);
         keywords.insert("LIKE".to_string(), TokenType::Like);
         keywords.insert("BETWEEN".to_string(), TokenType::Between);
@@ -2888,6 +3063,9 @@ impl QSQLParser {
         keywords.insert("GENERATED".to_string(), TokenType::Generated);
         keywords.insert("ALWAYS".to_string(), TokenType::Always);
         keywords.insert("IDENTITY".to_string(), TokenType::Identity);
+
+        // Date/Time keywords
+        keywords.insert("INTERVAL".to_string(), TokenType::Interval);
 
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
@@ -3386,6 +3564,66 @@ impl QSQLParser {
         })
     }
 
+    /// Parse EXTRACT expression: EXTRACT(field FROM source)
+    fn parse_extract_expression(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Expression> {
+        // Consume EXTRACT token
+        *i += 1;
+
+        // Expect opening parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after EXTRACT".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume '('
+
+        // Parse the field identifier (YEAR, MONTH, DAY, etc.)
+        let field = match &tokens[*i] {
+            TokenType::Identifier(name) => name.to_uppercase(),
+            _ => {
+                return Err(QSQLError::ParseError {
+                    message: format!(
+                        "Expected field identifier in EXTRACT expression, found {:?}",
+                        tokens[*i]
+                    ),
+                    position: *i,
+                });
+            }
+        };
+        *i += 1; // consume field identifier
+
+        // Expect FROM keyword
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::From) {
+            return Err(QSQLError::ParseError {
+                message: "Expected FROM keyword in EXTRACT expression".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume FROM
+
+        // Parse source expression
+        let source = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+        // Expect closing parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected ')' at end of EXTRACT expression".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume ')'
+
+        Ok(Expression::Extract {
+            field,
+            source: Box::new(source),
+        })
+    }
+
     /// Parse prefix expression (primary expressions and unary operators)
     fn parse_prefix_expression(
         &self,
@@ -3402,6 +3640,9 @@ impl QSQLParser {
         match &tokens[*i] {
             // CASE expression: CASE WHEN ... THEN ... [ELSE ...] END
             TokenType::Case => self.parse_case_expression(tokens, i),
+
+            // EXTRACT expression: EXTRACT(field FROM source)
+            TokenType::Extract => self.parse_extract_expression(tokens, i),
 
             // Unary NOT operator
             TokenType::Not => {
@@ -3566,6 +3807,37 @@ impl QSQLParser {
                 } else {
                     args.push(arg);
                 }
+            } else if matches!(tokens[*i], TokenType::Interval) {
+                // Special handling for INTERVAL syntax (DATE_ADD/DATE_SUB)
+                // INTERVAL expr unit -> encoded as string "expr unit"
+                *i += 1; // consume INTERVAL
+                
+                // Parse the interval expression (could be number or expression)
+                let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                
+                // Parse the unit (DAY, MONTH, YEAR, HOUR, etc.)
+                if *i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected time unit after INTERVAL expression".to_string(),
+                        position: *i,
+                    });
+                }
+                
+                let unit = match &tokens[*i] {
+                    TokenType::Identifier(s) => s.to_uppercase(),
+                    _ => {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected time unit (DAY, MONTH, YEAR, etc.) after INTERVAL expression".to_string(),
+                            position: *i,
+                        });
+                    }
+                };
+                *i += 1; // consume unit
+                
+                // Encode INTERVAL as a special string: "INTERVAL:<expr>:<unit>"
+                // We'll extract the expression value at execution time
+                args.push(expr);
+                args.push(Expression::Literal(Literal::String(format!("INTERVAL_UNIT:{}", unit))));
             } else {
                 // Parse argument expression
                 let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
