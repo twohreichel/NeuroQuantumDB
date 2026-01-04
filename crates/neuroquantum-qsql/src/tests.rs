@@ -178,6 +178,273 @@ mod parser_tests {
             _ => panic!("Expected DELETE statement"),
         }
     }
+
+    // DDL Statement Tests
+
+    #[test]
+    fn test_parser_create_table_basic() {
+        let parser = QSQLParser::new();
+
+        let sql = "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::CreateTable(create) => {
+                assert_eq!(create.table_name, "users");
+                assert_eq!(create.columns.len(), 3);
+                assert!(!create.if_not_exists);
+            }
+            _ => panic!("Expected CREATE TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_create_table_if_not_exists() {
+        let parser = QSQLParser::new();
+
+        let sql = "CREATE TABLE IF NOT EXISTS products (id SERIAL, name VARCHAR(100))";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::CreateTable(create) => {
+                assert_eq!(create.table_name, "products");
+                assert!(create.if_not_exists);
+                assert_eq!(create.columns.len(), 2);
+            }
+            _ => panic!("Expected CREATE TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_create_table_with_constraints() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"CREATE TABLE orders (
+            id BIGSERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            amount DECIMAL(10, 2) DEFAULT 0.00,
+            created_at TIMESTAMP
+        )"#;
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::CreateTable(create) => {
+                assert_eq!(create.table_name, "orders");
+                assert_eq!(create.columns.len(), 4);
+            }
+            _ => panic!("Expected CREATE TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_drop_table() {
+        let parser = QSQLParser::new();
+
+        let sql = "DROP TABLE users";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::DropTable(drop) => {
+                assert_eq!(drop.table_name, "users");
+                assert!(!drop.if_exists);
+            }
+            _ => panic!("Expected DROP TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_drop_table_if_exists() {
+        let parser = QSQLParser::new();
+
+        let sql = "DROP TABLE IF EXISTS temp_data";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::DropTable(drop) => {
+                assert_eq!(drop.table_name, "temp_data");
+                assert!(drop.if_exists);
+            }
+            _ => panic!("Expected DROP TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_alter_table_add_column() {
+        let parser = QSQLParser::new();
+
+        let sql = "ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::AlterTable(alter) => {
+                assert_eq!(alter.table_name, "users");
+                match alter.operation {
+                    AlterTableOperation::AddColumn { column } => {
+                        assert_eq!(column.name, "status");
+                    }
+                    _ => panic!("Expected ADD COLUMN operation"),
+                }
+            }
+            _ => panic!("Expected ALTER TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_alter_table_drop_column() {
+        let parser = QSQLParser::new();
+
+        let sql = "ALTER TABLE users DROP COLUMN temp_field";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::AlterTable(alter) => {
+                assert_eq!(alter.table_name, "users");
+                match alter.operation {
+                    AlterTableOperation::DropColumn { column_name } => {
+                        assert_eq!(column_name, "temp_field");
+                    }
+                    _ => panic!("Expected DROP COLUMN operation"),
+                }
+            }
+            _ => panic!("Expected ALTER TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_alter_table_modify_column() {
+        let parser = QSQLParser::new();
+
+        let sql = "ALTER TABLE users MODIFY COLUMN age BIGINT";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::AlterTable(alter) => {
+                assert_eq!(alter.table_name, "users");
+                match alter.operation {
+                    AlterTableOperation::ModifyColumn {
+                        column_name,
+                        new_data_type,
+                    } => {
+                        assert_eq!(column_name, "age");
+                        assert!(matches!(new_data_type, DataType::BigInt));
+                    }
+                    _ => panic!("Expected MODIFY COLUMN operation"),
+                }
+            }
+            _ => panic!("Expected ALTER TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_create_index() {
+        let parser = QSQLParser::new();
+
+        let sql = "CREATE INDEX idx_users_email ON users(email)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::CreateIndex(create_idx) => {
+                assert_eq!(create_idx.index_name, "idx_users_email");
+                assert_eq!(create_idx.table_name, "users");
+                assert_eq!(create_idx.columns, vec!["email"]);
+                assert!(!create_idx.unique);
+            }
+            _ => panic!("Expected CREATE INDEX statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_create_unique_index() {
+        let parser = QSQLParser::new();
+
+        let sql = "CREATE UNIQUE INDEX idx_users_name ON users(name)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::CreateIndex(create_idx) => {
+                assert_eq!(create_idx.index_name, "idx_users_name");
+                assert_eq!(create_idx.table_name, "users");
+                assert!(create_idx.unique);
+            }
+            _ => panic!("Expected CREATE UNIQUE INDEX statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_drop_index() {
+        let parser = QSQLParser::new();
+
+        let sql = "DROP INDEX idx_users_email";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::DropIndex(drop_idx) => {
+                assert_eq!(drop_idx.index_name, "idx_users_email");
+                assert!(!drop_idx.if_exists);
+            }
+            _ => panic!("Expected DROP INDEX statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_drop_index_if_exists() {
+        let parser = QSQLParser::new();
+
+        let sql = "DROP INDEX IF EXISTS idx_temp";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::DropIndex(drop_idx) => {
+                assert_eq!(drop_idx.index_name, "idx_temp");
+                assert!(drop_idx.if_exists);
+            }
+            _ => panic!("Expected DROP INDEX statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_truncate_table() {
+        let parser = QSQLParser::new();
+
+        let sql = "TRUNCATE TABLE logs";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::TruncateTable(truncate) => {
+                assert_eq!(truncate.table_name, "logs");
+            }
+            _ => panic!("Expected TRUNCATE TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_truncate_without_table_keyword() {
+        let parser = QSQLParser::new();
+
+        let sql = "TRUNCATE logs";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok());
+
+        match result.unwrap() {
+            Statement::TruncateTable(truncate) => {
+                assert_eq!(truncate.table_name, "logs");
+            }
+            _ => panic!("Expected TRUNCATE TABLE statement"),
+        }
+    }
 }
 
 #[cfg(test)]
