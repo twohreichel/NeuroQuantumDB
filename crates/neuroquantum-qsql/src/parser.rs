@@ -197,6 +197,16 @@ pub enum TokenType {
     Using,
     QuantumState,
 
+    // Transaction control keywords
+    Begin,
+    Start,
+    Transaction,
+    Commit,
+    Rollback,
+    Savepoint,
+    Release,
+    To,
+
     // Operators and punctuation
     Equal,
     NotEqual,
@@ -591,6 +601,13 @@ impl QSQLParser {
             Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
             Some(TokenType::Adapt) => self.parse_adapt_weights_statement(tokens),
             Some(TokenType::QuantumJoin) => self.parse_quantum_join_statement(tokens),
+            // Transaction control statements
+            Some(TokenType::Begin) => self.parse_begin_transaction(tokens),
+            Some(TokenType::Start) => self.parse_begin_transaction(tokens),
+            Some(TokenType::Commit) => self.parse_commit(tokens),
+            Some(TokenType::Rollback) => self.parse_rollback(tokens),
+            Some(TokenType::Savepoint) => self.parse_savepoint(tokens),
+            Some(TokenType::Release) => self.parse_release_savepoint(tokens),
             Some(TokenType::Identifier(name)) => {
                 // Only allow specific known SQL keywords that might start statements
                 match name.to_uppercase().as_str() {
@@ -1817,6 +1834,139 @@ impl QSQLParser {
         Ok(Statement::QuantumJoin(quantum_join))
     }
 
+    /// Parse BEGIN or START TRANSACTION statement
+    fn parse_begin_transaction(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip BEGIN or START keyword
+        if i < tokens.len()
+            && (matches!(tokens[i], TokenType::Begin) || matches!(tokens[i], TokenType::Start))
+        {
+            i += 1;
+        }
+
+        // Check for optional TRANSACTION keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Transaction) {
+            i += 1;
+        }
+
+        // For now, we don't parse isolation levels, but we could extend this
+        // to support: BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED, etc.
+        let isolation_level = None;
+
+        Ok(Statement::BeginTransaction(BeginTransactionStatement {
+            isolation_level,
+        }))
+    }
+
+    /// Parse COMMIT statement
+    fn parse_commit(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        // Simple: just COMMIT (optionally followed by TRANSACTION, which we ignore)
+        Ok(Statement::Commit(CommitStatement {}))
+    }
+
+    /// Parse ROLLBACK statement (or ROLLBACK TO SAVEPOINT)
+    fn parse_rollback(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip ROLLBACK keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Rollback) {
+            i += 1;
+        }
+
+        // Check for TO keyword (indicates ROLLBACK TO SAVEPOINT)
+        if i < tokens.len() && matches!(tokens[i], TokenType::To) {
+            i += 1;
+
+            // Check for SAVEPOINT keyword
+            if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
+                i += 1;
+
+                // Get savepoint name
+                if i < tokens.len() {
+                    if let TokenType::Identifier(name) = &tokens[i] {
+                        return Ok(Statement::RollbackToSavepoint(
+                            RollbackToSavepointStatement {
+                                name: name.clone(),
+                            },
+                        ));
+                    }
+                }
+
+                return Err(QSQLError::ParseError {
+                    message: "Expected savepoint name after ROLLBACK TO SAVEPOINT".to_string(),
+                    position: i,
+                });
+            }
+
+            return Err(QSQLError::ParseError {
+                message: "Expected SAVEPOINT keyword after ROLLBACK TO".to_string(),
+                position: i,
+            });
+        }
+
+        // Simple ROLLBACK without savepoint
+        Ok(Statement::Rollback(RollbackStatement {}))
+    }
+
+    /// Parse SAVEPOINT statement
+    fn parse_savepoint(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip SAVEPOINT keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
+            i += 1;
+        }
+
+        // Get savepoint name
+        if i < tokens.len() {
+            if let TokenType::Identifier(name) = &tokens[i] {
+                return Ok(Statement::Savepoint(SavepointStatement {
+                    name: name.clone(),
+                }));
+            }
+        }
+
+        Err(QSQLError::ParseError {
+            message: "Expected savepoint name after SAVEPOINT".to_string(),
+            position: i,
+        })
+    }
+
+    /// Parse RELEASE SAVEPOINT statement
+    fn parse_release_savepoint(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip RELEASE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Release) {
+            i += 1;
+        }
+
+        // Check for SAVEPOINT keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Savepoint) {
+            i += 1;
+
+            // Get savepoint name
+            if i < tokens.len() {
+                if let TokenType::Identifier(name) = &tokens[i] {
+                    return Ok(Statement::ReleaseSavepoint(ReleaseSavepointStatement {
+                        name: name.clone(),
+                    }));
+                }
+            }
+
+            return Err(QSQLError::ParseError {
+                message: "Expected savepoint name after RELEASE SAVEPOINT".to_string(),
+                position: i,
+            });
+        }
+
+        Err(QSQLError::ParseError {
+            message: "Expected SAVEPOINT keyword after RELEASE".to_string(),
+            position: i,
+        })
+    }
+
     /// Parse an optional table alias (AS alias or just identifier after table name)
     fn parse_table_alias(&self, tokens: &[TokenType], i: &mut usize) -> Option<String> {
         if *i >= tokens.len() {
@@ -2128,6 +2278,16 @@ impl QSQLParser {
         keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
         keywords.insert("GROVER".to_string(), TokenType::GroverSearch);
         keywords.insert("QUANTUM".to_string(), TokenType::QuantumSearch);
+
+        // Transaction control keywords
+        keywords.insert("BEGIN".to_string(), TokenType::Begin);
+        keywords.insert("START".to_string(), TokenType::Start);
+        keywords.insert("TRANSACTION".to_string(), TokenType::Transaction);
+        keywords.insert("COMMIT".to_string(), TokenType::Commit);
+        keywords.insert("ROLLBACK".to_string(), TokenType::Rollback);
+        keywords.insert("SAVEPOINT".to_string(), TokenType::Savepoint);
+        keywords.insert("RELEASE".to_string(), TokenType::Release);
+        keywords.insert("TO".to_string(), TokenType::To);
     }
 
     /// Initialize operator mappings with precedence for Pratt parsing

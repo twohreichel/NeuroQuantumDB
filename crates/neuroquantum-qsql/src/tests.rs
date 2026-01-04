@@ -826,3 +826,167 @@ mod property_tests {
         assert!(plan.estimated_cost >= 0.0);
     }
 }
+
+#[cfg(test)]
+mod transaction_tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_begin_transaction() {
+        let parser = QSQLParser::new();
+
+        // Test BEGIN
+        let result = parser.parse("BEGIN");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Statement::BeginTransaction(begin) => {
+                assert!(begin.isolation_level.is_none());
+            }
+            _ => panic!("Expected BeginTransaction statement"),
+        }
+
+        // Test START TRANSACTION
+        let result = parser.parse("START TRANSACTION");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Statement::BeginTransaction(_) => {}
+            _ => panic!("Expected BeginTransaction statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_commit() {
+        let parser = QSQLParser::new();
+
+        let result = parser.parse("COMMIT");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Statement::Commit(_) => {}
+            _ => panic!("Expected Commit statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_rollback() {
+        let parser = QSQLParser::new();
+
+        let result = parser.parse("ROLLBACK");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Statement::Rollback(_) => {}
+            _ => panic!("Expected Rollback statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_savepoint() {
+        let parser = QSQLParser::new();
+
+        let result = parser.parse("SAVEPOINT sp1");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Statement::Savepoint(savepoint) => {
+                assert_eq!(savepoint.name, "sp1");
+            }
+            _ => panic!("Expected Savepoint statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_rollback_to_savepoint() {
+        let parser = QSQLParser::new();
+
+        let result = parser.parse("ROLLBACK TO SAVEPOINT sp1");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Statement::RollbackToSavepoint(rollback_to) => {
+                assert_eq!(rollback_to.name, "sp1");
+            }
+            _ => panic!("Expected RollbackToSavepoint statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_release_savepoint() {
+        let parser = QSQLParser::new();
+
+        let result = parser.parse("RELEASE SAVEPOINT sp1");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Statement::ReleaseSavepoint(release) => {
+                assert_eq!(release.name, "sp1");
+            }
+            _ => panic!("Expected ReleaseSavepoint statement"),
+        }
+    }
+
+    #[test]
+    fn test_transaction_statement_display() {
+        // Test Display implementation for transaction statements
+        let begin = Statement::BeginTransaction(BeginTransactionStatement {
+            isolation_level: None,
+        });
+        assert_eq!(format!("{}", begin), "BEGIN TRANSACTION");
+
+        let commit = Statement::Commit(CommitStatement {});
+        assert_eq!(format!("{}", commit), "COMMIT");
+
+        let rollback = Statement::Rollback(RollbackStatement {});
+        assert_eq!(format!("{}", rollback), "ROLLBACK");
+
+        let savepoint = Statement::Savepoint(SavepointStatement {
+            name: "sp1".to_string(),
+        });
+        assert_eq!(format!("{}", savepoint), "SAVEPOINT sp1");
+
+        let rollback_to = Statement::RollbackToSavepoint(RollbackToSavepointStatement {
+            name: "sp1".to_string(),
+        });
+        assert_eq!(format!("{}", rollback_to), "ROLLBACK TO SAVEPOINT sp1");
+
+        let release = Statement::ReleaseSavepoint(ReleaseSavepointStatement {
+            name: "sp1".to_string(),
+        });
+        assert_eq!(format!("{}", release), "RELEASE SAVEPOINT sp1");
+    }
+
+    #[test]
+    fn test_parse_multiple_savepoints() {
+        let parser = QSQLParser::new();
+
+        // Test multiple savepoints with different names
+        let savepoints = vec!["SAVEPOINT sp1", "SAVEPOINT sp2", "SAVEPOINT nested_sp"];
+
+        for sp in savepoints {
+            let result = parser.parse(sp);
+            assert!(result.is_ok(), "Failed to parse: {}", sp);
+        }
+    }
+
+    #[test]
+    fn test_parse_case_insensitive_transaction() {
+        let parser = QSQLParser::new();
+
+        // Test case insensitivity
+        let variations = vec![
+            "BEGIN",
+            "begin",
+            "Begin",
+            "COMMIT",
+            "commit",
+            "Commit",
+            "ROLLBACK",
+            "rollback",
+            "Rollback",
+            "SAVEPOINT sp1",
+            "savepoint sp1",
+            "Savepoint sp1",
+        ];
+
+        for sql in variations {
+            let result = parser.parse(sql);
+            assert!(result.is_ok(), "Failed to parse: {}", sql);
+        }
+    }
+}
+

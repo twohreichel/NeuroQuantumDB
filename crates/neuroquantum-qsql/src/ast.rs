@@ -74,6 +74,13 @@ pub enum Statement {
     // Query Analysis
     Explain(ExplainStatement),
     Analyze(AnalyzeStatement),
+    // Transaction Control
+    BeginTransaction(BeginTransactionStatement),
+    Commit(CommitStatement),
+    Rollback(RollbackStatement),
+    Savepoint(SavepointStatement),
+    RollbackToSavepoint(RollbackToSavepointStatement),
+    ReleaseSavepoint(ReleaseSavepointStatement),
 }
 
 /// Standard SQL SELECT with neuromorphic and quantum extensions
@@ -581,6 +588,39 @@ pub struct AnalyzeStatement {
     pub sample_size: Option<u64>,     // Number of rows to sample
 }
 
+/// BEGIN or START TRANSACTION statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BeginTransactionStatement {
+    /// Optional isolation level (if not specified, use default)
+    pub isolation_level: Option<String>,
+}
+
+/// COMMIT statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommitStatement {}
+
+/// ROLLBACK statement (without savepoint)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RollbackStatement {}
+
+/// SAVEPOINT statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SavepointStatement {
+    pub name: String,
+}
+
+/// ROLLBACK TO SAVEPOINT statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RollbackToSavepointStatement {
+    pub name: String,
+}
+
+/// RELEASE SAVEPOINT statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReleaseSavepointStatement {
+    pub name: String,
+}
+
 // Display implementations for better debugging and logging
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -592,6 +632,12 @@ impl fmt::Display for Statement {
                 write!(f, "EXPLAIN {}", if e.analyze { "ANALYZE" } else { "" })
             }
             Statement::Analyze(a) => write!(f, "ANALYZE {}", a.table_name),
+            Statement::BeginTransaction(_) => write!(f, "BEGIN TRANSACTION"),
+            Statement::Commit(_) => write!(f, "COMMIT"),
+            Statement::Rollback(_) => write!(f, "ROLLBACK"),
+            Statement::Savepoint(s) => write!(f, "SAVEPOINT {}", s.name),
+            Statement::RollbackToSavepoint(s) => write!(f, "ROLLBACK TO SAVEPOINT {}", s.name),
+            Statement::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
             _ => write!(f, "{:?}", self),
         }
     }
