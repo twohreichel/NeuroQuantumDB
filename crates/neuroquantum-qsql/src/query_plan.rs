@@ -103,8 +103,13 @@ pub struct QueryExecutor {
     transaction_manager: Option<Arc<TransactionManager>>,
     // Current active transaction for this session (if any)
     current_transaction: Option<TransactionId>,
-    // Savepoint stack for nested savepoints
-    savepoints: HashMap<String, ()>, // Just track savepoint names for now
+    /// Savepoint tracking for nested savepoints.
+    /// 
+    /// Note: Current implementation provides basic savepoint syntax support
+    /// and tracks savepoint names. Full savepoint rollback functionality
+    /// would require deeper WAL integration to store and restore intermediate
+    /// transaction states. This is tracked for future enhancement.
+    savepoints: HashMap<String, ()>,
 }
 
 /// Query execution result
@@ -1844,6 +1849,11 @@ impl QueryExecutor {
     }
 
     /// Execute SAVEPOINT statement
+    /// 
+    /// Note: Current implementation provides syntax support and tracks savepoint names.
+    /// Full savepoint rollback requires WAL integration to store and restore transaction
+    /// state at the savepoint. This is sufficient for basic savepoint syntax validation
+    /// and will be enhanced with full rollback support in future updates.
     async fn execute_savepoint(
         &mut self,
         savepoint: &SavepointStatement,
@@ -1855,8 +1865,8 @@ impl QueryExecutor {
             });
         }
 
-        // For now, we just track that the savepoint exists
-        // Full savepoint implementation would require WAL integration
+        // Track savepoint name for syntax validation
+        // TODO: Full implementation requires WAL integration for state capture
         self.savepoints.insert(savepoint.name.clone(), ());
 
         Ok(QueryResult {
@@ -1871,6 +1881,11 @@ impl QueryExecutor {
     }
 
     /// Execute ROLLBACK TO SAVEPOINT statement
+    /// 
+    /// Note: Current implementation validates savepoint existence and provides
+    /// syntax support. Full rollback-to-savepoint requires WAL integration to
+    /// restore transaction state to the savepoint. This will be implemented
+    /// in future enhancements as part of the complete savepoint feature.
     async fn execute_rollback_to_savepoint(
         &mut self,
         rollback_to: &RollbackToSavepointStatement,
@@ -1889,8 +1904,8 @@ impl QueryExecutor {
             });
         }
 
-        // For now, this is a placeholder
-        // Full implementation would require WAL undo to specific savepoint
+        // TODO: Full implementation requires WAL integration to undo operations
+        // back to the savepoint state while keeping the transaction active
         
         Ok(QueryResult {
             rows: vec![],
