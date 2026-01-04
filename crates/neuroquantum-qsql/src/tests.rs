@@ -938,3 +938,154 @@ mod property_tests {
         assert!(plan.estimated_cost >= 0.0);
     }
 }
+
+mod extract_function_tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_parser_year() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(YEAR FROM '2025-12-23')";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(YEAR FROM date)");
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Select(select) => {
+                assert_eq!(select.select_list.len(), 1);
+                match &select.select_list[0] {
+                    SelectItem::Expression { expr, .. } => match expr {
+                        Expression::Extract { field, source } => {
+                            assert_eq!(field, "YEAR");
+                            match source.as_ref() {
+                                Expression::Literal(Literal::String(s)) => {
+                                    assert_eq!(s, "2025-12-23");
+                                }
+                                _ => panic!("Expected string literal as source"),
+                            }
+                        }
+                        _ => panic!("Expected Extract expression"),
+                    },
+                    _ => panic!("Expected Expression select item"),
+                }
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_extract_parser_month() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(MONTH FROM created_at) FROM events";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(MONTH FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_day() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(DAY FROM order_date)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(DAY FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_hour() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(HOUR FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(HOUR FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_minute() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(MINUTE FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(MINUTE FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_second() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(SECOND FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(SECOND FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_dow() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(DOW FROM created_at)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(DOW FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_doy() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(DOY FROM created_at)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(DOY FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_week() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(WEEK FROM created_at)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(WEEK FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_quarter() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(QUARTER FROM order_date)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(QUARTER FROM column)");
+    }
+
+    #[test]
+    fn test_extract_parser_epoch() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(EPOCH FROM timestamp_column)";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT(EPOCH FROM column)");
+    }
+
+    #[test]
+    fn test_extract_in_where_clause() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT * FROM events WHERE EXTRACT(YEAR FROM created_at) = 2025";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse EXTRACT in WHERE clause");
+    }
+
+    #[test]
+    fn test_extract_in_group_by() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(QUARTER FROM order_date), SUM(amount) FROM orders GROUP BY EXTRACT(QUARTER FROM order_date)";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXTRACT in GROUP BY clause"
+        );
+    }
+
+    #[test]
+    fn test_extract_missing_from() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT(YEAR '2025-12-23')";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without FROM keyword");
+    }
+
+    #[test]
+    fn test_extract_missing_paren() {
+        let parser = QSQLParser::new();
+        let sql = "SELECT EXTRACT YEAR FROM created_at";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without parentheses");
+    }
+}
+
