@@ -104,7 +104,7 @@ pub struct QueryExecutor {
     // Current active transaction for this session (if any)
     current_transaction: Option<TransactionId>,
     /// Savepoint tracking for nested savepoints.
-    /// 
+    ///
     /// Note: Current implementation provides basic savepoint syntax support
     /// and tracks savepoint names. Full savepoint rollback functionality
     /// would require deeper WAL integration to store and restore intermediate
@@ -2051,11 +2051,12 @@ impl QueryExecutor {
         };
 
         // Begin transaction
-        let tx_id = tx_manager.begin_transaction(isolation_level).await.map_err(|e| {
-            QSQLError::ExecutionError {
+        let tx_id = tx_manager
+            .begin_transaction(isolation_level)
+            .await
+            .map_err(|e| QSQLError::ExecutionError {
                 message: format!("Failed to begin transaction: {}", e),
-            }
-        })?;
+            })?;
 
         self.current_transaction = Some(tx_id);
         self.savepoints.clear(); // Clear any old savepoints
@@ -2073,24 +2074,26 @@ impl QueryExecutor {
 
     /// Execute COMMIT statement
     async fn execute_commit(&mut self) -> QSQLResult<QueryResult> {
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not available".to_string(),
-            }
-        })?;
+        let tx_manager =
+            self.transaction_manager
+                .as_ref()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: "Transaction manager not available".to_string(),
+                })?;
 
-        let tx_id = self.current_transaction.ok_or_else(|| {
-            QSQLError::ExecutionError {
+        let tx_id = self
+            .current_transaction
+            .ok_or_else(|| QSQLError::ExecutionError {
                 message: "No active transaction to commit".to_string(),
-            }
-        })?;
+            })?;
 
         // Commit transaction
-        tx_manager.commit(tx_id).await.map_err(|e| {
-            QSQLError::ExecutionError {
+        tx_manager
+            .commit(tx_id)
+            .await
+            .map_err(|e| QSQLError::ExecutionError {
                 message: format!("Failed to commit transaction: {}", e),
-            }
-        })?;
+            })?;
 
         self.current_transaction = None;
         self.savepoints.clear();
@@ -2108,24 +2111,26 @@ impl QueryExecutor {
 
     /// Execute ROLLBACK statement
     async fn execute_rollback(&mut self) -> QSQLResult<QueryResult> {
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not available".to_string(),
-            }
-        })?;
+        let tx_manager =
+            self.transaction_manager
+                .as_ref()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: "Transaction manager not available".to_string(),
+                })?;
 
-        let tx_id = self.current_transaction.ok_or_else(|| {
-            QSQLError::ExecutionError {
+        let tx_id = self
+            .current_transaction
+            .ok_or_else(|| QSQLError::ExecutionError {
                 message: "No active transaction to rollback".to_string(),
-            }
-        })?;
+            })?;
 
         // Rollback transaction
-        tx_manager.rollback(tx_id).await.map_err(|e| {
-            QSQLError::ExecutionError {
+        tx_manager
+            .rollback(tx_id)
+            .await
+            .map_err(|e| QSQLError::ExecutionError {
                 message: format!("Failed to rollback transaction: {}", e),
-            }
-        })?;
+            })?;
 
         self.current_transaction = None;
         self.savepoints.clear();
@@ -2142,7 +2147,7 @@ impl QueryExecutor {
     }
 
     /// Execute SAVEPOINT statement
-    /// 
+    ///
     /// Note: Current implementation provides syntax support and tracks savepoint names.
     /// Full savepoint rollback requires WAL integration to store and restore transaction
     /// state at the savepoint. This is sufficient for basic savepoint syntax validation
@@ -2174,7 +2179,7 @@ impl QueryExecutor {
     }
 
     /// Execute ROLLBACK TO SAVEPOINT statement
-    /// 
+    ///
     /// Note: Current implementation validates savepoint existence and provides
     /// syntax support. Full rollback-to-savepoint requires WAL integration to
     /// restore transaction state to the savepoint. This will be implemented
@@ -2199,7 +2204,7 @@ impl QueryExecutor {
 
         // TODO: Full implementation requires WAL integration to undo operations
         // back to the savepoint state while keeping the transaction active
-        
+
         Ok(QueryResult {
             rows: vec![],
             columns: vec![],
@@ -3828,37 +3833,50 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.len() < 3 {
                     return Err(QSQLError::ExecutionError {
-                        message: "DATE_ADD requires date and INTERVAL arguments (date, expr, unit)".to_string(),
+                        message: "DATE_ADD requires date and INTERVAL arguments (date, expr, unit)"
+                            .to_string(),
                     });
                 }
-                
+
                 let date_str = get_string_arg(0)?;
-                
+
                 // Second arg is the interval value
                 let interval_value = match self.evaluate_expression_value(&args[1], row)? {
                     QueryValue::Integer(i) => i,
                     QueryValue::Float(f) => f as i64,
                     QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
-                            message: format!("Invalid interval value: '{}' is not a valid number", s),
+                            message: format!(
+                                "Invalid interval value: '{}' is not a valid number",
+                                s
+                            ),
                         })?
                     }
                     _ => return Ok(QueryValue::Null),
                 };
-                
+
                 // Third arg is the unit marker (INTERVAL_UNIT:DAY, etc.)
                 let unit_str = get_string_arg(2)?;
-                let unit = unit_str.strip_prefix("INTERVAL_UNIT:").unwrap_or(&unit_str).to_uppercase();
-                
+                let unit = unit_str
+                    .strip_prefix("INTERVAL_UNIT:")
+                    .unwrap_or(&unit_str)
+                    .to_uppercase();
+
                 // Parse the input date/datetime
-                let result = if let Ok(dt) = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
+                let result = if let Ok(dt) =
+                    NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                {
                     // DateTime input
                     let new_dt = match unit.as_str() {
                         "YEAR" => {
                             if interval_value >= 0 {
-                                dt.checked_add_months(chrono::Months::new((interval_value * 12) as u32))
+                                dt.checked_add_months(chrono::Months::new(
+                                    (interval_value * 12) as u32,
+                                ))
                             } else {
-                                dt.checked_sub_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                                dt.checked_sub_months(chrono::Months::new(
+                                    ((-interval_value) * 12) as u32,
+                                ))
                             }
                         }
                         "MONTH" => {
@@ -3872,7 +3890,9 @@ impl QueryExecutor {
                             if interval_value >= 0 {
                                 dt.checked_add_days(chrono::Days::new((interval_value * 7) as u64))
                             } else {
-                                dt.checked_sub_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                                dt.checked_sub_days(chrono::Days::new(
+                                    ((-interval_value) * 7) as u64,
+                                ))
                             }
                         }
                         "DAY" => {
@@ -3885,9 +3905,11 @@ impl QueryExecutor {
                         "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
                         "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
                         "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
-                        _ => return Err(QSQLError::ExecutionError {
-                            message: format!("Unsupported time unit: {}", unit),
-                        }),
+                        _ => {
+                            return Err(QSQLError::ExecutionError {
+                                message: format!("Unsupported time unit: {}", unit),
+                            })
+                        }
                     };
                     new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string()))
                 } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
@@ -3895,23 +3917,33 @@ impl QueryExecutor {
                     let new_date = match unit.as_str() {
                         "YEAR" => {
                             if interval_value >= 0 {
-                                date.checked_add_months(chrono::Months::new((interval_value * 12) as u32))
+                                date.checked_add_months(chrono::Months::new(
+                                    (interval_value * 12) as u32,
+                                ))
                             } else {
-                                date.checked_sub_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                                date.checked_sub_months(chrono::Months::new(
+                                    ((-interval_value) * 12) as u32,
+                                ))
                             }
                         }
                         "MONTH" => {
                             if interval_value >= 0 {
                                 date.checked_add_months(chrono::Months::new(interval_value as u32))
                             } else {
-                                date.checked_sub_months(chrono::Months::new((-interval_value) as u32))
+                                date.checked_sub_months(chrono::Months::new(
+                                    (-interval_value) as u32,
+                                ))
                             }
                         }
                         "WEEK" => {
                             if interval_value >= 0 {
-                                date.checked_add_days(chrono::Days::new((interval_value * 7) as u64))
+                                date.checked_add_days(chrono::Days::new(
+                                    (interval_value * 7) as u64,
+                                ))
                             } else {
-                                date.checked_sub_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                                date.checked_sub_days(chrono::Days::new(
+                                    ((-interval_value) * 7) as u64,
+                                ))
                             }
                         }
                         "DAY" => {
@@ -3933,17 +3965,23 @@ impl QueryExecutor {
                                 "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
                                 _ => None,
                             };
-                            return Ok(new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(QueryValue::Null));
+                            return Ok(new_dt
+                                .map(|d| {
+                                    QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
+                                })
+                                .unwrap_or(QueryValue::Null));
                         }
-                        _ => return Err(QSQLError::ExecutionError {
-                            message: format!("Unsupported time unit: {}", unit),
-                        }),
+                        _ => {
+                            return Err(QSQLError::ExecutionError {
+                                message: format!("Unsupported time unit: {}", unit),
+                            })
+                        }
                     };
                     new_date.map(|d| QueryValue::String(d.format("%Y-%m-%d").to_string()))
                 } else {
                     None
                 };
-                
+
                 Ok(result.unwrap_or(QueryValue::Null))
             }
             "DATE_SUB" => {
@@ -3951,37 +3989,50 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.len() < 3 {
                     return Err(QSQLError::ExecutionError {
-                        message: "DATE_SUB requires date and INTERVAL arguments (date, expr, unit)".to_string(),
+                        message: "DATE_SUB requires date and INTERVAL arguments (date, expr, unit)"
+                            .to_string(),
                     });
                 }
-                
+
                 let date_str = get_string_arg(0)?;
-                
+
                 // Second arg is the interval value
                 let interval_value = match self.evaluate_expression_value(&args[1], row)? {
                     QueryValue::Integer(i) => i,
                     QueryValue::Float(f) => f as i64,
                     QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
-                            message: format!("Invalid interval value: '{}' is not a valid number", s),
+                            message: format!(
+                                "Invalid interval value: '{}' is not a valid number",
+                                s
+                            ),
                         })?
                     }
                     _ => return Ok(QueryValue::Null),
                 };
-                
+
                 // Third arg is the unit marker (INTERVAL_UNIT:DAY, etc.)
                 let unit_str = get_string_arg(2)?;
-                let unit = unit_str.strip_prefix("INTERVAL_UNIT:").unwrap_or(&unit_str).to_uppercase();
-                
+                let unit = unit_str
+                    .strip_prefix("INTERVAL_UNIT:")
+                    .unwrap_or(&unit_str)
+                    .to_uppercase();
+
                 // Parse the input date/datetime
-                let result = if let Ok(dt) = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
+                let result = if let Ok(dt) =
+                    NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                {
                     // DateTime input
                     let new_dt = match unit.as_str() {
                         "YEAR" => {
                             if interval_value >= 0 {
-                                dt.checked_sub_months(chrono::Months::new((interval_value * 12) as u32))
+                                dt.checked_sub_months(chrono::Months::new(
+                                    (interval_value * 12) as u32,
+                                ))
                             } else {
-                                dt.checked_add_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                                dt.checked_add_months(chrono::Months::new(
+                                    ((-interval_value) * 12) as u32,
+                                ))
                             }
                         }
                         "MONTH" => {
@@ -3995,7 +4046,9 @@ impl QueryExecutor {
                             if interval_value >= 0 {
                                 dt.checked_sub_days(chrono::Days::new((interval_value * 7) as u64))
                             } else {
-                                dt.checked_add_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                                dt.checked_add_days(chrono::Days::new(
+                                    ((-interval_value) * 7) as u64,
+                                ))
                             }
                         }
                         "DAY" => {
@@ -4008,9 +4061,11 @@ impl QueryExecutor {
                         "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
                         "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
                         "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
-                        _ => return Err(QSQLError::ExecutionError {
-                            message: format!("Unsupported time unit: {}", unit),
-                        }),
+                        _ => {
+                            return Err(QSQLError::ExecutionError {
+                                message: format!("Unsupported time unit: {}", unit),
+                            })
+                        }
                     };
                     new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string()))
                 } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
@@ -4018,23 +4073,33 @@ impl QueryExecutor {
                     let new_date = match unit.as_str() {
                         "YEAR" => {
                             if interval_value >= 0 {
-                                date.checked_sub_months(chrono::Months::new((interval_value * 12) as u32))
+                                date.checked_sub_months(chrono::Months::new(
+                                    (interval_value * 12) as u32,
+                                ))
                             } else {
-                                date.checked_add_months(chrono::Months::new(((-interval_value) * 12) as u32))
+                                date.checked_add_months(chrono::Months::new(
+                                    ((-interval_value) * 12) as u32,
+                                ))
                             }
                         }
                         "MONTH" => {
                             if interval_value >= 0 {
                                 date.checked_sub_months(chrono::Months::new(interval_value as u32))
                             } else {
-                                date.checked_add_months(chrono::Months::new((-interval_value) as u32))
+                                date.checked_add_months(chrono::Months::new(
+                                    (-interval_value) as u32,
+                                ))
                             }
                         }
                         "WEEK" => {
                             if interval_value >= 0 {
-                                date.checked_sub_days(chrono::Days::new((interval_value * 7) as u64))
+                                date.checked_sub_days(chrono::Days::new(
+                                    (interval_value * 7) as u64,
+                                ))
                             } else {
-                                date.checked_add_days(chrono::Days::new(((-interval_value) * 7) as u64))
+                                date.checked_add_days(chrono::Days::new(
+                                    ((-interval_value) * 7) as u64,
+                                ))
                             }
                         }
                         "DAY" => {
@@ -4056,17 +4121,23 @@ impl QueryExecutor {
                                 "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
                                 _ => None,
                             };
-                            return Ok(new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(QueryValue::Null));
+                            return Ok(new_dt
+                                .map(|d| {
+                                    QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
+                                })
+                                .unwrap_or(QueryValue::Null));
                         }
-                        _ => return Err(QSQLError::ExecutionError {
-                            message: format!("Unsupported time unit: {}", unit),
-                        }),
+                        _ => {
+                            return Err(QSQLError::ExecutionError {
+                                message: format!("Unsupported time unit: {}", unit),
+                            })
+                        }
                     };
                     new_date.map(|d| QueryValue::String(d.format("%Y-%m-%d").to_string()))
                 } else {
                     None
                 };
-                
+
                 Ok(result.unwrap_or(QueryValue::Null))
             }
 
@@ -4214,8 +4285,8 @@ impl QueryExecutor {
             // Date/Time functions returning timestamps/dates as text
             "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" | "LOCALTIME"
             | "LOCALTIMESTAMP" | "UTC_TIMESTAMP" | "CURRENT_DATE" | "CURDATE" | "CURRENT_TIME"
-            | "CURTIME" | "UTC_DATE" | "UTC_TIME" | "DATE_FORMAT" | "STRFTIME" 
-            | "DATE_ADD" | "DATE_SUB" => DataType::Text,
+            | "CURTIME" | "UTC_DATE" | "UTC_TIME" | "DATE_FORMAT" | "STRFTIME" | "DATE_ADD"
+            | "DATE_SUB" => DataType::Text,
             // Date/Time functions returning integers
             "UNIX_TIMESTAMP" | "EPOCH" | "YEAR" | "MONTH" | "DAY" | "DAYOFMONTH" | "HOUR"
             | "MINUTE" | "SECOND" | "DAYOFWEEK" | "WEEKDAY" | "DAYOFYEAR" | "WEEK"
@@ -5382,11 +5453,11 @@ mod tests {
         let parser = QSQLParser::new();
         let sql = "SELECT EXTRACT(YEAR FROM '2025-12-23')";
         let result = parser.parse_query(sql);
-        
+
         if let Err(e) = &result {
             eprintln!("Parse error: {:?}", e);
         }
-        
+
         assert!(result.is_ok(), "Failed to parse EXTRACT(YEAR FROM date)");
 
         let stmt = result.unwrap();
@@ -5409,14 +5480,18 @@ mod tests {
     fn test_extract_all_fields() {
         let parser = QSQLParser::new();
         let fields = vec![
-            "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND", 
-            "DOW", "DOY", "WEEK", "QUARTER", "EPOCH"
+            "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND", "DOW", "DOY", "WEEK", "QUARTER",
+            "EPOCH",
         ];
 
         for field in fields {
             let sql = format!("SELECT EXTRACT({} FROM '2025-12-23 14:30:45')", field);
             let result = parser.parse_query(&sql);
-            assert!(result.is_ok(), "Failed to parse EXTRACT({} FROM date)", field);
+            assert!(
+                result.is_ok(),
+                "Failed to parse EXTRACT({} FROM date)",
+                field
+            );
         }
     }
 
@@ -5436,4 +5511,3 @@ mod tests {
         assert!(result.is_err(), "Should fail without FROM keyword");
     }
 }
-

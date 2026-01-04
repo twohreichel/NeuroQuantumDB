@@ -100,22 +100,17 @@ impl ReedSolomonCorrector {
         padded_data.resize(self.data_shards, 0);
 
         // Create encoder for this block
-        let mut encoder = ReedSolomonEncoder::new(
-            self.data_shards,
-            self.parity_shards,
-            self.shard_bytes,
-        )
-        .map_err(|e| {
-            DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
-        })?;
+        let mut encoder =
+            ReedSolomonEncoder::new(self.data_shards, self.parity_shards, self.shard_bytes)
+                .map_err(|e| {
+                    DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
+                })?;
 
         // Add each data shard (each byte becomes a shard)
         for &byte in &padded_data {
-            encoder
-                .add_original_shard(&[byte])
-                .map_err(|e| {
-                    DNAError::ErrorCorrectionFailed(format!("Failed to add data shard: {:?}", e))
-                })?;
+            encoder.add_original_shard([byte]).map_err(|e| {
+                DNAError::ErrorCorrectionFailed(format!("Failed to add data shard: {:?}", e))
+            })?;
         }
 
         // Encode to generate parity shards
@@ -193,14 +188,11 @@ impl ReedSolomonCorrector {
         padded_data.resize(self.data_shards, 0);
 
         // Create decoder for this block
-        let mut decoder = ReedSolomonDecoder::new(
-            self.data_shards,
-            self.parity_shards,
-            self.shard_bytes,
-        )
-        .map_err(|e| {
-            DNAError::ErrorCorrectionFailed(format!("Failed to create decoder: {:?}", e))
-        })?;
+        let mut decoder =
+            ReedSolomonDecoder::new(self.data_shards, self.parity_shards, self.shard_bytes)
+                .map_err(|e| {
+                    DNAError::ErrorCorrectionFailed(format!("Failed to create decoder: {:?}", e))
+                })?;
 
         // Convert to shards format with Option for missing/corrupted shards
         let mut shards: Vec<Option<Vec<u8>>> =
@@ -258,14 +250,12 @@ impl ReedSolomonCorrector {
             // Add available original shards to decoder
             for (i, shard) in shards.iter().enumerate().take(self.data_shards) {
                 if let Some(shard_data) = shard {
-                    decoder
-                        .add_original_shard(i, shard_data)
-                        .map_err(|e| {
-                            DNAError::ErrorCorrectionFailed(format!(
-                                "Failed to add original shard {}: {:?}",
-                                i, e
-                            ))
-                        })?;
+                    decoder.add_original_shard(i, shard_data).map_err(|e| {
+                        DNAError::ErrorCorrectionFailed(format!(
+                            "Failed to add original shard {}: {:?}",
+                            i, e
+                        ))
+                    })?;
                 }
             }
 
@@ -632,28 +622,23 @@ impl ReedSolomonCorrector {
         padded_data.resize(self.data_shards, 0);
 
         // Create encoder to regenerate parity
-        let mut encoder = ReedSolomonEncoder::new(
-            self.data_shards,
-            self.parity_shards,
-            self.shard_bytes,
-        )
-        .map_err(|e| {
-            DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
-        })?;
+        let mut encoder =
+            ReedSolomonEncoder::new(self.data_shards, self.parity_shards, self.shard_bytes)
+                .map_err(|e| {
+                    DNAError::ErrorCorrectionFailed(format!("Failed to create encoder: {:?}", e))
+                })?;
 
         // Add each data shard
         for &byte in &padded_data {
-            encoder
-                .add_original_shard(&[byte])
-                .map_err(|e| {
-                    DNAError::ErrorCorrectionFailed(format!("Failed to add shard: {:?}", e))
-                })?;
+            encoder.add_original_shard([byte]).map_err(|e| {
+                DNAError::ErrorCorrectionFailed(format!("Failed to add shard: {:?}", e))
+            })?;
         }
 
         // Encode to generate expected parity
-        let result = encoder.encode().map_err(|e| {
-            DNAError::ErrorCorrectionFailed(format!("Encoding failed: {:?}", e))
-        })?;
+        let result = encoder
+            .encode()
+            .map_err(|e| DNAError::ErrorCorrectionFailed(format!("Encoding failed: {:?}", e)))?;
 
         // Extract generated parity - need to iterate with index
         let mut generated_parity = Vec::with_capacity(self.parity_shards);

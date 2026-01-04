@@ -1002,7 +1002,10 @@ mod extract_function_tests {
         let parser = QSQLParser::new();
         let sql = "SELECT EXTRACT(MINUTE FROM timestamp_column)";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXTRACT(MINUTE FROM column)");
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXTRACT(MINUTE FROM column)"
+        );
     }
 
     #[test]
@@ -1010,7 +1013,10 @@ mod extract_function_tests {
         let parser = QSQLParser::new();
         let sql = "SELECT EXTRACT(SECOND FROM timestamp_column)";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXTRACT(SECOND FROM column)");
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXTRACT(SECOND FROM column)"
+        );
     }
 
     #[test]
@@ -1042,7 +1048,10 @@ mod extract_function_tests {
         let parser = QSQLParser::new();
         let sql = "SELECT EXTRACT(QUARTER FROM order_date)";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXTRACT(QUARTER FROM column)");
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXTRACT(QUARTER FROM column)"
+        );
     }
 
     #[test]
@@ -1066,10 +1075,7 @@ mod extract_function_tests {
         let parser = QSQLParser::new();
         let sql = "SELECT EXTRACT(QUARTER FROM order_date), SUM(amount) FROM orders GROUP BY EXTRACT(QUARTER FROM order_date)";
         let result = parser.parse_query(sql);
-        assert!(
-            result.is_ok(),
-            "Failed to parse EXTRACT in GROUP BY clause"
-        );
+        assert!(result.is_ok(), "Failed to parse EXTRACT in GROUP BY clause");
     }
 
     #[test]
@@ -1088,4 +1094,3 @@ mod extract_function_tests {
         assert!(result.is_err(), "Should fail without parentheses");
     }
 }
-
