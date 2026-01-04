@@ -1308,9 +1308,7 @@ neuroquantum_dna_compression_ratio 1250.75
     ),
     tag = "Monitoring"
 )]
-pub async fn get_performance_stats(
-    req: HttpRequest,
-) -> ActixResult<HttpResponse, ApiError> {
+pub async fn get_performance_stats(req: HttpRequest) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
     // Check permissions

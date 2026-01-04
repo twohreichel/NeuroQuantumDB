@@ -2717,11 +2717,7 @@ impl QSQLParser {
     }
 
     /// Parse WITH clause for Common Table Expressions (CTEs)
-    fn parse_with_clause(
-        &self,
-        tokens: &[TokenType],
-        i: &mut usize,
-    ) -> QSQLResult<WithClause> {
+    fn parse_with_clause(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<WithClause> {
         // Consume WITH keyword
         if *i >= tokens.len() || !matches!(tokens[*i], TokenType::With) {
             return Err(QSQLError::ParseError {
@@ -3831,10 +3827,10 @@ impl QSQLParser {
                 // Special handling for INTERVAL syntax (DATE_ADD/DATE_SUB)
                 // INTERVAL expr unit -> encoded as string "expr unit"
                 *i += 1; // consume INTERVAL
-                
+
                 // Parse the interval expression (could be number or expression)
                 let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
-                
+
                 // Parse the unit (DAY, MONTH, YEAR, HOUR, etc.)
                 if *i >= tokens.len() {
                     return Err(QSQLError::ParseError {
@@ -3842,7 +3838,7 @@ impl QSQLParser {
                         position: *i,
                     });
                 }
-                
+
                 let unit = match &tokens[*i] {
                     TokenType::Identifier(s) => s.to_uppercase(),
                     _ => {
@@ -3853,11 +3849,14 @@ impl QSQLParser {
                     }
                 };
                 *i += 1; // consume unit
-                
+
                 // Encode INTERVAL as a special string: "INTERVAL:<expr>:<unit>"
                 // We'll extract the expression value at execution time
                 args.push(expr);
-                args.push(Expression::Literal(Literal::String(format!("INTERVAL_UNIT:{}", unit))));
+                args.push(Expression::Literal(Literal::String(format!(
+                    "INTERVAL_UNIT:{}",
+                    unit
+                ))));
             } else {
                 // Parse argument expression
                 let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
