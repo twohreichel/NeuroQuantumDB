@@ -25,7 +25,9 @@ uuid.workspace = true
 chrono.workspace = true
 
 # DNA compression specific dependencies
-reed-solomon-erasure = "6.0"
+# Replaced reed-solomon-erasure with reed-solomon-simd to resolve RUSTSEC-2024-0384
+# reed-solomon-simd is actively maintained and provides better SIMD performance
+reed-solomon-simd = "3.1"
 rayon = "1.11"
 bitvec = "1.0"
 hashbrown = "0.16"
