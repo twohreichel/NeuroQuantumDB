@@ -3570,7 +3570,8 @@ impl QSQLParser {
 
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
-        keywords.insert("SYNAPTIC_WEIGHT".to_string(), TokenType::SynapticWeight);
+        // Note: SYNAPTIC_WEIGHT is not a keyword - it's a function name
+        // keywords.insert("SYNAPTIC_WEIGHT".to_string(), TokenType::SynapticWeight);
         keywords.insert(
             "PLASTICITY_THRESHOLD".to_string(),
             TokenType::PlasticityThreshold,
