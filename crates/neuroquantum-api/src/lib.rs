@@ -143,7 +143,7 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
     )))
 }
 
-/// 📊 Prometheus metrics endpoint (requires admin permission)
+/// 📊 Prometheus metrics endpoint (public - no authentication required)
 pub async fn metrics() -> HttpResponse {
     match crate::metrics::render_metrics() {
         Ok(metrics_text) => HttpResponse::Ok()
