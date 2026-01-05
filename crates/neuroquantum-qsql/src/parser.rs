@@ -2236,7 +2236,14 @@ impl QSQLParser {
                 Some("SERIALIZABLE".to_string())
             }
             other => {
-                let token_desc = format!("{:?}", other);
+                // Provide a user-friendly description of what was found
+                let token_desc = match other {
+                    TokenType::Identifier(name) => format!("identifier '{}'", name),
+                    TokenType::IntegerLiteral(n) => format!("number {}", n),
+                    TokenType::StringLiteral(s) => format!("string '{}'", s),
+                    TokenType::EOF => "end of statement".to_string(),
+                    _ => format!("{:?}", other),
+                };
                 return Err(QSQLError::ParseError {
                     message: format!(
                         "Invalid isolation level. Found {}, but expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE",
