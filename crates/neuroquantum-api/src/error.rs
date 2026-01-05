@@ -541,6 +541,31 @@ pub struct CompressionStats {
     pub compression_time_ms: f64,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
+pub struct DecompressDnaRequest {
+    pub compressed_data: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct DecompressDnaResponse {
+    pub decompressed_sequences: Vec<DecompressedSequence>,
+    pub decompression_stats: DecompressionStats,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct DecompressedSequence {
+    pub decompressed_data: String,
+    pub original_checksum: String,
+    pub checksum_valid: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct DecompressionStats {
+    pub total_compressed_size: usize,
+    pub total_decompressed_size: usize,
+    pub decompression_time_ms: f64,
+}
+
 // Performance and Monitoring DTOs
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

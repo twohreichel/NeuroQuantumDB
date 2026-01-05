@@ -29,7 +29,8 @@ Or browse all crates: **[API Index](../api/index.html)**
 |--------|------|-------------|
 | `POST` | `/api/v1/query` | Execute QSQL |
 | `POST` | `/api/v1/query/stream` | Stream results |
-| `POST` | `/api/v1/query/explain` | Explain plan |
+
+**Note:** `/api/v1/query/explain` and `/api/v1/sql` endpoints are not implemented. Use `/api/v1/query` instead.
 
 ### DNA
 
@@ -43,17 +44,18 @@ Or browse all crates: **[API Index](../api/index.html)**
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/quantum/search` | Grover search |
-| `POST` | `/api/v1/quantum/optimize` | QUBO solver |
+| `POST` | `/api/v1/quantum/search` | Quantum similarity search |
+
+**Note:** `/api/v1/quantum/optimize` endpoint is not implemented.
 
 ### Neural
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/neural/create` | Create network |
 | `POST` | `/api/v1/neural/train` | Train network |
-| `POST` | `/api/v1/neural/predict` | Predict |
-| `GET` | `/api/v1/neural/status` | Training status |
+| `GET` | `/api/v1/neural/train/{network_id}` | Training status |
+
+**Note:** `/api/v1/neural/create` and `/api/v1/neural/predict` endpoints are not implemented.
 
 ### System
 

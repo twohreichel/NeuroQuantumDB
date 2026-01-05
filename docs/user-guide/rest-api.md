@@ -36,26 +36,28 @@ curl -X POST http://localhost:8080/api/v1/tables \
   -H "X-API-Key: your_key" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "users",
-    "columns": [
-      {
-        "name": "id",
-        "data_type": "BigSerial",
-        "nullable": false,
-        "auto_increment": true
-      },
-      {
-        "name": "name",
-        "data_type": "Text",
-        "nullable": false
-      },
-      {
-        "name": "email",
-        "data_type": "Text",
-        "nullable": true
-      }
-    ],
-    "id_strategy": "AutoIncrement"
+    "schema": {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "BigSerial",
+          "nullable": false,
+          "auto_increment": true
+        },
+        {
+          "name": "name",
+          "data_type": "Text",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "data_type": "Text",
+          "nullable": true
+        }
+      ],
+      "id_strategy": "AutoIncrement"
+    }
   }'
 ```
 
@@ -149,23 +151,185 @@ The `inserted_id` field returns the auto-generated ID.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/dna/compress` | Compress data |
-| POST | `/api/v1/dna/decompress` | Decompress data |
+| POST | `/api/v1/dna/compress` | Compress DNA sequences |
+| POST | `/api/v1/dna/decompress` | Decompress DNA data |
+
+#### Compress DNA Sequences
+
+**Request:**
+```json
+{
+  "sequences": [
+    "ATCGATCGATCG",
+    "GCTAGCTAGCTA"
+  ],
+  "algorithm": "KmerBased",
+  "compression_level": 5
+}
+```
+
+**Algorithm Options:**
+- `KmerBased` - K-mer based compression
+- `NeuralNetwork` - Neural network compression
+- `QuantumInspired` - Quantum-inspired compression
+- `Hybrid` - Hybrid approach
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "compressed_sequences": [
+      {
+        "original_length": 12,
+        "compressed_data": "base64_encoded_data",
+        "compression_ratio": 2.5,
+        "checksum": "abc123"
+      }
+    ],
+    "compression_stats": {
+      "total_input_size": 24,
+      "total_compressed_size": 10,
+      "average_compression_ratio": 2.4,
+      "compression_time_ms": 15.2
+    }
+  }
+}
+```
+
+#### Decompress DNA Data
+
+**Request:**
+```json
+{
+  "compressed_data": [
+    "base64_encoded_data1",
+    "base64_encoded_data2"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "decompressed_sequences": [
+      {
+        "decompressed_data": "ATCGATCGATCG",
+        "original_checksum": "abc123",
+        "checksum_valid": true
+      }
+    ],
+    "decompression_stats": {
+      "total_compressed_size": 10,
+      "total_decompressed_size": 24,
+      "decompression_time_ms": 8.5
+    }
+  }
+}
+```
 
 ### Quantum Operations
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/quantum/search` | Grover search |
-| POST | `/api/v1/quantum/optimize` | QUBO optimization |
+| POST | `/api/v1/quantum/search` | Quantum similarity search |
+
+**Note:** `/api/v1/quantum/optimize` endpoint is not implemented.
+
+#### Quantum Search
+
+**Request:**
+```json
+{
+  "table_name": "users",
+  "query_vector": [0.1, 0.5, 0.8, 0.3],
+  "similarity_threshold": 0.7,
+  "max_results": 10,
+  "entanglement_boost": 1.2
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "record": {
+          "id": 1,
+          "name": "Alice",
+          "features": [0.15, 0.52, 0.79, 0.28]
+        },
+        "similarity_score": 0.95,
+        "quantum_probability": 0.88,
+        "entanglement_strength": 0.72
+      }
+    ],
+    "quantum_stats": {
+      "coherence_time_used_ms": 2.5,
+      "superposition_states": 16,
+      "measurement_collapses": 4,
+      "entanglement_operations": 8
+    }
+  }
+}
+```
 
 ### Neural Networks
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/neural/train` | Train network |
-| POST | `/api/v1/neural/predict` | Get prediction |
-| GET | `/api/v1/neural/status` | Training status |
+| POST | `/api/v1/neural/train` | Train neural network |
+| GET | `/api/v1/neural/train/{network_id}` | Get training status |
+
+**Note:** `/api/v1/neural/predict` endpoint is not implemented.
+
+#### Train Neural Network
+
+**Request:**
+```json
+{
+  "network_name": "user_classifier",
+  "training_data": [
+    {
+      "input": [0.1, 0.5, 0.8],
+      "target": [1.0, 0.0],
+      "weight": 1.0
+    }
+  ],
+  "config": {
+    "layers": [
+      {
+        "layer_type": "Dense",
+        "size": 64,
+        "activation": "ReLU",
+        "dropout": 0.2
+      }
+    ],
+    "learning_rate": 0.001,
+    "epochs": 100,
+    "batch_size": 32,
+    "optimizer": "Adam",
+    "loss_function": "MeanSquaredError"
+  },
+  "validation_split": 0.2
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "network_id": "abc123",
+    "training_started": true,
+    "estimated_time_ms": 5000
+  }
+}
+```
 
 ### API Key Management
 
