@@ -872,6 +872,11 @@ impl StorageEngine {
         &self.last_query_stats
     }
 
+    /// Get the number of tables in the database
+    pub fn get_table_count(&self) -> usize {
+        self.metadata.tables.len()
+    }
+
     /// Update rows matching the given query
     pub async fn update_rows(&mut self, query: &UpdateQuery) -> Result<u64> {
         debug!("✏️ Updating rows in table: {}", query.table);
