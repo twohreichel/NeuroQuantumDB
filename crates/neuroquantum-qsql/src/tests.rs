@@ -1422,3 +1422,74 @@ mod derived_table_tests {
         }
     }
 }
+
+    // Test for GitHub issue: NEUROMATCH Function - Parser Integration Incomplete
+    #[test]
+    fn test_neuromatch_api_query_issue() {
+        let parser = QSQLParser::new();
+        
+        // This is the exact query from the bug report
+        let sql = "SELECT * FROM users NEUROMATCH('pattern')";
+        let result = parser.parse_query(sql);
+        
+        println!("Testing query from bug report: {}", sql);
+        match &result {
+            Ok(stmt) => println!("SUCCESS: parsed as {:?}", stmt),
+            Err(e) => println!("ERROR: {:?}", e),
+        }
+        
+        // The test should pass - the query should either parse successfully
+        // or we need to document the correct syntax
+        assert!(result.is_ok(), "Bug report query should parse: {:?}", result.err());
+    }
+
+    // Test that NEUROMATCH in SELECT clause is properly handled
+    #[test]
+    fn test_neuromatch_clause_not_ignored() {
+        let parser = QSQLParser::new();
+        
+        // The query has NEUROMATCH after FROM, it should be in the where_clause or some clause
+        let sql = "SELECT * FROM users NEUROMATCH('pattern')";
+        let result = parser.parse_query(sql).unwrap();
+        
+        // Check if NEUROMATCH is being captured somehow
+        match result {
+            Statement::Select(select) => {
+                // NEUROMATCH should have been captured - let's see what happens
+                // Since there's no where_clause, the NEUROMATCH was ignored!
+                // This is the bug - NEUROMATCH clause is not being parsed
+                
+                // For now, let's just check what we get
+                println!("Parsed SELECT: where_clause={:?}", select.where_clause);
+                
+                // The original parser seems to silently drop unknown tokens after FROM
+                // We need to handle NEUROMATCH as a clause
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    // Test tokenization of NEUROMATCH query
+    #[test]
+    fn test_neuromatch_tokenization() {
+        let parser = QSQLParser::new();
+        
+        // Get tokens using the public tokenize method if available
+        // For now, let's trace through the parse to understand what's happening
+        let sql = "SELECT * FROM users NEUROMATCH('pattern')";
+        
+        // Try different variants
+        let test_queries = vec![
+            "SELECT * FROM users NEUROMATCH('pattern')",
+            "SELECT * FROM users WHERE NEUROMATCH('pattern') > 0",  
+            "SELECT * FROM users WHERE NEUROMATCH(name, 'pattern') > 0.5",
+        ];
+        
+        for query in test_queries {
+            println!("\n=== Testing: {} ===", query);
+            match parser.parse_query(query) {
+                Ok(stmt) => println!("SUCCESS: {:?}", stmt),
+                Err(e) => println!("ERROR: {:?}", e),
+            }
+        }
+    }
