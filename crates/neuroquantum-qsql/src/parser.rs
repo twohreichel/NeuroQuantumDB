@@ -2153,6 +2153,95 @@ impl QSQLParser {
         Ok(Statement::QuantumJoin(quantum_join))
     }
 
+    /// Parse optional isolation level clause
+    /// Returns (isolation_level, new_position)
+    fn parse_isolation_level_clause(
+        &self,
+        tokens: &[TokenType],
+        i: usize,
+    ) -> QSQLResult<(Option<String>, usize)> {
+        let mut pos = i;
+
+        // Check for ISOLATION keyword
+        if pos >= tokens.len() || !matches!(tokens[pos], TokenType::Isolation) {
+            return Ok((None, pos));
+        }
+        pos += 1; // Skip ISOLATION
+
+        // Expect LEVEL keyword
+        if pos >= tokens.len() || !matches!(tokens[pos], TokenType::Level) {
+            return Err(QSQLError::ParseError {
+                message: "Expected LEVEL after ISOLATION".to_string(),
+                position: pos,
+            });
+        }
+        pos += 1; // Skip LEVEL
+
+        // Parse isolation level value
+        if pos >= tokens.len() {
+            return Err(QSQLError::ParseError {
+                message: "Expected isolation level after ISOLATION LEVEL".to_string(),
+                position: pos,
+            });
+        }
+
+        let level = match &tokens[pos] {
+            TokenType::Read => {
+                pos += 1;
+                // Check for UNCOMMITTED or COMMITTED
+                if pos < tokens.len() {
+                    match &tokens[pos] {
+                        TokenType::Uncommitted => {
+                            pos += 1;
+                            Some("READ UNCOMMITTED".to_string())
+                        }
+                        TokenType::Committed => {
+                            pos += 1;
+                            Some("READ COMMITTED".to_string())
+                        }
+                        _ => {
+                            return Err(QSQLError::ParseError {
+                                message: "Expected UNCOMMITTED or COMMITTED after READ"
+                                    .to_string(),
+                                position: pos,
+                            });
+                        }
+                    }
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected UNCOMMITTED or COMMITTED after READ".to_string(),
+                        position: pos,
+                    });
+                }
+            }
+            TokenType::Repeatable => {
+                pos += 1;
+                // Expect READ
+                if pos < tokens.len() && matches!(tokens[pos], TokenType::Read) {
+                    pos += 1;
+                    Some("REPEATABLE READ".to_string())
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected READ after REPEATABLE".to_string(),
+                        position: pos,
+                    });
+                }
+            }
+            TokenType::Serializable => {
+                pos += 1;
+                Some("SERIALIZABLE".to_string())
+            }
+            _ => {
+                return Err(QSQLError::ParseError {
+                    message: "Invalid isolation level. Expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE".to_string(),
+                    position: pos,
+                });
+            }
+        };
+
+        Ok((level, pos))
+    }
+
     /// Parse BEGIN or BEGIN TRANSACTION statement
     fn parse_begin_transaction(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut i = 0;
@@ -2167,84 +2256,8 @@ impl QSQLParser {
             i += 1;
         }
 
-        // Parse optional isolation level (e.g., ISOLATION LEVEL SERIALIZABLE)
-        let isolation_level = if i < tokens.len() && matches!(tokens[i], TokenType::Isolation) {
-            i += 1; // Skip ISOLATION
-
-            // Expect LEVEL keyword
-            if i >= tokens.len() || !matches!(tokens[i], TokenType::Level) {
-                return Err(QSQLError::ParseError {
-                    message: "Expected LEVEL after ISOLATION".to_string(),
-                    position: i,
-                });
-            }
-            i += 1; // Skip LEVEL
-
-            // Parse isolation level value
-            if i >= tokens.len() {
-                return Err(QSQLError::ParseError {
-                    message: "Expected isolation level after ISOLATION LEVEL".to_string(),
-                    position: i,
-                });
-            }
-
-            let level = match &tokens[i] {
-                TokenType::Read => {
-                    i += 1;
-                    // Check for UNCOMMITTED or COMMITTED
-                    if i < tokens.len() {
-                        match &tokens[i] {
-                            TokenType::Uncommitted => {
-                                i += 1;
-                                Some("READ UNCOMMITTED".to_string())
-                            }
-                            TokenType::Committed => {
-                                i += 1;
-                                Some("READ COMMITTED".to_string())
-                            }
-                            _ => {
-                                return Err(QSQLError::ParseError {
-                                    message: "Expected UNCOMMITTED or COMMITTED after READ".to_string(),
-                                    position: i,
-                                });
-                            }
-                        }
-                    } else {
-                        return Err(QSQLError::ParseError {
-                            message: "Expected UNCOMMITTED or COMMITTED after READ".to_string(),
-                            position: i,
-                        });
-                    }
-                }
-                TokenType::Repeatable => {
-                    i += 1;
-                    // Expect READ
-                    if i < tokens.len() && matches!(tokens[i], TokenType::Read) {
-                        i += 1;
-                        Some("REPEATABLE READ".to_string())
-                    } else {
-                        return Err(QSQLError::ParseError {
-                            message: "Expected READ after REPEATABLE".to_string(),
-                            position: i,
-                        });
-                    }
-                }
-                TokenType::Serializable => {
-                    i += 1;
-                    Some("SERIALIZABLE".to_string())
-                }
-                _ => {
-                    return Err(QSQLError::ParseError {
-                        message: "Invalid isolation level. Expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE".to_string(),
-                        position: i,
-                    });
-                }
-            };
-
-            level
-        } else {
-            None
-        };
+        // Parse optional isolation level using helper method
+        let (isolation_level, _) = self.parse_isolation_level_clause(tokens, i)?;
 
         Ok(Statement::BeginTransaction(
             crate::ast::BeginTransactionStatement { isolation_level },
@@ -2265,84 +2278,8 @@ impl QSQLParser {
             i += 1;
         }
 
-        // Parse optional isolation level (same as BEGIN TRANSACTION)
-        let isolation_level = if i < tokens.len() && matches!(tokens[i], TokenType::Isolation) {
-            i += 1; // Skip ISOLATION
-
-            // Expect LEVEL keyword
-            if i >= tokens.len() || !matches!(tokens[i], TokenType::Level) {
-                return Err(QSQLError::ParseError {
-                    message: "Expected LEVEL after ISOLATION".to_string(),
-                    position: i,
-                });
-            }
-            i += 1; // Skip LEVEL
-
-            // Parse isolation level value
-            if i >= tokens.len() {
-                return Err(QSQLError::ParseError {
-                    message: "Expected isolation level after ISOLATION LEVEL".to_string(),
-                    position: i,
-                });
-            }
-
-            let level = match &tokens[i] {
-                TokenType::Read => {
-                    i += 1;
-                    // Check for UNCOMMITTED or COMMITTED
-                    if i < tokens.len() {
-                        match &tokens[i] {
-                            TokenType::Uncommitted => {
-                                i += 1;
-                                Some("READ UNCOMMITTED".to_string())
-                            }
-                            TokenType::Committed => {
-                                i += 1;
-                                Some("READ COMMITTED".to_string())
-                            }
-                            _ => {
-                                return Err(QSQLError::ParseError {
-                                    message: "Expected UNCOMMITTED or COMMITTED after READ".to_string(),
-                                    position: i,
-                                });
-                            }
-                        }
-                    } else {
-                        return Err(QSQLError::ParseError {
-                            message: "Expected UNCOMMITTED or COMMITTED after READ".to_string(),
-                            position: i,
-                        });
-                    }
-                }
-                TokenType::Repeatable => {
-                    i += 1;
-                    // Expect READ
-                    if i < tokens.len() && matches!(tokens[i], TokenType::Read) {
-                        i += 1;
-                        Some("REPEATABLE READ".to_string())
-                    } else {
-                        return Err(QSQLError::ParseError {
-                            message: "Expected READ after REPEATABLE".to_string(),
-                            position: i,
-                        });
-                    }
-                }
-                TokenType::Serializable => {
-                    i += 1;
-                    Some("SERIALIZABLE".to_string())
-                }
-                _ => {
-                    return Err(QSQLError::ParseError {
-                        message: "Invalid isolation level. Expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE".to_string(),
-                        position: i,
-                    });
-                }
-            };
-
-            level
-        } else {
-            None
-        };
+        // Parse optional isolation level using helper method
+        let (isolation_level, _) = self.parse_isolation_level_clause(tokens, i)?;
 
         Ok(Statement::BeginTransaction(
             crate::ast::BeginTransactionStatement {
