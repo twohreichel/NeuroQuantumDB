@@ -1404,7 +1404,7 @@ pub async fn get_performance_stats(
     let cache_hit_ratio = query_stats.cache_hit_rate().unwrap_or(0.0);
     
     // Get average query time from Prometheus histogram metrics
-    let avg_query_time_ms = crate::metrics::get_average_query_time_ms();
+    let average_query_time_ms = crate::metrics::get_average_query_time_ms();
 
     // Get active connections from WebSocket service
     let active_connections = crate::metrics::ACTIVE_CONNECTIONS.get() as u32;
@@ -1438,7 +1438,7 @@ pub async fn get_performance_stats(
         database_metrics: DatabaseMetrics {
             active_connections,
             queries_per_second,
-            average_query_time_ms: avg_query_time_ms,
+            average_query_time_ms,
             cache_hit_ratio,
             total_tables,
             total_records,
