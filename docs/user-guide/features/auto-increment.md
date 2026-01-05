@@ -279,10 +279,12 @@ INSERT INTO users (name) VALUES ('Alice');
 | Architecture | Recommended Strategy |
 |--------------|---------------------|
 | Single node | AutoIncrement |
-| Multi-node cluster | UUID or Snowflake |
+| Multi-node cluster | UUID or Snowflake* |
 | Event sourcing | Snowflake |
 | Edge devices | AutoIncrement |
 | Microservices | UUID |
+
+\* **Note:** Multi-node cluster functionality is currently in Beta/Preview. For production use, single-node deployment with AutoIncrement is recommended. See [Cluster Mode documentation](../configuration.md#cluster-configuration-beta) for details.
 
 ### 4. Consider Neuromorphic Use Cases
 
