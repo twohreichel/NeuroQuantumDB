@@ -340,6 +340,7 @@ pub fn configure_app(
                         .service(
                             web::scope("/dna")
                                 .route("/compress", web::post().to(handlers::compress_dna))
+                                .route("/decompress", web::post().to(handlers::decompress_dna))
                         )
 
                         // Biometric Authentication

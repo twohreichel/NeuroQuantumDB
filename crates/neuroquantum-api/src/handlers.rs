@@ -29,6 +29,7 @@ use validator::Validate;
         get_training_status,
         quantum_search,
         compress_dna,
+        decompress_dna,
         get_metrics,
         get_performance_stats,
         eeg_enroll,
@@ -67,6 +68,8 @@ use validator::Validate;
             QuantumSearchResponse,
             CompressDnaRequest,
             CompressDnaResponse,
+            DecompressDnaRequest,
+            DecompressDnaResponse,
 
             // Monitoring DTOs
             PerformanceStats,
@@ -1354,6 +1357,137 @@ pub async fn compress_dna(
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
         ResponseMetadata::new(start.elapsed(), "DNA compression completed"),
+    )))
+}
+
+/// Decompress DNA-compressed data
+#[utoipa::path(
+    post,
+    path = "/api/v1/dna/decompress",
+    request_body = DecompressDnaRequest,
+    responses(
+        (status = 200, description = "DNA decompression successful", body = ApiResponse<DecompressDnaResponse>),
+        (status = 400, description = "Invalid request", body = ApiResponse<String>),
+        (status = 403, description = "DNA permission required", body = ApiResponse<String>),
+    ),
+    tag = "Advanced Features"
+)]
+pub async fn decompress_dna(
+    req: HttpRequest,
+    app_state: web::Data<crate::AppState>,
+    decompress_req: web::Json<DecompressDnaRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Validate request
+    decompress_req
+        .validate()
+        .map_err(|e| ApiError::ValidationError {
+            field: "decompression".to_string(),
+            message: e.to_string(),
+        })?;
+
+    // Check permissions - extract data before any await points
+    let has_permission = {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+        api_key.permissions.contains(&"dna".to_string())
+            || api_key.permissions.contains(&"admin".to_string())
+    };
+
+    if !has_permission {
+        return Err(ApiError::Forbidden("DNA permission required".to_string()));
+    }
+
+    if decompress_req.compressed_data.is_empty() {
+        return Err(ApiError::BadRequest(
+            "No compressed data provided".to_string(),
+        ));
+    }
+
+    info!(
+        "🧬 Decompressing {} DNA sequences",
+        decompress_req.compressed_data.len(),
+    );
+
+    // Use real DNA decompression from the core
+    let mut decompressed_sequences = Vec::new();
+    let mut total_compressed_size = 0;
+    let mut total_decompressed_size = 0;
+
+    // Access the database from AppState
+    let db = app_state.db.read().await;
+
+    for (i, compressed_data) in decompress_req.compressed_data.iter().enumerate() {
+        // Decode base64 compressed data
+        let compressed_bytes = base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            compressed_data,
+        )
+        .map_err(|e| ApiError::CompressionError {
+            reason: format!("Invalid base64 encoding at index {}: {}", i, e),
+        })?;
+
+        total_compressed_size += compressed_bytes.len();
+
+        // Unpack bytes back to DNA bases (4 bases per byte, 2 bits each)
+        let mut bases = Vec::new();
+        for byte in &compressed_bytes {
+            for shift in (0..8).step_by(2) {
+                let base_bits = (byte >> shift) & 0b11;
+                bases.push(base_bits);
+            }
+        }
+
+        // Use the database's DNA decompression functionality
+        let decompressed = db
+            .dna_compressor()
+            .decompress(&compressed_bytes)
+            .await
+            .map_err(|e| ApiError::CompressionError {
+                reason: format!("Decompression failed for sequence {}: {}", i, e),
+            })?;
+
+        // Convert decompressed bytes back to DNA sequence string
+        let decompressed_string = String::from_utf8(decompressed.data.clone()).map_err(|e| {
+            ApiError::CompressionError {
+                reason: format!("Invalid UTF-8 in decompressed data at index {}: {}", i, e),
+            }
+        })?;
+
+        total_decompressed_size += decompressed_string.len();
+        let checksum = format!("{:x}", decompressed.checksum);
+
+        decompressed_sequences.push(DecompressedSequence {
+            decompressed_data: decompressed_string,
+            original_checksum: checksum,
+            checksum_valid: decompressed.checksum_valid,
+        });
+    }
+
+    let decompression_stats = DecompressionStats {
+        total_compressed_size,
+        total_decompressed_size,
+        decompression_time_ms: start.elapsed().as_millis() as f64,
+    };
+
+    // Record DNA decompression metrics
+    crate::metrics::record_dna_compression(
+        "decompress_success",
+        total_decompressed_size as f64 / total_compressed_size as f64,
+    );
+
+    let response = DecompressDnaResponse {
+        decompressed_sequences,
+        decompression_stats,
+    };
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        response,
+        ResponseMetadata::new(start.elapsed(), "DNA decompression completed"),
     )))
 }
 
