@@ -131,10 +131,25 @@ mod parser_tests {
         // Verify the parsed structure contains a function call
         match result.unwrap() {
             Statement::Select(select) => {
-                assert!(select.where_clause.is_some());
-                if let Some(Expression::FunctionCall { name, args }) = &select.where_clause {
-                    assert_eq!(name, "QUANTUM_SEARCH");
-                    assert_eq!(args.len(), 2);
+                assert!(select.where_clause.is_some(), "WHERE clause should be present");
+                // Verify WHERE clause contains QUANTUM_SEARCH function call
+                match &select.where_clause {
+                    Some(Expression::FunctionCall { name, args }) => {
+                        assert_eq!(name, "QUANTUM_SEARCH");
+                        assert_eq!(args.len(), 2);
+                    }
+                    Some(other) => {
+                        // WHERE clause may contain other expression types
+                        // The key assertion is that parsing succeeded without "Unexpected token" error
+                        // In complex expressions, QUANTUM_SEARCH will be nested in the expression tree
+                        assert!(
+                            format!("{:?}", other).contains("FunctionCall")
+                                || format!("{:?}", other).contains("QUANTUM_SEARCH"),
+                            "WHERE clause should contain QUANTUM_SEARCH function: {:?}",
+                            other
+                        );
+                    }
+                    None => panic!("WHERE clause should be present"),
                 }
             }
             _ => panic!("Expected SELECT statement"),
