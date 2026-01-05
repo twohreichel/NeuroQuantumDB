@@ -54,7 +54,10 @@ pub enum NeuroExtension {
 }
 
 /// Root AST node representing a complete QSQL query
+/// Note: SelectStatement is intentionally not boxed to avoid indirection overhead
+/// for the most common query type. The size trade-off is acceptable for performance.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum Statement {
     Select(SelectStatement),
     Insert(InsertStatement),
@@ -109,11 +112,28 @@ pub struct SelectStatement {
     // Neuromorphic extensions
     pub synaptic_weight: Option<f32>,
     pub plasticity_threshold: Option<f32>,
+    /// NEUROMATCH clause for neuromorphic pattern matching within SELECT
+    /// Syntax: SELECT ... FROM table NEUROMATCH('pattern') [WHERE ...]
+    pub neuromatch_clause: Option<NeuroMatchClause>,
     // Quantum extensions
     pub quantum_parallel: bool,
     pub grover_iterations: Option<u32>,
     // WITH clause for CTEs
     pub with_clause: Option<WithClause>,
+}
+
+/// NEUROMATCH clause for use within SELECT statements
+/// Enables brain-inspired pattern matching directly in queries
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NeuroMatchClause {
+    /// The pattern to match against (can be a string literal or expression)
+    pub pattern: Expression,
+    /// Optional field to match against (if not specified, matches all fields)
+    pub field: Option<String>,
+    /// Synaptic weight threshold for matching (default: 0.5)
+    pub synaptic_weight: f32,
+    /// Whether to apply Hebbian learning to strengthen matched patterns
+    pub hebbian_learning: bool,
 }
 
 /// WITH clause containing one or more CTEs

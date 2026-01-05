@@ -182,6 +182,105 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_neuromatch_clause_single_arg() {
+        // Test NEUROMATCH clause with single argument (pattern only)
+        // This is the syntax: SELECT * FROM users NEUROMATCH('pattern')
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users NEUROMATCH('John')";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH clause should parse: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains neuromatch_clause
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(
+                    select.neuromatch_clause.is_some(),
+                    "NEUROMATCH clause should be present"
+                );
+                let clause = select.neuromatch_clause.unwrap();
+                assert!(
+                    clause.field.is_none(),
+                    "Field should be None for single-arg NEUROMATCH"
+                );
+                // Check pattern is a string literal
+                match clause.pattern {
+                    Expression::Literal(Literal::String(s)) => {
+                        assert_eq!(s, "John");
+                    }
+                    _ => panic!("Expected string literal pattern"),
+                }
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_neuromatch_clause_two_args() {
+        // Test NEUROMATCH clause with two arguments (field, pattern)
+        // This is the syntax: SELECT * FROM users NEUROMATCH(name, 'pattern')
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users NEUROMATCH(name, 'John')";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH clause with field should parse: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains neuromatch_clause with field
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(
+                    select.neuromatch_clause.is_some(),
+                    "NEUROMATCH clause should be present"
+                );
+                let clause = select.neuromatch_clause.unwrap();
+                assert_eq!(
+                    clause.field,
+                    Some("name".to_string()),
+                    "Field should be 'name'"
+                );
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_neuromatch_clause_with_where() {
+        // Test NEUROMATCH clause combined with WHERE
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users NEUROMATCH('John') WHERE age > 18";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH clause with WHERE should parse: {:?}",
+            result
+        );
+
+        // Verify both clauses are present
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(
+                    select.neuromatch_clause.is_some(),
+                    "NEUROMATCH clause should be present"
+                );
+                assert!(
+                    select.where_clause.is_some(),
+                    "WHERE clause should be present"
+                );
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
     fn test_parser_quantum_search_comparison() {
         // Test QUANTUM_SEARCH function with comparison
         let parser = QSQLParser::new();
@@ -415,6 +514,7 @@ mod optimizer_tests {
             offset: None,
             synaptic_weight: Some(0.5),
             plasticity_threshold: None,
+            neuromatch_clause: None,
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
@@ -482,6 +582,7 @@ mod optimizer_tests {
             offset: None,
             synaptic_weight: Some(0.5),
             plasticity_threshold: None,
+            neuromatch_clause: None,
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
@@ -517,6 +618,7 @@ mod optimizer_tests {
             offset: None,
             synaptic_weight: Some(0.5),
             plasticity_threshold: None,
+            neuromatch_clause: None,
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
@@ -563,6 +665,7 @@ mod executor_tests {
                 offset: None,
                 synaptic_weight: Some(0.5),
                 plasticity_threshold: None,
+                neuromatch_clause: None,
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
@@ -610,6 +713,7 @@ mod executor_tests {
                 offset: None,
                 synaptic_weight: Some(0.5),
                 plasticity_threshold: None,
+                neuromatch_clause: None,
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
@@ -657,6 +761,7 @@ mod executor_tests {
                 offset: None,
                 synaptic_weight: Some(0.5),
                 plasticity_threshold: None,
+                neuromatch_clause: None,
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
@@ -1032,6 +1137,7 @@ mod property_tests {
                 offset: None,
                 synaptic_weight: Some(0.5),
                 plasticity_threshold: None,
+                neuromatch_clause: None,
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,

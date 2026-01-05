@@ -660,6 +660,7 @@ impl QSQLParser {
         let offset = None;
         let synaptic_weight = None;
         let plasticity_threshold = None;
+        let mut neuromatch_clause = None;
         let quantum_parallel = false;
         let grover_iterations = None;
         let mut with_clause = None;
@@ -886,6 +887,12 @@ impl QSQLParser {
             }
         }
 
+        // Parse NEUROMATCH clause (neuromorphic pattern matching extension)
+        // Syntax: SELECT ... FROM table NEUROMATCH('pattern') [WHERE ...]
+        if i < tokens.len() && matches!(tokens[i], TokenType::NeuroMatch) {
+            neuromatch_clause = Some(self.parse_neuromatch_clause(tokens, &mut i)?);
+        }
+
         // Parse WHERE clause
         if i < tokens.len() && matches!(tokens[i], TokenType::Where) {
             i += 1;
@@ -960,6 +967,7 @@ impl QSQLParser {
             offset,
             synaptic_weight,
             plasticity_threshold,
+            neuromatch_clause,
             quantum_parallel,
             grover_iterations,
             with_clause,
@@ -983,6 +991,7 @@ impl QSQLParser {
         let offset = None;
         let synaptic_weight = None;
         let plasticity_threshold = None;
+        let mut neuromatch_clause = None;
         let quantum_parallel = false;
         let grover_iterations = None;
 
@@ -1206,6 +1215,12 @@ impl QSQLParser {
             }
         }
 
+        // Parse NEUROMATCH clause (neuromorphic pattern matching extension)
+        // Syntax: SELECT ... FROM table NEUROMATCH('pattern') [WHERE ...]
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::NeuroMatch) {
+            neuromatch_clause = Some(self.parse_neuromatch_clause(tokens, i)?);
+        }
+
         // Parse WHERE clause (but stop before RightParen for subqueries)
         if *i < tokens.len() && matches!(tokens[*i], TokenType::Where) {
             *i += 1;
@@ -1290,6 +1305,7 @@ impl QSQLParser {
             offset,
             synaptic_weight,
             plasticity_threshold,
+            neuromatch_clause,
             quantum_parallel,
             grover_iterations,
             with_clause: None, // Subqueries don't support WITH clauses (for now)
@@ -1710,6 +1726,123 @@ impl QSQLParser {
             where_clause,
             synaptic_pruning: false,
         }))
+    }
+
+    /// Parse NEUROMATCH clause within a SELECT statement
+    /// Syntax variants:
+    /// 1. Modern: NEUROMATCH('pattern') or NEUROMATCH(field, 'pattern')
+    /// 2. Legacy: NEUROMATCH 'pattern' [STRENGTH > threshold]
+    fn parse_neuromatch_clause(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<NeuroMatchClause> {
+        // Skip NEUROMATCH keyword
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::NeuroMatch) {
+            *i += 1;
+        }
+
+        // Check for modern syntax with parentheses or legacy syntax without
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+            // Modern syntax: NEUROMATCH('pattern') or NEUROMATCH(field, 'pattern')
+            *i += 1; // consume '('
+
+            // Parse first argument (could be field name or pattern)
+            let first_arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+            // Check if there's a second argument (field, pattern) or just (pattern)
+            let (field, pattern) = if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                *i += 1; // consume ','
+                         // First argument is field, second is pattern
+                let field_name = match &first_arg {
+                    Expression::Identifier(name) => Some(name.clone()),
+                    _ => None,
+                };
+                let pattern_expr =
+                    self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                (field_name, pattern_expr)
+            } else {
+                // Only one argument - it's the pattern, match all fields
+                (None, first_arg)
+            };
+
+            // Expect closing parenthesis
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected ')' after NEUROMATCH arguments".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1; // consume ')'
+
+            Ok(NeuroMatchClause {
+                pattern,
+                field,
+                synaptic_weight: 0.5, // Default weight
+                hebbian_learning: false,
+            })
+        } else {
+            // Legacy syntax: NEUROMATCH 'pattern' [STRENGTH > threshold]
+            // Parse pattern (string literal or expression)
+            let pattern = if *i < tokens.len() {
+                match &tokens[*i] {
+                    TokenType::StringLiteral(s) => {
+                        let expr = Expression::Literal(Literal::String(s.clone()));
+                        *i += 1;
+                        expr
+                    }
+                    TokenType::Identifier(id) => {
+                        let expr = Expression::Identifier(id.clone());
+                        *i += 1;
+                        expr
+                    }
+                    _ => {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected pattern after NEUROMATCH".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected pattern after NEUROMATCH".to_string(),
+                    position: *i,
+                });
+            };
+
+            // Check for optional STRENGTH clause
+            let mut synaptic_weight = 0.5; // Default
+            if *i < tokens.len() {
+                if let TokenType::Identifier(kw) = &tokens[*i] {
+                    if kw.to_uppercase() == "STRENGTH" {
+                        *i += 1; // consume STRENGTH
+
+                        // Expect comparison operator (>)
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::GreaterThan) {
+                            *i += 1; // consume >
+
+                            // Parse threshold value
+                            if *i < tokens.len() {
+                                if let TokenType::FloatLiteral(f) = tokens[*i] {
+                                    synaptic_weight = f as f32;
+                                    *i += 1;
+                                } else if let TokenType::IntegerLiteral(n) = tokens[*i] {
+                                    synaptic_weight = n as f32;
+                                    *i += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(NeuroMatchClause {
+                pattern,
+                field: None,
+                synaptic_weight,
+                hebbian_learning: false,
+            })
+        }
     }
 
     /// Parse NEUROMATCH statement

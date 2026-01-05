@@ -456,6 +456,7 @@ impl QueryExecutor {
                     offset: select.offset,
                     synaptic_weight: select.synaptic_weight,
                     plasticity_threshold: select.plasticity_threshold,
+                    neuromatch_clause: select.neuromatch_clause.clone(),
                     quantum_parallel: select.quantum_parallel,
                     grover_iterations: select.grover_iterations,
                     with_clause: select.with_clause.clone(),
@@ -510,14 +511,22 @@ impl QueryExecutor {
                 storage_rows
             };
 
+            // Apply NEUROMATCH clause if present (neuromorphic pattern matching)
+            let neuromatch_filtered_rows = if let Some(neuromatch) = &select.neuromatch_clause {
+                self.apply_neuromatch_filter(filtered_rows, neuromatch)?
+            } else {
+                filtered_rows
+            };
+
             // Neuromorphic learning: learn from access pattern
             if self.config.enable_synaptic_optimization && select.synaptic_weight.is_some() {
-                self.learn_from_select(select, &filtered_rows).await?;
+                self.learn_from_select(select, &neuromatch_filtered_rows)
+                    .await?;
             }
 
             // Convert storage rows to query result
             let (result_rows, columns) =
-                self.convert_storage_rows_to_result(filtered_rows, select)?;
+                self.convert_storage_rows_to_result(neuromatch_filtered_rows, select)?;
 
             let rows_affected = result_rows.len() as u64;
 
@@ -2848,6 +2857,135 @@ impl QueryExecutor {
             }
         }
         Ok(filtered)
+    }
+
+    /// Apply NEUROMATCH clause filtering using neuromorphic pattern matching
+    /// This implements brain-inspired similarity matching for the NEUROMATCH clause
+    fn apply_neuromatch_filter(
+        &self,
+        rows: Vec<Row>,
+        neuromatch: &NeuroMatchClause,
+    ) -> QSQLResult<Vec<Row>> {
+        // Extract the pattern string from the expression
+        let pattern = match &neuromatch.pattern {
+            Expression::Literal(Literal::String(s)) => s.clone(),
+            Expression::Identifier(id) => id.clone(),
+            _ => {
+                // For complex expressions, convert to string representation
+                Self::expression_to_string_static(&neuromatch.pattern)
+            }
+        };
+
+        let threshold = neuromatch.synaptic_weight;
+        let mut filtered = Vec::new();
+
+        for row in rows {
+            // Calculate neuromorphic similarity score
+            let score = if let Some(field) = &neuromatch.field {
+                // Match against specific field
+                if let Some(value) = row.fields.get(field) {
+                    self.calculate_neuromatch_similarity(&value.to_string(), &pattern)
+                } else {
+                    0.0
+                }
+            } else {
+                // Match against all fields, take the maximum similarity
+                let mut max_score: f32 = 0.0;
+                for value in row.fields.values() {
+                    let score = self.calculate_neuromatch_similarity(&value.to_string(), &pattern);
+                    if score > max_score {
+                        max_score = score;
+                    }
+                }
+                max_score
+            };
+
+            // Include row if similarity exceeds threshold
+            if score >= threshold {
+                filtered.push(row);
+            }
+        }
+
+        Ok(filtered)
+    }
+
+    /// Calculate neuromorphic pattern similarity using brain-inspired algorithms
+    /// Returns a similarity score between 0.0 and 1.0
+    fn calculate_neuromatch_similarity(&self, value: &str, pattern: &str) -> f32 {
+        // Normalize inputs for comparison
+        let value_lower = value.to_lowercase();
+        let pattern_lower = pattern.to_lowercase();
+
+        // Exact match check
+        if value_lower.contains(&pattern_lower) {
+            return 1.0;
+        }
+
+        // Use Levenshtein-based similarity for fuzzy matching
+        // This simulates synaptic pattern recognition
+        let distance = Self::levenshtein_distance(&value_lower, &pattern_lower);
+        let max_len = value_lower.len().max(pattern_lower.len());
+
+        if max_len == 0 {
+            return 0.0;
+        }
+
+        // Calculate similarity as inverse of normalized distance
+        let similarity = 1.0 - (distance as f32 / max_len as f32);
+
+        // Apply synaptic threshold - small similarities are filtered out
+        if similarity < 0.3 {
+            0.0
+        } else {
+            similarity
+        }
+    }
+
+    /// Calculate Levenshtein distance between two strings
+    /// Used for neuromorphic fuzzy pattern matching
+    fn levenshtein_distance(s1: &str, s2: &str) -> usize {
+        let s1_chars: Vec<char> = s1.chars().collect();
+        let s2_chars: Vec<char> = s2.chars().collect();
+        let len1 = s1_chars.len();
+        let len2 = s2_chars.len();
+
+        if len1 == 0 {
+            return len2;
+        }
+        if len2 == 0 {
+            return len1;
+        }
+
+        // Create distance matrix
+        let mut matrix = vec![vec![0usize; len2 + 1]; len1 + 1];
+
+        // Initialize first column and row
+        for (i, row) in matrix.iter_mut().enumerate().take(len1 + 1) {
+            row[0] = i;
+        }
+        matrix[0]
+            .iter_mut()
+            .enumerate()
+            .take(len2 + 1)
+            .for_each(|(j, val)| {
+                *val = j;
+            });
+
+        // Fill in the rest of the matrix
+        for i in 1..=len1 {
+            for j in 1..=len2 {
+                let cost = if s1_chars[i - 1] == s2_chars[j - 1] {
+                    0
+                } else {
+                    1
+                };
+                matrix[i][j] = (matrix[i - 1][j] + 1)
+                    .min(matrix[i][j - 1] + 1)
+                    .min(matrix[i - 1][j - 1] + cost);
+            }
+        }
+
+        matrix[len1][len2]
     }
 
     /// Convert SQL SELECT to storage SelectQuery
@@ -6146,6 +6284,7 @@ mod tests {
             offset: None,
             synaptic_weight: None,
             plasticity_threshold: None,
+            neuromatch_clause: None,
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
