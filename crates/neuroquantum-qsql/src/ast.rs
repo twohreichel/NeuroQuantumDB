@@ -456,21 +456,12 @@ pub enum WindowFunctionType {
 
 /// Window specification for OVER clause
 /// e.g., OVER (PARTITION BY col1 ORDER BY col2 DESC)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct WindowSpec {
     /// PARTITION BY columns - divides rows into groups
     pub partition_by: Vec<Expression>,
     /// ORDER BY columns within each partition
     pub order_by: Vec<OrderByItem>,
-}
-
-impl Default for WindowSpec {
-    fn default() -> Self {
-        Self {
-            partition_by: Vec::new(),
-            order_by: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
