@@ -68,8 +68,12 @@ use validator::Validate;
             QuantumSearchResponse,
             CompressDnaRequest,
             CompressDnaResponse,
+            CompressedSequence,
+            CompressionStats,
             DecompressDnaRequest,
             DecompressDnaResponse,
+            DecompressedSequence,
+            DecompressionStats,
 
             // Monitoring DTOs
             PerformanceStats,
@@ -1432,15 +1436,6 @@ pub async fn decompress_dna(
         })?;
 
         total_compressed_size += compressed_bytes.len();
-
-        // Unpack bytes back to DNA bases (4 bases per byte, 2 bits each)
-        let mut bases = Vec::new();
-        for byte in &compressed_bytes {
-            for shift in (0..8).step_by(2) {
-                let base_bits = (byte >> shift) & 0b11;
-                bases.push(base_bits);
-            }
-        }
 
         // Use the database's DNA decompression functionality
         let decompressed = db
