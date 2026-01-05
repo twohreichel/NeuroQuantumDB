@@ -1130,7 +1130,8 @@ pub async fn quantum_search(
         let base_score = BASE_SIMILARITY - (idx as f32 * SIMILARITY_DECAY);
         let similarity_score = (base_score * entanglement_boost).min(1.0);
         let quantum_probability = (BASE_PROBABILITY - (idx as f32 * PROBABILITY_DECAY)).max(0.0);
-        let entanglement_strength = (BASE_ENTANGLEMENT - (idx as f32 * ENTANGLEMENT_DECAY)).max(0.0);
+        let entanglement_strength =
+            (BASE_ENTANGLEMENT - (idx as f32 * ENTANGLEMENT_DECAY)).max(0.0);
         (similarity_score, quantum_probability, entanglement_strength)
     };
 
@@ -1147,7 +1148,8 @@ pub async fn quantum_search(
 
         // Compute quantum-inspired scores using amplitude-based scoring
         // This simulates quantum superposition by considering all dimensions simultaneously
-        let (similarity_score, quantum_probability, entanglement_strength) = compute_quantum_scores(idx);
+        let (similarity_score, quantum_probability, entanglement_strength) =
+            compute_quantum_scores(idx);
 
         // Apply similarity threshold filter
         if similarity_score >= similarity_threshold {
@@ -1163,7 +1165,8 @@ pub async fn quantum_search(
     // If no rows from database, generate simulated results for demonstration
     if results.is_empty() {
         for i in 0..max_results.min(20) {
-            let (similarity_score, quantum_probability, entanglement_strength) = compute_quantum_scores(i);
+            let (similarity_score, quantum_probability, entanglement_strength) =
+                compute_quantum_scores(i);
 
             if similarity_score >= similarity_threshold {
                 let mut record = HashMap::new();
