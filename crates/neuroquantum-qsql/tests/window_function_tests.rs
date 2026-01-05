@@ -2,7 +2,9 @@
 //!
 //! This test suite verifies that window functions are correctly parsed and executed.
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, Row, StorageEngine, TableSchema, Value};
+use neuroquantum_core::storage::{
+    ColumnDefinition, DataType, Row, StorageEngine, TableSchema, Value,
+};
 use neuroquantum_qsql::{query_plan::QueryValue, ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -77,10 +79,14 @@ async fn setup_test_db() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>>) {
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
             };
-            row.fields.insert("id".to_string(), Value::Integer((i + 1) as i64));
-            row.fields.insert("name".to_string(), Value::Text(name.to_string()));
-            row.fields.insert("department".to_string(), Value::Text(dept.to_string()));
-            row.fields.insert("salary".to_string(), Value::Integer(salary));
+            row.fields
+                .insert("id".to_string(), Value::Integer((i + 1) as i64));
+            row.fields
+                .insert("name".to_string(), Value::Text(name.to_string()));
+            row.fields
+                .insert("department".to_string(), Value::Text(dept.to_string()));
+            row.fields
+                .insert("salary".to_string(), Value::Integer(salary));
             storage_guard.insert_row("employees", row).await.unwrap();
         }
     }
@@ -95,16 +101,25 @@ fn test_row_number_parsing() {
     let sql = "SELECT ROW_NUMBER() OVER (ORDER BY id) as row_num, name FROM employees";
     let result = parser.parse(sql);
 
-    assert!(result.is_ok(), "Failed to parse ROW_NUMBER: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse ROW_NUMBER: {:?}",
+        result.err()
+    );
 
     let stmt = result.unwrap();
     if let neuroquantum_qsql::Statement::Select(select) = stmt {
         assert_eq!(select.select_list.len(), 2);
         // First item should be a window function
-        if let neuroquantum_qsql::ast::SelectItem::Expression { expr, alias } = &select.select_list[0] {
+        if let neuroquantum_qsql::ast::SelectItem::Expression { expr, alias } =
+            &select.select_list[0]
+        {
             match expr {
                 neuroquantum_qsql::ast::Expression::WindowFunction { function, .. } => {
-                    assert_eq!(*function, neuroquantum_qsql::ast::WindowFunctionType::RowNumber);
+                    assert_eq!(
+                        *function,
+                        neuroquantum_qsql::ast::WindowFunctionType::RowNumber
+                    );
                 }
                 _ => panic!("Expected WindowFunction expression, got {:?}", expr),
             }
@@ -124,15 +139,27 @@ fn test_rank_with_partition_parsing() {
     let sql = "SELECT RANK() OVER (PARTITION BY department ORDER BY salary DESC) as dept_rank, name FROM employees";
     let result = parser.parse(sql);
 
-    assert!(result.is_ok(), "Failed to parse RANK with PARTITION BY: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse RANK with PARTITION BY: {:?}",
+        result.err()
+    );
 
     let stmt = result.unwrap();
     if let neuroquantum_qsql::Statement::Select(select) = stmt {
-        if let neuroquantum_qsql::ast::SelectItem::Expression { expr, .. } = &select.select_list[0] {
+        if let neuroquantum_qsql::ast::SelectItem::Expression { expr, .. } = &select.select_list[0]
+        {
             match expr {
-                neuroquantum_qsql::ast::Expression::WindowFunction { function, over_clause, .. } => {
+                neuroquantum_qsql::ast::Expression::WindowFunction {
+                    function,
+                    over_clause,
+                    ..
+                } => {
                     assert_eq!(*function, neuroquantum_qsql::ast::WindowFunctionType::Rank);
-                    assert!(!over_clause.partition_by.is_empty(), "Expected PARTITION BY clause");
+                    assert!(
+                        !over_clause.partition_by.is_empty(),
+                        "Expected PARTITION BY clause"
+                    );
                     assert!(!over_clause.order_by.is_empty(), "Expected ORDER BY clause");
                 }
                 _ => panic!("Expected WindowFunction expression"),
@@ -148,14 +175,19 @@ fn test_dense_rank_parsing() {
     let sql = "SELECT DENSE_RANK() OVER (ORDER BY salary DESC) as dense_rank_val FROM employees";
     let result = parser.parse(sql);
 
-    assert!(result.is_ok(), "Failed to parse DENSE_RANK: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse DENSE_RANK: {:?}",
+        result.err()
+    );
 }
 
 /// Test LAG() parsing with arguments
 #[test]
 fn test_lag_parsing() {
     let parser = Parser::new();
-    let sql = "SELECT name, salary, LAG(salary, 1, 0) OVER (ORDER BY id) as prev_salary FROM employees";
+    let sql =
+        "SELECT name, salary, LAG(salary, 1, 0) OVER (ORDER BY id) as prev_salary FROM employees";
     let result = parser.parse(sql);
 
     assert!(result.is_ok(), "Failed to parse LAG: {:?}", result.err());
@@ -163,7 +195,8 @@ fn test_lag_parsing() {
     let stmt = result.unwrap();
     if let neuroquantum_qsql::Statement::Select(select) = stmt {
         // LAG should be the third item (index 2)
-        if let neuroquantum_qsql::ast::SelectItem::Expression { expr, .. } = &select.select_list[2] {
+        if let neuroquantum_qsql::ast::SelectItem::Expression { expr, .. } = &select.select_list[2]
+        {
             match expr {
                 neuroquantum_qsql::ast::Expression::WindowFunction { function, args, .. } => {
                     assert_eq!(*function, neuroquantum_qsql::ast::WindowFunctionType::Lag);
@@ -223,7 +256,8 @@ async fn test_rank_execution_with_ties() {
 
     let parser = Parser::new();
     // Bob and Charlie have the same salary (90000), so they should have the same rank
-    let sql = "SELECT RANK() OVER (ORDER BY salary DESC) as salary_rank, name, salary FROM employees";
+    let sql =
+        "SELECT RANK() OVER (ORDER BY salary DESC) as salary_rank, name, salary FROM employees";
     let statement = parser.parse(sql).unwrap();
 
     let result = executor.execute_statement(&statement).await.unwrap();
@@ -246,7 +280,10 @@ async fn test_rank_execution_with_ties() {
         }
     }
 
-    assert_eq!(bob_rank, charlie_rank, "Bob and Charlie should have the same rank (ties)");
+    assert_eq!(
+        bob_rank, charlie_rank,
+        "Bob and Charlie should have the same rank (ties)"
+    );
 
     println!("✅ RANK() with ties: SUCCESS");
 }
@@ -326,7 +363,8 @@ async fn test_lag_execution() {
     let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
 
     let parser = Parser::new();
-    let sql = "SELECT name, salary, LAG(salary, 1, 0) OVER (ORDER BY id) as prev_salary FROM employees";
+    let sql =
+        "SELECT name, salary, LAG(salary, 1, 0) OVER (ORDER BY id) as prev_salary FROM employees";
     let statement = parser.parse(sql).unwrap();
 
     let result = executor.execute_statement(&statement).await.unwrap();
@@ -337,7 +375,10 @@ async fn test_lag_execution() {
     // Second row should have prev_salary = 100000 (Alice's salary)
     let first_row = &result.rows[0];
     if let Some(QueryValue::Integer(prev_salary)) = first_row.get("prev_salary") {
-        assert_eq!(*prev_salary, 0, "First row LAG should return default value 0");
+        assert_eq!(
+            *prev_salary, 0,
+            "First row LAG should return default value 0"
+        );
     }
 
     println!("✅ LAG() execution: SUCCESS");
@@ -352,7 +393,8 @@ async fn test_lead_execution() {
     let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
 
     let parser = Parser::new();
-    let sql = "SELECT name, salary, LEAD(salary, 1, 0) OVER (ORDER BY id) as next_salary FROM employees";
+    let sql =
+        "SELECT name, salary, LEAD(salary, 1, 0) OVER (ORDER BY id) as next_salary FROM employees";
     let statement = parser.parse(sql).unwrap();
 
     let result = executor.execute_statement(&statement).await.unwrap();
@@ -362,7 +404,10 @@ async fn test_lead_execution() {
     // Last row should have next_salary = 0 (the default, no next row)
     let last_row = &result.rows[5];
     if let Some(QueryValue::Integer(next_salary)) = last_row.get("next_salary") {
-        assert_eq!(*next_salary, 0, "Last row LEAD should return default value 0");
+        assert_eq!(
+            *next_salary, 0,
+            "Last row LEAD should return default value 0"
+        );
     }
 
     println!("✅ LEAD() execution: SUCCESS");
@@ -385,7 +430,11 @@ fn test_first_value_parsing() {
     let sql = "SELECT FIRST_VALUE(salary) OVER (PARTITION BY department ORDER BY salary DESC) as top_salary, name FROM employees";
     let result = parser.parse(sql);
 
-    assert!(result.is_ok(), "Failed to parse FIRST_VALUE: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse FIRST_VALUE: {:?}",
+        result.err()
+    );
 }
 
 /// Test LAST_VALUE() parsing
@@ -395,5 +444,9 @@ fn test_last_value_parsing() {
     let sql = "SELECT LAST_VALUE(salary) OVER (ORDER BY id) as last_salary, name FROM employees";
     let result = parser.parse(sql);
 
-    assert!(result.is_ok(), "Failed to parse LAST_VALUE: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse LAST_VALUE: {:?}",
+        result.err()
+    );
 }

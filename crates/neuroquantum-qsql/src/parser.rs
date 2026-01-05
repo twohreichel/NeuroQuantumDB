@@ -4284,11 +4284,7 @@ impl QSQLParser {
     /// Parse window function expression
     /// e.g., ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2)
     ///       LAG(column, 1, 0) OVER (ORDER BY id)
-    fn parse_window_function(
-        &self,
-        tokens: &[TokenType],
-        i: &mut usize,
-    ) -> QSQLResult<Expression> {
+    fn parse_window_function(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<Expression> {
         // Determine the window function type based on the token
         let function = match &tokens[*i] {
             TokenType::RowNumber => WindowFunctionType::RowNumber,
@@ -4423,7 +4419,7 @@ impl QSQLParser {
         // Parse ORDER BY clause (optional but common)
         if *i < tokens.len() && matches!(tokens[*i], TokenType::OrderBy) {
             *i += 1; // consume 'ORDER' token (GROUP, ORDER keywords are followed by BY check)
-            
+
             // Consume 'BY' if present as separate token
             if *i < tokens.len() && matches!(tokens[*i], TokenType::By) {
                 *i += 1;

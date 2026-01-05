@@ -21,6 +21,11 @@ use neuroquantum_core::storage::{
 use neuroquantum_core::synaptic::SynapticNetwork;
 use neuroquantum_core::transaction::{IsolationLevel, TransactionId, TransactionManager};
 
+/// Type alias for async table row results to reduce type complexity
+type TableRowFuture<'a> = std::pin::Pin<
+    Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>,
+>;
+
 /// Query plan executor configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutorConfig {
@@ -814,9 +819,7 @@ impl QueryExecutor {
     fn get_rows_from_table_ref<'a>(
         &'a mut self,
         table_ref: &'a TableReference,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>,
-    > {
+    ) -> TableRowFuture<'a> {
         Box::pin(async move {
             if let Some(subquery) = &table_ref.subquery {
                 // This is a derived table - execute the subquery
@@ -2660,15 +2663,13 @@ impl QueryExecutor {
     /// Check if select list contains window functions
     fn has_window_functions(select_list: &[SelectItem]) -> bool {
         select_list.iter().any(|item| {
-            if let SelectItem::Expression {
-                expr: Expression::WindowFunction { .. },
-                ..
-            } = item
-            {
-                true
-            } else {
-                false
-            }
+            matches!(
+                item,
+                SelectItem::Expression {
+                    expr: Expression::WindowFunction { .. },
+                    ..
+                }
+            )
         })
     }
 
@@ -3347,7 +3348,8 @@ impl QueryExecutor {
         if args.is_empty() {
             format!("{}()", func_name)
         } else {
-            let args_str: Vec<String> = args.iter().map(Self::expression_to_string_static).collect();
+            let args_str: Vec<String> =
+                args.iter().map(Self::expression_to_string_static).collect();
             format!("{}({})", func_name, args_str.join(", "))
         }
     }
@@ -3381,11 +3383,11 @@ impl QueryExecutor {
         current_row_index: usize,
     ) -> QSQLResult<QueryValue> {
         // Get the partition for this row
-        let partition = self.get_partition(all_rows, current_row_index, &over_clause.partition_by)?;
+        let partition =
+            self.get_partition(all_rows, current_row_index, &over_clause.partition_by)?;
 
         // Sort the partition according to ORDER BY
-        let sorted_partition =
-            self.sort_partition_for_window(&partition, &over_clause.order_by)?;
+        let sorted_partition = self.sort_partition_for_window(&partition, &over_clause.order_by)?;
 
         // Find the current row's position in the sorted partition
         let current_row = &all_rows[current_row_index];
@@ -3402,13 +3404,23 @@ impl QueryExecutor {
 
             WindowFunctionType::Rank => {
                 // RANK() - rank with gaps for ties
-                let rank = self.compute_rank(&sorted_partition, position_in_partition, &over_clause.order_by, false)?;
+                let rank = self.compute_rank(
+                    &sorted_partition,
+                    position_in_partition,
+                    &over_clause.order_by,
+                    false,
+                )?;
                 Ok(QueryValue::Integer(rank))
             }
 
             WindowFunctionType::DenseRank => {
                 // DENSE_RANK() - rank without gaps for ties
-                let rank = self.compute_rank(&sorted_partition, position_in_partition, &over_clause.order_by, true)?;
+                let rank = self.compute_rank(
+                    &sorted_partition,
+                    position_in_partition,
+                    &over_clause.order_by,
+                    true,
+                )?;
                 Ok(QueryValue::Integer(rank))
             }
 
@@ -3487,7 +3499,7 @@ impl QueryExecutor {
                 // Rows 0,1 -> bucket 1; rows 2,3 -> bucket 2; row 4 -> bucket 3; row 5 -> bucket 4
                 let rows_per_bucket = total_rows / n;
                 let extra_rows = total_rows % n; // first 'extra_rows' buckets get one extra row
-                
+
                 // Calculate which bucket this row belongs to
                 let bucket = if rows_per_bucket == 0 {
                     // More buckets than rows, each row gets its own bucket
