@@ -114,7 +114,7 @@ The multi-node cluster functionality is available as a **Beta/Preview feature** 
 
 ### 📅 Cluster Roadmap
 
-The full cluster implementation is planned for 2026 as part of our distributed architecture milestone. See [Future Vision](./docs/concept/06-future-vision.md) for details on the roadmap.
+The full cluster implementation is planned for 2026 as part of our distributed architecture milestone. See [Future Vision](./docs/concept/06-future-vision.md#mid-term-2026-distributed-architecture) for details on the roadmap.
 
 ---
 
