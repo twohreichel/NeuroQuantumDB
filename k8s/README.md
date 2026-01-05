@@ -2,7 +2,7 @@
 
 This directory contains Kubernetes manifests for deploying NeuroQuantumDB in a production environment.
 
-> **⚠️ Important Note:** This documentation describes Kubernetes deployment with multiple replicas (horizontal scaling of the application), **NOT** the NeuroQuantumDB cluster module. Each replica runs as an independent single-node NeuroQuantumDB instance. The NeuroQuantumDB cluster module (multi-node database cluster with Raft consensus) is currently in Beta and not production-ready. See the [main README](../README.md#-cluster-mode-beta) for details.
+> **⚠️ Important Note:** This documentation describes Kubernetes deployment with multiple replicas (horizontal scaling of the application), **NOT** the NeuroQuantumDB cluster module. Each replica runs as an independent single-node NeuroQuantumDB instance. The NeuroQuantumDB cluster module (multi-node database cluster with Raft consensus) is currently in Beta and not production-ready. See the [main README](../README.md#cluster-mode-beta) for details.
 
 ## Prerequisites
 
