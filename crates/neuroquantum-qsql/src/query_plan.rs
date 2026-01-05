@@ -5081,7 +5081,7 @@ impl QueryExecutor {
             // Neuromorphic function: SYNAPTIC_WEIGHT
             // Calculate synaptic weight between two columns using Hebbian learning principles
             "SYNAPTIC_WEIGHT" => {
-                if args.len() < 2 {
+                if args.len() != 2 {
                     return Err(QSQLError::ExecutionError {
                         message: "SYNAPTIC_WEIGHT requires exactly 2 arguments (column1, column2)"
                             .to_string(),
@@ -5262,10 +5262,14 @@ impl QueryExecutor {
                     1.0 / (1.0 + (-x).exp())
                 }
                 QueryValue::String(s) => {
-                    // Hash string to a consistent activity level
-                    let hash_value = s
-                        .bytes()
-                        .fold(0u32, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u32));
+                    // Hash string to a consistent activity level using DefaultHasher
+                    // This provides better distribution than a simple multiplicative hash
+                    use std::collections::hash_map::DefaultHasher;
+                    use std::hash::{Hash, Hasher};
+
+                    let mut hasher = DefaultHasher::new();
+                    s.hash(&mut hasher);
+                    let hash_value = hasher.finish();
                     (hash_value % 1000) as f32 / 1000.0
                 }
                 QueryValue::Blob(b) => {
