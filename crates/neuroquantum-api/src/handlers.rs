@@ -1347,16 +1347,18 @@ pub async fn get_performance_stats(
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
-
-    if !api_key.permissions.contains(&"read".to_string())
-        && !api_key.permissions.contains(&"admin".to_string())
+    // Check permissions - use a scope to drop the RefCell borrow before await points
     {
-        return Err(ApiError::Forbidden("Read permission required".to_string()));
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+        if !api_key.permissions.contains(&"read".to_string())
+            && !api_key.permissions.contains(&"admin".to_string())
+        {
+            return Err(ApiError::Forbidden("Read permission required".to_string()));
+        }
     }
 
     // Estimation ratios for neural/quantum operations
@@ -1364,7 +1366,7 @@ pub async fn get_performance_stats(
     const NEURAL_OPS_RATIO: f32 = 0.1; // ~10% of queries use neural matching (NEUROMATCH, etc.)
     const QUANTUM_OPS_RATIO: f32 = 0.05; // ~5% of queries use quantum search
     const SYNAPTIC_UPDATES_PER_QUERY: f64 = 10.0; // Average synaptic weight updates per query
-    // Estimated average bytes per record for record count estimation
+                                                  // Estimated average bytes per record for record count estimation
     const ESTIMATED_BYTES_PER_RECORD: u64 = 100;
 
     // Collect real system metrics using sysinfo
@@ -1377,13 +1379,19 @@ pub async fn get_performance_stats(
 
     // Get disk usage from system
     let disks = Disks::new_with_refreshed_list();
-    let disk_usage_mb = disks.iter().map(|d| d.total_space() - d.available_space()).sum::<u64>() / (1024 * 1024);
-    
+    let disk_usage_mb = disks
+        .iter()
+        .map(|d| d.total_space() - d.available_space())
+        .sum::<u64>()
+        / (1024 * 1024);
+
     // Get network I/O
     let networks = Networks::new_with_refreshed_list();
-    let network_io_mb = networks.iter()
-        .map(|(_, data)| data.received() + data.transmitted())
-        .sum::<u64>() as f64 / (1024.0 * 1024.0);
+    let network_io_mb = networks
+        .values()
+        .map(|data| data.received() + data.transmitted())
+        .sum::<u64>() as f64
+        / (1024.0 * 1024.0);
 
     // Get system temperature using shared helper function
     let temperature_celsius = crate::metrics::get_system_temperature();
@@ -1391,18 +1399,19 @@ pub async fn get_performance_stats(
     // Get database metrics from storage engine
     let db = app_state.db.read().await;
     let storage = db.storage().await;
-    
+
     // Get table count from the storage metadata
     let total_tables = storage.get_table_count() as u32;
-    
+
     // Estimate total records based on database size
     // Uses database file size divided by estimated bytes per record
-    let total_records = crate::metrics::DATABASE_SIZE_BYTES.get() as u64 / ESTIMATED_BYTES_PER_RECORD;
+    let total_records =
+        crate::metrics::DATABASE_SIZE_BYTES.get() as u64 / ESTIMATED_BYTES_PER_RECORD;
 
     // Get query statistics from storage engine
     let query_stats = storage.get_last_query_stats();
     let cache_hit_ratio = query_stats.cache_hit_rate().unwrap_or(0.0);
-    
+
     // Get average query time from Prometheus histogram metrics
     let average_query_time_ms = crate::metrics::get_average_query_time_ms();
 
@@ -1416,10 +1425,18 @@ pub async fn get_performance_stats(
     let uptime = crate::metrics::get_uptime_seconds();
     let queries_per_second = if uptime > 0.0 {
         // Sum all query types
-        let total_queries = crate::metrics::QUERIES_TOTAL.with_label_values(&["crud"]).get()
-            + crate::metrics::QUERIES_TOTAL.with_label_values(&["neuromorphic"]).get()
-            + crate::metrics::QUERIES_TOTAL.with_label_values(&["quantum"]).get()
-            + crate::metrics::QUERIES_TOTAL.with_label_values(&["dna"]).get();
+        let total_queries = crate::metrics::QUERIES_TOTAL
+            .with_label_values(&["crud"])
+            .get()
+            + crate::metrics::QUERIES_TOTAL
+                .with_label_values(&["neuromorphic"])
+                .get()
+            + crate::metrics::QUERIES_TOTAL
+                .with_label_values(&["quantum"])
+                .get()
+            + crate::metrics::QUERIES_TOTAL
+                .with_label_values(&["dna"])
+                .get();
         total_queries as f32 / uptime as f32
     } else {
         0.0
