@@ -1427,13 +1427,11 @@ pub async fn decompress_dna(
 
     for (i, compressed_data) in decompress_req.compressed_data.iter().enumerate() {
         // Decode base64 compressed data
-        let compressed_bytes = base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            compressed_data,
-        )
-        .map_err(|e| ApiError::CompressionError {
-            reason: format!("Invalid base64 encoding at index {}: {}", i, e),
-        })?;
+        let compressed_bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, compressed_data)
+                .map_err(|e| ApiError::CompressionError {
+                    reason: format!("Invalid base64 encoding at index {}: {}", i, e),
+                })?;
 
         total_compressed_size += compressed_bytes.len();
 

@@ -5239,16 +5239,18 @@ impl QueryExecutor {
     /// 2. Calculate correlation based on co-occurrence patterns
     /// 3. Apply Hebbian learning formula: weight = activity1 * activity2
     /// 4. Normalize to [0, 1] range
-    fn calculate_hebbian_weight(
-        &self,
-        val1: &QueryValue,
-        val2: &QueryValue,
-    ) -> QSQLResult<f32> {
+    fn calculate_hebbian_weight(&self, val1: &QueryValue, val2: &QueryValue) -> QSQLResult<f32> {
         // Helper to convert QueryValue to normalized activity level (0.0 to 1.0)
         let to_activity = |v: &QueryValue| -> f32 {
             match v {
                 QueryValue::Null => 0.0,
-                QueryValue::Boolean(b) => if *b { 1.0 } else { 0.0 },
+                QueryValue::Boolean(b) => {
+                    if *b {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
                 QueryValue::Integer(i) => {
                     // Normalize to [0, 1] using sigmoid-like function
                     let x = (*i as f32) / 100.0;
@@ -5261,9 +5263,9 @@ impl QueryExecutor {
                 }
                 QueryValue::String(s) => {
                     // Hash string to a consistent activity level
-                    let hash_value = s.bytes().fold(0u32, |acc, b| {
-                        acc.wrapping_mul(31).wrapping_add(b as u32)
-                    });
+                    let hash_value = s
+                        .bytes()
+                        .fold(0u32, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u32));
                     (hash_value % 1000) as f32 / 1000.0
                 }
                 QueryValue::Blob(b) => {

@@ -1662,10 +1662,7 @@ fn test_synaptic_weight_parsing() {
 
     // Test SYNAPTIC_WEIGHT function with two column arguments
     let result = parser.parse("SELECT SYNAPTIC_WEIGHT(name, email) FROM users");
-    assert!(
-        result.is_ok(),
-        "Failed to parse SYNAPTIC_WEIGHT function"
-    );
+    assert!(result.is_ok(), "Failed to parse SYNAPTIC_WEIGHT function");
 
     // Verify the parsed statement structure
     match result.unwrap() {
@@ -1673,15 +1670,13 @@ fn test_synaptic_weight_parsing() {
             assert_eq!(select.select_list.len(), 1);
             // Verify it's a function call
             match &select.select_list[0] {
-                SelectItem::Expression { expr, .. } => {
-                    match expr {
-                        Expression::FunctionCall { name, args } => {
-                            assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
-                            assert_eq!(args.len(), 2, "SYNAPTIC_WEIGHT should have 2 arguments");
-                        }
-                        _ => panic!("Expected FunctionCall expression"),
+                SelectItem::Expression { expr, .. } => match expr {
+                    Expression::FunctionCall { name, args } => {
+                        assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
+                        assert_eq!(args.len(), 2, "SYNAPTIC_WEIGHT should have 2 arguments");
                     }
-                }
+                    _ => panic!("Expected FunctionCall expression"),
+                },
                 _ => panic!("Expected Expression SelectItem"),
             }
         }
@@ -1710,22 +1705,22 @@ async fn test_synaptic_weight_execution() {
     );
 
     let query_result = result.unwrap();
-    
+
     // Verify result structure
     assert!(
-        query_result.rows.len() > 0,
+        !query_result.rows.is_empty(),
         "Expected at least one row in result"
     );
-    
+
     // Verify synaptic weight column exists and has valid values
     if let Some(first_row) = query_result.rows.first() {
         // Check if the result contains a synaptic weight value
-        let has_synaptic_weight = first_row.values().any(|v| {
-            matches!(v, QueryValue::SynapticWeight(_))
-        });
-        
+        let has_synaptic_weight = first_row
+            .values()
+            .any(|v| matches!(v, QueryValue::SynapticWeight(_)));
+
         assert!(
-            has_synaptic_weight || first_row.len() > 0,
+            has_synaptic_weight || !first_row.is_empty(),
             "Expected synaptic weight value or at least some data in result"
         );
     }
