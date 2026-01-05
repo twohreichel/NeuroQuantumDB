@@ -1359,6 +1359,14 @@ pub async fn get_performance_stats(
         return Err(ApiError::Forbidden("Read permission required".to_string()));
     }
 
+    // Estimation ratios for neural/quantum operations
+    // These represent the approximate percentage of total queries that use each feature
+    const NEURAL_OPS_RATIO: f32 = 0.1; // ~10% of queries use neural matching (NEUROMATCH, etc.)
+    const QUANTUM_OPS_RATIO: f32 = 0.05; // ~5% of queries use quantum search
+    const SYNAPTIC_UPDATES_PER_QUERY: f64 = 10.0; // Average synaptic weight updates per query
+    // Estimated average bytes per record for record count estimation
+    const ESTIMATED_BYTES_PER_RECORD: u64 = 100;
+
     // Collect real system metrics using sysinfo
     use sysinfo::{Disks, Networks, System};
     let mut sys = System::new_all();
@@ -1377,43 +1385,26 @@ pub async fn get_performance_stats(
         .map(|(_, data)| data.received() + data.transmitted())
         .sum::<u64>() as f64 / (1024.0 * 1024.0);
 
-    // Read system temperature (Linux-specific)
-    let temperature_celsius = {
-        #[cfg(target_os = "linux")]
-        {
-            std::fs::read_to_string("/sys/class/thermal/thermal_zone0/temp")
-                .ok()
-                .and_then(|s| s.trim().parse::<f32>().ok())
-                .map(|t| t / 1000.0)
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            None
-        }
-    };
+    // Get system temperature using shared helper function
+    let temperature_celsius = crate::metrics::get_system_temperature();
 
     // Get database metrics from storage engine
     let db = app_state.db.read().await;
     let storage = db.storage().await;
     
     // Get table count from the storage metadata
-    // Note: Tables are stored in the metadata HashMap
     let total_tables = storage.get_table_count() as u32;
     
-    // Estimate total records (this would require querying each table)
-    // For efficiency, we'll use the cached record count from metrics
-    let total_records = crate::metrics::DATABASE_SIZE_BYTES.get() as u64 / 100; // Rough estimate
+    // Estimate total records based on database size
+    // Uses database file size divided by estimated bytes per record
+    let total_records = crate::metrics::DATABASE_SIZE_BYTES.get() as u64 / ESTIMATED_BYTES_PER_RECORD;
 
     // Get query statistics from storage engine
     let query_stats = storage.get_last_query_stats();
     let cache_hit_ratio = query_stats.cache_hit_rate().unwrap_or(0.0);
     
-    // Calculate average query time from recent stats
-    let avg_query_time_ms = if query_stats.rows_examined > 0 {
-        (start.elapsed().as_micros() as f32 / 1000.0).max(0.1) // At least 0.1ms
-    } else {
-        1.0 // Default 1ms
-    };
+    // Get average query time from Prometheus histogram metrics
+    let avg_query_time_ms = crate::metrics::get_average_query_time_ms();
 
     // Get active connections from WebSocket service
     let active_connections = crate::metrics::ACTIVE_CONNECTIONS.get() as u32;
@@ -1455,13 +1446,13 @@ pub async fn get_performance_stats(
         neural_metrics: NeuralMetrics {
             active_networks: training_jobs.max(1), // At least 1 if system is running
             training_jobs,
-            inference_operations_per_second: queries_per_second * 0.1, // Estimate 10% are neural ops
+            inference_operations_per_second: queries_per_second * NEURAL_OPS_RATIO,
             average_accuracy: 0.94, // This would need to be tracked per-network
-            synaptic_updates_per_second: queries_per_second as f64 * 10.0, // Estimate
+            synaptic_updates_per_second: queries_per_second as f64 * SYNAPTIC_UPDATES_PER_QUERY,
         },
         quantum_metrics: QuantumMetrics {
             coherence_time_ms: 250.5, // Simulated quantum metrics (would need quantum hardware)
-            entanglement_operations_per_second: queries_per_second * 0.05, // Estimate 5% are quantum ops
+            entanglement_operations_per_second: queries_per_second * QUANTUM_OPS_RATIO,
             quantum_state_fidelity: 0.96, // Simulated
             measurement_error_rate: 0.02, // Simulated
         },

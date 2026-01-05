@@ -339,6 +339,37 @@ pub fn get_uptime_seconds() -> f64 {
     START_TIME.elapsed().map(|d| d.as_secs_f64()).unwrap_or(0.0)
 }
 
+/// Get system temperature in Celsius (Linux-specific, returns None on other platforms)
+pub fn get_system_temperature() -> Option<f32> {
+    #[cfg(target_os = "linux")]
+    {
+        std::fs::read_to_string("/sys/class/thermal/thermal_zone0/temp")
+            .ok()
+            .and_then(|s| s.trim().parse::<f32>().ok())
+            .map(|t| t / 1000.0)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
+/// Get average query response time in milliseconds from histogram metrics
+pub fn get_average_query_time_ms() -> f32 {
+    let sum = QUERY_RESPONSE_TIME_SECONDS
+        .with_label_values(&["crud"])
+        .get_sample_sum();
+    let count = QUERY_RESPONSE_TIME_SECONDS
+        .with_label_values(&["crud"])
+        .get_sample_count();
+    
+    if count > 0 {
+        (sum / count as f64 * 1000.0) as f32
+    } else {
+        1.0 // Default 1ms if no queries recorded
+    }
+}
+
 /// Render all metrics in Prometheus text format
 pub fn render_metrics() -> Result<String, Box<dyn std::error::Error>> {
     // Update system metrics before rendering
