@@ -2154,7 +2154,11 @@ impl QSQLParser {
     }
 
     /// Parse optional isolation level clause
-    /// Returns (isolation_level, new_position)
+    ///
+    /// # Returns
+    /// Returns `Ok((Option<String>, usize))` where:
+    /// - First element is the parsed isolation level string (None if not present)
+    /// - Second element is the new position in the token stream
     fn parse_isolation_level_clause(
         &self,
         tokens: &[TokenType],
@@ -2231,9 +2235,13 @@ impl QSQLParser {
                 pos += 1;
                 Some("SERIALIZABLE".to_string())
             }
-            _ => {
+            other => {
+                let token_desc = format!("{:?}", other);
                 return Err(QSQLError::ParseError {
-                    message: "Invalid isolation level. Expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE".to_string(),
+                    message: format!(
+                        "Invalid isolation level. Found {}, but expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE",
+                        token_desc
+                    ),
                     position: pos,
                 });
             }
