@@ -407,6 +407,17 @@ pub enum Expression {
         expr: Box<Expression>,
         negated: bool, // true for IS NOT NULL
     },
+
+    // Window function expression
+    // e.g., ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2)
+    WindowFunction {
+        /// The window function (ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, etc.)
+        function: WindowFunctionType,
+        /// Arguments for the function (e.g., column name for LAG/LEAD)
+        args: Vec<Expression>,
+        /// The OVER clause specification
+        over_clause: WindowSpec,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -418,6 +429,48 @@ pub enum Literal {
     Null,
     DNA(String),
     QuantumBit(bool, f64), // state, amplitude
+}
+
+/// Window function types for SQL window functions
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum WindowFunctionType {
+    /// ROW_NUMBER() - assigns sequential row numbers
+    RowNumber,
+    /// RANK() - assigns rank with gaps for ties
+    Rank,
+    /// DENSE_RANK() - assigns rank without gaps for ties
+    DenseRank,
+    /// LAG(column, offset, default) - accesses previous row's value
+    Lag,
+    /// LEAD(column, offset, default) - accesses next row's value
+    Lead,
+    /// NTILE(n) - distributes rows into n buckets
+    Ntile,
+    /// FIRST_VALUE(column) - returns first value in the window
+    FirstValue,
+    /// LAST_VALUE(column) - returns last value in the window
+    LastValue,
+    /// NTH_VALUE(column, n) - returns nth value in the window
+    NthValue,
+}
+
+/// Window specification for OVER clause
+/// e.g., OVER (PARTITION BY col1 ORDER BY col2 DESC)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WindowSpec {
+    /// PARTITION BY columns - divides rows into groups
+    pub partition_by: Vec<Expression>,
+    /// ORDER BY columns within each partition
+    pub order_by: Vec<OrderByItem>,
+}
+
+impl Default for WindowSpec {
+    fn default() -> Self {
+        Self {
+            partition_by: Vec::new(),
+            order_by: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

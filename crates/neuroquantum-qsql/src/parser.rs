@@ -174,6 +174,22 @@ pub enum TokenType {
     // Date/Time keywords
     Interval,
 
+    // Window function keywords
+    Over,
+    Partition,
+    By,
+    RowNumber,
+    Rank,
+    DenseRank,
+    Lag,
+    Lead,
+    Ntile,
+    FirstValue,
+    LastValue,
+    NthValue,
+    Asc,
+    Desc,
+
     // Neuromorphic keywords
     NeuroMatch,
     SynapticWeight,
@@ -784,6 +800,38 @@ impl QSQLParser {
 
                     select_list.push(SelectItem::Expression { expr, alias });
                 }
+                // Window function tokens
+                TokenType::RowNumber
+                | TokenType::Rank
+                | TokenType::DenseRank
+                | TokenType::Lag
+                | TokenType::Lead
+                | TokenType::Ntile
+                | TokenType::FirstValue
+                | TokenType::LastValue
+                | TokenType::NthValue => {
+                    // Parse window function expression
+                    let expr = self.parse_window_function(tokens, &mut i)?;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
                 TokenType::Comma => {
                     i += 1; // Skip comma and continue
                 }
@@ -1052,6 +1100,38 @@ impl QSQLParser {
                 TokenType::Extract => {
                     // Parse EXTRACT expression
                     let expr = self.parse_extract_expression(tokens, i)?;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                // Window function tokens
+                TokenType::RowNumber
+                | TokenType::Rank
+                | TokenType::DenseRank
+                | TokenType::Lag
+                | TokenType::Lead
+                | TokenType::Ntile
+                | TokenType::FirstValue
+                | TokenType::LastValue
+                | TokenType::NthValue => {
+                    // Parse window function expression
+                    let expr = self.parse_window_function(tokens, i)?;
 
                     // Check for optional AS alias
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
@@ -3339,6 +3419,22 @@ impl QSQLParser {
         // Date/Time keywords
         keywords.insert("INTERVAL".to_string(), TokenType::Interval);
 
+        // Window function keywords
+        keywords.insert("OVER".to_string(), TokenType::Over);
+        keywords.insert("PARTITION".to_string(), TokenType::Partition);
+        keywords.insert("BY".to_string(), TokenType::By);
+        keywords.insert("ROW_NUMBER".to_string(), TokenType::RowNumber);
+        keywords.insert("RANK".to_string(), TokenType::Rank);
+        keywords.insert("DENSE_RANK".to_string(), TokenType::DenseRank);
+        keywords.insert("LAG".to_string(), TokenType::Lag);
+        keywords.insert("LEAD".to_string(), TokenType::Lead);
+        keywords.insert("NTILE".to_string(), TokenType::Ntile);
+        keywords.insert("FIRST_VALUE".to_string(), TokenType::FirstValue);
+        keywords.insert("LAST_VALUE".to_string(), TokenType::LastValue);
+        keywords.insert("NTH_VALUE".to_string(), TokenType::NthValue);
+        keywords.insert("ASC".to_string(), TokenType::Asc);
+        keywords.insert("DESC".to_string(), TokenType::Desc);
+
         // Neuromorphic keywords - enhanced
         keywords.insert("NEUROMATCH".to_string(), TokenType::NeuroMatch);
         keywords.insert("SYNAPTIC_WEIGHT".to_string(), TokenType::SynapticWeight);
@@ -4058,6 +4154,17 @@ impl QSQLParser {
                 })
             }
 
+            // Window function tokens (ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, etc.)
+            TokenType::RowNumber
+            | TokenType::Rank
+            | TokenType::DenseRank
+            | TokenType::Lag
+            | TokenType::Lead
+            | TokenType::Ntile
+            | TokenType::FirstValue
+            | TokenType::LastValue
+            | TokenType::NthValue => self.parse_window_function(tokens, i),
+
             _ => Err(QSQLError::ParseError {
                 message: format!("Unexpected token in expression: {:?}", tokens[*i]),
                 position: *i,
@@ -4171,6 +4278,272 @@ impl QSQLParser {
         Ok(Expression::FunctionCall {
             name: function_name,
             args,
+        })
+    }
+
+    /// Parse window function expression
+    /// e.g., ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2)
+    ///       LAG(column, 1, 0) OVER (ORDER BY id)
+    fn parse_window_function(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Expression> {
+        // Determine the window function type based on the token
+        let function = match &tokens[*i] {
+            TokenType::RowNumber => WindowFunctionType::RowNumber,
+            TokenType::Rank => WindowFunctionType::Rank,
+            TokenType::DenseRank => WindowFunctionType::DenseRank,
+            TokenType::Lag => WindowFunctionType::Lag,
+            TokenType::Lead => WindowFunctionType::Lead,
+            TokenType::Ntile => WindowFunctionType::Ntile,
+            TokenType::FirstValue => WindowFunctionType::FirstValue,
+            TokenType::LastValue => WindowFunctionType::LastValue,
+            TokenType::NthValue => WindowFunctionType::NthValue,
+            _ => {
+                return Err(QSQLError::ParseError {
+                    message: format!("Unexpected window function token: {:?}", tokens[*i]),
+                    position: *i,
+                });
+            }
+        };
+        *i += 1; // consume the function token
+
+        // Expect opening parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after window function".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume '('
+
+        // Parse function arguments (for LAG, LEAD, NTILE, etc.)
+        let mut args = Vec::new();
+        loop {
+            if *i >= tokens.len() {
+                return Err(QSQLError::ParseError {
+                    message: "Unclosed window function".to_string(),
+                    position: *i,
+                });
+            }
+
+            if matches!(tokens[*i], TokenType::RightParen) {
+                *i += 1; // consume ')'
+                break;
+            }
+
+            // Parse argument expression
+            let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+            args.push(arg);
+
+            // Check for comma or closing paren
+            if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                *i += 1; // consume ','
+            }
+        }
+
+        // Expect OVER keyword
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Over) {
+            return Err(QSQLError::ParseError {
+                message: "Expected OVER clause after window function".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume 'OVER'
+
+        // Parse the OVER clause
+        let over_clause = self.parse_window_spec(tokens, i)?;
+
+        Ok(Expression::WindowFunction {
+            function,
+            args,
+            over_clause,
+        })
+    }
+
+    /// Parse window specification (OVER clause)
+    /// e.g., (PARTITION BY col1, col2 ORDER BY col3 DESC)
+    fn parse_window_spec(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<WindowSpec> {
+        // Expect opening parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected '(' after OVER".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume '('
+
+        let mut partition_by = Vec::new();
+        let mut order_by = Vec::new();
+
+        // Parse PARTITION BY clause (optional)
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Partition) {
+            *i += 1; // consume 'PARTITION'
+
+            // Expect BY
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::By) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected BY after PARTITION".to_string(),
+                    position: *i,
+                });
+            }
+            *i += 1; // consume 'BY'
+
+            // Parse partition columns
+            loop {
+                if *i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Unexpected end of PARTITION BY clause".to_string(),
+                        position: *i,
+                    });
+                }
+
+                // Stop if we hit ORDER, ) or other keywords
+                let should_stop = match &tokens[*i] {
+                    TokenType::OrderBy | TokenType::RightParen => true,
+                    TokenType::Identifier(s) if s.to_uppercase() == "ORDER" => true,
+                    _ => false,
+                };
+                if should_stop {
+                    break;
+                }
+
+                let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+                partition_by.push(expr);
+
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                    *i += 1; // consume ','
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Parse ORDER BY clause (optional but common)
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::OrderBy) {
+            *i += 1; // consume 'ORDER' token (GROUP, ORDER keywords are followed by BY check)
+            
+            // Consume 'BY' if present as separate token
+            if *i < tokens.len() && matches!(tokens[*i], TokenType::By) {
+                *i += 1;
+            }
+
+            // Parse order by columns
+            loop {
+                if *i >= tokens.len() || matches!(tokens[*i], TokenType::RightParen) {
+                    break;
+                }
+
+                let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+                // Check for ASC/DESC
+                let ascending = if *i < tokens.len() {
+                    if matches!(tokens[*i], TokenType::Desc) {
+                        *i += 1;
+                        false
+                    } else if matches!(tokens[*i], TokenType::Asc) {
+                        *i += 1;
+                        true
+                    } else {
+                        true // default to ASC
+                    }
+                } else {
+                    true
+                };
+
+                order_by.push(OrderByItem {
+                    expression: expr,
+                    ascending,
+                });
+
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                    *i += 1; // consume ','
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Also check for ORDER as Identifier (in case "ORDER" was tokenized as Identifier)
+        if *i < tokens.len() {
+            if let TokenType::Identifier(s) = &tokens[*i] {
+                if s.to_uppercase() == "ORDER" {
+                    *i += 1; // consume 'ORDER'
+
+                    // Expect BY
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::By) {
+                        *i += 1; // consume 'BY'
+                    } else if *i < tokens.len() {
+                        if let TokenType::Identifier(s) = &tokens[*i] {
+                            if s.to_uppercase() == "BY" {
+                                *i += 1; // consume 'BY'
+                            }
+                        }
+                    }
+
+                    // Parse order by columns
+                    loop {
+                        if *i >= tokens.len() || matches!(tokens[*i], TokenType::RightParen) {
+                            break;
+                        }
+
+                        let expr =
+                            self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
+
+                        // Check for ASC/DESC
+                        let ascending = if *i < tokens.len() {
+                            if matches!(tokens[*i], TokenType::Desc) {
+                                *i += 1;
+                                false
+                            } else if matches!(tokens[*i], TokenType::Asc) {
+                                *i += 1;
+                                true
+                            } else if let TokenType::Identifier(s) = &tokens[*i] {
+                                let upper = s.to_uppercase();
+                                if upper == "DESC" {
+                                    *i += 1;
+                                    false
+                                } else if upper == "ASC" {
+                                    *i += 1;
+                                    true
+                                } else {
+                                    true
+                                }
+                            } else {
+                                true // default to ASC
+                            }
+                        } else {
+                            true
+                        };
+
+                        order_by.push(OrderByItem {
+                            expression: expr,
+                            ascending,
+                        });
+
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                            *i += 1; // consume ','
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Expect closing parenthesis
+        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+            return Err(QSQLError::ParseError {
+                message: "Expected ')' at end of OVER clause".to_string(),
+                position: *i,
+            });
+        }
+        *i += 1; // consume ')'
+
+        Ok(WindowSpec {
+            partition_by,
+            order_by,
         })
     }
 
