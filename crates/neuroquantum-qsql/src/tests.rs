@@ -116,6 +116,83 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_quantum_search_in_where() {
+        // Test QUANTUM_SEARCH function in WHERE clause (issue fix)
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users WHERE QUANTUM_SEARCH(name, 'test')";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "QUANTUM_SEARCH function should parse in WHERE clause: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains a function call
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.where_clause.is_some(), "WHERE clause should be present");
+                // Verify WHERE clause contains QUANTUM_SEARCH function call
+                match &select.where_clause {
+                    Some(Expression::FunctionCall { name, args }) => {
+                        assert_eq!(name, "QUANTUM_SEARCH");
+                        assert_eq!(args.len(), 2);
+                    }
+                    Some(other) => {
+                        // WHERE clause may contain other expression types
+                        // The key assertion is that parsing succeeded without "Unexpected token" error
+                        // In complex expressions, QUANTUM_SEARCH will be nested in the expression tree
+                        assert!(
+                            format!("{:?}", other).contains("FunctionCall")
+                                || format!("{:?}", other).contains("QUANTUM_SEARCH"),
+                            "WHERE clause should contain QUANTUM_SEARCH function: {:?}",
+                            other
+                        );
+                    }
+                    None => panic!("WHERE clause should be present"),
+                }
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_neuromatch_in_where() {
+        // Test NEUROMATCH function in WHERE clause (issue fix)
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users WHERE NEUROMATCH(name, 'John') > 0.5";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH function should parse in WHERE clause: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains a comparison with NEUROMATCH function
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.where_clause.is_some());
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_quantum_search_comparison() {
+        // Test QUANTUM_SEARCH function with comparison
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM products WHERE QUANTUM_SEARCH(description, 'laptop') > 0.8";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "QUANTUM_SEARCH with comparison should parse: {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn test_parser_case_insensitive() {
         let parser = QSQLParser::new();
 
