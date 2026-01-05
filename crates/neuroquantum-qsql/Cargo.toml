@@ -35,6 +35,11 @@ chrono = { version = "0.4", features = ["serde"] }
 [dev-dependencies]
 proptest = "1.9"
 tempfile = "3.23"
+tracing-subscriber = "0.3"
+
+[[example]]
+name = "transaction_control"
+path = "examples/transaction_control.rs"
 
 [features]
 default = ["neuromorphic", "quantum", "natural-language"]

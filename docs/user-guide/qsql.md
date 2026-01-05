@@ -140,12 +140,32 @@ COMMIT;
 
 ### Isolation Levels
 
-Transactions use READ COMMITTED isolation level by default. The transaction system provides:
+Transactions use READ COMMITTED isolation level by default. You can specify a different isolation level when beginning a transaction:
+
+```sql
+-- Start transaction with specific isolation level
+BEGIN ISOLATION LEVEL READ UNCOMMITTED;
+BEGIN ISOLATION LEVEL READ COMMITTED;      -- Default
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+```
+
+**Isolation Level Comparison:**
+
+| Level | Dirty Reads | Non-Repeatable Reads | Phantom Reads | Performance |
+|-------|------------|---------------------|---------------|-------------|
+| READ UNCOMMITTED | ✓ Possible | ✓ Possible | ✓ Possible | Highest |
+| READ COMMITTED | ✗ Prevented | ✓ Possible | ✓ Possible | High (default) |
+| REPEATABLE READ | ✗ Prevented | ✗ Prevented | ✓ Possible | Medium |
+| SERIALIZABLE | ✗ Prevented | ✗ Prevented | ✗ Prevented | Lower |
+
+The transaction system provides:
 
 - **ACID guarantees**: Atomicity, Consistency, Isolation, Durability
 - **Write-Ahead Logging (WAL)**: Ensures durability and crash recovery
 - **Multi-Version Concurrency Control (MVCC)**: Allows concurrent reads and writes
 - **Deadlock detection**: Automatically detects and handles deadlocks
+- **Two-Phase Commit (2PC)**: For distributed transaction coordination
 
 ### Use Cases
 
