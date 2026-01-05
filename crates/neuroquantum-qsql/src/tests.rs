@@ -131,7 +131,10 @@ mod parser_tests {
         // Verify the parsed structure contains a function call
         match result.unwrap() {
             Statement::Select(select) => {
-                assert!(select.where_clause.is_some(), "WHERE clause should be present");
+                assert!(
+                    select.where_clause.is_some(),
+                    "WHERE clause should be present"
+                );
                 // Verify WHERE clause contains QUANTUM_SEARCH function call
                 match &select.where_clause {
                     Some(Expression::FunctionCall { name, args }) => {
