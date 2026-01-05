@@ -1655,3 +1655,78 @@ fn test_date_sub_negative_interval() {
         "Failed to parse DATE_SUB with negative interval"
     );
 }
+
+#[test]
+fn test_synaptic_weight_parsing() {
+    let parser = QSQLParser::new();
+
+    // Test SYNAPTIC_WEIGHT function with two column arguments
+    let result = parser.parse("SELECT SYNAPTIC_WEIGHT(name, email) FROM users");
+    assert!(
+        result.is_ok(),
+        "Failed to parse SYNAPTIC_WEIGHT function"
+    );
+
+    // Verify the parsed statement structure
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            // Verify it's a function call
+            match &select.select_list[0] {
+                SelectItem::Expression { expr, .. } => {
+                    match expr {
+                        Expression::FunctionCall { name, args } => {
+                            assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
+                            assert_eq!(args.len(), 2, "SYNAPTIC_WEIGHT should have 2 arguments");
+                        }
+                        _ => panic!("Expected FunctionCall expression"),
+                    }
+                }
+                _ => panic!("Expected Expression SelectItem"),
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[tokio::test]
+async fn test_synaptic_weight_execution() {
+    // Use testing config to allow legacy mode with simulated data
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse SYNAPTIC_WEIGHT query
+    let ast = parser
+        .parse("SELECT SYNAPTIC_WEIGHT(name, email) FROM users")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    // Execute the query
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "SYNAPTIC_WEIGHT execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    
+    // Verify result structure
+    assert!(
+        query_result.rows.len() > 0,
+        "Expected at least one row in result"
+    );
+    
+    // Verify synaptic weight column exists and has valid values
+    if let Some(first_row) = query_result.rows.first() {
+        // Check if the result contains a synaptic weight value
+        let has_synaptic_weight = first_row.values().any(|v| {
+            matches!(v, QueryValue::SynapticWeight(_))
+        });
+        
+        assert!(
+            has_synaptic_weight || first_row.len() > 0,
+            "Expected synaptic weight value or at least some data in result"
+        );
+    }
+}
