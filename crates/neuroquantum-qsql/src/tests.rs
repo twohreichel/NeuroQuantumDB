@@ -116,6 +116,68 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_quantum_search_in_where() {
+        // Test QUANTUM_SEARCH function in WHERE clause (issue fix)
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users WHERE QUANTUM_SEARCH(name, 'test')";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "QUANTUM_SEARCH function should parse in WHERE clause: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains a function call
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.where_clause.is_some());
+                if let Some(Expression::FunctionCall { name, args }) = &select.where_clause {
+                    assert_eq!(name, "QUANTUM_SEARCH");
+                    assert_eq!(args.len(), 2);
+                }
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_neuromatch_in_where() {
+        // Test NEUROMATCH function in WHERE clause (issue fix)
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users WHERE NEUROMATCH(name, 'John') > 0.5";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH function should parse in WHERE clause: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains a comparison with NEUROMATCH function
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.where_clause.is_some());
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_quantum_search_comparison() {
+        // Test QUANTUM_SEARCH function with comparison
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM products WHERE QUANTUM_SEARCH(description, 'laptop') > 0.8";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "QUANTUM_SEARCH with comparison should parse: {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn test_parser_case_insensitive() {
         let parser = QSQLParser::new();
 

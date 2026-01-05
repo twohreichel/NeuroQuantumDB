@@ -4165,6 +4165,34 @@ impl QSQLParser {
             | TokenType::LastValue
             | TokenType::NthValue => self.parse_window_function(tokens, i),
 
+            // Neuromorphic function: NEUROMATCH(column, pattern) - brain-inspired pattern matching
+            TokenType::NeuroMatch => {
+                let func_name = "NEUROMATCH".to_string();
+                *i += 1; // consume the NEUROMATCH token
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                    self.parse_function_call(tokens, i, func_name)
+                } else {
+                    Err(QSQLError::ParseError {
+                        message: "Expected '(' after NEUROMATCH function".to_string(),
+                        position: *i,
+                    })
+                }
+            }
+
+            // Quantum function: QUANTUM_SEARCH(column, pattern) - quantum-inspired search
+            TokenType::QuantumSearch => {
+                let func_name = "QUANTUM_SEARCH".to_string();
+                *i += 1; // consume the QUANTUM_SEARCH token
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                    self.parse_function_call(tokens, i, func_name)
+                } else {
+                    Err(QSQLError::ParseError {
+                        message: "Expected '(' after QUANTUM_SEARCH function".to_string(),
+                        position: *i,
+                    })
+                }
+            }
+
             _ => Err(QSQLError::ParseError {
                 message: format!("Unexpected token in expression: {:?}", tokens[*i]),
                 position: *i,
