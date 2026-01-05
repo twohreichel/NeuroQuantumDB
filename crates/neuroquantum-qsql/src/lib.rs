@@ -118,6 +118,7 @@ impl Default for CachedQueryPlan {
                     offset: None,
                     synaptic_weight: None,
                     plasticity_threshold: None,
+                    neuromatch_clause: None,
                     quantum_parallel: false,
                     grover_iterations: None,
                     with_clause: None,
