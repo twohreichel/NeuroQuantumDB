@@ -92,6 +92,32 @@ admin_ip_whitelist = [
 
 ---
 
+## ⚠️ Cluster Mode (Beta)
+
+**The cluster mode is currently in development and should not be used in production environments.**
+
+The multi-node cluster functionality is available as a **Beta/Preview feature** for testing and development purposes. The following features are still missing or incomplete:
+
+- ❌ **gRPC Network Transport** - Inter-node communication not fully implemented
+- ❌ **Complete Raft Implementation** - Consensus protocol is partial
+- ❌ **Service Discovery** - DNS/Consul/etcd integration not yet available
+- ❌ **Full Replication** - Data replication has limitations
+
+### 🎯 Deployment Recommendations
+
+| Deployment Type | Status | Use Case |
+|-----------------|--------|----------|
+| **Single-Node** | ✅ Production-Ready | Recommended for all production workloads |
+| **Multi-Node Cluster** | ⚠️ Beta/Preview | Development and testing only |
+
+**For production environments, we strongly recommend single-node deployments until the cluster module reaches stable release.**
+
+### 📅 Cluster Roadmap
+
+The full cluster implementation is planned for 2026 as part of our distributed architecture milestone. See [Future Vision](./docs/concept/06-future-vision.md#mid-term-2026-distributed-architecture) for details on the roadmap.
+
+---
+
 ## 🧪 API Testing with Postman
 
 The complete API can be tested locally with Postman:

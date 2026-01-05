@@ -62,6 +62,57 @@ compression_level = 6
 neuroquantum-api generate-jwt-secret --output config/jwt-secret.txt
 ```
 
+## Cluster Configuration (Beta)
+
+⚠️ **WARNING: Cluster mode is currently in Beta/Preview and NOT recommended for production use.**
+
+The cluster module is under active development. For production deployments, use single-node configuration.
+
+### Missing Features
+
+The following features are not yet implemented:
+
+- **gRPC Network Transport**: Inter-node communication is incomplete
+- **Full Raft Consensus**: Leader election and log replication are partial
+- **Service Discovery**: DNS/Consul/etcd integration not available
+- **Complete Replication**: Data synchronization has known limitations
+
+### Cluster Configuration (Experimental)
+
+If you want to test the cluster functionality in a development environment:
+
+```toml
+# config/cluster.toml (EXPERIMENTAL - DO NOT USE IN PRODUCTION)
+
+[cluster]
+enabled = false  # Keep disabled for production
+node_id = 1
+bind_addr = "0.0.0.0:9000"
+
+# Peer nodes (if cluster enabled)
+peers = [
+    "node2:9000",
+    "node3:9000"
+]
+
+[cluster.discovery]
+# Service discovery (not yet implemented)
+# method = "dns"  # or "consul", "etcd"
+# endpoint = "neuroquantumdb.service.consul"
+```
+
+### Deployment Recommendations
+
+| Deployment Scenario | Configuration | Status |
+|---------------------|---------------|--------|
+| **Development/Testing** | Single-node | ✅ Fully Supported |
+| **Production** | Single-node | ✅ **Recommended** |
+| **High Availability (Future)** | Multi-node cluster | ⚠️ Beta - Not Production Ready |
+
+### Roadmap
+
+Full cluster support with Raft consensus, gRPC transport, and service discovery is planned for **2026**. See the [Future Vision](../concept/06-future-vision.md) documentation for detailed roadmap.
+
 ## Next Steps
 
 → [Getting Started](getting-started.md)
