@@ -362,7 +362,7 @@ pub fn get_average_query_time_ms() -> f32 {
     let count = QUERY_RESPONSE_TIME_SECONDS
         .with_label_values(&["crud"])
         .get_sample_count();
-    
+
     if count > 0 {
         (sum / count as f64 * 1000.0) as f32
     } else {
