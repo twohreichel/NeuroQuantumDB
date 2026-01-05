@@ -5078,6 +5078,27 @@ impl QueryExecutor {
                 Ok(result.unwrap_or(QueryValue::Null))
             }
 
+            // Neuromorphic function: SYNAPTIC_WEIGHT
+            // Calculate synaptic weight between two columns using Hebbian learning principles
+            "SYNAPTIC_WEIGHT" => {
+                if args.len() < 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "SYNAPTIC_WEIGHT requires exactly 2 arguments (column1, column2)"
+                            .to_string(),
+                    });
+                }
+
+                // Get the two column values to correlate
+                let val1 = get_arg_value(0)?;
+                let val2 = get_arg_value(1)?;
+
+                // Calculate Hebbian correlation based on co-occurrence patterns
+                // "Neurons that fire together, wire together"
+                let weight = self.calculate_hebbian_weight(&val1, &val2)?;
+
+                Ok(QueryValue::SynapticWeight(weight))
+            }
+
             _ => Err(QSQLError::ExecutionError {
                 message: format!("Unknown scalar function: {}", func_name),
             }),
@@ -5208,6 +5229,84 @@ impl QueryExecutor {
         }
     }
 
+    /// Calculate Hebbian weight (synaptic correlation) between two values
+    ///
+    /// Implements the Hebbian learning principle: "Neurons that fire together, wire together"
+    /// The weight represents the correlation strength between two column values.
+    ///
+    /// Algorithm:
+    /// 1. Convert both values to normalized numeric representations
+    /// 2. Calculate correlation based on co-occurrence patterns
+    /// 3. Apply Hebbian learning formula: weight = activity1 * activity2
+    /// 4. Normalize to [0, 1] range
+    fn calculate_hebbian_weight(
+        &self,
+        val1: &QueryValue,
+        val2: &QueryValue,
+    ) -> QSQLResult<f32> {
+        // Helper to convert QueryValue to normalized activity level (0.0 to 1.0)
+        let to_activity = |v: &QueryValue| -> f32 {
+            match v {
+                QueryValue::Null => 0.0,
+                QueryValue::Boolean(b) => if *b { 1.0 } else { 0.0 },
+                QueryValue::Integer(i) => {
+                    // Normalize to [0, 1] using sigmoid-like function
+                    let x = (*i as f32) / 100.0;
+                    1.0 / (1.0 + (-x).exp())
+                }
+                QueryValue::Float(f) => {
+                    // Normalize to [0, 1] using sigmoid-like function
+                    let x = (*f as f32) / 100.0;
+                    1.0 / (1.0 + (-x).exp())
+                }
+                QueryValue::String(s) => {
+                    // Hash string to a consistent activity level
+                    let hash_value = s.bytes().fold(0u32, |acc, b| {
+                        acc.wrapping_mul(31).wrapping_add(b as u32)
+                    });
+                    (hash_value % 1000) as f32 / 1000.0
+                }
+                QueryValue::Blob(b) => {
+                    // Use blob length as a proxy for activity
+                    let len = b.len() as f32;
+                    (len % 100.0) / 100.0
+                }
+                QueryValue::DNASequence(s) => {
+                    // DNA sequence: use length normalized
+                    (s.len() as f32 % 100.0) / 100.0
+                }
+                QueryValue::SynapticWeight(w) => *w,
+                QueryValue::QuantumState(_) => 0.5, // Quantum superposition = 0.5
+            }
+        };
+
+        // Get activity levels for both values
+        let activity1 = to_activity(val1);
+        let activity2 = to_activity(val2);
+
+        // Hebbian learning: correlation is the product of activities
+        // This implements the basic Hebbian rule: Δw = η * x_i * x_j
+        // where η (learning rate) is assumed to be 1.0 for simplicity
+        let raw_weight = activity1 * activity2;
+
+        // Apply co-occurrence boost based on value similarity
+        let similarity_boost = if Self::query_values_equal(val1, val2) {
+            // Perfect match: strong correlation boost
+            1.2
+        } else if matches!((val1, val2), (QueryValue::Null, _) | (_, QueryValue::Null)) {
+            // NULL values reduce correlation
+            0.5
+        } else {
+            // Different values: moderate correlation
+            1.0
+        };
+
+        // Calculate final synaptic weight
+        let weight = (raw_weight * similarity_boost).clamp(0.0, 1.0);
+
+        Ok(weight)
+    }
+
     /// Infer the return type of a scalar function
     fn infer_scalar_function_type(&self, func_name: &str) -> DataType {
         match func_name {
@@ -5232,6 +5331,8 @@ impl QueryExecutor {
             "ABS" | "ROUND" | "CEIL" | "CEILING" | "FLOOR" | "MOD" | "POWER" | "POW" | "SQRT"
             | "SIGN" | "TRUNCATE" | "TRUNC" | "EXP" | "LN" | "LOG" | "LOG10" | "LOG2" | "PI"
             | "RANDOM" | "RAND" => DataType::Double,
+            // Neuromorphic functions
+            "SYNAPTIC_WEIGHT" => DataType::SynapticWeight,
             _ => DataType::Text,
         }
     }
