@@ -288,7 +288,7 @@ pub fn configure_app(
 
         // Health and system endpoints
         .route("/health", web::get().to(health_check))
-        .route("/metrics", web::get().to(handlers::get_metrics))
+        .route("/metrics", web::get().to(metrics))
         .route("/ws", web::get().to(websocket_handler))
 
         // API v1 routes
