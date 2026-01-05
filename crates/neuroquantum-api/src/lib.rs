@@ -143,7 +143,7 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
     )))
 }
 
-/// 📊 Prometheus metrics endpoint (requires admin permission)
+/// 📊 Prometheus metrics endpoint (public - no authentication required)
 pub async fn metrics() -> HttpResponse {
     match crate::metrics::render_metrics() {
         Ok(metrics_text) => HttpResponse::Ok()
@@ -288,7 +288,7 @@ pub fn configure_app(
 
         // Health and system endpoints
         .route("/health", web::get().to(health_check))
-        .route("/metrics", web::get().to(handlers::get_metrics))
+        .route("/metrics", web::get().to(metrics))
         .route("/ws", web::get().to(websocket_handler))
 
         // API v1 routes
