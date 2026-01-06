@@ -885,9 +885,8 @@ impl QSQLParser {
                         });
                     } else {
                         return Err(QSQLError::ParseError {
-                            message:
-                                "Expected SELECT after '(' in SELECT list for scalar subquery"
-                                    .to_string(),
+                            message: "Expected SELECT after '(' in SELECT list for scalar subquery"
+                                .to_string(),
                             position: i,
                         });
                     }
@@ -1335,9 +1334,8 @@ impl QSQLParser {
                         });
                     } else {
                         return Err(QSQLError::ParseError {
-                            message:
-                                "Expected SELECT after '(' in SELECT list for scalar subquery"
-                                    .to_string(),
+                            message: "Expected SELECT after '(' in SELECT list for scalar subquery"
+                                .to_string(),
                             position: *i,
                         });
                     }

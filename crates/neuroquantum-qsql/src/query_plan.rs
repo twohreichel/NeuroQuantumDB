@@ -1051,7 +1051,7 @@ impl QueryExecutor {
         &'a mut self,
         table_ref: &'a TableReference,
         cte_context: &'a mut CTEContext,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>> {
+    ) -> TableRowFuture<'a> {
         Box::pin(async move {
             // Check if this is a derived table (inline subquery)
             if let Some(subquery) = &table_ref.subquery {
@@ -1101,12 +1101,13 @@ impl QueryExecutor {
                 }
 
                 // Execute the CTE query
-                let cte_query = cte_context
-                    .get_definition(table_name)
-                    .cloned()
-                    .ok_or_else(|| QSQLError::ExecutionError {
-                        message: format!("CTE '{}' not found", table_name),
-                    })?;
+                let cte_query =
+                    cte_context
+                        .get_definition(table_name)
+                        .cloned()
+                        .ok_or_else(|| QSQLError::ExecutionError {
+                            message: format!("CTE '{}' not found", table_name),
+                        })?;
 
                 let cte_plan = QueryPlan {
                     statement: Statement::Select(cte_query),
@@ -7050,9 +7051,7 @@ impl QueryExecutor {
         let column_name = if !subquery.select_list.is_empty() {
             match &subquery.select_list[0] {
                 SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
-                SelectItem::Wildcard => {
-                    first_row.fields.keys().next().cloned().unwrap_or_default()
-                }
+                SelectItem::Wildcard => first_row.fields.keys().next().cloned().unwrap_or_default(),
             }
         } else {
             first_row.fields.keys().next().cloned().unwrap_or_default()
