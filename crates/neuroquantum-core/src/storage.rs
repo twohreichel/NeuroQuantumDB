@@ -1017,9 +1017,22 @@ impl StorageEngine {
             // Text conversions
             (Value::Text(s), DataType::Text) => Ok(Value::Text(s.clone())),
             (Value::Text(s), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
-                s.parse::<i64>()
-                    .map(Value::Integer)
-                    .map_err(|e| anyhow!("Cannot convert '{}' to Integer: {}", s, e))
+                let parsed = s.parse::<i64>()
+                    .map_err(|e| anyhow!("Cannot convert '{}' to Integer: {}", s, e))?;
+                // Validate integer bounds based on type
+                match new_type {
+                    DataType::Integer | DataType::Serial => {
+                        if parsed < i32::MIN as i64 || parsed > i32::MAX as i64 {
+                            return Err(anyhow!("Value {} is out of range for Integer (must be between {} and {})", 
+                                parsed, i32::MIN, i32::MAX));
+                        }
+                    }
+                    DataType::BigSerial => {
+                        // BigSerial uses i64, no additional bounds check needed
+                    }
+                    _ => {}
+                }
+                Ok(Value::Integer(parsed))
             }
             (Value::Text(s), DataType::Float) => {
                 s.parse::<f64>()
