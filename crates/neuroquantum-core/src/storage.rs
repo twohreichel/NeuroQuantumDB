@@ -944,11 +944,12 @@ impl StorageEngine {
         if table_path.exists() {
             fs::remove_file(&table_path).await?;
         }
-        fs::File::create(&table_path).await?;
         
-        // Write all rows from compressed_blocks
+        // Create file and write all rows with proper binary format
         let mut file = fs::OpenOptions::new()
-            .append(true)
+            .create(true)
+            .write(true)
+            .truncate(true)
             .open(&table_path)
             .await?;
         
@@ -971,10 +972,15 @@ impl StorageEngine {
                     format_version: 1,
                 };
                 
-                // Serialize and write
+                // Serialize the entry
                 let serialized = bincode::serialize(&entry)?;
+                
+                // Write length prefix (4 bytes)
+                let len = serialized.len() as u32;
+                file.write_all(&len.to_le_bytes()).await?;
+                
+                // Write the serialized entry
                 file.write_all(&serialized).await?;
-                file.write_all(b"\n").await?;
             }
         }
         
