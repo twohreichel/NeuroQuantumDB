@@ -127,6 +127,7 @@ pub enum TokenType {
     Add,
     Column,
     Modify,
+    Rename,
     If,
     Exists,
     Inner,
@@ -2976,9 +2977,46 @@ impl QSQLParser {
                     new_data_type,
                 }
             }
+            TokenType::Rename => {
+                i += 1;
+                // Skip optional COLUMN keyword
+                if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
+                    i += 1;
+                }
+
+                let old_name = if let TokenType::Identifier(name) = &tokens[i] {
+                    i += 1;
+                    name.clone()
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected column name after RENAME".to_string(),
+                        position: i,
+                    });
+                };
+
+                // Expect TO keyword
+                if i >= tokens.len() || !matches!(tokens[i], TokenType::To) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected TO after column name in RENAME".to_string(),
+                        position: i,
+                    });
+                }
+                i += 1;
+
+                let new_name = if let TokenType::Identifier(name) = &tokens[i] {
+                    name.clone()
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected new column name after TO".to_string(),
+                        position: i,
+                    });
+                };
+
+                AlterTableOperation::RenameColumn { old_name, new_name }
+            }
             _ => {
                 return Err(QSQLError::ParseError {
-                    message: "Expected ADD, DROP, or MODIFY after ALTER TABLE".to_string(),
+                    message: "Expected ADD, DROP, MODIFY, or RENAME after ALTER TABLE".to_string(),
                     position: i,
                 })
             }
@@ -3640,6 +3678,7 @@ impl QSQLParser {
         keywords.insert("ADD".to_string(), TokenType::Add);
         keywords.insert("COLUMN".to_string(), TokenType::Column);
         keywords.insert("MODIFY".to_string(), TokenType::Modify);
+        keywords.insert("RENAME".to_string(), TokenType::Rename);
         keywords.insert("IF".to_string(), TokenType::If);
         keywords.insert("EXISTS".to_string(), TokenType::Exists);
 

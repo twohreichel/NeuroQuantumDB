@@ -2202,17 +2202,135 @@ impl QueryExecutor {
         alter: &AlterTableStatement,
         _plan: &QueryPlan,
     ) -> QSQLResult<QueryResult> {
-        // For now, ALTER TABLE is a placeholder - storage engine doesn't expose alter_table method
-        // In a full implementation, we would need to add an alter_table method to the storage engine
+        // Get storage engine
+        let storage = self.storage_engine.as_ref().ok_or_else(|| {
+            QSQLError::ExecutionError {
+                message: "Storage engine not configured".to_string(),
+            }
+        })?;
 
-        // Return an informational message
-        // TODO: Implement storage engine alter_table method
-        Err(QSQLError::ExecutionError {
-            message: format!(
-                "ALTER TABLE '{}': feature not yet fully implemented - storage engine needs alter_table() method",
-                alter.table_name
-            ),
+        // Convert AST operation to storage operation
+        let storage_op = match &alter.operation {
+            AlterTableOperation::AddColumn { column } => {
+                // Extract nullable and default value from constraints
+                let mut nullable = true;
+                let mut default_value = None;
+                let mut auto_increment = false;
+
+                for constraint in &column.constraints {
+                    match constraint {
+                        ColumnConstraint::NotNull => nullable = false,
+                        ColumnConstraint::Default(expr) => {
+                            default_value = Some(Self::convert_default_value(expr));
+                        }
+                        ColumnConstraint::AutoIncrement => auto_increment = true,
+                        _ => {}
+                    }
+                }
+
+                // Convert AST column definition to storage column definition
+                let storage_column = neuroquantum_core::storage::ColumnDefinition {
+                    name: column.name.clone(),
+                    data_type: Self::convert_data_type(&column.data_type),
+                    nullable,
+                    default_value,
+                    auto_increment,
+                };
+                neuroquantum_core::storage::AlterTableOp::AddColumn {
+                    column: storage_column,
+                }
+            }
+            AlterTableOperation::DropColumn { column_name } => {
+                neuroquantum_core::storage::AlterTableOp::DropColumn {
+                    column_name: column_name.clone(),
+                }
+            }
+            AlterTableOperation::RenameColumn { old_name, new_name } => {
+                neuroquantum_core::storage::AlterTableOp::RenameColumn {
+                    old_name: old_name.clone(),
+                    new_name: new_name.clone(),
+                }
+            }
+            AlterTableOperation::ModifyColumn {
+                column_name,
+                new_data_type,
+            } => neuroquantum_core::storage::AlterTableOp::ModifyColumn {
+                column_name: column_name.clone(),
+                new_data_type: Self::convert_data_type(new_data_type),
+            },
+        };
+
+        // Execute the alter table operation
+        let mut storage_guard = storage.write().await;
+        storage_guard
+            .alter_table(&alter.table_name, storage_op)
+            .await
+            .map_err(|e| QSQLError::ExecutionError {
+                message: format!("ALTER TABLE failed: {}", e),
+            })?;
+
+        Ok(QueryResult {
+            rows: vec![],
+            columns: vec![],
+            execution_time: Duration::from_millis(0),
+            rows_affected: 0,
+            optimization_applied: false,
+            synaptic_pathways_used: 0,
+            quantum_operations: 0,
         })
+    }
+
+    /// Convert AST DataType to storage DataType
+    fn convert_data_type(ast_type: &DataType) -> neuroquantum_core::storage::DataType {
+        match ast_type {
+            DataType::Integer | DataType::BigInt | DataType::SmallInt => {
+                neuroquantum_core::storage::DataType::Integer
+            }
+            DataType::Real | DataType::Double | DataType::Decimal(_, _) => {
+                neuroquantum_core::storage::DataType::Float
+            }
+            DataType::VarChar(_) | DataType::Varchar(_) | DataType::Char(_) | DataType::Text => {
+                neuroquantum_core::storage::DataType::Text
+            }
+            DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
+            DataType::Timestamp | DataType::Date | DataType::Time => {
+                neuroquantum_core::storage::DataType::Timestamp
+            }
+            DataType::Blob => neuroquantum_core::storage::DataType::Binary,
+            DataType::Serial => neuroquantum_core::storage::DataType::Serial,
+            DataType::BigSerial => neuroquantum_core::storage::DataType::BigSerial,
+            DataType::SmallSerial => neuroquantum_core::storage::DataType::Serial,
+            // Neuromorphic types map to their storage equivalents
+            DataType::DNASequence | DataType::NeuralPattern => {
+                neuroquantum_core::storage::DataType::Binary
+            }
+            DataType::SynapticWeight => neuroquantum_core::storage::DataType::Float,
+            DataType::PlasticityMatrix => neuroquantum_core::storage::DataType::Binary,
+            // Quantum types map to their storage equivalents
+            DataType::QuantumBit | DataType::QuantumRegister(_) => {
+                neuroquantum_core::storage::DataType::Integer
+            }
+            DataType::SuperpositionState | DataType::EntanglementPair => {
+                neuroquantum_core::storage::DataType::Binary
+            }
+        }
+    }
+
+    /// Convert AST Expression default value to storage Value
+    fn convert_default_value(expr: &Expression) -> Value {
+        match expr {
+            Expression::Literal(lit) => match lit {
+                Literal::Integer(i) => Value::Integer(*i),
+                Literal::Float(f) => Value::Float(*f),
+                Literal::String(s) => Value::Text(s.clone()),
+                Literal::Boolean(b) => Value::Boolean(*b),
+                Literal::Null => Value::Null,
+                // For complex types, use Text representation
+                _ => Value::Text(format!("{:?}", lit)),
+            },
+            // For non-literal expressions, use Text representation as fallback
+            _ => Value::Text(format!("{:?}", expr)),
+        }
     }
 
     /// Execute CREATE INDEX statement
