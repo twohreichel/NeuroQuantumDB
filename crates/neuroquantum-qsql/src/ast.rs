@@ -408,6 +408,19 @@ pub enum Expression {
         negated: bool, // true for NOT IN
     },
 
+    // EXISTS subquery expression for WHERE EXISTS (SELECT ...)
+    Exists {
+        subquery: Box<SelectStatement>,
+        negated: bool, // true for NOT EXISTS
+    },
+
+    // Scalar subquery expression - returns a single value
+    // Used in SELECT list: SELECT name, (SELECT AVG(age) FROM users) AS avg_age FROM users
+    // Used in WHERE clause: WHERE age > (SELECT AVG(age) FROM users)
+    ScalarSubquery {
+        subquery: Box<SelectStatement>,
+    },
+
     // CASE expression for conditional logic
     // CASE WHEN condition1 THEN result1 WHEN condition2 THEN result2 ... ELSE else_result END
     Case {

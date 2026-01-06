@@ -423,14 +423,17 @@ impl QueryExecutor {
             }
 
             // Check if we have subqueries that need to be resolved first
-            let has_subqueries = select
+            let has_where_subqueries = select
                 .where_clause
                 .as_ref()
                 .map(Self::contains_subquery_expression)
                 .unwrap_or(false);
 
-            // Resolve subqueries if present
-            let resolved_where_clause = if has_subqueries {
+            // Check if we have scalar subqueries in the SELECT list
+            let has_select_subqueries = Self::has_scalar_subqueries(&select.select_list);
+
+            // Resolve subqueries if present in WHERE clause
+            let resolved_where_clause = if has_where_subqueries {
                 if let Some(where_expr) = &select.where_clause {
                     Some(
                         self.resolve_subqueries_in_expression(where_expr.clone())
@@ -443,10 +446,34 @@ impl QueryExecutor {
                 select.where_clause.clone()
             };
 
+            // Resolve scalar subqueries in SELECT list
+            let resolved_select_list = if has_select_subqueries {
+                let mut new_list = Vec::new();
+                for item in &select.select_list {
+                    match item {
+                        SelectItem::Expression {
+                            expr: Expression::ScalarSubquery { subquery },
+                            alias,
+                        } => {
+                            // Execute the scalar subquery and replace with literal
+                            let value = self.execute_scalar_subquery(subquery).await?;
+                            new_list.push(SelectItem::Expression {
+                                expr: Expression::Literal(value),
+                                alias: alias.clone(),
+                            });
+                        }
+                        other => new_list.push(other.clone()),
+                    }
+                }
+                new_list
+            } else {
+                select.select_list.clone()
+            };
+
             // Create a modified select statement with resolved subqueries
-            let resolved_select = if has_subqueries {
+            let resolved_select = if has_where_subqueries || has_select_subqueries {
                 SelectStatement {
-                    select_list: select.select_list.clone(),
+                    select_list: resolved_select_list,
                     from: select.from.clone(),
                     where_clause: resolved_where_clause.clone(),
                     group_by: select.group_by.clone(),
@@ -2852,6 +2879,19 @@ impl QueryExecutor {
                 item,
                 SelectItem::Expression {
                     expr: Expression::WindowFunction { .. },
+                    ..
+                }
+            )
+        })
+    }
+
+    /// Check if select list contains scalar subqueries
+    fn has_scalar_subqueries(select_list: &[SelectItem]) -> bool {
+        select_list.iter().any(|item| {
+            matches!(
+                item,
+                SelectItem::Expression {
+                    expr: Expression::ScalarSubquery { .. },
                     ..
                 }
             )
@@ -6490,6 +6530,8 @@ impl QueryExecutor {
     fn contains_subquery_expression(expr: &Expression) -> bool {
         match expr {
             Expression::InSubquery { .. } => true,
+            Expression::Exists { .. } => true,
+            Expression::ScalarSubquery { .. } => true,
             Expression::BinaryOp { left, right, .. } => {
                 Self::contains_subquery_expression(left)
                     || Self::contains_subquery_expression(right)
@@ -6499,8 +6541,10 @@ impl QueryExecutor {
         }
     }
 
-    /// Resolve all InSubquery expressions in a WHERE clause by executing them
-    /// and converting them to InList expressions
+    /// Resolve all subquery expressions in a WHERE clause by executing them
+    /// - InSubquery -> InList
+    /// - Exists -> Boolean literal
+    /// - ScalarSubquery -> Literal value
     fn resolve_subqueries_in_expression<'a>(
         &'a mut self,
         expr: Expression,
@@ -6529,6 +6573,17 @@ impl QueryExecutor {
                         negated,
                     })
                 }
+                Expression::Exists { subquery, negated } => {
+                    // Execute the EXISTS subquery - check if it returns any rows
+                    let exists = self.execute_exists_subquery(&subquery).await?;
+                    let result = if negated { !exists } else { exists };
+                    Ok(Expression::Literal(Literal::Boolean(result)))
+                }
+                Expression::ScalarSubquery { subquery } => {
+                    // Execute the scalar subquery and return the single value
+                    let value = self.execute_scalar_subquery(&subquery).await?;
+                    Ok(Expression::Literal(value))
+                }
                 Expression::BinaryOp {
                     left,
                     operator,
@@ -6554,6 +6609,150 @@ impl QueryExecutor {
                 other => Ok(other),
             }
         })
+    }
+
+    /// Execute an EXISTS subquery - returns true if the subquery returns at least one row
+    async fn execute_exists_subquery(&mut self, subquery: &SelectStatement) -> QSQLResult<bool> {
+        // Get the table name from the subquery
+        let table_name = if let Some(from) = &subquery.from {
+            if !from.relations.is_empty() {
+                from.relations[0].name.clone()
+            } else {
+                return Err(QSQLError::ExecutionError {
+                    message: "EXISTS subquery has no table in FROM clause".to_string(),
+                });
+            }
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "EXISTS subquery missing FROM clause".to_string(),
+            });
+        };
+
+        // Build a storage query for the subquery with LIMIT 1 for efficiency
+        let storage_query = SelectQuery {
+            table: table_name,
+            columns: vec!["*".to_string()],
+            where_clause: subquery
+                .where_clause
+                .as_ref()
+                .and_then(|w| Self::convert_expression_to_where_clause_static(w).ok()),
+            order_by: None,
+            limit: Some(1), // Only need to check if at least one row exists
+            offset: None,
+        };
+
+        // Execute the subquery
+        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let rows = storage_guard
+            .select_rows(&storage_query)
+            .await
+            .map_err(|e| QSQLError::ExecutionError {
+                message: format!("EXISTS subquery execution failed: {}", e),
+            })?;
+        drop(storage_guard);
+
+        // Return true if any rows were found
+        Ok(!rows.is_empty())
+    }
+
+    /// Execute a scalar subquery and return a single value
+    async fn execute_scalar_subquery(&mut self, subquery: &SelectStatement) -> QSQLResult<Literal> {
+        // Get the table name from the subquery
+        let table_name = if let Some(from) = &subquery.from {
+            if !from.relations.is_empty() {
+                from.relations[0].name.clone()
+            } else {
+                return Err(QSQLError::ExecutionError {
+                    message: "Scalar subquery has no table in FROM clause".to_string(),
+                });
+            }
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "Scalar subquery missing FROM clause".to_string(),
+            });
+        };
+
+        // Check if this is an aggregate query (like SELECT AVG(age) FROM users)
+        let is_aggregate = subquery.select_list.iter().any(|item| {
+            if let SelectItem::Expression { expr, .. } = item {
+                self.is_aggregate_expression(expr)
+            } else {
+                false
+            }
+        });
+
+        // Build a storage query for the subquery
+        let storage_query = SelectQuery {
+            table: table_name.clone(),
+            columns: vec!["*".to_string()],
+            where_clause: subquery
+                .where_clause
+                .as_ref()
+                .and_then(|w| Self::convert_expression_to_where_clause_static(w).ok()),
+            order_by: None,
+            limit: if is_aggregate { None } else { Some(1) },
+            offset: None,
+        };
+
+        // Execute the subquery
+        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let rows = storage_guard
+            .select_rows(&storage_query)
+            .await
+            .map_err(|e| QSQLError::ExecutionError {
+                message: format!("Scalar subquery execution failed: {}", e),
+            })?;
+        drop(storage_guard);
+
+        if is_aggregate {
+            // For aggregate queries, compute the aggregate
+            let aggregates = self.extract_aggregate_functions(&subquery.select_list);
+            if let Some(first_agg) = aggregates.first() {
+                let value = self.compute_aggregate(&rows, first_agg)?;
+                return Ok(Self::query_value_to_literal(value));
+            }
+        }
+
+        // Get the first column from the first row
+        if rows.is_empty() {
+            return Ok(Literal::Null);
+        }
+
+        let first_row = &rows[0];
+
+        // Get the column name from the SELECT list
+        let column_name = if !subquery.select_list.is_empty() {
+            match &subquery.select_list[0] {
+                SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
+                SelectItem::Wildcard => {
+                    first_row.fields.keys().next().cloned().unwrap_or_default()
+                }
+            }
+        } else {
+            first_row.fields.keys().next().cloned().unwrap_or_default()
+        };
+
+        // Get the value from the first row
+        if let Some(value) = first_row.fields.get(&column_name) {
+            Ok(Self::value_to_literal(value.clone()))
+        } else {
+            Ok(Literal::Null)
+        }
+    }
+
+    /// Convert QueryValue to Literal
+    fn query_value_to_literal(value: QueryValue) -> Literal {
+        match value {
+            QueryValue::Null => Literal::Null,
+            QueryValue::Boolean(b) => Literal::Boolean(b),
+            QueryValue::Integer(i) => Literal::Integer(i),
+            QueryValue::Float(f) => Literal::Float(f),
+            QueryValue::String(s) => Literal::String(s),
+            QueryValue::Blob(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
+            QueryValue::DNASequence(s) => Literal::DNA(s),
+            QueryValue::SynapticWeight(w) => Literal::Float(w as f64),
+            QueryValue::QuantumState(s) => Literal::String(s),
+        }
     }
 
     /// Execute a subquery for IN clause and return the first column values
