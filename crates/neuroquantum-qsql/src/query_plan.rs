@@ -5806,10 +5806,16 @@ impl QueryExecutor {
             }
             Expression::FunctionCall { name, args } => {
                 // For aggregate functions in HAVING, look up the computed result
+                // The aggregate is stored with format "NAME(*)" or "NAME(column)"
                 let agg_name = if args.is_empty() {
                     format!("{}(*)", name.to_uppercase())
                 } else {
-                    let arg_str = Self::expression_to_string_static(&args[0]);
+                    // Handle the case where COUNT(*) has "*" as a Literal::String("*")
+                    let arg_str = match &args[0] {
+                        Expression::Literal(Literal::String(s)) if s == "*" => "*".to_string(),
+                        Expression::Identifier(col) => col.clone(),
+                        other => Self::expression_to_string_static(other),
+                    };
                     format!("{}({})", name.to_uppercase(), arg_str)
                 };
 
