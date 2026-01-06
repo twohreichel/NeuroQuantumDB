@@ -15,7 +15,10 @@ pub struct DiscoveryService {
     method: DiscoveryMethod,
     /// Static nodes (if using static discovery)
     static_nodes: Vec<String>,
-    /// DNS name for DNS-based discovery
+    /// DNS configuration
+    dns_config: Option<crate::config::DnsConfig>,
+    /// Legacy DNS name (for backward compatibility)
+    #[allow(deprecated)]
     dns_name: Option<String>,
     /// Consul configuration
     consul_config: Option<crate::config::ConsulConfig>,
@@ -37,6 +40,8 @@ impl DiscoveryService {
         Ok(Self {
             method: config.discovery.method.clone(),
             static_nodes: config.discovery.static_nodes.clone(),
+            dns_config: config.discovery.dns.clone(),
+            #[allow(deprecated)]
             dns_name: config.discovery.dns_name.clone(),
             consul_config: config.discovery.consul.clone(),
             etcd_config: config.discovery.etcd.clone(),
@@ -90,13 +95,24 @@ impl DiscoveryService {
 
     /// Discover nodes using DNS (e.g., Kubernetes headless service).
     async fn discover_dns(&self) -> ClusterResult<Vec<PeerInfo>> {
-        let dns_name = self.dns_name.as_ref().ok_or_else(|| {
-            ClusterError::ConfigError("DNS discovery enabled but no dns_name configured".into())
-        })?;
+        // Support both new dns config and legacy dns_name for backward compatibility
+        let (dns_name, default_port) = if let Some(dns_config) = &self.dns_config {
+            (dns_config.name.as_str(), dns_config.default_port)
+        } else {
+            #[allow(deprecated)]
+            let name = self.dns_name.as_ref().ok_or_else(|| {
+                ClusterError::ConfigError(
+                    "DNS discovery enabled but no dns configuration provided".into(),
+                )
+            })?;
+            (name.as_str(), 9000) // Default port for backward compatibility
+        };
 
         debug!(dns_name, "Using DNS node discovery");
 
         use hickory_resolver::TokioAsyncResolver;
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
 
         // Create resolver from system configuration
         let resolver = TokioAsyncResolver::tokio_from_system_conf().map_err(|e| {
@@ -118,9 +134,11 @@ impl DiscoveryService {
                         Ok(ips) => {
                             for ip in ips.iter() {
                                 let addr = SocketAddr::new(ip, port);
-                                // Generate a temporary node_id based on address
-                                // In production, node IDs would be exchanged during handshake
-                                let node_id = addr.port() as u64;
+
+                                // Generate a deterministic node_id from the full address
+                                let mut hasher = DefaultHasher::new();
+                                addr.hash(&mut hasher);
+                                let node_id = hasher.finish();
 
                                 if node_id != self.local_node_id {
                                     peers.push(PeerInfo {
@@ -144,10 +162,14 @@ impl DiscoveryService {
                 debug!("No SRV records found, trying A/AAAA records");
                 match resolver.lookup_ip(dns_name).await {
                     Ok(ips) => {
-                        // Use default port 9000 for direct A/AAAA lookups
+                        // Use configured default port for direct A/AAAA lookups
                         for ip in ips.iter() {
-                            let addr = SocketAddr::new(ip, 9000);
-                            let node_id = addr.port() as u64;
+                            let addr = SocketAddr::new(ip, default_port);
+
+                            // Generate a deterministic node_id from the full address
+                            let mut hasher = DefaultHasher::new();
+                            addr.hash(&mut hasher);
+                            let node_id = hasher.finish();
 
                             if node_id != self.local_node_id {
                                 peers.push(PeerInfo {
@@ -184,15 +206,18 @@ impl DiscoveryService {
 
         debug!(service = %consul_config.service_name, "Using Consul node discovery");
 
-        // Build Consul API URL
-        let mut url = format!(
-            "{}/v1/catalog/service/{}",
-            consul_config.address.trim_end_matches('/'),
-            consul_config.service_name
-        );
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        // Build Consul API URL with proper encoding
+        let base_url = consul_config.address.trim_end_matches('/');
+        let encoded_service = urlencoding::encode(&consul_config.service_name);
+
+        let mut url = format!("{}/v1/catalog/service/{}", base_url, encoded_service);
 
         if let Some(dc) = &consul_config.datacenter {
-            url.push_str(&format!("?dc={}", dc));
+            let encoded_dc = urlencoding::encode(dc);
+            url.push_str(&format!("?dc={}", encoded_dc));
         }
 
         // Query Consul
@@ -233,7 +258,12 @@ impl DiscoveryService {
                 .find(|tag| tag.starts_with("node_id="))
                 .and_then(|tag| tag.strip_prefix("node_id="))
                 .and_then(|id| id.parse::<u64>().ok())
-                .unwrap_or_else(|| addr.port() as u64);
+                .unwrap_or_else(|| {
+                    // Generate deterministic node_id from address if not in tags
+                    let mut hasher = DefaultHasher::new();
+                    addr.hash(&mut hasher);
+                    hasher.finish()
+                });
 
             if node_id != self.local_node_id {
                 peers.push(PeerInfo {
@@ -416,7 +446,9 @@ mod tests {
             node_id: 1,
             discovery: crate::config::DiscoveryConfig {
                 method: DiscoveryMethod::Dns,
+                #[allow(deprecated)]
                 dns_name: None, // Missing DNS name
+                dns: None, // Missing new DNS config
                 ..Default::default()
             },
             ..Default::default()
