@@ -408,3 +408,205 @@ async fn test_delete_with_dna_cleanup() {
 
     println!("✅ DELETE with DNA cleanup: SUCCESS (all rows deleted, DNA blocks freed)");
 }
+
+/// Test that DROP TABLE removes table and all associated data
+#[tokio::test]
+async fn test_drop_table_removes_table() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path();
+
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+
+    // Create test table
+    let schema = TableSchema {
+        name: "temp_table".to_string(),
+        columns: vec![
+            ColumnDefinition {
+                name: "id".to_string(),
+                data_type: DataType::Integer,
+                nullable: false,
+                default_value: None,
+                auto_increment: true,
+            },
+            ColumnDefinition {
+                name: "data".to_string(),
+                data_type: DataType::Text,
+                nullable: true,
+                default_value: None,
+                auto_increment: false,
+            },
+        ],
+        primary_key: "id".to_string(),
+        created_at: chrono::Utc::now(),
+        version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+    };
+
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
+
+        // Insert some test data
+        let mut row = neuroquantum_core::storage::Row {
+            id: 0,
+            fields: HashMap::new(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        row.fields.insert("id".to_string(), Value::Integer(1));
+        row.fields
+            .insert("data".to_string(), Value::Text("test data".to_string()));
+        storage_guard.insert_row("temp_table", row).await.unwrap();
+    }
+
+    // Create query executor with storage integration
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    // Parse and execute DROP TABLE
+    let parser = Parser::new();
+    let sql = "DROP TABLE temp_table";
+    let statement = parser.parse(sql).unwrap();
+
+    // Execute DROP TABLE
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    // Verify DROP succeeded (no error thrown)
+    assert_eq!(result.rows.len(), 0);
+
+    // Verify table no longer exists by trying to select from it
+    let select_sql = "SELECT * FROM temp_table";
+    let select_statement = parser.parse(select_sql).unwrap();
+    let select_result = executor.execute_statement(&select_statement).await;
+
+    // Should fail because table doesn't exist
+    assert!(
+        select_result.is_err(),
+        "SELECT from dropped table should fail"
+    );
+
+    println!("✅ DROP TABLE: SUCCESS (table and data removed)");
+}
+
+/// Test DROP TABLE IF EXISTS with non-existent table
+#[tokio::test]
+async fn test_drop_table_if_exists_non_existent() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path();
+
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+
+    // Create query executor with storage integration
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    // Parse and execute DROP TABLE IF EXISTS on non-existent table
+    let parser = Parser::new();
+    let sql = "DROP TABLE IF EXISTS non_existent_table";
+    let statement = parser.parse(sql).unwrap();
+
+    // Execute DROP TABLE IF EXISTS - should succeed without error
+    let result = executor.execute_statement(&statement).await;
+
+    assert!(
+        result.is_ok(),
+        "DROP TABLE IF EXISTS on non-existent table should succeed"
+    );
+
+    println!("✅ DROP TABLE IF EXISTS (non-existent): SUCCESS");
+}
+
+/// Test DROP TABLE without IF EXISTS on non-existent table fails
+#[tokio::test]
+async fn test_drop_table_non_existent_fails() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path();
+
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+
+    // Create query executor with storage integration
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    // Parse and execute DROP TABLE on non-existent table
+    let parser = Parser::new();
+    let sql = "DROP TABLE non_existent_table";
+    let statement = parser.parse(sql).unwrap();
+
+    // Execute DROP TABLE - should fail
+    let result = executor.execute_statement(&statement).await;
+
+    assert!(
+        result.is_err(),
+        "DROP TABLE on non-existent table should fail"
+    );
+
+    println!("✅ DROP TABLE (non-existent, no IF EXISTS): correctly fails");
+}
+
+/// Test that DROP TABLE cleans up table files from disk
+#[tokio::test]
+async fn test_drop_table_cleans_up_files() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path();
+
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+
+    let table_file = storage_path.join("tables").join("cleanup_test.nqdb");
+    let index_file = storage_path.join("indexes").join("cleanup_test_id.idx");
+
+    // Create test table
+    let schema = TableSchema {
+        name: "cleanup_test".to_string(),
+        columns: vec![
+            ColumnDefinition {
+                name: "id".to_string(),
+                data_type: DataType::Integer,
+                nullable: false,
+                default_value: None,
+                auto_increment: true,
+            },
+        ],
+        primary_key: "id".to_string(),
+        created_at: chrono::Utc::now(),
+        version: 1,
+        auto_increment_columns: std::collections::HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+    };
+
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
+    }
+
+    // Verify table file exists
+    assert!(table_file.exists(), "Table file should exist after CREATE");
+    assert!(index_file.exists(), "Index file should exist after CREATE");
+
+    // Create query executor with storage integration
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    // Drop the table
+    let parser = Parser::new();
+    let sql = "DROP TABLE cleanup_test";
+    let statement = parser.parse(sql).unwrap();
+    executor.execute_statement(&statement).await.unwrap();
+
+    // Verify files are cleaned up
+    assert!(
+        !table_file.exists(),
+        "Table file should be deleted after DROP"
+    );
+    assert!(
+        !index_file.exists(),
+        "Index file should be deleted after DROP"
+    );
+
+    println!("✅ DROP TABLE file cleanup: SUCCESS");
+}

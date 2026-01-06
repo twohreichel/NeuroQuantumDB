@@ -694,6 +694,113 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Drop a table and all its associated data
+    ///
+    /// This method removes:
+    /// - The table schema from metadata
+    /// - The table data file (.nqdb)
+    /// - All associated index files
+    /// - All compressed blocks for rows in the table
+    ///
+    /// # Arguments
+    /// * `table_name` - The name of the table to drop
+    /// * `if_exists` - If true, don't return an error if the table doesn't exist
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Drop a table
+    /// storage.drop_table("users", false).await?;
+    ///
+    /// // Drop a table if it exists (won't error if table doesn't exist)
+    /// storage.drop_table("maybe_exists", true).await?;
+    /// ```
+    pub async fn drop_table(&mut self, table_name: &str, if_exists: bool) -> Result<()> {
+        info!("🗑️ Dropping table: {}", table_name);
+
+        // Check if table exists
+        let schema = match self.metadata.tables.get(table_name) {
+            Some(schema) => schema.clone(),
+            None => {
+                if if_exists {
+                    debug!("Table '{}' does not exist, but IF EXISTS specified", table_name);
+                    return Ok(());
+                }
+                return Err(anyhow!("Table '{}' does not exist", table_name));
+            }
+        };
+
+        // Get all row IDs from this table before removing
+        // We need to load the table rows to know which compressed blocks to remove
+        let table_rows = self.load_table_rows(table_name).await.unwrap_or_default();
+        let row_ids: Vec<RowId> = table_rows.iter().map(|r| r.id).collect();
+
+        // Remove compressed blocks for all rows in the table
+        for row_id in &row_ids {
+            self.compressed_blocks.remove(row_id);
+            self.row_cache.pop(row_id);
+        }
+
+        // Remove all indexes for this table
+        let index_keys_to_remove: Vec<String> = self
+            .indexes
+            .keys()
+            .filter(|key| key.starts_with(&format!("{}_", table_name)))
+            .cloned()
+            .collect();
+
+        for key in &index_keys_to_remove {
+            self.indexes.remove(key);
+        }
+
+        // Delete table data file
+        let table_path = self
+            .data_dir
+            .join("tables")
+            .join(format!("{}.nqdb", table_name));
+        if table_path.exists() {
+            fs::remove_file(&table_path).await.map_err(|e| {
+                anyhow!("Failed to delete table file '{}': {}", table_path.display(), e)
+            })?;
+            debug!("Deleted table file: {}", table_path.display());
+        }
+
+        // Delete index files
+        let indexes_dir = self.data_dir.join("indexes");
+        for index_key in &index_keys_to_remove {
+            let index_path = indexes_dir.join(format!("{}.idx", index_key));
+            if index_path.exists() {
+                fs::remove_file(&index_path).await.map_err(|e| {
+                    anyhow!("Failed to delete index file '{}': {}", index_path.display(), e)
+                })?;
+                debug!("Deleted index file: {}", index_path.display());
+            }
+        }
+
+        // Also delete primary key index file (might have different naming)
+        let pk_index_path = indexes_dir.join(format!("{}_{}.idx", table_name, schema.primary_key));
+        if pk_index_path.exists() {
+            let _ = fs::remove_file(&pk_index_path).await;
+        }
+
+        // Remove table from metadata
+        self.metadata.tables.remove(table_name);
+
+        // Log the DROP TABLE operation
+        let operation = Operation::DropTable {
+            table: table_name.to_string(),
+        };
+        self.log_operation(operation).await?;
+
+        // Save updated metadata
+        self.save_metadata().await?;
+
+        // Save updated compressed blocks
+        self.save_compressed_blocks().await?;
+
+        info!("✅ Table '{}' dropped successfully ({} rows removed)", table_name, row_ids.len());
+        Ok(())
+    }
+
     /// Alter an existing table structure
     ///
     /// Supports:
