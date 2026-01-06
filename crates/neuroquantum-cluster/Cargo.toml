@@ -60,6 +60,9 @@ hashring = "0.3"
 
 # Service discovery
 hickory-resolver = "0.24.4"
+etcd-client = "0.14"
+reqwest = { version = "0.12", features = ["json"] }
+urlencoding = "2.1"
 
 # Metrics
 prometheus = { version = "0.14.0", features = ["process"] }

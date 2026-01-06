@@ -130,10 +130,53 @@ pub struct DiscoveryConfig {
     pub refresh_interval: Duration,
 
     /// DNS name for cluster discovery
+    #[deprecated(since = "0.1.0", note = "Use dns.name instead")]
     pub dns_name: Option<String>,
 
     /// Static list of nodes (used when method is Static)
     pub static_nodes: Vec<String>,
+
+    /// DNS service discovery configuration
+    pub dns: Option<DnsConfig>,
+
+    /// Consul service discovery configuration
+    pub consul: Option<ConsulConfig>,
+
+    /// etcd service discovery configuration
+    pub etcd: Option<EtcdConfig>,
+}
+
+/// DNS service discovery configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DnsConfig {
+    /// DNS name for cluster discovery
+    pub name: String,
+
+    /// Default port to use when DNS doesn't provide port information (A/AAAA records)
+    pub default_port: u16,
+}
+
+/// Consul service discovery configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsulConfig {
+    /// Consul address (e.g., "http://localhost:8500")
+    pub address: String,
+
+    /// Service name to query
+    pub service_name: String,
+
+    /// Optional datacenter
+    pub datacenter: Option<String>,
+}
+
+/// etcd service discovery configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EtcdConfig {
+    /// List of etcd endpoints (e.g., ["localhost:2379"])
+    pub endpoints: Vec<String>,
+
+    /// Prefix for node keys (e.g., "/neuroquantum/nodes/")
+    pub prefix: String,
 }
 
 /// Method for discovering cluster nodes.
@@ -218,8 +261,12 @@ impl Default for DiscoveryConfig {
         Self {
             method: DiscoveryMethod::Static,
             refresh_interval: Duration::from_secs(30),
+            #[allow(deprecated)]
             dns_name: None,
             static_nodes: Vec::new(),
+            dns: None,
+            consul: None,
+            etcd: None,
         }
     }
 }
