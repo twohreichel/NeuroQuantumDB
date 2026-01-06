@@ -4590,6 +4590,40 @@ impl QSQLParser {
             }
         }
 
+        // Check for OVER clause after aggregate functions (SUM, AVG, COUNT, MIN, MAX)
+        // This converts the function call to a window function
+        if *i < tokens.len() && matches!(tokens[*i], TokenType::Over) {
+            // Determine the aggregate window function type
+            let function = match function_name.to_uppercase().as_str() {
+                "SUM" => WindowFunctionType::Sum,
+                "AVG" => WindowFunctionType::Avg,
+                "COUNT" => WindowFunctionType::Count,
+                "MIN" => WindowFunctionType::Min,
+                "MAX" => WindowFunctionType::Max,
+                _ => {
+                    return Err(QSQLError::ParseError {
+                        message: format!(
+                            "Function '{}' cannot be used as a window function. \
+                             Supported aggregate window functions: SUM, AVG, COUNT, MIN, MAX",
+                            function_name
+                        ),
+                        position: *i,
+                    });
+                }
+            };
+
+            *i += 1; // consume 'OVER'
+
+            // Parse the OVER clause (window specification)
+            let over_clause = self.parse_window_spec(tokens, i)?;
+
+            return Ok(Expression::WindowFunction {
+                function,
+                args,
+                over_clause,
+            });
+        }
+
         Ok(Expression::FunctionCall {
             name: function_name,
             args,

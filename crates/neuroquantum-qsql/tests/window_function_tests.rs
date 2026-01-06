@@ -573,3 +573,165 @@ async fn test_count_over_execution() {
 
     println!("✅ COUNT() OVER execution: SUCCESS");
 }
+
+/// Test MIN() OVER parsing
+#[test]
+fn test_min_over_parsing() {
+    let parser = Parser::new();
+    let sql = "SELECT name, MIN(salary) OVER (PARTITION BY department) as min_salary FROM employees";
+    let result = parser.parse(sql);
+
+    assert!(
+        result.is_ok(),
+        "Failed to parse MIN() OVER: {:?}",
+        result.err()
+    );
+}
+
+/// Test MAX() OVER parsing
+#[test]
+fn test_max_over_parsing() {
+    let parser = Parser::new();
+    let sql = "SELECT name, MAX(salary) OVER (PARTITION BY department) as max_salary FROM employees";
+    let result = parser.parse(sql);
+
+    assert!(
+        result.is_ok(),
+        "Failed to parse MAX() OVER: {:?}",
+        result.err()
+    );
+}
+
+/// Test MIN() OVER execution
+#[tokio::test]
+async fn test_min_over_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, department, MIN(salary) OVER (PARTITION BY department) as min_salary FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    // Check that Engineering min salary is 90000 (Bob & Charlie)
+    for row in &result.rows {
+        if let Some(QueryValue::String(dept)) = row.get("department") {
+            if dept == "Engineering" {
+                if let Some(QueryValue::Integer(min_sal)) = row.get("min_salary").or_else(|| row.get("MIN(salary)")) {
+                    assert_eq!(*min_sal, 90000, "Engineering min salary should be 90000");
+                }
+            }
+        }
+    }
+
+    println!("✅ MIN() OVER execution: SUCCESS");
+}
+
+/// Test MAX() OVER execution
+#[tokio::test]
+async fn test_max_over_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, department, MAX(salary) OVER (PARTITION BY department) as max_salary FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    // Check that Engineering max salary is 100000 (Alice)
+    for row in &result.rows {
+        if let Some(QueryValue::String(dept)) = row.get("department") {
+            if dept == "Engineering" {
+                if let Some(QueryValue::Integer(max_sal)) = row.get("max_salary").or_else(|| row.get("MAX(salary)")) {
+                    assert_eq!(*max_sal, 100000, "Engineering max salary should be 100000");
+                }
+            }
+        }
+    }
+
+    println!("✅ MAX() OVER execution: SUCCESS");
+}
+
+/// Test FIRST_VALUE() execution
+#[tokio::test]
+async fn test_first_value_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, department, FIRST_VALUE(name) OVER (PARTITION BY department ORDER BY salary DESC) as top_earner FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    println!("✅ FIRST_VALUE() execution: SUCCESS");
+}
+
+/// Test LAST_VALUE() execution
+#[tokio::test]
+async fn test_last_value_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, department, LAST_VALUE(name) OVER (PARTITION BY department ORDER BY salary DESC) as lowest_earner FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    println!("✅ LAST_VALUE() execution: SUCCESS");
+}
+
+/// Test NTILE() execution
+#[tokio::test]
+async fn test_ntile_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, salary, NTILE(3) OVER (ORDER BY salary DESC) as salary_tier FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    // NTILE(3) on 6 rows should give 2 rows per bucket
+    let mut tier_counts = std::collections::HashMap::new();
+    for row in &result.rows {
+        if let Some(QueryValue::Integer(tier)) = row.get("salary_tier").or_else(|| row.get("NTILE(3)")) {
+            *tier_counts.entry(*tier).or_insert(0) += 1;
+        }
+    }
+
+    // Each tier should have 2 rows
+    for tier in 1..=3 {
+        assert_eq!(
+            tier_counts.get(&tier).unwrap_or(&0),
+            &2,
+            "NTILE(3) should distribute 6 rows evenly (2 per bucket)"
+        );
+    }
+
+    println!("✅ NTILE() execution: SUCCESS");
+}

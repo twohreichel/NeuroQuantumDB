@@ -476,6 +476,17 @@ pub enum WindowFunctionType {
     LastValue,
     /// NTH_VALUE(column, n) - returns nth value in the window
     NthValue,
+    // --- Phase 2: Aggregate Window Functions ---
+    /// SUM(column) OVER () - running/partition sum
+    Sum,
+    /// AVG(column) OVER () - running/partition average
+    Avg,
+    /// COUNT(*|column) OVER () - running/partition count
+    Count,
+    /// MIN(column) OVER () - running/partition minimum
+    Min,
+    /// MAX(column) OVER () - running/partition maximum
+    Max,
 }
 
 /// Window specification for OVER clause
