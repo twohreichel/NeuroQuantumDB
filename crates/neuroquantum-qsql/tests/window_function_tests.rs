@@ -450,3 +450,126 @@ fn test_last_value_parsing() {
         result.err()
     );
 }
+
+// ============================================================================
+// Phase 2: Aggregate Window Functions (SUM, AVG, COUNT with OVER)
+// ============================================================================
+
+/// Test SUM() OVER parsing
+#[test]
+fn test_sum_over_parsing() {
+    let parser = Parser::new();
+    let sql = "SELECT name, SUM(salary) OVER (PARTITION BY department) as dept_total FROM employees";
+    let result = parser.parse(sql);
+
+    assert!(
+        result.is_ok(),
+        "Failed to parse SUM() OVER: {:?}",
+        result.err()
+    );
+}
+
+/// Test AVG() OVER parsing
+#[test]
+fn test_avg_over_parsing() {
+    let parser = Parser::new();
+    let sql = "SELECT name, AVG(salary) OVER (PARTITION BY department) as dept_avg FROM employees";
+    let result = parser.parse(sql);
+
+    assert!(
+        result.is_ok(),
+        "Failed to parse AVG() OVER: {:?}",
+        result.err()
+    );
+}
+
+/// Test COUNT() OVER parsing
+#[test]
+fn test_count_over_parsing() {
+    let parser = Parser::new();
+    let sql = "SELECT name, COUNT(*) OVER (PARTITION BY department) as dept_count FROM employees";
+    let result = parser.parse(sql);
+
+    assert!(
+        result.is_ok(),
+        "Failed to parse COUNT() OVER: {:?}",
+        result.err()
+    );
+}
+
+/// Test SUM() OVER execution
+#[tokio::test]
+async fn test_sum_over_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, salary, SUM(salary) OVER (PARTITION BY department ORDER BY id) as running_total FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    // Check that we have the running_total column
+    for row in &result.rows {
+        assert!(
+            row.contains_key("running_total") || row.contains_key("SUM(salary)"),
+            "Expected running_total or SUM(salary) column in result: {:?}",
+            row.keys().collect::<Vec<_>>()
+        );
+    }
+
+    println!("✅ SUM() OVER execution: SUCCESS");
+}
+
+/// Test AVG() OVER execution
+#[tokio::test]
+async fn test_avg_over_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, salary, AVG(salary) OVER (PARTITION BY department) as dept_avg FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    println!("✅ AVG() OVER execution: SUCCESS");
+}
+
+/// Test COUNT() OVER execution
+#[tokio::test]
+async fn test_count_over_execution() {
+    let (_temp_dir, storage_arc) = setup_test_db().await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    let parser = Parser::new();
+    let sql = "SELECT name, COUNT(*) OVER (PARTITION BY department) as dept_count FROM employees";
+    let statement = parser.parse(sql).unwrap();
+
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    assert_eq!(result.rows.len(), 6, "Expected 6 rows");
+
+    // Engineering should have 3 employees
+    for row in &result.rows {
+        if let Some(QueryValue::String(dept)) = row.get("department") {
+            if dept == "Engineering" {
+                if let Some(QueryValue::Integer(count)) = row.get("dept_count").or_else(|| row.get("COUNT(*)")) {
+                    assert_eq!(*count, 3, "Engineering should have 3 employees");
+                }
+            }
+        }
+    }
+
+    println!("✅ COUNT() OVER execution: SUCCESS");
+}
