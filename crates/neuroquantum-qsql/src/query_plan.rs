@@ -2197,30 +2197,36 @@ impl QueryExecutor {
         drop: &DropTableStatement,
         _plan: &QueryPlan,
     ) -> QSQLResult<QueryResult> {
-        // For now, DROP TABLE is a placeholder - storage engine doesn't expose drop_table method
-        // In a full implementation, we would need to add a drop_table method to the storage engine
+        // Get storage engine
+        let storage_engine =
+            self.storage_engine
+                .as_ref()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: "Storage engine not configured".to_string(),
+                })?;
 
-        // If IF EXISTS is specified, silently succeed
-        if drop.if_exists {
-            return Ok(QueryResult {
+        // Drop the table using storage engine
+        let mut storage = storage_engine.write().await;
+        let result = storage.drop_table(&drop.table_name, drop.if_exists).await;
+
+        match result {
+            Ok(()) => Ok(QueryResult {
                 rows: vec![],
                 columns: vec![],
-                execution_time: Duration::from_millis(1),
+                execution_time: Duration::from_millis(10),
                 rows_affected: 0,
                 optimization_applied: false,
                 synaptic_pathways_used: 0,
                 quantum_operations: 0,
-            });
+            }),
+            Err(e) => {
+                // If the table doesn't exist and IF EXISTS was specified,
+                // the storage engine will return Ok(()) - so this is a real error
+                Err(QSQLError::ExecutionError {
+                    message: format!("Failed to drop table: {}", e),
+                })
+            }
         }
-
-        // For now, return an informational message
-        // TODO: Implement storage engine drop_table method
-        Err(QSQLError::ExecutionError {
-            message: format!(
-                "DROP TABLE '{}': feature not yet fully implemented - storage engine needs drop_table() method",
-                drop.table_name
-            ),
-        })
     }
 
     /// Execute ALTER TABLE statement
