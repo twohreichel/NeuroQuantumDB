@@ -3657,6 +3657,12 @@ impl QueryExecutor {
             WindowFunctionType::FirstValue => "FIRST_VALUE",
             WindowFunctionType::LastValue => "LAST_VALUE",
             WindowFunctionType::NthValue => "NTH_VALUE",
+            // Phase 2: Aggregate window functions
+            WindowFunctionType::Sum => "SUM",
+            WindowFunctionType::Avg => "AVG",
+            WindowFunctionType::Count => "COUNT",
+            WindowFunctionType::Min => "MIN",
+            WindowFunctionType::Max => "MAX",
         };
 
         if args.is_empty() {
@@ -3676,7 +3682,14 @@ impl QueryExecutor {
             WindowFunctionType::RowNumber
             | WindowFunctionType::Rank
             | WindowFunctionType::DenseRank
-            | WindowFunctionType::Ntile => DataType::BigInt,
+            | WindowFunctionType::Ntile
+            | WindowFunctionType::Count => DataType::BigInt,
+            // AVG always returns a floating point value
+            WindowFunctionType::Avg => DataType::Double,
+            // SUM, MIN, MAX return based on input type - default to numeric
+            WindowFunctionType::Sum
+            | WindowFunctionType::Min
+            | WindowFunctionType::Max => DataType::Double,
             // Value functions return the type of their input column
             // Default to Text for metadata; actual values preserve their original type
             WindowFunctionType::Lag
@@ -3880,6 +3893,155 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Null)
                 }
+            }
+
+            // Phase 2: Aggregate Window Functions
+            WindowFunctionType::Sum => {
+                // SUM(column) OVER (...) - sum of column values in partition
+                if args.is_empty() {
+                    return Err(QSQLError::ExecutionError {
+                        message: "SUM requires a column argument".to_string(),
+                    });
+                }
+
+                let mut sum_int: i64 = 0;
+                let mut sum_float: f64 = 0.0;
+                let mut has_float = false;
+                let mut count = 0;
+
+                for row in &sorted_partition {
+                    let val = self.evaluate_expression_value(&args[0], row)?;
+                    match val {
+                        QueryValue::Integer(i) => {
+                            sum_int += i;
+                            count += 1;
+                        }
+                        QueryValue::Float(f) => {
+                            sum_float += f;
+                            has_float = true;
+                            count += 1;
+                        }
+                        QueryValue::Null => {} // Ignore NULL values
+                        _ => {}               // Ignore non-numeric values
+                    }
+                }
+
+                if count == 0 {
+                    Ok(QueryValue::Null)
+                } else if has_float {
+                    Ok(QueryValue::Float(sum_float + sum_int as f64))
+                } else {
+                    Ok(QueryValue::Integer(sum_int))
+                }
+            }
+
+            WindowFunctionType::Avg => {
+                // AVG(column) OVER (...) - average of column values in partition
+                if args.is_empty() {
+                    return Err(QSQLError::ExecutionError {
+                        message: "AVG requires a column argument".to_string(),
+                    });
+                }
+
+                let mut sum: f64 = 0.0;
+                let mut count: i64 = 0;
+
+                for row in &sorted_partition {
+                    let val = self.evaluate_expression_value(&args[0], row)?;
+                    match val {
+                        QueryValue::Integer(i) => {
+                            sum += i as f64;
+                            count += 1;
+                        }
+                        QueryValue::Float(f) => {
+                            sum += f;
+                            count += 1;
+                        }
+                        QueryValue::Null => {} // Ignore NULL values
+                        _ => {}               // Ignore non-numeric values
+                    }
+                }
+
+                if count == 0 {
+                    Ok(QueryValue::Null)
+                } else {
+                    Ok(QueryValue::Float(sum / count as f64))
+                }
+            }
+
+            WindowFunctionType::Count => {
+                // COUNT(*|column) OVER (...) - count of rows/values in partition
+                if args.is_empty() {
+                    // COUNT(*) - count all rows in partition
+                    Ok(QueryValue::Integer(sorted_partition.len() as i64))
+                } else {
+                    // Check for COUNT(*) with literal "*"
+                    if let Expression::Literal(Literal::String(s)) = &args[0] {
+                        if s == "*" {
+                            return Ok(QueryValue::Integer(sorted_partition.len() as i64));
+                        }
+                    }
+
+                    // COUNT(column) - count non-null values
+                    let mut count: i64 = 0;
+                    for row in &sorted_partition {
+                        let val = self.evaluate_expression_value(&args[0], row)?;
+                        if !matches!(val, QueryValue::Null) {
+                            count += 1;
+                        }
+                    }
+                    Ok(QueryValue::Integer(count))
+                }
+            }
+
+            WindowFunctionType::Min => {
+                // MIN(column) OVER (...) - minimum value in partition
+                if args.is_empty() {
+                    return Err(QSQLError::ExecutionError {
+                        message: "MIN requires a column argument".to_string(),
+                    });
+                }
+
+                let mut min_value: Option<QueryValue> = None;
+
+                for row in &sorted_partition {
+                    let val = self.evaluate_expression_value(&args[0], row)?;
+                    if matches!(val, QueryValue::Null) {
+                        continue;
+                    }
+
+                    min_value = Some(match min_value {
+                        None => val,
+                        Some(existing) => self.min_query_value(existing, val),
+                    });
+                }
+
+                Ok(min_value.unwrap_or(QueryValue::Null))
+            }
+
+            WindowFunctionType::Max => {
+                // MAX(column) OVER (...) - maximum value in partition
+                if args.is_empty() {
+                    return Err(QSQLError::ExecutionError {
+                        message: "MAX requires a column argument".to_string(),
+                    });
+                }
+
+                let mut max_value: Option<QueryValue> = None;
+
+                for row in &sorted_partition {
+                    let val = self.evaluate_expression_value(&args[0], row)?;
+                    if matches!(val, QueryValue::Null) {
+                        continue;
+                    }
+
+                    max_value = Some(match max_value {
+                        None => val,
+                        Some(existing) => self.max_query_value(existing, val),
+                    });
+                }
+
+                Ok(max_value.unwrap_or(QueryValue::Null))
             }
         }
     }
