@@ -80,9 +80,12 @@ async fn main() {
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
             };
-            row.fields.insert("id".to_string(), Value::Integer((i + 1) as i64));
-            row.fields.insert("category".to_string(), Value::Text(category.to_string()));
-            row.fields.insert("amount".to_string(), Value::Float(*amount));
+            row.fields
+                .insert("id".to_string(), Value::Integer((i + 1) as i64));
+            row.fields
+                .insert("category".to_string(), Value::Text(category.to_string()));
+            row.fields
+                .insert("amount".to_string(), Value::Float(*amount));
             storage_guard.insert_row("orders", row).await.unwrap();
         }
     }
@@ -95,46 +98,64 @@ async fn main() {
     println!("=== HAVING Clause Integration Tests ===\n");
 
     // Test 1: COUNT(*) > N
-    run_test(&parser, &mut executor, 
+    run_test(
+        &parser,
+        &mut executor,
         "SELECT category, COUNT(*) FROM orders GROUP BY category HAVING COUNT(*) > 1",
         "COUNT(*) > 1",
-        3,  // Electronics (3), Books (2), Clothing (4)
-    ).await;
+        3, // Electronics (3), Books (2), Clothing (4)
+    )
+    .await;
 
-    // Test 2: COUNT(*) >= N  
-    run_test(&parser, &mut executor,
+    // Test 2: COUNT(*) >= N
+    run_test(
+        &parser,
+        &mut executor,
         "SELECT category, COUNT(*) FROM orders GROUP BY category HAVING COUNT(*) >= 3",
         "COUNT(*) >= 3",
-        2,  // Electronics (3), Clothing (4)
-    ).await;
+        2, // Electronics (3), Clothing (4)
+    )
+    .await;
 
     // Test 3: COUNT(*) = N
-    run_test(&parser, &mut executor,
+    run_test(
+        &parser,
+        &mut executor,
         "SELECT category, COUNT(*) FROM orders GROUP BY category HAVING COUNT(*) = 2",
         "COUNT(*) = 2",
-        1,  // Books (2)
-    ).await;
+        1, // Books (2)
+    )
+    .await;
 
     // Test 4: COUNT(*) < N
-    run_test(&parser, &mut executor,
+    run_test(
+        &parser,
+        &mut executor,
         "SELECT category, COUNT(*) FROM orders GROUP BY category HAVING COUNT(*) < 3",
         "COUNT(*) < 3",
-        2,  // Books (2), Food (1)
-    ).await;
+        2, // Books (2), Food (1)
+    )
+    .await;
 
     // Test 5: SUM with HAVING
-    run_test(&parser, &mut executor,
+    run_test(
+        &parser,
+        &mut executor,
         "SELECT category, SUM(amount) FROM orders GROUP BY category HAVING SUM(amount) > 200",
         "SUM(amount) > 200",
-        2,  // Electronics (600), Clothing (250)
-    ).await;
+        2, // Electronics (600), Clothing (250)
+    )
+    .await;
 
     // Test 6: AVG with HAVING
-    run_test(&parser, &mut executor,
+    run_test(
+        &parser,
+        &mut executor,
         "SELECT category, AVG(amount) FROM orders GROUP BY category HAVING AVG(amount) > 50",
         "AVG(amount) > 50",
-        3,  // Electronics (200), Books (75), Clothing (62.5)
-    ).await;
+        3, // Electronics (200), Books (75), Clothing (62.5)
+    )
+    .await;
 
     // Test 7: Logical AND in HAVING
     run_test(&parser, &mut executor,
@@ -151,44 +172,49 @@ async fn main() {
     ).await;
 
     // Test 9: NOT equal
-    run_test(&parser, &mut executor,
+    run_test(
+        &parser,
+        &mut executor,
         "SELECT category, COUNT(*) FROM orders GROUP BY category HAVING COUNT(*) <> 1",
         "COUNT(*) <> 1",
-        3,  // Electronics (3), Books (2), Clothing (4)
-    ).await;
+        3, // Electronics (3), Books (2), Clothing (4)
+    )
+    .await;
 
     println!("\n✅ All HAVING clause tests passed!");
 }
 
 async fn run_test(
-    parser: &Parser, 
-    executor: &mut QueryExecutor, 
-    sql: &str, 
-    description: &str, 
-    expected_rows: usize
+    parser: &Parser,
+    executor: &mut QueryExecutor,
+    sql: &str,
+    description: &str,
+    expected_rows: usize,
 ) {
     print!("Test: HAVING {} ... ", description);
-    
+
     match parser.parse(sql) {
-        Ok(statement) => {
-            match executor.execute_statement(&statement).await {
-                Ok(result) => {
-                    if result.rows.len() == expected_rows {
-                        println!("✓ (got {} rows)", result.rows.len());
-                    } else {
-                        println!("✗ FAILED (expected {} rows, got {})", expected_rows, result.rows.len());
-                        for row in &result.rows {
-                            println!("    Row: {:?}", row);
-                        }
-                        std::process::exit(1);
+        Ok(statement) => match executor.execute_statement(&statement).await {
+            Ok(result) => {
+                if result.rows.len() == expected_rows {
+                    println!("✓ (got {} rows)", result.rows.len());
+                } else {
+                    println!(
+                        "✗ FAILED (expected {} rows, got {})",
+                        expected_rows,
+                        result.rows.len()
+                    );
+                    for row in &result.rows {
+                        println!("    Row: {:?}", row);
                     }
-                }
-                Err(e) => {
-                    println!("✗ EXECUTION ERROR: {:?}", e);
                     std::process::exit(1);
                 }
             }
-        }
+            Err(e) => {
+                println!("✗ EXECUTION ERROR: {:?}", e);
+                std::process::exit(1);
+            }
+        },
         Err(e) => {
             println!("✗ PARSE ERROR: {:?}", e);
             std::process::exit(1);

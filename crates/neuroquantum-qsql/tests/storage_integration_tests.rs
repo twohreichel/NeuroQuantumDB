@@ -563,15 +563,13 @@ async fn test_drop_table_cleans_up_files() {
     // Create test table
     let schema = TableSchema {
         name: "cleanup_test".to_string(),
-        columns: vec![
-            ColumnDefinition {
-                name: "id".to_string(),
-                data_type: DataType::Integer,
-                nullable: false,
-                default_value: None,
-                auto_increment: true,
-            },
-        ],
+        columns: vec![ColumnDefinition {
+            name: "id".to_string(),
+            data_type: DataType::Integer,
+            nullable: false,
+            default_value: None,
+            auto_increment: true,
+        }],
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,

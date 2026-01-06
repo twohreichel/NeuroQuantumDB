@@ -3687,9 +3687,9 @@ impl QueryExecutor {
             // AVG always returns a floating point value
             WindowFunctionType::Avg => DataType::Double,
             // SUM, MIN, MAX return based on input type - default to numeric
-            WindowFunctionType::Sum
-            | WindowFunctionType::Min
-            | WindowFunctionType::Max => DataType::Double,
+            WindowFunctionType::Sum | WindowFunctionType::Min | WindowFunctionType::Max => {
+                DataType::Double
+            }
             // Value functions return the type of their input column
             // Default to Text for metadata; actual values preserve their original type
             WindowFunctionType::Lag
@@ -3922,7 +3922,7 @@ impl QueryExecutor {
                             count += 1;
                         }
                         QueryValue::Null => {} // Ignore NULL values
-                        _ => {}               // Ignore non-numeric values
+                        _ => {}                // Ignore non-numeric values
                     }
                 }
 
@@ -3958,7 +3958,7 @@ impl QueryExecutor {
                             count += 1;
                         }
                         QueryValue::Null => {} // Ignore NULL values
-                        _ => {}               // Ignore non-numeric values
+                        _ => {}                // Ignore non-numeric values
                     }
                 }
 

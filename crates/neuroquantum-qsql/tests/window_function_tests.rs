@@ -459,7 +459,8 @@ fn test_last_value_parsing() {
 #[test]
 fn test_sum_over_parsing() {
     let parser = Parser::new();
-    let sql = "SELECT name, SUM(salary) OVER (PARTITION BY department) as dept_total FROM employees";
+    let sql =
+        "SELECT name, SUM(salary) OVER (PARTITION BY department) as dept_total FROM employees";
     let result = parser.parse(sql);
 
     assert!(
@@ -564,7 +565,9 @@ async fn test_count_over_execution() {
     for row in &result.rows {
         if let Some(QueryValue::String(dept)) = row.get("department") {
             if dept == "Engineering" {
-                if let Some(QueryValue::Integer(count)) = row.get("dept_count").or_else(|| row.get("COUNT(*)")) {
+                if let Some(QueryValue::Integer(count)) =
+                    row.get("dept_count").or_else(|| row.get("COUNT(*)"))
+                {
                     assert_eq!(*count, 3, "Engineering should have 3 employees");
                 }
             }
@@ -578,7 +581,8 @@ async fn test_count_over_execution() {
 #[test]
 fn test_min_over_parsing() {
     let parser = Parser::new();
-    let sql = "SELECT name, MIN(salary) OVER (PARTITION BY department) as min_salary FROM employees";
+    let sql =
+        "SELECT name, MIN(salary) OVER (PARTITION BY department) as min_salary FROM employees";
     let result = parser.parse(sql);
 
     assert!(
@@ -592,7 +596,8 @@ fn test_min_over_parsing() {
 #[test]
 fn test_max_over_parsing() {
     let parser = Parser::new();
-    let sql = "SELECT name, MAX(salary) OVER (PARTITION BY department) as max_salary FROM employees";
+    let sql =
+        "SELECT name, MAX(salary) OVER (PARTITION BY department) as max_salary FROM employees";
     let result = parser.parse(sql);
 
     assert!(
@@ -622,7 +627,9 @@ async fn test_min_over_execution() {
     for row in &result.rows {
         if let Some(QueryValue::String(dept)) = row.get("department") {
             if dept == "Engineering" {
-                if let Some(QueryValue::Integer(min_sal)) = row.get("min_salary").or_else(|| row.get("MIN(salary)")) {
+                if let Some(QueryValue::Integer(min_sal)) =
+                    row.get("min_salary").or_else(|| row.get("MIN(salary)"))
+                {
                     assert_eq!(*min_sal, 90000, "Engineering min salary should be 90000");
                 }
             }
@@ -652,7 +659,9 @@ async fn test_max_over_execution() {
     for row in &result.rows {
         if let Some(QueryValue::String(dept)) = row.get("department") {
             if dept == "Engineering" {
-                if let Some(QueryValue::Integer(max_sal)) = row.get("max_salary").or_else(|| row.get("MAX(salary)")) {
+                if let Some(QueryValue::Integer(max_sal)) =
+                    row.get("max_salary").or_else(|| row.get("MAX(salary)"))
+                {
                     assert_eq!(*max_sal, 100000, "Engineering max salary should be 100000");
                 }
             }
@@ -709,7 +718,8 @@ async fn test_ntile_execution() {
     let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
 
     let parser = Parser::new();
-    let sql = "SELECT name, salary, NTILE(3) OVER (ORDER BY salary DESC) as salary_tier FROM employees";
+    let sql =
+        "SELECT name, salary, NTILE(3) OVER (ORDER BY salary DESC) as salary_tier FROM employees";
     let statement = parser.parse(sql).unwrap();
 
     let result = executor.execute_statement(&statement).await.unwrap();
@@ -719,7 +729,9 @@ async fn test_ntile_execution() {
     // NTILE(3) on 6 rows should give 2 rows per bucket
     let mut tier_counts = std::collections::HashMap::new();
     for row in &result.rows {
-        if let Some(QueryValue::Integer(tier)) = row.get("salary_tier").or_else(|| row.get("NTILE(3)")) {
+        if let Some(QueryValue::Integer(tier)) =
+            row.get("salary_tier").or_else(|| row.get("NTILE(3)"))
+        {
             *tier_counts.entry(*tier).or_insert(0) += 1;
         }
     }

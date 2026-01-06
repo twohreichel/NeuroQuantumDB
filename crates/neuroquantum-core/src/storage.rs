@@ -722,7 +722,10 @@ impl StorageEngine {
             Some(schema) => schema.clone(),
             None => {
                 if if_exists {
-                    debug!("Table '{}' does not exist, but IF EXISTS specified", table_name);
+                    debug!(
+                        "Table '{}' does not exist, but IF EXISTS specified",
+                        table_name
+                    );
                     return Ok(());
                 }
                 return Err(anyhow!("Table '{}' does not exist", table_name));
@@ -765,7 +768,11 @@ impl StorageEngine {
             .join(format!("{}.nqdb", table_name));
         if table_path.exists() {
             fs::remove_file(&table_path).await.map_err(|e| {
-                anyhow!("Failed to delete table file '{}': {}", table_path.display(), e)
+                anyhow!(
+                    "Failed to delete table file '{}': {}",
+                    table_path.display(),
+                    e
+                )
             })?;
             debug!("Deleted table file: {}", table_path.display());
         }
@@ -776,7 +783,11 @@ impl StorageEngine {
             let index_path = indexes_dir.join(format!("{}.idx", index_key));
             if index_path.exists() {
                 fs::remove_file(&index_path).await.map_err(|e| {
-                    anyhow!("Failed to delete index file '{}': {}", index_path.display(), e)
+                    anyhow!(
+                        "Failed to delete index file '{}': {}",
+                        index_path.display(),
+                        e
+                    )
                 })?;
                 debug!("Deleted index file: {}", index_path.display());
             }
@@ -786,9 +797,16 @@ impl StorageEngine {
         let pk_index_path = indexes_dir.join(format!("{}_{}.idx", table_name, schema.primary_key));
         if pk_index_path.exists() {
             if let Err(e) = fs::remove_file(&pk_index_path).await {
-                debug!("Warning: Could not delete primary key index file '{}': {}", pk_index_path.display(), e);
+                debug!(
+                    "Warning: Could not delete primary key index file '{}': {}",
+                    pk_index_path.display(),
+                    e
+                );
             } else {
-                debug!("Deleted primary key index file: {}", pk_index_path.display());
+                debug!(
+                    "Deleted primary key index file: {}",
+                    pk_index_path.display()
+                );
             }
         }
 
@@ -807,7 +825,11 @@ impl StorageEngine {
         // Save updated compressed blocks
         self.save_compressed_blocks().await?;
 
-        info!("✅ Table '{}' dropped successfully ({} rows removed)", table_name, row_ids.len());
+        info!(
+            "✅ Table '{}' dropped successfully ({} rows removed)",
+            table_name,
+            row_ids.len()
+        );
         Ok(())
     }
 
