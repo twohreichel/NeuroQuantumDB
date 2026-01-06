@@ -12,9 +12,7 @@ use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper function to set up test data
-async fn setup_orders_table(
-    storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>,
-) {
+async fn setup_orders_table(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>) {
     let schema = TableSchema {
         name: "orders".to_string(),
         columns: vec![
@@ -79,7 +77,8 @@ async fn setup_orders_table(
             .insert("id".to_string(), Value::Integer((i + 1) as i64));
         row.fields
             .insert("category".to_string(), Value::Text(category.to_string()));
-        row.fields.insert("amount".to_string(), Value::Float(*amount));
+        row.fields
+            .insert("amount".to_string(), Value::Float(*amount));
         storage_guard.insert_row("orders", row).await.unwrap();
     }
 }
@@ -297,7 +296,8 @@ async fn test_having_max() {
     let mut executor = QueryExecutor::with_storage(config, storage_arc).unwrap();
     let parser = Parser::new();
 
-    let sql = "SELECT category, MAX(amount) FROM orders GROUP BY category HAVING MAX(amount) >= 200";
+    let sql =
+        "SELECT category, MAX(amount) FROM orders GROUP BY category HAVING MAX(amount) >= 200";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
 
