@@ -26,6 +26,58 @@ type TableRowFuture<'a> = std::pin::Pin<
     Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>,
 >;
 
+/// Context for Common Table Expressions (CTEs) during query execution.
+/// Maps CTE names to their cached result rows.
+#[derive(Debug, Clone, Default)]
+pub struct CTEContext {
+    /// Map of CTE name to its cached rows (once executed)
+    cached_results: HashMap<String, Vec<Row>>,
+    /// Map of CTE name to its definition (SelectStatement)
+    definitions: HashMap<String, SelectStatement>,
+    /// Whether the WITH clause is RECURSIVE
+    recursive: bool,
+}
+
+impl CTEContext {
+    /// Create a new CTE context from a WITH clause
+    pub fn from_with_clause(with_clause: &WithClause) -> Self {
+        let mut definitions = HashMap::new();
+        for cte in &with_clause.ctes {
+            definitions.insert(cte.name.clone(), (*cte.query).clone());
+        }
+        Self {
+            cached_results: HashMap::new(),
+            definitions,
+            recursive: with_clause.recursive,
+        }
+    }
+
+    /// Check if a table name is a CTE reference
+    pub fn is_cte(&self, name: &str) -> bool {
+        self.definitions.contains_key(name)
+    }
+
+    /// Get the CTE definition for a given name
+    pub fn get_definition(&self, name: &str) -> Option<&SelectStatement> {
+        self.definitions.get(name)
+    }
+
+    /// Get cached result for a CTE (if already executed)
+    pub fn get_cached(&self, name: &str) -> Option<&Vec<Row>> {
+        self.cached_results.get(name)
+    }
+
+    /// Cache the result of a CTE execution
+    pub fn cache_result(&mut self, name: String, rows: Vec<Row>) {
+        self.cached_results.insert(name, rows);
+    }
+
+    /// Check if this is a recursive CTE
+    pub fn is_recursive(&self) -> bool {
+        self.recursive
+    }
+}
+
 /// Query plan executor configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutorConfig {
@@ -390,6 +442,33 @@ impl QueryExecutor {
         // Check if storage engine is available
         if self.storage_engine.is_some() {
             // Real execution with storage engine
+
+            // Build CTE context if WITH clause is present
+            let cte_context = select
+                .with_clause
+                .as_ref()
+                .map(CTEContext::from_with_clause);
+
+            // Check if we have CTE references in the FROM clause
+            let has_cte_references = if let Some(ref ctx) = cte_context {
+                select
+                    .from
+                    .as_ref()
+                    .map(|f| {
+                        f.relations.iter().any(|r| ctx.is_cte(&r.name))
+                            || f.joins.iter().any(|j| ctx.is_cte(&j.relation.name))
+                    })
+                    .unwrap_or(false)
+            } else {
+                false
+            };
+
+            // If we have CTE references, resolve them by converting to derived tables
+            if has_cte_references {
+                return self
+                    .execute_select_with_ctes(select, plan, start_time, cte_context.unwrap())
+                    .await;
+            }
 
             // Check if we have derived tables (subqueries in FROM clause)
             let has_derived_tables = select
@@ -849,6 +928,253 @@ impl QueryExecutor {
             synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
             quantum_operations: 0,
         })
+    }
+
+    /// Execute SELECT with CTE (Common Table Expression) resolution
+    ///
+    /// This method handles queries with WITH clauses by:
+    /// 1. Executing each CTE definition and caching its results
+    /// 2. Replacing CTE references in the FROM clause with cached data
+    async fn execute_select_with_ctes(
+        &mut self,
+        select: &SelectStatement,
+        plan: &QueryPlan,
+        start_time: std::time::Instant,
+        mut cte_context: CTEContext,
+    ) -> QSQLResult<QueryResult> {
+        let from = select
+            .from
+            .as_ref()
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "Missing FROM clause".to_string(),
+            })?;
+
+        // Get rows from the base table (which may be a CTE reference)
+        let base_ref = from
+            .relations
+            .first()
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "No table specified in FROM clause".to_string(),
+            })?;
+
+        let (base_rows, base_alias) = self
+            .get_rows_from_table_ref_with_cte(base_ref, &mut cte_context)
+            .await?;
+
+        // Process any JOINs (which may also reference CTEs)
+        let mut result_rows = base_rows;
+        let mut current_alias = base_alias;
+
+        for join in &from.joins {
+            let (join_rows, join_alias) = self
+                .get_rows_from_table_ref_with_cte(&join.relation, &mut cte_context)
+                .await?;
+
+            // Perform the JOIN based on type
+            result_rows = self.perform_join(
+                result_rows,
+                &current_alias,
+                join_rows,
+                &join_alias,
+                &join.join_type,
+                join.condition.as_ref(),
+            )?;
+
+            // Update current alias for next join
+            current_alias = join_alias;
+        }
+
+        // Apply WHERE clause filtering
+        let filtered_rows = if let Some(where_expr) = &select.where_clause {
+            Self::apply_post_filter(result_rows, where_expr)?
+        } else {
+            result_rows
+        };
+
+        // Apply GROUP BY and aggregation if needed
+        let processed_rows = if !select.group_by.is_empty() || self.has_aggregates(select) {
+            let group_by_columns = self.extract_group_by_columns(&select.group_by);
+            let aggregates = self.extract_aggregate_functions(&select.select_list);
+            let (agg_rows, _cols) = self.execute_grouped_aggregates(
+                &filtered_rows,
+                &aggregates,
+                &group_by_columns,
+                &select.having,
+                &select.select_list,
+            )?;
+            // Convert QueryResult rows back to storage Row format for further processing
+            self.query_result_to_storage_rows(&agg_rows)?
+        } else {
+            filtered_rows
+        };
+
+        // Apply ORDER BY
+        let ordered_rows = if !select.order_by.is_empty() {
+            Self::apply_order_by(processed_rows, &select.order_by)?
+        } else {
+            processed_rows
+        };
+
+        // Apply LIMIT and OFFSET
+        let mut final_rows = ordered_rows;
+        if let Some(offset) = select.offset {
+            if offset as usize >= final_rows.len() {
+                final_rows = Vec::new();
+            } else {
+                final_rows = final_rows.into_iter().skip(offset as usize).collect();
+            }
+        }
+        if let Some(limit) = select.limit {
+            final_rows.truncate(limit as usize);
+        }
+
+        // Convert to result format
+        let (result_rows, columns) = self.convert_storage_rows_to_result(final_rows, select)?;
+        let rows_affected = result_rows.len() as u64;
+
+        Ok(QueryResult {
+            rows: result_rows,
+            columns,
+            execution_time: start_time.elapsed(),
+            rows_affected,
+            optimization_applied: !plan.synaptic_pathways.is_empty(),
+            synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
+            quantum_operations: 0,
+        })
+    }
+
+    /// Get rows from a table reference, with CTE resolution support
+    ///
+    /// This method checks if the table reference is a CTE and executes it if so,
+    /// caching the results for potential reuse.
+    fn get_rows_from_table_ref_with_cte<'a>(
+        &'a mut self,
+        table_ref: &'a TableReference,
+        cte_context: &'a mut CTEContext,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>> {
+        Box::pin(async move {
+            // Check if this is a derived table (inline subquery)
+            if let Some(subquery) = &table_ref.subquery {
+                // This is a derived table - execute the subquery
+                let alias = table_ref
+                    .alias
+                    .clone()
+                    .ok_or_else(|| QSQLError::ExecutionError {
+                        message: "Derived table requires an alias".to_string(),
+                    })?;
+
+                // Execute the subquery
+                let subquery_plan = QueryPlan {
+                    statement: Statement::Select(subquery.as_ref().clone()),
+                    execution_strategy: ExecutionStrategy::Sequential,
+                    synaptic_pathways: vec![],
+                    quantum_optimizations: vec![],
+                    estimated_cost: 1.0,
+                    optimization_metadata: OptimizationMetadata {
+                        optimization_time: Duration::from_millis(0),
+                        iterations_used: 0,
+                        convergence_achieved: true,
+                        synaptic_adaptations: 0,
+                        quantum_optimizations_applied: 0,
+                    },
+                };
+
+                let result = self.execute(&subquery_plan).await?;
+                let storage_rows = self.query_result_to_storage_rows(&result.rows)?;
+                let aliased_rows = self.add_alias_to_rows(storage_rows, &alias);
+
+                return Ok((aliased_rows, alias));
+            }
+
+            let table_name = &table_ref.name;
+            let alias = table_ref
+                .alias
+                .clone()
+                .unwrap_or_else(|| table_name.clone());
+
+            // Check if this is a CTE reference
+            if cte_context.is_cte(table_name) {
+                // Check if we have cached results
+                if let Some(cached_rows) = cte_context.get_cached(table_name) {
+                    let aliased_rows = self.add_alias_to_rows(cached_rows.clone(), &alias);
+                    return Ok((aliased_rows, alias));
+                }
+
+                // Execute the CTE query
+                let cte_query = cte_context
+                    .get_definition(table_name)
+                    .cloned()
+                    .ok_or_else(|| QSQLError::ExecutionError {
+                        message: format!("CTE '{}' not found", table_name),
+                    })?;
+
+                let cte_plan = QueryPlan {
+                    statement: Statement::Select(cte_query),
+                    execution_strategy: ExecutionStrategy::Sequential,
+                    synaptic_pathways: vec![],
+                    quantum_optimizations: vec![],
+                    estimated_cost: 1.0,
+                    optimization_metadata: OptimizationMetadata {
+                        optimization_time: Duration::from_millis(0),
+                        iterations_used: 0,
+                        convergence_achieved: true,
+                        synaptic_adaptations: 0,
+                        quantum_optimizations_applied: 0,
+                    },
+                };
+
+                let result = self.execute(&cte_plan).await?;
+                let storage_rows = self.query_result_to_storage_rows(&result.rows)?;
+
+                // Cache the CTE result for potential reuse
+                cte_context.cache_result(table_name.clone(), storage_rows.clone());
+
+                let aliased_rows = self.add_alias_to_rows(storage_rows, &alias);
+                return Ok((aliased_rows, alias));
+            }
+
+            // This is a regular table - fetch from storage
+            let storage_query = SelectQuery {
+                table: table_name.clone(),
+                columns: vec!["*".to_string()],
+                where_clause: None,
+                order_by: None,
+                limit: None,
+                offset: None,
+            };
+
+            let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+            let rows = storage_guard
+                .select_rows(&storage_query)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to fetch table {}: {}", table_name, e),
+                })?;
+            drop(storage_guard);
+
+            let aliased_rows = self.add_alias_to_rows(rows, &alias);
+            Ok((aliased_rows, alias))
+        })
+    }
+
+    /// Add alias prefix to all column names in rows
+    fn add_alias_to_rows(&self, rows: Vec<Row>, alias: &str) -> Vec<Row> {
+        rows.into_iter()
+            .map(|row| {
+                let mut aliased_fields = HashMap::new();
+                for (col, val) in row.fields {
+                    // Add both aliased and unaliased versions
+                    aliased_fields.insert(format!("{}.{}", alias, col), val.clone());
+                    aliased_fields.insert(col, val);
+                }
+                Row {
+                    id: row.id,
+                    fields: aliased_fields,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                }
+            })
+            .collect()
     }
 
     /// Get rows from a table reference (either regular table or derived table)
