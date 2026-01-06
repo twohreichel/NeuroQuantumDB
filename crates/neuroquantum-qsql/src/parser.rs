@@ -2206,8 +2206,7 @@ impl QSQLParser {
                         }
                         _ => {
                             return Err(QSQLError::ParseError {
-                                message: "Expected UNCOMMITTED or COMMITTED after READ"
-                                    .to_string(),
+                                message: "Expected UNCOMMITTED or COMMITTED after READ".to_string(),
                                 position: pos,
                             });
                         }
@@ -2298,9 +2297,7 @@ impl QSQLParser {
         let (isolation_level, _) = self.parse_isolation_level_clause(tokens, i)?;
 
         Ok(Statement::BeginTransaction(
-            crate::ast::BeginTransactionStatement {
-                isolation_level,
-            },
+            crate::ast::BeginTransactionStatement { isolation_level },
         ))
     }
 

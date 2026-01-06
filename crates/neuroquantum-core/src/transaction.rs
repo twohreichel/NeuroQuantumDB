@@ -1189,6 +1189,12 @@ impl TransactionManager {
         Ok(())
     }
 
+    /// Get the undo log for a transaction (for storage engine rollback)
+    pub async fn get_undo_log(&self, tx_id: TransactionId) -> Option<Vec<LogRecord>> {
+        let active = self.active_transactions.read().await;
+        active.get(&tx_id).map(|tx| tx.undo_log.clone())
+    }
+
     /// Rollback a transaction
     #[instrument(skip(self))]
     pub async fn rollback(&self, tx_id: TransactionId) -> Result<(), NeuroQuantumError> {
@@ -1278,25 +1284,43 @@ impl TransactionManager {
         before_image: Option<Vec<u8>>,
         after_image: Vec<u8>,
     ) -> Result<LSN, NeuroQuantumError> {
-        let active = self.active_transactions.read().await;
-        let tx = active.get(&tx_id).ok_or_else(|| {
-            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
-        })?;
+        let record_type = LogRecordType::Update {
+            tx_id,
+            table,
+            key,
+            before_image,
+            after_image,
+        };
 
+        // Get the transaction and its last_lsn
+        let last_lsn = {
+            let active = self.active_transactions.read().await;
+            let tx = active.get(&tx_id).ok_or_else(|| {
+                NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+            })?;
+            tx.last_lsn
+        };
+
+        // Write to WAL
         let lsn = self
             .log_manager
-            .write_log_record(
-                Some(tx_id),
-                tx.last_lsn,
-                LogRecordType::Update {
-                    tx_id,
-                    table,
-                    key,
-                    before_image,
-                    after_image,
-                },
-            )
+            .write_log_record(Some(tx_id), last_lsn, record_type.clone())
             .await?;
+
+        // Add to transaction's undo log for rollback support
+        {
+            let mut active = self.active_transactions.write().await;
+            if let Some(tx) = active.get_mut(&tx_id) {
+                tx.last_lsn = Some(lsn);
+                tx.undo_log.push(LogRecord {
+                    lsn,
+                    prev_lsn: last_lsn,
+                    tx_id: Some(tx_id),
+                    record_type,
+                    timestamp: chrono::Utc::now(),
+                });
+            }
+        }
 
         Ok(lsn)
     }
