@@ -290,6 +290,25 @@ pub struct DeleteQuery {
     pub where_clause: Option<WhereClause>,
 }
 
+/// ALTER TABLE operations for schema modifications
+#[derive(Debug, Clone)]
+pub enum AlterTableOp {
+    AddColumn {
+        column: ColumnDefinition,
+    },
+    DropColumn {
+        column_name: String,
+    },
+    RenameColumn {
+        old_name: String,
+        new_name: String,
+    },
+    ModifyColumn {
+        column_name: String,
+        new_data_type: DataType,
+    },
+}
+
 #[derive(Debug, Clone)]
 pub struct WhereClause {
     pub conditions: Vec<Condition>,
@@ -360,6 +379,11 @@ pub enum Operation {
     },
     DropTable {
         table: String,
+    },
+    AlterTable {
+        table: String,
+        old_schema: TableSchema,
+        new_schema: TableSchema,
     },
 }
 
@@ -668,6 +692,314 @@ impl StorageEngine {
 
         info!("✅ Table '{}' created successfully", table_name);
         Ok(())
+    }
+
+    /// Alter an existing table structure
+    ///
+    /// Supports:
+    /// - ADD COLUMN: Add a new column with optional default value
+    /// - DROP COLUMN: Remove a column from the table
+    /// - RENAME COLUMN: Rename an existing column
+    /// - MODIFY COLUMN: Change the data type of a column
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Add a new column
+    /// storage.alter_table("users", AlterTableOp::AddColumn {
+    ///     column: ColumnDefinition { ... }
+    /// }).await?;
+    /// ```
+    pub async fn alter_table(
+        &mut self,
+        table_name: &str,
+        operation: AlterTableOp,
+    ) -> Result<()> {
+        info!("🔧 Altering table: {} ({:?})", table_name, operation);
+
+        // Get current schema
+        let old_schema = self
+            .metadata
+            .tables
+            .get(table_name)
+            .ok_or_else(|| anyhow!("Table '{}' does not exist", table_name))?
+            .clone();
+
+        // Create new schema based on operation
+        let mut new_schema = old_schema.clone();
+
+        match &operation {
+            AlterTableOp::AddColumn { column } => {
+                // Check if column already exists
+                if new_schema.columns.iter().any(|c| c.name == column.name) {
+                    return Err(anyhow!("Column '{}' already exists", column.name));
+                }
+
+                // Add the new column
+                new_schema.columns.push(column.clone());
+
+                // If it's auto-increment, add to auto_increment_columns
+                if column.auto_increment
+                    || matches!(column.data_type, DataType::Serial | DataType::BigSerial)
+                {
+                    new_schema.auto_increment_columns.insert(
+                        column.name.clone(),
+                        AutoIncrementConfig::new(&column.name),
+                    );
+                }
+
+                // Update all existing rows with default value or NULL
+                let default_value = column.default_value.clone().unwrap_or(Value::Null);
+                
+                // Collect row IDs to update (avoid borrow issues)
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                
+                for row_id in row_ids {
+                    if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
+                        // Decompress the row
+                        let mut row_data = self.decompress_row(encoded_data).await?;
+                        
+                        // Add default value for new column
+                        row_data.fields.insert(column.name.clone(), default_value.clone());
+                        row_data.updated_at = chrono::Utc::now();
+                        
+                        // Recompress and store
+                        let compressed = self.compress_row(&row_data).await?;
+                        self.compressed_blocks.insert(row_id, compressed);
+                        
+                        // Update cache if present
+                        if self.row_cache.contains(&row_id) {
+                            self.add_to_cache(row_data);
+                        }
+                    }
+                }
+            }
+            AlterTableOp::DropColumn { column_name } => {
+                // Check if column exists
+                let column_index = new_schema
+                    .columns
+                    .iter()
+                    .position(|c| c.name == *column_name)
+                    .ok_or_else(|| anyhow!("Column '{}' does not exist", column_name))?;
+
+                // Prevent dropping primary key
+                if *column_name == new_schema.primary_key {
+                    return Err(anyhow!("Cannot drop primary key column '{}'", column_name));
+                }
+
+                // Remove the column from schema
+                new_schema.columns.remove(column_index);
+
+                // Remove from auto_increment_columns if present
+                new_schema.auto_increment_columns.remove(column_name);
+
+                // Remove column data from all existing rows
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                
+                for row_id in row_ids {
+                    if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
+                        let mut row_data = self.decompress_row(encoded_data).await?;
+                        
+                        // Remove the column
+                        row_data.fields.remove(column_name);
+                        row_data.updated_at = chrono::Utc::now();
+                        
+                        // Recompress and store
+                        let compressed = self.compress_row(&row_data).await?;
+                        self.compressed_blocks.insert(row_id, compressed);
+                        
+                        // Update cache if present
+                        if self.row_cache.contains(&row_id) {
+                            self.add_to_cache(row_data);
+                        }
+                    }
+                }
+            }
+            AlterTableOp::RenameColumn { old_name, new_name } => {
+                // Check if old column exists
+                let column_index = new_schema
+                    .columns
+                    .iter()
+                    .position(|c| c.name == *old_name)
+                    .ok_or_else(|| anyhow!("Column '{}' does not exist", old_name))?;
+
+                // Check if new name is not already used
+                if new_schema.columns.iter().any(|c| c.name == *new_name) {
+                    return Err(anyhow!("Column '{}' already exists", new_name));
+                }
+
+                // Update schema
+                new_schema.columns[column_index].name = new_name.clone();
+
+                // Update primary key if renamed
+                if new_schema.primary_key == *old_name {
+                    new_schema.primary_key = new_name.clone();
+                }
+
+                // Update auto_increment_columns if present
+                if let Some(config) = new_schema.auto_increment_columns.remove(old_name) {
+                    let mut new_config = config;
+                    new_config.column_name = new_name.clone();
+                    new_schema.auto_increment_columns.insert(new_name.clone(), new_config);
+                }
+
+                // Rename column in all existing rows
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                
+                for row_id in row_ids {
+                    if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
+                        let mut row_data = self.decompress_row(encoded_data).await?;
+                        
+                        // Rename the field
+                        if let Some(value) = row_data.fields.remove(old_name) {
+                            row_data.fields.insert(new_name.clone(), value);
+                        }
+                        row_data.updated_at = chrono::Utc::now();
+                        
+                        // Recompress and store
+                        let compressed = self.compress_row(&row_data).await?;
+                        self.compressed_blocks.insert(row_id, compressed);
+                        
+                        // Update cache if present
+                        if self.row_cache.contains(&row_id) {
+                            self.add_to_cache(row_data);
+                        }
+                    }
+                }
+            }
+            AlterTableOp::ModifyColumn {
+                column_name,
+                new_data_type,
+            } => {
+                // Check if column exists
+                let column_index = new_schema
+                    .columns
+                    .iter()
+                    .position(|c| c.name == *column_name)
+                    .ok_or_else(|| anyhow!("Column '{}' does not exist", column_name))?;
+
+                let old_data_type = new_schema.columns[column_index].data_type.clone();
+
+                // Update column data type
+                new_schema.columns[column_index].data_type = new_data_type.clone();
+
+                // Convert data in all existing rows
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                
+                for row_id in row_ids {
+                    if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
+                        let mut row_data = self.decompress_row(encoded_data).await?;
+                        
+                        // Try to convert the value to new data type
+                        if let Some(old_value) = row_data.fields.get(column_name) {
+                            let new_value = self.convert_value(old_value, &old_data_type, new_data_type)?;
+                            row_data.fields.insert(column_name.clone(), new_value);
+                        }
+                        row_data.updated_at = chrono::Utc::now();
+                        
+                        // Recompress and store
+                        let compressed = self.compress_row(&row_data).await?;
+                        self.compressed_blocks.insert(row_id, compressed);
+                        
+                        // Update cache if present
+                        if self.row_cache.contains(&row_id) {
+                            self.add_to_cache(row_data);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update schema version
+        new_schema.version += 1;
+
+        // Log the operation for WAL
+        let operation_log = Operation::AlterTable {
+            table: table_name.to_string(),
+            old_schema: old_schema.clone(),
+            new_schema: new_schema.clone(),
+        };
+        self.log_operation(operation_log).await?;
+
+        // Update metadata with new schema
+        self.metadata.tables.insert(table_name.to_string(), new_schema);
+
+        // Save metadata
+        self.save_metadata().await?;
+
+        info!("✅ Table '{}' altered successfully", table_name);
+        Ok(())
+    }
+
+    /// Convert a value from one data type to another
+    fn convert_value(
+        &self,
+        value: &Value,
+        _old_type: &DataType,
+        new_type: &DataType,
+    ) -> Result<Value> {
+        match (value, new_type) {
+            // NULL remains NULL for any type
+            (Value::Null, _) => Ok(Value::Null),
+            
+            // Integer conversions
+            (Value::Integer(i), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+                Ok(Value::Integer(*i))
+            }
+            (Value::Integer(i), DataType::Float) => Ok(Value::Float(*i as f64)),
+            (Value::Integer(i), DataType::Text) => Ok(Value::Text(i.to_string())),
+            (Value::Integer(i), DataType::Boolean) => Ok(Value::Boolean(*i != 0)),
+            
+            // Float conversions
+            (Value::Float(f), DataType::Float) => Ok(Value::Float(*f)),
+            (Value::Float(f), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+                Ok(Value::Integer(*f as i64))
+            }
+            (Value::Float(f), DataType::Text) => Ok(Value::Text(f.to_string())),
+            
+            // Text conversions
+            (Value::Text(s), DataType::Text) => Ok(Value::Text(s.clone())),
+            (Value::Text(s), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+                s.parse::<i64>()
+                    .map(Value::Integer)
+                    .map_err(|e| anyhow!("Cannot convert '{}' to Integer: {}", s, e))
+            }
+            (Value::Text(s), DataType::Float) => {
+                s.parse::<f64>()
+                    .map(Value::Float)
+                    .map_err(|e| anyhow!("Cannot convert '{}' to Float: {}", s, e))
+            }
+            (Value::Text(s), DataType::Boolean) => {
+                match s.to_lowercase().as_str() {
+                    "true" | "t" | "yes" | "y" | "1" => Ok(Value::Boolean(true)),
+                    "false" | "f" | "no" | "n" | "0" => Ok(Value::Boolean(false)),
+                    _ => Err(anyhow!("Cannot convert '{}' to Boolean", s)),
+                }
+            }
+            
+            // Boolean conversions
+            (Value::Boolean(b), DataType::Boolean) => Ok(Value::Boolean(*b)),
+            (Value::Boolean(b), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+                Ok(Value::Integer(if *b { 1 } else { 0 }))
+            }
+            (Value::Boolean(b), DataType::Text) => Ok(Value::Text(b.to_string())),
+            
+            // Timestamp conversions
+            (Value::Timestamp(ts), DataType::Timestamp) => Ok(Value::Timestamp(*ts)),
+            (Value::Timestamp(ts), DataType::Text) => Ok(Value::Text(ts.to_rfc3339())),
+            
+            // Binary conversions
+            (Value::Binary(b), DataType::Binary) => Ok(Value::Binary(b.clone())),
+            (Value::Binary(b), DataType::Text) => {
+                Ok(Value::Text(format!("Binary[{} bytes]", b.len())))
+            }
+            
+            // Catch-all for unsupported conversions
+            _ => Err(anyhow!(
+                "Cannot convert {:?} to {:?}",
+                value,
+                new_type
+            )),
+        }
     }
 
     /// Insert a new row into the specified table

@@ -250,6 +250,10 @@ pub enum AlterTableOperation {
     DropColumn {
         column_name: String,
     },
+    RenameColumn {
+        old_name: String,
+        new_name: String,
+    },
     ModifyColumn {
         column_name: String,
         new_data_type: DataType,
