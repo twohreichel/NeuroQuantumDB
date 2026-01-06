@@ -9,6 +9,19 @@ use crate::config::{ClusterConfig, DiscoveryMethod};
 use crate::error::{ClusterError, ClusterResult};
 use crate::node::{NodeId, NodeRole, PeerInfo};
 
+/// Default port for DNS discovery when SRV records are not available.
+const DNS_DEFAULT_PORT: u16 = 9000;
+
+/// Generate a deterministic node ID from a socket address.
+fn generate_node_id_from_addr(addr: &SocketAddr) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    addr.hash(&mut hasher);
+    hasher.finish()
+}
+
 /// Service discovery for finding cluster nodes.
 pub struct DiscoveryService {
     /// Discovery method
@@ -105,14 +118,12 @@ impl DiscoveryService {
                     "DNS discovery enabled but no dns configuration provided".into(),
                 )
             })?;
-            (name.as_str(), 9000) // Default port for backward compatibility
+            (name.as_str(), DNS_DEFAULT_PORT) // Default port for backward compatibility
         };
 
         debug!(dns_name, "Using DNS node discovery");
 
         use hickory_resolver::TokioAsyncResolver;
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
 
         // Create resolver from system configuration
         let resolver = TokioAsyncResolver::tokio_from_system_conf().map_err(|e| {
@@ -134,11 +145,7 @@ impl DiscoveryService {
                         Ok(ips) => {
                             for ip in ips.iter() {
                                 let addr = SocketAddr::new(ip, port);
-
-                                // Generate a deterministic node_id from the full address
-                                let mut hasher = DefaultHasher::new();
-                                addr.hash(&mut hasher);
-                                let node_id = hasher.finish();
+                                let node_id = generate_node_id_from_addr(&addr);
 
                                 if node_id != self.local_node_id {
                                     peers.push(PeerInfo {
@@ -165,11 +172,7 @@ impl DiscoveryService {
                         // Use configured default port for direct A/AAAA lookups
                         for ip in ips.iter() {
                             let addr = SocketAddr::new(ip, default_port);
-
-                            // Generate a deterministic node_id from the full address
-                            let mut hasher = DefaultHasher::new();
-                            addr.hash(&mut hasher);
-                            let node_id = hasher.finish();
+                            let node_id = generate_node_id_from_addr(&addr);
 
                             if node_id != self.local_node_id {
                                 peers.push(PeerInfo {
@@ -205,9 +208,6 @@ impl DiscoveryService {
         })?;
 
         debug!(service = %consul_config.service_name, "Using Consul node discovery");
-
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
 
         // Build Consul API URL with proper encoding
         let base_url = consul_config.address.trim_end_matches('/');
@@ -258,12 +258,7 @@ impl DiscoveryService {
                 .find(|tag| tag.starts_with("node_id="))
                 .and_then(|tag| tag.strip_prefix("node_id="))
                 .and_then(|id| id.parse::<u64>().ok())
-                .unwrap_or_else(|| {
-                    // Generate deterministic node_id from address if not in tags
-                    let mut hasher = DefaultHasher::new();
-                    addr.hash(&mut hasher);
-                    hasher.finish()
-                });
+                .unwrap_or_else(|| generate_node_id_from_addr(&addr));
 
             if node_id != self.local_node_id {
                 peers.push(PeerInfo {
