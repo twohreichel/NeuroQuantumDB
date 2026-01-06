@@ -99,8 +99,9 @@ impl DiscoveryService {
         use hickory_resolver::TokioAsyncResolver;
 
         // Create resolver from system configuration
-        let resolver = TokioAsyncResolver::tokio_from_system_conf()
-            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to create DNS resolver: {}", e)))?;
+        let resolver = TokioAsyncResolver::tokio_from_system_conf().map_err(|e| {
+            ClusterError::DiscoveryError(format!("Failed to create DNS resolver: {}", e))
+        })?;
 
         let mut peers = Vec::new();
 
@@ -111,7 +112,7 @@ impl DiscoveryService {
                 for srv in srv_records.iter() {
                     let target = srv.target().to_string();
                     let port = srv.port();
-                    
+
                     // Look up A/AAAA records for the target
                     match resolver.lookup_ip(target.as_str()).await {
                         Ok(ips) => {
@@ -120,7 +121,7 @@ impl DiscoveryService {
                                 // Generate a temporary node_id based on address
                                 // In production, node IDs would be exchanged during handshake
                                 let node_id = addr.port() as u64;
-                                
+
                                 if node_id != self.local_node_id {
                                     peers.push(PeerInfo {
                                         node_id,
@@ -147,7 +148,7 @@ impl DiscoveryService {
                         for ip in ips.iter() {
                             let addr = SocketAddr::new(ip, 9000);
                             let node_id = addr.port() as u64;
-                            
+
                             if node_id != self.local_node_id {
                                 peers.push(PeerInfo {
                                     node_id,
@@ -160,9 +161,10 @@ impl DiscoveryService {
                         }
                     }
                     Err(e) => {
-                        return Err(ClusterError::DiscoveryError(
-                            format!("Failed to resolve DNS name '{}': {}", dns_name, e)
-                        ));
+                        return Err(ClusterError::DiscoveryError(format!(
+                            "Failed to resolve DNS name '{}': {}",
+                            dns_name, e
+                        )));
                     }
                 }
             }
@@ -175,40 +177,42 @@ impl DiscoveryService {
     /// Discover nodes using Consul service discovery.
     async fn discover_consul(&self) -> ClusterResult<Vec<PeerInfo>> {
         let consul_config = self.consul_config.as_ref().ok_or_else(|| {
-            ClusterError::ConfigError("Consul discovery enabled but no consul configuration provided".into())
+            ClusterError::ConfigError(
+                "Consul discovery enabled but no consul configuration provided".into(),
+            )
         })?;
 
         debug!(service = %consul_config.service_name, "Using Consul node discovery");
 
         // Build Consul API URL
-        let mut url = format!("{}/v1/catalog/service/{}", 
+        let mut url = format!(
+            "{}/v1/catalog/service/{}",
             consul_config.address.trim_end_matches('/'),
             consul_config.service_name
         );
-        
+
         if let Some(dc) = &consul_config.datacenter {
             url.push_str(&format!("?dc={}", dc));
         }
 
         // Query Consul
         let client = reqwest::Client::new();
-        let response = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to query Consul: {}", e)))?;
+        let response =
+            client.get(&url).send().await.map_err(|e| {
+                ClusterError::DiscoveryError(format!("Failed to query Consul: {}", e))
+            })?;
 
         if !response.status().is_success() {
-            return Err(ClusterError::DiscoveryError(
-                format!("Consul query failed with status: {}", response.status())
-            ));
+            return Err(ClusterError::DiscoveryError(format!(
+                "Consul query failed with status: {}",
+                response.status()
+            )));
         }
 
         // Parse response
-        let services: Vec<ConsulServiceEntry> = response
-            .json()
-            .await
-            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to parse Consul response: {}", e)))?;
+        let services: Vec<ConsulServiceEntry> = response.json().await.map_err(|e| {
+            ClusterError::DiscoveryError(format!("Failed to parse Consul response: {}", e))
+        })?;
 
         let mut peers = Vec::new();
         for service in services {
@@ -249,7 +253,9 @@ impl DiscoveryService {
     /// Discover nodes using etcd.
     async fn discover_etcd(&self) -> ClusterResult<Vec<PeerInfo>> {
         let etcd_config = self.etcd_config.as_ref().ok_or_else(|| {
-            ClusterError::ConfigError("etcd discovery enabled but no etcd configuration provided".into())
+            ClusterError::ConfigError(
+                "etcd discovery enabled but no etcd configuration provided".into(),
+            )
         })?;
 
         debug!(prefix = %etcd_config.prefix, "Using etcd node discovery");
@@ -259,7 +265,9 @@ impl DiscoveryService {
         // Connect to etcd cluster
         let mut client = Client::connect(&etcd_config.endpoints, None)
             .await
-            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to connect to etcd: {}", e)))?;
+            .map_err(|e| {
+                ClusterError::DiscoveryError(format!("Failed to connect to etcd: {}", e))
+            })?;
 
         // Query for all keys with the given prefix
         let resp = client
@@ -273,8 +281,9 @@ impl DiscoveryService {
         let mut peers = Vec::new();
         for kv in resp.kvs() {
             // Parse the value as JSON containing node registration
-            let value_str = std::str::from_utf8(kv.value())
-                .map_err(|e| ClusterError::DiscoveryError(format!("Invalid UTF-8 in etcd value: {}", e)))?;
+            let value_str = std::str::from_utf8(kv.value()).map_err(|e| {
+                ClusterError::DiscoveryError(format!("Invalid UTF-8 in etcd value: {}", e))
+            })?;
 
             match serde_json::from_str::<NodeRegistration>(value_str) {
                 Ok(registration) => {
