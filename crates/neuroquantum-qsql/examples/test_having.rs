@@ -2,8 +2,8 @@
 //!
 //! This test verifies that HAVING clause works correctly with:
 //! - Comparison operators: `=`, `<`, `>`, `<=`, `>=`, `<>`
-//! - Aggregate functions: `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()`
-//! - Logical operators: `AND`, `OR`, `NOT`
+//! - Aggregate functions: `COUNT()`, `SUM()`, `AVG()`
+//! - Logical operators: `AND`, `OR`
 
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};

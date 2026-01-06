@@ -263,3 +263,66 @@ async fn test_having_not_equal() {
     // Electronics (3), Books (2), Clothing (4)
     assert_eq!(result.rows.len(), 3);
 }
+
+/// Test HAVING with MIN aggregate
+#[tokio::test]
+async fn test_having_min() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage = StorageEngine::new(temp_dir.path()).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+    setup_orders_table(storage_arc.clone()).await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc).unwrap();
+    let parser = Parser::new();
+
+    let sql = "SELECT category, MIN(amount) FROM orders GROUP BY category HAVING MIN(amount) >= 25";
+    let statement = parser.parse(sql).unwrap();
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    // Electronics: min=100, Books: min=50, Clothing: min=25, Food: min=30
+    // All satisfy MIN(amount) >= 25
+    assert_eq!(result.rows.len(), 4);
+}
+
+/// Test HAVING with MAX aggregate
+#[tokio::test]
+async fn test_having_max() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage = StorageEngine::new(temp_dir.path()).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+    setup_orders_table(storage_arc.clone()).await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc).unwrap();
+    let parser = Parser::new();
+
+    let sql = "SELECT category, MAX(amount) FROM orders GROUP BY category HAVING MAX(amount) >= 200";
+    let statement = parser.parse(sql).unwrap();
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    // Electronics: max=300
+    // Only Electronics has max >= 200
+    assert_eq!(result.rows.len(), 1);
+}
+
+/// Test HAVING with NOT operator
+#[tokio::test]
+async fn test_having_not() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage = StorageEngine::new(temp_dir.path()).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+    setup_orders_table(storage_arc.clone()).await;
+
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc).unwrap();
+    let parser = Parser::new();
+
+    // NOT COUNT(*) < 3 is equivalent to COUNT(*) >= 3
+    let sql = "SELECT category, COUNT(*) FROM orders GROUP BY category HAVING NOT COUNT(*) < 3";
+    let statement = parser.parse(sql).unwrap();
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    // Electronics (3), Clothing (4)
+    assert_eq!(result.rows.len(), 2);
+}
