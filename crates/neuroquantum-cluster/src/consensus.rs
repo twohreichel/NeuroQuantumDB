@@ -364,6 +364,17 @@ impl RaftConsensus {
 mod tests {
     use super::*;
     use std::time::Duration;
+    use std::sync::atomic::{AtomicU16, Ordering};
+
+    // Start port counter at 10000 to avoid conflicts
+    static PORT_COUNTER: AtomicU16 = AtomicU16::new(10000);
+    
+    fn get_test_config() -> ClusterConfig {
+        let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let mut config = ClusterConfig::default();
+        config.bind_addr = format!("127.0.0.1:{}", port).parse().unwrap();
+        config
+    }
 
     #[test]
     fn test_raft_state() {
@@ -388,7 +399,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_consensus_creation() {
-        let config = ClusterConfig::default();
+        let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await;
         
@@ -397,7 +408,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_consensus_start_stop() {
-        let config = ClusterConfig::default();
+        let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
         
@@ -417,7 +428,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_heartbeat_notification() {
-        let config = ClusterConfig::default();
+        let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
         
@@ -433,7 +444,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_election_timeout_triggers_candidate_state() {
-        let mut config = ClusterConfig::default();
+        let mut config = get_test_config();
         // Set very short timeouts for testing
         config.raft.election_timeout_min = Duration::from_millis(50);
         config.raft.election_timeout_max = Duration::from_millis(100);
@@ -460,7 +471,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_heartbeat_resets_election_timer() {
-        let mut config = ClusterConfig::default();
+        let mut config = get_test_config();
         // Set short timeouts for testing
         config.raft.election_timeout_min = Duration::from_millis(100);
         config.raft.election_timeout_max = Duration::from_millis(150);
@@ -488,7 +499,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_leader_sends_heartbeats() {
-        let mut config = ClusterConfig::default();
+        let mut config = get_test_config();
         config.raft.heartbeat_interval = Duration::from_millis(50);
         
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
@@ -517,7 +528,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_random_election_timeout_range() {
-        let config = ClusterConfig::default();
+        let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config.clone()).await.unwrap();
         
