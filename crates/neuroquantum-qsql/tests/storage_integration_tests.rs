@@ -608,3 +608,133 @@ async fn test_drop_table_cleans_up_files() {
 
     println!("✅ DROP TABLE file cleanup: SUCCESS");
 }
+
+/// Test that CTE (WITH clause) queries work correctly with storage engine
+#[tokio::test]
+async fn test_cte_with_storage() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path();
+
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+
+    // Create test table
+    let schema = TableSchema {
+        name: "users".to_string(),
+        columns: vec![
+            ColumnDefinition {
+                name: "id".to_string(),
+                data_type: DataType::Integer,
+                nullable: false,
+                default_value: None,
+                auto_increment: true,
+            },
+            ColumnDefinition {
+                name: "name".to_string(),
+                data_type: DataType::Text,
+                nullable: false,
+                default_value: None,
+                auto_increment: false,
+            },
+            ColumnDefinition {
+                name: "status".to_string(),
+                data_type: DataType::Text,
+                nullable: false,
+                default_value: None,
+                auto_increment: false,
+            },
+            ColumnDefinition {
+                name: "age".to_string(),
+                data_type: DataType::Integer,
+                nullable: false,
+                default_value: None,
+                auto_increment: false,
+            },
+        ],
+        primary_key: "id".to_string(),
+        created_at: chrono::Utc::now(),
+        version: 1,
+        auto_increment_columns: HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+    };
+
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
+
+        // Insert test data
+        for (i, (name, status, age)) in [
+            ("Alice", "active", 30),
+            ("Bob", "inactive", 25),
+            ("Charlie", "active", 35),
+            ("Diana", "active", 22),
+        ]
+        .iter()
+        .enumerate()
+        {
+            let mut row = neuroquantum_core::storage::Row {
+                id: 0,
+                fields: HashMap::new(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            };
+            row.fields
+                .insert("id".to_string(), Value::Integer((i + 1) as i64));
+            row.fields
+                .insert("name".to_string(), Value::Text(name.to_string()));
+            row.fields
+                .insert("status".to_string(), Value::Text(status.to_string()));
+            row.fields
+                .insert("age".to_string(), Value::Integer(*age as i64));
+
+            storage_guard.insert_row("users", row).await.unwrap();
+        }
+    }
+
+    // Create query executor with storage integration
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    // Parse and execute CTE query
+    let parser = Parser::new();
+    let sql = r#"
+        WITH active_users AS (
+            SELECT * FROM users WHERE status = 'active'
+        )
+        SELECT * FROM active_users WHERE age > 25
+    "#;
+    let statement = parser.parse(sql).unwrap();
+
+    // Execute CTE query
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    // Verify CTE worked correctly - should get Alice (30) and Charlie (35)
+    // Diana (22) is active but age <= 25
+    assert_eq!(
+        result.rows.len(),
+        2,
+        "Expected 2 active users over 25, got {}",
+        result.rows.len()
+    );
+
+    // Verify the names are correct
+    let names: Vec<String> = result
+        .rows
+        .iter()
+        .filter_map(|row| {
+            if let Some(QueryValue::String(name)) = row.get("name") {
+                Some(name.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert!(names.contains(&"Alice".to_string()), "Should contain Alice");
+    assert!(
+        names.contains(&"Charlie".to_string()),
+        "Should contain Charlie"
+    );
+
+    println!("✅ CTE (WITH clause) execution: SUCCESS");
+}
