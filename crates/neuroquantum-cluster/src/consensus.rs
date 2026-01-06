@@ -236,12 +236,19 @@ impl RaftConsensus {
     }
 
     /// Generate a random election timeout within the configured range.
-    #[allow(dead_code)]
     fn random_election_timeout(&self) -> Duration {
+        Self::generate_random_timeout(
+            &self.config.raft.election_timeout_min,
+            &self.config.raft.election_timeout_max,
+        )
+    }
+
+    /// Generate a random timeout between min and max durations.
+    fn generate_random_timeout(min: &Duration, max: &Duration) -> Duration {
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        let min_ms = self.config.raft.election_timeout_min.as_millis() as u64;
-        let max_ms = self.config.raft.election_timeout_max.as_millis() as u64;
+        let min_ms = min.as_millis() as u64;
+        let max_ms = max.as_millis() as u64;
         let timeout_ms = rng.gen_range(min_ms..=max_ms);
         Duration::from_millis(timeout_ms)
     }
@@ -268,14 +275,10 @@ impl RaftConsensus {
                 }
                 
                 // Generate random election timeout
-                let timeout = {
-                    use rand::Rng;
-                    let mut rng = rand::thread_rng();
-                    let min_ms = config.raft.election_timeout_min.as_millis() as u64;
-                    let max_ms = config.raft.election_timeout_max.as_millis() as u64;
-                    let timeout_ms = rng.gen_range(min_ms..=max_ms);
-                    Duration::from_millis(timeout_ms)
-                };
+                let timeout = RaftConsensus::generate_random_timeout(
+                    &config.raft.election_timeout_min,
+                    &config.raft.election_timeout_max,
+                );
                 
                 // Wait for timeout or heartbeat
                 tokio::select! {
