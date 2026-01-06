@@ -925,8 +925,60 @@ impl StorageEngine {
 
         // Save metadata
         self.save_metadata().await?;
+        
+        // Rewrite the table file with updated rows
+        self.rewrite_table_file(table_name).await?;
 
         info!("✅ Table '{}' altered successfully", table_name);
+        Ok(())
+    }
+    
+    /// Rewrite the entire table file with current data from compressed_blocks
+    async fn rewrite_table_file(&mut self, table_name: &str) -> Result<()> {
+        let table_path = self
+            .data_dir
+            .join("tables")
+            .join(format!("{}.nqdb", table_name));
+        
+        // Delete existing file and create new one
+        if table_path.exists() {
+            fs::remove_file(&table_path).await?;
+        }
+        fs::File::create(&table_path).await?;
+        
+        // Write all rows from compressed_blocks
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(&table_path)
+            .await?;
+        
+        // Get all rows for this table (sorted by ID for consistency)
+        let mut row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+        row_ids.sort();
+        
+        for row_id in row_ids {
+            if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
+                // Decompress to get the actual row
+                let row = self.decompress_row(encoded_data).await?;
+                
+                // Create compressed entry
+                let entry = CompressedRowEntry {
+                    row_id,
+                    compressed_data: encoded_data.clone(),
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    encrypted_wrapper: None,
+                    format_version: 1,
+                };
+                
+                // Serialize and write
+                let serialized = bincode::serialize(&entry)?;
+                file.write_all(&serialized).await?;
+                file.write_all(b"\n").await?;
+            }
+        }
+        
+        file.flush().await?;
         Ok(())
     }
 
