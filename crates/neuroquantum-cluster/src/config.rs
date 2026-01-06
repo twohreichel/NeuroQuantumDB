@@ -134,6 +134,35 @@ pub struct DiscoveryConfig {
 
     /// Static list of nodes (used when method is Static)
     pub static_nodes: Vec<String>,
+
+    /// Consul service discovery configuration
+    pub consul: Option<ConsulConfig>,
+
+    /// etcd service discovery configuration
+    pub etcd: Option<EtcdConfig>,
+}
+
+/// Consul service discovery configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsulConfig {
+    /// Consul address (e.g., "http://localhost:8500")
+    pub address: String,
+
+    /// Service name to query
+    pub service_name: String,
+
+    /// Optional datacenter
+    pub datacenter: Option<String>,
+}
+
+/// etcd service discovery configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EtcdConfig {
+    /// List of etcd endpoints (e.g., ["localhost:2379"])
+    pub endpoints: Vec<String>,
+
+    /// Prefix for node keys (e.g., "/neuroquantum/nodes/")
+    pub prefix: String,
 }
 
 /// Method for discovering cluster nodes.
@@ -220,6 +249,8 @@ impl Default for DiscoveryConfig {
             refresh_interval: Duration::from_secs(30),
             dns_name: None,
             static_nodes: Vec::new(),
+            consul: None,
+            etcd: None,
         }
     }
 }
