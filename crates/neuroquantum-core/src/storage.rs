@@ -731,7 +731,13 @@ impl StorageEngine {
 
         // Get all row IDs from this table before removing
         // We need to load the table rows to know which compressed blocks to remove
-        let table_rows = self.load_table_rows(table_name).await.unwrap_or_default();
+        let table_rows = match self.load_table_rows(table_name).await {
+            Ok(rows) => rows,
+            Err(e) => {
+                debug!("Warning: Could not load table rows for cleanup during DROP TABLE: {}. Proceeding with schema removal.", e);
+                Vec::new()
+            }
+        };
         let row_ids: Vec<RowId> = table_rows.iter().map(|r| r.id).collect();
 
         // Remove compressed blocks for all rows in the table
@@ -779,7 +785,11 @@ impl StorageEngine {
         // Also delete primary key index file (might have different naming)
         let pk_index_path = indexes_dir.join(format!("{}_{}.idx", table_name, schema.primary_key));
         if pk_index_path.exists() {
-            let _ = fs::remove_file(&pk_index_path).await;
+            if let Err(e) = fs::remove_file(&pk_index_path).await {
+                debug!("Warning: Could not delete primary key index file '{}': {}", pk_index_path.display(), e);
+            } else {
+                debug!("Deleted primary key index file: {}", pk_index_path.display());
+            }
         }
 
         // Remove table from metadata

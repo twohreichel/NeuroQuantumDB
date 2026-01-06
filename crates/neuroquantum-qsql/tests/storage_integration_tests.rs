@@ -50,7 +50,7 @@ async fn test_insert_with_dna_compression() {
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
-        auto_increment_columns: std::collections::HashMap::new(),
+        auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
@@ -146,7 +146,7 @@ async fn test_select_with_dna_decompression() {
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
-        auto_increment_columns: std::collections::HashMap::new(),
+        auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
@@ -220,7 +220,7 @@ async fn test_update_with_dna_recompression() {
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
-        auto_increment_columns: std::collections::HashMap::new(),
+        auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
@@ -339,7 +339,7 @@ async fn test_delete_with_dna_cleanup() {
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
-        auto_increment_columns: std::collections::HashMap::new(),
+        auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
@@ -440,7 +440,7 @@ async fn test_drop_table_removes_table() {
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
-        auto_increment_columns: std::collections::HashMap::new(),
+        auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
@@ -575,7 +575,7 @@ async fn test_drop_table_cleans_up_files() {
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
-        auto_increment_columns: std::collections::HashMap::new(),
+        auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
