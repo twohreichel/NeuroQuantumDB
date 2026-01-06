@@ -96,8 +96,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     executor.execute_statement(&begin_stmt).await?;
     println!("✅ BEGIN transaction");
 
-    let insert_stmt = parser
-        .parse("INSERT INTO accounts (id, name, balance) VALUES (1, 'Alice', 1000)")?;
+    let insert_stmt =
+        parser.parse("INSERT INTO accounts (id, name, balance) VALUES (1, 'Alice', 1000)")?;
     executor.execute_statement(&insert_stmt).await?;
     println!("✅ Inserted Alice with balance 1000");
 
@@ -118,8 +118,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     executor.execute_statement(&begin_stmt).await?;
     println!("✅ BEGIN transaction");
 
-    let insert_stmt = parser
-        .parse("INSERT INTO accounts (id, name, balance) VALUES (2, 'Bob', 500)")?;
+    let insert_stmt =
+        parser.parse("INSERT INTO accounts (id, name, balance) VALUES (2, 'Bob', 500)")?;
     executor.execute_statement(&insert_stmt).await?;
     println!("✅ Inserted Bob with balance 500");
 
@@ -140,8 +140,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     executor.execute_statement(&begin_stmt).await?;
     println!("✅ BEGIN transaction with SERIALIZABLE isolation");
 
-    let insert_stmt = parser
-        .parse("INSERT INTO accounts (id, name, balance) VALUES (3, 'Charlie', 750)")?;
+    let insert_stmt =
+        parser.parse("INSERT INTO accounts (id, name, balance) VALUES (3, 'Charlie', 750)")?;
     executor.execute_statement(&insert_stmt).await?;
     println!("✅ Inserted Charlie with balance 750");
 
@@ -156,8 +156,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First, add Bob's account
     let begin_stmt = parser.parse("BEGIN")?;
     executor.execute_statement(&begin_stmt).await?;
-    let insert_stmt = parser
-        .parse("INSERT INTO accounts (id, name, balance) VALUES (2, 'Bob', 500)")?;
+    let insert_stmt =
+        parser.parse("INSERT INTO accounts (id, name, balance) VALUES (2, 'Bob', 500)")?;
     executor.execute_statement(&insert_stmt).await?;
     let commit_stmt = parser.parse("COMMIT")?;
     executor.execute_statement(&commit_stmt).await?;
@@ -187,8 +187,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     executor.execute_statement(&begin_stmt).await?;
     println!("✅ BEGIN transaction");
 
-    let insert_stmt = parser
-        .parse("INSERT INTO accounts (id, name, balance) VALUES (4, 'David', 300)")?;
+    let insert_stmt =
+        parser.parse("INSERT INTO accounts (id, name, balance) VALUES (4, 'David', 300)")?;
     executor.execute_statement(&insert_stmt).await?;
     println!("✅ Inserted David with balance 300");
 
@@ -196,8 +196,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     executor.execute_statement(&savepoint_stmt).await?;
     println!("✅ Created savepoint 'sp1'");
 
-    let insert_stmt = parser
-        .parse("INSERT INTO accounts (id, name, balance) VALUES (5, 'Eve', 400)")?;
+    let insert_stmt =
+        parser.parse("INSERT INTO accounts (id, name, balance) VALUES (5, 'Eve', 400)")?;
     executor.execute_statement(&insert_stmt).await?;
     println!("✅ Inserted Eve with balance 400");
 
@@ -225,7 +225,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn format_account_row(row: &std::collections::HashMap<String, neuroquantum_qsql::query_plan::QueryValue>) -> String {
+fn format_account_row(
+    row: &std::collections::HashMap<String, neuroquantum_qsql::query_plan::QueryValue>,
+) -> String {
     let id = match row.get("id") {
         Some(neuroquantum_qsql::query_plan::QueryValue::Integer(i)) => i.to_string(),
         _ => "?".to_string(),

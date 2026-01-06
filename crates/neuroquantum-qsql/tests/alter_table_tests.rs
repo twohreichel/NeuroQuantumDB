@@ -12,7 +12,11 @@ use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper to create a test setup with storage and executor
-async fn setup_test_env() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>>, QueryExecutor) {
+async fn setup_test_env() -> (
+    TempDir,
+    Arc<tokio::sync::RwLock<StorageEngine>>,
+    QueryExecutor,
+) {
     let temp_dir = TempDir::new().unwrap();
     let storage_path = temp_dir.path();
 
@@ -70,7 +74,12 @@ async fn setup_test_env() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>>, 
 
     // Insert test rows
     for i in 1..=3 {
-        let sql = format!("INSERT INTO users (id, name, age) VALUES ({}, 'User {}', {})", i, i, 20 + i);
+        let sql = format!(
+            "INSERT INTO users (id, name, age) VALUES ({}, 'User {}', {})",
+            i,
+            i,
+            20 + i
+        );
         let statement = parser.parse(&sql).unwrap();
         executor.execute_statement(&statement).await.unwrap();
     }
@@ -87,12 +96,16 @@ async fn test_alter_table_add_column() {
     let sql = "ALTER TABLE users ADD COLUMN email TEXT DEFAULT 'unknown@example.com'";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_ok(), "ALTER TABLE ADD COLUMN failed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "ALTER TABLE ADD COLUMN failed: {:?}",
+        result
+    );
 
     // Verify the column was added to schema by checking storage directly
     {
         let storage_guard = storage_arc.read().await;
-        
+
         // Use select_rows to get data
         let query = neuroquantum_core::storage::SelectQuery {
             table: "users".to_string(),
@@ -104,13 +117,15 @@ async fn test_alter_table_add_column() {
         };
         let rows = storage_guard.select_rows(&query).await.unwrap();
         assert_eq!(rows.len(), 1, "Should have 1 row");
-        
+
         // Check if email field exists
         let row = &rows[0];
-        assert!(row.fields.contains_key("email"), 
-            "Row should have email column. Fields: {:?}", 
-            row.fields.keys().collect::<Vec<_>>());
-        
+        assert!(
+            row.fields.contains_key("email"),
+            "Row should have email column. Fields: {:?}",
+            row.fields.keys().collect::<Vec<_>>()
+        );
+
         // Check the default value
         if let Some(email_val) = row.fields.get("email") {
             match email_val {
@@ -132,13 +147,17 @@ async fn test_alter_table_add_column_nullable() {
     let sql = "ALTER TABLE users ADD COLUMN phone TEXT";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_ok(), "ALTER TABLE ADD COLUMN failed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "ALTER TABLE ADD COLUMN failed: {:?}",
+        result
+    );
 
     // Verify existing rows have NULL for the new column
     let sql = "SELECT id, name, phone FROM users WHERE id = 1";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
-    
+
     assert_eq!(result.rows.len(), 1, "Should have 1 row");
 }
 
@@ -151,7 +170,11 @@ async fn test_alter_table_drop_column() {
     let sql = "ALTER TABLE users DROP COLUMN age";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_ok(), "ALTER TABLE DROP COLUMN failed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "ALTER TABLE DROP COLUMN failed: {:?}",
+        result
+    );
 
     // Verify the column was removed from schema
     {
@@ -164,7 +187,7 @@ async fn test_alter_table_drop_column() {
     let sql = "SELECT id, name FROM users WHERE id = 1";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
-    
+
     assert_eq!(result.rows.len(), 1, "Should have 1 row");
     let row = &result.rows[0];
     assert!(!row.contains_key("age"), "Row should not have age column");
@@ -179,7 +202,10 @@ async fn test_alter_table_drop_primary_key_fails() {
     let sql = "ALTER TABLE users DROP COLUMN id";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_err(), "Should not be able to drop primary key column");
+    assert!(
+        result.is_err(),
+        "Should not be able to drop primary key column"
+    );
 }
 
 #[tokio::test]
@@ -191,16 +217,23 @@ async fn test_alter_table_rename_column() {
     let sql = "ALTER TABLE users RENAME COLUMN name TO full_name";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_ok(), "ALTER TABLE RENAME COLUMN failed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "ALTER TABLE RENAME COLUMN failed: {:?}",
+        result
+    );
 
     // Verify the column was renamed
     let sql = "SELECT id, full_name FROM users WHERE id = 1";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
-    
+
     assert_eq!(result.rows.len(), 1, "Should have 1 row");
     let row = &result.rows[0];
-    assert!(row.contains_key("full_name"), "Row should have full_name column");
+    assert!(
+        row.contains_key("full_name"),
+        "Row should have full_name column"
+    );
     assert!(!row.contains_key("name"), "Row should not have name column");
 }
 
@@ -213,7 +246,10 @@ async fn test_alter_table_rename_to_existing_column_fails() {
     let sql = "ALTER TABLE users RENAME COLUMN name TO age";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_err(), "Should not be able to rename to existing column name");
+    assert!(
+        result.is_err(),
+        "Should not be able to rename to existing column name"
+    );
 }
 
 #[tokio::test]
@@ -225,13 +261,17 @@ async fn test_alter_table_modify_column_int_to_text() {
     let sql = "ALTER TABLE users MODIFY COLUMN age TEXT";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_ok(), "ALTER TABLE MODIFY COLUMN failed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "ALTER TABLE MODIFY COLUMN failed: {:?}",
+        result
+    );
 
     // Verify the data was converted
     let sql = "SELECT id, age FROM users WHERE id = 1";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
-    
+
     assert_eq!(result.rows.len(), 1, "Should have 1 row");
 }
 
@@ -249,7 +289,11 @@ async fn test_alter_table_modify_column_text_to_int() {
     let sql = "ALTER TABLE users MODIFY COLUMN score INTEGER";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(result.is_ok(), "ALTER TABLE MODIFY COLUMN failed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "ALTER TABLE MODIFY COLUMN failed: {:?}",
+        result
+    );
 }
 
 #[tokio::test]
@@ -276,7 +320,7 @@ async fn test_alter_table_multiple_operations() {
     let sql = "SELECT id, full_name, email, phone FROM users WHERE id = 1";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
-    
+
     assert_eq!(result.rows.len(), 1, "Should have 1 row");
     let row = &result.rows[0];
     assert!(row.contains_key("full_name"), "Should have full_name");

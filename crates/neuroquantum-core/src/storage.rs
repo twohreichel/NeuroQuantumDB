@@ -709,11 +709,7 @@ impl StorageEngine {
     ///     column: ColumnDefinition { ... }
     /// }).await?;
     /// ```
-    pub async fn alter_table(
-        &mut self,
-        table_name: &str,
-        operation: AlterTableOp,
-    ) -> Result<()> {
+    pub async fn alter_table(&mut self, table_name: &str, operation: AlterTableOp) -> Result<()> {
         info!("🔧 Altering table: {} ({:?})", table_name, operation);
 
         // Get current schema
@@ -741,31 +737,32 @@ impl StorageEngine {
                 if column.auto_increment
                     || matches!(column.data_type, DataType::Serial | DataType::BigSerial)
                 {
-                    new_schema.auto_increment_columns.insert(
-                        column.name.clone(),
-                        AutoIncrementConfig::new(&column.name),
-                    );
+                    new_schema
+                        .auto_increment_columns
+                        .insert(column.name.clone(), AutoIncrementConfig::new(&column.name));
                 }
 
                 // Update all existing rows with default value or NULL
                 let default_value = column.default_value.clone().unwrap_or(Value::Null);
-                
+
                 // Collect row IDs to update (avoid borrow issues)
                 let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
-                
+
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
                         // Decompress the row
                         let mut row_data = self.decompress_row(encoded_data).await?;
-                        
+
                         // Add default value for new column
-                        row_data.fields.insert(column.name.clone(), default_value.clone());
+                        row_data
+                            .fields
+                            .insert(column.name.clone(), default_value.clone());
                         row_data.updated_at = chrono::Utc::now();
-                        
+
                         // Recompress and store
                         let compressed = self.compress_row(&row_data).await?;
                         self.compressed_blocks.insert(row_id, compressed);
-                        
+
                         // Update cache if present
                         if self.row_cache.contains(&row_id) {
                             self.add_to_cache(row_data);
@@ -794,19 +791,19 @@ impl StorageEngine {
 
                 // Remove column data from all existing rows
                 let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
-                
+
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
                         let mut row_data = self.decompress_row(encoded_data).await?;
-                        
+
                         // Remove the column
                         row_data.fields.remove(column_name);
                         row_data.updated_at = chrono::Utc::now();
-                        
+
                         // Recompress and store
                         let compressed = self.compress_row(&row_data).await?;
                         self.compressed_blocks.insert(row_id, compressed);
-                        
+
                         // Update cache if present
                         if self.row_cache.contains(&row_id) {
                             self.add_to_cache(row_data);
@@ -839,26 +836,28 @@ impl StorageEngine {
                 if let Some(config) = new_schema.auto_increment_columns.remove(old_name) {
                     let mut new_config = config;
                     new_config.column_name = new_name.clone();
-                    new_schema.auto_increment_columns.insert(new_name.clone(), new_config);
+                    new_schema
+                        .auto_increment_columns
+                        .insert(new_name.clone(), new_config);
                 }
 
                 // Rename column in all existing rows
                 let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
-                
+
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
                         let mut row_data = self.decompress_row(encoded_data).await?;
-                        
+
                         // Rename the field
                         if let Some(value) = row_data.fields.remove(old_name) {
                             row_data.fields.insert(new_name.clone(), value);
                         }
                         row_data.updated_at = chrono::Utc::now();
-                        
+
                         // Recompress and store
                         let compressed = self.compress_row(&row_data).await?;
                         self.compressed_blocks.insert(row_id, compressed);
-                        
+
                         // Update cache if present
                         if self.row_cache.contains(&row_id) {
                             self.add_to_cache(row_data);
@@ -884,22 +883,23 @@ impl StorageEngine {
 
                 // Convert data in all existing rows
                 let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
-                
+
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
                         let mut row_data = self.decompress_row(encoded_data).await?;
-                        
+
                         // Try to convert the value to new data type
                         if let Some(old_value) = row_data.fields.get(column_name) {
-                            let new_value = self.convert_value(old_value, &old_data_type, new_data_type)?;
+                            let new_value =
+                                self.convert_value(old_value, &old_data_type, new_data_type)?;
                             row_data.fields.insert(column_name.clone(), new_value);
                         }
                         row_data.updated_at = chrono::Utc::now();
-                        
+
                         // Recompress and store
                         let compressed = self.compress_row(&row_data).await?;
                         self.compressed_blocks.insert(row_id, compressed);
-                        
+
                         // Update cache if present
                         if self.row_cache.contains(&row_id) {
                             self.add_to_cache(row_data);
@@ -921,30 +921,32 @@ impl StorageEngine {
         self.log_operation(operation_log).await?;
 
         // Update metadata with new schema
-        self.metadata.tables.insert(table_name.to_string(), new_schema);
+        self.metadata
+            .tables
+            .insert(table_name.to_string(), new_schema);
 
         // Save metadata
         self.save_metadata().await?;
-        
+
         // Rewrite the table file with updated rows
         self.rewrite_table_file(table_name).await?;
 
         info!("✅ Table '{}' altered successfully", table_name);
         Ok(())
     }
-    
+
     /// Rewrite the entire table file with current data from compressed_blocks
     async fn rewrite_table_file(&mut self, table_name: &str) -> Result<()> {
         let table_path = self
             .data_dir
             .join("tables")
             .join(format!("{}.nqdb", table_name));
-        
+
         // Delete existing file and create new one
         if table_path.exists() {
             fs::remove_file(&table_path).await?;
         }
-        
+
         // Create file and write all rows with proper binary format
         let mut file = fs::OpenOptions::new()
             .create(true)
@@ -952,16 +954,16 @@ impl StorageEngine {
             .truncate(true)
             .open(&table_path)
             .await?;
-        
+
         // Get all rows for this table (sorted by ID for consistency)
         let mut row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
         row_ids.sort();
-        
+
         for row_id in row_ids {
             if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
                 // Decompress to get the actual row
                 let row = self.decompress_row(encoded_data).await?;
-                
+
                 // Create compressed entry
                 let entry = CompressedRowEntry {
                     row_id,
@@ -971,19 +973,19 @@ impl StorageEngine {
                     encrypted_wrapper: None,
                     format_version: 1,
                 };
-                
+
                 // Serialize the entry
                 let serialized = bincode::serialize(&entry)?;
-                
+
                 // Write length prefix (4 bytes)
                 let len = serialized.len() as u32;
                 file.write_all(&len.to_le_bytes()).await?;
-                
+
                 // Write the serialized entry
                 file.write_all(&serialized).await?;
             }
         }
-        
+
         file.flush().await?;
         Ok(())
     }
@@ -998,7 +1000,7 @@ impl StorageEngine {
         match (value, new_type) {
             // NULL remains NULL for any type
             (Value::Null, _) => Ok(Value::Null),
-            
+
             // Integer conversions
             (Value::Integer(i), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(*i))
@@ -1006,25 +1008,30 @@ impl StorageEngine {
             (Value::Integer(i), DataType::Float) => Ok(Value::Float(*i as f64)),
             (Value::Integer(i), DataType::Text) => Ok(Value::Text(i.to_string())),
             (Value::Integer(i), DataType::Boolean) => Ok(Value::Boolean(*i != 0)),
-            
+
             // Float conversions
             (Value::Float(f), DataType::Float) => Ok(Value::Float(*f)),
             (Value::Float(f), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(*f as i64))
             }
             (Value::Float(f), DataType::Text) => Ok(Value::Text(f.to_string())),
-            
+
             // Text conversions
             (Value::Text(s), DataType::Text) => Ok(Value::Text(s.clone())),
             (Value::Text(s), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
-                let parsed = s.parse::<i64>()
+                let parsed = s
+                    .parse::<i64>()
                     .map_err(|e| anyhow!("Cannot convert '{}' to Integer: {}", s, e))?;
                 // Validate integer bounds based on type
                 match new_type {
                     DataType::Integer | DataType::Serial => {
                         if parsed < i32::MIN as i64 || parsed > i32::MAX as i64 {
-                            return Err(anyhow!("Value {} is out of range for Integer (must be between {} and {})", 
-                                parsed, i32::MIN, i32::MAX));
+                            return Err(anyhow!(
+                                "Value {} is out of range for Integer (must be between {} and {})",
+                                parsed,
+                                i32::MIN,
+                                i32::MAX
+                            ));
                         }
                     }
                     DataType::BigSerial => {
@@ -1034,42 +1041,35 @@ impl StorageEngine {
                 }
                 Ok(Value::Integer(parsed))
             }
-            (Value::Text(s), DataType::Float) => {
-                s.parse::<f64>()
-                    .map(Value::Float)
-                    .map_err(|e| anyhow!("Cannot convert '{}' to Float: {}", s, e))
-            }
-            (Value::Text(s), DataType::Boolean) => {
-                match s.to_lowercase().as_str() {
-                    "true" | "t" | "yes" | "y" | "1" => Ok(Value::Boolean(true)),
-                    "false" | "f" | "no" | "n" | "0" => Ok(Value::Boolean(false)),
-                    _ => Err(anyhow!("Cannot convert '{}' to Boolean", s)),
-                }
-            }
-            
+            (Value::Text(s), DataType::Float) => s
+                .parse::<f64>()
+                .map(Value::Float)
+                .map_err(|e| anyhow!("Cannot convert '{}' to Float: {}", s, e)),
+            (Value::Text(s), DataType::Boolean) => match s.to_lowercase().as_str() {
+                "true" | "t" | "yes" | "y" | "1" => Ok(Value::Boolean(true)),
+                "false" | "f" | "no" | "n" | "0" => Ok(Value::Boolean(false)),
+                _ => Err(anyhow!("Cannot convert '{}' to Boolean", s)),
+            },
+
             // Boolean conversions
             (Value::Boolean(b), DataType::Boolean) => Ok(Value::Boolean(*b)),
             (Value::Boolean(b), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(if *b { 1 } else { 0 }))
             }
             (Value::Boolean(b), DataType::Text) => Ok(Value::Text(b.to_string())),
-            
+
             // Timestamp conversions
             (Value::Timestamp(ts), DataType::Timestamp) => Ok(Value::Timestamp(*ts)),
             (Value::Timestamp(ts), DataType::Text) => Ok(Value::Text(ts.to_rfc3339())),
-            
+
             // Binary conversions
             (Value::Binary(b), DataType::Binary) => Ok(Value::Binary(b.clone())),
             (Value::Binary(b), DataType::Text) => {
                 Ok(Value::Text(format!("Binary[{} bytes]", b.len())))
             }
-            
+
             // Catch-all for unsupported conversions
-            _ => Err(anyhow!(
-                "Cannot convert {:?} to {:?}",
-                value,
-                new_type
-            )),
+            _ => Err(anyhow!("Cannot convert {:?} to {:?}", value, new_type)),
         }
     }
 
@@ -1273,6 +1273,11 @@ impl StorageEngine {
     /// Get the last query execution statistics
     pub fn get_last_query_stats(&self) -> &QueryExecutionStats {
         &self.last_query_stats
+    }
+
+    /// Get a reference to the transaction manager
+    pub fn get_transaction_manager(&self) -> &TransactionManager {
+        &self.transaction_manager
     }
 
     /// Get the number of tables in the database
@@ -2314,19 +2319,92 @@ impl StorageEngine {
             .map_err(|e| anyhow!("Failed to begin transaction: {}", e))
     }
 
-    /// Commit a transaction
-    pub async fn commit_transaction(&self, tx_id: crate::transaction::TransactionId) -> Result<()> {
+    /// Commit a transaction and persist pending writes to disk
+    pub async fn commit_transaction(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+    ) -> Result<()> {
+        use crate::transaction::LogRecordType;
+
+        debug!("💾 Committing transaction: {:?}", tx_id);
+
+        // Get the undo log to find pending writes (inserts/updates)
+        if let Some(log_entries) = self.transaction_manager.get_undo_log(tx_id).await {
+            for entry in &log_entries {
+                if let LogRecordType::Update {
+                    before_image,
+                    table,
+                    after_image,
+                    ..
+                } = &entry.record_type
+                {
+                    // If there's no before_image, this was an INSERT - write to disk
+                    if before_image.is_none() {
+                        if let Ok(row) = serde_json::from_slice::<Row>(after_image) {
+                            debug!(
+                                "COMMIT: Writing inserted row {} to disk for table {}",
+                                row.id, table
+                            );
+                            self.append_row_to_file(table, &row).await?;
+                        }
+                    }
+                    // For updates, the data is already on disk (we update in place)
+                }
+            }
+        }
+
+        // Now complete the transaction commit
         self.transaction_manager
             .commit(tx_id)
             .await
             .map_err(|e| anyhow!("Failed to commit transaction: {}", e))
     }
 
-    /// Rollback a transaction
+    /// Rollback a transaction and undo all changes
     pub async fn rollback_transaction(
-        &self,
+        &mut self,
         tx_id: crate::transaction::TransactionId,
     ) -> Result<()> {
+        use crate::transaction::LogRecordType;
+
+        debug!("🔙 Rolling back transaction: {:?}", tx_id);
+
+        // Get the undo log for this transaction before rolling back
+        let undo_log = self.transaction_manager.get_undo_log(tx_id).await;
+
+        // Apply undo operations in reverse order
+        if let Some(log_entries) = undo_log {
+            for entry in log_entries.iter().rev() {
+                if let LogRecordType::Update {
+                    before_image, key, ..
+                } = &entry.record_type
+                {
+                    let row_id: RowId = key.parse().unwrap_or(0);
+                    if before_image.is_none() {
+                        // This was an INSERT - we need to delete the row
+                        debug!("ROLLBACK: Deleting inserted row {}", key);
+                        // Remove from compressed blocks
+                        self.compressed_blocks.remove(&row_id);
+                        // Remove from cache
+                        self.row_cache.pop(&row_id);
+                        // Note: Removing from disk file is complex; in a real implementation
+                        // we would mark the row as deleted or use a tombstone approach
+                    } else {
+                        // This was an UPDATE or DELETE - restore the before image
+                        debug!("ROLLBACK: Restoring before image for row {}", key);
+                        if let Some(before) = before_image {
+                            if let Ok(row) = serde_json::from_slice::<Row>(before) {
+                                let compressed = self.compress_row(&row).await?;
+                                self.compressed_blocks.insert(row_id, compressed);
+                                self.add_to_cache(row);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Now call the transaction manager to complete the rollback
         self.transaction_manager
             .rollback(tx_id)
             .await
@@ -2382,12 +2460,12 @@ impl StorageEngine {
             .await
             .map_err(|e| anyhow!("Failed to log update: {}", e))?;
 
-        // Apply changes
+        // Apply changes to memory only (disk write happens at commit time)
         self.compressed_blocks.insert(row.id, compressed_data);
         self.update_indexes_for_insert(&schema, &row)?;
         self.add_to_cache(row.clone());
 
-        // Log operation to local transaction log
+        // Log operation to local transaction log (for commit-time disk writes)
         let operation = Operation::Insert {
             table: table.to_string(),
             row_id: row.id,
@@ -2395,10 +2473,14 @@ impl StorageEngine {
         };
         self.log_operation(operation).await?;
 
-        // Append to table file
-        self.append_row_to_file(table, &row).await?;
+        // NOTE: Do NOT append to table file here - this happens at commit time
+        // For transactional inserts, we keep data in memory until commit
+        // This enables proper rollback support
 
-        debug!("✅ Row inserted with ID: {} (tx: {:?})", row.id, tx_id);
+        debug!(
+            "✅ Row inserted with ID: {} (tx: {:?}) - pending commit",
+            row.id, tx_id
+        );
         Ok(row.id)
     }
 

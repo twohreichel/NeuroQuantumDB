@@ -1391,14 +1391,23 @@ impl QueryExecutor {
                 let row = Self::convert_insert_to_row_static(insert, value_set)?;
 
                 // Insert via storage engine (automatically DNA-compressed!)
-                // Acquire write lock for mutation
+                // Use transactional insert if we have an active transaction
                 let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
-                let row_id = storage_guard
-                    .insert_row(&insert.table_name, row)
-                    .await
-                    .map_err(|e| QSQLError::ExecutionError {
-                        message: format!("Storage insert failed: {}", e),
-                    })?;
+                let row_id = if let Some(tx_id) = self.current_transaction {
+                    storage_guard
+                        .insert_row_transactional(tx_id, &insert.table_name, row)
+                        .await
+                        .map_err(|e| QSQLError::ExecutionError {
+                            message: format!("Transactional storage insert failed: {}", e),
+                        })?
+                } else {
+                    storage_guard
+                        .insert_row(&insert.table_name, row)
+                        .await
+                        .map_err(|e| QSQLError::ExecutionError {
+                            message: format!("Storage insert failed: {}", e),
+                        })?
+                };
                 drop(storage_guard); // Release lock early
 
                 inserted_ids.push(row_id);
@@ -1482,14 +1491,23 @@ impl QueryExecutor {
             let storage_query = Self::convert_update_to_storage_query_static(update)?;
 
             // Execute update via storage engine (automatically DNA re-compressed!)
-            // Acquire write lock for mutation
+            // Use transactional update if we have an active transaction
             let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
-            let rows_affected = storage_guard
-                .update_rows(&storage_query)
-                .await
-                .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Storage update failed: {}", e),
-                })?;
+            let rows_affected = if let Some(tx_id) = self.current_transaction {
+                storage_guard
+                    .update_rows_transactional(tx_id, &storage_query)
+                    .await
+                    .map_err(|e| QSQLError::ExecutionError {
+                        message: format!("Transactional storage update failed: {}", e),
+                    })?
+            } else {
+                storage_guard
+                    .update_rows(&storage_query)
+                    .await
+                    .map_err(|e| QSQLError::ExecutionError {
+                        message: format!("Storage update failed: {}", e),
+                    })?
+            };
             drop(storage_guard); // Release lock early
 
             // Plasticity adaptation: strengthen connections for updated patterns
@@ -1552,14 +1570,23 @@ impl QueryExecutor {
             let storage_query = Self::convert_delete_to_storage_query_static(delete)?;
 
             // Execute delete via storage engine (frees compressed DNA blocks!)
-            // Acquire write lock for mutation
+            // Use transactional delete if we have an active transaction
             let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
-            let rows_affected = storage_guard
-                .delete_rows(&storage_query)
-                .await
-                .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Storage delete failed: {}", e),
-                })?;
+            let rows_affected = if let Some(tx_id) = self.current_transaction {
+                storage_guard
+                    .delete_rows_transactional(tx_id, &storage_query)
+                    .await
+                    .map_err(|e| QSQLError::ExecutionError {
+                        message: format!("Transactional storage delete failed: {}", e),
+                    })?
+            } else {
+                storage_guard
+                    .delete_rows(&storage_query)
+                    .await
+                    .map_err(|e| QSQLError::ExecutionError {
+                        message: format!("Storage delete failed: {}", e),
+                    })?
+            };
             drop(storage_guard); // Release lock early
 
             // Synaptic pruning: weaken connections for deleted data patterns
@@ -2203,11 +2230,12 @@ impl QueryExecutor {
         _plan: &QueryPlan,
     ) -> QSQLResult<QueryResult> {
         // Get storage engine
-        let storage = self.storage_engine.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
+        let storage = self
+            .storage_engine
+            .as_ref()
+            .ok_or_else(|| QSQLError::ExecutionError {
                 message: "Storage engine not configured".to_string(),
-            }
-        })?;
+            })?;
 
         // Convert AST operation to storage operation
         let storage_op = match &alter.operation {
@@ -2429,12 +2457,6 @@ impl QueryExecutor {
         &mut self,
         begin: &BeginTransactionStatement,
     ) -> QSQLResult<QueryResult> {
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not available. Transaction control requires storage engine.".to_string(),
-            }
-        })?;
-
         // Check if there's already an active transaction
         if self.current_transaction.is_some() {
             return Err(QSQLError::ExecutionError {
@@ -2456,13 +2478,28 @@ impl QueryExecutor {
             }
         };
 
-        // Begin transaction
-        let tx_id = tx_manager
-            .begin_transaction(isolation_level)
-            .await
-            .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Failed to begin transaction: {}", e),
-            })?;
+        // Prefer using storage engine's transaction manager for consistency
+        let tx_id = if let Some(storage_engine) = &self.storage_engine {
+            let storage_guard = storage_engine.read().await;
+            storage_guard
+                .begin_transaction_with_isolation(isolation_level)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to begin transaction via storage: {}", e),
+                })?
+        } else if let Some(tx_manager) = &self.transaction_manager {
+            // Fallback to executor's transaction manager
+            tx_manager
+                .begin_transaction(isolation_level)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to begin transaction: {}", e),
+                })?
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "Transaction manager not available. Transaction control requires storage engine.".to_string(),
+            });
+        };
 
         self.current_transaction = Some(tx_id);
         self.savepoints.clear(); // Clear any old savepoints
@@ -2480,26 +2517,33 @@ impl QueryExecutor {
 
     /// Execute COMMIT statement
     async fn execute_commit(&mut self) -> QSQLResult<QueryResult> {
-        let tx_manager =
-            self.transaction_manager
-                .as_ref()
-                .ok_or_else(|| QSQLError::ExecutionError {
-                    message: "Transaction manager not available".to_string(),
-                })?;
-
         let tx_id = self
             .current_transaction
             .ok_or_else(|| QSQLError::ExecutionError {
                 message: "No active transaction to commit".to_string(),
             })?;
 
-        // Commit transaction
-        tx_manager
-            .commit(tx_id)
-            .await
-            .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Failed to commit transaction: {}", e),
+        // Prefer using storage engine's transaction manager for consistency
+        if let Some(storage_engine) = &self.storage_engine {
+            let mut storage_guard = storage_engine.write().await;
+            storage_guard.commit_transaction(tx_id).await.map_err(|e| {
+                QSQLError::ExecutionError {
+                    message: format!("Failed to commit transaction via storage: {}", e),
+                }
             })?;
+        } else if let Some(tx_manager) = &self.transaction_manager {
+            // Fallback to executor's transaction manager
+            tx_manager
+                .commit(tx_id)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to commit transaction: {}", e),
+                })?;
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "Transaction manager not available".to_string(),
+            });
+        }
 
         self.current_transaction = None;
         self.savepoints.clear();
@@ -2517,26 +2561,34 @@ impl QueryExecutor {
 
     /// Execute ROLLBACK statement
     async fn execute_rollback(&mut self) -> QSQLResult<QueryResult> {
-        let tx_manager =
-            self.transaction_manager
-                .as_ref()
-                .ok_or_else(|| QSQLError::ExecutionError {
-                    message: "Transaction manager not available".to_string(),
-                })?;
-
         let tx_id = self
             .current_transaction
             .ok_or_else(|| QSQLError::ExecutionError {
                 message: "No active transaction to rollback".to_string(),
             })?;
 
-        // Rollback transaction
-        tx_manager
-            .rollback(tx_id)
-            .await
-            .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Failed to rollback transaction: {}", e),
-            })?;
+        // Prefer using storage engine's transaction manager for consistency
+        if let Some(storage_engine) = &self.storage_engine {
+            let mut storage_guard = storage_engine.write().await;
+            storage_guard
+                .rollback_transaction(tx_id)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to rollback transaction via storage: {}", e),
+                })?;
+        } else if let Some(tx_manager) = &self.transaction_manager {
+            // Fallback to executor's transaction manager
+            tx_manager
+                .rollback(tx_id)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to rollback transaction: {}", e),
+                })?;
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "Transaction manager not available".to_string(),
+            });
+        }
 
         self.current_transaction = None;
         self.savepoints.clear();
