@@ -842,6 +842,128 @@ impl QSQLParser {
 
                     select_list.push(SelectItem::Expression { expr, alias });
                 }
+                TokenType::LeftParen => {
+                    // Scalar subquery in SELECT list: (SELECT ...)
+                    i += 1; // consume '('
+
+                    // Check if this is a scalar subquery (starts with SELECT)
+                    if i < tokens.len() && matches!(tokens[i], TokenType::Select) {
+                        let subquery = self.parse_select_statement_at(tokens, &mut i)?;
+
+                        // Expect closing parenthesis
+                        if i >= tokens.len() || !matches!(tokens[i], TokenType::RightParen) {
+                            return Err(QSQLError::ParseError {
+                                message: "Expected ')' after scalar subquery in SELECT list"
+                                    .to_string(),
+                                position: i,
+                            });
+                        }
+                        i += 1; // consume ')'
+
+                        // Check for optional AS alias
+                        let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                            i += 1;
+                            if i < tokens.len() {
+                                if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                    i += 1;
+                                    Some(alias_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression {
+                            expr: Expression::ScalarSubquery {
+                                subquery: Box::new(subquery),
+                            },
+                            alias,
+                        });
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message:
+                                "Expected SELECT after '(' in SELECT list for scalar subquery"
+                                    .to_string(),
+                            position: i,
+                        });
+                    }
+                }
+                // Integer literal in SELECT list (e.g., SELECT 1 FROM ...)
+                TokenType::IntegerLiteral(n) => {
+                    let expr = Expression::Literal(Literal::Integer(*n));
+                    i += 1;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                // Float literal in SELECT list
+                TokenType::FloatLiteral(f) => {
+                    let expr = Expression::Literal(Literal::Float(*f));
+                    i += 1;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                // String literal in SELECT list
+                TokenType::StringLiteral(s) => {
+                    let expr = Expression::Literal(Literal::String(s.clone()));
+                    i += 1;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
                 TokenType::Comma => {
                     i += 1; // Skip comma and continue
                 }
@@ -1150,6 +1272,128 @@ impl QSQLParser {
                 | TokenType::NthValue => {
                     // Parse window function expression
                     let expr = self.parse_window_function(tokens, i)?;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                TokenType::LeftParen => {
+                    // Scalar subquery in SELECT list: (SELECT ...)
+                    *i += 1; // consume '('
+
+                    // Check if this is a scalar subquery (starts with SELECT)
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::Select) {
+                        let subquery = self.parse_select_statement_at(tokens, i)?;
+
+                        // Expect closing parenthesis
+                        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                            return Err(QSQLError::ParseError {
+                                message: "Expected ')' after scalar subquery in SELECT list"
+                                    .to_string(),
+                                position: *i,
+                            });
+                        }
+                        *i += 1; // consume ')'
+
+                        // Check for optional AS alias
+                        let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                            *i += 1;
+                            if *i < tokens.len() {
+                                if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                    *i += 1;
+                                    Some(alias_name.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression {
+                            expr: Expression::ScalarSubquery {
+                                subquery: Box::new(subquery),
+                            },
+                            alias,
+                        });
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message:
+                                "Expected SELECT after '(' in SELECT list for scalar subquery"
+                                    .to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+                // Integer literal in SELECT list (e.g., SELECT 1 FROM ...)
+                TokenType::IntegerLiteral(n) => {
+                    let expr = Expression::Literal(Literal::Integer(*n));
+                    *i += 1;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                // Float literal in SELECT list
+                TokenType::FloatLiteral(f) => {
+                    let expr = Expression::Literal(Literal::Float(*f));
+                    *i += 1;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                // String literal in SELECT list
+                TokenType::StringLiteral(s) => {
+                    let expr = Expression::Literal(Literal::String(s.clone()));
+                    *i += 1;
 
                     // Check for optional AS alias
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
@@ -4335,9 +4579,50 @@ impl QSQLParser {
             // EXTRACT expression: EXTRACT(field FROM source)
             TokenType::Extract => self.parse_extract_expression(tokens, i),
 
-            // Unary NOT operator
+            // Unary NOT operator or NOT EXISTS
             TokenType::Not => {
-                *i += 1;
+                *i += 1; // consume NOT
+
+                // Check for NOT EXISTS
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Exists) {
+                    *i += 1; // consume EXISTS
+
+                    // Expect opening parenthesis
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected '(' after NOT EXISTS".to_string(),
+                            position: *i,
+                        });
+                    }
+                    *i += 1; // consume '('
+
+                    // Expect SELECT
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Select) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected SELECT after NOT EXISTS (".to_string(),
+                            position: *i,
+                        });
+                    }
+
+                    // Parse the subquery
+                    let subquery = self.parse_select_statement_at(tokens, i)?;
+
+                    // Expect closing parenthesis
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected ')' after NOT EXISTS subquery".to_string(),
+                            position: *i,
+                        });
+                    }
+                    *i += 1; // consume ')'
+
+                    return Ok(Expression::Exists {
+                        subquery: Box::new(subquery),
+                        negated: true,
+                    });
+                }
+
+                // Regular NOT operator
                 let operand = self.parse_expression_with_precedence(tokens, i, Precedence::Not)?;
                 Ok(Expression::UnaryOp {
                     operator: UnaryOperator::Not,
@@ -4367,9 +4652,69 @@ impl QSQLParser {
                 })
             }
 
-            // Parenthesized expression
+            // EXISTS subquery: EXISTS (SELECT ...)
+            TokenType::Exists => {
+                *i += 1; // consume EXISTS
+
+                // Expect opening parenthesis
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected '(' after EXISTS".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1; // consume '('
+
+                // Expect SELECT
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Select) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected SELECT after EXISTS (".to_string(),
+                        position: *i,
+                    });
+                }
+
+                // Parse the subquery
+                let subquery = self.parse_select_statement_at(tokens, i)?;
+
+                // Expect closing parenthesis
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected ')' after EXISTS subquery".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1; // consume ')'
+
+                Ok(Expression::Exists {
+                    subquery: Box::new(subquery),
+                    negated: false,
+                })
+            }
+
+            // Parenthesized expression or scalar subquery
             TokenType::LeftParen => {
-                *i += 1;
+                *i += 1; // consume '('
+
+                // Check if this is a scalar subquery (starts with SELECT)
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::Select) {
+                    // Parse scalar subquery
+                    let subquery = self.parse_select_statement_at(tokens, i)?;
+
+                    // Expect closing parenthesis
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected ')' after scalar subquery".to_string(),
+                            position: *i,
+                        });
+                    }
+                    *i += 1; // consume ')'
+
+                    return Ok(Expression::ScalarSubquery {
+                        subquery: Box::new(subquery),
+                    });
+                }
+
+                // Regular parenthesized expression
                 let expr = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
 
                 if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
