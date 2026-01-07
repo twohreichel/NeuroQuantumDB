@@ -447,7 +447,7 @@ mod tests {
         consensus.stop().await.unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn test_election_timeout_triggers_candidate_state() {
         let mut config = get_test_config();
         // Set very short timeouts for testing
@@ -455,13 +455,23 @@ mod tests {
         config.raft.election_timeout_max = Duration::from_millis(100);
 
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
-        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        let consensus = RaftConsensus::new(1, transport, config.clone()).await.unwrap();
 
         // Start consensus
         consensus.start().await.unwrap();
 
-        // Wait for election timeout
-        tokio::time::sleep(Duration::from_millis(150)).await;
+        // Yield first to allow background tasks to start
+        tokio::task::yield_now().await;
+
+        // Advance time by just past the maximum election timeout to ensure it triggers
+        // exactly once (using max + 1ms to guarantee the timeout fires)
+        let advance_duration = config.raft.election_timeout_max + Duration::from_millis(1);
+        tokio::time::advance(advance_duration).await;
+
+        // Give the spawned task a chance to process the timeout.
+        // A minimal sleep is sufficient since we're in paused time mode and
+        // this just allows the runtime to schedule the background task.
+        tokio::time::sleep(Duration::from_millis(1)).await;
 
         // Check if state transitioned to Candidate
         let state = consensus.state.read().await;
