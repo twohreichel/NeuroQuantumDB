@@ -282,7 +282,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_millis() as u64;
 
         Ok(tonic::Response::new(proto::HeartbeatResponse {
@@ -457,12 +457,24 @@ impl NetworkTransport {
                     })?;
                 }
                 ClusterMessage::AppendEntries(append_req) => {
+                    // Convert entries to proto format
+                    let proto_entries: Vec<proto::LogEntry> = append_req
+                        .entries
+                        .iter()
+                        .enumerate()
+                        .map(|(i, entry)| proto::LogEntry {
+                            index: append_req.prev_log_index + 1 + i as u64,
+                            term: entry.term,
+                            data: entry.data.clone(),
+                        })
+                        .collect();
+
                     let req = proto::AppendEntriesRequest {
                         term: append_req.term,
                         leader_id: append_req.leader_id,
                         prev_log_index: append_req.prev_log_index,
                         prev_log_term: append_req.prev_log_term,
-                        entries: vec![], // Would need to convert entries
+                        entries: proto_entries,
                         leader_commit: append_req.leader_commit,
                     };
                     client.append_entries(req).await.map_err(|e| {
@@ -478,7 +490,7 @@ impl NetworkTransport {
             // Update last contact time
             peer.last_contact_ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_default()
                 .as_millis() as u64;
         }
 
@@ -545,9 +557,18 @@ impl NetworkTransport {
                                 );
 
                                 // Add peer to connections
-                                let peer_socket_addr: SocketAddr = peer_addr
-                                    .parse()
-                                    .unwrap_or_else(|_| SocketAddr::from(([127, 0, 0, 1], 8080)));
+                                let peer_socket_addr: SocketAddr = match peer_addr.parse() {
+                                    Ok(addr) => addr,
+                                    Err(e) => {
+                                        warn!(
+                                            node_id = self.node_id,
+                                            peer = peer_addr,
+                                            error = %e,
+                                            "Failed to parse peer address, skipping"
+                                        );
+                                        continue;
+                                    }
+                                };
                                 
                                 peers.insert(
                                     resp.node_id,
@@ -557,7 +578,7 @@ impl NetworkTransport {
                                         connected: true,
                                         last_contact_ms: std::time::SystemTime::now()
                                             .duration_since(std::time::UNIX_EPOCH)
-                                            .unwrap()
+                                            .unwrap_or_default()
                                             .as_millis() as u64,
                                         client: Some(client),
                                     },
