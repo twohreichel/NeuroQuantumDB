@@ -295,6 +295,89 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_hebbian_learning_in_where() {
+        // Test HEBBIAN_LEARNING function in WHERE clause (issue fix)
+        // HEBBIAN_LEARNING(col1, col2, rate) calculates Hebbian correlation
+        // Implements: "Neurons that fire together, wire together"
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM connections WHERE HEBBIAN_LEARNING(source, target, 0.5) > 0.3";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "HEBBIAN_LEARNING function should parse in WHERE clause: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains a comparison with HEBBIAN_LEARNING function
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(
+                    select.where_clause.is_some(),
+                    "WHERE clause should be present"
+                );
+                // Verify WHERE clause contains HEBBIAN_LEARNING function
+                let where_str = format!("{:?}", select.where_clause);
+                assert!(
+                    where_str.contains("HEBBIAN_LEARNING"),
+                    "WHERE clause should contain HEBBIAN_LEARNING function: {:?}",
+                    select.where_clause
+                );
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_hebbian_learning_in_select() {
+        // Test HEBBIAN_LEARNING function in SELECT clause
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT HEBBIAN_LEARNING(col1, col2, 0.1) as correlation FROM data";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "HEBBIAN_LEARNING function should parse in SELECT clause: {:?}",
+            result
+        );
+
+        // Verify the parsed structure contains a HEBBIAN_LEARNING function call
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert_eq!(select.select_list.len(), 1, "Should have one select item");
+                match &select.select_list[0] {
+                    SelectItem::Expression { expr, alias } => {
+                        match expr {
+                            Expression::FunctionCall { name, args } => {
+                                assert_eq!(name, "HEBBIAN_LEARNING");
+                                assert_eq!(args.len(), 3, "HEBBIAN_LEARNING should have 3 arguments");
+                            }
+                            _ => panic!("Expected FunctionCall expression"),
+                        }
+                        assert_eq!(alias.as_deref(), Some("correlation"));
+                    }
+                    _ => panic!("Expected Expression select item"),
+                }
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_hebbian_learning_single_arg() {
+        // Test HEBBIAN_LEARNING function with single argument
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT HEBBIAN_LEARNING(age) as hebbian FROM users LIMIT 5";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "HEBBIAN_LEARNING function with single arg should parse: {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn test_parser_case_insensitive() {
         let parser = QSQLParser::new();
 

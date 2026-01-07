@@ -842,6 +842,49 @@ impl QSQLParser {
 
                     select_list.push(SelectItem::Expression { expr, alias });
                 }
+                // Neuromorphic and Quantum function tokens in SELECT list
+                TokenType::HebbianLearning
+                | TokenType::NeuroMatch
+                | TokenType::QuantumSearch => {
+                    // Determine function name
+                    let func_name = match &tokens[i] {
+                        TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),
+                        TokenType::NeuroMatch => "NEUROMATCH".to_string(),
+                        TokenType::QuantumSearch => "QUANTUM_SEARCH".to_string(),
+                        _ => unreachable!(),
+                    };
+                    i += 1; // consume the function token
+
+                    // Expect opening parenthesis
+                    if i >= tokens.len() || !matches!(tokens[i], TokenType::LeftParen) {
+                        return Err(QSQLError::ParseError {
+                            message: format!("Expected '(' after {} function", func_name),
+                            position: i,
+                        });
+                    }
+
+                    // Parse the function call
+                    let expr = self.parse_function_call(tokens, &mut i, func_name)?;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[i] {
+                                i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
                 TokenType::LeftParen => {
                     // Scalar subquery in SELECT list: (SELECT ...)
                     i += 1; // consume '('
@@ -1271,6 +1314,49 @@ impl QSQLParser {
                 | TokenType::NthValue => {
                     // Parse window function expression
                     let expr = self.parse_window_function(tokens, i)?;
+
+                    // Check for optional AS alias
+                    let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                        *i += 1;
+                        if *i < tokens.len() {
+                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                                *i += 1;
+                                Some(alias_name.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression { expr, alias });
+                }
+                // Neuromorphic and Quantum function tokens in SELECT list
+                TokenType::HebbianLearning
+                | TokenType::NeuroMatch
+                | TokenType::QuantumSearch => {
+                    // Determine function name
+                    let func_name = match &tokens[*i] {
+                        TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),
+                        TokenType::NeuroMatch => "NEUROMATCH".to_string(),
+                        TokenType::QuantumSearch => "QUANTUM_SEARCH".to_string(),
+                        _ => unreachable!(),
+                    };
+                    *i += 1; // consume the function token
+
+                    // Expect opening parenthesis
+                    if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                        return Err(QSQLError::ParseError {
+                            message: format!("Expected '(' after {} function", func_name),
+                            position: *i,
+                        });
+                    }
+
+                    // Parse the function call
+                    let expr = self.parse_function_call(tokens, i, func_name)?;
 
                     // Check for optional AS alias
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
@@ -4818,6 +4904,22 @@ impl QSQLParser {
                 } else {
                     Err(QSQLError::ParseError {
                         message: "Expected '(' after QUANTUM_SEARCH function".to_string(),
+                        position: *i,
+                    })
+                }
+            }
+
+            // Neuromorphic function: HEBBIAN_LEARNING(col1, col2, rate) - Hebbian correlation
+            // Implements the Hebbian Learning Principle: "Neurons that fire together, wire together"
+            // Calculates correlation between two columns with a learning rate parameter
+            TokenType::HebbianLearning => {
+                let func_name = "HEBBIAN_LEARNING".to_string();
+                *i += 1; // consume the HEBBIAN_LEARNING token
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                    self.parse_function_call(tokens, i, func_name)
+                } else {
+                    Err(QSQLError::ParseError {
+                        message: "Expected '(' after HEBBIAN_LEARNING function".to_string(),
                         position: *i,
                     })
                 }
