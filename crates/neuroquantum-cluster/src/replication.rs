@@ -205,7 +205,8 @@ impl ReplicationManager {
         let highest = self.highest_token.read().await;
         
         if let Some(highest_token) = &*highest {
-            if token < highest_token {
+            // Token must be strictly newer than highest seen
+            if token <= highest_token {
                 return Err(ClusterError::StaleToken {
                     current_term: highest_token.term,
                     received_term: token.term,

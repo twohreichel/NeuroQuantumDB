@@ -61,6 +61,8 @@ replication_factor = 3  # Requires at least 2 nodes for quorum
 heartbeat_interval = "100ms"  # Lease = 3 × 100ms = 300ms
 ```
 
+**Note:** Leader lease is always enabled in NeuroQuantumDB for split brain prevention. The lease duration is automatically calculated as 3× the heartbeat interval.
+
 **Monitoring:**
 Check leader lease status via cluster health API:
 ```bash
@@ -308,7 +310,6 @@ bind_addr = "0.0.0.0:9000"
 heartbeat_interval = "100ms"
 election_timeout_min = "300ms"
 election_timeout_max = "500ms"
-enable_leader_lease = true
 
 [sharding]
 replication_factor = 3  # Minimum 3 for production
@@ -330,7 +331,6 @@ peers = ["node2:9000", "node3:9000", "node4:9000", "node5:9000"]
 heartbeat_interval = "150ms"      # More lenient for production
 election_timeout_min = "500ms"
 election_timeout_max = "800ms"
-enable_leader_lease = true        # REQUIRED for split brain prevention
 
 [sharding]
 replication_factor = 5            # 5-node cluster for high availability

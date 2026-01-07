@@ -306,6 +306,7 @@ impl RaftConsensus {
                 );
                 state.state = RaftState::Follower;
                 state.leader_lease = None;
+                state.current_leader = None;
                 return Err(ClusterError::LeaseExpired);
             }
         }

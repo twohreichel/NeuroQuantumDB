@@ -368,11 +368,26 @@ impl ClusterNode {
         if inner.state != NodeState::Running {
             return false;
         }
+        drop(inner);
 
-        // Must be leader with valid quorum
-        self.is_leader().await
-            && self.consensus.quorum_status().await
-                == crate::consensus::QuorumStatus::HasQuorum
+        // Must be leader with valid quorum and valid lease
+        if !self.is_leader().await {
+            return false;
+        }
+
+        if self.consensus.quorum_status().await != crate::consensus::QuorumStatus::HasQuorum {
+            return false;
+        }
+
+        // Check if leader lease is still valid
+        let state = self.consensus.state.read().await;
+        if let Some(lease) = &state.leader_lease {
+            if !lease.is_valid() {
+                return false;
+            }
+        }
+
+        true
     }
 
     /// Update peer health status.
