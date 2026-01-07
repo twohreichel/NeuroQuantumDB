@@ -6,9 +6,10 @@
 //!   implementations** including VQE, QAOA, and Simulated Quantum Annealing (SQA).
 //!   Features automatic fallback to classical solver when quantum backends unavailable.
 //!
-//! - **TFIM (Transverse Field Ising Model)**: Classical simulation of quantum
-//!   annealing dynamics. Implements the transverse field Ising Hamiltonian
-//!   using Monte Carlo methods.
+//! - **TFIM (Transverse Field Ising Model)**: Now with **real quantum
+//!   implementations** including Trotter-Suzuki time evolution, VQE for ground state
+//!   finding, and QAOA for optimization. The classical Monte Carlo simulation is still
+//!   available as a fallback method.
 //!
 //! - **Quantum Parallel Tempering**: Real quantum algorithms for parallel tempering
 //!   including Path Integral Monte Carlo (PIMC), Quantum Monte Carlo (QMC),
@@ -52,6 +53,8 @@ pub mod legacy;
 pub mod quantum_parallel_tempering;
 pub mod qubo_quantum;
 pub mod tfim;
+pub mod tfim_quantum;
+pub mod tfim_unified;
 
 // Re-export legacy quantum types for backwards compatibility
 pub use legacy::{
@@ -92,3 +95,13 @@ pub use qubo_quantum::{
 };
 
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
+
+// Real quantum TFIM exports
+pub use tfim_quantum::{
+    HardwareMapping, QuantumBackend as TFIMQuantumBackend, QuantumCircuit, QuantumGate,
+    QuantumObservables, QuantumTFIMConfig, QuantumTFIMProblem, QuantumTFIMSolution,
+    QuantumTFIMSolver, SolutionMethod, VQEAnsatz,
+};
+
+// Unified TFIM interface (automatic quantum/classical selection)
+pub use tfim_unified::{UnifiedTFIMConfig, UnifiedTFIMResult, UnifiedTFIMSolver};

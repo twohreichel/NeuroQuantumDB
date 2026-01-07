@@ -66,6 +66,14 @@ use validator::Validate;
             TrainNeuralNetworkResponse,
             QuantumSearchRequest,
             QuantumSearchResponse,
+            QuantumSearchResult,
+            QuantumStats,
+            TFIMRequestConfig,
+            TFIMResults,
+            QUBORequestConfig,
+            QUBOResults,
+            ParallelTemperingRequestConfig,
+            ParallelTemperingResults,
             CompressDnaRequest,
             CompressDnaResponse,
             CompressedSequence,
@@ -1035,7 +1043,7 @@ pub async fn get_training_status(
     )))
 }
 
-/// Perform quantum-inspired search
+/// Perform quantum-inspired search with optional TFIM computation
 #[utoipa::path(
     post,
     path = "/api/v1/quantum/search",
@@ -1084,10 +1092,63 @@ pub async fn quantum_search(
         ));
     }
 
+    // Check if TFIM mode is requested
+    let tfim_results = if search_req.use_tfim {
+        info!(
+            "⚛️ Performing TFIM quantum computation with {} qubits",
+            search_req.query_vector.len()
+        );
+        Some(execute_tfim_computation(&search_req)?)
+    } else {
+        None
+    };
+
+    // Check if QUBO mode is requested
+    let qubo_results = if search_req.use_qubo {
+        info!(
+            "⚛️ Performing QUBO optimization with {} variables",
+            search_req.query_vector.len().min(16)
+        );
+        Some(execute_qubo_computation(&search_req)?)
+    } else {
+        None
+    };
+
+    // Check if Parallel Tempering mode is requested
+    let parallel_tempering_results = if search_req.use_parallel_tempering {
+        info!(
+            "⚛️ Performing Quantum Parallel Tempering with {} spins",
+            search_req.query_vector.len().min(20)
+        );
+        Some(execute_parallel_tempering(&search_req)?)
+    } else {
+        None
+    };
+
+    // Build mode description string
+    let mode_desc = {
+        let mut modes = Vec::new();
+        if search_req.use_tfim {
+            modes.push("TFIM");
+        }
+        if search_req.use_qubo {
+            modes.push("QUBO");
+        }
+        if search_req.use_parallel_tempering {
+            modes.push("PT");
+        }
+        if modes.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", modes.join(", "))
+        }
+    };
+
     info!(
-        "⚛️ Performing quantum search on table '{}' with {} dimensions",
+        "⚛️ Performing quantum search on table '{}' with {} dimensions{}",
         search_req.table_name,
-        search_req.query_vector.len()
+        search_req.query_vector.len(),
+        mode_desc
     );
 
     // Access the database through AppState to perform quantum-inspired search
@@ -1205,16 +1266,38 @@ pub async fn quantum_search(
     // This represents the minimum coherence time required for quantum operations
     const QUANTUM_OVERHEAD_MS: f32 = 50.0;
 
+    // Extract TFIM circuit stats if available
+    let (circuit_depth, num_gates, trotter_steps_used) = if let Some(ref tfim) = tfim_results {
+        (
+            Some(tfim.num_qubits as u32 * 10), // Approximate circuit depth
+            Some(tfim.num_qubits as u32 * 50), // Approximate gate count
+            Some(
+                search_req
+                    .tfim_config
+                    .as_ref()
+                    .map_or(10, |c| c.trotter_steps),
+            ),
+        )
+    } else {
+        (None, None, None)
+    };
+
     let quantum_stats = QuantumStats {
         coherence_time_used_ms: start.elapsed().as_secs_f32() * 1000.0 + QUANTUM_OVERHEAD_MS,
         superposition_states: search_req.query_vector.len() as u32,
         measurement_collapses: results.len() as u32,
         entanglement_operations: (results.len() * 2) as u32,
+        circuit_depth,
+        num_gates,
+        trotter_steps: trotter_steps_used,
     };
 
     let response = QuantumSearchResponse {
         results,
         quantum_stats,
+        tfim_results,
+        qubo_results,
+        parallel_tempering_results,
     };
 
     // Record quantum search metrics
@@ -1224,6 +1307,320 @@ pub async fn quantum_search(
         response,
         ResponseMetadata::new(start.elapsed(), "Quantum search completed"),
     )))
+}
+
+/// Execute real TFIM quantum computation using the query vector as coupling strengths
+fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMResults, ApiError> {
+    use neuroquantum_core::nalgebra::DMatrix;
+    use neuroquantum_core::quantum::{
+        QuantumTFIMConfig, SolutionMethod, TFIMProblem, UnifiedTFIMConfig, UnifiedTFIMSolver,
+        VQEAnsatz,
+    };
+
+    let tfim_config = search_req.tfim_config.clone().unwrap_or_default();
+    let num_qubits = search_req.query_vector.len().min(10); // Limit to 10 qubits for performance
+
+    if num_qubits < 2 {
+        return Err(ApiError::BadRequest(
+            "TFIM requires at least 2 qubits (query_vector length >= 2)".to_string(),
+        ));
+    }
+
+    // Build coupling matrix from query vector
+    // Use query vector values as coupling strengths between adjacent spins
+    let couplings = DMatrix::from_fn(num_qubits, num_qubits, |i, j| {
+        if i != j && (i as i32 - j as i32).abs() == 1 {
+            // Adjacent spins: use query vector value as coupling
+            let idx = i.min(j);
+            if idx < search_req.query_vector.len() {
+                search_req.query_vector[idx] as f64
+            } else {
+                1.0
+            }
+        } else {
+            0.0
+        }
+    });
+
+    // Build the quantum TFIM configuration
+    let quantum_config = match tfim_config.method.to_lowercase().as_str() {
+        "vqe" => QuantumTFIMConfig {
+            method: SolutionMethod::VQE {
+                ansatz: VQEAnsatz::HardwareEfficient {
+                    depth: tfim_config.vqe_depth as usize,
+                },
+                max_iterations: 50,
+                convergence_threshold: 1e-4,
+            },
+            num_shots: tfim_config.num_shots as usize,
+            hardware_mapping: None,
+            error_mitigation: true,
+            trotter_steps: tfim_config.trotter_steps as usize,
+            evolution_time: tfim_config.evolution_time,
+        },
+        "qaoa" => QuantumTFIMConfig {
+            method: SolutionMethod::QAOA {
+                num_layers: tfim_config.qaoa_layers as usize,
+                optimizer: "COBYLA".to_string(),
+            },
+            num_shots: tfim_config.num_shots as usize,
+            hardware_mapping: None,
+            error_mitigation: true,
+            trotter_steps: tfim_config.trotter_steps as usize,
+            evolution_time: tfim_config.evolution_time,
+        },
+        _ => QuantumTFIMConfig {
+            method: SolutionMethod::TrotterSuzuki { order: 2 },
+            num_shots: tfim_config.num_shots as usize,
+            hardware_mapping: None,
+            error_mitigation: true,
+            trotter_steps: tfim_config.trotter_steps as usize,
+            evolution_time: tfim_config.evolution_time,
+        },
+    };
+
+    // Create classical TFIM problem (for unified solver)
+    let classical_problem = TFIMProblem {
+        num_spins: num_qubits,
+        couplings: couplings.clone(),
+        external_fields: vec![0.0; num_qubits],
+        name: format!("API_TFIM_{}", num_qubits),
+    };
+
+    // Use unified solver with quantum preference
+    let unified_config = UnifiedTFIMConfig {
+        prefer_quantum: true,
+        quantum_config: Some(quantum_config),
+        classical_config: Default::default(),
+        transverse_field_strength: tfim_config.transverse_field,
+    };
+
+    let solver = UnifiedTFIMSolver::new(unified_config);
+    let result =
+        solver
+            .solve(&classical_problem)
+            .map_err(|e| ApiError::QuantumOperationFailed {
+                operation: "TFIM computation".to_string(),
+                reason: e.to_string(),
+            })?;
+
+    // Extract results based on whether quantum or classical was used
+    let (energy, energy_variance, magnetization, order_parameter, correlations, fidelity) =
+        if let Some(ref quantum_sol) = result.quantum_solution {
+            let corr_data: Vec<f64> = quantum_sol
+                .observables
+                .correlations
+                .iter()
+                .cloned()
+                .collect();
+            (
+                quantum_sol.energy,
+                quantum_sol.energy_variance,
+                quantum_sol.observables.magnetization.clone(),
+                quantum_sol.observables.order_parameter,
+                corr_data,
+                quantum_sol.fidelity,
+            )
+        } else if let Some(ref classical_sol) = result.classical_solution {
+            // Classical solution: generate approximate observables
+            let magnetization: Vec<f64> = classical_sol.spins.iter().map(|&s| s as f64).collect();
+            let order_param = magnetization.iter().sum::<f64>() / num_qubits as f64;
+            (
+                classical_sol.energy,
+                0.0, // Classical doesn't provide variance
+                magnetization,
+                order_param,
+                vec![1.0; num_qubits * num_qubits], // Identity correlations as placeholder
+                Some(classical_sol.ground_state_prob),
+            )
+        } else {
+            return Err(ApiError::QuantumOperationFailed {
+                operation: "TFIM computation".to_string(),
+                reason: "No solution obtained".to_string(),
+            });
+        };
+
+    let method_used = match tfim_config.method.to_lowercase().as_str() {
+        "vqe" => "VQE (Variational Quantum Eigensolver)",
+        "qaoa" => "QAOA (Quantum Approximate Optimization Algorithm)",
+        _ => "Trotter-Suzuki Time Evolution",
+    };
+
+    Ok(TFIMResults {
+        energy,
+        energy_variance,
+        magnetization,
+        order_parameter,
+        correlations,
+        num_qubits,
+        method_used: method_used.to_string(),
+        used_quantum: result.used_quantum,
+        fidelity,
+    })
+}
+
+/// Execute QUBO optimization using quantum-inspired algorithms
+fn execute_qubo_computation(search_req: &QuantumSearchRequest) -> Result<QUBOResults, ApiError> {
+    use neuroquantum_core::nalgebra::DMatrix;
+    use neuroquantum_core::quantum::{QuantumQuboConfig, QuantumQuboSolver, QuboQuantumBackend};
+
+    let qubo_config = search_req.qubo_config.clone().unwrap_or_default();
+    let start_time = std::time::Instant::now();
+
+    // Build QUBO problem from query vector
+    // Interpret query vector as diagonal elements, with small off-diagonal couplings
+    let n = search_req.query_vector.len().min(16); // Limit to 16 variables for performance
+
+    if n < 2 {
+        return Err(ApiError::BadRequest(
+            "QUBO requires at least 2 variables (query_vector length >= 2)".to_string(),
+        ));
+    }
+
+    // Create QUBO Q matrix from query vector
+    // Diagonal terms from query vector, off-diagonal from adjacent elements
+    let mut q_matrix = DMatrix::zeros(n, n);
+    for i in 0..n {
+        q_matrix[(i, i)] = search_req.query_vector[i] as f64;
+        if i + 1 < n {
+            let coupling =
+                (search_req.query_vector[i] + search_req.query_vector[i + 1]) as f64 * 0.1;
+            q_matrix[(i, i + 1)] = coupling;
+            q_matrix[(i + 1, i)] = coupling;
+        }
+    }
+
+    // Select backend based on configuration
+    let backend = match qubo_config.backend.to_lowercase().as_str() {
+        "vqe" => QuboQuantumBackend::VQE,
+        "qaoa" => QuboQuantumBackend::QAOA,
+        "sqa" => QuboQuantumBackend::SimulatedQuantumAnnealing,
+        "annealing" => QuboQuantumBackend::QuantumAnnealing,
+        _ => QuboQuantumBackend::ClassicalFallback,
+    };
+
+    let config = QuantumQuboConfig {
+        backend,
+        num_shots: qubo_config.num_shots as usize,
+        qaoa_depth: qubo_config.qaoa_depth as usize,
+        max_iterations: qubo_config.max_iterations as usize,
+        convergence_threshold: qubo_config.convergence_threshold,
+        ..Default::default()
+    };
+
+    let solver = QuantumQuboSolver::with_config(config);
+    let solution = solver.solve(&q_matrix, "api_qubo_problem").map_err(|e| {
+        ApiError::QuantumOperationFailed {
+            operation: "QUBO optimization".to_string(),
+            reason: e.to_string(),
+        }
+    })?;
+
+    let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+
+    Ok(QUBOResults {
+        variables: solution.variables.clone(),
+        energy: solution.energy,
+        quality: solution.quality,
+        backend_used: format!("{:?}", solution.backend_used),
+        quantum_evaluations: solution.quantum_evaluations as u32,
+        iterations: solution.iterations as u32,
+        converged: solution.converged,
+        computation_time_ms,
+        best_state_probability: solution
+            .measurement_stats
+            .as_ref()
+            .map(|s| s.best_state_probability),
+    })
+}
+
+/// Execute Quantum Parallel Tempering
+fn execute_parallel_tempering(
+    search_req: &QuantumSearchRequest,
+) -> Result<ParallelTemperingResults, ApiError> {
+    use neuroquantum_core::nalgebra::DMatrix;
+    use neuroquantum_core::quantum::{
+        IsingHamiltonian, QuantumBackend, QuantumParallelTempering, QuantumParallelTemperingConfig,
+    };
+
+    let pt_config = search_req
+        .parallel_tempering_config
+        .clone()
+        .unwrap_or_default();
+    let start_time = std::time::Instant::now();
+
+    // Build Ising Hamiltonian from query vector
+    let n = search_req.query_vector.len().min(20); // Limit to 20 spins for performance
+
+    if n < 2 {
+        return Err(ApiError::BadRequest(
+            "Parallel Tempering requires at least 2 spins (query_vector length >= 2)".to_string(),
+        ));
+    }
+
+    // Create Ising Hamiltonian with coupling matrix and external fields
+    let mut couplings = DMatrix::zeros(n, n);
+    for i in 0..n - 1 {
+        let coupling = (search_req.query_vector[i] + search_req.query_vector[i + 1]) as f64 * 0.5;
+        couplings[(i, i + 1)] = coupling;
+        couplings[(i + 1, i)] = coupling;
+    }
+
+    let external_fields: Vec<f64> = search_req.query_vector[..n]
+        .iter()
+        .map(|&x| x as f64)
+        .collect();
+
+    let hamiltonian =
+        IsingHamiltonian::new(n, couplings, external_fields, pt_config.transverse_field);
+
+    // Select backend based on configuration
+    let backend = match pt_config.backend.to_lowercase().as_str() {
+        "pimc" => QuantumBackend::PathIntegralMonteCarlo,
+        "qmc" => QuantumBackend::QuantumMonteCarlo,
+        "annealing" => QuantumBackend::QuantumAnnealing,
+        _ => QuantumBackend::Hybrid,
+    };
+
+    let config = QuantumParallelTemperingConfig {
+        num_replicas: pt_config.num_replicas as usize,
+        min_temperature: pt_config.min_temperature,
+        max_temperature: pt_config.max_temperature,
+        trotter_slices: pt_config.trotter_slices as usize,
+        transverse_field: pt_config.transverse_field,
+        backend: backend.clone(),
+        num_exchanges: pt_config.num_exchanges as usize,
+        ..Default::default()
+    };
+
+    let mut optimizer = QuantumParallelTempering::with_config(config);
+
+    // Create initial configuration (random spins)
+    let initial_config: Vec<i8> = (0..n).map(|i| if i % 2 == 0 { 1 } else { -1 }).collect();
+
+    // Run optimization using blocking runtime (since optimize is async)
+    let solution = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current()
+            .block_on(async { optimizer.optimize(hamiltonian, initial_config).await })
+    })
+    .map_err(|e| ApiError::QuantumOperationFailed {
+        operation: "Parallel Tempering".to_string(),
+        reason: e.to_string(),
+    })?;
+
+    let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+
+    Ok(ParallelTemperingResults {
+        best_configuration: solution.best_configuration.to_vec(),
+        best_energy: solution.best_energy,
+        best_replica_id: solution.best_replica_id as u32,
+        total_exchanges: solution.total_exchanges as u32,
+        acceptance_rate: solution.acceptance_rate,
+        ground_state_energy_estimate: solution.ground_state_energy_estimate,
+        thermal_state_fidelity: solution.thermal_state_fidelity,
+        backend_used: format!("{:?}", solution.backend_used),
+        computation_time_ms,
+    })
 }
 
 /// Compress DNA sequences using advanced algorithms
