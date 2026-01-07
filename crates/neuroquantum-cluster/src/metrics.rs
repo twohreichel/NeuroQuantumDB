@@ -314,8 +314,10 @@ mod tests {
     fn test_record_proposal() {
         let metrics = ClusterMetrics::new(1);
 
+        // Record two proposal attempts
         metrics.record_proposal();
         metrics.record_proposal();
+        // Record outcomes: one success, one failure
         metrics.record_proposal_success();
         metrics.record_proposal_failure();
 
