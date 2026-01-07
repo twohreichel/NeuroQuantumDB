@@ -75,7 +75,7 @@ pub mod sharding;
 
 // Re-export main types
 pub use cluster_manager::{ClusterManager, ClusterStatus};
-pub use config::ClusterConfig;
+pub use config::{ClusterConfig, ClusterManagerConfig};
 pub use error::{ClusterError, ClusterResult};
 pub use metrics::{ClusterMetrics, MetricsSnapshot};
 pub use node::{ClusterNode, NodeId, NodeRole, NodeState};

@@ -4,7 +4,6 @@
 //! coordinating between consensus, replication, sharding, and discovery.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -77,7 +76,7 @@ impl ClusterManager {
         let replication_manager = Arc::new(ReplicationManager::new(
             config.node_id,
             config.sharding.replication_factor,
-            Duration::from_secs(30),
+            config.manager.replication_timeout,
         ));
 
         // Create metrics
@@ -246,9 +245,10 @@ impl ClusterManager {
         let node = Arc::clone(&self.node);
         let metrics = Arc::clone(&self.metrics);
         let node_id = self.config.node_id;
+        let health_check_interval = self.config.manager.health_check_interval;
 
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(5));
+            let mut interval = tokio::time::interval(health_check_interval);
 
             loop {
                 interval.tick().await;
@@ -369,9 +369,10 @@ impl ClusterManager {
         let state = Arc::clone(&self.state);
         let replication_manager = Arc::clone(&self.replication_manager);
         let node_id = self.config.node_id;
+        let cleanup_interval = self.config.manager.replication_cleanup_interval;
 
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            let mut interval = tokio::time::interval(cleanup_interval);
 
             loop {
                 interval.tick().await;
