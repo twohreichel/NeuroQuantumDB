@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package neuroquantum.cluster;
+
+// Cluster node service for inter-node communication
+service ClusterNode {
+    // Handshake to establish connection and exchange node IDs
+    rpc Handshake(HandshakeRequest) returns (HandshakeResponse);
+    
+    // Append entries (log replication or heartbeat)
+    rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
+    
+    // Request vote during leader election
+    rpc RequestVote(VoteRequest) returns (VoteResponse);
+    
+    // Heartbeat for health check
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    
+    // Install snapshot for new or lagging nodes
+    rpc InstallSnapshot(InstallSnapshotRequest) returns (InstallSnapshotResponse);
+}
+
+// Handshake request to initiate connection
+message HandshakeRequest {
+    uint64 node_id = 1;
+    string address = 2;
+    uint64 term = 3;
+}
+
+// Handshake response with remote node info
+message HandshakeResponse {
+    uint64 node_id = 1;
+    bool success = 2;
+    string error = 3;
+}
+
+// Append entries request (Raft log replication)
+message AppendEntriesRequest {
+    uint64 term = 1;
+    uint64 leader_id = 2;
+    uint64 prev_log_index = 3;
+    uint64 prev_log_term = 4;
+    repeated LogEntry entries = 5;
+    uint64 leader_commit = 6;
+}
+
+// Log entry for replication
+message LogEntry {
+    uint64 index = 1;
+    uint64 term = 2;
+    bytes data = 3;
+}
+
+// Append entries response
+message AppendEntriesResponse {
+    uint64 term = 1;
+    bool success = 2;
+    uint64 last_log_index = 3;
+}
+
+// Vote request for leader election
+message VoteRequest {
+    uint64 term = 1;
+    uint64 candidate_id = 2;
+    uint64 last_log_index = 3;
+    uint64 last_log_term = 4;
+    bool is_pre_vote = 5;
+}
+
+// Vote response
+message VoteResponse {
+    uint64 term = 1;
+    bool vote_granted = 2;
+    bool is_pre_vote = 3;
+}
+
+// Heartbeat request for health check
+message HeartbeatRequest {
+    uint64 from = 1;
+    uint64 timestamp_ms = 2;
+}
+
+// Heartbeat response
+message HeartbeatResponse {
+    uint64 from = 1;
+    uint64 timestamp_ms = 2;
+}
+
+// Install snapshot request
+message InstallSnapshotRequest {
+    uint64 term = 1;
+    uint64 leader_id = 2;
+    uint64 last_included_index = 3;
+    uint64 last_included_term = 4;
+    uint64 offset = 5;
+    bytes data = 6;
+    bool done = 7;
+}
+
+// Install snapshot response
+message InstallSnapshotResponse {
+    uint64 term = 1;
+    bool success = 2;
+}
