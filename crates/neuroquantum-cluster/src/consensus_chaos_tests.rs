@@ -94,6 +94,9 @@ mod chaos_tests {
         // Follower 2 rejoins with only entries 1-2
         // Leader's next_index for follower 2 should backtrack
 
+        // Get current term from leader
+        let current_term = leader.current_term().await;
+
         // Simulate failed append entries (follower 2 doesn't have entry 3)
         {
             let mut state = leader.state.write().await;
@@ -103,7 +106,7 @@ mod chaos_tests {
 
         // Verify leader can handle backtracking
         let response = AppendEntriesResponse {
-            term: 0,
+            term: current_term,
             success: false,
             match_index: None,
             conflict_index: Some(3),
@@ -218,6 +221,9 @@ mod chaos_tests {
         leader.propose(b"entry2".to_vec()).await.unwrap();
         leader.propose(b"entry3".to_vec()).await.unwrap();
 
+        // Get current term
+        let current_term = leader.current_term().await;
+
         // Simulate responses: 2 followers succeed, 2 fail
         {
             let mut state = leader.state.write().await;
@@ -230,7 +236,7 @@ mod chaos_tests {
 
         // Should still commit (3 out of 5 = majority)
         let response = AppendEntriesResponse {
-            term: 0,
+            term: current_term,
             success: true,
             match_index: Some(3),
             conflict_index: None,

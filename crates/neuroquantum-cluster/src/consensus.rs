@@ -438,6 +438,9 @@ impl RaftConsensus {
             return Err(ClusterError::NoQuorum);
         }
         
+        // Increment term (as would happen in a real election)
+        state.current_term += 1;
+        
         // Create leader lease
         let lease_duration = self.config.raft.heartbeat_interval * 3;
         let lease = LeaderLease::new(lease_duration);
@@ -849,7 +852,11 @@ impl RaftConsensus {
             // Check if we have majority
             let needed = (state.cluster_size / 2) + 1;
             if count >= needed {
-                // Only commit entries from current term (Raft safety)
+                // According to Raft §5.4.2, a leader can commit entries from previous terms
+                // once an entry from its current term is committed. However, it should never
+                // commit entries from previous terms directly.
+                // For now, we allow committing if it's from the current term.
+                // A more sophisticated implementation would track when a current-term entry is committed.
                 if state.log[n as usize - 1].term == state.current_term {
                     let old_commit = state.commit_index;
                     state.commit_index = n;

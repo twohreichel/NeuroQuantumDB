@@ -455,13 +455,14 @@ mod replication_tests {
         assert_eq!(consensus.last_log_index().await, 0);
         assert_eq!(consensus.last_log_term().await, 0);
 
-        // Add entries
+        // Add entries (promote increments term to 1)
         consensus.promote_to_leader().await.unwrap();
         consensus.propose(b"entry1".to_vec()).await.unwrap();
         consensus.propose(b"entry2".to_vec()).await.unwrap();
 
         assert_eq!(consensus.last_log_index().await, 2);
-        assert_eq!(consensus.last_log_term().await, 0);
+        // Term should be 1 (incremented during promote_to_leader)
+        assert_eq!(consensus.last_log_term().await, 1);
 
         consensus.stop().await.unwrap();
     }
