@@ -418,14 +418,25 @@ pub async fn create_table(
         "id".to_string()
     };
 
-    // Convert API TableSchema to storage TableSchema
-    let storage_schema = neuroquantum_core::storage::TableSchema {
-        name: create_req.schema.name.clone(),
-        columns: create_req
-            .schema
-            .columns
-            .iter()
-            .map(|c| neuroquantum_core::storage::ColumnDefinition {
+    // Convert API TableSchema to storage TableSchema with proper error handling
+    let columns_result: Result<Vec<neuroquantum_core::storage::ColumnDefinition>, ApiError> = create_req
+        .schema
+        .columns
+        .iter()
+        .map(|c| {
+            // Convert default value with proper error handling
+            let default_value = match &c.default_value {
+                Some(v) => Some(
+                    json_to_storage_value(v, &c.name)
+                        .map_err(|e| ApiError::ValidationError {
+                            field: format!("columns.{}.default_value", c.name),
+                            message: e,
+                        })?,
+                ),
+                None => None,
+            };
+
+            Ok(neuroquantum_core::storage::ColumnDefinition {
                 name: c.name.clone(),
                 data_type: match c.data_type {
                     DataType::Integer => neuroquantum_core::storage::DataType::Integer,
@@ -440,24 +451,17 @@ pub async fn create_table(
                     }
                 },
                 nullable: c.nullable.unwrap_or(true),
-                default_value: c.default_value.as_ref().map(|v| match v {
-                    serde_json::Value::Number(n) => {
-                        if n.is_i64() {
-                            neuroquantum_core::storage::Value::Integer(n.as_i64().unwrap())
-                        } else {
-                            neuroquantum_core::storage::Value::Float(n.as_f64().unwrap())
-                        }
-                    }
-                    serde_json::Value::String(s) => {
-                        neuroquantum_core::storage::Value::Text(s.clone())
-                    }
-                    serde_json::Value::Bool(b) => neuroquantum_core::storage::Value::Boolean(*b),
-                    serde_json::Value::Null => neuroquantum_core::storage::Value::Null,
-                    _ => neuroquantum_core::storage::Value::Text(v.to_string()),
-                }),
+                default_value,
                 auto_increment: c.auto_increment.unwrap_or(false),
             })
-            .collect(),
+        })
+        .collect();
+
+    let columns = columns_result?;
+
+    let storage_schema = neuroquantum_core::storage::TableSchema {
+        name: create_req.schema.name.clone(),
+        columns,
         primary_key,
         created_at: chrono::Utc::now(),
         version: 1,
@@ -570,25 +574,26 @@ pub async fn insert_data(
             continue;
         }
 
-        // Convert HashMap to Row
+        // Convert HashMap to Row with proper error handling
         let mut fields = std::collections::HashMap::new();
+        let mut conversion_error = None;
         for (key, value) in record.iter() {
-            let storage_value = match value {
-                serde_json::Value::Number(n) => {
-                    if n.is_i64() {
-                        neuroquantum_core::storage::Value::Integer(n.as_i64().unwrap())
-                    } else {
-                        neuroquantum_core::storage::Value::Float(n.as_f64().unwrap())
-                    }
+            match json_to_storage_value(value, key) {
+                Ok(storage_value) => {
+                    fields.insert(key.clone(), storage_value);
                 }
-                serde_json::Value::String(s) => neuroquantum_core::storage::Value::Text(s.clone()),
-                serde_json::Value::Bool(b) => neuroquantum_core::storage::Value::Boolean(*b),
-                serde_json::Value::Null => neuroquantum_core::storage::Value::Null,
-                serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
-                    neuroquantum_core::storage::Value::Text(value.to_string())
+                Err(e) => {
+                    conversion_error = Some(format!("Record {}: {}", idx, e));
+                    break;
                 }
-            };
-            fields.insert(key.clone(), storage_value);
+            }
+        }
+
+        // Skip this record if there was a conversion error
+        if let Some(err) = conversion_error {
+            failed_count += 1;
+            errors.push(err);
+            continue;
         }
 
         let row = neuroquantum_core::storage::Row {
@@ -2143,6 +2148,36 @@ pub async fn execute_sql_query(
 }
 
 // Helper functions for type conversions
+
+/// Convert serde_json::Value to storage::Value with proper error handling
+///
+/// Returns Ok(Value) on successful conversion, or Err(String) with a descriptive
+/// error message if the conversion fails.
+fn json_to_storage_value(
+    value: &serde_json::Value,
+    field_name: &str,
+) -> Result<neuroquantum_core::storage::Value, String> {
+    use neuroquantum_core::storage::Value;
+    match value {
+        serde_json::Value::Number(n) => {
+            if n.is_i64() {
+                n.as_i64()
+                    .map(Value::Integer)
+                    .ok_or_else(|| format!("Field '{}': integer value out of range", field_name))
+            } else {
+                n.as_f64()
+                    .map(Value::Float)
+                    .ok_or_else(|| format!("Field '{}': float value cannot be represented", field_name))
+            }
+        }
+        serde_json::Value::String(s) => Ok(Value::Text(s.clone())),
+        serde_json::Value::Bool(b) => Ok(Value::Boolean(*b)),
+        serde_json::Value::Null => Ok(Value::Null),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            Ok(Value::Text(value.to_string()))
+        }
+    }
+}
 
 /// Convert storage::Value to serde_json::Value
 fn storage_value_to_json(value: &neuroquantum_core::storage::Value) -> serde_json::Value {
