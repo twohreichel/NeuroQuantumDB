@@ -51,6 +51,8 @@ pub enum NodeState {
     Joining,
     /// Node is running normally
     Running,
+    /// Node is in read-only mode (network partition detected)
+    ReadOnly,
     /// Node is leaving the cluster gracefully
     Leaving,
     /// Node has stopped
@@ -65,6 +67,7 @@ impl std::fmt::Display for NodeState {
             Self::Initializing => write!(f, "Initializing"),
             Self::Joining => write!(f, "Joining"),
             Self::Running => write!(f, "Running"),
+            Self::ReadOnly => write!(f, "ReadOnly"),
             Self::Leaving => write!(f, "Leaving"),
             Self::Stopped => write!(f, "Stopped"),
             Self::Error => write!(f, "Error"),
@@ -311,6 +314,84 @@ impl ClusterNode {
     #[must_use]
     pub fn consensus(&self) -> Arc<RaftConsensus> {
         self.consensus.clone()
+    }
+
+    /// Check network partition and update node state.
+    pub async fn check_network_partition(&self) -> ClusterResult<()> {
+        let inner = self.inner.read().await;
+        let total_peers = inner.peers.len();
+        let healthy_peers = inner.peers.iter().filter(|p| p.healthy).count();
+        drop(inner);
+
+        // Update consensus quorum status
+        // cluster_size = total_peers + 1 (self)
+        self.consensus
+            .update_quorum_status(healthy_peers, total_peers + 1)
+            .await;
+
+        let quorum_status = self.consensus.quorum_status().await;
+
+        // Update node state based on quorum
+        let mut inner = self.inner.write().await;
+        match quorum_status {
+            crate::consensus::QuorumStatus::NoQuorum => {
+                if inner.state == NodeState::Running {
+                    warn!(
+                        node_id = self.node_id,
+                        healthy_peers,
+                        total_peers,
+                        "Network partition detected, entering read-only mode"
+                    );
+                    inner.state = NodeState::ReadOnly;
+                }
+            }
+            crate::consensus::QuorumStatus::HasQuorum => {
+                if inner.state == NodeState::ReadOnly {
+                    info!(
+                        node_id = self.node_id,
+                        "Network partition healed, resuming normal operation"
+                    );
+                    inner.state = NodeState::Running;
+                }
+            }
+            crate::consensus::QuorumStatus::Unknown => {
+                // Do nothing during initialization
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check if the node can accept writes.
+    pub async fn can_accept_writes(&self) -> bool {
+        let inner = self.inner.read().await;
+        if inner.state != NodeState::Running {
+            return false;
+        }
+
+        // Must be leader with valid quorum
+        self.is_leader().await
+            && self.consensus.quorum_status().await
+                == crate::consensus::QuorumStatus::HasQuorum
+    }
+
+    /// Update peer health status.
+    pub async fn update_peer_health(&self, node_id: NodeId, healthy: bool) {
+        let mut inner = self.inner.write().await;
+        if let Some(peer) = inner.peers.iter_mut().find(|p| p.node_id == node_id) {
+            if peer.healthy != healthy {
+                debug!(
+                    local_node = self.node_id,
+                    peer_node = node_id,
+                    healthy,
+                    "Peer health status changed"
+                );
+                peer.healthy = healthy;
+                if healthy {
+                    peer.last_heartbeat = Some(Instant::now());
+                }
+            }
+        }
     }
 
     /// Update the node's role.

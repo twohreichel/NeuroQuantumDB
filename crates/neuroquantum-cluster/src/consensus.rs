@@ -1,16 +1,84 @@
 //! Raft consensus implementation for cluster coordination.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Notify, RwLock};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::config::ClusterConfig;
 use crate::error::{ClusterError, ClusterResult};
 use crate::network::NetworkTransport;
 use crate::node::NodeId;
+
+/// Fencing token to prevent split brain scenarios.
+/// Combines term and sequence number to create monotonically increasing token.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FencingToken {
+    /// Raft term
+    pub term: u64,
+    /// Sequence number within the term
+    pub sequence: u64,
+}
+
+impl FencingToken {
+    /// Create a new fencing token.
+    pub fn new(term: u64, sequence: u64) -> Self {
+        Self { term, sequence }
+    }
+
+    /// Check if this token is newer than another.
+    pub fn is_newer_than(&self, other: &Self) -> bool {
+        self > other
+    }
+}
+
+/// Leader lease for preventing split brain.
+#[derive(Debug, Clone)]
+pub struct LeaderLease {
+    /// When the lease expires
+    pub expiry: Instant,
+    /// Lease duration
+    pub duration: Duration,
+    /// Last successful heartbeat time
+    pub last_heartbeat: Instant,
+}
+
+impl LeaderLease {
+    /// Create a new leader lease.
+    pub fn new(duration: Duration) -> Self {
+        let now = Instant::now();
+        Self {
+            expiry: now + duration,
+            duration,
+            last_heartbeat: now,
+        }
+    }
+
+    /// Check if the lease is still valid.
+    pub fn is_valid(&self) -> bool {
+        Instant::now() < self.expiry
+    }
+
+    /// Renew the lease after successful heartbeat.
+    pub fn renew(&mut self) {
+        let now = Instant::now();
+        self.last_heartbeat = now;
+        self.expiry = now + self.duration;
+    }
+}
+
+/// Quorum status for the current node.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuorumStatus {
+    /// Node has quorum (can perform writes)
+    HasQuorum,
+    /// Node lost quorum (read-only mode)
+    NoQuorum,
+    /// Quorum status unknown (initializing)
+    Unknown,
+}
 
 /// Log entry in the Raft log.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +89,8 @@ pub struct LogEntry {
     pub index: u64,
     /// Entry data
     pub data: LogEntryData,
+    /// Fencing token for split brain prevention
+    pub fencing_token: Option<FencingToken>,
 }
 
 /// Types of log entries.
@@ -86,6 +156,16 @@ struct ConsensusState {
     current_leader: Option<NodeId>,
     /// Log entries
     log: Vec<LogEntry>,
+    /// Leader lease (only valid when state is Leader)
+    leader_lease: Option<LeaderLease>,
+    /// Next fencing token sequence number
+    next_sequence: u64,
+    /// Quorum status
+    quorum_status: QuorumStatus,
+    /// Number of reachable peers
+    reachable_peers: usize,
+    /// Total cluster size
+    cluster_size: usize,
 }
 
 impl Default for ConsensusState {
@@ -98,6 +178,11 @@ impl Default for ConsensusState {
             last_applied: 0,
             current_leader: None,
             log: Vec::new(),
+            leader_lease: None,
+            next_sequence: 0,
+            quorum_status: QuorumStatus::Unknown,
+            reachable_peers: 0,
+            cluster_size: 1,
         }
     }
 }
@@ -212,17 +297,179 @@ impl RaftConsensus {
             return Err(ClusterError::NotLeader(self.node_id, state.current_leader));
         }
 
+        // Check if leader lease is still valid
+        if let Some(lease) = &state.leader_lease {
+            if !lease.is_valid() {
+                warn!(
+                    node_id = self.node_id,
+                    "Leader lease expired, stepping down"
+                );
+                state.state = RaftState::Follower;
+                state.leader_lease = None;
+                return Err(ClusterError::LeaseExpired);
+            }
+        }
+
+        // Check quorum before accepting write
+        if !self.has_quorum(&state) {
+            warn!(
+                node_id = self.node_id,
+                reachable = state.reachable_peers,
+                cluster_size = state.cluster_size,
+                "No quorum available for write"
+            );
+            return Err(ClusterError::NoQuorum);
+        }
+
+        // Generate fencing token
+        let fencing_token = FencingToken::new(state.current_term, state.next_sequence);
+        state.next_sequence += 1;
+
         let index = state.log.len() as u64 + 1;
         let entry = LogEntry {
             term: state.current_term,
             index,
             data: LogEntryData::Command(data),
+            fencing_token: Some(fencing_token),
         };
 
         state.log.push(entry);
-        debug!(node_id = self.node_id, index, "Proposed new log entry");
+        debug!(
+            node_id = self.node_id,
+            index,
+            term = state.current_term,
+            sequence = fencing_token.sequence,
+            "Proposed new log entry with fencing token"
+        );
 
         Ok(index)
+    }
+
+    /// Check if the node has quorum.
+    fn has_quorum(&self, state: &ConsensusState) -> bool {
+        if state.cluster_size == 1 {
+            // Single node cluster always has quorum
+            return true;
+        }
+        
+        // Need majority: more than half of cluster
+        let needed = (state.cluster_size / 2) + 1;
+        // +1 for self
+        let available = state.reachable_peers + 1;
+        
+        available >= needed
+    }
+
+    /// Update quorum status based on reachable peers.
+    pub async fn update_quorum_status(&self, reachable_peers: usize, cluster_size: usize) {
+        let mut state = self.state.write().await;
+        
+        state.reachable_peers = reachable_peers;
+        state.cluster_size = cluster_size;
+        
+        let has_quorum = if cluster_size == 1 {
+            true
+        } else {
+            let needed = (cluster_size / 2) + 1;
+            let available = reachable_peers + 1; // +1 for self
+            available >= needed
+        };
+        
+        let old_status = state.quorum_status;
+        state.quorum_status = if has_quorum {
+            QuorumStatus::HasQuorum
+        } else {
+            QuorumStatus::NoQuorum
+        };
+        
+        if old_status != state.quorum_status {
+            info!(
+                node_id = self.node_id,
+                old_status = ?old_status,
+                new_status = ?state.quorum_status,
+                reachable = reachable_peers,
+                cluster_size,
+                "Quorum status changed"
+            );
+            
+            // If leader lost quorum, step down
+            if state.state == RaftState::Leader && state.quorum_status == QuorumStatus::NoQuorum {
+                warn!(
+                    node_id = self.node_id,
+                    "Leader lost quorum, stepping down to follower"
+                );
+                state.state = RaftState::Follower;
+                state.leader_lease = None;
+                state.current_leader = None;
+            }
+        }
+    }
+
+    /// Get current quorum status.
+    pub async fn quorum_status(&self) -> QuorumStatus {
+        self.state.read().await.quorum_status
+    }
+
+    /// Promote to leader with lease.
+    pub async fn promote_to_leader(&self) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+        
+        if !self.has_quorum(&state) {
+            return Err(ClusterError::NoQuorum);
+        }
+        
+        // Create leader lease
+        let lease_duration = self.config.raft.heartbeat_interval * 3;
+        let lease = LeaderLease::new(lease_duration);
+        
+        state.state = RaftState::Leader;
+        state.current_leader = Some(self.node_id);
+        state.leader_lease = Some(lease);
+        state.quorum_status = QuorumStatus::HasQuorum;
+        
+        info!(
+            node_id = self.node_id,
+            term = state.current_term,
+            lease_duration_ms = lease_duration.as_millis(),
+            "Promoted to leader with lease"
+        );
+        
+        Ok(())
+    }
+
+    /// Renew leader lease after successful heartbeat.
+    pub async fn renew_lease(&self) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+        
+        if state.state != RaftState::Leader {
+            return Err(ClusterError::NotLeader(self.node_id, state.current_leader));
+        }
+        
+        if let Some(lease) = &mut state.leader_lease {
+            lease.renew();
+            debug!(
+                node_id = self.node_id,
+                expiry_ms = lease.expiry.duration_since(Instant::now()).as_millis(),
+                "Renewed leader lease"
+            );
+        }
+        
+        Ok(())
+    }
+
+    /// Validate fencing token.
+    pub async fn validate_fencing_token(&self, token: &FencingToken) -> ClusterResult<()> {
+        let state = self.state.read().await;
+        
+        // Token must be from current or higher term
+        if token.term < state.current_term {
+            return Err(ClusterError::StaleToken {
+                current_term: state.current_term,
+                received_term: token.term,
+            });
+        }
+        
+        Ok(())
     }
 
     /// Get the commit index.
@@ -393,6 +640,7 @@ mod tests {
             term: 1,
             index: 1,
             data: LogEntryData::Noop,
+            fencing_token: Some(FencingToken::new(1, 0)),
         };
 
         let serialized = serde_json::to_string(&entry).unwrap();
@@ -400,6 +648,7 @@ mod tests {
 
         assert_eq!(deserialized.term, 1);
         assert_eq!(deserialized.index, 1);
+        assert_eq!(deserialized.fencing_token.unwrap().term, 1);
     }
 
     #[tokio::test]
@@ -557,5 +806,262 @@ mod tests {
             assert!(timeout >= config.raft.election_timeout_min);
             assert!(timeout <= config.raft.election_timeout_max);
         }
+    }
+
+    // Split brain prevention tests
+    #[test]
+    fn test_fencing_token_ordering() {
+        let token1 = FencingToken::new(1, 0);
+        let token2 = FencingToken::new(1, 1);
+        let token3 = FencingToken::new(2, 0);
+
+        assert!(token2.is_newer_than(&token1));
+        assert!(token3.is_newer_than(&token2));
+        assert!(token3.is_newer_than(&token1));
+        assert!(!token1.is_newer_than(&token2));
+    }
+
+    #[test]
+    fn test_leader_lease_validity() {
+        let mut lease = LeaderLease::new(Duration::from_millis(100));
+        
+        // Lease should be valid immediately
+        assert!(lease.is_valid());
+        
+        // Wait for lease to expire
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(!lease.is_valid());
+        
+        // Renew lease
+        lease.renew();
+        assert!(lease.is_valid());
+    }
+
+    #[tokio::test]
+    async fn test_quorum_check_single_node() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        
+        // Single node cluster always has quorum
+        consensus.update_quorum_status(0, 1).await;
+        assert_eq!(consensus.quorum_status().await, QuorumStatus::HasQuorum);
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_quorum_check_three_node_cluster() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        
+        // 3 node cluster: need 2 nodes (self + 1 peer)
+        consensus.update_quorum_status(1, 3).await;
+        assert_eq!(consensus.quorum_status().await, QuorumStatus::HasQuorum);
+        
+        // Lost majority
+        consensus.update_quorum_status(0, 3).await;
+        assert_eq!(consensus.quorum_status().await, QuorumStatus::NoQuorum);
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_propose_without_quorum() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        
+        // Set up as leader but without quorum
+        consensus.promote_to_leader().await.unwrap();
+        consensus.update_quorum_status(0, 3).await;
+        
+        // Leader should have stepped down due to lost quorum
+        let result = consensus.propose(b"test".to_vec()).await;
+        assert!(result.is_err());
+        match result {
+            Err(ClusterError::NotLeader(_, _)) => {},
+            _ => panic!("Expected NotLeader error after losing quorum"),
+        }
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_propose_with_expired_lease() {
+        let mut config = get_test_config();
+        // Very short lease for testing
+        config.raft.heartbeat_interval = Duration::from_millis(10);
+        
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        
+        // Promote to leader (lease duration = 3 * heartbeat = 30ms)
+        consensus.promote_to_leader().await.unwrap();
+        
+        // Wait for lease to expire
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        
+        // Propose should fail with expired lease
+        let result = consensus.propose(b"test".to_vec()).await;
+        assert!(result.is_err());
+        match result {
+            Err(ClusterError::LeaseExpired) => {},
+            _ => panic!("Expected LeaseExpired error"),
+        }
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_propose_with_valid_lease() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        
+        // Promote to leader
+        consensus.promote_to_leader().await.unwrap();
+        
+        // Propose should succeed
+        let result = consensus.propose(b"test".to_vec()).await;
+        assert!(result.is_ok());
+        
+        // Verify fencing token was added
+        let state = consensus.state.read().await;
+        assert_eq!(state.log.len(), 1);
+        assert!(state.log[0].fencing_token.is_some());
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_leader_step_down_on_quorum_loss() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        
+        // Setup 5-node cluster with quorum
+        consensus.update_quorum_status(2, 5).await; // self + 2 peers = 3 (majority)
+        consensus.promote_to_leader().await.unwrap();
+        
+        assert!(consensus.is_leader().await);
+        
+        // Lose quorum
+        consensus.update_quorum_status(1, 5).await; // self + 1 peer = 2 (minority)
+        
+        // Should have stepped down
+        assert!(!consensus.is_leader().await);
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_fencing_token_validation() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        
+        // Set current term to 5
+        {
+            let mut state = consensus.state.write().await;
+            state.current_term = 5;
+        }
+        
+        // Validate token from current term
+        let valid_token = FencingToken::new(5, 0);
+        assert!(consensus.validate_fencing_token(&valid_token).await.is_ok());
+        
+        // Validate token from future term
+        let future_token = FencingToken::new(6, 0);
+        assert!(consensus.validate_fencing_token(&future_token).await.is_ok());
+        
+        // Validate stale token from past term
+        let stale_token = FencingToken::new(4, 0);
+        let result = consensus.validate_fencing_token(&stale_token).await;
+        assert!(result.is_err());
+        match result {
+            Err(ClusterError::StaleToken { current_term, received_term }) => {
+                assert_eq!(current_term, 5);
+                assert_eq!(received_term, 4);
+            },
+            _ => panic!("Expected StaleToken error"),
+        }
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_lease_renewal() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        consensus.promote_to_leader().await.unwrap();
+        
+        // Get initial lease expiry
+        let initial_expiry = {
+            let state = consensus.state.read().await;
+            state.leader_lease.as_ref().unwrap().expiry
+        };
+        
+        // Wait a bit
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        
+        // Renew lease
+        consensus.renew_lease().await.unwrap();
+        
+        // Lease expiry should be extended
+        let new_expiry = {
+            let state = consensus.state.read().await;
+            state.leader_lease.as_ref().unwrap().expiry
+        };
+        
+        assert!(new_expiry > initial_expiry);
+        
+        consensus.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_fencing_token_monotonic_increase() {
+        let config = get_test_config();
+        let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
+        let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
+        
+        consensus.start().await.unwrap();
+        consensus.promote_to_leader().await.unwrap();
+        
+        // Propose multiple entries
+        consensus.propose(b"entry1".to_vec()).await.unwrap();
+        consensus.propose(b"entry2".to_vec()).await.unwrap();
+        consensus.propose(b"entry3".to_vec()).await.unwrap();
+        
+        // Verify tokens are monotonically increasing
+        let state = consensus.state.read().await;
+        assert_eq!(state.log.len(), 3);
+        
+        let token1 = state.log[0].fencing_token.unwrap();
+        let token2 = state.log[1].fencing_token.unwrap();
+        let token3 = state.log[2].fencing_token.unwrap();
+        
+        assert!(token2.is_newer_than(&token1));
+        assert!(token3.is_newer_than(&token2));
+        
+        consensus.stop().await.unwrap();
     }
 }
