@@ -236,6 +236,7 @@ impl RaftConsensus {
     }
 
     /// Generate a random election timeout within the configured range.
+    #[allow(dead_code)]
     fn random_election_timeout(&self) -> Duration {
         Self::generate_random_timeout(
             &self.config.raft.election_timeout_min,
@@ -256,13 +257,13 @@ impl RaftConsensus {
     /// Start the election timer (background task).
     async fn start_election_timer(&self) {
         debug!(node_id = self.node_id, "Starting election timer");
-        
+
         let node_id = self.node_id;
         let state = self.state.clone();
         let running = self.running.clone();
         let heartbeat_received = self.heartbeat_received.clone();
         let config = self.config.clone();
-        
+
         tokio::spawn(async move {
             loop {
                 // Check if still running
@@ -273,13 +274,13 @@ impl RaftConsensus {
                         break;
                     }
                 }
-                
+
                 // Generate random election timeout
                 let timeout = RaftConsensus::generate_random_timeout(
                     &config.raft.election_timeout_min,
                     &config.raft.election_timeout_max,
                 );
-                
+
                 // Wait for timeout or heartbeat
                 tokio::select! {
                     () = tokio::time::sleep(timeout) => {
@@ -288,11 +289,11 @@ impl RaftConsensus {
                             let state_guard = state.read().await;
                             state_guard.state
                         };
-                        
+
                         // Only start election if we're a follower or candidate
                         if current_state == RaftState::Follower || current_state == RaftState::Candidate {
                             info!(node_id, "Election timeout reached, starting election");
-                            
+
                             // Transition to candidate state
                             {
                                 let mut state_guard = state.write().await;
@@ -300,7 +301,7 @@ impl RaftConsensus {
                                 state_guard.current_term += 1;
                                 state_guard.voted_for = Some(node_id);
                             }
-                            
+
                             // In a full implementation, we would:
                             // 1. Request votes from other nodes
                             // 2. Wait for responses
@@ -319,12 +320,12 @@ impl RaftConsensus {
     /// Start the heartbeat timer (background task, for leaders).
     async fn start_heartbeat_timer(&self) {
         debug!(node_id = self.node_id, "Starting heartbeat timer");
-        
+
         let node_id = self.node_id;
         let state = self.state.clone();
         let running = self.running.clone();
         let heartbeat_interval = self.config.raft.heartbeat_interval;
-        
+
         tokio::spawn(async move {
             loop {
                 // Check if still running
@@ -335,19 +336,19 @@ impl RaftConsensus {
                         break;
                     }
                 }
-                
+
                 // Wait for heartbeat interval
                 tokio::time::sleep(heartbeat_interval).await;
-                
+
                 // Send heartbeat if we're the leader
                 let is_leader = {
                     let state_guard = state.read().await;
                     state_guard.state == RaftState::Leader
                 };
-                
+
                 if is_leader {
                     debug!(node_id, "Sending heartbeat to followers");
-                    
+
                     // In a full implementation, we would:
                     // 1. Send AppendEntries RPC with no entries to all followers
                     // 2. Update match_index and next_index for each follower
@@ -366,17 +367,18 @@ impl RaftConsensus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
     use std::sync::atomic::{AtomicU16, Ordering};
+    use std::time::Duration;
 
     // Start port counter at 10000 to avoid conflicts
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(10000);
-    
+
     fn get_test_config() -> ClusterConfig {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let mut config = ClusterConfig::default();
-        config.bind_addr = format!("127.0.0.1:{}", port).parse().unwrap();
-        config
+        ClusterConfig {
+            bind_addr: format!("127.0.0.1:{}", port).parse().unwrap(),
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -405,7 +407,7 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await;
-        
+
         assert!(consensus.is_ok());
     }
 
@@ -414,16 +416,16 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         // Start consensus
         let result = consensus.start().await;
         assert!(result.is_ok());
-        
+
         // Verify state changed to Follower
         let state = consensus.state.read().await;
         assert_eq!(state.state, RaftState::Follower);
         drop(state);
-        
+
         // Stop consensus
         let result = consensus.stop().await;
         assert!(result.is_ok());
@@ -434,13 +436,13 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         // Start consensus
         consensus.start().await.unwrap();
-        
+
         // Notify heartbeat (should not panic)
         consensus.notify_heartbeat().await;
-        
+
         // Stop consensus
         consensus.stop().await.unwrap();
     }
@@ -451,23 +453,23 @@ mod tests {
         // Set very short timeouts for testing
         config.raft.election_timeout_min = Duration::from_millis(50);
         config.raft.election_timeout_max = Duration::from_millis(100);
-        
+
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         // Start consensus
         consensus.start().await.unwrap();
-        
+
         // Wait for election timeout
         tokio::time::sleep(Duration::from_millis(150)).await;
-        
+
         // Check if state transitioned to Candidate
         let state = consensus.state.read().await;
         assert_eq!(state.state, RaftState::Candidate);
         assert_eq!(state.current_term, 1); // Term should have incremented
         assert_eq!(state.voted_for, Some(1)); // Should have voted for self
         drop(state);
-        
+
         // Stop consensus
         consensus.stop().await.unwrap();
     }
@@ -478,24 +480,24 @@ mod tests {
         // Set short timeouts for testing
         config.raft.election_timeout_min = Duration::from_millis(100);
         config.raft.election_timeout_max = Duration::from_millis(150);
-        
+
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         // Start consensus
         consensus.start().await.unwrap();
-        
+
         // Send heartbeats periodically to prevent election
         for _ in 0..5 {
             tokio::time::sleep(Duration::from_millis(50)).await;
             consensus.notify_heartbeat().await;
         }
-        
+
         // After receiving heartbeats, should still be follower
         let state = consensus.state.read().await;
         assert_eq!(state.state, RaftState::Follower);
         drop(state);
-        
+
         // Stop consensus
         consensus.stop().await.unwrap();
     }
@@ -504,27 +506,27 @@ mod tests {
     async fn test_leader_sends_heartbeats() {
         let mut config = get_test_config();
         config.raft.heartbeat_interval = Duration::from_millis(50);
-        
+
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         // Start consensus
         consensus.start().await.unwrap();
-        
+
         // Manually set state to Leader
         {
             let mut state = consensus.state.write().await;
             state.state = RaftState::Leader;
         }
-        
+
         // Wait for a few heartbeat intervals
         tokio::time::sleep(Duration::from_millis(200)).await;
-        
+
         // Verify still in leader state
         let state = consensus.state.read().await;
         assert_eq!(state.state, RaftState::Leader);
         drop(state);
-        
+
         // Stop consensus
         consensus.stop().await.unwrap();
     }
@@ -533,8 +535,10 @@ mod tests {
     async fn test_random_election_timeout_range() {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
-        let consensus = RaftConsensus::new(1, transport, config.clone()).await.unwrap();
-        
+        let consensus = RaftConsensus::new(1, transport, config.clone())
+            .await
+            .unwrap();
+
         // Generate multiple timeouts and verify they're in range
         for _ in 0..10 {
             let timeout = consensus.random_election_timeout();

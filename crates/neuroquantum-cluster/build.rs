@@ -4,6 +4,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .build_transport(true)
         .compile_protos(&["proto/cluster.proto"], &["proto"])?;
-    
+
     Ok(())
 }

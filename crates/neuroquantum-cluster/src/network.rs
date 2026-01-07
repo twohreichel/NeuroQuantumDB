@@ -23,7 +23,7 @@
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = ClusterConfig::default();
 //! let transport = Arc::new(NetworkTransport::new(&config).await?);
-//! 
+//!
 //! // Start the gRPC server and connect to peers
 //! transport.start().await?;
 //!
@@ -184,6 +184,7 @@ pub struct PongResponse {
 /// Connection state for a peer.
 struct PeerConnection {
     /// Peer node ID
+    #[allow(dead_code)]
     node_id: NodeId,
     /// Peer address
     addr: SocketAddr,
@@ -376,9 +377,9 @@ impl NetworkTransport {
         let bind_addr = self.bind_addr;
         let node_id = self.node_id;
         let transport_clone = Arc::clone(&self);
-        
+
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
-        
+
         // Store shutdown signal
         {
             let mut shutdown = self.server_shutdown.write().await;
@@ -428,7 +429,10 @@ impl NetworkTransport {
             let mut shutdown = self.server_shutdown.write().await;
             if let Some(tx) = shutdown.take() {
                 let _ = tx.send(());
-                info!(node_id = self.node_id, "Sent shutdown signal to gRPC server");
+                info!(
+                    node_id = self.node_id,
+                    "Sent shutdown signal to gRPC server"
+                );
             }
         }
 
@@ -473,7 +477,10 @@ impl NetworkTransport {
                         timestamp_ms: ping_req.timestamp_ms,
                     };
                     client.heartbeat(req).await.map_err(|e| {
-                        ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {}", e))
+                        ClusterError::ConnectionFailed(
+                            peer.addr,
+                            format!("gRPC call failed: {}", e),
+                        )
                     })?;
                 }
                 ClusterMessage::RequestVote(vote_req) => {
@@ -485,7 +492,10 @@ impl NetworkTransport {
                         is_pre_vote: vote_req.is_pre_vote,
                     };
                     client.request_vote(req).await.map_err(|e| {
-                        ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {}", e))
+                        ClusterError::ConnectionFailed(
+                            peer.addr,
+                            format!("gRPC call failed: {}", e),
+                        )
                     })?;
                 }
                 ClusterMessage::AppendEntries(append_req) => {
@@ -510,7 +520,10 @@ impl NetworkTransport {
                         leader_commit: append_req.leader_commit,
                     };
                     client.append_entries(req).await.map_err(|e| {
-                        ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {}", e))
+                        ClusterError::ConnectionFailed(
+                            peer.addr,
+                            format!("gRPC call failed: {}", e),
+                        )
                     })?;
                 }
                 _ => {
@@ -601,7 +614,7 @@ impl NetworkTransport {
                                         continue;
                                     }
                                 };
-                                
+
                                 peers.insert(
                                     resp.node_id,
                                     PeerConnection {
@@ -611,7 +624,8 @@ impl NetworkTransport {
                                         last_contact_ms: std::time::SystemTime::now()
                                             .duration_since(std::time::UNIX_EPOCH)
                                             .unwrap_or_default()
-                                            .as_millis() as u64,
+                                            .as_millis()
+                                            as u64,
                                         client: Some(client),
                                     },
                                 );
@@ -794,7 +808,7 @@ mod tests {
     #[tokio::test]
     async fn test_network_transport_creation() {
         use std::net::{IpAddr, Ipv4Addr};
-        
+
         let config = ClusterConfig {
             node_id: 1,
             bind_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
@@ -809,10 +823,9 @@ mod tests {
 
         let transport = NetworkTransport::new(&config).await;
         assert!(transport.is_ok());
-        
+
         let transport = transport.unwrap();
         assert_eq!(transport.node_id, 1);
         assert_eq!(transport.bind_addr.port(), 8080);
     }
 }
-
