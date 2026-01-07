@@ -447,7 +447,7 @@ mod tests {
         consensus.stop().await.unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn test_election_timeout_triggers_candidate_state() {
         let mut config = get_test_config();
         // Set very short timeouts for testing
@@ -460,8 +460,16 @@ mod tests {
         // Start consensus
         consensus.start().await.unwrap();
 
-        // Wait for election timeout
-        tokio::time::sleep(Duration::from_millis(150)).await;
+        // Yield first to allow background tasks to start
+        tokio::task::yield_now().await;
+
+        // Advance time by exactly one election timeout (using max to ensure it triggers)
+        // This ensures only one election timeout occurs deterministically
+        tokio::time::advance(Duration::from_millis(101)).await;
+
+        // Give the spawned task a chance to process the timeout by yielding multiple times
+        // and using sleep which allows other tasks to run
+        tokio::time::sleep(Duration::from_millis(1)).await;
 
         // Check if state transitioned to Candidate
         let state = consensus.state.read().await;
