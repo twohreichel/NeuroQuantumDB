@@ -23,7 +23,7 @@ pub mod query;
 mod simd; // SIMD optimizations - internal only
 
 // Quantum extensions submodules
-pub use quantum::parallel_tempering;
+pub use quantum::quantum_parallel_tempering;
 pub use quantum::qubo;
 pub use quantum::tfim;
 pub mod security;
