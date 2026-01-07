@@ -133,6 +133,10 @@ pub struct AppendEntriesResponse {
     pub success: bool,
     /// Hint for the next index to try (optimization)
     pub match_index: Option<u64>,
+    /// Conflict index for faster catchup
+    pub conflict_index: Option<u64>,
+    /// Conflict term for faster catchup
+    pub conflict_term: Option<u64>,
 }
 
 /// Install snapshot RPC.
