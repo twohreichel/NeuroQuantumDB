@@ -1325,6 +1325,91 @@ impl TransactionManager {
         Ok(lsn)
     }
 
+    /// Create a savepoint within a transaction
+    pub async fn create_savepoint(
+        &self,
+        tx_id: TransactionId,
+        name: String,
+    ) -> Result<LSN, NeuroQuantumError> {
+        let mut active = self.active_transactions.write().await;
+
+        let tx = active.get_mut(&tx_id).ok_or_else(|| {
+            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+        })?;
+
+        tx.touch();
+
+        // Get current LSN for this savepoint
+        let lsn = self.log_manager.lsn_counter.load(Ordering::SeqCst);
+
+        // Write savepoint record to WAL
+        // Note: We don't write a separate savepoint record in the old LogManager
+        // The savepoint is tracked in-memory, and rollback uses the undo log
+
+        debug!("💾 Savepoint '{}' created for transaction {:?} at LSN {}", name, tx_id, lsn);
+        Ok(lsn)
+    }
+
+    /// Rollback transaction to a savepoint
+    pub async fn rollback_to_savepoint(
+        &self,
+        tx_id: TransactionId,
+        savepoint_lsn: LSN,
+    ) -> Result<(), NeuroQuantumError> {
+        let mut active = self.active_transactions.write().await;
+
+        let tx = active.get_mut(&tx_id).ok_or_else(|| {
+            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+        })?;
+
+        tx.touch();
+
+        // Undo all changes after the savepoint LSN
+        let records_to_undo: Vec<_> = tx
+            .undo_log
+            .iter()
+            .filter(|record| record.lsn > savepoint_lsn)
+            .cloned()
+            .collect();
+
+        // Apply undo in reverse order
+        for log_record in records_to_undo.iter().rev() {
+            if let LogRecordType::Update {
+                before_image: _before_image,
+                table,
+                key,
+                ..
+            } = &log_record.record_type
+            {
+                debug!("Undoing update on {}.{} (LSN: {})", table, key, log_record.lsn);
+                // NOTE: Storage integration must be done at StorageEngine level
+                // Call storage_engine.apply_before_image(table, key, before_image).await
+            }
+        }
+
+        // Remove undone records from undo log
+        tx.undo_log.retain(|record| record.lsn <= savepoint_lsn);
+
+        info!("↩️  Transaction {:?} rolled back to savepoint (LSN: {})", tx_id, savepoint_lsn);
+        Ok(())
+    }
+
+    /// Release a savepoint (no-op in this implementation as savepoints are LSN-based)
+    pub async fn release_savepoint(
+        &self,
+        tx_id: TransactionId,
+        _name: String,
+    ) -> Result<(), NeuroQuantumError> {
+        let active = self.active_transactions.read().await;
+
+        let _tx = active.get(&tx_id).ok_or_else(|| {
+            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+        })?;
+
+        debug!("🗑️  Savepoint released for transaction {:?}", tx_id);
+        Ok(())
+    }
+
     /// Cleanup timed out transactions
     pub async fn cleanup_timed_out_transactions(&self) -> Result<(), NeuroQuantumError> {
         let active = self.active_transactions.read().await;

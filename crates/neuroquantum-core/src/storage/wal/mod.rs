@@ -66,6 +66,25 @@ pub enum WALRecordType {
         page_id: PageId,
         redo_data: Vec<u8>,
     },
+    /// Savepoint creation
+    Savepoint {
+        tx_id: TransactionId,
+        name: String,
+        /// LSN at the time of savepoint creation for rollback reference
+        savepoint_lsn: LSN,
+    },
+    /// Rollback to savepoint
+    RollbackToSavepoint {
+        tx_id: TransactionId,
+        name: String,
+        /// LSN of the savepoint we're rolling back to
+        target_lsn: LSN,
+    },
+    /// Release savepoint
+    ReleaseSavepoint {
+        tx_id: TransactionId,
+        name: String,
+    },
 }
 
 /// WAL record - fundamental unit of the log
@@ -192,6 +211,8 @@ pub struct TransactionState {
     pub operation_count: u64,
     /// Pages modified by this transaction (for selective undo)
     pub modified_pages: Vec<PageId>,
+    /// Active savepoints with their LSNs (for nested savepoint support)
+    pub savepoints: HashMap<String, LSN>,
 }
 
 impl TransactionState {
@@ -206,6 +227,7 @@ impl TransactionState {
             start_time: chrono::Utc::now(),
             operation_count: 0,
             modified_pages: Vec::new(),
+            savepoints: HashMap::new(),
         }
     }
 
@@ -577,6 +599,163 @@ impl WALManager {
 
         warn!("⚠️ Transaction aborted: {} (LSN: {})", tx_id, lsn);
         Ok(())
+    }
+
+    /// Create a savepoint within a transaction
+    pub async fn create_savepoint(
+        &self,
+        tx_id: TransactionId,
+        name: String,
+    ) -> Result<LSN> {
+        let lsn = self.allocate_lsn();
+
+        // Get previous LSN for this transaction
+        let prev_lsn = {
+            let tx_table = self.transaction_table.read().await;
+            tx_table.get(&tx_id).copied()
+        };
+
+        // Create savepoint record
+        let record = WALRecord::new(
+            lsn,
+            prev_lsn,
+            Some(tx_id),
+            WALRecordType::Savepoint {
+                tx_id,
+                name: name.clone(),
+                savepoint_lsn: lsn,
+            },
+        );
+
+        // Write to log
+        self.append_log_record(record).await?;
+
+        // Update transaction table
+        let mut tx_table = self.transaction_table.write().await;
+        tx_table.insert(tx_id, lsn);
+
+        // Store savepoint in transaction state
+        let mut active_txns = self.active_txns.write().await;
+        if let Some(tx_state) = active_txns.get_mut(&tx_id) {
+            tx_state.savepoints.insert(name.clone(), lsn);
+            tx_state.record_operation(lsn, None);
+        }
+
+        debug!("💾 Savepoint created: {} for TX={} (LSN: {})", name, tx_id, lsn);
+        Ok(lsn)
+    }
+
+    /// Rollback transaction to a savepoint
+    pub async fn rollback_to_savepoint(
+        &self,
+        tx_id: TransactionId,
+        name: String,
+    ) -> Result<LSN> {
+        // Get the savepoint LSN
+        let target_lsn = {
+            let active_txns = self.active_txns.read().await;
+            let tx_state = active_txns.get(&tx_id).ok_or_else(|| {
+                anyhow!("Transaction {} not found", tx_id)
+            })?;
+
+            *tx_state.savepoints.get(&name).ok_or_else(|| {
+                anyhow!("Savepoint '{}' not found", name)
+            })?
+        };
+
+        let lsn = self.allocate_lsn();
+
+        let prev_lsn = {
+            let tx_table = self.transaction_table.read().await;
+            tx_table.get(&tx_id).copied()
+        };
+
+        // Create rollback to savepoint record
+        let record = WALRecord::new(
+            lsn,
+            prev_lsn,
+            Some(tx_id),
+            WALRecordType::RollbackToSavepoint {
+                tx_id,
+                name: name.clone(),
+                target_lsn,
+            },
+        );
+
+        // Write to log
+        self.append_log_record(record).await?;
+
+        // Update transaction table
+        let mut tx_table = self.transaction_table.write().await;
+        tx_table.insert(tx_id, lsn);
+
+        // Update transaction state
+        let mut active_txns = self.active_txns.write().await;
+        if let Some(tx_state) = active_txns.get_mut(&tx_id) {
+            // Update undo_next_lsn to point to the savepoint for rollback chain
+            tx_state.undo_next_lsn = Some(target_lsn);
+            tx_state.last_lsn = lsn;
+            tx_state.operation_count += 1;
+            // Note: Savepoints are NOT removed after rollback (per SQL standard)
+        }
+
+        info!("↩️  Rolled back to savepoint: {} for TX={} (target LSN: {}, current LSN: {})", 
+              name, tx_id, target_lsn, lsn);
+        Ok(lsn)
+    }
+
+    /// Release a savepoint
+    pub async fn release_savepoint(
+        &self,
+        tx_id: TransactionId,
+        name: String,
+    ) -> Result<LSN> {
+        // Verify savepoint exists
+        {
+            let active_txns = self.active_txns.read().await;
+            let tx_state = active_txns.get(&tx_id).ok_or_else(|| {
+                anyhow!("Transaction {} not found", tx_id)
+            })?;
+
+            if !tx_state.savepoints.contains_key(&name) {
+                return Err(anyhow!("Savepoint '{}' not found", name));
+            }
+        }
+
+        let lsn = self.allocate_lsn();
+
+        let prev_lsn = {
+            let tx_table = self.transaction_table.read().await;
+            tx_table.get(&tx_id).copied()
+        };
+
+        // Create release savepoint record
+        let record = WALRecord::new(
+            lsn,
+            prev_lsn,
+            Some(tx_id),
+            WALRecordType::ReleaseSavepoint {
+                tx_id,
+                name: name.clone(),
+            },
+        );
+
+        // Write to log
+        self.append_log_record(record).await?;
+
+        // Update transaction table
+        let mut tx_table = self.transaction_table.write().await;
+        tx_table.insert(tx_id, lsn);
+
+        // Remove savepoint from transaction state
+        let mut active_txns = self.active_txns.write().await;
+        if let Some(tx_state) = active_txns.get_mut(&tx_id) {
+            tx_state.savepoints.remove(&name);
+            tx_state.record_operation(lsn, None);
+        }
+
+        debug!("🗑️  Savepoint released: {} for TX={} (LSN: {})", name, tx_id, lsn);
+        Ok(lsn)
     }
 
     /// Perform a checkpoint
