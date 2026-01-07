@@ -187,11 +187,11 @@ January 2026 - Security Enhancement Sprint
 
 ## Acceptance Criteria Completed
 
-- ✅ Audit aller Authentifizierungspfade
-- ✅ Constant-time Vergleiche implementiert
-- ✅ Security Review durchgeführt (via code documentation)
-- ✅ Dokumentation aktualisiert
-- ⏳ Timing-Tests zeigen keine Korrelation (requires specialized timing analysis tools)
+- ✅ Audit of all authentication paths
+- ✅ Constant-time comparisons implemented
+- ✅ Security review performed (via code documentation)
+- ✅ Documentation updated
+- ⏳ Timing tests show no correlation (requires specialized timing analysis tools)
 
 ## Future Enhancements
 

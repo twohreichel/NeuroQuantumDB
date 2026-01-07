@@ -111,12 +111,14 @@ pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
 /// # Implementation
 ///
 /// 1. Converts floats to fixed-point i32 (with 10000x scale for 4 decimal precision)
-/// 2. Computes difference: value - threshold (wrapping to handle all cases)
-/// 3. Checks sign bit using constant-time operations
-/// 4. Returns true if difference is non-negative (sign bit = 0)
+/// 2. Clamps values to valid i32 range to prevent undefined behavior
+/// 3. Computes difference: value - threshold (wrapping to handle all cases)
+/// 4. Extracts sign bit using arithmetic right shift (endian-agnostic)
+/// 5. Returns true if difference is non-negative (sign bit = 0)
 ///
 /// This approach leverages two's complement representation where negative numbers
-/// have their most significant bit (sign bit) set to 1.
+/// have their sign bit (bit 31 for i32) set to 1. The algorithm is endian-agnostic
+/// as it uses bit shifting instead of byte array indexing.
 ///
 /// # Examples
 ///
@@ -129,17 +131,19 @@ pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
 pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
     // Convert to fixed-point integers for constant-time comparison
     // Use 10000 scale factor for 4 decimal places precision
-    let value_fixed = (value * 10000.0) as i32;
-    let threshold_fixed = (threshold * 10000.0) as i32;
+    // Clamp to valid i32 range to avoid undefined behavior from overflow
+    let value_scaled = (value * 10000.0).clamp(i32::MIN as f32, i32::MAX as f32);
+    let threshold_scaled = (threshold * 10000.0).clamp(i32::MIN as f32, i32::MAX as f32);
+    let value_fixed = value_scaled as i32;
+    let threshold_fixed = threshold_scaled as i32;
     
     // Compute difference: value - threshold
     let diff = value_fixed.wrapping_sub(threshold_fixed);
     
-    // In two's complement, negative numbers have MSB set
-    // If diff >= 0, then value >= threshold
-    // We check that MSB (sign bit) is not set using constant-time operations
-    let diff_bytes = diff.to_le_bytes();
-    let sign_bit = (diff_bytes[3] & 0x80) >> 7;  // Extract MSB
+    // Extract sign bit in an endian-agnostic way
+    // In two's complement, negative numbers have the sign bit (bit 31) set to 1
+    // Shift right by 31 to get the sign bit in the LSB position
+    let sign_bit = ((diff >> 31) & 1) as u8;
     
     // Return true if sign bit is 0 (non-negative), false if 1 (negative)
     // Use constant-time equality check to convert to bool
