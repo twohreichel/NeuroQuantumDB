@@ -4652,6 +4652,17 @@ impl QueryExecutor {
                     None => Ok((result_name, QueryValue::Null, DataType::Text)),
                 }
             }
+            Expression::Extract { field, source } => {
+                let result_name = alias
+                    .clone()
+                    .unwrap_or_else(|| Self::expression_to_string_static(expr));
+
+                // Evaluate EXTRACT expression using the existing helper method
+                let query_value = self.evaluate_extract_expression(field, source, row)?;
+                let data_type = DataType::BigInt; // EXTRACT always returns an integer
+
+                Ok((result_name, query_value, data_type))
+            }
             _ => {
                 // For other expressions, try to convert to string
                 let result_name = alias

@@ -18,12 +18,11 @@ ignored = [
     "bytes",
     "chrono",
     "hashring",
-    "hickory-resolver",
     "neuroquantum-core",
     "openraft",
     "prometheus",
     "prost",
-    "rand",
+    "tonic-prost",
     "tracing-subscriber",
     "uuid",
 ]
