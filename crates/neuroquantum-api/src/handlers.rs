@@ -74,6 +74,8 @@ use validator::Validate;
             QUBOResults,
             ParallelTemperingRequestConfig,
             ParallelTemperingResults,
+            GroverRequestConfig,
+            GroverResults,
             CompressDnaRequest,
             CompressDnaResponse,
             CompressedSequence,
@@ -1125,6 +1127,17 @@ pub async fn quantum_search(
         None
     };
 
+    // Check if Grover's search mode is requested
+    let grover_results = if search_req.use_grover {
+        info!(
+            "⚛️ Performing real quantum Grover's search with {} elements",
+            search_req.query_vector.len()
+        );
+        Some(execute_grover_search(&search_req)?)
+    } else {
+        None
+    };
+
     // Build mode description string
     let mode_desc = {
         let mut modes = Vec::new();
@@ -1136,6 +1149,9 @@ pub async fn quantum_search(
         }
         if search_req.use_parallel_tempering {
             modes.push("PT");
+        }
+        if search_req.use_grover {
+            modes.push("Grover");
         }
         if modes.is_empty() {
             String::new()
@@ -1298,6 +1314,7 @@ pub async fn quantum_search(
         tfim_results,
         qubo_results,
         parallel_tempering_results,
+        grover_results,
     };
 
     // Record quantum search metrics
@@ -1620,6 +1637,125 @@ fn execute_parallel_tempering(
         thermal_state_fidelity: solution.thermal_state_fidelity,
         backend_used: format!("{:?}", solution.backend_used),
         computation_time_ms,
+    })
+}
+
+/// Execute real quantum Grover's search algorithm
+fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResults, ApiError> {
+    use neuroquantum_core::quantum::{
+        GroverQuantumBackend, QuantumGroverConfig, QuantumGroverSolver, QuantumOracle,
+    };
+
+    let grover_config = search_req.grover_config.clone().unwrap_or_default();
+    let start_time = std::time::Instant::now();
+
+    // Build search data from query vector (interpret as byte indices)
+    let search_space_size = search_req.query_vector.len();
+
+    if search_space_size < 2 {
+        return Err(ApiError::BadRequest(
+            "Grover search requires at least 2 elements (query_vector length >= 2)".to_string(),
+        ));
+    }
+
+    // Determine marked states based on search pattern or query vector
+    let marked_states: Vec<usize> = if let Some(ref pattern) = search_req.search_pattern {
+        // If a search pattern is provided, look for matching indices
+        let pattern_bytes = pattern.as_bytes();
+        let data: Vec<u8> = search_req
+            .query_vector
+            .iter()
+            .map(|&x| (x.abs() * 255.0).min(255.0) as u8)
+            .collect();
+
+        (0..=data.len().saturating_sub(pattern_bytes.len()))
+            .filter(|&i| {
+                i + pattern_bytes.len() <= data.len()
+                    && &data[i..i + pattern_bytes.len()] == pattern_bytes
+            })
+            .collect()
+    } else {
+        // Default: mark indices where query_vector values exceed threshold
+        let threshold = search_req.similarity_threshold;
+        search_req
+            .query_vector
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &v)| if v >= threshold { Some(i) } else { None })
+            .collect()
+    };
+
+    // If no marked states found, mark indices based on max value
+    let marked_states = if marked_states.is_empty() {
+        // Find indices with the maximum value
+        let max_val = search_req
+            .query_vector
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
+        search_req
+            .query_vector
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &v)| {
+                if (v - max_val).abs() < 0.001 {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    } else {
+        marked_states
+    };
+
+    let num_qubits = (search_space_size as f64).log2().ceil() as usize;
+    let oracle = QuantumOracle::new(num_qubits.max(1), marked_states.clone());
+
+    // Select backend based on configuration
+    let backend = match grover_config.backend.to_lowercase().as_str() {
+        "superconducting" => GroverQuantumBackend::Superconducting,
+        "trapped_ion" | "trappedion" => GroverQuantumBackend::TrappedIon,
+        "neutral_atom" | "neutralatom" => GroverQuantumBackend::NeutralAtom,
+        "classical" => GroverQuantumBackend::ClassicalFallback,
+        _ => GroverQuantumBackend::Simulator,
+    };
+
+    let config = QuantumGroverConfig {
+        backend,
+        num_shots: grover_config.num_shots as usize,
+        max_iterations: if grover_config.max_iterations > 0 {
+            grover_config.max_iterations as usize
+        } else {
+            1000 // Auto-calculate optimal
+        },
+        error_mitigation: grover_config.error_mitigation,
+        adaptive_iterations: true,
+        success_threshold: grover_config.success_threshold,
+    };
+
+    let solver = QuantumGroverSolver::with_config(config);
+    let result = solver.search_with_oracle(&oracle).map_err(|e| {
+        ApiError::QuantumOperationFailed {
+            operation: "Grover's search".to_string(),
+            reason: e.to_string(),
+        }
+    })?;
+
+    let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+
+    Ok(GroverResults {
+        found_indices: result.found_indices,
+        probabilities: result.probabilities,
+        iterations: result.iterations,
+        optimal_iterations: result.optimal_iterations,
+        num_qubits: result.circuit.num_qubits,
+        circuit_depth: result.circuit.depth,
+        backend_used: format!("{:?}", result.backend_used),
+        quantum_speedup: result.quantum_speedup,
+        computation_time_ms,
+        best_probability: result.measurement_stats.map(|s| s.best_probability),
+        num_marked_states: marked_states.len(),
     })
 }
 
