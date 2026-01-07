@@ -105,7 +105,18 @@ pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
 /// - Whether they're getting warmer or colder
 /// - Precise threshold values through binary search
 ///
-/// This function prevents such leakage by always taking the same time.
+/// This function prevents such leakage by always taking the same time regardless
+/// of how close the value is to the threshold.
+///
+/// # Implementation
+///
+/// 1. Converts floats to fixed-point i32 (with 10000x scale for 4 decimal precision)
+/// 2. Computes difference: value - threshold (wrapping to handle all cases)
+/// 3. Checks sign bit using constant-time operations
+/// 4. Returns true if difference is non-negative (sign bit = 0)
+///
+/// This approach leverages two's complement representation where negative numbers
+/// have their most significant bit (sign bit) set to 1.
 ///
 /// # Examples
 ///
@@ -121,24 +132,18 @@ pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
     let value_fixed = (value * 10000.0) as i32;
     let threshold_fixed = (threshold * 10000.0) as i32;
     
-    // Convert to bytes for constant-time comparison
-    let value_bytes = value_fixed.to_le_bytes();
-    let threshold_bytes = threshold_fixed.to_le_bytes();
+    // Compute difference: value - threshold
+    let diff = value_fixed.wrapping_sub(threshold_fixed);
     
-    // Check if value >= threshold using constant-time operations
-    // We compare byte by byte from most significant to least significant
-    let mut result = 0u8;
-    for i in (0..4).rev() {
-        let v = value_bytes[i];
-        let t = threshold_bytes[i];
-        // If value byte > threshold byte, set result
-        result |= ((v.wrapping_sub(t)) & 0x80) >> 7;
-        // If bytes are equal, continue to next byte
-        result |= (v ^ t).ct_eq(&0u8).unwrap_u8() & result;
-    }
+    // In two's complement, negative numbers have MSB set
+    // If diff >= 0, then value >= threshold
+    // We check that MSB (sign bit) is not set using constant-time operations
+    let diff_bytes = diff.to_le_bytes();
+    let sign_bit = (diff_bytes[3] & 0x80) >> 7;  // Extract MSB
     
-    // If value_fixed >= threshold_fixed
-    value_fixed >= threshold_fixed
+    // Return true if sign bit is 0 (non-negative), false if 1 (negative)
+    // Use constant-time equality check to convert to bool
+    sign_bit.ct_eq(&0u8).into()
 }
 
 // ============================================================================
