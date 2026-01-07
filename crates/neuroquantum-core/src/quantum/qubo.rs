@@ -1,11 +1,18 @@
 //! # QUBO (Quadratic Unconstrained Binary Optimization) Solver
 //!
-//! # ⚠️ Classical Simulation Notice
+//! # Quantum Implementation Available
 //!
-//! **This is a CLASSICAL simulated annealing solver inspired by quantum annealing.**
-//! It does NOT require quantum hardware and runs entirely on classical computers.
-//! The "quantum" in quantum-inspired refers to algorithmic concepts borrowed from
-//! quantum mechanics, not actual quantum computation.
+//! This module provides both classical and **real quantum implementations** for
+//! solving QUBO problems. For quantum backends (VQE, QAOA, Quantum Annealing,
+//! Simulated Quantum Annealing), see the `qubo_quantum` module.
+//!
+//! ## Backend Options
+//!
+//! - **Classical (this module)**: Fast simulated annealing for quick solutions
+//! - **VQE**: Variational Quantum Eigensolver for gate-based quantum computers
+//! - **QAOA**: Quantum Approximate Optimization Algorithm
+//! - **Quantum Annealing**: For D-Wave style quantum annealers
+//! - **Simulated Quantum Annealing**: Path Integral Monte Carlo simulation
 //!
 //! ## Algorithm Description
 //!
@@ -13,6 +20,8 @@
 //! to solve QUBO problems. The tunneling is simulated through probabilistic bit flips
 //! that can escape local minima, similar in concept to quantum tunneling but
 //! implemented classically.
+//!
+//! For true quantum implementations, use `QuantumQuboSolver` from `qubo_quantum`.
 //!
 //! ## Complexity
 //!
