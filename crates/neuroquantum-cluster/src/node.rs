@@ -187,7 +187,7 @@ impl ClusterNode {
         }
 
         // Start network transport
-        self.transport.start().await?;
+        Arc::clone(&self.transport).start().await?;
 
         // Discover peers
         let peers = self.discovery.discover().await?;

@@ -50,6 +50,7 @@ openraft = { version = "0.9", features = ["serde", "tracing-log"] }
 # gRPC for inter-node communication
 tonic = "0.14.2"
 prost = "0.14.1"
+tonic-prost = "0.14"
 
 # Async traits and utilities
 async-trait = "0.1.89"
