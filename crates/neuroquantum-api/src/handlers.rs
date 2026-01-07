@@ -2197,3 +2197,153 @@ fn storage_value_to_json(value: &neuroquantum_core::storage::Value) -> serde_jso
         Value::Null => serde_json::Value::Null,
     }
 }
+
+#[cfg(test)]
+mod json_conversion_tests {
+    use super::*;
+    use neuroquantum_core::storage::Value;
+
+    #[test]
+    fn test_json_to_storage_value_integer() {
+        let json = serde_json::json!(42);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Integer(i) => assert_eq!(i, 42),
+            _ => panic!("Expected Integer value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_negative_integer() {
+        let json = serde_json::json!(-100);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Integer(i) => assert_eq!(i, -100),
+            _ => panic!("Expected Integer value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_float() {
+        let json = serde_json::json!(3.14);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Float(f) => assert!((f - 3.14).abs() < 0.001),
+            _ => panic!("Expected Float value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_string() {
+        let json = serde_json::json!("hello world");
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Text(s) => assert_eq!(s, "hello world"),
+            _ => panic!("Expected Text value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_boolean_true() {
+        let json = serde_json::json!(true);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Boolean(b) => assert!(b),
+            _ => panic!("Expected Boolean value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_boolean_false() {
+        let json = serde_json::json!(false);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Boolean(b) => assert!(!b),
+            _ => panic!("Expected Boolean value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_null() {
+        let json = serde_json::Value::Null;
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Null => {}
+            _ => panic!("Expected Null value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_array_converts_to_text() {
+        let json = serde_json::json!([1, 2, 3]);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Text(s) => assert!(s.contains("[1,2,3]")),
+            _ => panic!("Expected Text value for array"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_object_converts_to_text() {
+        let json = serde_json::json!({"key": "value"});
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Text(s) => assert!(s.contains("key") && s.contains("value")),
+            _ => panic!("Expected Text value for object"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_large_integer() {
+        // Test with i64::MAX which should be valid
+        let json = serde_json::json!(i64::MAX);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Integer(i) => assert_eq!(i, i64::MAX),
+            _ => panic!("Expected Integer value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_zero() {
+        let json = serde_json::json!(0);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Integer(i) => assert_eq!(i, 0),
+            _ => panic!("Expected Integer value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_zero_float() {
+        let json = serde_json::json!(0.0);
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Float(f) => assert!((f - 0.0).abs() < f64::EPSILON),
+            _ => panic!("Expected Float value"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_storage_value_empty_string() {
+        let json = serde_json::json!("");
+        let result = json_to_storage_value(&json, "test_field");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            Value::Text(s) => assert!(s.is_empty()),
+            _ => panic!("Expected Text value"),
+        }
+    }
+}
