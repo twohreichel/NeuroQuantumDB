@@ -1,13 +1,15 @@
 //! # Quantum Extensions Module
 //!
-//! # ⚠️ Classical Simulation Notice
+//! This module provides both quantum circuit implementations and quantum-inspired
+//! classical algorithms for optimization and search.
 //!
-//! **All algorithms in this module are QUANTUM-INSPIRED CLASSICAL SIMULATIONS.**
-//! They do NOT require or interface with quantum hardware. These are classical
-//! algorithms that borrow concepts from quantum mechanics to solve optimization
-//! problems efficiently on classical computers.
+//! ## Quantum Circuit Implementation
 //!
-//! ## Implemented Algorithms
+//! - **Grover's Search (grover.rs)**: Real quantum circuit implementation of
+//!   Grover's algorithm with support for multiple quantum backends (IBM Quantum,
+//!   IonQ, Rigetti, and local simulator). Achieves O(√N) search complexity.
+//!
+//! ## Classical Simulations
 //!
 //! - **QUBO (Quadratic Unconstrained Binary Optimization)**: Classical simulated
 //!   annealing solver for binary optimization problems. Uses quantum-inspired
@@ -21,34 +23,38 @@
 //!   algorithm with multiple temperature replicas. Inspired by quantum thermal
 //!   fluctuations but fully classical.
 //!
-//! - **Grover's Search (Legacy)**: Classical state vector simulation of Grover's
+//! - **Legacy Grover's Search**: Classical state vector simulation of Grover's
 //!   quantum search algorithm. Useful for validation but does NOT provide
 //!   quantum speedup.
 //!
 //! ## Performance Notes
 //!
-//! These quantum-inspired algorithms often outperform naive classical approaches
-//! for optimization problems, but they do NOT achieve true quantum speedup.
-//! The advantage comes from:
-//!
-//! - Better exploration of solution space via "tunneling" heuristics
-//! - Thermal fluctuation-inspired escapes from local minima
-//! - Parallel replica exchanges for global optimization
+//! The grover module provides real quantum circuit execution capability with
+//! quadratic speedup when run on actual quantum hardware. The quantum-inspired
+//! classical algorithms provide heuristic advantages for optimization problems.
 //!
 //! ## Use Cases
 //!
-//! - Database query optimization
-//! - Combinatorial optimization (scheduling, routing)
-//! - Graph problems (partitioning, coloring)
-//! - Machine learning hyperparameter tuning
+//! - **Grover's Algorithm**: Fast database search, pattern matching, index lookups
+//! - **QUBO/TFIM**: Combinatorial optimization (scheduling, routing)
+//! - **Parallel Tempering**: Global optimization, escape from local minima
 
-// Legacy quantum algorithms (Grover's search, basic annealing)
+// Grover's algorithm with quantum circuit implementation
+pub mod grover;
+
+// Legacy quantum algorithms (classical simulation)
 pub mod legacy;
 
-// New quantum extensions (Phase 3)
+// Quantum extensions (Phase 3)
 pub mod parallel_tempering;
 pub mod qubo;
 pub mod tfim;
+
+// Re-export Grover's algorithm quantum circuit types (new implementation)
+pub use grover::{
+    BackendConfig, BackendType, DiffusionOperator, GroverCircuit, GroverDatabaseSearch,
+    GroverResult, OracleGenerator, QuantumCircuit, QuantumDatabaseSearch, QuantumGate,
+};
 
 // Re-export legacy quantum types for backwards compatibility
 pub use legacy::{
