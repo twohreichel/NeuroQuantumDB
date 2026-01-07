@@ -15,9 +15,13 @@
 //!   including Path Integral Monte Carlo (PIMC), Quantum Monte Carlo (QMC),
 //!   and Quantum Annealing with multi-temperature support.
 //!
+//! - **Grover's Search**: Now with **real quantum circuit implementation** providing
+//!   theoretical O(√N) speedup for unstructured search. Supports multiple quantum
+//!   backends and automatic oracle construction for database and pattern search.
+//!
 //! - **Grover's Search (Legacy)**: Classical state vector simulation of Grover's
 //!   quantum search algorithm. Useful for validation but does NOT provide
-//!   quantum speedup.
+//!   quantum speedup on classical hardware.
 //!
 //! ## Quantum Backends for QUBO
 //!
@@ -48,6 +52,9 @@
 
 // Legacy quantum algorithms (Grover's search, basic annealing)
 pub mod legacy;
+
+// Real quantum Grover's search algorithm
+pub mod grover_quantum;
 
 // Quantum extensions
 pub mod quantum_parallel_tempering;
@@ -105,3 +112,9 @@ pub use tfim_quantum::{
 
 // Unified TFIM interface (automatic quantum/classical selection)
 pub use tfim_unified::{UnifiedTFIMConfig, UnifiedTFIMResult, UnifiedTFIMSolver};
+
+// Real quantum Grover's search exports
+pub use grover_quantum::{
+    GroverCircuit, GroverGate, GroverMeasurementStats, GroverQuantumBackend, OracleType,
+    QuantumGroverConfig, QuantumGroverResult, QuantumGroverSolver, QuantumOracle,
+};

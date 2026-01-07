@@ -495,6 +495,13 @@ pub struct QuantumSearchRequest {
     pub use_parallel_tempering: bool,
     /// Parallel Tempering configuration (optional)
     pub parallel_tempering_config: Option<ParallelTemperingRequestConfig>,
+    /// Enable real quantum Grover's search algorithm
+    #[serde(default)]
+    pub use_grover: bool,
+    /// Grover search configuration (optional)
+    pub grover_config: Option<GroverRequestConfig>,
+    /// Pattern to search for (used with Grover search for byte pattern matching)
+    pub search_pattern: Option<String>,
 }
 
 /// TFIM configuration for quantum search
@@ -569,6 +576,8 @@ pub struct QuantumSearchResponse {
     pub qubo_results: Option<QUBOResults>,
     /// Parallel Tempering results (when use_parallel_tempering=true)
     pub parallel_tempering_results: Option<ParallelTemperingResults>,
+    /// Grover's search results (when use_grover=true)
+    pub grover_results: Option<GroverResults>,
 }
 
 /// TFIM computation results
@@ -745,6 +754,78 @@ pub struct ParallelTemperingResults {
     pub backend_used: String,
     /// Computation time in milliseconds
     pub computation_time_ms: f64,
+}
+
+/// Grover's search request configuration
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GroverRequestConfig {
+    /// Backend: "simulator", "superconducting", "trapped_ion", "neutral_atom", or "classical"
+    #[serde(default = "default_grover_backend")]
+    pub backend: String,
+    /// Number of measurement shots
+    #[serde(default = "default_grover_shots")]
+    pub num_shots: u32,
+    /// Maximum Grover iterations (0 for auto-optimal)
+    #[serde(default)]
+    pub max_iterations: u32,
+    /// Enable error mitigation
+    #[serde(default = "default_error_mitigation")]
+    pub error_mitigation: bool,
+    /// Minimum success probability threshold
+    #[serde(default = "default_success_threshold")]
+    pub success_threshold: f64,
+}
+
+fn default_grover_backend() -> String {
+    "simulator".to_string()
+}
+fn default_grover_shots() -> u32 {
+    1024
+}
+fn default_error_mitigation() -> bool {
+    true
+}
+fn default_success_threshold() -> f64 {
+    0.5
+}
+
+impl Default for GroverRequestConfig {
+    fn default() -> Self {
+        Self {
+            backend: default_grover_backend(),
+            num_shots: default_grover_shots(),
+            max_iterations: 0, // Auto-calculate optimal
+            error_mitigation: default_error_mitigation(),
+            success_threshold: default_success_threshold(),
+        }
+    }
+}
+
+/// Grover's search results
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GroverResults {
+    /// Found indices in the search space
+    pub found_indices: Vec<usize>,
+    /// Measurement probabilities for each found index
+    pub probabilities: Vec<f64>,
+    /// Number of Grover iterations performed
+    pub iterations: usize,
+    /// Optimal number of iterations (theoretical π/4 * √N)
+    pub optimal_iterations: usize,
+    /// Number of qubits used
+    pub num_qubits: usize,
+    /// Circuit depth
+    pub circuit_depth: usize,
+    /// Backend used for computation
+    pub backend_used: String,
+    /// Theoretical quantum speedup (√N)
+    pub quantum_speedup: f64,
+    /// Computation time in milliseconds
+    pub computation_time_ms: f64,
+    /// Best measurement probability (from sampling)
+    pub best_probability: Option<f64>,
+    /// Number of marked states (targets)
+    pub num_marked_states: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
