@@ -29,6 +29,7 @@
   - [Quantum Search](user-guide/features/quantum-search.md)
   - [Neural Networks](user-guide/features/neural-networks.md)
   - [Biometric Auth](user-guide/features/biometric-auth.md)
+- [Performance Tuning](user-guide/performance-tuning.md)
 - [Monitoring](user-guide/monitoring.md)
 - [Troubleshooting](user-guide/troubleshooting.md)
 
