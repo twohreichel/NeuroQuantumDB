@@ -819,6 +819,7 @@ mod tests {
             network: crate::config::NetworkConfig::default(),
             sharding: crate::config::ShardingConfig::default(),
             discovery: crate::config::DiscoveryConfig::default(),
+            manager: crate::config::ClusterManagerConfig::default(),
         };
 
         let transport = NetworkTransport::new(&config).await;

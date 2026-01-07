@@ -37,6 +37,32 @@ pub struct ClusterConfig {
 
     /// Discovery configuration
     pub discovery: DiscoveryConfig,
+
+    /// Cluster manager configuration
+    pub manager: ClusterManagerConfig,
+}
+
+/// Cluster manager configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterManagerConfig {
+    /// Timeout for replication operations
+    pub replication_timeout: Duration,
+
+    /// Interval for health monitoring checks
+    pub health_check_interval: Duration,
+
+    /// Interval for replication cleanup
+    pub replication_cleanup_interval: Duration,
+}
+
+impl Default for ClusterManagerConfig {
+    fn default() -> Self {
+        Self {
+            replication_timeout: Duration::from_secs(30),
+            health_check_interval: Duration::from_secs(5),
+            replication_cleanup_interval: Duration::from_secs(60),
+        }
+    }
 }
 
 /// Raft consensus configuration.
@@ -208,6 +234,7 @@ impl Default for ClusterConfig {
             network: NetworkConfig::default(),
             sharding: ShardingConfig::default(),
             discovery: DiscoveryConfig::default(),
+            manager: ClusterManagerConfig::default(),
         }
     }
 }
@@ -388,6 +415,13 @@ impl ClusterConfigBuilder {
     #[must_use]
     pub fn discovery(mut self, discovery: DiscoveryConfig) -> Self {
         self.config.discovery = discovery;
+        self
+    }
+
+    /// Set the cluster manager configuration.
+    #[must_use]
+    pub fn manager(mut self, manager: ClusterManagerConfig) -> Self {
+        self.config.manager = manager;
         self
     }
 
