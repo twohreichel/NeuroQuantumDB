@@ -24,7 +24,7 @@ mod simd; // SIMD optimizations - internal only
 
 // Quantum extensions submodules
 pub use quantum::quantum_parallel_tempering;
-pub use quantum::qubo;
+pub use quantum::qubo_quantum;
 pub use quantum::tfim;
 pub mod security;
 pub mod spiking; // Biologically accurate spiking neural networks (Izhikevich model)

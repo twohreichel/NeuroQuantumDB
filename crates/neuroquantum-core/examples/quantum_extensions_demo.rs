@@ -7,7 +7,10 @@ use nalgebra::DMatrix;
 use neuroquantum_core::quantum::quantum_parallel_tempering::{
     IsingHamiltonian, QuantumBackend, QuantumParallelTempering, QuantumParallelTemperingConfig,
 };
-use neuroquantum_core::quantum::qubo::{QUBOConfig, QUBOSolver};
+use neuroquantum_core::quantum::qubo_quantum::{
+    graph_coloring_problem, max_cut_problem, tsp_problem, QUBOConfig, QUBOSolver,
+    QuboQuantumBackend,
+};
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
 
 #[tokio::main]
@@ -70,9 +73,9 @@ fn demo_qubo_max_cut() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Graph: 6 nodes, {} edges", edges.len());
 
-    let problem = QUBOSolver::max_cut_problem(&edges, 6)?;
+    let problem = max_cut_problem(&edges, 6)?;
     let solver = QUBOSolver::new();
-    let solution = solver.solve(&problem)?;
+    let solution = solver.solve_problem(&problem)?;
 
     println!("Solution: {:?}", solution.variables);
     println!("Energy: {:.4}", solution.energy);
@@ -102,16 +105,16 @@ fn demo_qubo_graph_coloring() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Graph: Triangle (3 nodes), {} colors", num_colors);
 
-    let problem = QUBOSolver::graph_coloring_problem(&edges, 3, num_colors)?;
+    let problem = graph_coloring_problem(&edges, 3, num_colors)?;
 
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 5000,
-        quantum_tunneling: true,
         ..Default::default()
     };
 
     let solver = QUBOSolver::with_config(config);
-    let solution = solver.solve(&problem)?;
+    let solution = solver.solve_problem(&problem)?;
 
     println!("Energy: {:.4}", solution.energy);
     println!("Quality: {:.2}%", solution.quality * 100.0);
@@ -154,17 +157,16 @@ fn demo_qubo_tsp() -> Result<(), Box<dyn std::error::Error>> {
         dist_matrix.ncols()
     );
 
-    let problem = QUBOSolver::tsp_problem(&dist_matrix)?;
+    let problem = tsp_problem(&dist_matrix)?;
 
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 3000,
-        initial_temperature: 500.0,
-        quantum_tunneling: true,
         ..Default::default()
     };
 
     let solver = QUBOSolver::with_config(config);
-    let solution = solver.solve(&problem)?;
+    let solution = solver.solve_problem(&problem)?;
 
     println!("Energy: {:.4}", solution.energy);
     println!("Quality: {:.2}%", solution.quality * 100.0);
@@ -323,15 +325,15 @@ async fn demo_method_comparison() -> Result<(), Box<dyn std::error::Error>> {
     println!("Problem: Max-Cut on 4-node graph with 6 edges\n");
 
     // Method 1: QUBO without tunneling
-    println!("1. QUBO (no quantum tunneling):");
-    let problem = QUBOSolver::max_cut_problem(&edges, 4)?;
+    println!("1. QUBO (classical fallback):");
+    let problem = max_cut_problem(&edges, 4)?;
     let config = QUBOConfig {
-        quantum_tunneling: false,
+        backend: QuboQuantumBackend::ClassicalFallback,
         max_iterations: 1000,
         ..Default::default()
     };
     let solver = QUBOSolver::with_config(config);
-    let sol1 = solver.solve(&problem)?;
+    let sol1 = solver.solve_problem(&problem)?;
     println!(
         "   Energy: {:.4}, Quality: {:.1}%, Time: {:.2}ms",
         sol1.energy,
@@ -340,14 +342,14 @@ async fn demo_method_comparison() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Method 2: QUBO with tunneling
-    println!("2. QUBO (with quantum tunneling):");
+    println!("2. QUBO (simulated quantum annealing):");
     let config = QUBOConfig {
-        quantum_tunneling: true,
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 1000,
         ..Default::default()
     };
     let solver = QUBOSolver::with_config(config);
-    let sol2 = solver.solve(&problem)?;
+    let sol2 = solver.solve_problem(&problem)?;
     println!(
         "   Energy: {:.4}, Quality: {:.1}%, Time: {:.2}ms",
         sol2.energy,

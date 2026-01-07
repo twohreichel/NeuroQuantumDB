@@ -2,9 +2,9 @@
 //!
 //! ## Implemented Algorithms
 //!
-//! - **QUBO (Quadratic Unconstrained Binary Optimization)**: Classical simulated
-//!   annealing solver for binary optimization problems. Uses quantum-inspired
-//!   tunneling heuristics but runs entirely on classical hardware.
+//! - **QUBO (Quadratic Unconstrained Binary Optimization)**: Now with **real quantum
+//!   implementations** including VQE, QAOA, and Simulated Quantum Annealing (SQA).
+//!   Features automatic fallback to classical solver when quantum backends unavailable.
 //!
 //! - **TFIM (Transverse Field Ising Model)**: Classical simulation of quantum
 //!   annealing dynamics. Implements the transverse field Ising Hamiltonian
@@ -18,29 +18,39 @@
 //!   quantum search algorithm. Useful for validation but does NOT provide
 //!   quantum speedup.
 //!
+//! ## Quantum Backends for QUBO
+//!
+//! The `qubo_quantum` module provides multiple quantum solving approaches:
+//!
+//! - **VQE (Variational Quantum Eigensolver)**: For gate-based quantum computers
+//! - **QAOA (Quantum Approximate Optimization Algorithm)**: Variational algorithm
+//!   specifically designed for combinatorial optimization
+//! - **Quantum Annealing**: For D-Wave style quantum annealers
+//! - **Simulated Quantum Annealing (SQA)**: Path Integral Monte Carlo simulation
+//! - **Classical Fallback**: Simulated annealing when quantum unavailable
+//!
 //! ## Performance Notes
 //!
-//! These quantum-inspired algorithms often outperform naive classical approaches
-//! for optimization problems. The advantage comes from:
+//! These quantum algorithms provide advantages through:
 //!
-//! - Better exploration of solution space via "tunneling" heuristics
-//! - Thermal fluctuation-inspired escapes from local minima
-//! - Parallel replica exchanges for global optimization
-//! - Quantum thermal state preparation (PIMC/QMC)
+//! - Quantum superposition for exploring multiple solutions simultaneously
+//! - Quantum tunneling for escaping local minima
+//! - Entanglement for correlated variable updates
+//! - Thermal quantum fluctuations for global optimization
 //!
 //! ## Use Cases
 //!
 //! - Database query optimization
 //! - Combinatorial optimization (scheduling, routing)
-//! - Graph problems (partitioning, coloring)
+//! - Graph problems (partitioning, coloring, max-cut)
 //! - Machine learning hyperparameter tuning
 
 // Legacy quantum algorithms (Grover's search, basic annealing)
 pub mod legacy;
 
-// New quantum extensions (Phase 3)
+// Quantum extensions
 pub mod quantum_parallel_tempering;
-pub mod qubo;
+pub mod qubo_quantum;
 pub mod tfim;
 
 // Re-export legacy quantum types for backwards compatibility
@@ -55,5 +65,30 @@ pub use quantum_parallel_tempering::{
     QuantumParallelTemperingConfig, QuantumParallelTemperingSolution, QuantumReplica, QuantumState,
     ThermodynamicObservables,
 };
-pub use qubo::{QUBOConfig, QUBOProblem, QUBOSolution, QUBOSolver};
+
+// QUBO exports (consolidated from qubo.rs into qubo_quantum.rs)
+pub use qubo_quantum::{
+    // Problem builders
+    graph_coloring_problem,
+    max_cut_problem,
+    tsp_problem,
+    // Quantum solver and config
+    AnnealingSchedule,
+    ClassicalOptimizer,
+    CloudQuantumBackend,
+    IsingModel,
+    MeasurementStats,
+    // Legacy type aliases for backwards compatibility
+    QUBOConfig,
+    QUBOProblem,
+    QUBOSolution,
+    QUBOSolver,
+    QuantumHardwareBackend,
+    QuantumQuboConfig,
+    QuantumQuboSolution,
+    QuantumQuboSolver,
+    QuboQuantumBackend,
+    VqeAnsatz,
+};
+
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};

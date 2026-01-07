@@ -8,7 +8,9 @@ use nalgebra::DMatrix;
 use neuroquantum_core::quantum::quantum_parallel_tempering::{
     IsingHamiltonian, QuantumBackend, QuantumParallelTempering, QuantumParallelTemperingConfig,
 };
-use neuroquantum_core::quantum::qubo::{QUBOConfig, QUBOSolver};
+use neuroquantum_core::quantum::qubo_quantum::{
+    max_cut_problem, tsp_problem, QUBOConfig, QUBOSolver, QuboQuantumBackend,
+};
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
 use std::hint::black_box;
 use tokio::runtime::Runtime;
@@ -26,12 +28,12 @@ fn bench_qubo_max_cut(c: &mut Criterion) {
             }
         }
 
-        let problem = QUBOSolver::max_cut_problem(&edges, *num_nodes).unwrap();
+        let problem = max_cut_problem(&edges, *num_nodes).unwrap();
 
         group.bench_with_input(BenchmarkId::new("nodes", num_nodes), num_nodes, |b, _| {
             let solver = QUBOSolver::new();
             b.iter(|| {
-                let solution = solver.solve(black_box(&problem)).unwrap();
+                let solution = solver.solve_problem(black_box(&problem)).unwrap();
                 black_box(solution);
             });
         });
@@ -52,30 +54,30 @@ fn bench_qubo_configs(c: &mut Criterion) {
         (0, 2, 1.0),
         (1, 3, 1.0),
     ];
-    let problem = QUBOSolver::max_cut_problem(&edges, 4).unwrap();
+    let problem = max_cut_problem(&edges, 4).unwrap();
 
-    // Test with quantum tunneling
-    group.bench_function("with-tunneling", |b| {
+    // Test with simulated quantum annealing
+    group.bench_function("with-sqa", |b| {
         let config = QUBOConfig {
-            quantum_tunneling: true,
+            backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
             ..Default::default()
         };
         let solver = QUBOSolver::with_config(config);
         b.iter(|| {
-            let solution = solver.solve(black_box(&problem)).unwrap();
+            let solution = solver.solve_problem(black_box(&problem)).unwrap();
             black_box(solution);
         });
     });
 
-    // Test without quantum tunneling
-    group.bench_function("without-tunneling", |b| {
+    // Test with classical fallback
+    group.bench_function("classical-fallback", |b| {
         let config = QUBOConfig {
-            quantum_tunneling: false,
+            backend: QuboQuantumBackend::ClassicalFallback,
             ..Default::default()
         };
         let solver = QUBOSolver::with_config(config);
         b.iter(|| {
-            let solution = solver.solve(black_box(&problem)).unwrap();
+            let solution = solver.solve_problem(black_box(&problem)).unwrap();
             black_box(solution);
         });
     });
@@ -301,12 +303,12 @@ fn bench_solution_quality(c: &mut Criterion) {
         }
     });
 
-    let problem = QUBOSolver::tsp_problem(&dist_matrix).unwrap();
+    let problem = tsp_problem(&dist_matrix).unwrap();
 
     group.bench_function("TSP-10", |b| {
         let solver = QUBOSolver::new();
         b.iter(|| {
-            let solution = solver.solve(black_box(&problem)).unwrap();
+            let solution = solver.solve_problem(black_box(&problem)).unwrap();
             // Check that quality is reasonable (> 90%)
             assert!(solution.quality > 0.5, "Solution quality too low");
             black_box(solution);
