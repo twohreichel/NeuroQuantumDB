@@ -22,6 +22,7 @@
 - [Configuration](user-guide/configuration.md)
 - [Getting Started](user-guide/getting-started.md)
 - [QSQL Query Language](user-guide/qsql.md)
+- [QSQL Syntax Examples](user-guide/qsql-examples.md)
 - [REST API](user-guide/rest-api.md)
 - [Features](user-guide/features.md)
   - [DNA Compression](user-guide/features/dna-compression.md)

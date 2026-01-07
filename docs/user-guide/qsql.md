@@ -340,5 +340,6 @@ ANALYZE TABLE users;
 
 ## Next Steps
 
+- [QSQL Syntax Examples](qsql-examples.md) - 42+ comprehensive examples with explanations
 - [REST API](rest-api.md)
 - [Auto-Increment Configuration](features/auto-increment.md)
