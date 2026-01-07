@@ -2010,7 +2010,7 @@ Recommended schedule:
 - WAL archiving: Continuous
 
 ```bash
-# crontab example
+# crontab example (note: % must be escaped with \ in crontab)
 0 2 * * * neuroquantum-api backup --dest /backups/daily-$(date +\%Y\%m\%d).nqdb
 0 */6 * * * neuroquantum-api backup --incremental --dest /backups/incr-$(date +\%Y\%m\%d-\%H).nqdb
 ```
@@ -2075,11 +2075,12 @@ neuroquantum-api cluster-status
 
 **Q: How do I change the JWT secret?**
 ```bash
-# Generate new secret
+# Generate new secret (copy the output)
 neuroquantum-api generate-jwt-secret
+# Example output: mK8vX2pQ9rT5nL3wY7aH6cB1dF4gJ0sZ
 
-# Update config
-export NQDB_JWT_SECRET="new-secret-here"
+# Update config with the generated secret
+export NQDB_JWT_SECRET="mK8vX2pQ9rT5nL3wY7aH6cB1dF4gJ0sZ"
 
 # Restart server
 systemctl restart neuroquantumdb
