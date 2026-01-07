@@ -280,6 +280,9 @@ async fn test_savepoint_basic() {
     // Create savepoint
     let savepoint_stmt = parser.parse("SAVEPOINT sp1").unwrap();
     let result = executor.execute_statement(&savepoint_stmt).await;
+    if let Err(ref e) = result {
+        eprintln!("SAVEPOINT error: {:?}", e);
+    }
     assert!(result.is_ok(), "SAVEPOINT should succeed");
 
     // INSERT second row

@@ -1319,4 +1319,212 @@ mod tests {
         assert_eq!(deserialized.status, TransactionStatus::Active);
         assert_eq!(deserialized.operation_count, 1);
     }
+
+    #[tokio::test]
+    async fn test_savepoint_creation() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        // Create a savepoint
+        let savepoint_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+        assert!(savepoint_lsn > 0);
+
+        // Verify savepoint is stored in transaction state
+        let tx_state = wal.get_transaction_state(tx_id).await.unwrap();
+        assert!(tx_state.savepoints.contains_key("sp1"));
+        assert_eq!(*tx_state.savepoints.get("sp1").unwrap(), savepoint_lsn);
+    }
+
+    #[tokio::test]
+    async fn test_multiple_savepoints() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        // Create multiple savepoints
+        let sp1_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+        let sp2_lsn = wal.create_savepoint(tx_id, "sp2".to_string()).await.unwrap();
+        let sp3_lsn = wal.create_savepoint(tx_id, "sp3".to_string()).await.unwrap();
+
+        // Verify all savepoints are stored
+        let tx_state = wal.get_transaction_state(tx_id).await.unwrap();
+        assert_eq!(tx_state.savepoints.len(), 3);
+        assert!(sp1_lsn < sp2_lsn);
+        assert!(sp2_lsn < sp3_lsn);
+    }
+
+    #[tokio::test]
+    async fn test_rollback_to_savepoint() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        // Create savepoint
+        let sp_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+
+        // Perform some operations after savepoint
+        let page_id = PageId(1);
+        wal.log_update(tx_id, page_id, 0, vec![1, 2], vec![3, 4])
+            .await
+            .unwrap();
+
+        // Rollback to savepoint
+        let rollback_lsn = wal
+            .rollback_to_savepoint(tx_id, "sp1".to_string())
+            .await
+            .unwrap();
+        assert!(rollback_lsn > sp_lsn);
+
+        // Verify transaction state updated
+        let tx_state = wal.get_transaction_state(tx_id).await.unwrap();
+        assert_eq!(tx_state.last_lsn, rollback_lsn);
+        // Savepoint should still exist after rollback (per SQL standard)
+        assert!(tx_state.savepoints.contains_key("sp1"));
+    }
+
+    #[tokio::test]
+    async fn test_rollback_to_nonexistent_savepoint() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        // Try to rollback to non-existent savepoint
+        let result = wal
+            .rollback_to_savepoint(tx_id, "nonexistent".to_string())
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_release_savepoint() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        // Create savepoint
+        wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+
+        // Release savepoint
+        let release_lsn = wal
+            .release_savepoint(tx_id, "sp1".to_string())
+            .await
+            .unwrap();
+        assert!(release_lsn > 0);
+
+        // Verify savepoint is removed
+        let tx_state = wal.get_transaction_state(tx_id).await.unwrap();
+        assert!(!tx_state.savepoints.contains_key("sp1"));
+    }
+
+    #[tokio::test]
+    async fn test_nested_savepoints() {
+        let (_temp, _pager, wal) = setup_test_env().await;
+
+        let tx_id = wal.begin_transaction().await.unwrap();
+
+        // Create nested savepoints
+        let sp1_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+        let sp2_lsn = wal.create_savepoint(tx_id, "sp2".to_string()).await.unwrap();
+        let sp3_lsn = wal.create_savepoint(tx_id, "sp3".to_string()).await.unwrap();
+
+        // Rollback to middle savepoint
+        wal.rollback_to_savepoint(tx_id, "sp2".to_string())
+            .await
+            .unwrap();
+
+        // Verify all savepoints still exist (per SQL standard)
+        let tx_state = wal.get_transaction_state(tx_id).await.unwrap();
+        assert!(tx_state.savepoints.contains_key("sp1"));
+        assert!(tx_state.savepoints.contains_key("sp2"));
+        assert!(tx_state.savepoints.contains_key("sp3"));
+
+        // Verify LSNs are in order
+        assert!(sp1_lsn < sp2_lsn);
+        assert!(sp2_lsn < sp3_lsn);
+    }
+
+    #[tokio::test]
+    async fn test_savepoint_wal_record_serialization() {
+        let tx_id = Uuid::new_v4();
+        let record = WALRecord::new(
+            100,
+            Some(99),
+            Some(tx_id),
+            WALRecordType::Savepoint {
+                tx_id,
+                name: "test_sp".to_string(),
+                savepoint_lsn: 100,
+            },
+        );
+
+        let bytes = record.to_bytes().unwrap();
+        let deserialized = WALRecord::from_bytes(&bytes).unwrap();
+
+        assert_eq!(deserialized.lsn, 100);
+        assert!(deserialized.verify_checksum());
+
+        match deserialized.record_type {
+            WALRecordType::Savepoint { name, .. } => {
+                assert_eq!(name, "test_sp");
+            }
+            _ => panic!("Expected Savepoint record type"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rollback_to_savepoint_wal_record_serialization() {
+        let tx_id = Uuid::new_v4();
+        let record = WALRecord::new(
+            150,
+            Some(149),
+            Some(tx_id),
+            WALRecordType::RollbackToSavepoint {
+                tx_id,
+                name: "sp1".to_string(),
+                target_lsn: 100,
+            },
+        );
+
+        let bytes = record.to_bytes().unwrap();
+        let deserialized = WALRecord::from_bytes(&bytes).unwrap();
+
+        assert_eq!(deserialized.lsn, 150);
+        assert!(deserialized.verify_checksum());
+
+        match deserialized.record_type {
+            WALRecordType::RollbackToSavepoint { name, target_lsn, .. } => {
+                assert_eq!(name, "sp1");
+                assert_eq!(target_lsn, 100);
+            }
+            _ => panic!("Expected RollbackToSavepoint record type"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_release_savepoint_wal_record_serialization() {
+        let tx_id = Uuid::new_v4();
+        let record = WALRecord::new(
+            200,
+            Some(199),
+            Some(tx_id),
+            WALRecordType::ReleaseSavepoint {
+                tx_id,
+                name: "sp1".to_string(),
+            },
+        );
+
+        let bytes = record.to_bytes().unwrap();
+        let deserialized = WALRecord::from_bytes(&bytes).unwrap();
+
+        assert_eq!(deserialized.lsn, 200);
+        assert!(deserialized.verify_checksum());
+
+        match deserialized.record_type {
+            WALRecordType::ReleaseSavepoint { name, .. } => {
+                assert_eq!(name, "sp1");
+            }
+            _ => panic!("Expected ReleaseSavepoint record type"),
+        }
+    }
 }

@@ -2550,6 +2550,72 @@ impl StorageEngine {
             .map_err(|e| anyhow!("Failed to rollback transaction: {}", e))
     }
 
+    /// Rollback transaction to a savepoint
+    pub async fn rollback_to_savepoint(
+        &mut self,
+        tx_id: crate::transaction::TransactionId,
+        savepoint_lsn: LSN,
+    ) -> Result<u64> {
+        use crate::transaction::LogRecordType;
+
+        debug!("↩️  Rolling back transaction {:?} to savepoint LSN {}", tx_id, savepoint_lsn);
+
+        // Get the undo log for this transaction
+        let undo_log = self.transaction_manager.get_undo_log(tx_id).await;
+        let mut operations_undone = 0u64;
+
+        // Apply undo operations in reverse order for entries after savepoint
+        if let Some(log_entries) = undo_log {
+            for entry in log_entries.iter().rev() {
+                // Only undo operations that occurred after the savepoint
+                if entry.lsn <= savepoint_lsn {
+                    break;
+                }
+
+                operations_undone += 1;
+
+                if let LogRecordType::Update {
+                    before_image, key, ..
+                } = &entry.record_type
+                {
+                    let row_id: RowId = key.parse().unwrap_or(0);
+                    if before_image.is_none() {
+                        // This was an INSERT - we need to delete the row
+                        debug!("ROLLBACK TO SAVEPOINT: Deleting inserted row {}", key);
+                        self.compressed_blocks.remove(&row_id);
+                        self.row_cache.pop(&row_id);
+                    } else {
+                        // This was an UPDATE or DELETE - restore the before image
+                        debug!("ROLLBACK TO SAVEPOINT: Restoring before image for row {}", key);
+                        if let Some(before) = before_image {
+                            if let Ok(row) = serde_json::from_slice::<Row>(before) {
+                                let compressed = self.compress_row(&row).await?;
+                                self.compressed_blocks.insert(row_id, compressed);
+                                self.add_to_cache(row);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Call the transaction manager to update its internal state
+        self.transaction_manager
+            .rollback_to_savepoint(tx_id, savepoint_lsn)
+            .await
+            .map_err(|e| anyhow!("Failed to rollback to savepoint: {}", e))?;
+
+        Ok(operations_undone)
+    }
+
+    /// Get the undo log for a transaction
+    pub async fn get_undo_log(
+        &self,
+        tx_id: crate::transaction::TransactionId,
+    ) -> Option<Vec<crate::transaction::LogRecord>> {
+        self.transaction_manager.get_undo_log(tx_id).await
+    }
+
     /// Insert a row within a transaction
     pub async fn insert_row_transactional(
         &mut self,

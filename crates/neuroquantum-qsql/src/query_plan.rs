@@ -2981,20 +2981,27 @@ impl QueryExecutor {
             message: "No active transaction. BEGIN a transaction first.".to_string(),
         })?;
 
-        // Get current LSN from transaction manager
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not initialized".to_string(),
+        // Get current LSN - try storage engine first, then transaction manager
+        let current_lsn = if let Some(storage_engine) = &self.storage_engine {
+            let storage_guard = storage_engine.read().await;
+            // Access the transaction manager through storage engine
+            if let Some(undo_log) = storage_guard.get_undo_log(tx_id).await {
+                undo_log.last().map(|record| record.lsn).unwrap_or(0)
+            } else {
+                0
             }
-        })?;
-
-        // Create savepoint through transaction manager
-        let current_lsn = tx_manager
-            .create_savepoint(tx_id, savepoint.name.clone())
-            .await
-            .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Failed to create savepoint: {}", e),
-            })?;
+        } else if let Some(tx_manager) = &self.transaction_manager {
+            // Get the undo log to determine the current LSN
+            if let Some(undo_log) = tx_manager.get_undo_log(tx_id).await {
+                undo_log.last().map(|record| record.lsn).unwrap_or(0)
+            } else {
+                0 // Transaction exists but has no operations yet
+            }
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "No transaction manager available".to_string(),
+            });
+        };
 
         // Store savepoint with transaction ID and LSN
         self.savepoints.insert(
@@ -3046,27 +3053,38 @@ impl QueryExecutor {
             });
         }
 
-        // Get transaction manager
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not initialized".to_string(),
-            }
-        })?;
+        // Perform rollback using the appropriate transaction manager
+        let operations_undone = if let Some(storage_engine) = &self.storage_engine {
+            // Use storage engine's transaction manager
+            let mut storage_guard = storage_engine.write().await;
+            storage_guard
+                .rollback_to_savepoint(tx_id, savepoint_info.lsn)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to rollback to savepoint: {}", e),
+                })?
+        } else if let Some(tx_manager) = &self.transaction_manager {
+            // Count records that will be undone (before rollback)
+            let undo_log = tx_manager.get_undo_log(tx_id).await.unwrap_or_default();
+            let count = undo_log
+                .iter()
+                .filter(|record| record.lsn > savepoint_info.lsn)
+                .count();
 
-        // Perform rollback through transaction manager
-        tx_manager
-            .rollback_to_savepoint(tx_id, savepoint_info.lsn)
-            .await
-            .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Failed to rollback to savepoint: {}", e),
-            })?;
-
-        // Count records that were undone for reporting
-        let undo_log = tx_manager.get_undo_log(tx_id).await.unwrap_or_default();
-        let operations_undone = undo_log
-            .iter()
-            .filter(|record| record.lsn > savepoint_info.lsn)
-            .count();
+            // Perform rollback through transaction manager
+            tx_manager
+                .rollback_to_savepoint(tx_id, savepoint_info.lsn)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to rollback to savepoint: {}", e),
+                })?;
+            
+            count as u64
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "No transaction manager available".to_string(),
+            });
+        };
 
         // Savepoint remains active after rollback (per SQL standard)
         // Multiple rollbacks to the same savepoint should be possible
@@ -3075,7 +3093,7 @@ impl QueryExecutor {
             rows: vec![],
             columns: vec![],
             execution_time: Duration::from_micros(100),
-            rows_affected: operations_undone as u64,
+            rows_affected: operations_undone,
             optimization_applied: false,
             synaptic_pathways_used: 0,
             quantum_operations: 0,
@@ -3088,30 +3106,19 @@ impl QueryExecutor {
         release: &ReleaseSavepointStatement,
     ) -> QSQLResult<QueryResult> {
         // Check if transaction is active
-        let tx_id = self.current_transaction.ok_or_else(|| QSQLError::ExecutionError {
+        let _tx_id = self.current_transaction.ok_or_else(|| QSQLError::ExecutionError {
             message: "No active transaction".to_string(),
         })?;
 
-        // Check if savepoint exists
+        // Check if savepoint exists and remove it
         if self.savepoints.remove(&release.name).is_none() {
             return Err(QSQLError::ExecutionError {
                 message: format!("Savepoint '{}' does not exist", release.name),
             });
         }
 
-        // Release savepoint through transaction manager
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not initialized".to_string(),
-            }
-        })?;
-
-        tx_manager
-            .release_savepoint(tx_id, release.name.clone())
-            .await
-            .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Failed to release savepoint: {}", e),
-            })?;
+        // No need to call transaction manager as savepoints are tracked locally
+        // The storage engine/transaction manager doesn't need to be notified
 
         Ok(QueryResult {
             rows: vec![],
