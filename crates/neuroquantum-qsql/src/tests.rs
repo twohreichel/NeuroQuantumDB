@@ -1313,6 +1313,179 @@ mod extract_function_tests {
         let result = parser.parse_query(sql);
         assert!(result.is_err(), "Should fail without parentheses");
     }
+
+    // ========== Execution Tests ==========
+    // These tests verify that EXTRACT expressions execute without errors.
+    // The executor in testing mode returns simulated data, so we verify
+    // that execution completes successfully rather than checking specific values.
+
+    #[tokio::test]
+    async fn test_extract_year_execution() {
+        let mut executor =
+            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT EXTRACT(YEAR FROM '2026-01-07')";
+        let stmt = parser.parse_query(sql).expect("Failed to parse query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(result.is_ok(), "EXTRACT(YEAR) execution should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_extract_month_execution() {
+        let mut executor =
+            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT EXTRACT(MONTH FROM '2026-01-07')";
+        let stmt = parser.parse_query(sql).expect("Failed to parse query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(result.is_ok(), "EXTRACT(MONTH) execution should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_extract_day_execution() {
+        let mut executor =
+            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT EXTRACT(DAY FROM '2026-01-07')";
+        let stmt = parser.parse_query(sql).expect("Failed to parse query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(result.is_ok(), "EXTRACT(DAY) execution should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_extract_hour_execution() {
+        let mut executor =
+            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT EXTRACT(HOUR FROM '2026-01-07 14:30:45')";
+        let stmt = parser.parse_query(sql).expect("Failed to parse query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(result.is_ok(), "EXTRACT(HOUR) execution should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_extract_minute_execution() {
+        let mut executor =
+            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT EXTRACT(MINUTE FROM '2026-01-07 14:30:45')";
+        let stmt = parser.parse_query(sql).expect("Failed to parse query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(result.is_ok(), "EXTRACT(MINUTE) execution should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_extract_second_execution() {
+        let mut executor =
+            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT EXTRACT(SECOND FROM '2026-01-07 14:30:45')";
+        let stmt = parser.parse_query(sql).expect("Failed to parse query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(result.is_ok(), "EXTRACT(SECOND) execution should succeed");
+    }
 }
 
 mod derived_table_tests {
