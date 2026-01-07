@@ -1101,8 +1101,8 @@ impl QueryExecutor {
             if cte_context.is_cte(table_name) {
                 // Check if we have cached results
                 if let Some(cached_rows) = cte_context.get_cached(table_name) {
-                    // Clone Arc is cheap (just increments ref count)
-                    let rows: Vec<Row> = (**cached_rows).clone();
+                    // Clone the Vec from Arc (Arc clone is cheap, Vec clone is needed for aliasing)
+                    let rows: Vec<Row> = cached_rows.as_ref().clone();
                     let aliased_rows = self.add_alias_to_rows(rows, &alias);
                     return Ok((aliased_rows, alias));
                 }
@@ -1650,7 +1650,9 @@ impl QueryExecutor {
             // Add aliased version
             merged_fields.insert(format!("{}.{}", right_alias, col), val.clone());
             // Add without prefix if not already present (left takes precedence)
-            merged_fields.entry(col.clone()).or_insert_with(|| val.clone());
+            if !merged_fields.contains_key(col) {
+                merged_fields.insert(col.clone(), val.clone());
+            }
         }
 
         Row {
