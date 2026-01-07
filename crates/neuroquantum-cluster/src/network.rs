@@ -689,4 +689,77 @@ mod tests {
         assert_eq!(deserialized.candidate_id, 2);
         assert!(deserialized.is_pre_vote);
     }
+
+    #[tokio::test]
+    async fn test_proto_handshake_request() {
+        // Test that proto messages can be created correctly
+        let handshake_req = proto::HandshakeRequest {
+            node_id: 1,
+            address: "127.0.0.1:8080".to_string(),
+            term: 0,
+        };
+
+        assert_eq!(handshake_req.node_id, 1);
+        assert_eq!(handshake_req.address, "127.0.0.1:8080");
+        assert_eq!(handshake_req.term, 0);
+    }
+
+    #[tokio::test]
+    async fn test_proto_heartbeat() {
+        // Test heartbeat proto message
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        let heartbeat_req = proto::HeartbeatRequest {
+            from: 1,
+            timestamp_ms: now,
+        };
+
+        assert_eq!(heartbeat_req.from, 1);
+        assert!(heartbeat_req.timestamp_ms > 0);
+    }
+
+    #[tokio::test]
+    async fn test_proto_vote_request() {
+        // Test vote request proto message
+        let vote_req = proto::VoteRequest {
+            term: 5,
+            candidate_id: 2,
+            last_log_index: 100,
+            last_log_term: 4,
+            is_pre_vote: false,
+        };
+
+        assert_eq!(vote_req.term, 5);
+        assert_eq!(vote_req.candidate_id, 2);
+        assert_eq!(vote_req.last_log_index, 100);
+        assert!(!vote_req.is_pre_vote);
+    }
+
+    #[tokio::test]
+    async fn test_network_transport_creation() {
+        use std::net::{IpAddr, Ipv4Addr};
+        
+        let config = ClusterConfig {
+            node_id: 1,
+            bind_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+            advertise_addr: None,
+            peers: vec![],
+            data_dir: std::path::PathBuf::from("/tmp/test"),
+            raft: crate::config::RaftConfig::default(),
+            network: crate::config::NetworkConfig::default(),
+            sharding: crate::config::ShardingConfig::default(),
+            discovery: crate::config::DiscoveryConfig::default(),
+        };
+
+        let transport = NetworkTransport::new(&config).await;
+        assert!(transport.is_ok());
+        
+        let transport = transport.unwrap();
+        assert_eq!(transport.node_id, 1);
+        assert_eq!(transport.bind_addr.port(), 8080);
+    }
 }
+
