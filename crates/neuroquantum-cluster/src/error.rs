@@ -77,6 +77,25 @@ pub enum ClusterError {
     /// Lock acquisition failed
     #[error("Failed to acquire lock: {0}")]
     LockError(String),
+
+    /// No quorum available for write operation
+    #[error("No quorum available: cannot perform write operation without majority")]
+    NoQuorum,
+
+    /// Stale fencing token
+    #[error("Stale fencing token: current term {current_term}, received {received_term}")]
+    StaleToken {
+        current_term: u64,
+        received_term: u64,
+    },
+
+    /// Leader lease expired
+    #[error("Leader lease expired: cannot perform write operations")]
+    LeaseExpired,
+
+    /// Network partition detected
+    #[error("Network partition detected: node is in minority partition")]
+    NetworkPartition,
 }
 
 impl From<std::io::Error> for ClusterError {

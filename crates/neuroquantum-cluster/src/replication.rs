@@ -11,6 +11,7 @@ use tracing::{debug, info};
 use crate::error::{ClusterError, ClusterResult};
 use crate::node::NodeId;
 use crate::sharding::ShardId;
+use crate::consensus::FencingToken;
 
 /// Replication consistency level for read/write operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -58,6 +59,8 @@ pub struct ReplicationRequest {
     pub consistency_level: ConsistencyLevel,
     /// Request timestamp
     pub timestamp: u64,
+    /// Fencing token for split brain prevention
+    pub fencing_token: Option<FencingToken>,
 }
 
 /// Acknowledgment of a replication request.
@@ -97,6 +100,8 @@ pub struct ReplicationManager {
     timeout: Duration,
     /// Next request ID
     next_request_id: Arc<RwLock<u64>>,
+    /// Current highest fencing token seen
+    highest_token: Arc<RwLock<Option<FencingToken>>>,
 }
 
 impl ReplicationManager {
@@ -116,6 +121,7 @@ impl ReplicationManager {
             pending: Arc::new(RwLock::new(HashMap::new())),
             timeout,
             next_request_id: Arc::new(RwLock::new(1)),
+            highest_token: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -128,6 +134,25 @@ impl ReplicationManager {
         target_nodes: Vec<NodeId>,
         consistency_level: ConsistencyLevel,
     ) -> ClusterResult<u64> {
+        self.replicate_with_token(shard_id, key, value, target_nodes, consistency_level, None)
+            .await
+    }
+
+    /// Start a replication request with a fencing token.
+    pub async fn replicate_with_token(
+        &self,
+        shard_id: ShardId,
+        key: Vec<u8>,
+        value: Vec<u8>,
+        target_nodes: Vec<NodeId>,
+        consistency_level: ConsistencyLevel,
+        fencing_token: Option<FencingToken>,
+    ) -> ClusterResult<u64> {
+        // Validate fencing token if provided
+        if let Some(token) = &fencing_token {
+            self.validate_token(token).await?;
+        }
+
         let request_id = {
             let mut id = self.next_request_id.write().await;
             let current = *id;
@@ -147,6 +172,7 @@ impl ReplicationManager {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
+            fencing_token,
         };
 
         {
@@ -165,12 +191,60 @@ impl ReplicationManager {
         debug!(
             request_id,
             target_count = target_nodes.len(),
+            has_token = fencing_token.is_some(),
             "Started replication request"
         );
 
         // In a full implementation, send request to target nodes via network transport
 
         Ok(request_id)
+    }
+
+    /// Validate a fencing token against the highest seen token.
+    pub async fn validate_token(&self, token: &FencingToken) -> ClusterResult<()> {
+        let highest = self.highest_token.read().await;
+        
+        if let Some(highest_token) = &*highest {
+            // Token must be strictly newer than highest seen
+            if token <= highest_token {
+                return Err(ClusterError::StaleToken {
+                    current_term: highest_token.term,
+                    received_term: token.term,
+                });
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Update the highest fencing token seen.
+    pub async fn update_highest_token(&self, token: FencingToken) {
+        let mut highest = self.highest_token.write().await;
+        
+        if let Some(current) = &*highest {
+            if token.is_newer_than(current) {
+                debug!(
+                    old_term = current.term,
+                    old_seq = current.sequence,
+                    new_term = token.term,
+                    new_seq = token.sequence,
+                    "Updated highest fencing token"
+                );
+                *highest = Some(token);
+            }
+        } else {
+            debug!(
+                term = token.term,
+                seq = token.sequence,
+                "Set initial fencing token"
+            );
+            *highest = Some(token);
+        }
+    }
+
+    /// Get the current highest fencing token.
+    pub async fn get_highest_token(&self) -> Option<FencingToken> {
+        *self.highest_token.read().await
     }
 
     /// Process a replication acknowledgment.
@@ -397,5 +471,137 @@ mod tests {
         assert_eq!(manager.required_acks(ConsistencyLevel::One), 1);
         assert_eq!(manager.required_acks(ConsistencyLevel::Quorum), 2);
         assert_eq!(manager.required_acks(ConsistencyLevel::All), 3);
+    }
+
+    // Split brain prevention tests
+    #[tokio::test]
+    async fn test_replicate_with_fencing_token() {
+        let manager = ReplicationManager::new(1, 3, Duration::from_secs(5));
+        let token = FencingToken::new(1, 0);
+
+        let request_id = manager
+            .replicate_with_token(
+                1,
+                b"key".to_vec(),
+                b"value".to_vec(),
+                vec![2, 3],
+                ConsistencyLevel::Quorum,
+                Some(token),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(request_id, 1);
+
+        // Verify token was stored
+        let pending = manager.pending.read().await;
+        let repl = pending.get(&request_id).unwrap();
+        assert_eq!(repl.request.fencing_token, Some(token));
+    }
+
+    #[tokio::test]
+    async fn test_validate_token_accepts_newer() {
+        let manager = ReplicationManager::new(1, 3, Duration::from_secs(5));
+
+        // Set initial token
+        let token1 = FencingToken::new(1, 0);
+        manager.update_highest_token(token1).await;
+
+        // Newer token should be accepted
+        let token2 = FencingToken::new(1, 1);
+        assert!(manager.validate_token(&token2).await.is_ok());
+
+        // Even newer token from higher term should be accepted
+        let token3 = FencingToken::new(2, 0);
+        assert!(manager.validate_token(&token3).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_validate_token_rejects_stale() {
+        let manager = ReplicationManager::new(1, 3, Duration::from_secs(5));
+
+        // Set current token
+        let current_token = FencingToken::new(5, 10);
+        manager.update_highest_token(current_token).await;
+
+        // Stale token from earlier term should be rejected
+        let stale_token = FencingToken::new(4, 0);
+        let result = manager.validate_token(&stale_token).await;
+        assert!(result.is_err());
+        match result {
+            Err(ClusterError::StaleToken {
+                current_term,
+                received_term,
+            }) => {
+                assert_eq!(current_term, 5);
+                assert_eq!(received_term, 4);
+            }
+            _ => panic!("Expected StaleToken error"),
+        }
+
+        // Stale token from same term but lower sequence should be rejected
+        let stale_seq = FencingToken::new(5, 5);
+        assert!(manager.validate_token(&stale_seq).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_update_highest_token() {
+        let manager = ReplicationManager::new(1, 3, Duration::from_secs(5));
+
+        // Initial update
+        let token1 = FencingToken::new(1, 0);
+        manager.update_highest_token(token1).await;
+        assert_eq!(manager.get_highest_token().await, Some(token1));
+
+        // Update with newer token
+        let token2 = FencingToken::new(1, 1);
+        manager.update_highest_token(token2).await;
+        assert_eq!(manager.get_highest_token().await, Some(token2));
+
+        // Try to update with older token (should not change)
+        let old_token = FencingToken::new(1, 0);
+        manager.update_highest_token(old_token).await;
+        assert_eq!(manager.get_highest_token().await, Some(token2));
+    }
+
+    #[tokio::test]
+    async fn test_replicate_with_stale_token_fails() {
+        let manager = ReplicationManager::new(1, 3, Duration::from_secs(5));
+
+        // Set current token
+        let current = FencingToken::new(5, 0);
+        manager.update_highest_token(current).await;
+
+        // Try to replicate with stale token
+        let stale = FencingToken::new(4, 0);
+        let result = manager
+            .replicate_with_token(
+                1,
+                b"key".to_vec(),
+                b"value".to_vec(),
+                vec![2, 3],
+                ConsistencyLevel::Quorum,
+                Some(stale),
+            )
+            .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_token_progression() {
+        let manager = ReplicationManager::new(1, 3, Duration::from_secs(5));
+
+        // Simulate progression of tokens
+        for i in 0..5 {
+            let token = FencingToken::new(1, i);
+            manager.update_highest_token(token).await;
+            assert_eq!(manager.get_highest_token().await.unwrap().sequence, i);
+        }
+
+        // Term increases
+        let new_term_token = FencingToken::new(2, 0);
+        manager.update_highest_token(new_term_token).await;
+        assert_eq!(manager.get_highest_token().await.unwrap().term, 2);
     }
 }
