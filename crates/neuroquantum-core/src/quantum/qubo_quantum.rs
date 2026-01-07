@@ -865,10 +865,7 @@ pub struct QUBOProblem {
 ///
 /// Max-Cut partitions graph vertices to maximize cut edge weights.
 /// QUBO formulation: E(x) = Σ w_ij * (x_i - x_j)²
-pub fn max_cut_problem(
-    edges: &[(usize, usize, f64)],
-    num_nodes: usize,
-) -> CoreResult<QUBOProblem> {
+pub fn max_cut_problem(edges: &[(usize, usize, f64)], num_nodes: usize) -> CoreResult<QUBOProblem> {
     if num_nodes == 0 {
         return Err(CoreError::invalid_operation("Empty graph"));
     }

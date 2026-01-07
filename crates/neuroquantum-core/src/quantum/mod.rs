@@ -68,14 +68,27 @@ pub use quantum_parallel_tempering::{
 
 // QUBO exports (consolidated from qubo.rs into qubo_quantum.rs)
 pub use qubo_quantum::{
-    // Quantum solver and config
-    AnnealingSchedule, ClassicalOptimizer, CloudQuantumBackend, IsingModel, MeasurementStats,
-    QuantumHardwareBackend, QuantumQuboConfig, QuantumQuboSolution, QuantumQuboSolver,
-    QuboQuantumBackend, VqeAnsatz,
     // Problem builders
-    graph_coloring_problem, max_cut_problem, tsp_problem, QUBOProblem,
+    graph_coloring_problem,
+    max_cut_problem,
+    tsp_problem,
+    // Quantum solver and config
+    AnnealingSchedule,
+    ClassicalOptimizer,
+    CloudQuantumBackend,
+    IsingModel,
+    MeasurementStats,
     // Legacy type aliases for backwards compatibility
-    QUBOConfig, QUBOSolution, QUBOSolver,
+    QUBOConfig,
+    QUBOProblem,
+    QUBOSolution,
+    QUBOSolver,
+    QuantumHardwareBackend,
+    QuantumQuboConfig,
+    QuantumQuboSolution,
+    QuantumQuboSolver,
+    QuboQuantumBackend,
+    VqeAnsatz,
 };
 
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};

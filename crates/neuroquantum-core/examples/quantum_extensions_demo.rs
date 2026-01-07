@@ -8,8 +8,8 @@ use neuroquantum_core::quantum::quantum_parallel_tempering::{
     IsingHamiltonian, QuantumBackend, QuantumParallelTempering, QuantumParallelTemperingConfig,
 };
 use neuroquantum_core::quantum::qubo_quantum::{
-    max_cut_problem, graph_coloring_problem, tsp_problem,
-    QUBOSolver, QUBOConfig, QuboQuantumBackend,
+    graph_coloring_problem, max_cut_problem, tsp_problem, QUBOConfig, QUBOSolver,
+    QuboQuantumBackend,
 };
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
 
