@@ -128,10 +128,7 @@ impl IsingModel {
 
     /// Convert Ising spins back to QUBO binary variables
     pub fn spins_to_binary(&self, spins: &[i8]) -> Vec<u8> {
-        spins
-            .iter()
-            .map(|&s| if s == 1 { 1 } else { 0 })
-            .collect()
+        spins.iter().map(|&s| if s == 1 { 1 } else { 0 }).collect()
     }
 }
 
@@ -298,9 +295,7 @@ impl QuantumQuboSolver {
         let result = match self.config.backend {
             QuboQuantumBackend::VQE => self.solve_vqe(&ising, q_matrix),
             QuboQuantumBackend::QAOA => self.solve_qaoa(&ising, q_matrix),
-            QuboQuantumBackend::QuantumAnnealing => {
-                self.solve_quantum_annealing(&ising, q_matrix)
-            }
+            QuboQuantumBackend::QuantumAnnealing => self.solve_quantum_annealing(&ising, q_matrix),
             QuboQuantumBackend::SimulatedQuantumAnnealing => self.solve_sqa(&ising, q_matrix),
             QuboQuantumBackend::ClassicalFallback => {
                 self.solve_classical_fallback(&ising, q_matrix)
@@ -348,7 +343,9 @@ impl QuantumQuboSolver {
         let params_per_layer = 3 * n;
         let total_params = num_layers * params_per_layer;
 
-        let mut params: Vec<f64> = (0..total_params).map(|_| rng.gen::<f64>() * 2.0 * PI).collect();
+        let mut params: Vec<f64> = (0..total_params)
+            .map(|_| rng.gen::<f64>() * 2.0 * PI)
+            .collect();
         let mut best_energy = f64::INFINITY;
         let mut best_spins = vec![1i8; n];
         let mut quantum_evaluations = 0;
@@ -437,7 +434,13 @@ impl QuantumQuboSolver {
 
         // Convert to spin configuration
         let spins: Vec<i8> = (0..n)
-            .map(|q| if (measured_state >> q) & 1 == 1 { 1 } else { -1 })
+            .map(|q| {
+                if (measured_state >> q) & 1 == 1 {
+                    1
+                } else {
+                    -1
+                }
+            })
             .collect();
 
         let energy = ising.evaluate(&spins);
@@ -582,7 +585,13 @@ impl QuantumQuboSolver {
         }
 
         let spins: Vec<i8> = (0..n)
-            .map(|q| if (measured_state >> q) & 1 == 1 { 1 } else { -1 })
+            .map(|q| {
+                if (measured_state >> q) & 1 == 1 {
+                    1
+                } else {
+                    -1
+                }
+            })
             .collect();
 
         let energy = ising.evaluate(&spins);
@@ -638,7 +647,11 @@ impl QuantumQuboSolver {
 
         // Initialize Trotter slices (imaginary time replicas)
         let mut slices: Vec<Vec<i8>> = (0..m)
-            .map(|_| (0..n).map(|_| if rng.gen::<bool>() { 1 } else { -1 }).collect())
+            .map(|_| {
+                (0..n)
+                    .map(|_| if rng.gen::<bool>() { 1 } else { -1 })
+                    .collect()
+            })
             .collect();
 
         let temperature = 0.1; // Low temperature for ground state
@@ -661,9 +674,8 @@ impl QuantumQuboSolver {
                     // Calculate energy change for flipping this spin
 
                     // Intra-slice (classical) energy contribution
-                    let mut delta_e_classical = 2.0
-                        * slices[slice_idx][spin_idx] as f64
-                        * ising.local_fields[spin_idx];
+                    let mut delta_e_classical =
+                        2.0 * slices[slice_idx][spin_idx] as f64 * ising.local_fields[spin_idx];
 
                     for j in 0..n {
                         if j != spin_idx {

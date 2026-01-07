@@ -445,10 +445,7 @@ fn test_all_backends_produce_valid_solutions() {
             "Backend {:?} should produce 3 variables",
             backend
         );
-        assert_eq!(
-            solution.backend_used, backend,
-            "Should use correct backend"
-        );
+        assert_eq!(solution.backend_used, backend, "Should use correct backend");
         assert!(solution.quality >= 0.0 && solution.quality <= 1.0);
         assert!(solution.computation_time_ms >= 0.0);
     }
@@ -473,7 +470,10 @@ fn test_empty_problem_error() {
 fn test_default_configuration() {
     let config = QuantumQuboConfig::default();
 
-    assert_eq!(config.backend, QuboQuantumBackend::SimulatedQuantumAnnealing);
+    assert_eq!(
+        config.backend,
+        QuboQuantumBackend::SimulatedQuantumAnnealing
+    );
     assert!(config.auto_fallback);
     assert!(config.max_iterations > 0);
     assert!(config.num_shots > 0);
