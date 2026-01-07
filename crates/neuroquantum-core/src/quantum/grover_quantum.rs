@@ -40,7 +40,6 @@
 //! Where D = Diffusion operator = H⊗n · (2|0⟩⟨0| - I) · H⊗n
 
 use crate::error::{CoreError, CoreResult};
-use nalgebra::Complex;
 use num_complex::Complex64;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -564,7 +563,7 @@ impl QuantumGroverSolver {
             backend_used: GroverQuantumBackend::Simulator,
             computation_time_ms: 0.0,
             quantum_speedup: 1.0,
-            state_vector: Some(state_vector),
+            state_vector: Some(state),
         })
     }
 
