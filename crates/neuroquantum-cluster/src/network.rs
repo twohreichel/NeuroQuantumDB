@@ -546,10 +546,13 @@ impl NetworkTransport {
     pub async fn broadcast(&self, message: ClusterMessage) -> ClusterResult<()> {
         let peers = self.peers.read().await;
 
+        // Wrap message in Arc for efficient sharing across peers
+        let message_arc = Arc::new(message);
+
         for (&peer_id, peer) in peers.iter() {
             if peer.connected {
-                // Clone message for each peer
-                if let Err(e) = self.send(peer_id, message.clone()).await {
+                // Clone Arc is cheap (just increments ref count)
+                if let Err(e) = self.send(peer_id, (*message_arc).clone()).await {
                     warn!(
                         from = self.node_id,
                         to = peer_id,
