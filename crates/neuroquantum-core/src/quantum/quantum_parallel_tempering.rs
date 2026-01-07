@@ -48,9 +48,10 @@ use tracing::{debug, info, instrument, warn};
 type Complex = Complex64;
 
 /// Quantum backend selection for parallel tempering
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum QuantumBackend {
     /// Path Integral Monte Carlo - exact quantum thermal sampling
+    #[default]
     PathIntegralMonteCarlo,
     /// Quantum Monte Carlo - variational/diffusion methods
     QuantumMonteCarlo,
@@ -58,12 +59,6 @@ pub enum QuantumBackend {
     QuantumAnnealing,
     /// Hybrid classical-quantum approach
     Hybrid,
-}
-
-impl Default for QuantumBackend {
-    fn default() -> Self {
-        Self::PathIntegralMonteCarlo
-    }
 }
 
 /// Configuration for Quantum Parallel Tempering
@@ -214,8 +209,8 @@ impl IsingHamiltonian {
         }
 
         // External field terms: -h_i * s_i
-        for i in 0..self.num_spins {
-            energy -= self.external_fields[i] * config[i] as f64;
+        for (i, &spin) in config.iter().enumerate().take(self.num_spins) {
+            energy -= self.external_fields[i] * spin as f64;
         }
 
         energy
@@ -365,7 +360,9 @@ impl QuantumParallelTempering {
         }
 
         // Extract results
-        let result = self.extract_solution(total_exchanges, accepted_exchanges, start_time).await?;
+        let result = self
+            .extract_solution(total_exchanges, accepted_exchanges, start_time)
+            .await?;
 
         info!(
             "Quantum parallel tempering completed: energy={:.4}, acceptance={:.2}%, time={:.2}ms",
@@ -519,12 +516,14 @@ impl QuantumParallelTempering {
 
                         // Classical Ising energy change within slice
                         let mut delta_e_classical = 0.0;
-                        for j in 0..n_spins {
+                        for (j, &neighbor_spin) in
+                            slices[slice_idx].iter().enumerate().take(n_spins)
+                        {
                             if j != spin_idx {
                                 delta_e_classical += 2.0
                                     * hamiltonian.couplings[(spin_idx, j)]
                                     * old_spin as f64
-                                    * slices[slice_idx][j] as f64;
+                                    * neighbor_spin as f64;
                             }
                         }
                         delta_e_classical +=
@@ -534,9 +533,8 @@ impl QuantumParallelTempering {
                         let prev_slice = (slice_idx + num_slices - 1) % num_slices;
                         let next_slice = (slice_idx + 1) % num_slices;
 
-                        let j_perp = -0.5
-                            * (delta_tau * transverse_field).tanh().recip().ln()
-                            / delta_tau;
+                        let j_perp =
+                            -0.5 * (delta_tau * transverse_field).tanh().recip().ln() / delta_tau;
 
                         let delta_e_temporal = 2.0
                             * j_perp
@@ -656,7 +654,7 @@ impl QuantumParallelTempering {
 
     /// Variational QMC update with quantum corrections
     fn variational_qmc_update(
-        configuration: &mut Vec<i8>,
+        configuration: &mut [i8],
         quantum_amplitude: &mut f64,
         hamiltonian: &IsingHamiltonian,
         beta: f64,
@@ -674,12 +672,12 @@ impl QuantumParallelTempering {
 
             // Classical energy change
             let mut delta_e = 0.0;
-            for j in 0..n {
+            for (j, &neighbor_spin) in configuration.iter().enumerate().take(n) {
                 if j != flip_idx {
                     delta_e += 2.0
                         * hamiltonian.couplings[(flip_idx, j)]
                         * old_spin as f64
-                        * configuration[j] as f64;
+                        * neighbor_spin as f64;
                 }
             }
             delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * old_spin as f64;
@@ -763,7 +761,7 @@ impl QuantumParallelTempering {
 
     /// Simulated quantum annealing step
     fn simulated_quantum_annealing_step(
-        configuration: &mut Vec<i8>,
+        configuration: &mut [i8],
         hamiltonian: &IsingHamiltonian,
         beta: f64,
         num_sweeps: usize,
@@ -781,12 +779,12 @@ impl QuantumParallelTempering {
 
             // Classical energy change
             let mut delta_e = 0.0;
-            for j in 0..n {
+            for (j, &neighbor_spin) in configuration.iter().enumerate().take(n) {
                 if j != flip_idx {
                     delta_e += 2.0
                         * hamiltonian.couplings[(flip_idx, j)]
                         * old_spin as f64
-                        * configuration[j] as f64;
+                        * neighbor_spin as f64;
                 }
             }
             delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * old_spin as f64;
@@ -877,12 +875,12 @@ impl QuantumParallelTempering {
             let old_spin = config[flip_idx];
 
             let mut delta_e = 0.0;
-            for j in 0..n {
+            for (j, &neighbor_spin) in config.iter().enumerate().take(n) {
                 if j != flip_idx {
                     delta_e += 2.0
                         * hamiltonian.couplings[(flip_idx, j)]
                         * old_spin as f64
-                        * config[j] as f64;
+                        * neighbor_spin as f64;
                 }
             }
             delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * old_spin as f64;
@@ -1183,7 +1181,8 @@ pub fn create_quantum_ising_optimizer(
     external_fields: Vec<f64>,
     transverse_field: f64,
 ) -> (QuantumParallelTempering, IsingHamiltonian) {
-    let hamiltonian = IsingHamiltonian::new(num_spins, couplings, external_fields, transverse_field);
+    let hamiltonian =
+        IsingHamiltonian::new(num_spins, couplings, external_fields, transverse_field);
     let optimizer = QuantumParallelTempering::new();
     (optimizer, hamiltonian)
 }
@@ -1218,7 +1217,10 @@ mod tests {
         assert_eq!(solution.best_configuration.len(), 4);
         assert!(solution.acceptance_rate >= 0.0 && solution.acceptance_rate <= 1.0);
         assert!(solution.total_exchanges > 0);
-        assert_eq!(solution.backend_used, QuantumBackend::PathIntegralMonteCarlo);
+        assert_eq!(
+            solution.backend_used,
+            QuantumBackend::PathIntegralMonteCarlo
+        );
     }
 
     #[tokio::test]

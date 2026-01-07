@@ -1,11 +1,11 @@
 //! Quantum Extensions Demo
 //!
-//! Demonstrates QUBO, TFIM, and Parallel Tempering algorithms
+//! Demonstrates QUBO, TFIM, and Quantum Parallel Tempering algorithms
 //! for solving optimization problems.
 
 use nalgebra::DMatrix;
-use neuroquantum_core::quantum::parallel_tempering::{
-    ising_energy_function, ParallelTempering, ParallelTemperingConfig, TemperatureDistribution,
+use neuroquantum_core::quantum::quantum_parallel_tempering::{
+    IsingHamiltonian, QuantumBackend, QuantumParallelTempering, QuantumParallelTemperingConfig,
 };
 use neuroquantum_core::quantum::qubo::{QUBOConfig, QUBOSolver};
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
@@ -248,10 +248,10 @@ fn demo_tfim_spin_glass() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Demo 6: Parallel Tempering
+/// Demo 6: Quantum Parallel Tempering
 async fn demo_parallel_tempering() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔥 Demo 6: Parallel Tempering");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("🔥 Demo 6: Quantum Parallel Tempering");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // Create Ising problem
     let couplings = DMatrix::from_fn(10, 10, |i, j| {
@@ -263,14 +263,15 @@ async fn demo_parallel_tempering() -> Result<(), Box<dyn std::error::Error>> {
     });
     let external_fields = vec![0.0; 10];
 
-    let config = ParallelTemperingConfig {
+    let config = QuantumParallelTemperingConfig {
         num_replicas: 8,
         min_temperature: 0.5,
         max_temperature: 10.0,
-        temp_distribution: TemperatureDistribution::Geometric,
-        steps_per_exchange: 100,
+        sweeps_per_exchange: 100,
         num_exchanges: 50,
+        backend: QuantumBackend::PathIntegralMonteCarlo,
         adaptive_temperatures: false,
+        ..Default::default()
     };
 
     println!("Spins: 10");
@@ -280,14 +281,15 @@ async fn demo_parallel_tempering() -> Result<(), Box<dyn std::error::Error>> {
         config.min_temperature, config.max_temperature
     );
     println!("Exchanges: {}", config.num_exchanges);
+    println!("Backend: {:?}", config.backend);
 
-    let mut pt = ParallelTempering::with_config(config);
-    let energy_fn = ising_energy_function(couplings, external_fields);
+    let mut qpt = QuantumParallelTempering::with_config(config);
+    let hamiltonian = IsingHamiltonian::new(10, couplings, external_fields, 1.0);
     let initial_state = vec![1; 10];
 
-    let solution = pt.optimize(initial_state, energy_fn).await?;
+    let solution = qpt.optimize(hamiltonian, initial_state).await?;
 
-    println!("Best solution: {:?}", solution.best_state);
+    println!("Best solution: {:?}", solution.best_configuration);
     println!("Best energy: {:.4}", solution.best_energy);
     println!("Best replica: {}", solution.best_replica_id);
     println!(
@@ -363,19 +365,20 @@ async fn demo_method_comparison() -> Result<(), Box<dyn std::error::Error>> {
         sol3.energy, sol3.tunneling_events, sol3.computation_time_ms
     );
 
-    // Method 4: Parallel Tempering
-    println!("4. Parallel Tempering:");
+    // Method 4: Quantum Parallel Tempering
+    println!("4. Quantum Parallel Tempering (PIMC):");
     let couplings = DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 });
     let external_fields = vec![0.0; 4];
-    let config = ParallelTemperingConfig {
+    let config = QuantumParallelTemperingConfig {
         num_replicas: 4,
         num_exchanges: 20,
-        steps_per_exchange: 50,
+        sweeps_per_exchange: 50,
+        backend: QuantumBackend::PathIntegralMonteCarlo,
         ..Default::default()
     };
-    let mut pt = ParallelTempering::with_config(config);
-    let energy_fn = ising_energy_function(couplings, external_fields);
-    let sol4 = pt.optimize(vec![1, -1, 1, -1], energy_fn).await?;
+    let mut qpt = QuantumParallelTempering::with_config(config);
+    let hamiltonian = IsingHamiltonian::new(4, couplings, external_fields, 1.0);
+    let sol4 = qpt.optimize(hamiltonian, vec![1, -1, 1, -1]).await?;
     println!(
         "   Energy: {:.4}, Acceptance: {:.1}%, Time: {:.2}ms",
         sol4.best_energy,

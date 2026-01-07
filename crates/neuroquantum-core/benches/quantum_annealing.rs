@@ -226,12 +226,8 @@ fn bench_parallel_vs_single(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 let mut qpt = QuantumParallelTempering::with_config(config.clone());
-                let hamiltonian = IsingHamiltonian::new(
-                    10,
-                    couplings.clone(),
-                    external_fields.clone(),
-                    1.0,
-                );
+                let hamiltonian =
+                    IsingHamiltonian::new(10, couplings.clone(), external_fields.clone(), 1.0);
                 let solution = qpt
                     .optimize(hamiltonian, initial_state.clone())
                     .await
@@ -254,12 +250,8 @@ fn bench_parallel_vs_single(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 let mut qpt = QuantumParallelTempering::with_config(config.clone());
-                let hamiltonian = IsingHamiltonian::new(
-                    10,
-                    couplings.clone(),
-                    external_fields.clone(),
-                    1.0,
-                );
+                let hamiltonian =
+                    IsingHamiltonian::new(10, couplings.clone(), external_fields.clone(), 1.0);
                 let solution = qpt
                     .optimize(hamiltonian, initial_state.clone())
                     .await
@@ -282,12 +274,8 @@ fn bench_parallel_vs_single(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 let mut qpt = QuantumParallelTempering::with_config(config.clone());
-                let hamiltonian = IsingHamiltonian::new(
-                    10,
-                    couplings.clone(),
-                    external_fields.clone(),
-                    1.0,
-                );
+                let hamiltonian =
+                    IsingHamiltonian::new(10, couplings.clone(), external_fields.clone(), 1.0);
                 let solution = qpt
                     .optimize(hamiltonian, initial_state.clone())
                     .await
