@@ -843,9 +843,7 @@ impl QSQLParser {
                     select_list.push(SelectItem::Expression { expr, alias });
                 }
                 // Neuromorphic and Quantum function tokens in SELECT list
-                TokenType::HebbianLearning
-                | TokenType::NeuroMatch
-                | TokenType::QuantumSearch => {
+                TokenType::HebbianLearning | TokenType::NeuroMatch | TokenType::QuantumSearch => {
                     // Determine function name
                     let func_name = match &tokens[i] {
                         TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),
@@ -1335,9 +1333,7 @@ impl QSQLParser {
                     select_list.push(SelectItem::Expression { expr, alias });
                 }
                 // Neuromorphic and Quantum function tokens in SELECT list
-                TokenType::HebbianLearning
-                | TokenType::NeuroMatch
-                | TokenType::QuantumSearch => {
+                TokenType::HebbianLearning | TokenType::NeuroMatch | TokenType::QuantumSearch => {
                     // Determine function name
                     let func_name = match &tokens[*i] {
                         TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),

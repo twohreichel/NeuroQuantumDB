@@ -350,7 +350,11 @@ mod parser_tests {
                         match expr {
                             Expression::FunctionCall { name, args } => {
                                 assert_eq!(name, "HEBBIAN_LEARNING");
-                                assert_eq!(args.len(), 3, "HEBBIAN_LEARNING should have 3 arguments");
+                                assert_eq!(
+                                    args.len(),
+                                    3,
+                                    "HEBBIAN_LEARNING should have 3 arguments"
+                                );
                             }
                             _ => panic!("Expected FunctionCall expression"),
                         }
@@ -1404,8 +1408,8 @@ mod extract_function_tests {
 
     #[tokio::test]
     async fn test_extract_year_execution() {
-        let mut executor =
-            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
         let parser = QSQLParser::new();
 
         let sql = "SELECT EXTRACT(YEAR FROM '2026-01-07')";
@@ -1432,8 +1436,8 @@ mod extract_function_tests {
 
     #[tokio::test]
     async fn test_extract_month_execution() {
-        let mut executor =
-            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
         let parser = QSQLParser::new();
 
         let sql = "SELECT EXTRACT(MONTH FROM '2026-01-07')";
@@ -1460,8 +1464,8 @@ mod extract_function_tests {
 
     #[tokio::test]
     async fn test_extract_day_execution() {
-        let mut executor =
-            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
         let parser = QSQLParser::new();
 
         let sql = "SELECT EXTRACT(DAY FROM '2026-01-07')";
@@ -1488,8 +1492,8 @@ mod extract_function_tests {
 
     #[tokio::test]
     async fn test_extract_hour_execution() {
-        let mut executor =
-            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
         let parser = QSQLParser::new();
 
         let sql = "SELECT EXTRACT(HOUR FROM '2026-01-07 14:30:45')";
@@ -1516,8 +1520,8 @@ mod extract_function_tests {
 
     #[tokio::test]
     async fn test_extract_minute_execution() {
-        let mut executor =
-            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
         let parser = QSQLParser::new();
 
         let sql = "SELECT EXTRACT(MINUTE FROM '2026-01-07 14:30:45')";
@@ -1544,8 +1548,8 @@ mod extract_function_tests {
 
     #[tokio::test]
     async fn test_extract_second_execution() {
-        let mut executor =
-            QueryExecutor::with_config(ExecutorConfig::testing()).expect("Failed to create executor");
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
         let parser = QSQLParser::new();
 
         let sql = "SELECT EXTRACT(SECOND FROM '2026-01-07 14:30:45')";

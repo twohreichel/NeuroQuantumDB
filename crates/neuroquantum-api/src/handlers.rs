@@ -419,43 +419,43 @@ pub async fn create_table(
     };
 
     // Convert API TableSchema to storage TableSchema with proper error handling
-    let columns_result: Result<Vec<neuroquantum_core::storage::ColumnDefinition>, ApiError> = create_req
-        .schema
-        .columns
-        .iter()
-        .map(|c| {
-            // Convert default value with proper error handling
-            let default_value = match &c.default_value {
-                Some(v) => Some(
-                    json_to_storage_value(v, &c.name)
-                        .map_err(|e| ApiError::ValidationError {
+    let columns_result: Result<Vec<neuroquantum_core::storage::ColumnDefinition>, ApiError> =
+        create_req
+            .schema
+            .columns
+            .iter()
+            .map(|c| {
+                // Convert default value with proper error handling
+                let default_value = match &c.default_value {
+                    Some(v) => Some(json_to_storage_value(v, &c.name).map_err(|e| {
+                        ApiError::ValidationError {
                             field: format!("columns.{}.default_value", c.name),
                             message: e,
-                        })?,
-                ),
-                None => None,
-            };
+                        }
+                    })?),
+                    None => None,
+                };
 
-            Ok(neuroquantum_core::storage::ColumnDefinition {
-                name: c.name.clone(),
-                data_type: match c.data_type {
-                    DataType::Integer => neuroquantum_core::storage::DataType::Integer,
-                    DataType::Float => neuroquantum_core::storage::DataType::Float,
-                    DataType::Text | DataType::Json | DataType::DnaSequence => {
-                        neuroquantum_core::storage::DataType::Text
-                    }
-                    DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
-                    DataType::DateTime => neuroquantum_core::storage::DataType::Timestamp,
-                    DataType::Binary | DataType::NeuralVector | DataType::QuantumState => {
-                        neuroquantum_core::storage::DataType::Binary
-                    }
-                },
-                nullable: c.nullable.unwrap_or(true),
-                default_value,
-                auto_increment: c.auto_increment.unwrap_or(false),
+                Ok(neuroquantum_core::storage::ColumnDefinition {
+                    name: c.name.clone(),
+                    data_type: match c.data_type {
+                        DataType::Integer => neuroquantum_core::storage::DataType::Integer,
+                        DataType::Float => neuroquantum_core::storage::DataType::Float,
+                        DataType::Text | DataType::Json | DataType::DnaSequence => {
+                            neuroquantum_core::storage::DataType::Text
+                        }
+                        DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
+                        DataType::DateTime => neuroquantum_core::storage::DataType::Timestamp,
+                        DataType::Binary | DataType::NeuralVector | DataType::QuantumState => {
+                            neuroquantum_core::storage::DataType::Binary
+                        }
+                    },
+                    nullable: c.nullable.unwrap_or(true),
+                    default_value,
+                    auto_increment: c.auto_increment.unwrap_or(false),
+                })
             })
-        })
-        .collect();
+            .collect();
 
     let columns = columns_result?;
 
@@ -2165,9 +2165,9 @@ fn json_to_storage_value(
                     .map(Value::Integer)
                     .ok_or_else(|| format!("Field '{}': integer value out of range", field_name))
             } else {
-                n.as_f64()
-                    .map(Value::Float)
-                    .ok_or_else(|| format!("Field '{}': float value cannot be represented", field_name))
+                n.as_f64().map(Value::Float).ok_or_else(|| {
+                    format!("Field '{}': float value cannot be represented", field_name)
+                })
             }
         }
         serde_json::Value::String(s) => Ok(Value::Text(s.clone())),
@@ -2227,11 +2227,11 @@ mod json_conversion_tests {
 
     #[test]
     fn test_json_to_storage_value_float() {
-        let json = serde_json::json!(3.14);
+        let json = serde_json::json!(42.5);
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Float(f) => assert!((f - 3.14).abs() < 0.001),
+            Value::Float(f) => assert!((f - 42.5).abs() < 0.001),
             _ => panic!("Expected Float value"),
         }
     }

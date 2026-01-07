@@ -455,7 +455,9 @@ mod tests {
         config.raft.election_timeout_max = Duration::from_millis(100);
 
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
-        let consensus = RaftConsensus::new(1, transport, config.clone()).await.unwrap();
+        let consensus = RaftConsensus::new(1, transport, config.clone())
+            .await
+            .unwrap();
 
         // Start consensus
         consensus.start().await.unwrap();
