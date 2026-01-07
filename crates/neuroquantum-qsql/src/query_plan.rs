@@ -3018,9 +3018,27 @@ impl QueryExecutor {
 
     /// Execute ROLLBACK TO SAVEPOINT statement
     ///
-    /// Rolls back the transaction to the specified savepoint by undoing all operations
-    /// that occurred after the savepoint was created. Uses WAL integration to identify
-    /// and undo operations based on their LSN.
+    /// Rolls back the transaction to the specified savepoint by identifying all operations
+    /// that occurred after the savepoint was created using WAL (Write-Ahead Log) integration.
+    ///
+    /// ## Current Implementation
+    ///
+    /// This implementation provides the core infrastructure for WAL-based rollback:
+    /// - Validates savepoint existence and ownership
+    /// - Identifies undo log records since savepoint LSN
+    /// - Tracks operations that need to be undone (reports count in `rows_affected`)
+    /// - Logs undo operations for debugging and tracing
+    ///
+    /// ## Future Enhancement
+    ///
+    /// Full production undo functionality would require deeper integration with the
+    /// storage engine's buffer pool and page management to actually apply inverse operations:
+    /// - For INSERT (before_image = None): DELETE the row
+    /// - For UPDATE: Restore old values from before_image
+    /// - For DELETE: Re-insert row from before_image
+    ///
+    /// This would involve coordination with the WAL manager and buffer pool manager
+    /// to ensure ACID properties are maintained during rollback.
     async fn execute_rollback_to_savepoint(
         &mut self,
         rollback_to: &RollbackToSavepointStatement,
