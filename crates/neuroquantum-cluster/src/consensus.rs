@@ -1521,3 +1521,8 @@ mod tests {
 #[cfg(test)]
 #[path = "consensus_tests.rs"]
 mod consensus_tests;
+
+// Include chaos tests for failure scenarios
+#[cfg(test)]
+#[path = "consensus_chaos_tests.rs"]
+mod consensus_chaos_tests;
