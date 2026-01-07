@@ -3117,8 +3117,8 @@ impl QueryExecutor {
             });
         }
 
-        // No need to call transaction manager as savepoints are tracked locally
-        // The storage engine/transaction manager doesn't need to be notified
+        // Savepoints are tracked locally in the query executor
+        // WAL integration happens at transaction commit/rollback time
 
         Ok(QueryResult {
             rows: vec![],

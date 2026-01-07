@@ -1342,9 +1342,8 @@ impl TransactionManager {
         // Get current LSN for this savepoint
         let lsn = self.log_manager.lsn_counter.load(Ordering::SeqCst);
 
-        // Write savepoint record to WAL
-        // Note: We don't write a separate savepoint record in the old LogManager
-        // The savepoint is tracked in-memory, and rollback uses the undo log
+        // Savepoint is tracked in-memory with its LSN
+        // Rollback to savepoint uses the undo log to restore state
 
         debug!("💾 Savepoint '{}' created for transaction {:?} at LSN {}", name, tx_id, lsn);
         Ok(lsn)
@@ -1382,8 +1381,8 @@ impl TransactionManager {
             } = &log_record.record_type
             {
                 debug!("Undoing update on {}.{} (LSN: {})", table, key, log_record.lsn);
-                // NOTE: Storage integration must be done at StorageEngine level
-                // Call storage_engine.apply_before_image(table, key, before_image).await
+                // NOTE: Actual storage undo is handled by StorageEngine::rollback_to_savepoint()
+                // which applies before_image data to restore previous state
             }
         }
 
