@@ -1,12 +1,12 @@
 //! Quantum Annealing Benchmarks
 //!
-//! Benchmarks for QUBO, TFIM, and Parallel Tempering algorithms
+//! Benchmarks for QUBO, TFIM, and Quantum Parallel Tempering algorithms
 //! comparing quantum-inspired approaches against classical methods.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::DMatrix;
-use neuroquantum_core::quantum::parallel_tempering::{
-    ising_energy_function, ParallelTempering, ParallelTemperingConfig,
+use neuroquantum_core::quantum::quantum_parallel_tempering::{
+    IsingHamiltonian, QuantumBackend, QuantumParallelTempering, QuantumParallelTemperingConfig,
 };
 use neuroquantum_core::quantum::qubo::{QUBOConfig, QUBOSolver};
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
@@ -153,14 +153,13 @@ fn bench_tfim_spin_glass(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark Parallel Tempering with different replica counts
+/// Benchmark Quantum Parallel Tempering with different replica counts
 fn bench_parallel_tempering_replicas(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ParallelTempering-Replicas");
+    let mut group = c.benchmark_group("QuantumParallelTempering-Replicas");
     let rt = Runtime::new().unwrap();
 
     let couplings = DMatrix::from_fn(8, 8, |i, j| if i != j { 1.0 } else { 0.0 });
     let external_fields = vec![0.0; 8];
-    let energy_fn = ising_energy_function(couplings, external_fields);
     let initial_state = vec![1, -1, 1, -1, 1, -1, 1, -1];
 
     for num_replicas in [2, 4, 8, 16].iter() {
@@ -168,18 +167,25 @@ fn bench_parallel_tempering_replicas(c: &mut Criterion) {
             BenchmarkId::new("replicas", num_replicas),
             num_replicas,
             |b, &n| {
-                let config = ParallelTemperingConfig {
+                let config = QuantumParallelTemperingConfig {
                     num_replicas: n,
                     num_exchanges: 20,
-                    steps_per_exchange: 50,
+                    sweeps_per_exchange: 50,
+                    backend: QuantumBackend::PathIntegralMonteCarlo,
                     ..Default::default()
                 };
 
                 b.iter(|| {
                     rt.block_on(async {
-                        let mut pt = ParallelTempering::with_config(config.clone());
-                        let solution = pt
-                            .optimize(initial_state.clone(), energy_fn.clone())
+                        let mut qpt = QuantumParallelTempering::with_config(config.clone());
+                        let hamiltonian = IsingHamiltonian::new(
+                            8,
+                            couplings.clone(),
+                            external_fields.clone(),
+                            1.0,
+                        );
+                        let solution = qpt
+                            .optimize(hamiltonian, initial_state.clone())
                             .await
                             .unwrap();
                         black_box(solution);
@@ -192,9 +198,9 @@ fn bench_parallel_tempering_replicas(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark Parallel Tempering vs single temperature annealing
+/// Benchmark Quantum Parallel Tempering backends comparison
 fn bench_parallel_vs_single(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ParallelTempering-Comparison");
+    let mut group = c.benchmark_group("QuantumParallelTempering-Backends");
     let rt = Runtime::new().unwrap();
 
     let couplings = DMatrix::from_fn(10, 10, |i, j| {
@@ -205,23 +211,29 @@ fn bench_parallel_vs_single(c: &mut Criterion) {
         }
     });
     let external_fields = vec![0.0; 10];
-    let energy_fn = ising_energy_function(couplings, external_fields);
     let initial_state = vec![1; 10];
 
-    // Single temperature (equivalent to 1 replica)
-    group.bench_function("single-temperature", |b| {
-        let config = ParallelTemperingConfig {
-            num_replicas: 1,
-            num_exchanges: 100,
-            steps_per_exchange: 100,
+    // PIMC backend
+    group.bench_function("pimc-backend", |b| {
+        let config = QuantumParallelTemperingConfig {
+            num_replicas: 4,
+            num_exchanges: 20,
+            sweeps_per_exchange: 50,
+            backend: QuantumBackend::PathIntegralMonteCarlo,
             ..Default::default()
         };
 
         b.iter(|| {
             rt.block_on(async {
-                let mut pt = ParallelTempering::with_config(config.clone());
-                let solution = pt
-                    .optimize(initial_state.clone(), energy_fn.clone())
+                let mut qpt = QuantumParallelTempering::with_config(config.clone());
+                let hamiltonian = IsingHamiltonian::new(
+                    10,
+                    couplings.clone(),
+                    external_fields.clone(),
+                    1.0,
+                );
+                let solution = qpt
+                    .optimize(hamiltonian, initial_state.clone())
                     .await
                     .unwrap();
                 black_box(solution);
@@ -229,20 +241,55 @@ fn bench_parallel_vs_single(c: &mut Criterion) {
         });
     });
 
-    // Parallel tempering with 8 replicas
-    group.bench_function("parallel-8-replicas", |b| {
-        let config = ParallelTemperingConfig {
-            num_replicas: 8,
-            num_exchanges: 100,
-            steps_per_exchange: 100,
+    // Quantum Annealing backend
+    group.bench_function("quantum-annealing-backend", |b| {
+        let config = QuantumParallelTemperingConfig {
+            num_replicas: 4,
+            num_exchanges: 20,
+            sweeps_per_exchange: 50,
+            backend: QuantumBackend::QuantumAnnealing,
             ..Default::default()
         };
 
         b.iter(|| {
             rt.block_on(async {
-                let mut pt = ParallelTempering::with_config(config.clone());
-                let solution = pt
-                    .optimize(initial_state.clone(), energy_fn.clone())
+                let mut qpt = QuantumParallelTempering::with_config(config.clone());
+                let hamiltonian = IsingHamiltonian::new(
+                    10,
+                    couplings.clone(),
+                    external_fields.clone(),
+                    1.0,
+                );
+                let solution = qpt
+                    .optimize(hamiltonian, initial_state.clone())
+                    .await
+                    .unwrap();
+                black_box(solution);
+            });
+        });
+    });
+
+    // Hybrid backend
+    group.bench_function("hybrid-backend", |b| {
+        let config = QuantumParallelTemperingConfig {
+            num_replicas: 4,
+            num_exchanges: 20,
+            sweeps_per_exchange: 50,
+            backend: QuantumBackend::Hybrid,
+            ..Default::default()
+        };
+
+        b.iter(|| {
+            rt.block_on(async {
+                let mut qpt = QuantumParallelTempering::with_config(config.clone());
+                let hamiltonian = IsingHamiltonian::new(
+                    10,
+                    couplings.clone(),
+                    external_fields.clone(),
+                    1.0,
+                );
+                let solution = qpt
+                    .optimize(hamiltonian, initial_state.clone())
                     .await
                     .unwrap();
                 black_box(solution);
