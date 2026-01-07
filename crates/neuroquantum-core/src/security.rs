@@ -129,6 +129,12 @@ pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
 /// assert!(!constant_time_threshold_check(0.80, 0.85));
 /// ```
 pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
+    // Handle NaN explicitly for predictable behavior in security-critical context
+    // NaN comparisons always return false for security (fail-safe default)
+    if value.is_nan() || threshold.is_nan() {
+        return false;
+    }
+    
     // Convert to fixed-point integers for constant-time comparison
     // Use 10000 scale factor for 4 decimal places precision
     // Clamp to valid i32 range to avoid undefined behavior from overflow
@@ -1926,5 +1932,21 @@ mod tests {
         assert!(constant_time_threshold_check(1.0, 0.0));
         assert!(constant_time_threshold_check(0.0, 0.0));
         assert!(!constant_time_threshold_check(-0.1, 0.0));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_nan() {
+        // NaN should always return false for security (fail-safe)
+        assert!(!constant_time_threshold_check(f32::NAN, 0.85));
+        assert!(!constant_time_threshold_check(0.90, f32::NAN));
+        assert!(!constant_time_threshold_check(f32::NAN, f32::NAN));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_infinity() {
+        // Infinity should be handled correctly after clamping
+        assert!(constant_time_threshold_check(f32::INFINITY, 0.85));
+        assert!(!constant_time_threshold_check(f32::NEG_INFINITY, 0.85));
+        assert!(!constant_time_threshold_check(0.85, f32::INFINITY));
     }
 }
