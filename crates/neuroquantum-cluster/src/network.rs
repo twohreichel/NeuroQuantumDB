@@ -1,4 +1,36 @@
 //! Network transport layer for inter-node communication.
+//!
+//! This module provides gRPC-based network communication for the cluster,
+//! enabling multi-node deployments with the following features:
+//!
+//! ## Features
+//! - **gRPC Server**: Listens for incoming RPC calls from cluster peers
+//! - **gRPC Client**: Establishes connections to peer nodes
+//! - **Connection Management**: Automatic connection pooling and health tracking
+//! - **RPC Methods**:
+//!   - `Handshake`: Node discovery and connection establishment
+//!   - `AppendEntries`: Raft log replication and heartbeats
+//!   - `RequestVote`: Raft leader election
+//!   - `Heartbeat`: Health checks
+//!   - `InstallSnapshot`: Snapshot transfer for lagging nodes
+//!
+//! ## Usage
+//! ```no_run
+//! use std::sync::Arc;
+//! use neuroquantum_cluster::network::NetworkTransport;
+//! use neuroquantum_cluster::config::ClusterConfig;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let config = ClusterConfig::default();
+//! let transport = Arc::new(NetworkTransport::new(&config).await?);
+//! 
+//! // Start the gRPC server and connect to peers
+//! transport.start().await?;
+//!
+//! // Server is now listening and clients are connected
+//! # Ok(())
+//! # }
+//! ```
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
