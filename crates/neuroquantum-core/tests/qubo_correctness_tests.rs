@@ -19,9 +19,23 @@
 //! satisfaction for NP-hard combinatorial problems.
 
 use nalgebra::DMatrix;
-use neuroquantum_core::quantum::qubo::{QUBOConfig, QUBOProblem, QUBOSolver};
+use neuroquantum_core::quantum::qubo_quantum::{
+    graph_coloring_problem, max_cut_problem, tsp_problem, QUBOConfig, QUBOProblem, QUBOSolver,
+    QuboQuantumBackend,
+};
 use neuroquantum_core::quantum::tfim::TFIMSolver;
 use std::collections::HashSet;
+
+/// Create a solver configured for reliable correctness testing
+/// Uses ClassicalFallback backend for deterministic behavior
+fn create_test_solver() -> QUBOSolver {
+    let config = QUBOConfig {
+        backend: QuboQuantumBackend::ClassicalFallback,
+        max_iterations: 2000,
+        ..QUBOConfig::default()
+    };
+    QUBOSolver::with_config(config)
+}
 
 // =============================================================================
 // ENERGY CALCULATION CORRECTNESS TESTS
@@ -145,12 +159,9 @@ fn test_known_optimal_2var() {
     };
 
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 1000,
-        initial_temperature: 100.0,
-        cooling_rate: 0.95,
-        min_temperature: 0.001,
-        samples_per_temp: 10,
-        quantum_tunneling: true,
+        ..QUBOConfig::default()
     };
 
     let solver = QUBOSolver::with_config(config);
@@ -158,7 +169,7 @@ fn test_known_optimal_2var() {
     // Run multiple times to ensure consistency (stochastic algorithm)
     let mut found_optimal = false;
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
         let optimal_energy = -10.0;
 
         if (solution.energy - optimal_energy).abs() < 1e-6 {
@@ -191,11 +202,11 @@ fn test_known_optimal_3var_independent() {
         name: "Independent 3-var".to_string(),
     };
 
-    let solver = QUBOSolver::new();
+    let solver = create_test_solver();
 
     let mut found_optimal = false;
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         if (solution.energy - (-9.0)).abs() < 1e-6 {
             assert_eq!(solution.variables, vec![1, 1, 1]);
@@ -230,11 +241,11 @@ fn test_antiferromagnetic_optimal() {
         name: "Anti-ferromagnetic".to_string(),
     };
 
-    let solver = QUBOSolver::new();
+    let solver = create_test_solver();
 
     let mut found_optimal = false;
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         // Either [0,1] or [1,0] is optimal with energy -1
         if (solution.energy - (-1.0)).abs() < 1e-6 {
@@ -299,8 +310,8 @@ fn test_qubo_ising_ground_state_equivalence() {
     };
 
     // Find QUBO ground state
-    let solver = QUBOSolver::new();
-    let qubo_solution = solver.solve(&qubo_problem).unwrap();
+    let solver = create_test_solver();
+    let qubo_solution = solver.solve_problem(&qubo_problem).unwrap();
 
     // Convert to Ising using TFIMSolver
     let tfim = TFIMSolver::from_qubo(&q_matrix).unwrap();
@@ -331,7 +342,7 @@ fn test_qubo_ising_ground_state_equivalence() {
 fn test_max_cut_qubo_formulation() {
     // Simple edge: 0-1 with weight 1
     let edges = vec![(0, 1, 1.0)];
-    let problem = QUBOSolver::max_cut_problem(&edges, 2).unwrap();
+    let problem = max_cut_problem(&edges, 2).unwrap();
 
     // Verify Q matrix structure for Max-Cut
     // Q[i,i] += w, Q[j,j] += w, Q[i,j] -= 2w, Q[j,i] -= 2w
@@ -369,14 +380,14 @@ fn test_max_cut_cycle_graph() {
     // Optimal cut: {0,2} vs {1,3} cuts all 4 edges
     let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)];
 
-    let problem = QUBOSolver::max_cut_problem(&edges, 4).unwrap();
+    let problem = max_cut_problem(&edges, 4).unwrap();
 
     // Verify problem was created correctly
     assert_eq!(problem.num_vars, 4);
     assert_eq!(problem.q_matrix.nrows(), 4);
 
-    let solver = QUBOSolver::new();
-    let solution = solver.solve(&problem).unwrap();
+    let solver = create_test_solver();
+    let solution = solver.solve_problem(&problem).unwrap();
 
     // Verify solution is valid binary
     assert_eq!(solution.variables.len(), 4);
@@ -403,7 +414,7 @@ fn test_max_cut_complete_graph_k4() {
         (2, 3, 1.0),
     ];
 
-    let problem = QUBOSolver::max_cut_problem(&edges, 4).unwrap();
+    let problem = max_cut_problem(&edges, 4).unwrap();
 
     // Verify Q matrix is symmetric for symmetric edges
     for i in 0..4 {
@@ -415,8 +426,8 @@ fn test_max_cut_complete_graph_k4() {
         }
     }
 
-    let solver = QUBOSolver::new();
-    let solution = solver.solve(&problem).unwrap();
+    let solver = create_test_solver();
+    let solution = solver.solve_problem(&problem).unwrap();
 
     // Verify solution structure
     assert_eq!(solution.variables.len(), 4);
@@ -441,7 +452,7 @@ fn test_max_cut_weighted() {
         (0, 2, 1.0),
     ];
 
-    let problem = QUBOSolver::max_cut_problem(&edges, 3).unwrap();
+    let problem = max_cut_problem(&edges, 3).unwrap();
 
     // Verify heavy edge has larger Q matrix contributions
     // For edge (0,1) with weight 10: Q[0,0] += 10, Q[1,1] += 10
@@ -449,16 +460,13 @@ fn test_max_cut_weighted() {
     assert!(problem.q_matrix[(1, 1)] >= 10.0);
 
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 5000,
-        initial_temperature: 100.0,
-        cooling_rate: 0.95,
-        min_temperature: 0.001,
-        samples_per_temp: 10,
-        quantum_tunneling: true,
+        ..QUBOConfig::default()
     };
     let solver = QUBOSolver::with_config(config);
 
-    let solution = solver.solve(&problem).unwrap();
+    let solution = solver.solve_problem(&problem).unwrap();
 
     // Verify solution is valid
     assert_eq!(solution.variables.len(), 3);
@@ -477,21 +485,18 @@ fn test_max_cut_weighted() {
 fn test_graph_coloring_triangle() {
     // Triangle requires 3 colors
     let edges = vec![(0, 1), (1, 2), (2, 0)];
-    let problem = QUBOSolver::graph_coloring_problem(&edges, 3, 3).unwrap();
+    let problem = graph_coloring_problem(&edges, 3, 3).unwrap();
 
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::ClassicalFallback,
         max_iterations: 5000,
-        initial_temperature: 500.0,
-        cooling_rate: 0.95,
-        min_temperature: 0.001,
-        samples_per_temp: 10,
-        quantum_tunneling: true,
+        ..QUBOConfig::default()
     };
     let solver = QUBOSolver::with_config(config);
 
     let mut found_valid = false;
     for _ in 0..30 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         if is_valid_coloring(&solution.variables, 3, 3, &edges) {
             found_valid = true;
@@ -507,21 +512,18 @@ fn test_graph_coloring_triangle() {
 fn test_graph_coloring_bipartite() {
     // Star graph (bipartite): center node 0 connected to 1,2,3
     let edges = vec![(0, 1), (0, 2), (0, 3)];
-    let problem = QUBOSolver::graph_coloring_problem(&edges, 4, 2).unwrap();
+    let problem = graph_coloring_problem(&edges, 4, 2).unwrap();
 
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::ClassicalFallback,
         max_iterations: 5000,
-        initial_temperature: 500.0,
-        cooling_rate: 0.95,
-        min_temperature: 0.001,
-        samples_per_temp: 10,
-        quantum_tunneling: true,
+        ..QUBOConfig::default()
     };
     let solver = QUBOSolver::with_config(config);
 
     let mut found_valid = false;
     for _ in 0..30 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         if is_valid_coloring(&solution.variables, 4, 2, &edges) {
             found_valid = true;
@@ -539,11 +541,11 @@ fn test_graph_coloring_bipartite() {
 #[test]
 fn test_graph_coloring_one_color_constraint() {
     let edges = vec![(0, 1)];
-    let problem = QUBOSolver::graph_coloring_problem(&edges, 2, 3).unwrap();
-    let solver = QUBOSolver::new();
+    let problem = graph_coloring_problem(&edges, 2, 3).unwrap();
+    let solver = create_test_solver();
 
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         // Check each node has at most one color
         for node in 0..2 {
@@ -580,15 +582,12 @@ fn test_tsp_3cities_optimal() {
     distances[(0, 2)] = 3.0;
     distances[(2, 0)] = 3.0;
 
-    let problem = QUBOSolver::tsp_problem(&distances).unwrap();
+    let problem = tsp_problem(&distances).unwrap();
 
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 5000,
-        initial_temperature: 500.0,
-        cooling_rate: 0.95,
-        min_temperature: 0.001,
-        samples_per_temp: 10,
-        quantum_tunneling: true,
+        ..QUBOConfig::default()
     };
     let solver = QUBOSolver::with_config(config);
 
@@ -596,7 +595,7 @@ fn test_tsp_3cities_optimal() {
     let mut best_tour_length = f64::MAX;
 
     for _ in 0..30 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         if let Some(tour) = extract_tsp_tour(&solution.variables, 3) {
             found_valid_tour = true;
@@ -622,11 +621,11 @@ fn test_tsp_3cities_optimal() {
 #[test]
 fn test_tsp_city_constraint() {
     let distances = DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 });
-    let problem = QUBOSolver::tsp_problem(&distances).unwrap();
-    let solver = QUBOSolver::new();
+    let problem = tsp_problem(&distances).unwrap();
+    let solver = create_test_solver();
 
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         // Check constraint structure (even if not perfectly satisfied)
         // Each city should appear in at most one time slot
@@ -648,11 +647,11 @@ fn test_tsp_city_constraint() {
 #[test]
 fn test_tsp_time_constraint() {
     let distances = DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 });
-    let problem = QUBOSolver::tsp_problem(&distances).unwrap();
-    let solver = QUBOSolver::new();
+    let problem = tsp_problem(&distances).unwrap();
+    let solver = create_test_solver();
 
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         // Check constraint structure
         for time in 0..4 {
@@ -695,17 +694,17 @@ fn test_quantum_tunneling_effectiveness() {
         name: "Local Minima Test".to_string(),
     };
 
-    // Without quantum tunneling
+    // Without quantum effects - classical fallback
     let config_no_qt = QUBOConfig {
+        backend: QuboQuantumBackend::ClassicalFallback,
         max_iterations: 1000,
-        quantum_tunneling: false,
         ..QUBOConfig::default()
     };
 
-    // With quantum tunneling
+    // With quantum effects - simulated quantum annealing (uses PIMC)
     let config_with_qt = QUBOConfig {
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 1000,
-        quantum_tunneling: true,
         ..QUBOConfig::default()
     };
 
@@ -718,8 +717,8 @@ fn test_quantum_tunneling_effectiveness() {
     let runs = 20;
 
     for _ in 0..runs {
-        let sol_no_qt = solver_no_qt.solve(&problem).unwrap();
-        let sol_with_qt = solver_with_qt.solve(&problem).unwrap();
+        let sol_no_qt = solver_no_qt.solve_problem(&problem).unwrap();
+        let sol_with_qt = solver_with_qt.solve_problem(&problem).unwrap();
 
         sum_energy_no_qt += sol_no_qt.energy;
         sum_energy_with_qt += sol_with_qt.energy;
@@ -760,13 +759,13 @@ fn test_solver_convergence() {
         name: "Convergence Test".to_string(),
     };
 
+    // Use SQA backend with more annealing time for better convergence
     let config = QUBOConfig {
+        backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
         max_iterations: 10000,
-        initial_temperature: 1000.0,
-        cooling_rate: 0.95,
-        min_temperature: 0.0001,
-        samples_per_temp: 10,
-        quantum_tunneling: true,
+        trotter_slices: 64,
+        annealing_time: 200.0,
+        ..QUBOConfig::default()
     };
 
     let solver = QUBOSolver::with_config(config);
@@ -774,7 +773,7 @@ fn test_solver_convergence() {
     // Run multiple times - should converge to same optimal
     let mut energies = Vec::new();
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
         energies.push(solution.energy);
     }
 
@@ -803,8 +802,8 @@ fn test_solution_quality_metric() {
         name: "Quality Test".to_string(),
     };
 
-    let solver = QUBOSolver::new();
-    let solution = solver.solve(&problem).unwrap();
+    let solver = create_test_solver();
+    let solution = solver.solve_problem(&problem).unwrap();
 
     // Quality should be in valid range
     assert!(
@@ -833,8 +832,8 @@ fn test_single_variable() {
         name: "Single Variable".to_string(),
     };
 
-    let solver = QUBOSolver::new();
-    let solution = solver.solve(&problem).unwrap();
+    let solver = create_test_solver();
+    let solution = solver.solve_problem(&problem).unwrap();
 
     assert_eq!(solution.variables.len(), 1);
     // Optimal is x = 1 with energy -1
@@ -853,8 +852,8 @@ fn test_zero_matrix() {
         name: "Zero Matrix".to_string(),
     };
 
-    let solver = QUBOSolver::new();
-    let solution = solver.solve(&problem).unwrap();
+    let solver = create_test_solver();
+    let solution = solver.solve_problem(&problem).unwrap();
 
     // All solutions have energy 0
     assert!((solution.energy - 0.0).abs() < 1e-10);
@@ -873,11 +872,11 @@ fn test_large_coefficients() {
         name: "Large Coefficients".to_string(),
     };
 
-    let solver = QUBOSolver::new();
+    let solver = create_test_solver();
 
     let mut found_optimal = false;
     for _ in 0..10 {
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve_problem(&problem).unwrap();
 
         // Optimal: [1, 0] with energy -1e6
         if solution.variables == vec![1, 0] {
@@ -897,7 +896,7 @@ fn test_large_coefficients() {
 #[test]
 fn test_max_cut_invalid_index() {
     let edges = vec![(0, 5, 1.0)]; // Node 5 doesn't exist
-    let result = QUBOSolver::max_cut_problem(&edges, 3);
+    let result = max_cut_problem(&edges, 3);
     assert!(result.is_err());
 }
 
@@ -905,7 +904,7 @@ fn test_max_cut_invalid_index() {
 #[test]
 fn test_graph_coloring_zero_colors() {
     let edges = vec![(0, 1)];
-    let result = QUBOSolver::graph_coloring_problem(&edges, 2, 0);
+    let result = graph_coloring_problem(&edges, 2, 0);
     assert!(result.is_err());
 }
 
@@ -913,7 +912,7 @@ fn test_graph_coloring_zero_colors() {
 #[test]
 fn test_tsp_non_square() {
     let distances = DMatrix::zeros(3, 4);
-    let result = QUBOSolver::tsp_problem(&distances);
+    let result = tsp_problem(&distances);
     assert!(result.is_err());
 }
 

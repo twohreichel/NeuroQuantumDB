@@ -48,9 +48,8 @@
 // Legacy quantum algorithms (Grover's search, basic annealing)
 pub mod legacy;
 
-// New quantum extensions (Phase 3)
+// Quantum extensions
 pub mod quantum_parallel_tempering;
-pub mod qubo;
 pub mod qubo_quantum;
 pub mod tfim;
 
@@ -66,10 +65,17 @@ pub use quantum_parallel_tempering::{
     QuantumParallelTemperingConfig, QuantumParallelTemperingSolution, QuantumReplica, QuantumState,
     ThermodynamicObservables,
 };
-pub use qubo::{QUBOConfig, QUBOProblem, QUBOSolution, QUBOSolver};
+
+// QUBO exports (consolidated from qubo.rs into qubo_quantum.rs)
 pub use qubo_quantum::{
+    // Quantum solver and config
     AnnealingSchedule, ClassicalOptimizer, CloudQuantumBackend, IsingModel, MeasurementStats,
     QuantumHardwareBackend, QuantumQuboConfig, QuantumQuboSolution, QuantumQuboSolver,
     QuboQuantumBackend, VqeAnsatz,
+    // Problem builders
+    graph_coloring_problem, max_cut_problem, tsp_problem, QUBOProblem,
+    // Legacy type aliases for backwards compatibility
+    QUBOConfig, QUBOSolution, QUBOSolver,
 };
+
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};

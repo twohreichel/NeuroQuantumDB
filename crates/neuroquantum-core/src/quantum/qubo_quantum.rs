@@ -273,6 +273,13 @@ impl QuantumQuboSolver {
         Self { config }
     }
 
+    /// Solve a QUBO problem from a QUBOProblem struct (legacy API)
+    ///
+    /// This method provides backwards compatibility with the old API.
+    pub fn solve_problem(&self, problem: &QUBOProblem) -> CoreResult<QuantumQuboSolution> {
+        self.solve(&problem.q_matrix, &problem.name)
+    }
+
     /// Solve a QUBO problem using the configured quantum backend
     #[instrument(skip(self, q_matrix))]
     pub fn solve(&self, q_matrix: &DMatrix<f64>, name: &str) -> CoreResult<QuantumQuboSolution> {
@@ -838,6 +845,188 @@ impl Default for QuantumQuboSolver {
         Self::new()
     }
 }
+
+// =============================================================================
+// QUBO Problem Builders (migrated from qubo.rs)
+// =============================================================================
+
+/// QUBO problem representation with Q matrix
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QUBOProblem {
+    /// Q matrix (upper triangular)
+    pub q_matrix: DMatrix<f64>,
+    /// Number of binary variables
+    pub num_vars: usize,
+    /// Problem name/description
+    pub name: String,
+}
+
+/// Create Max-Cut QUBO problem from graph
+///
+/// Max-Cut partitions graph vertices to maximize cut edge weights.
+/// QUBO formulation: E(x) = Σ w_ij * (x_i - x_j)²
+pub fn max_cut_problem(
+    edges: &[(usize, usize, f64)],
+    num_nodes: usize,
+) -> CoreResult<QUBOProblem> {
+    if num_nodes == 0 {
+        return Err(CoreError::invalid_operation("Empty graph"));
+    }
+
+    let mut q_matrix = DMatrix::zeros(num_nodes, num_nodes);
+
+    for &(i, j, weight) in edges {
+        if i >= num_nodes || j >= num_nodes {
+            return Err(CoreError::invalid_operation("Invalid node index"));
+        }
+
+        // Diagonal terms
+        q_matrix[(i, i)] += weight;
+        q_matrix[(j, j)] += weight;
+
+        // Off-diagonal terms (convert to minimization)
+        q_matrix[(i, j)] -= 2.0 * weight;
+        q_matrix[(j, i)] -= 2.0 * weight;
+    }
+
+    Ok(QUBOProblem {
+        q_matrix,
+        num_vars: num_nodes,
+        name: "Max-Cut".to_string(),
+    })
+}
+
+/// Create Graph Coloring QUBO problem
+///
+/// Assigns colors to graph vertices such that no adjacent vertices share a color.
+pub fn graph_coloring_problem(
+    edges: &[(usize, usize)],
+    num_nodes: usize,
+    num_colors: usize,
+) -> CoreResult<QUBOProblem> {
+    if num_nodes == 0 || num_colors == 0 {
+        return Err(CoreError::invalid_operation(
+            "Invalid graph coloring parameters",
+        ));
+    }
+
+    let num_vars = num_nodes * num_colors;
+    let mut q_matrix = DMatrix::zeros(num_vars, num_vars);
+
+    let penalty = 10.0;
+
+    // Constraint: each node must have exactly one color
+    for node in 0..num_nodes {
+        for c1 in 0..num_colors {
+            for c2 in 0..num_colors {
+                let var1 = node * num_colors + c1;
+                let var2 = node * num_colors + c2;
+                if c1 == c2 {
+                    q_matrix[(var1, var1)] -= penalty;
+                } else {
+                    q_matrix[(var1, var2)] += penalty;
+                }
+            }
+        }
+    }
+
+    // Constraint: adjacent nodes must have different colors
+    for &(i, j) in edges {
+        if i >= num_nodes || j >= num_nodes {
+            return Err(CoreError::invalid_operation("Invalid edge"));
+        }
+
+        for c in 0..num_colors {
+            let var_i = i * num_colors + c;
+            let var_j = j * num_colors + c;
+            q_matrix[(var_i, var_j)] += penalty;
+        }
+    }
+
+    Ok(QUBOProblem {
+        q_matrix,
+        num_vars,
+        name: format!("Graph-Coloring-{}-colors", num_colors),
+    })
+}
+
+/// Create TSP (Traveling Salesman Problem) QUBO
+///
+/// Finds the shortest route visiting all cities exactly once.
+pub fn tsp_problem(distance_matrix: &DMatrix<f64>) -> CoreResult<QUBOProblem> {
+    let n = distance_matrix.nrows();
+    if n == 0 || n != distance_matrix.ncols() {
+        return Err(CoreError::invalid_operation("Invalid distance matrix"));
+    }
+
+    let num_vars = n * n;
+    let mut q_matrix = DMatrix::zeros(num_vars, num_vars);
+
+    let penalty = distance_matrix.max() * 2.0;
+
+    // Objective: minimize total distance
+    for i in 0..n {
+        for j in 0..n {
+            if i != j {
+                let dist = distance_matrix[(i, j)];
+                for t in 0..(n - 1) {
+                    let var1 = i * n + t;
+                    let var2 = j * n + (t + 1);
+                    q_matrix[(var1, var2)] += dist;
+                }
+            }
+        }
+    }
+
+    // Constraint: each city visited exactly once
+    for i in 0..n {
+        for t1 in 0..n {
+            for t2 in 0..n {
+                let var1 = i * n + t1;
+                let var2 = i * n + t2;
+                if t1 == t2 {
+                    q_matrix[(var1, var1)] -= penalty;
+                } else {
+                    q_matrix[(var1, var2)] += penalty;
+                }
+            }
+        }
+    }
+
+    // Constraint: each time step has exactly one city
+    for t in 0..n {
+        for i1 in 0..n {
+            for i2 in 0..n {
+                let var1 = i1 * n + t;
+                let var2 = i2 * n + t;
+                if i1 == i2 {
+                    q_matrix[(var1, var1)] -= penalty;
+                } else {
+                    q_matrix[(var1, var2)] += penalty;
+                }
+            }
+        }
+    }
+
+    Ok(QUBOProblem {
+        q_matrix,
+        num_vars,
+        name: format!("TSP-{}-cities", n),
+    })
+}
+
+// =============================================================================
+// Legacy Type Aliases for Backwards Compatibility
+// =============================================================================
+
+/// Legacy configuration alias (use QuantumQuboConfig instead)
+pub type QUBOConfig = QuantumQuboConfig;
+
+/// Legacy solution alias (use QuantumQuboSolution instead)
+pub type QUBOSolution = QuantumQuboSolution;
+
+/// Legacy solver alias (use QuantumQuboSolver instead)
+pub type QUBOSolver = QuantumQuboSolver;
 
 /// Trait for quantum hardware backends
 pub trait QuantumHardwareBackend: Send + Sync {

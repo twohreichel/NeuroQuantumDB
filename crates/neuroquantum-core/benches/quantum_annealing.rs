@@ -8,7 +8,10 @@ use nalgebra::DMatrix;
 use neuroquantum_core::quantum::quantum_parallel_tempering::{
     IsingHamiltonian, QuantumBackend, QuantumParallelTempering, QuantumParallelTemperingConfig,
 };
-use neuroquantum_core::quantum::qubo::{QUBOConfig, QUBOSolver};
+use neuroquantum_core::quantum::qubo_quantum::{
+    max_cut_problem, graph_coloring_problem, tsp_problem,
+    QUBOSolver, QuantumQuboConfig, QuboQuantumBackend,
+};
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
 use std::hint::black_box;
 use tokio::runtime::Runtime;
@@ -26,7 +29,7 @@ fn bench_qubo_max_cut(c: &mut Criterion) {
             }
         }
 
-        let problem = QUBOSolver::max_cut_problem(&edges, *num_nodes).unwrap();
+        let problem = max_cut_problem(&edges, *num_nodes).unwrap();
 
         group.bench_with_input(BenchmarkId::new("nodes", num_nodes), num_nodes, |b, _| {
             let solver = QUBOSolver::new();
@@ -52,7 +55,7 @@ fn bench_qubo_configs(c: &mut Criterion) {
         (0, 2, 1.0),
         (1, 3, 1.0),
     ];
-    let problem = QUBOSolver::max_cut_problem(&edges, 4).unwrap();
+    let problem = max_cut_problem(&edges, 4).unwrap();
 
     // Test with quantum tunneling
     group.bench_function("with-tunneling", |b| {
@@ -301,7 +304,7 @@ fn bench_solution_quality(c: &mut Criterion) {
         }
     });
 
-    let problem = QUBOSolver::tsp_problem(&dist_matrix).unwrap();
+    let problem = tsp_problem(&dist_matrix).unwrap();
 
     group.bench_function("TSP-10", |b| {
         let solver = QUBOSolver::new();
