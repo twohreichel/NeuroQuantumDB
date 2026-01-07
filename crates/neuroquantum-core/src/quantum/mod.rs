@@ -47,6 +47,7 @@ pub mod legacy;
 
 // New quantum extensions (Phase 3)
 pub mod parallel_tempering;
+pub mod quantum_parallel_tempering;
 pub mod qubo;
 pub mod tfim;
 
@@ -60,6 +61,11 @@ pub use legacy::{
 pub use parallel_tempering::{
     ising_energy_function, ParallelTempering, ParallelTemperingConfig, ParallelTemperingSolution,
     TemperatureDistribution,
+};
+pub use quantum_parallel_tempering::{
+    create_quantum_ising_optimizer, IsingHamiltonian, QuantumBackend, QuantumParallelTempering,
+    QuantumParallelTemperingConfig, QuantumParallelTemperingSolution, QuantumReplica, QuantumState,
+    ThermodynamicObservables,
 };
 pub use qubo::{QUBOConfig, QUBOProblem, QUBOSolution, QUBOSolver};
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
