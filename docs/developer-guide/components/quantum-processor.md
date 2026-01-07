@@ -5,7 +5,8 @@
 | Algorithm | Module | Use Case |
 |-----------|--------|----------|
 | Grover's Search | `quantum_processor.rs` | Unstructured search |
-| QUBO | `quantum/qubo.rs` | Optimization |
+| QUBO (Classical) | `quantum/qubo.rs` | Fast optimization |
+| QUBO (Quantum) | `quantum/qubo_quantum.rs` | Real quantum optimization |
 | TFIM | `quantum/tfim.rs` | Ising simulation |
 | Parallel Tempering | `quantum/parallel_tempering.rs` | Global optimization |
 
@@ -33,18 +34,49 @@ pub struct GroverSearch {
 
 ## QUBO Solver
 
-Quadratic Unconstrained Binary Optimization:
+Quadratic Unconstrained Binary Optimization with **real quantum backends**:
+
+### Quantum Backends
+
+| Backend | Description | Hardware |
+|---------|-------------|----------|
+| VQE | Variational Quantum Eigensolver | Gate-based (IBM Q, IonQ) |
+| QAOA | Quantum Approximate Optimization | Gate-based |
+| Quantum Annealing | Native QUBO solving | D-Wave |
+| SQA | Simulated Quantum Annealing (PIMC) | Classical simulation |
+| Classical Fallback | Simulated annealing | Classical |
+
+### Usage
 
 ```rust
-pub struct QuboSolver {
-    /// Q matrix coefficients
-    pub fn add_linear(&mut self, i: usize, coeff: f64);
-    pub fn add_quadratic(&mut self, i: usize, j: usize, coeff: f64);
-    
-    /// Solve
-    pub fn solve(&self) -> Vec<bool>;
-}
+use neuroquantum_core::quantum::{
+    QuantumQuboSolver, QuantumQuboConfig, QuboQuantumBackend
+};
+
+// Create solver with quantum backend
+let config = QuantumQuboConfig {
+    backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
+    trotter_slices: 32,
+    max_iterations: 500,
+    auto_fallback: true,
+    ..Default::default()
+};
+
+let solver = QuantumQuboSolver::with_config(config);
+let solution = solver.solve(&q_matrix, "my-problem")?;
+
+println!("Energy: {}", solution.energy);
+println!("Backend: {:?}", solution.backend_used);
 ```
+
+### QUBO to Ising Mapping
+
+The solver automatically converts QUBO problems to Ising Hamiltonians:
+
+- QUBO: $\min f(x) = x^T Q x$ where $x \in \{0,1\}^n$
+- Ising: $\min H = \sum_{ij} J_{ij} s_i s_j + \sum_i h_i s_i$ where $s \in \{-1,+1\}^n$
+
+Mapping: $x_i = (1 + s_i) / 2$
 
 ## Parallel Tempering
 

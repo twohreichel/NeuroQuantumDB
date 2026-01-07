@@ -23,8 +23,8 @@ pub mod query;
 mod simd; // SIMD optimizations - internal only
 
 // Quantum extensions submodules
-pub use quantum::parallel_tempering;
-pub use quantum::qubo;
+pub use quantum::quantum_parallel_tempering;
+pub use quantum::qubo_quantum;
 pub use quantum::tfim;
 pub mod security;
 pub mod spiking; // Biologically accurate spiking neural networks (Izhikevich model)
@@ -37,6 +37,9 @@ pub use dna::{
     CompressedDNA, CompressionMetadata, CompressionMetrics, DNABase, DNACompressionConfig,
     DNACompressor, DNAError, DNASequence, QuantumDNACompressor,
 };
+
+// Re-export nalgebra for API use
+pub use nalgebra;
 
 // Re-export other core types
 pub use error::NeuroQuantumError;
