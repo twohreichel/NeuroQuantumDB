@@ -79,7 +79,7 @@ tempfile = "3.23"
 tokio-test = "0.4"
 
 [build-dependencies]
-tonic-build = "0.14.2"
+tonic-prost-build = "0.14.2"
 
 [features]
 default = []
