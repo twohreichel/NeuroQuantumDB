@@ -32,6 +32,9 @@ use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use tracing::{debug, info, instrument};
 
+/// Result type for quantum circuit execution: (optional state vector, measurement outcomes)
+type CircuitExecutionResult = (Option<Vec<Complex<f64>>>, Vec<Vec<bool>>);
+
 /// Quantum backend types for TFIM
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum QuantumBackend {
@@ -96,7 +99,7 @@ pub enum QuantumGate {
     TwoQubit {
         qubit1: usize,
         qubit2: usize,
-        matrix: [[Complex<f64>; 4]; 4],
+        matrix: Box<[[Complex<f64>; 4]; 4]>,
     },
 }
 
@@ -253,7 +256,9 @@ impl QuantumTFIMSolver {
                 ansatz,
                 max_iterations,
                 convergence_threshold,
-            } => self.build_vqe_circuit(problem, ansatz, *max_iterations, *convergence_threshold)?,
+            } => {
+                self.build_vqe_circuit(problem, ansatz, *max_iterations, *convergence_threshold)?
+            }
             SolutionMethod::QAOA {
                 num_layers,
                 optimizer,
@@ -370,7 +375,7 @@ impl QuantumTFIMSolver {
         problem: &QuantumTFIMProblem,
         ansatz: &VQEAnsatz,
         max_iterations: usize,
-        convergence_threshold: f64,
+        _convergence_threshold: f64,
     ) -> CoreResult<QuantumCircuit> {
         let n = problem.num_qubits;
         let mut gates = Vec::new();
@@ -531,7 +536,7 @@ impl QuantumTFIMSolver {
         &self,
         circuit: &QuantumCircuit,
         _problem: &QuantumTFIMProblem,
-    ) -> CoreResult<(Option<Vec<Complex<f64>>>, Vec<Vec<bool>>)> {
+    ) -> CoreResult<CircuitExecutionResult> {
         // Initialize state vector: |000...0⟩
         let dim = 2_usize.pow(circuit.num_qubits as u32);
         let mut state = vec![Complex::new(0.0, 0.0); dim];
@@ -553,7 +558,7 @@ impl QuantumTFIMSolver {
         &self,
         gate: &QuantumGate,
         state: &[Complex<f64>],
-        num_qubits: usize,
+        _num_qubits: usize,
     ) -> CoreResult<Vec<Complex<f64>>> {
         let dim = state.len();
         let mut new_state = vec![Complex::new(0.0, 0.0); dim];
@@ -562,35 +567,31 @@ impl QuantumTFIMSolver {
             QuantumGate::H { qubit } => {
                 // Hadamard gate
                 let sqrt2_inv = 1.0 / 2.0_f64.sqrt();
-                for i in 0..dim {
+                for (i, ns) in new_state.iter_mut().enumerate() {
                     let bit = (i >> qubit) & 1;
                     let i_flipped = i ^ (1 << qubit);
 
                     if bit == 0 {
-                        new_state[i] += state[i] * sqrt2_inv;
-                        new_state[i] += state[i_flipped] * sqrt2_inv;
+                        *ns += state[i] * sqrt2_inv;
+                        *ns += state[i_flipped] * sqrt2_inv;
                     } else {
-                        new_state[i] += state[i_flipped] * sqrt2_inv;
-                        new_state[i] -= state[i] * sqrt2_inv;
+                        *ns += state[i_flipped] * sqrt2_inv;
+                        *ns -= state[i] * sqrt2_inv;
                     }
                 }
             }
             QuantumGate::X { qubit } => {
                 // Pauli X (bit flip)
-                for i in 0..dim {
+                for (i, ns) in new_state.iter_mut().enumerate() {
                     let i_flipped = i ^ (1 << qubit);
-                    new_state[i] = state[i_flipped];
+                    *ns = state[i_flipped];
                 }
             }
             QuantumGate::Z { qubit } => {
                 // Pauli Z (phase flip)
                 for i in 0..dim {
                     let bit = (i >> qubit) & 1;
-                    new_state[i] = if bit == 0 {
-                        state[i]
-                    } else {
-                        -state[i]
-                    };
+                    new_state[i] = if bit == 0 { state[i] } else { -state[i] };
                 }
             }
             QuantumGate::RX { qubit, angle } => {
@@ -600,8 +601,8 @@ impl QuantumTFIMSolver {
 
                 for i in 0..dim {
                     let i_flipped = i ^ (1 << qubit);
-                    new_state[i] = state[i] * cos_half
-                        - Complex::new(0.0, sin_half) * state[i_flipped];
+                    new_state[i] =
+                        state[i] * cos_half - Complex::new(0.0, sin_half) * state[i_flipped];
                 }
             }
             QuantumGate::RY { qubit, angle } => {
@@ -766,16 +767,16 @@ impl QuantumTFIMSolver {
             let mut energy = 0.0;
 
             // ZZ interactions
-            for i in 0..n {
-                for j in (i + 1)..n {
+            for (i, &spin_i) in spins.iter().enumerate().take(n) {
+                for (j, &spin_j) in spins.iter().enumerate().skip(i + 1).take(n - i - 1) {
                     let coupling = problem.couplings[(i, j)];
-                    energy -= coupling * spins[i] * spins[j];
+                    energy -= coupling * spin_i * spin_j;
                 }
             }
 
             // Longitudinal fields
-            for i in 0..n {
-                energy -= problem.longitudinal_fields[i] * spins[i];
+            for (i, &spin) in spins.iter().enumerate().take(n) {
+                energy -= problem.longitudinal_fields[i] * spin;
             }
 
             energy_sum += energy;
@@ -798,14 +799,14 @@ impl QuantumTFIMSolver {
             let spins: Vec<f64> = bits.iter().map(|&b| if b { -1.0 } else { 1.0 }).collect();
 
             let mut energy = 0.0;
-            for i in 0..n {
-                for j in (i + 1)..n {
+            for (i, &spin_i) in spins.iter().enumerate().take(n) {
+                for (j, &spin_j) in spins.iter().enumerate().skip(i + 1).take(n - i - 1) {
                     let coupling = problem.couplings[(i, j)];
-                    energy -= coupling * spins[i] * spins[j];
+                    energy -= coupling * spin_i * spin_j;
                 }
             }
-            for i in 0..n {
-                energy -= problem.longitudinal_fields[i] * spins[i];
+            for (i, &spin) in spins.iter().enumerate().take(n) {
+                energy -= problem.longitudinal_fields[i] * spin;
             }
 
             variance += (energy - mean_energy).powi(2);
@@ -902,7 +903,7 @@ mod tests {
         let solution = solver.solve(&problem).unwrap();
 
         assert_eq!(solution.measurements.len(), 100);
-        assert!(solution.circuit.gates.len() > 0);
+        assert!(!solution.circuit.gates.is_empty());
     }
 
     #[test]

@@ -17,10 +17,7 @@
 use crate::error::{CoreError, CoreResult};
 use crate::quantum::{
     tfim::{TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig},
-    tfim_quantum::{
-        QuantumTFIMConfig, QuantumTFIMProblem, QuantumTFIMSolution, QuantumTFIMSolver,
-        SolutionMethod,
-    },
+    tfim_quantum::{QuantumTFIMConfig, QuantumTFIMSolution, QuantumTFIMSolver},
 };
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -81,10 +78,7 @@ impl UnifiedTFIMSolver {
             // Try quantum first
             match self.solve_quantum(classical_problem) {
                 Ok(result) => {
-                    info!(
-                        "Quantum TFIM succeeded: energy={:.6}, fidelity={:?}",
-                        result.energy, result.fidelity
-                    );
+                    info!("Quantum TFIM succeeded: energy={:.6}", result.energy);
                     return Ok(result);
                 }
                 Err(e) => {
@@ -183,6 +177,7 @@ impl Default for UnifiedTFIMSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::quantum::SolutionMethod;
     use nalgebra::DMatrix;
 
     #[test]

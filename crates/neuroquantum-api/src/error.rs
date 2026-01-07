@@ -29,8 +29,8 @@ pub enum ApiError {
     #[error("Invalid query: {details}")]
     InvalidQuery { details: String },
 
-    #[error("Quantum operation failed: {operation}")]
-    QuantumOperationFailed { operation: String },
+    #[error("Quantum operation failed: {operation} - {reason}")]
+    QuantumOperationFailed { operation: String, reason: String },
 
     #[error("DNA compression error: {reason}")]
     CompressionError { reason: String },
@@ -480,12 +480,271 @@ pub struct QuantumSearchRequest {
     pub similarity_threshold: f32,
     pub max_results: Option<u32>,
     pub entanglement_boost: Option<f32>,
+    /// Enable real quantum TFIM computation
+    #[serde(default)]
+    pub use_tfim: bool,
+    /// TFIM configuration (optional)
+    pub tfim_config: Option<TFIMRequestConfig>,
+    /// Enable QUBO optimization
+    #[serde(default)]
+    pub use_qubo: bool,
+    /// QUBO configuration (optional)
+    pub qubo_config: Option<QUBORequestConfig>,
+    /// Enable Quantum Parallel Tempering
+    #[serde(default)]
+    pub use_parallel_tempering: bool,
+    /// Parallel Tempering configuration (optional)
+    pub parallel_tempering_config: Option<ParallelTemperingRequestConfig>,
+}
+
+/// TFIM configuration for quantum search
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TFIMRequestConfig {
+    /// Solution method: "trotter", "vqe", or "qaoa"
+    #[serde(default = "default_tfim_method")]
+    pub method: String,
+    /// Number of measurement shots
+    #[serde(default = "default_num_shots")]
+    pub num_shots: u32,
+    /// Trotter steps (for Trotter-Suzuki method)
+    #[serde(default = "default_trotter_steps")]
+    pub trotter_steps: u32,
+    /// Evolution time
+    #[serde(default = "default_evolution_time")]
+    pub evolution_time: f64,
+    /// Transverse field strength
+    #[serde(default = "default_transverse_field")]
+    pub transverse_field: f64,
+    /// Number of QAOA layers (for QAOA method)
+    #[serde(default = "default_qaoa_layers")]
+    pub qaoa_layers: u32,
+    /// VQE ansatz depth (for VQE method)
+    #[serde(default = "default_vqe_depth")]
+    pub vqe_depth: u32,
+}
+
+fn default_tfim_method() -> String {
+    "trotter".to_string()
+}
+fn default_num_shots() -> u32 {
+    1000
+}
+fn default_trotter_steps() -> u32 {
+    10
+}
+fn default_evolution_time() -> f64 {
+    1.0
+}
+fn default_transverse_field() -> f64 {
+    0.5
+}
+fn default_qaoa_layers() -> u32 {
+    2
+}
+fn default_vqe_depth() -> u32 {
+    3
+}
+
+impl Default for TFIMRequestConfig {
+    fn default() -> Self {
+        Self {
+            method: default_tfim_method(),
+            num_shots: default_num_shots(),
+            trotter_steps: default_trotter_steps(),
+            evolution_time: default_evolution_time(),
+            transverse_field: default_transverse_field(),
+            qaoa_layers: default_qaoa_layers(),
+            vqe_depth: default_vqe_depth(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct QuantumSearchResponse {
     pub results: Vec<QuantumSearchResult>,
     pub quantum_stats: QuantumStats,
+    /// TFIM-specific results (when use_tfim=true)
+    pub tfim_results: Option<TFIMResults>,
+    /// QUBO optimization results (when use_qubo=true)
+    pub qubo_results: Option<QUBOResults>,
+    /// Parallel Tempering results (when use_parallel_tempering=true)
+    pub parallel_tempering_results: Option<ParallelTemperingResults>,
+}
+
+/// TFIM computation results
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TFIMResults {
+    /// Ground state energy
+    pub energy: f64,
+    /// Energy variance
+    pub energy_variance: f64,
+    /// Magnetization per qubit
+    pub magnetization: Vec<f64>,
+    /// Order parameter
+    pub order_parameter: f64,
+    /// Correlation matrix (flattened)
+    pub correlations: Vec<f64>,
+    /// Number of qubits used
+    pub num_qubits: usize,
+    /// Solution method used
+    pub method_used: String,
+    /// Whether quantum backend was used (vs classical fallback)
+    pub used_quantum: bool,
+    /// Ground state fidelity (if available)
+    pub fidelity: Option<f64>,
+}
+
+/// QUBO request configuration
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct QUBORequestConfig {
+    /// Backend: "vqe", "qaoa", "sqa" (simulated quantum annealing), or "classical"
+    #[serde(default = "default_qubo_backend")]
+    pub backend: String,
+    /// Number of measurement shots
+    #[serde(default = "default_num_shots")]
+    pub num_shots: u32,
+    /// QAOA circuit depth
+    #[serde(default = "default_qaoa_depth")]
+    pub qaoa_depth: u32,
+    /// Maximum optimization iterations
+    #[serde(default = "default_max_iterations")]
+    pub max_iterations: u32,
+    /// Convergence threshold
+    #[serde(default = "default_convergence_threshold")]
+    pub convergence_threshold: f64,
+}
+
+fn default_qubo_backend() -> String {
+    "qaoa".to_string()
+}
+fn default_qaoa_depth() -> u32 {
+    3
+}
+fn default_max_iterations() -> u32 {
+    500
+}
+fn default_convergence_threshold() -> f64 {
+    1e-6
+}
+
+impl Default for QUBORequestConfig {
+    fn default() -> Self {
+        Self {
+            backend: default_qubo_backend(),
+            num_shots: default_num_shots(),
+            qaoa_depth: default_qaoa_depth(),
+            max_iterations: default_max_iterations(),
+            convergence_threshold: default_convergence_threshold(),
+        }
+    }
+}
+
+/// QUBO optimization results
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct QUBOResults {
+    /// Binary variable assignments (0 or 1)
+    pub variables: Vec<u8>,
+    /// QUBO objective value (energy)
+    pub energy: f64,
+    /// Solution quality (0.0 to 1.0)
+    pub quality: f64,
+    /// Backend used for solving
+    pub backend_used: String,
+    /// Number of quantum circuit evaluations
+    pub quantum_evaluations: u32,
+    /// Optimization iterations
+    pub iterations: u32,
+    /// Whether convergence was achieved
+    pub converged: bool,
+    /// Computation time in milliseconds
+    pub computation_time_ms: f64,
+    /// Best state probability (if measurement-based)
+    pub best_state_probability: Option<f64>,
+}
+
+/// Parallel Tempering request configuration
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ParallelTemperingRequestConfig {
+    /// Backend: "pimc" (Path Integral Monte Carlo), "qmc", "annealing", or "hybrid"
+    #[serde(default = "default_pt_backend")]
+    pub backend: String,
+    /// Number of temperature replicas
+    #[serde(default = "default_num_replicas")]
+    pub num_replicas: u32,
+    /// Minimum temperature
+    #[serde(default = "default_min_temperature")]
+    pub min_temperature: f64,
+    /// Maximum temperature
+    #[serde(default = "default_max_temperature")]
+    pub max_temperature: f64,
+    /// Number of Trotter slices for PIMC
+    #[serde(default = "default_pt_trotter_slices")]
+    pub trotter_slices: u32,
+    /// Number of exchange rounds
+    #[serde(default = "default_num_exchanges")]
+    pub num_exchanges: u32,
+    /// Transverse field strength
+    #[serde(default = "default_pt_transverse_field")]
+    pub transverse_field: f64,
+}
+
+fn default_pt_backend() -> String {
+    "pimc".to_string()
+}
+fn default_num_replicas() -> u32 {
+    8
+}
+fn default_min_temperature() -> f64 {
+    0.1
+}
+fn default_max_temperature() -> f64 {
+    10.0
+}
+fn default_pt_trotter_slices() -> u32 {
+    20
+}
+fn default_num_exchanges() -> u32 {
+    100
+}
+fn default_pt_transverse_field() -> f64 {
+    1.0
+}
+
+impl Default for ParallelTemperingRequestConfig {
+    fn default() -> Self {
+        Self {
+            backend: default_pt_backend(),
+            num_replicas: default_num_replicas(),
+            min_temperature: default_min_temperature(),
+            max_temperature: default_max_temperature(),
+            trotter_slices: default_pt_trotter_slices(),
+            num_exchanges: default_num_exchanges(),
+            transverse_field: default_pt_transverse_field(),
+        }
+    }
+}
+
+/// Parallel Tempering results
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ParallelTemperingResults {
+    /// Best spin configuration found
+    pub best_configuration: Vec<i8>,
+    /// Energy of the best configuration
+    pub best_energy: f64,
+    /// Replica ID that found the best solution
+    pub best_replica_id: u32,
+    /// Total exchange attempts
+    pub total_exchanges: u32,
+    /// Exchange acceptance rate
+    pub acceptance_rate: f64,
+    /// Estimated ground state energy
+    pub ground_state_energy_estimate: f64,
+    /// Quantum fidelity with expected thermal state
+    pub thermal_state_fidelity: f64,
+    /// Backend used
+    pub backend_used: String,
+    /// Computation time in milliseconds
+    pub computation_time_ms: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -502,6 +761,12 @@ pub struct QuantumStats {
     pub superposition_states: u32,
     pub measurement_collapses: u32,
     pub entanglement_operations: u32,
+    /// Circuit depth (for TFIM)
+    pub circuit_depth: Option<u32>,
+    /// Number of quantum gates (for TFIM)
+    pub num_gates: Option<u32>,
+    /// Trotter steps used (for TFIM)
+    pub trotter_steps: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]

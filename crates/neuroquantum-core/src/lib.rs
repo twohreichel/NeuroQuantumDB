@@ -38,6 +38,9 @@ pub use dna::{
     DNACompressor, DNAError, DNASequence, QuantumDNACompressor,
 };
 
+// Re-export nalgebra for API use
+pub use nalgebra;
+
 // Re-export other core types
 pub use error::NeuroQuantumError;
 pub use storage::StorageEngine;
