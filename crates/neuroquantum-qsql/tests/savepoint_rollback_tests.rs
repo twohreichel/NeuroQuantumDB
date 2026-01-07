@@ -4,7 +4,7 @@
 //! Write-Ahead Logging (WAL) to undo operations back to a savepoint.
 
 use neuroquantum_core::storage::{
-    ColumnDefinition, DataType, StorageEngine, TableSchema, Value,
+    ColumnDefinition, DataType, IdGenerationStrategy, StorageEngine, TableSchema,
 };
 use neuroquantum_core::transaction::TransactionManager;
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
@@ -63,7 +63,11 @@ async fn create_test_table(storage_arc: &Arc<tokio::sync::RwLock<StorageEngine>>
                 auto_increment: false,
             },
         ],
-        primary_key: Some("id".to_string()),
+        primary_key: "id".to_string(),
+        created_at: chrono::Utc::now(),
+        version: 1,
+        auto_increment_columns: HashMap::new(),
+        id_strategy: IdGenerationStrategy::AutoIncrement,
     };
 
     let mut storage = storage_arc.write().await;
@@ -242,7 +246,7 @@ async fn test_nested_savepoints_rollback() {
 
     // Second savepoint should still exist (not removed by rollback to sp1)
     let rollback_to_stmt2 = parser.parse("ROLLBACK TO SAVEPOINT sp2").unwrap();
-    let result2 = executor.execute_statement(&rollback_to_stmt2).await;
+    let _result2 = executor.execute_statement(&rollback_to_stmt2).await;
     // This might fail if sp2 was created after sp1, depending on implementation
     // The test validates the behavior is consistent
 

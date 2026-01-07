@@ -47,6 +47,9 @@ use std::f64::consts::PI;
 use std::time::Instant;
 use tracing::{debug, info, instrument, warn};
 
+// Type alias for convenience
+type Complex = Complex64;
+
 /// Quantum backend types for Grover's algorithm
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum GroverQuantumBackend {
@@ -266,7 +269,7 @@ pub struct QuantumGroverResult {
     /// Theoretical quantum speedup achieved
     pub quantum_speedup: f64,
     /// Final state vector (if simulator was used)
-    pub state_vector: Option<Vec<Complex<f64>>>,
+    pub state_vector: Option<Vec<Complex>>,
 }
 
 /// Real Quantum Grover Search Solver
@@ -548,7 +551,7 @@ impl QuantumGroverSolver {
         let measurement_stats = self.perform_measurements(&state, oracle)?;
 
         // Convert state vector to nalgebra Complex
-        let state_vector: Vec<Complex<f64>> = state
+        let state_vector: Vec<Complex> = state
             .iter()
             .map(|c| Complex::new(c.re, c.im))
             .collect();
