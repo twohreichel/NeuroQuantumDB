@@ -164,6 +164,8 @@ impl AuthService {
         };
 
         // Verify the key hash for additional security
+        // NOTE: bcrypt::verify is designed to be constant-time and resistant to timing attacks
+        // The comparison takes the same amount of time regardless of where differences occur
         if !verify(key, &stored_hash).unwrap_or(false) {
             warn!("API key hash verification failed: {}", &key[..8]);
             return None;

@@ -4,6 +4,7 @@
 //! It leverages the neuromorphic nature of NeuroQuantumDB to process brainwave patterns and
 //! create unique user signatures for advanced authentication.
 
+use neuroquantum_core::security::constant_time_threshold_check;
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
 use serde::{Deserialize, Serialize};
@@ -940,7 +941,10 @@ impl EEGAuthService {
             .ok_or_else(|| EEGError::SignatureNotFound(user_id.to_string()))?;
 
         let similarity = features.similarity(&signature.feature_template);
-        let authenticated = similarity >= signature.authentication_threshold;
+        
+        // Use constant-time threshold check to prevent timing attacks
+        // This prevents attackers from learning how close they are to the threshold
+        let authenticated = constant_time_threshold_check(similarity, signature.authentication_threshold);
 
         if authenticated {
             info!(

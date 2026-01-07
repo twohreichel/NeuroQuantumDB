@@ -16,6 +16,7 @@ use ml_kem::{
 use num_complex::Complex;
 use pqcrypto_mldsa::mldsa87;
 use pqcrypto_traits::sign::{PublicKey as SigPublicKey, SecretKey as SigSecretKey, SignedMessage};
+use subtle::ConstantTimeEq;
 
 /// ML-KEM-1024 ciphertext size in bytes (1568 bytes for Security Level 5)
 const MLKEM1024_CIPHERTEXT_SIZE: usize = 1568;
@@ -29,6 +30,131 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop};
+
+// ============================================================================
+// Constant-Time Comparison Utilities
+// ============================================================================
+
+/// Constant-time comparison utilities for preventing timing attacks.
+///
+/// # Security Considerations
+///
+/// Timing attacks work by measuring how long it takes to compare two values.
+/// Standard comparison operations (==, !=) will return immediately upon finding
+/// the first difference, which can leak information about:
+/// - API keys: How many characters match before the first difference
+/// - Passwords: Similar information leakage
+/// - Session tokens: Position of first mismatch
+/// - Biometric thresholds: How close a value is to passing
+///
+/// These utilities ensure that comparisons take constant time regardless of
+/// input, preventing such attacks.
+
+/// Performs constant-time comparison of two byte slices.
+/// Returns true if they are equal, false otherwise.
+/// This function takes the same amount of time regardless of where the first
+/// difference occurs, preventing timing attacks.
+///
+/// # Examples
+///
+/// ```
+/// use neuroquantum_core::security::constant_time_compare;
+///
+/// let secret1 = b"my_secret_key_12345";
+/// let secret2 = b"my_secret_key_12345";
+/// let secret3 = b"my_secret_key_99999";
+///
+/// assert!(constant_time_compare(secret1, secret2));
+/// assert!(!constant_time_compare(secret1, secret3));
+/// ```
+pub fn constant_time_compare(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.ct_eq(b).into()
+}
+
+/// Performs constant-time comparison of two strings.
+/// Converts strings to bytes and compares them in constant time.
+///
+/// # Examples
+///
+/// ```
+/// use neuroquantum_core::security::constant_time_compare_str;
+///
+/// let token1 = "session_abc123";
+/// let token2 = "session_abc123";
+/// let token3 = "session_xyz789";
+///
+/// assert!(constant_time_compare_str(token1, token2));
+/// assert!(!constant_time_compare_str(token1, token3));
+/// ```
+pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
+    constant_time_compare(a.as_bytes(), b.as_bytes())
+}
+
+/// Performs constant-time threshold comparison for floating point values.
+/// This is used for similarity scores in biometric authentication.
+/// Returns true if value >= threshold, using a constant-time comparison
+/// to prevent leaking information about how close the value is to the threshold.
+///
+/// # Security Considerations
+///
+/// Without constant-time comparison, an attacker could learn:
+/// - How close their biometric sample is to passing
+/// - Whether they're getting warmer or colder
+/// - Precise threshold values through binary search
+///
+/// This function prevents such leakage by always taking the same time regardless
+/// of how close the value is to the threshold.
+///
+/// # Implementation
+///
+/// 1. Converts floats to fixed-point i32 (with 10000x scale for 4 decimal precision)
+/// 2. Clamps values to valid i32 range to prevent undefined behavior
+/// 3. Computes difference: value - threshold (wrapping to handle all cases)
+/// 4. Extracts sign bit using arithmetic right shift (endian-agnostic)
+/// 5. Returns true if difference is non-negative (sign bit = 0)
+///
+/// This approach leverages two's complement representation where negative numbers
+/// have their sign bit (bit 31 for i32) set to 1. The algorithm is endian-agnostic
+/// as it uses bit shifting instead of byte array indexing.
+///
+/// # Examples
+///
+/// ```
+/// use neuroquantum_core::security::constant_time_threshold_check;
+///
+/// assert!(constant_time_threshold_check(0.90, 0.85));
+/// assert!(!constant_time_threshold_check(0.80, 0.85));
+/// ```
+pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
+    // Handle NaN explicitly for predictable behavior in security-critical context
+    // NaN comparisons always return false for security (fail-safe default)
+    if value.is_nan() || threshold.is_nan() {
+        return false;
+    }
+    
+    // Convert to fixed-point integers for constant-time comparison
+    // Use 10000 scale factor for 4 decimal places precision
+    // Clamp to valid i32 range to avoid undefined behavior from overflow
+    let value_scaled = (value * 10000.0).clamp(i32::MIN as f32, i32::MAX as f32);
+    let threshold_scaled = (threshold * 10000.0).clamp(i32::MIN as f32, i32::MAX as f32);
+    let value_fixed = value_scaled as i32;
+    let threshold_fixed = threshold_scaled as i32;
+    
+    // Compute difference: value - threshold
+    let diff = value_fixed.wrapping_sub(threshold_fixed);
+    
+    // Extract sign bit in an endian-agnostic way
+    // In two's complement, negative numbers have the sign bit (bit 31) set to 1
+    // Shift right by 31 to get the sign bit in the LSB position
+    let sign_bit = ((diff >> 31) & 1) as u8;
+    
+    // Return true if sign bit is 0 (non-negative), false if 1 (negative)
+    // Use constant-time equality check to convert to bool
+    sign_bit.ct_eq(&0u8).into()
+}
 
 // ============================================================================
 // Configuration Structures
@@ -522,7 +648,9 @@ impl BiometricAuth {
         // Update last used timestamp
         template.last_used = SystemTime::now();
 
-        if similarity >= self.config.similarity_threshold {
+        // Use constant-time threshold comparison to prevent timing attacks
+        // This prevents attackers from learning how close they are to the threshold
+        if constant_time_threshold_check(similarity, self.config.similarity_threshold) {
             info!("✅ EEG authentication successful for user: {}", user_id);
             Ok(AuthResult::Success {
                 user_id: user_id.to_string(),
@@ -841,6 +969,9 @@ impl User {
         let parsed_hash = PasswordHash::new(&self.password_hash)
             .map_err(|e| SecurityError::PasswordHashFailed(e.to_string()))?;
 
+        // NOTE: Argon2::verify_password is designed to be constant-time and resistant
+        // to timing attacks. It always performs the full verification process regardless
+        // of where differences occur in the hash comparison.
         Ok(Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_ok())
@@ -1740,5 +1871,82 @@ mod tests {
                 "Error should mention invalid ciphertext length"
             );
         }
+    }
+
+    #[test]
+    fn test_constant_time_compare_equal() {
+        let secret1 = b"my_secret_api_key_12345";
+        let secret2 = b"my_secret_api_key_12345";
+        assert!(constant_time_compare(secret1, secret2));
+    }
+
+    #[test]
+    fn test_constant_time_compare_different() {
+        let secret1 = b"my_secret_api_key_12345";
+        let secret2 = b"my_secret_api_key_99999";
+        assert!(!constant_time_compare(secret1, secret2));
+    }
+
+    #[test]
+    fn test_constant_time_compare_different_lengths() {
+        let secret1 = b"short";
+        let secret2 = b"much_longer_secret";
+        assert!(!constant_time_compare(secret1, secret2));
+    }
+
+    #[test]
+    fn test_constant_time_compare_str_equal() {
+        let token1 = "session_abc123xyz";
+        let token2 = "session_abc123xyz";
+        assert!(constant_time_compare_str(token1, token2));
+    }
+
+    #[test]
+    fn test_constant_time_compare_str_different() {
+        let token1 = "session_abc123xyz";
+        let token2 = "session_def456uvw";
+        assert!(!constant_time_compare_str(token1, token2));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_above() {
+        assert!(constant_time_threshold_check(0.90, 0.85));
+        assert!(constant_time_threshold_check(0.85, 0.85));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_below() {
+        assert!(!constant_time_threshold_check(0.80, 0.85));
+        assert!(!constant_time_threshold_check(0.84, 0.85));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_precision() {
+        // Test precision at 4 decimal places
+        assert!(constant_time_threshold_check(0.8501, 0.85));
+        assert!(constant_time_threshold_check(0.85001, 0.85));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_edge_cases() {
+        assert!(constant_time_threshold_check(1.0, 0.0));
+        assert!(constant_time_threshold_check(0.0, 0.0));
+        assert!(!constant_time_threshold_check(-0.1, 0.0));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_nan() {
+        // NaN should always return false for security (fail-safe)
+        assert!(!constant_time_threshold_check(f32::NAN, 0.85));
+        assert!(!constant_time_threshold_check(0.90, f32::NAN));
+        assert!(!constant_time_threshold_check(f32::NAN, f32::NAN));
+    }
+
+    #[test]
+    fn test_constant_time_threshold_check_infinity() {
+        // Infinity should be handled correctly after clamping
+        assert!(constant_time_threshold_check(f32::INFINITY, 0.85));
+        assert!(!constant_time_threshold_check(f32::NEG_INFINITY, 0.85));
+        assert!(!constant_time_threshold_check(0.85, f32::INFINITY));
     }
 }
