@@ -454,6 +454,74 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_truncate_table_with_table_keyword() {
+        let parser = QSQLParser::new();
+
+        let sql = "TRUNCATE TABLE users";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse TRUNCATE TABLE: {:?}",
+            result.err()
+        );
+
+        match result.unwrap() {
+            Statement::TruncateTable(truncate) => {
+                assert_eq!(truncate.table_name, "users");
+            }
+            _ => panic!("Expected TRUNCATE TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_truncate_table_short_form() {
+        let parser = QSQLParser::new();
+
+        let sql = "TRUNCATE orders";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse TRUNCATE (short form): {:?}",
+            result.err()
+        );
+
+        match result.unwrap() {
+            Statement::TruncateTable(truncate) => {
+                assert_eq!(truncate.table_name, "orders");
+            }
+            _ => panic!("Expected TRUNCATE TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_truncate_table_case_insensitive() {
+        let parser = QSQLParser::new();
+
+        let sql = "truncate table PRODUCTS";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse lowercase TRUNCATE TABLE");
+
+        match result.unwrap() {
+            Statement::TruncateTable(truncate) => {
+                assert_eq!(truncate.table_name, "PRODUCTS");
+            }
+            _ => panic!("Expected TRUNCATE TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_truncate_missing_table_name() {
+        let parser = QSQLParser::new();
+
+        let sql = "TRUNCATE TABLE";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_err(),
+            "TRUNCATE TABLE without table name should fail"
+        );
+    }
+
+    #[test]
     fn test_parser_basic_cte() {
         let parser = QSQLParser::new();
 
@@ -563,6 +631,280 @@ mod parser_tests {
             }
             _ => panic!("Expected SELECT statement"),
         }
+    }
+
+    #[test]
+    fn test_parser_explain_select() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN SELECT * FROM users WHERE age > 30";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN SELECT: {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(!explain.analyze);
+                assert!(!explain.verbose);
+                assert!(matches!(explain.format, ExplainFormat::Text));
+                match explain.statement.as_ref() {
+                    Statement::Select(select) => {
+                        assert!(select.where_clause.is_some());
+                    }
+                    _ => panic!("Expected SELECT inside EXPLAIN"),
+                }
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_analyze_select() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN ANALYZE SELECT * FROM users WHERE age > 30";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN ANALYZE SELECT: {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(explain.analyze, "ANALYZE should be true");
+                assert!(!explain.verbose);
+                assert!(matches!(explain.format, ExplainFormat::Text));
+                match explain.statement.as_ref() {
+                    Statement::Select(_) => {}
+                    _ => panic!("Expected SELECT inside EXPLAIN"),
+                }
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_format_json() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN (FORMAT JSON) SELECT * FROM users";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (FORMAT JSON): {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(!explain.analyze);
+                assert!(matches!(explain.format, ExplainFormat::Json));
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_analyze_format_json() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN (ANALYZE, FORMAT JSON) SELECT id, name FROM users";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (ANALYZE, FORMAT JSON): {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(explain.analyze, "ANALYZE should be true");
+                assert!(matches!(explain.format, ExplainFormat::Json));
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_format_yaml() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN (FORMAT YAML) SELECT * FROM orders";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (FORMAT YAML): {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(matches!(explain.format, ExplainFormat::Yaml));
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_format_xml() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN (FORMAT XML) SELECT * FROM products";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (FORMAT XML): {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(matches!(explain.format, ExplainFormat::Xml));
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_verbose() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN VERBOSE SELECT * FROM users";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN VERBOSE: {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(explain.verbose, "VERBOSE should be true");
+                assert!(!explain.analyze);
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_with_join() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"
+            EXPLAIN ANALYZE
+            SELECT u.name, o.amount
+            FROM users u
+            JOIN orders o ON u.id = o.user_id
+            WHERE o.amount > 100
+        "#;
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN with JOIN: {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => {
+                assert!(explain.analyze);
+                match explain.statement.as_ref() {
+                    Statement::Select(select) => {
+                        assert!(select.from.is_some());
+                        let from = select.from.as_ref().unwrap();
+                        assert!(!from.joins.is_empty(), "Expected JOIN in query");
+                    }
+                    _ => panic!("Expected SELECT inside EXPLAIN"),
+                }
+            }
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_insert() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN INSERT INTO users (name, age) VALUES ('John', 30)";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN INSERT: {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => match explain.statement.as_ref() {
+                Statement::Insert(_) => {}
+                _ => panic!("Expected INSERT inside EXPLAIN"),
+            },
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_update() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN UPDATE users SET age = 31 WHERE name = 'John'";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN UPDATE: {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => match explain.statement.as_ref() {
+                Statement::Update(_) => {}
+                _ => panic!("Expected UPDATE inside EXPLAIN"),
+            },
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_delete() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN DELETE FROM users WHERE age < 18";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN DELETE: {:?}",
+            result
+        );
+
+        let stmt = result.unwrap();
+        match stmt {
+            Statement::Explain(explain) => match explain.statement.as_ref() {
+                Statement::Delete(_) => {}
+                _ => panic!("Expected DELETE inside EXPLAIN"),
+            },
+            _ => panic!("Expected EXPLAIN statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_explain_missing_statement() {
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "EXPLAIN without statement should fail");
     }
 }
 
@@ -869,6 +1211,89 @@ mod executor_tests {
         let result = executor.execute(&plan).await;
         // Should timeout or complete quickly
         assert!(result.is_err() || result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_executor_truncate_table() {
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+        let parser = QSQLParser::new();
+
+        let sql = "TRUNCATE TABLE test_users";
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse TRUNCATE TABLE");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(0),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        // TRUNCATE TABLE requires storage engine, so without it, we expect an ExecutionError
+        // This verifies the statement is correctly routed to execute_truncate_table
+        let result = executor.execute(&plan).await;
+        // Verify it fails with ExecutionError (storage engine not configured)
+        // rather than a parsing or unknown statement error
+        assert!(
+            result.is_err(),
+            "TRUNCATE TABLE should fail without storage engine"
+        );
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
+            "Expected storage-related error, got: {}",
+            err_msg
+        );
+    }
+
+    #[tokio::test]
+    async fn test_executor_truncate_short_form() {
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+        let parser = QSQLParser::new();
+
+        let sql = "TRUNCATE orders";
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse TRUNCATE (short form)");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(0),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        // Verify the statement is correctly routed and fails with storage error
+        let result = executor.execute(&plan).await;
+        assert!(
+            result.is_err(),
+            "TRUNCATE should fail without storage engine"
+        );
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
+            "Expected storage-related error, got: {}",
+            err_msg
+        );
     }
 }
 
@@ -1572,6 +1997,130 @@ mod extract_function_tests {
 
         let result = executor.execute(&plan).await;
         assert!(result.is_ok(), "EXTRACT(SECOND) execution should succeed");
+    }
+}
+
+#[cfg(test)]
+mod explain_execution_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_explain_select_execution() {
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN SELECT * FROM users WHERE age > 30";
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse EXPLAIN query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(
+            result.is_ok(),
+            "EXPLAIN SELECT execution should succeed: {:?}",
+            result.err()
+        );
+
+        let query_result = result.unwrap();
+        assert!(
+            !query_result.rows.is_empty(),
+            "EXPLAIN should return at least one row"
+        );
+        assert!(
+            !query_result.columns.is_empty(),
+            "EXPLAIN should have columns"
+        );
+
+        // Verify QUERY PLAN column exists
+        let has_query_plan_column = query_result.columns.iter().any(|c| c.name == "QUERY PLAN");
+        assert!(
+            has_query_plan_column,
+            "EXPLAIN result should have 'QUERY PLAN' column"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_explain_analyze_execution() {
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN ANALYZE SELECT * FROM users";
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse EXPLAIN ANALYZE query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(
+            result.is_ok(),
+            "EXPLAIN ANALYZE execution should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_explain_format_json_execution() {
+        let mut executor = QueryExecutor::with_config(ExecutorConfig::testing())
+            .expect("Failed to create executor");
+        let parser = QSQLParser::new();
+
+        let sql = "EXPLAIN (FORMAT JSON) SELECT * FROM users";
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse EXPLAIN FORMAT JSON query");
+
+        let plan = QueryPlan {
+            statement: stmt,
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(1),
+                iterations_used: 1,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let result = executor.execute(&plan).await;
+        assert!(
+            result.is_ok(),
+            "EXPLAIN FORMAT JSON execution should succeed: {:?}",
+            result.err()
+        );
     }
 }
 

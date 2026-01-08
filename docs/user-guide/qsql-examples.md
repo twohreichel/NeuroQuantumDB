@@ -503,6 +503,48 @@ LIMIT 20;
 ```
 **Explanation**: Combines multiple NEUROMATCH conditions with standard SQL WHERE clauses for sophisticated content discovery.
 
+### SYNAPTIC_WEIGHT Function
+
+The `SYNAPTIC_WEIGHT` function calculates the neuromorphic similarity between a column value and a pattern string. It returns a floating-point value between 0.0 and 1.0, representing the strength of the synaptic connection (match quality).
+
+#### Example 22a: Basic SYNAPTIC_WEIGHT in SELECT
+
+```sql
+-- Find users and their similarity to search pattern
+SELECT 
+    name, 
+    SYNAPTIC_WEIGHT(name, 'John') AS weight 
+FROM users;
+```
+**Explanation**: Returns all users with a weight column showing how similar each name is to 'John'. Names like 'John Doe' will have high weights (close to 1.0), while 'Jane' will have lower weights.
+
+#### Example 22b: SYNAPTIC_WEIGHT with ORDER BY
+
+```sql
+-- Rank users by similarity to a pattern
+SELECT 
+    name, 
+    email,
+    SYNAPTIC_WEIGHT(name, 'John') AS similarity
+FROM users
+ORDER BY similarity DESC
+LIMIT 10;
+```
+**Explanation**: Returns the top 10 users whose names most closely match 'John', ordered by similarity score.
+
+#### Example 22c: SYNAPTIC_WEIGHT for Threshold Analysis
+
+```sql
+-- Find optimal threshold by examining weight distribution
+SELECT 
+    name,
+    SYNAPTIC_WEIGHT(name, 'Smith') AS weight
+FROM customers
+WHERE SYNAPTIC_WEIGHT(name, 'Smith') > 0.3
+ORDER BY weight DESC;
+```
+**Explanation**: Combines SYNAPTIC_WEIGHT in both SELECT and WHERE to filter and display match quality, useful for determining optimal thresholds.
+
 ### QUANTUM_SEARCH - Grover's Algorithm Search
 
 QUANTUM_SEARCH uses quantum-inspired algorithms for faster searching through unstructured data.

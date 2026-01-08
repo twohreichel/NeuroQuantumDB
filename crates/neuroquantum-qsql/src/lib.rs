@@ -17,6 +17,7 @@ pub mod ast;
 pub mod error;
 pub mod executor;
 pub mod explain;
+pub mod index_advisor;
 pub mod natural_language;
 pub mod optimizer;
 pub mod parser;
@@ -64,6 +65,8 @@ pub struct QSQLEngine {
     executor: QueryExecutor,
     cache: HashMap<String, CachedQueryPlan>,
     metrics: QSQLMetrics,
+    /// Index Advisor for automatic index recommendations
+    index_advisor: index_advisor::IndexAdvisor,
 }
 
 /// Cached query plan with execution statistics
@@ -168,6 +171,7 @@ impl QSQLEngine {
             executor: QueryExecutor::new()?,
             cache: HashMap::new(),
             metrics: QSQLMetrics::default(),
+            index_advisor: index_advisor::IndexAdvisor::new(),
         })
     }
 
@@ -179,6 +183,7 @@ impl QSQLEngine {
             executor: QueryExecutor::with_config(config.executor_config)?,
             cache: HashMap::with_capacity(config.cache_size),
             metrics: QSQLMetrics::default(),
+            index_advisor: index_advisor::IndexAdvisor::new(),
         })
     }
 
@@ -198,6 +203,7 @@ impl QSQLEngine {
             executor,
             cache: HashMap::new(),
             metrics: QSQLMetrics::default(),
+            index_advisor: index_advisor::IndexAdvisor::new(),
         })
     }
 
@@ -274,6 +280,9 @@ impl QSQLEngine {
             self.metrics.queries_parsed,
         );
         self.metrics.queries_parsed += 1;
+
+        // Track query for index advisor
+        self.index_advisor.track_query(&ast);
 
         // Create a simple query plan directly from AST (bypassing optimizer for now)
         let plan = QueryPlan {
@@ -355,6 +364,46 @@ impl QSQLEngine {
         Ok(())
     }
 
+    // =====================================================================
+    // Index Advisor Methods
+    // =====================================================================
+
+    /// Get index recommendations based on collected query patterns
+    ///
+    /// Returns a list of recommended indexes ordered by priority.
+    /// Each recommendation includes the CREATE INDEX SQL statement.
+    pub fn get_index_recommendations(&self) -> Vec<index_advisor::IndexRecommendation> {
+        self.index_advisor.get_recommendations()
+    }
+
+    /// Get index advisor statistics
+    ///
+    /// Returns statistics about tracked queries, tables, and columns.
+    pub fn get_index_advisor_statistics(&self) -> index_advisor::IndexAdvisorStatistics {
+        self.index_advisor.get_statistics()
+    }
+
+    /// Register an existing index so it won't be recommended again
+    pub fn register_existing_index(&self, table_name: &str, columns: &[String]) {
+        self.index_advisor
+            .register_existing_index(table_name, columns);
+    }
+
+    /// Clear index advisor statistics
+    pub fn clear_index_advisor_statistics(&self) {
+        self.index_advisor.clear_statistics();
+    }
+
+    /// Get statistics for a specific table
+    pub fn get_table_index_stats(&self, table_name: &str) -> Option<index_advisor::TableStats> {
+        self.index_advisor.get_table_stats(table_name)
+    }
+
+    /// Get a reference to the index advisor for advanced usage
+    pub fn index_advisor(&self) -> &index_advisor::IndexAdvisor {
+        &self.index_advisor
+    }
+
     // Private helper methods
 
     async fn execute_cached_plan(&mut self, plan: &QueryPlan) -> Result<QueryResult> {
@@ -396,6 +445,7 @@ impl Default for QSQLEngine {
                     executor: QueryExecutor::default(),
                     cache: HashMap::new(),
                     metrics: QSQLMetrics::default(),
+                    index_advisor: index_advisor::IndexAdvisor::new(),
                 }
             }
         }
@@ -448,4 +498,8 @@ impl QSQLConfig {
 // Public API exports
 pub use ast::*;
 pub use error::*;
+pub use index_advisor::{
+    ColumnStats, IndexAdvisor, IndexAdvisorConfig, IndexAdvisorStatistics, IndexRecommendation,
+    IndexType, RecommendationPriority, TableStats,
+};
 pub use natural_language::NaturalLanguageProcessor;

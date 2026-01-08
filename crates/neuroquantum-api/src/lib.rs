@@ -357,6 +357,13 @@ pub fn configure_app(
                             web::scope("/stats")
                                 .route("/performance", web::get().to(handlers::get_performance_stats))
                         )
+
+                        // Index Advisor
+                        .service(
+                            web::scope("/advisor")
+                                .route("/indexes", web::get().to(handlers::get_index_recommendations))
+                                .route("/indexes/statistics", web::delete().to(handlers::clear_index_advisor_statistics))
+                        )
                 )
         )
 }
