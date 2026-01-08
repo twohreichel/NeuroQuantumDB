@@ -1272,7 +1272,8 @@ impl QueryExecutor {
 
         let anchor_result = self.execute(&anchor_plan).await?;
         let mut all_rows = self.query_result_to_storage_rows(&anchor_result.rows)?;
-        let mut working_rows = all_rows.clone();
+        // Use iter().cloned() to avoid an extra clone of the entire vector
+        let mut working_rows: Vec<Row> = all_rows.iter().cloned().collect();
 
         // Get the recursive query
         let recursive_query = &union_clause.select;
@@ -1299,9 +1300,12 @@ impl QueryExecutor {
             // Add new rows to result
             if is_union_all {
                 // UNION ALL: keep all rows including duplicates
-                all_rows.extend(new_rows.clone());
+                // Use iter().cloned() to avoid cloning the entire vector
+                all_rows.extend(new_rows.iter().cloned());
             } else {
                 // UNION: remove duplicates
+                // Note: O(n²) complexity is acceptable for typical recursive CTE sizes
+                // For very large datasets, a HashSet-based approach would be more efficient
                 for row in &new_rows {
                     if !self.row_exists_in_set(&all_rows, row) {
                         all_rows.push(row.clone());
@@ -1312,8 +1316,8 @@ impl QueryExecutor {
             // Update working set for next iteration
             working_rows = new_rows;
 
-            // Check if we've exceeded the recursion limit
-            if iteration >= RECURSIVE_CTE_LIMIT - 1 {
+            // Check if we've reached the recursion limit (final iteration)
+            if iteration == RECURSIVE_CTE_LIMIT - 1 {
                 return Err(QSQLError::ExecutionError {
                     message: format!(
                         "Recursive CTE '{}' exceeded maximum recursion limit of {} iterations",
@@ -1455,12 +1459,34 @@ impl QueryExecutor {
             for item in select_list {
                 match item {
                     SelectItem::Wildcard => {
-                        // Include all fields
+                        // Include all fields, but skip qualified column names (table.column format)
+                        // that are duplicates of unqualified versions.
+                        // The add_alias_to_rows function creates both "table.col" and "col" entries.
+                        // For wildcard projection, we keep only the unqualified versions to avoid
+                        // column duplication in the result.
+                        let mut seen_base_names = std::collections::HashSet::new();
+                        
+                        // First pass: collect all base column names (without alias prefix)
+                        for col in row.fields.keys() {
+                            let base_name = if col.contains('.') {
+                                col.rsplit('.').next().unwrap_or(col)
+                            } else {
+                                col.as_str()
+                            };
+                            seen_base_names.insert(base_name.to_string());
+                        }
+                        
+                        // Second pass: add fields, preferring unqualified names
                         for (col, val) in &row.fields {
-                            // Skip aliased fields (those containing '.')
-                            if !col.contains('.') {
-                                fields.insert(col.clone(), val.clone());
+                            // If column contains a dot, check if we also have the unqualified version
+                            if col.contains('.') {
+                                let base_name = col.rsplit('.').next().unwrap_or(col);
+                                // Skip qualified name if unqualified version exists
+                                if row.fields.contains_key(base_name) {
+                                    continue;
+                                }
                             }
+                            fields.insert(col.clone(), val.clone());
                         }
                     }
                     SelectItem::Expression { expr, alias } => {
@@ -1573,19 +1599,6 @@ impl QueryExecutor {
                 }
             }
             _ => Ok(Value::Null),
-        }
-    }
-
-    /// Convert Value to String (static helper)
-    fn value_to_string_static(value: &Value) -> String {
-        match value {
-            Value::Integer(i) => i.to_string(),
-            Value::Float(f) => f.to_string(),
-            Value::Text(s) => s.clone(),
-            Value::Boolean(b) => b.to_string(),
-            Value::Binary(b) => format!("{:?}", b),
-            Value::Null => String::new(),
-            Value::Timestamp(ts) => ts.to_rfc3339(),
         }
     }
 
