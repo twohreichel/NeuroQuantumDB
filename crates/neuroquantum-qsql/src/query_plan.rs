@@ -25,6 +25,10 @@ type TableRowFuture<'a> = std::pin::Pin<
     Box<dyn std::future::Future<Output = QSQLResult<(Vec<Row>, String)>> + Send + 'a>,
 >;
 
+/// Maximum number of iterations allowed for recursive CTEs.
+/// This prevents infinite loops in recursive queries.
+pub const RECURSIVE_CTE_LIMIT: usize = 1000;
+
 /// Context for Common Table Expressions (CTEs) during query execution.
 /// Maps CTE names to their cached result rows.
 #[derive(Debug, Clone, Default)]
@@ -575,6 +579,7 @@ impl QueryExecutor {
                     quantum_parallel: select.quantum_parallel,
                     grover_iterations: select.grover_iterations,
                     with_clause: select.with_clause.clone(),
+                    union_clause: select.union_clause.clone(),
                 }
             } else {
                 select.clone()
@@ -1120,23 +1125,32 @@ impl QueryExecutor {
                             message: format!("CTE '{}' not found", table_name),
                         })?;
 
-                let cte_plan = QueryPlan {
-                    statement: Statement::Select(cte_query),
-                    execution_strategy: ExecutionStrategy::Sequential,
-                    synaptic_pathways: vec![],
-                    quantum_optimizations: vec![],
-                    estimated_cost: 1.0,
-                    optimization_metadata: OptimizationMetadata {
-                        optimization_time: Duration::from_millis(0),
-                        iterations_used: 0,
-                        convergence_achieved: true,
-                        synaptic_adaptations: 0,
-                        quantum_optimizations_applied: 0,
-                    },
-                };
+                // Check if this is a recursive CTE (has UNION clause and context is recursive)
+                let is_recursive_cte = cte_context.is_recursive() && cte_query.union_clause.is_some();
 
-                let result = self.execute(&cte_plan).await?;
-                let storage_rows = self.query_result_to_storage_rows(&result.rows)?;
+                let storage_rows = if is_recursive_cte {
+                    // Execute recursive CTE
+                    self.execute_recursive_cte(table_name, &cte_query).await?
+                } else {
+                    // Execute non-recursive CTE
+                    let cte_plan = QueryPlan {
+                        statement: Statement::Select(cte_query),
+                        execution_strategy: ExecutionStrategy::Sequential,
+                        synaptic_pathways: vec![],
+                        quantum_optimizations: vec![],
+                        estimated_cost: 1.0,
+                        optimization_metadata: OptimizationMetadata {
+                            optimization_time: Duration::from_millis(0),
+                            iterations_used: 0,
+                            convergence_achieved: true,
+                            synaptic_adaptations: 0,
+                            quantum_optimizations_applied: 0,
+                        },
+                    };
+
+                    let result = self.execute(&cte_plan).await?;
+                    self.query_result_to_storage_rows(&result.rows)?
+                };
 
                 // Wrap in Arc for efficient sharing
                 let storage_rows_arc = Arc::new(storage_rows);
@@ -1194,6 +1208,418 @@ impl QueryExecutor {
                 }
             })
             .collect()
+    }
+
+    /// Execute a recursive CTE (WITH RECURSIVE)
+    ///
+    /// Recursive CTEs have two parts:
+    /// 1. Anchor part - the initial query (before UNION ALL)
+    /// 2. Recursive part - the query that references the CTE itself (after UNION ALL)
+    ///
+    /// The execution works as follows:
+    /// 1. Execute the anchor query to get initial rows
+    /// 2. Repeat:
+    ///    a. Execute the recursive query using the current working table
+    ///    b. Add the new rows to the result
+    ///    c. Set the working table to the new rows
+    ///    d. Stop when no new rows are produced or recursion limit is reached
+    async fn execute_recursive_cte(
+        &mut self,
+        cte_name: &str,
+        cte_query: &SelectStatement,
+    ) -> QSQLResult<Vec<Row>> {
+        // Get the union clause which contains the recursive part
+        let union_clause = cte_query.union_clause.as_ref().ok_or_else(|| {
+            QSQLError::ExecutionError {
+                message: format!("Recursive CTE '{}' must have a UNION clause", cte_name),
+            }
+        })?;
+
+        // The anchor query is the main select (without the union clause)
+        let anchor_query = SelectStatement {
+            select_list: cte_query.select_list.clone(),
+            from: cte_query.from.clone(),
+            where_clause: cte_query.where_clause.clone(),
+            group_by: cte_query.group_by.clone(),
+            having: cte_query.having.clone(),
+            order_by: vec![], // Order will be applied at the end
+            limit: None,
+            offset: None,
+            synaptic_weight: cte_query.synaptic_weight,
+            plasticity_threshold: cte_query.plasticity_threshold,
+            neuromatch_clause: cte_query.neuromatch_clause.clone(),
+            quantum_parallel: cte_query.quantum_parallel,
+            grover_iterations: cte_query.grover_iterations,
+            with_clause: None, // CTEs don't nest WITH clauses
+            union_clause: None,
+        };
+
+        // Execute the anchor query
+        let anchor_plan = QueryPlan {
+            statement: Statement::Select(anchor_query),
+            execution_strategy: ExecutionStrategy::Sequential,
+            synaptic_pathways: vec![],
+            quantum_optimizations: vec![],
+            estimated_cost: 1.0,
+            optimization_metadata: OptimizationMetadata {
+                optimization_time: Duration::from_millis(0),
+                iterations_used: 0,
+                convergence_achieved: true,
+                synaptic_adaptations: 0,
+                quantum_optimizations_applied: 0,
+            },
+        };
+
+        let anchor_result = self.execute(&anchor_plan).await?;
+        let mut all_rows = self.query_result_to_storage_rows(&anchor_result.rows)?;
+        // Use iter().cloned() to avoid an extra clone of the entire vector
+        let mut working_rows: Vec<Row> = all_rows.iter().cloned().collect();
+
+        // Get the recursive query
+        let recursive_query = &union_clause.select;
+        let is_union_all = matches!(union_clause.union_type, crate::ast::UnionType::UnionAll);
+
+        // Iteratively execute the recursive part
+        for iteration in 0..RECURSIVE_CTE_LIMIT {
+            if working_rows.is_empty() {
+                // No more rows to process, recursion complete
+                break;
+            }
+
+            // Execute the recursive query with current working rows
+            // We need to make the working rows available as the CTE reference
+            let new_rows = self
+                .execute_recursive_iteration(cte_name, recursive_query, &working_rows)
+                .await?;
+
+            if new_rows.is_empty() {
+                // No new rows produced, recursion complete
+                break;
+            }
+
+            // Add new rows to result
+            if is_union_all {
+                // UNION ALL: keep all rows including duplicates
+                // Use iter().cloned() to avoid cloning the entire vector
+                all_rows.extend(new_rows.iter().cloned());
+            } else {
+                // UNION: remove duplicates
+                // Note: O(n²) complexity is acceptable for typical recursive CTE sizes
+                // For very large datasets, a HashSet-based approach would be more efficient
+                for row in &new_rows {
+                    if !self.row_exists_in_set(&all_rows, row) {
+                        all_rows.push(row.clone());
+                    }
+                }
+            }
+
+            // Update working set for next iteration
+            working_rows = new_rows;
+
+            // Check if we've reached the recursion limit (final iteration)
+            if iteration == RECURSIVE_CTE_LIMIT - 1 {
+                return Err(QSQLError::ExecutionError {
+                    message: format!(
+                        "Recursive CTE '{}' exceeded maximum recursion limit of {} iterations",
+                        cte_name, RECURSIVE_CTE_LIMIT
+                    ),
+                });
+            }
+        }
+
+        Ok(all_rows)
+    }
+
+    /// Execute one iteration of the recursive part of a CTE
+    async fn execute_recursive_iteration(
+        &mut self,
+        cte_name: &str,
+        recursive_query: &SelectStatement,
+        working_rows: &[Row],
+    ) -> QSQLResult<Vec<Row>> {
+        // For recursive CTEs, we need to:
+        // 1. Find references to the CTE in the FROM clause
+        // 2. Replace those references with the working rows
+        // 3. Execute the modified query
+
+        let from_clause = recursive_query
+            .from
+            .as_ref()
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "Recursive query must have a FROM clause".to_string(),
+            })?;
+
+        // Execute the recursive query by treating the CTE reference as the working rows
+        // We perform a JOIN between the base table and the working rows
+
+        // Check if there's a join with the CTE
+        let cte_join = from_clause
+            .joins
+            .iter()
+            .find(|j| j.relation.name == cte_name);
+
+        if let Some(join) = cte_join {
+            // Get the base table
+            let base_table_ref = from_clause
+                .relations
+                .first()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: "Missing base table in recursive query".to_string(),
+                })?;
+
+            // Fetch base table rows
+            let storage_query = SelectQuery {
+                table: base_table_ref.name.clone(),
+                columns: vec!["*".to_string()],
+                where_clause: None,
+                order_by: None,
+                limit: None,
+                offset: None,
+            };
+
+            let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+            let base_rows = storage_guard.select_rows(&storage_query).await.map_err(|e| {
+                QSQLError::ExecutionError {
+                    message: format!("Failed to fetch base table: {}", e),
+                }
+            })?;
+            drop(storage_guard);
+
+            let base_alias = base_table_ref
+                .alias
+                .clone()
+                .unwrap_or_else(|| base_table_ref.name.clone());
+
+            let cte_alias = join
+                .relation
+                .alias
+                .clone()
+                .unwrap_or_else(|| cte_name.to_string());
+
+            // Add aliases to rows
+            let aliased_base_rows = self.add_alias_to_rows(base_rows, &base_alias);
+            let aliased_working_rows = self.add_alias_to_rows(working_rows.to_vec(), &cte_alias);
+
+            // Perform the JOIN
+            let joined_rows = self.perform_join(
+                aliased_base_rows,
+                &base_alias,
+                aliased_working_rows,
+                &cte_alias,
+                &join.join_type,
+                join.condition.as_ref(),
+            )?;
+
+            // Apply WHERE clause if present
+            let filtered_rows = if let Some(where_expr) = &recursive_query.where_clause {
+                Self::apply_post_filter(joined_rows, where_expr)?
+            } else {
+                joined_rows
+            };
+
+            // Project the selected columns
+            let result_rows =
+                self.project_recursive_cte_rows(&filtered_rows, &recursive_query.select_list)?;
+
+            Ok(result_rows)
+        } else if from_clause.relations.iter().any(|r| r.name == cte_name) {
+            // The CTE is in the main FROM clause, use working rows directly
+            // This is less common but valid
+            let aliased_rows = self.add_alias_to_rows(working_rows.to_vec(), cte_name);
+
+            // Apply WHERE clause if present
+            let filtered_rows = if let Some(where_expr) = &recursive_query.where_clause {
+                Self::apply_post_filter(aliased_rows, where_expr)?
+            } else {
+                aliased_rows
+            };
+
+            Ok(filtered_rows)
+        } else {
+            Err(QSQLError::ExecutionError {
+                message: format!(
+                    "Recursive CTE '{}' must reference itself in the FROM clause",
+                    cte_name
+                ),
+            })
+        }
+    }
+
+    /// Project rows to match the SELECT list in a recursive CTE
+    fn project_recursive_cte_rows(
+        &self,
+        rows: &[Row],
+        select_list: &[SelectItem],
+    ) -> QSQLResult<Vec<Row>> {
+        let mut result_rows = Vec::with_capacity(rows.len());
+
+        for (idx, row) in rows.iter().enumerate() {
+            let mut fields = HashMap::new();
+
+            for item in select_list {
+                match item {
+                    SelectItem::Wildcard => {
+                        // Include all fields, but skip qualified column names (table.column format)
+                        // that are duplicates of unqualified versions.
+                        // The add_alias_to_rows function creates both "table.col" and "col" entries.
+                        // For wildcard projection, we keep only the unqualified versions to avoid
+                        // column duplication in the result.
+                        let mut seen_base_names = std::collections::HashSet::new();
+                        
+                        // First pass: collect all base column names (without alias prefix)
+                        for col in row.fields.keys() {
+                            let base_name = if col.contains('.') {
+                                col.rsplit('.').next().unwrap_or(col)
+                            } else {
+                                col.as_str()
+                            };
+                            seen_base_names.insert(base_name.to_string());
+                        }
+                        
+                        // Second pass: add fields, preferring unqualified names
+                        for (col, val) in &row.fields {
+                            // If column contains a dot, check if we also have the unqualified version
+                            if col.contains('.') {
+                                let base_name = col.rsplit('.').next().unwrap_or(col);
+                                // Skip qualified name if unqualified version exists
+                                if row.fields.contains_key(base_name) {
+                                    continue;
+                                }
+                            }
+                            fields.insert(col.clone(), val.clone());
+                        }
+                    }
+                    SelectItem::Expression { expr, alias } => {
+                        // Evaluate the expression
+                        let value = self.evaluate_expression_for_row(expr, row)?;
+                        let col_name = alias
+                            .clone()
+                            .unwrap_or_else(|| Self::expression_to_string_static(expr));
+                        fields.insert(col_name, value);
+                    }
+                }
+            }
+
+            result_rows.push(Row {
+                id: idx as RowId,
+                fields,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            });
+        }
+
+        Ok(result_rows)
+    }
+
+    /// Evaluate an expression against a row (for projection in recursive CTEs)
+    fn evaluate_expression_for_row(&self, expr: &Expression, row: &Row) -> QSQLResult<Value> {
+        match expr {
+            Expression::Identifier(name) => {
+                // Try to find the column in the row
+                if let Some(val) = row.fields.get(name) {
+                    return Ok(val.clone());
+                }
+                // Try with aliases (qualified names like table.column)
+                for (col, val) in &row.fields {
+                    if col.ends_with(&format!(".{}", name)) || col == name {
+                        return Ok(val.clone());
+                    }
+                }
+                // Check if it's a qualified identifier (table.column format)
+                if name.contains('.') {
+                    if let Some(val) = row.fields.get(name) {
+                        return Ok(val.clone());
+                    }
+                }
+                Ok(Value::Null)
+            }
+            Expression::Literal(lit) => match lit {
+                Literal::Integer(i) => Ok(Value::Integer(*i)),
+                Literal::Float(f) => Ok(Value::Float(*f)),
+                Literal::String(s) => Ok(Value::Text(s.clone())),
+                Literal::Boolean(b) => Ok(Value::Boolean(*b)),
+                Literal::Null => Ok(Value::Null),
+                Literal::DNA(s) => Ok(Value::Text(s.clone())),
+                Literal::QuantumBit(_, _) => Ok(Value::Null),
+            },
+            Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => {
+                let left_val = self.evaluate_expression_for_row(left, row)?;
+                let right_val = self.evaluate_expression_for_row(right, row)?;
+
+                match operator {
+                    BinaryOperator::Add => {
+                        match (&left_val, &right_val) {
+                            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a + b)),
+                            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
+                            (Value::Integer(a), Value::Float(b)) => {
+                                Ok(Value::Float(*a as f64 + b))
+                            }
+                            (Value::Float(a), Value::Integer(b)) => {
+                                Ok(Value::Float(a + *b as f64))
+                            }
+                            // String concatenation with || (treated as Add when both are strings)
+                            (Value::Text(a), Value::Text(b)) => {
+                                Ok(Value::Text(format!("{}{}", a, b)))
+                            }
+                            _ => Ok(Value::Null),
+                        }
+                    }
+                    BinaryOperator::Subtract => match (&left_val, &right_val) {
+                        (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a - b)),
+                        (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a - b)),
+                        (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 - b)),
+                        (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a - *b as f64)),
+                        _ => Ok(Value::Null),
+                    },
+                    BinaryOperator::Multiply => match (&left_val, &right_val) {
+                        (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a * b)),
+                        (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a * b)),
+                        (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 * b)),
+                        (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a * *b as f64)),
+                        _ => Ok(Value::Null),
+                    },
+                    BinaryOperator::Divide => match (&left_val, &right_val) {
+                        (Value::Integer(a), Value::Integer(b)) if *b != 0 => {
+                            Ok(Value::Integer(a / b))
+                        }
+                        (Value::Float(a), Value::Float(b)) if *b != 0.0 => Ok(Value::Float(a / b)),
+                        (Value::Integer(a), Value::Float(b)) if *b != 0.0 => {
+                            Ok(Value::Float(*a as f64 / b))
+                        }
+                        (Value::Float(a), Value::Integer(b)) if *b != 0 => {
+                            Ok(Value::Float(a / *b as f64))
+                        }
+                        _ => Ok(Value::Null),
+                    },
+                    _ => Ok(Value::Null),
+                }
+            }
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Check if a row exists in a set (for UNION deduplication)
+    fn row_exists_in_set(&self, rows: &[Row], row: &Row) -> bool {
+        rows.iter().any(|existing| {
+            // Compare all fields
+            if existing.fields.len() != row.fields.len() {
+                return false;
+            }
+            for (key, value) in &row.fields {
+                if let Some(existing_value) = existing.fields.get(key) {
+                    if !Self::values_equal(existing_value, value) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+            true
+        })
     }
 
     /// Get rows from a table reference (either regular table or derived table)
@@ -7712,6 +8138,7 @@ mod tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         };
 
         let plan = QueryPlan {

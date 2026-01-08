@@ -125,6 +125,7 @@ impl Default for CachedQueryPlan {
                     quantum_parallel: false,
                     grover_iterations: None,
                     with_clause: None,
+                    union_clause: None,
                 }),
                 execution_strategy: ExecutionStrategy::Sequential,
                 synaptic_pathways: vec![],
