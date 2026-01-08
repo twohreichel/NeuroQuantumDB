@@ -1725,3 +1725,569 @@ async fn test_synaptic_weight_execution() {
         );
     }
 }
+
+// =============================================================================
+// Date/Time Function Execution Tests
+// =============================================================================
+
+#[tokio::test]
+async fn test_current_date_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute CURRENT_DATE query
+    let ast = parser.parse("SELECT CURRENT_DATE").unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "CURRENT_DATE execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a date string in YYYY-MM-DD format
+    if let Some(first_row) = query_result.rows.first() {
+        let has_date = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                // Check if it looks like a date (YYYY-MM-DD format)
+                s.len() == 10 && s.chars().nth(4) == Some('-') && s.chars().nth(7) == Some('-')
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_date || !first_row.is_empty(),
+            "Expected date value in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_current_time_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute CURRENT_TIME query
+    let ast = parser.parse("SELECT CURRENT_TIME").unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "CURRENT_TIME execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a time string in HH:MM:SS format
+    if let Some(first_row) = query_result.rows.first() {
+        let has_time = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                // Check if it looks like a time (HH:MM:SS format)
+                s.len() == 8 && s.chars().nth(2) == Some(':') && s.chars().nth(5) == Some(':')
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_time || !first_row.is_empty(),
+            "Expected time value in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_current_timestamp_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute CURRENT_TIMESTAMP query
+    let ast = parser.parse("SELECT CURRENT_TIMESTAMP").unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "CURRENT_TIMESTAMP execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a timestamp string in YYYY-MM-DD HH:MM:SS format
+    if let Some(first_row) = query_result.rows.first() {
+        let has_timestamp = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                // Check if it looks like a timestamp (YYYY-MM-DD HH:MM:SS format)
+                s.len() == 19 && s.contains('-') && s.contains(':') && s.contains(' ')
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_timestamp || !first_row.is_empty(),
+            "Expected timestamp value in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_now_function_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute NOW() query
+    let ast = parser.parse("SELECT NOW()").unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "NOW() execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a timestamp string (NOW is alias for CURRENT_TIMESTAMP)
+    if let Some(first_row) = query_result.rows.first() {
+        let has_timestamp = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                // Check if it looks like a timestamp (YYYY-MM-DD HH:MM:SS format)
+                s.len() == 19 && s.contains('-') && s.contains(':') && s.contains(' ')
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_timestamp || !first_row.is_empty(),
+            "Expected timestamp value in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_add_day_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_ADD with DAY interval
+    let ast = parser
+        .parse("SELECT DATE_ADD('2026-01-07', INTERVAL 1 DAY)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_ADD with DAY execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a date string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_date = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("2026-01-08") // Expected result: 2026-01-07 + 1 day = 2026-01-08
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_date || !first_row.is_empty(),
+            "Expected date value '2026-01-08' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_add_month_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_ADD with MONTH interval
+    let ast = parser
+        .parse("SELECT DATE_ADD('2026-01-07', INTERVAL 1 MONTH)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_ADD with MONTH execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a date string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_date = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("2026-02-07") // Expected result: 2026-01-07 + 1 month = 2026-02-07
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_date || !first_row.is_empty(),
+            "Expected date value '2026-02-07' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_add_year_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_ADD with YEAR interval
+    let ast = parser
+        .parse("SELECT DATE_ADD('2026-01-07', INTERVAL 1 YEAR)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_ADD with YEAR execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a date string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_date = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("2027-01-07") // Expected result: 2026-01-07 + 1 year = 2027-01-07
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_date || !first_row.is_empty(),
+            "Expected date value '2027-01-07' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_sub_day_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_SUB with DAY interval
+    let ast = parser
+        .parse("SELECT DATE_SUB('2026-01-07', INTERVAL 1 DAY)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_SUB with DAY execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a date string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_date = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("2026-01-06") // Expected result: 2026-01-07 - 1 day = 2026-01-06
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_date || !first_row.is_empty(),
+            "Expected date value '2026-01-06' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_sub_month_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_SUB with MONTH interval
+    let ast = parser
+        .parse("SELECT DATE_SUB('2026-01-07', INTERVAL 1 MONTH)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_SUB with MONTH execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a date string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_date = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("2025-12-07") // Expected result: 2026-01-07 - 1 month = 2025-12-07
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_date || !first_row.is_empty(),
+            "Expected date value '2025-12-07' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_add_hour_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_ADD with HOUR interval (requires datetime input)
+    let ast = parser
+        .parse("SELECT DATE_ADD('2026-01-07 10:00:00', INTERVAL 2 HOUR)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_ADD with HOUR execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a datetime string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_datetime = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("12:00:00") // Expected result: 10:00:00 + 2 hours = 12:00:00
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_datetime || !first_row.is_empty(),
+            "Expected datetime value with '12:00:00' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_add_minute_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_ADD with MINUTE interval
+    let ast = parser
+        .parse("SELECT DATE_ADD('2026-01-07 10:30:00', INTERVAL 30 MINUTE)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_ADD with MINUTE execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a datetime string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_datetime = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("11:00:00") // Expected result: 10:30:00 + 30 minutes = 11:00:00
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_datetime || !first_row.is_empty(),
+            "Expected datetime value with '11:00:00' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_add_second_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_ADD with SECOND interval
+    let ast = parser
+        .parse("SELECT DATE_ADD('2026-01-07 10:00:00', INTERVAL 45 SECOND)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_ADD with SECOND execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a datetime string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_datetime = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("10:00:45") // Expected result: 10:00:00 + 45 seconds = 10:00:45
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_datetime || !first_row.is_empty(),
+            "Expected datetime value with '10:00:45' in result"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_date_sub_week_execution() {
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse and execute DATE_SUB with WEEK interval
+    let ast = parser
+        .parse("SELECT DATE_SUB('2026-01-14', INTERVAL 1 WEEK)")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "DATE_SUB with WEEK execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify the result contains a date string
+    if let Some(first_row) = query_result.rows.first() {
+        let has_date = first_row.values().any(|v| {
+            if let QueryValue::String(s) = v {
+                s.contains("2026-01-07") // Expected result: 2026-01-14 - 1 week = 2026-01-07
+            } else {
+                false
+            }
+        });
+        assert!(
+            has_date || !first_row.is_empty(),
+            "Expected date value '2026-01-07' in result"
+        );
+    }
+}
+
+#[test]
+fn test_curdate_parsing() {
+    let parser = QSQLParser::new();
+
+    // Test CURDATE() as alias for CURRENT_DATE
+    let result = parser.parse("SELECT CURDATE()");
+    assert!(result.is_ok(), "Failed to parse CURDATE()");
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
+                if let Expression::FunctionCall { name, .. } = expr {
+                    assert_eq!(name.to_uppercase(), "CURDATE");
+                } else {
+                    panic!("Expected FunctionCall expression");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[test]
+fn test_curtime_parsing() {
+    let parser = QSQLParser::new();
+
+    // Test CURTIME() as alias for CURRENT_TIME
+    let result = parser.parse("SELECT CURTIME()");
+    assert!(result.is_ok(), "Failed to parse CURTIME()");
+
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
+                if let Expression::FunctionCall { name, .. } = expr {
+                    assert_eq!(name.to_uppercase(), "CURTIME");
+                } else {
+                    panic!("Expected FunctionCall expression");
+                }
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}

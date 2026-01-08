@@ -72,6 +72,80 @@ SELECT name, COUNT(*) FROM orders GROUP BY name;
 SELECT * FROM users ORDER BY id LIMIT 10 OFFSET 20;
 ```
 
+### Date/Time Functions
+
+QSQL provides standard SQL Date/Time functions for working with dates and timestamps.
+
+#### Current Date/Time Functions
+
+```sql
+-- Get current date (YYYY-MM-DD)
+SELECT CURRENT_DATE;
+SELECT CURDATE();  -- Alias
+
+-- Get current time (HH:MM:SS)
+SELECT CURRENT_TIME;
+SELECT CURTIME();  -- Alias
+
+-- Get current timestamp (YYYY-MM-DD HH:MM:SS)
+SELECT CURRENT_TIMESTAMP;
+SELECT NOW();  -- Alias
+```
+
+#### Date Arithmetic Functions
+
+```sql
+-- Add interval to a date
+SELECT DATE_ADD('2026-01-07', INTERVAL 1 DAY);      -- Returns: 2026-01-08
+SELECT DATE_ADD('2026-01-07', INTERVAL 1 MONTH);    -- Returns: 2026-02-07
+SELECT DATE_ADD('2026-01-07', INTERVAL 1 YEAR);     -- Returns: 2027-01-07
+SELECT DATE_ADD('2026-01-07', INTERVAL 1 WEEK);     -- Returns: 2026-01-14
+
+-- Add time intervals (requires datetime input)
+SELECT DATE_ADD('2026-01-07 10:00:00', INTERVAL 2 HOUR);    -- Returns: 2026-01-07 12:00:00
+SELECT DATE_ADD('2026-01-07 10:30:00', INTERVAL 30 MINUTE); -- Returns: 2026-01-07 11:00:00
+SELECT DATE_ADD('2026-01-07 10:00:00', INTERVAL 45 SECOND); -- Returns: 2026-01-07 10:00:45
+
+-- Subtract interval from a date
+SELECT DATE_SUB('2026-01-07', INTERVAL 1 DAY);      -- Returns: 2026-01-06
+SELECT DATE_SUB('2026-01-07', INTERVAL 1 MONTH);    -- Returns: 2025-12-07
+SELECT DATE_SUB('2026-01-14', INTERVAL 1 WEEK);     -- Returns: 2026-01-07
+```
+
+**Supported Interval Units:**
+| Unit | Description |
+|------|-------------|
+| `YEAR` | Years |
+| `MONTH` | Months |
+| `WEEK` | Weeks (7 days) |
+| `DAY` | Days |
+| `HOUR` | Hours |
+| `MINUTE` | Minutes |
+| `SECOND` | Seconds |
+
+#### Practical Examples
+
+```sql
+-- Find records from the last 7 days
+SELECT * FROM orders 
+WHERE created_at > DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY);
+
+-- Find subscriptions expiring within a week
+SELECT * FROM subscriptions 
+WHERE expires_at < DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY);
+
+-- Get sessions inactive for more than 30 minutes
+SELECT * FROM sessions 
+WHERE last_active < DATE_SUB(NOW(), INTERVAL 30 MINUTE);
+
+-- Calculate future delivery date
+SELECT 
+    order_id,
+    order_date,
+    DATE_ADD(order_date, INTERVAL 5 DAY) AS estimated_delivery
+FROM orders;
+```
+
 ## Transaction Control
 
 NeuroQuantumDB provides full ACID transaction support with SQL transaction control statements.
