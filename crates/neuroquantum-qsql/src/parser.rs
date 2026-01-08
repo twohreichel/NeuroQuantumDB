@@ -1141,7 +1141,7 @@ impl QSQLParser {
         // Parse UNION / UNION ALL clause
         let union_clause = if i < tokens.len() && matches!(tokens[i], TokenType::Union) {
             i += 1; // consume UNION
-            
+
             // Check for ALL keyword
             let union_type = if i < tokens.len() && matches!(tokens[i], TokenType::All) {
                 i += 1; // consume ALL
@@ -1149,7 +1149,7 @@ impl QSQLParser {
             } else {
                 crate::ast::UnionType::Union
             };
-            
+
             // Parse the second SELECT statement
             if i >= tokens.len() || !matches!(tokens[i], TokenType::Select) {
                 return Err(QSQLError::ParseError {
@@ -1157,9 +1157,9 @@ impl QSQLParser {
                     position: i,
                 });
             }
-            
+
             let union_select = self.parse_select_statement_at(tokens, &mut i)?;
-            
+
             Some(crate::ast::UnionClause {
                 union_type,
                 select: Box::new(union_select),
@@ -1673,7 +1673,7 @@ impl QSQLParser {
         // This is valid in CTE contexts as well as top-level queries
         let union_clause = if *i < tokens.len() && matches!(tokens[*i], TokenType::Union) {
             *i += 1; // consume UNION
-            
+
             // Check for ALL keyword
             let union_type = if *i < tokens.len() && matches!(tokens[*i], TokenType::All) {
                 *i += 1; // consume ALL
@@ -1681,7 +1681,7 @@ impl QSQLParser {
             } else {
                 crate::ast::UnionType::Union
             };
-            
+
             // Parse the second SELECT statement
             if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Select) {
                 return Err(QSQLError::ParseError {
@@ -1689,9 +1689,9 @@ impl QSQLParser {
                     position: *i,
                 });
             }
-            
+
             let union_select = self.parse_select_statement_at(tokens, i)?;
-            
+
             Some(crate::ast::UnionClause {
                 union_type,
                 select: Box::new(union_select),
