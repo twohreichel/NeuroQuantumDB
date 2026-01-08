@@ -1258,10 +1258,10 @@ impl StorageEngine {
         // Update indexes
         self.update_indexes_for_insert(&schema, &row)?;
 
-        // Add to cache
-        self.add_to_cache(row.clone());
+        // Append to table file with DNA compression (uses reference)
+        self.append_row_to_file(table, &row).await?;
 
-        // Log operation
+        // Log operation (needs clone for ownership)
         let operation = Operation::Insert {
             table: table.to_string(),
             row_id: row.id,
@@ -1269,11 +1269,12 @@ impl StorageEngine {
         };
         self.log_operation(operation).await?;
 
-        // Append to table file with DNA compression
-        self.append_row_to_file(table, &row).await?;
+        // Add to cache (moves row, so do this last)
+        let row_id = row.id;
+        self.add_to_cache(row);
 
-        debug!("✅ Row inserted with ID: {} (DNA compressed)", row.id);
-        Ok(row.id)
+        debug!("✅ Row inserted with ID: {} (DNA compressed)", row_id);
+        Ok(row_id)
     }
 
     /// Populate auto-increment columns with generated values
@@ -1459,20 +1460,20 @@ impl StorageEngine {
             let compressed_data = self.compress_row(&row).await?;
             self.compressed_blocks.insert(row.id, compressed_data);
 
-            // Update cache
-            self.add_to_cache(row.clone());
-
-            // Keep track of updated rows for file rewrite
+            // Keep track of updated rows for file rewrite (need clone here)
             updated_rows.push(row.clone());
 
-            // Log operation
+            // Log operation (consumes old_row, clones row for new_data)
             let operation = Operation::Update {
                 table: query.table.clone(),
                 row_id: row.id,
                 old_data: old_row,
-                new_data: row,
+                new_data: row.clone(),
             };
             self.log_operation(operation).await?;
+
+            // Update cache (moves row, so do this last)
+            self.add_to_cache(row);
 
             updated_count += 1;
         }

@@ -31,7 +31,8 @@ type TableRowFuture<'a> = std::pin::Pin<
 #[derive(Debug, Clone, Default)]
 pub struct CTEContext {
     /// Map of CTE name to its cached rows (once executed)
-    cached_results: HashMap<String, Vec<Row>>,
+    /// Uses Arc to avoid expensive clones when reusing CTE results
+    cached_results: HashMap<String, Arc<Vec<Row>>>,
     /// Map of CTE name to its definition (SelectStatement)
     definitions: HashMap<String, SelectStatement>,
     /// Whether the WITH clause is RECURSIVE
@@ -63,12 +64,12 @@ impl CTEContext {
     }
 
     /// Get cached result for a CTE (if already executed)
-    pub fn get_cached(&self, name: &str) -> Option<&Vec<Row>> {
+    pub fn get_cached(&self, name: &str) -> Option<&Arc<Vec<Row>>> {
         self.cached_results.get(name)
     }
 
     /// Cache the result of a CTE execution
-    pub fn cache_result(&mut self, name: String, rows: Vec<Row>) {
+    pub fn cache_result(&mut self, name: String, rows: Arc<Vec<Row>>) {
         self.cached_results.insert(name, rows);
     }
 
@@ -1100,7 +1101,9 @@ impl QueryExecutor {
             if cte_context.is_cte(table_name) {
                 // Check if we have cached results
                 if let Some(cached_rows) = cte_context.get_cached(table_name) {
-                    let aliased_rows = self.add_alias_to_rows(cached_rows.clone(), &alias);
+                    // Clone the Vec from Arc (Arc clone is cheap, Vec clone is needed for aliasing)
+                    let rows: Vec<Row> = cached_rows.as_ref().clone();
+                    let aliased_rows = self.add_alias_to_rows(rows, &alias);
                     return Ok((aliased_rows, alias));
                 }
 
@@ -1131,10 +1134,14 @@ impl QueryExecutor {
                 let result = self.execute(&cte_plan).await?;
                 let storage_rows = self.query_result_to_storage_rows(&result.rows)?;
 
-                // Cache the CTE result for potential reuse
-                cte_context.cache_result(table_name.clone(), storage_rows.clone());
+                // Wrap in Arc for efficient sharing
+                let storage_rows_arc = Arc::new(storage_rows);
+                
+                // Cache the CTE result for potential reuse (cheap Arc clone)
+                cte_context.cache_result(table_name.clone(), Arc::clone(&storage_rows_arc));
 
-                let aliased_rows = self.add_alias_to_rows(storage_rows, &alias);
+                // Clone the Vec for add_alias_to_rows (still needed but only once)
+                let aliased_rows = self.add_alias_to_rows((*storage_rows_arc).clone(), &alias);
                 return Ok((aliased_rows, alias));
             }
 
@@ -1166,10 +1173,13 @@ impl QueryExecutor {
     fn add_alias_to_rows(&self, rows: Vec<Row>, alias: &str) -> Vec<Row> {
         rows.into_iter()
             .map(|row| {
-                let mut aliased_fields = HashMap::new();
+                let mut aliased_fields = HashMap::with_capacity(row.fields.len() * 2);
                 for (col, val) in row.fields {
-                    // Add both aliased and unaliased versions
-                    aliased_fields.insert(format!("{}.{}", alias, col), val.clone());
+                    // Create the aliased key
+                    let aliased_key = format!("{}.{}", alias, &col);
+                    // Insert aliased version with cloned value
+                    aliased_fields.insert(aliased_key, val.clone());
+                    // Insert unaliased version with moved value
                     aliased_fields.insert(col, val);
                 }
                 Row {
@@ -1222,10 +1232,13 @@ impl QueryExecutor {
                 let aliased_rows: Vec<Row> = storage_rows
                     .into_iter()
                     .map(|row| {
-                        let mut aliased_fields = HashMap::new();
+                        let mut aliased_fields = HashMap::with_capacity(row.fields.len() * 2);
                         for (col, val) in row.fields {
-                            // Add both aliased and unaliased versions
-                            aliased_fields.insert(format!("{}.{}", alias, col), val.clone());
+                            // Create aliased key
+                            let aliased_key = format!("{}.{}", alias, &col);
+                            // Insert aliased version with cloned value
+                            aliased_fields.insert(aliased_key, val.clone());
+                            // Insert unaliased version with moved value
                             aliased_fields.insert(col, val);
                         }
                         Row {
@@ -1268,10 +1281,13 @@ impl QueryExecutor {
                 let aliased_rows: Vec<Row> = rows
                     .into_iter()
                     .map(|row| {
-                        let mut aliased_fields = HashMap::new();
+                        let mut aliased_fields = HashMap::with_capacity(row.fields.len() * 2);
                         for (col, val) in row.fields {
-                            // Add both aliased and unaliased versions
-                            aliased_fields.insert(format!("{}.{}", alias, col), val.clone());
+                            // Create aliased key
+                            let aliased_key = format!("{}.{}", alias, &col);
+                            // Insert aliased version with cloned value
+                            aliased_fields.insert(aliased_key, val.clone());
+                            // Insert unaliased version with moved value
                             aliased_fields.insert(col, val);
                         }
                         Row {
@@ -1623,13 +1639,15 @@ impl QueryExecutor {
 
         // Add left row fields with alias prefix
         for (col, val) in &left_row.fields {
-            merged_fields.insert(format!("{}.{}", left_alias, col), val.clone());
-            // Also add without prefix for compatibility
+            // Insert unaliased version first
             merged_fields.insert(col.clone(), val.clone());
+            // Then add aliased version
+            merged_fields.insert(format!("{}.{}", left_alias, col), val.clone());
         }
 
         // Add right row fields with alias prefix
         for (col, val) in &right_row.fields {
+            // Add aliased version
             merged_fields.insert(format!("{}.{}", right_alias, col), val.clone());
             // Add without prefix if not already present (left takes precedence)
             if !merged_fields.contains_key(col) {
@@ -1665,8 +1683,8 @@ impl QueryExecutor {
         if row_is_left {
             // Row is from left table
             for (col, val) in &row.fields {
-                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
                 merged_fields.insert(col.clone(), val.clone());
+                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
             }
             // Add NULLs for right fields
             for col in &other_field_names {
@@ -1679,8 +1697,8 @@ impl QueryExecutor {
             }
             // Add right row fields
             for (col, val) in &row.fields {
-                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
                 merged_fields.insert(col.clone(), val.clone());
+                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
             }
         }
 
