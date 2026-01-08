@@ -353,11 +353,12 @@ impl IndexAdvisor {
             return;
         }
 
-        let table_stats = stats.entry(table_name.to_string()).or_insert_with(|| {
-            let mut ts = TableStats::default();
-            ts.table_name = table_name.to_string();
-            ts
-        });
+        let table_stats = stats
+            .entry(table_name.to_string())
+            .or_insert_with(|| TableStats {
+                table_name: table_name.to_string(),
+                ..Default::default()
+            });
 
         table_stats.query_count += 1;
         table_stats.last_access_ms = now_ms;
@@ -372,11 +373,10 @@ impl IndexAdvisor {
         let col_stats = table_stats
             .columns
             .entry(column_name.to_string())
-            .or_insert_with(|| {
-                let mut cs = ColumnStats::default();
-                cs.column_name = column_name.to_string();
-                cs.table_name = table_name.to_string();
-                cs
+            .or_insert_with(|| ColumnStats {
+                column_name: column_name.to_string(),
+                table_name: table_name.to_string(),
+                ..Default::default()
             });
 
         col_stats.last_access_ms = now_ms;
@@ -405,11 +405,12 @@ impl IndexAdvisor {
     /// Register an existing index on a table
     pub fn register_existing_index(&self, table_name: &str, index_columns: &[String]) {
         let mut stats = self.table_stats.write().unwrap();
-        let table_stats = stats.entry(table_name.to_string()).or_insert_with(|| {
-            let mut ts = TableStats::default();
-            ts.table_name = table_name.to_string();
-            ts
-        });
+        let table_stats = stats
+            .entry(table_name.to_string())
+            .or_insert_with(|| TableStats {
+                table_name: table_name.to_string(),
+                ..Default::default()
+            });
 
         let index_desc = index_columns.join(",");
         if !table_stats.existing_indexes.contains(&index_desc) {
@@ -570,14 +571,9 @@ impl IndexAdvisor {
         let affected_query_count =
             col_stats.where_count + col_stats.join_count + col_stats.order_by_count;
 
-        // Determine index type based on operators used
-        let index_type = if col_stats.operators.get("Equal").copied().unwrap_or(0)
-            > col_stats.operators.values().sum::<u64>() / 2
-        {
-            IndexType::BTree // Could be Hash, but B-tree is more versatile
-        } else {
-            IndexType::BTree
-        };
+        // Determine index type - B-tree is most versatile for general use
+        // (could use Hash for purely equality operations, but B-tree handles ranges too)
+        let index_type = IndexType::BTree;
 
         let reason = self.generate_reason(col_stats, table_stats);
 
@@ -862,8 +858,10 @@ mod tests {
 
     #[test]
     fn test_generate_recommendations() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 2; // Lower threshold for testing
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 2, // Lower threshold for testing
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -884,8 +882,10 @@ mod tests {
 
     #[test]
     fn test_existing_index_not_recommended() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 2;
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 2,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -926,8 +926,10 @@ mod tests {
 
     #[test]
     fn test_recommendation_priority() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 1;
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 1,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -949,8 +951,10 @@ mod tests {
 
     #[test]
     fn test_create_statement_format() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 1;
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 1,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -970,8 +974,10 @@ mod tests {
 
     #[test]
     fn test_tracking_disabled() {
-        let mut config = IndexAdvisorConfig::default();
-        config.enable_tracking = false;
+        let config = IndexAdvisorConfig {
+            enable_tracking: false,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
