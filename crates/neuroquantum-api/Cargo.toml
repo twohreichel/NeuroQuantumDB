@@ -42,7 +42,6 @@ chrono = { workspace = true, features = ["serde"] }
 bcrypt = "0.17"
 jsonwebtoken = "9.3"
 validator = { version = "0.20", features = ["derive"] }
-subtle.workspace = true
 
 # Post-quantum cryptography is provided by neuroquantum-core
 

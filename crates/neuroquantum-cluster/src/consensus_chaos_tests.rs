@@ -3,10 +3,9 @@
 #[cfg(test)]
 mod chaos_tests {
     use super::super::*;
+    use std::sync::atomic::{AtomicU16, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
-    use std::sync::atomic::{AtomicU16, Ordering};
-    use tokio::time::timeout;
 
     // Port counter for tests
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(30000);
@@ -25,7 +24,11 @@ mod chaos_tests {
         // Create leader
         let leader_config = get_test_config(1);
         let leader_transport = Arc::new(NetworkTransport::new(&leader_config).await.unwrap());
-        let leader = Arc::new(RaftConsensus::new(1, leader_transport, leader_config).await.unwrap());
+        let leader = Arc::new(
+            RaftConsensus::new(1, leader_transport, leader_config)
+                .await
+                .unwrap(),
+        );
 
         leader.start().await.unwrap();
         leader.promote_to_leader().await.unwrap();
@@ -33,7 +36,9 @@ mod chaos_tests {
         // Create follower
         let follower_config = get_test_config(2);
         let follower_transport = Arc::new(NetworkTransport::new(&follower_config).await.unwrap());
-        let follower = RaftConsensus::new(2, follower_transport, follower_config).await.unwrap();
+        let follower = RaftConsensus::new(2, follower_transport, follower_config)
+            .await
+            .unwrap();
 
         follower.start().await.unwrap();
 
@@ -58,7 +63,9 @@ mod chaos_tests {
         // Follower recovers (start a new instance)
         let follower_config = get_test_config(2);
         let follower_transport = Arc::new(NetworkTransport::new(&follower_config).await.unwrap());
-        let follower_recovered = RaftConsensus::new(2, follower_transport, follower_config).await.unwrap();
+        let follower_recovered = RaftConsensus::new(2, follower_transport, follower_config)
+            .await
+            .unwrap();
         follower_recovered.start().await.unwrap();
 
         // Follower should be able to catch up via AppendEntries
@@ -72,7 +79,9 @@ mod chaos_tests {
     async fn test_network_partition_follower_falls_behind() {
         let leader_config = get_test_config(1);
         let leader_transport = Arc::new(NetworkTransport::new(&leader_config).await.unwrap());
-        let leader = RaftConsensus::new(1, leader_transport, leader_config).await.unwrap();
+        let leader = RaftConsensus::new(1, leader_transport, leader_config)
+            .await
+            .unwrap();
 
         leader.start().await.unwrap();
         leader.promote_to_leader().await.unwrap();
@@ -113,12 +122,15 @@ mod chaos_tests {
             conflict_term: None,
         };
 
-        leader.handle_append_entries_response(2, response).await.unwrap();
+        leader
+            .handle_append_entries_response(2, response)
+            .await
+            .unwrap();
 
         // next_index should be adjusted
         let state = leader.state.read().await;
         let next_idx = state.next_index.get(&2).copied().unwrap_or(0);
-        assert!(next_idx >= 1 && next_idx <= 3);
+        assert!((1..=3).contains(&next_idx));
 
         leader.stop().await.unwrap();
     }
@@ -186,7 +198,10 @@ mod chaos_tests {
         leader2.promote_to_leader().await.unwrap();
 
         // Second leader proposes entries
-        let index2 = leader2.propose(b"entry_from_new_leader".to_vec()).await.unwrap();
+        let index2 = leader2
+            .propose(b"entry_from_new_leader".to_vec())
+            .await
+            .unwrap();
 
         let token2 = {
             let state = leader2.state.read().await;
@@ -197,7 +212,7 @@ mod chaos_tests {
         assert!(token2.is_newer_than(&token1));
 
         // Old leader should reject operations with stale token
-        let validate_result = leader1.validate_fencing_token(&token1).await;
+        let _validate_result = leader1.validate_fencing_token(&token1).await;
         // Would fail in real split-brain scenario after learning about higher term
 
         leader1.stop().await.unwrap();
@@ -243,8 +258,14 @@ mod chaos_tests {
             conflict_term: None,
         };
 
-        leader.handle_append_entries_response(2, response.clone()).await.unwrap();
-        leader.handle_append_entries_response(3, response).await.unwrap();
+        leader
+            .handle_append_entries_response(2, response.clone())
+            .await
+            .unwrap();
+        leader
+            .handle_append_entries_response(3, response)
+            .await
+            .unwrap();
 
         // Commit index should advance
         let commit_idx = leader.commit_index().await;
@@ -324,12 +345,10 @@ mod chaos_tests {
         assert!(response1.success);
 
         // Receive entries from term 2 (new leader)
-        let entries_t2 = vec![
-            LogEntryCompact {
-                term: 2,
-                data: bincode::serialize(&LogEntryData::Command(b"term2_entry1".to_vec())).unwrap(),
-            },
-        ];
+        let entries_t2 = vec![LogEntryCompact {
+            term: 2,
+            data: bincode::serialize(&LogEntryData::Command(b"term2_entry1".to_vec())).unwrap(),
+        }];
 
         let request2 = AppendEntriesRequest {
             term: 2,
@@ -367,43 +386,41 @@ mod chaos_tests {
         node1.start().await.unwrap();
         node2.start().await.unwrap();
 
-        // Node 1 becomes leader in term 1
-        {
-            let mut state = node1.state.write().await;
-            state.current_term = 1;
-            state.state = RaftState::Leader;
-        }
+        // Node 1 becomes leader (promote_to_leader will set term to 1)
         node1.promote_to_leader().await.unwrap();
 
         // Propose entry
         node1.propose(b"entry_term1".to_vec()).await.unwrap();
 
-        // Node 2 becomes leader in term 2
+        // Node 2 becomes leader in term 3 (higher than node1's term 1)
+        // First set term to 2 so promote_to_leader increments to 3
         {
             let mut state = node2.state.write().await;
             state.current_term = 2;
-            state.state = RaftState::Leader;
         }
         node2.promote_to_leader().await.unwrap();
 
         // Propose entry
         node2.propose(b"entry_term2".to_vec()).await.unwrap();
 
-        // Node 1 receives higher term and should step down
+        // Node 1 receives higher term (3) and should step down
         let response = AppendEntriesResponse {
-            term: 2,
+            term: 3,
             success: false,
             match_index: None,
             conflict_index: None,
             conflict_term: None,
         };
 
-        node1.handle_append_entries_response(2, response).await.unwrap();
+        node1
+            .handle_append_entries_response(2, response)
+            .await
+            .unwrap();
 
         // Node 1 should be follower now
         let state1 = node1.state.read().await;
         assert_eq!(state1.state, RaftState::Follower);
-        assert_eq!(state1.current_term, 2);
+        assert_eq!(state1.current_term, 3);
 
         node1.stop().await.unwrap();
         node2.stop().await.unwrap();
@@ -443,7 +460,7 @@ mod chaos_tests {
         tokio::time::advance(Duration::from_millis(200)).await;
         tokio::time::sleep(Duration::from_millis(1)).await;
 
-        let state = follower.state.read().await;
+        let _state = follower.state.read().await;
         // Might transition to candidate if no more heartbeats
         // This tests election timeout behavior during replication
 

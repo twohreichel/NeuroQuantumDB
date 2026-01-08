@@ -1735,12 +1735,13 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
     };
 
     let solver = QuantumGroverSolver::with_config(config);
-    let result = solver.search_with_oracle(&oracle).map_err(|e| {
-        ApiError::QuantumOperationFailed {
-            operation: "Grover's search".to_string(),
-            reason: e.to_string(),
-        }
-    })?;
+    let result =
+        solver
+            .search_with_oracle(&oracle)
+            .map_err(|e| ApiError::QuantumOperationFailed {
+                operation: "Grover's search".to_string(),
+                reason: e.to_string(),
+            })?;
 
     let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 

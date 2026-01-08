@@ -1141,7 +1141,7 @@ impl QueryExecutor {
 
                 // Wrap in Arc for efficient sharing
                 let storage_rows_arc = Arc::new(storage_rows);
-                
+
                 // Cache the CTE result for potential reuse (cheap Arc clone)
                 cte_context.cache_result(table_name.clone(), Arc::clone(&storage_rows_arc));
 
@@ -1370,7 +1370,7 @@ impl QueryExecutor {
         let left_count = left_rows.len();
         let right_count = right_rows.len();
         let product = left_count.saturating_mul(right_count);
-        
+
         // Use hash join for large tables when we have an equi-join condition
         // and the join type supports it (Inner, Left, Right, Full)
         let should_use_hash_join = product > self.config.hash_join_threshold
@@ -1407,10 +1407,18 @@ impl QueryExecutor {
     /// Hash join is most efficient for equi-joins
     fn is_equi_join_condition(condition: Option<&Expression>) -> bool {
         match condition {
-            Some(Expression::BinaryOp { operator: BinaryOperator::Equal, .. }) => true,
-            Some(Expression::BinaryOp { operator: BinaryOperator::And, left, right }) => {
+            Some(Expression::BinaryOp {
+                operator: BinaryOperator::Equal,
+                ..
+            }) => true,
+            Some(Expression::BinaryOp {
+                operator: BinaryOperator::And,
+                left,
+                right,
+            }) => {
                 // Check if all AND conditions are equi-joins
-                Self::is_equi_join_condition(Some(left)) && Self::is_equi_join_condition(Some(right))
+                Self::is_equi_join_condition(Some(left))
+                    && Self::is_equi_join_condition(Some(right))
             }
             _ => false,
         }
@@ -1576,10 +1584,10 @@ impl QueryExecutor {
     }
 
     /// Perform a hash JOIN (optimized O(n+m) algorithm for large tables)
-    /// 
+    ///
     /// This implementation uses a hash table to build an index on the smaller table
     /// (build phase) and then probes it with the larger table (probe phase).
-    /// 
+    ///
     /// Complexity: O(n + m) where n and m are the table sizes
     /// Memory: O(min(n, m)) for the hash table
     fn perform_hash_join(
@@ -1593,9 +1601,9 @@ impl QueryExecutor {
     ) -> QSQLResult<Vec<Row>> {
         // Extract join keys from the condition
         let join_keys = Self::extract_join_keys(condition, left_alias, right_alias)?;
-        
+
         // Determine which table to use for build phase (smaller one)
-        let (build_rows, build_alias, probe_rows, probe_alias, build_is_left) = 
+        let (build_rows, build_alias, probe_rows, probe_alias, build_is_left) =
             if left_rows.len() <= right_rows.len() {
                 (&left_rows, left_alias, &right_rows, right_alias, true)
             } else {
@@ -1605,7 +1613,7 @@ impl QueryExecutor {
         // Build phase: Create hash table from smaller table
         // Using String concatenation with delimiter for hash keys (more efficient than Vec<String>)
         let mut hash_table: HashMap<String, Vec<usize>> = HashMap::new();
-        
+
         for (idx, row) in build_rows.iter().enumerate() {
             let key = Self::extract_row_key_string(row, build_alias, &join_keys, build_is_left)?;
             hash_table.entry(key).or_default().push(idx);
@@ -1616,20 +1624,21 @@ impl QueryExecutor {
 
         // Probe phase: For each row in probe table, look up matches in hash table
         for probe_row in probe_rows {
-            let key = Self::extract_row_key_string(probe_row, probe_alias, &join_keys, !build_is_left)?;
-            
+            let key =
+                Self::extract_row_key_string(probe_row, probe_alias, &join_keys, !build_is_left)?;
+
             if let Some(build_indices) = hash_table.get(&key) {
                 // Found matching rows in build table
                 for &build_idx in build_indices {
                     let build_row = &build_rows[build_idx];
-                    
+
                     // Verify the full join condition (in case of complex AND conditions)
                     let (left_row, right_row) = if build_is_left {
                         (build_row, probe_row)
                     } else {
                         (probe_row, build_row)
                     };
-                    
+
                     if Self::evaluate_join_condition(
                         left_row,
                         left_alias,
@@ -1707,17 +1716,17 @@ impl QueryExecutor {
         right_alias: &str,
     ) -> QSQLResult<Vec<(String, String)>> {
         let mut keys = Vec::new();
-        
+
         if let Some(expr) = condition {
             Self::collect_join_keys(expr, left_alias, right_alias, &mut keys)?;
         }
-        
+
         if keys.is_empty() {
             return Err(QSQLError::ExecutionError {
                 message: "Hash join requires at least one equi-join condition".to_string(),
             });
         }
-        
+
         Ok(keys)
     }
 
@@ -1739,21 +1748,34 @@ impl QueryExecutor {
                     (left.as_ref(), right.as_ref())
                 {
                     // Determine which column belongs to which table
-                    let (left_key, right_key) = if left_col.starts_with(&format!("{}.", left_alias)) {
+                    let (left_key, right_key) = if left_col.starts_with(&format!("{}.", left_alias))
+                    {
                         (
-                            left_col.strip_prefix(&format!("{}.", left_alias)).unwrap().to_string(),
-                            right_col.strip_prefix(&format!("{}.", right_alias)).unwrap_or(right_col).to_string(),
+                            left_col
+                                .strip_prefix(&format!("{}.", left_alias))
+                                .unwrap()
+                                .to_string(),
+                            right_col
+                                .strip_prefix(&format!("{}.", right_alias))
+                                .unwrap_or(right_col)
+                                .to_string(),
                         )
                     } else if left_col.starts_with(&format!("{}.", right_alias)) {
                         (
-                            right_col.strip_prefix(&format!("{}.", left_alias)).unwrap_or(right_col).to_string(),
-                            left_col.strip_prefix(&format!("{}.", right_alias)).unwrap().to_string(),
+                            right_col
+                                .strip_prefix(&format!("{}.", left_alias))
+                                .unwrap_or(right_col)
+                                .to_string(),
+                            left_col
+                                .strip_prefix(&format!("{}.", right_alias))
+                                .unwrap()
+                                .to_string(),
                         )
                     } else {
                         // Unqualified names - assume left column is from left table
                         (left_col.clone(), right_col.clone())
                     };
-                    
+
                     keys.push((left_key, right_key));
                 }
             }
@@ -1780,21 +1802,26 @@ impl QueryExecutor {
         is_left: bool,
     ) -> QSQLResult<String> {
         let mut key_parts = Vec::with_capacity(join_keys.len());
-        
+
         for (left_key, right_key) in join_keys {
             let col_name = if is_left { left_key } else { right_key };
-            
+
             // Try to find the column value (with or without alias prefix)
-            let value = row.fields.get(col_name)
+            let value = row
+                .fields
+                .get(col_name)
                 .or_else(|| row.fields.get(&format!("{}.{}", alias, col_name)))
                 .ok_or_else(|| QSQLError::ExecutionError {
-                    message: format!("Join key column '{}' not found in table '{}'", col_name, alias),
+                    message: format!(
+                        "Join key column '{}' not found in table '{}'",
+                        col_name, alias
+                    ),
                 })?;
-            
+
             // Convert value to string for hashing
             key_parts.push(Self::value_to_key_string(value));
         }
-        
+
         // Join with null byte delimiter to avoid collisions
         Ok(key_parts.join("\0"))
     }
@@ -3297,9 +3324,11 @@ impl QueryExecutor {
         savepoint: &SavepointStatement,
     ) -> QSQLResult<QueryResult> {
         // Check if transaction is active
-        let tx_id = self.current_transaction.ok_or_else(|| QSQLError::ExecutionError {
-            message: "No active transaction. BEGIN a transaction first.".to_string(),
-        })?;
+        let tx_id = self
+            .current_transaction
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "No active transaction. BEGIN a transaction first.".to_string(),
+            })?;
 
         // Get current LSN - try storage engine first, then transaction manager
         let current_lsn = if let Some(storage_engine) = &self.storage_engine {
@@ -3352,16 +3381,19 @@ impl QueryExecutor {
         rollback_to: &RollbackToSavepointStatement,
     ) -> QSQLResult<QueryResult> {
         // Check if transaction is active
-        let tx_id = self.current_transaction.ok_or_else(|| QSQLError::ExecutionError {
-            message: "No active transaction".to_string(),
-        })?;
+        let tx_id = self
+            .current_transaction
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "No active transaction".to_string(),
+            })?;
 
         // Check if savepoint exists
-        let savepoint_info = self.savepoints.get(&rollback_to.name).ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: format!("Savepoint '{}' does not exist", rollback_to.name),
-            }
-        })?;
+        let savepoint_info =
+            self.savepoints
+                .get(&rollback_to.name)
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: format!("Savepoint '{}' does not exist", rollback_to.name),
+                })?;
 
         // Verify savepoint belongs to current transaction
         if savepoint_info.transaction_id != tx_id {
@@ -3398,7 +3430,7 @@ impl QueryExecutor {
                 .map_err(|e| QSQLError::ExecutionError {
                     message: format!("Failed to rollback to savepoint: {}", e),
                 })?;
-            
+
             count as u64
         } else {
             return Err(QSQLError::ExecutionError {
@@ -3426,9 +3458,11 @@ impl QueryExecutor {
         release: &ReleaseSavepointStatement,
     ) -> QSQLResult<QueryResult> {
         // Check if transaction is active
-        let _tx_id = self.current_transaction.ok_or_else(|| QSQLError::ExecutionError {
-            message: "No active transaction".to_string(),
-        })?;
+        let _tx_id = self
+            .current_transaction
+            .ok_or_else(|| QSQLError::ExecutionError {
+                message: "No active transaction".to_string(),
+            })?;
 
         // Check if savepoint exists and remove it
         if self.savepoints.remove(&release.name).is_none() {

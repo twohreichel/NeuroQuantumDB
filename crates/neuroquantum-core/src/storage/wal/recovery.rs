@@ -203,14 +203,21 @@ impl RecoveryManager {
                     active_txns.insert(*tx_id, record.lsn);
                     debug!("Found SAVEPOINT '{}' for TX={}", name, tx_id);
                 }
-                WALRecordType::RollbackToSavepoint { tx_id, name, target_lsn } => {
+                WALRecordType::RollbackToSavepoint {
+                    tx_id,
+                    name,
+                    target_lsn,
+                } => {
                     // Update undo chain to reflect rollback
                     if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
                         tx_state.undo_next_lsn = Some(*target_lsn);
                         tx_state.record_operation(record.lsn, None);
                     }
                     active_txns.insert(*tx_id, record.lsn);
-                    debug!("Found ROLLBACK TO SAVEPOINT '{}' for TX={}, target_lsn={}", name, tx_id, target_lsn);
+                    debug!(
+                        "Found ROLLBACK TO SAVEPOINT '{}' for TX={}, target_lsn={}",
+                        name, tx_id, target_lsn
+                    );
                 }
                 WALRecordType::ReleaseSavepoint { tx_id, name } => {
                     // Remove savepoint from transaction state

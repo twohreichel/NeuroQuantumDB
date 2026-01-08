@@ -150,9 +150,7 @@ impl QuantumOracle {
     /// Create oracle for byte pattern search
     pub fn for_pattern_search(data: &[u8], pattern: &[u8]) -> Self {
         let marked_states: Vec<usize> = (0..=data.len().saturating_sub(pattern.len()))
-            .filter(|&i| {
-                i + pattern.len() <= data.len() && &data[i..i + pattern.len()] == pattern
-            })
+            .filter(|&i| i + pattern.len() <= data.len() && &data[i..i + pattern.len()] == pattern)
             .collect();
 
         let num_qubits = (data.len() as f64).log2().ceil() as usize;
@@ -364,8 +362,7 @@ impl QuantumGroverSolver {
         );
 
         // Calculate optimal iterations
-        let optimal_iterations =
-            Self::calculate_optimal_iterations(search_space_size, num_marked);
+        let optimal_iterations = Self::calculate_optimal_iterations(search_space_size, num_marked);
         let iterations = optimal_iterations.min(self.config.max_iterations);
 
         // Build the quantum circuit
@@ -551,10 +548,7 @@ impl QuantumGroverSolver {
         let measurement_stats = self.perform_measurements(&state, oracle)?;
 
         // Convert state vector to nalgebra Complex
-        let state_vector: Vec<Complex> = state
-            .iter()
-            .map(|c| Complex::new(c.re, c.im))
-            .collect();
+        let _state_vector: Vec<Complex> = state.iter().map(|c| Complex::new(c.re, c.im)).collect();
 
         Ok(QuantumGroverResult {
             found_indices: found.iter().map(|(i, _)| *i).collect(),
@@ -579,7 +573,8 @@ impl QuantumGroverSolver {
         debug!("Using classical fallback for Grover search");
 
         // Simply return the marked states (classical search)
-        let probabilities = vec![1.0 / oracle.marked_states.len() as f64; oracle.marked_states.len()];
+        let probabilities =
+            vec![1.0 / oracle.marked_states.len() as f64; oracle.marked_states.len()];
 
         Ok(QuantumGroverResult {
             found_indices: oracle.marked_states.clone(),
@@ -675,9 +670,9 @@ impl QuantumGroverSolver {
         let mask = 1 << qubit;
         let n = 1 << num_qubits;
 
-        for i in 0..n {
+        for (i, s) in state.iter_mut().enumerate().take(n) {
             if i & mask != 0 {
-                state[i] = -state[i];
+                *s = -*s;
             }
         }
     }
@@ -690,17 +685,23 @@ impl QuantumGroverSolver {
         let phase0 = Complex64::new((-half_angle).cos(), (-half_angle).sin());
         let phase1 = Complex64::new(half_angle.cos(), half_angle.sin());
 
-        for i in 0..n {
+        for (i, s) in state.iter_mut().enumerate().take(n) {
             if i & mask == 0 {
-                state[i] *= phase0;
+                *s *= phase0;
             } else {
-                state[i] *= phase1;
+                *s *= phase1;
             }
         }
     }
 
     /// Apply CNOT gate
-    fn apply_cnot(&self, state: &mut [Complex64], control: usize, target: usize, num_qubits: usize) {
+    fn apply_cnot(
+        &self,
+        state: &mut [Complex64],
+        control: usize,
+        target: usize,
+        num_qubits: usize,
+    ) {
         let control_mask = 1 << control;
         let target_mask = 1 << target;
         let n = 1 << num_qubits;
@@ -719,15 +720,21 @@ impl QuantumGroverSolver {
         let target_mask = 1 << target;
         let n = 1 << num_qubits;
 
-        for i in 0..n {
+        for (i, s) in state.iter_mut().enumerate().take(n) {
             if (i & control_mask != 0) && (i & target_mask != 0) {
-                state[i] = -state[i];
+                *s = -*s;
             }
         }
     }
 
     /// Apply multi-controlled X gate
-    fn apply_mcx(&self, state: &mut [Complex64], controls: &[usize], target: usize, num_qubits: usize) {
+    fn apply_mcx(
+        &self,
+        state: &mut [Complex64],
+        controls: &[usize],
+        target: usize,
+        num_qubits: usize,
+    ) {
         let control_mask: usize = controls.iter().map(|&c| 1 << c).sum();
         let target_mask = 1 << target;
         let n = 1 << num_qubits;
@@ -742,14 +749,20 @@ impl QuantumGroverSolver {
     }
 
     /// Apply multi-controlled Z gate
-    fn apply_mcz(&self, state: &mut [Complex64], controls: &[usize], _target: usize, num_qubits: usize) {
+    fn apply_mcz(
+        &self,
+        state: &mut [Complex64],
+        controls: &[usize],
+        _target: usize,
+        num_qubits: usize,
+    ) {
         // MCZ flips phase when all control qubits are |1⟩
         let control_mask: usize = controls.iter().map(|&c| 1 << c).sum();
         let n = 1 << num_qubits;
 
-        for i in 0..n {
+        for (i, s) in state.iter_mut().enumerate().take(n) {
             if (i & control_mask) == control_mask {
-                state[i] = -state[i];
+                *s = -*s;
             }
         }
     }
@@ -760,9 +773,9 @@ impl QuantumGroverSolver {
         let n = 1 << num_qubits;
         let phase = Complex64::new(angle.cos(), angle.sin());
 
-        for i in 0..n {
+        for (i, s) in state.iter_mut().enumerate().take(n) {
             if i & mask != 0 {
-                state[i] *= phase;
+                *s *= phase;
             }
         }
     }
@@ -810,7 +823,11 @@ impl QuantumGroverSolver {
             .values()
             .map(|&c| {
                 let p = c as f64 / self.config.num_shots as f64;
-                if p > 0.0 { -p * p.ln() } else { 0.0 }
+                if p > 0.0 {
+                    -p * p.ln()
+                } else {
+                    0.0
+                }
             })
             .sum();
 
@@ -865,14 +882,14 @@ mod tests {
     fn test_optimal_iterations_single_target() {
         // For N=16, M=1: iterations = π/4 * √16 = π ≈ 3
         let iterations = QuantumGroverSolver::calculate_optimal_iterations(16, 1);
-        assert!(iterations >= 2 && iterations <= 4);
+        assert!((2..=4).contains(&iterations));
     }
 
     #[test]
     fn test_optimal_iterations_multiple_targets() {
         // For N=64, M=4: iterations = π/4 * √(64/4) = π/4 * 4 = π ≈ 3
         let iterations = QuantumGroverSolver::calculate_optimal_iterations(64, 4);
-        assert!(iterations >= 2 && iterations <= 4);
+        assert!((2..=4).contains(&iterations));
     }
 
     #[test]
@@ -887,7 +904,7 @@ mod tests {
         let database = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let target = 5;
         let oracle = QuantumOracle::for_database_search(&database, &target);
-        
+
         assert!(oracle.marked_states.contains(&4)); // Index 4 contains value 5
         assert_eq!(oracle.num_qubits, 3); // log2(8) = 3
     }
@@ -897,7 +914,7 @@ mod tests {
         let data = b"Hello Quantum World!".to_vec();
         let pattern = b"Quantum".to_vec();
         let oracle = QuantumOracle::for_pattern_search(&data, &pattern);
-        
+
         assert!(!oracle.marked_states.is_empty());
         assert!(oracle.marked_states.contains(&6)); // "Quantum" starts at index 6
     }
@@ -906,9 +923,9 @@ mod tests {
     fn test_grover_search_small() {
         let solver = QuantumGroverSolver::new();
         let oracle = QuantumOracle::new(2, vec![2]); // Search for index 2 in 4-element space
-        
+
         let result = solver.search_with_oracle(&oracle).unwrap();
-        
+
         assert!(!result.found_indices.is_empty());
         assert!(result.found_indices.contains(&2));
         assert!(result.quantum_speedup >= 1.0);
@@ -918,9 +935,9 @@ mod tests {
     fn test_grover_search_multiple_targets() {
         let solver = QuantumGroverSolver::new();
         let oracle = QuantumOracle::new(3, vec![1, 5]); // Multiple targets
-        
+
         let result = solver.search_with_oracle(&oracle).unwrap();
-        
+
         // Should find at least one of the marked states
         let found_marked: Vec<_> = result
             .found_indices
@@ -937,12 +954,12 @@ mod tests {
             ..Default::default()
         };
         let solver = QuantumGroverSolver::with_config(config);
-        
+
         let data = vec![1u8, 2, 3, 4, 5, 6, 7, 8];
         let pattern = vec![5u8];
-        
+
         let result = solver.search_bytes(&data, &pattern).unwrap();
-        
+
         // Pattern 5 is at index 4
         assert!(result.found_indices.is_empty() || result.found_indices.contains(&4));
     }
@@ -951,10 +968,10 @@ mod tests {
     fn test_diffusion_operator_gates() {
         let solver = QuantumGroverSolver::new();
         let gates = solver.build_diffusion_operator(3);
-        
+
         // Should have: 3 H + 3 X + 1 MCZ + 3 X + 3 H = 13 gates
         assert!(gates.len() >= 10);
-        
+
         // Check first and last gates are Hadamards
         assert!(matches!(gates.first(), Some(GroverGate::H { .. })));
         assert!(matches!(gates.last(), Some(GroverGate::H { .. })));
@@ -964,9 +981,9 @@ mod tests {
     fn test_circuit_construction() {
         let solver = QuantumGroverSolver::new();
         let oracle = QuantumOracle::new(2, vec![1]);
-        
+
         let circuit = solver.build_grover_circuit(&oracle, 2).unwrap();
-        
+
         assert_eq!(circuit.num_qubits, 2);
         assert_eq!(circuit.iterations, 2);
         assert!(!circuit.gates.is_empty());
@@ -976,9 +993,9 @@ mod tests {
     fn test_empty_oracle() {
         let solver = QuantumGroverSolver::new();
         let oracle = QuantumOracle::new(3, vec![]); // No marked states
-        
+
         let result = solver.search_with_oracle(&oracle).unwrap();
-        
+
         assert!(result.found_indices.is_empty());
         assert_eq!(result.iterations, 0);
     }
@@ -987,9 +1004,9 @@ mod tests {
     fn test_quantum_speedup_calculation() {
         let solver = QuantumGroverSolver::new();
         let oracle = QuantumOracle::new(4, vec![7]); // 16-element space
-        
+
         let result = solver.search_with_oracle(&oracle).unwrap();
-        
+
         // Quantum speedup should be positive
         assert!(result.quantum_speedup > 0.0);
     }
@@ -998,9 +1015,9 @@ mod tests {
     fn test_measurement_statistics() {
         let solver = QuantumGroverSolver::new();
         let oracle = QuantumOracle::new(2, vec![3]); // 4-element space
-        
+
         let result = solver.search_with_oracle(&oracle).unwrap();
-        
+
         if let Some(stats) = &result.measurement_stats {
             assert_eq!(stats.num_shots, 1024);
             assert!(stats.unique_states > 0);

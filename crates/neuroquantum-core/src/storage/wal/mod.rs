@@ -81,10 +81,7 @@ pub enum WALRecordType {
         target_lsn: LSN,
     },
     /// Release savepoint
-    ReleaseSavepoint {
-        tx_id: TransactionId,
-        name: String,
-    },
+    ReleaseSavepoint { tx_id: TransactionId, name: String },
 }
 
 /// WAL record - fundamental unit of the log
@@ -602,11 +599,7 @@ impl WALManager {
     }
 
     /// Create a savepoint within a transaction
-    pub async fn create_savepoint(
-        &self,
-        tx_id: TransactionId,
-        name: String,
-    ) -> Result<LSN> {
+    pub async fn create_savepoint(&self, tx_id: TransactionId, name: String) -> Result<LSN> {
         let lsn = self.allocate_lsn();
 
         // Get previous LSN for this transaction
@@ -641,26 +634,26 @@ impl WALManager {
             tx_state.record_operation(lsn, None);
         }
 
-        debug!("💾 Savepoint created: {} for TX={} (LSN: {})", name, tx_id, lsn);
+        debug!(
+            "💾 Savepoint created: {} for TX={} (LSN: {})",
+            name, tx_id, lsn
+        );
         Ok(lsn)
     }
 
     /// Rollback transaction to a savepoint
-    pub async fn rollback_to_savepoint(
-        &self,
-        tx_id: TransactionId,
-        name: String,
-    ) -> Result<LSN> {
+    pub async fn rollback_to_savepoint(&self, tx_id: TransactionId, name: String) -> Result<LSN> {
         // Get the savepoint LSN
         let target_lsn = {
             let active_txns = self.active_txns.read().await;
-            let tx_state = active_txns.get(&tx_id).ok_or_else(|| {
-                anyhow!("Transaction {} not found", tx_id)
-            })?;
+            let tx_state = active_txns
+                .get(&tx_id)
+                .ok_or_else(|| anyhow!("Transaction {} not found", tx_id))?;
 
-            *tx_state.savepoints.get(&name).ok_or_else(|| {
-                anyhow!("Savepoint '{}' not found", name)
-            })?
+            *tx_state
+                .savepoints
+                .get(&name)
+                .ok_or_else(|| anyhow!("Savepoint '{}' not found", name))?
         };
 
         let lsn = self.allocate_lsn();
@@ -699,23 +692,21 @@ impl WALManager {
             // Note: Savepoints are NOT removed after rollback (per SQL standard)
         }
 
-        info!("↩️  Rolled back to savepoint: {} for TX={} (target LSN: {}, current LSN: {})", 
-              name, tx_id, target_lsn, lsn);
+        info!(
+            "↩️  Rolled back to savepoint: {} for TX={} (target LSN: {}, current LSN: {})",
+            name, tx_id, target_lsn, lsn
+        );
         Ok(lsn)
     }
 
     /// Release a savepoint
-    pub async fn release_savepoint(
-        &self,
-        tx_id: TransactionId,
-        name: String,
-    ) -> Result<LSN> {
+    pub async fn release_savepoint(&self, tx_id: TransactionId, name: String) -> Result<LSN> {
         // Verify savepoint exists
         {
             let active_txns = self.active_txns.read().await;
-            let tx_state = active_txns.get(&tx_id).ok_or_else(|| {
-                anyhow!("Transaction {} not found", tx_id)
-            })?;
+            let tx_state = active_txns
+                .get(&tx_id)
+                .ok_or_else(|| anyhow!("Transaction {} not found", tx_id))?;
 
             if !tx_state.savepoints.contains_key(&name) {
                 return Err(anyhow!("Savepoint '{}' not found", name));
@@ -754,7 +745,10 @@ impl WALManager {
             tx_state.record_operation(lsn, None);
         }
 
-        debug!("🗑️  Savepoint released: {} for TX={} (LSN: {})", name, tx_id, lsn);
+        debug!(
+            "🗑️  Savepoint released: {} for TX={} (LSN: {})",
+            name, tx_id, lsn
+        );
         Ok(lsn)
     }
 
@@ -1327,7 +1321,10 @@ mod tests {
         let tx_id = wal.begin_transaction().await.unwrap();
 
         // Create a savepoint
-        let savepoint_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+        let savepoint_lsn = wal
+            .create_savepoint(tx_id, "sp1".to_string())
+            .await
+            .unwrap();
         assert!(savepoint_lsn > 0);
 
         // Verify savepoint is stored in transaction state
@@ -1343,9 +1340,18 @@ mod tests {
         let tx_id = wal.begin_transaction().await.unwrap();
 
         // Create multiple savepoints
-        let sp1_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
-        let sp2_lsn = wal.create_savepoint(tx_id, "sp2".to_string()).await.unwrap();
-        let sp3_lsn = wal.create_savepoint(tx_id, "sp3".to_string()).await.unwrap();
+        let sp1_lsn = wal
+            .create_savepoint(tx_id, "sp1".to_string())
+            .await
+            .unwrap();
+        let sp2_lsn = wal
+            .create_savepoint(tx_id, "sp2".to_string())
+            .await
+            .unwrap();
+        let sp3_lsn = wal
+            .create_savepoint(tx_id, "sp3".to_string())
+            .await
+            .unwrap();
 
         // Verify all savepoints are stored
         let tx_state = wal.get_transaction_state(tx_id).await.unwrap();
@@ -1361,7 +1367,10 @@ mod tests {
         let tx_id = wal.begin_transaction().await.unwrap();
 
         // Create savepoint
-        let sp_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+        let sp_lsn = wal
+            .create_savepoint(tx_id, "sp1".to_string())
+            .await
+            .unwrap();
 
         // Perform some operations after savepoint
         let page_id = PageId(1);
@@ -1403,7 +1412,9 @@ mod tests {
         let tx_id = wal.begin_transaction().await.unwrap();
 
         // Create savepoint
-        wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
+        wal.create_savepoint(tx_id, "sp1".to_string())
+            .await
+            .unwrap();
 
         // Release savepoint
         let release_lsn = wal
@@ -1424,9 +1435,18 @@ mod tests {
         let tx_id = wal.begin_transaction().await.unwrap();
 
         // Create nested savepoints
-        let sp1_lsn = wal.create_savepoint(tx_id, "sp1".to_string()).await.unwrap();
-        let sp2_lsn = wal.create_savepoint(tx_id, "sp2".to_string()).await.unwrap();
-        let sp3_lsn = wal.create_savepoint(tx_id, "sp3".to_string()).await.unwrap();
+        let sp1_lsn = wal
+            .create_savepoint(tx_id, "sp1".to_string())
+            .await
+            .unwrap();
+        let sp2_lsn = wal
+            .create_savepoint(tx_id, "sp2".to_string())
+            .await
+            .unwrap();
+        let sp3_lsn = wal
+            .create_savepoint(tx_id, "sp3".to_string())
+            .await
+            .unwrap();
 
         // Rollback to middle savepoint
         wal.rollback_to_savepoint(tx_id, "sp2".to_string())
@@ -1493,7 +1513,9 @@ mod tests {
         assert!(deserialized.verify_checksum());
 
         match deserialized.record_type {
-            WALRecordType::RollbackToSavepoint { name, target_lsn, .. } => {
+            WALRecordType::RollbackToSavepoint {
+                name, target_lsn, ..
+            } => {
                 assert_eq!(name, "sp1");
                 assert_eq!(target_lsn, 100);
             }

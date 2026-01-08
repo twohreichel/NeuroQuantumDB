@@ -49,7 +49,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 ///
 /// These utilities ensure that comparisons take constant time regardless of
 /// input, preventing such attacks.
-
+///
 /// Performs constant-time comparison of two byte slices.
 /// Returns true if they are equal, false otherwise.
 /// This function takes the same amount of time regardless of where the first
@@ -134,7 +134,19 @@ pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
     if value.is_nan() || threshold.is_nan() {
         return false;
     }
-    
+
+    // Handle infinity cases explicitly to avoid overflow issues
+    if value.is_infinite() {
+        // Positive infinity is always >= any finite threshold
+        // Negative infinity is always < any finite threshold
+        return value.is_sign_positive() && !threshold.is_infinite();
+    }
+    if threshold.is_infinite() {
+        // Value can never be >= positive infinity
+        // Value is always >= negative infinity
+        return threshold.is_sign_negative();
+    }
+
     // Convert to fixed-point integers for constant-time comparison
     // Use 10000 scale factor for 4 decimal places precision
     // Clamp to valid i32 range to avoid undefined behavior from overflow
@@ -142,15 +154,15 @@ pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
     let threshold_scaled = (threshold * 10000.0).clamp(i32::MIN as f32, i32::MAX as f32);
     let value_fixed = value_scaled as i32;
     let threshold_fixed = threshold_scaled as i32;
-    
+
     // Compute difference: value - threshold
     let diff = value_fixed.wrapping_sub(threshold_fixed);
-    
+
     // Extract sign bit in an endian-agnostic way
     // In two's complement, negative numbers have the sign bit (bit 31) set to 1
     // Shift right by 31 to get the sign bit in the LSB position
     let sign_bit = ((diff >> 31) & 1) as u8;
-    
+
     // Return true if sign bit is 0 (non-negative), false if 1 (negative)
     // Use constant-time equality check to convert to bool
     sign_bit.ct_eq(&0u8).into()

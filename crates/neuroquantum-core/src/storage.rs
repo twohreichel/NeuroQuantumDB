@@ -2559,7 +2559,10 @@ impl StorageEngine {
     ) -> Result<u64> {
         use crate::transaction::LogRecordType;
 
-        debug!("↩️  Rolling back transaction {:?} to savepoint LSN {}", tx_id, savepoint_lsn);
+        debug!(
+            "↩️  Rolling back transaction {:?} to savepoint LSN {}",
+            tx_id, savepoint_lsn
+        );
 
         // Get the undo log for this transaction
         let undo_log = self.transaction_manager.get_undo_log(tx_id).await;
@@ -2587,7 +2590,10 @@ impl StorageEngine {
                         self.row_cache.pop(&row_id);
                     } else {
                         // This was an UPDATE or DELETE - restore the before image
-                        debug!("ROLLBACK TO SAVEPOINT: Restoring before image for row {}", key);
+                        debug!(
+                            "ROLLBACK TO SAVEPOINT: Restoring before image for row {}",
+                            key
+                        );
                         if let Some(before) = before_image {
                             if let Ok(row) = serde_json::from_slice::<Row>(before) {
                                 let compressed = self.compress_row(&row).await?;

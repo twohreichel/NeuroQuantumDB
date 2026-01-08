@@ -9,7 +9,9 @@ use tracing::{debug, info, warn};
 
 use crate::config::ClusterConfig;
 use crate::error::{ClusterError, ClusterResult};
-use crate::network::{NetworkTransport, ClusterMessage, AppendEntriesRequest, AppendEntriesResponse, LogEntryCompact};
+use crate::network::{
+    AppendEntriesRequest, AppendEntriesResponse, ClusterMessage, LogEntryCompact, NetworkTransport,
+};
 use crate::node::NodeId;
 
 /// Fencing token to prevent split brain scenarios.
@@ -383,22 +385,22 @@ impl RaftConsensus {
             // Single node cluster always has quorum
             return true;
         }
-        
+
         // Need majority: more than half of cluster
         let needed = (state.cluster_size / 2) + 1;
         // +1 for self
         let available = state.reachable_peers + 1;
-        
+
         available >= needed
     }
 
     /// Update quorum status based on reachable peers.
     pub async fn update_quorum_status(&self, reachable_peers: usize, cluster_size: usize) {
         let mut state = self.state.write().await;
-        
+
         state.reachable_peers = reachable_peers;
         state.cluster_size = cluster_size;
-        
+
         let has_quorum = if cluster_size == 1 {
             true
         } else {
@@ -406,14 +408,14 @@ impl RaftConsensus {
             let available = reachable_peers + 1; // +1 for self
             available >= needed
         };
-        
+
         let old_status = state.quorum_status;
         state.quorum_status = if has_quorum {
             QuorumStatus::HasQuorum
         } else {
             QuorumStatus::NoQuorum
         };
-        
+
         if old_status != state.quorum_status {
             info!(
                 node_id = self.node_id,
@@ -423,7 +425,7 @@ impl RaftConsensus {
                 cluster_size,
                 "Quorum status changed"
             );
-            
+
             // If leader lost quorum, step down
             if state.state == RaftState::Leader && state.quorum_status == QuorumStatus::NoQuorum {
                 warn!(
@@ -458,41 +460,41 @@ impl RaftConsensus {
     /// Promote to leader with lease.
     pub async fn promote_to_leader(&self) -> ClusterResult<()> {
         let mut state = self.state.write().await;
-        
+
         if !self.has_quorum(&state) {
             return Err(ClusterError::NoQuorum);
         }
-        
+
         // Increment term (as would happen in a real election)
         state.current_term += 1;
-        
+
         // Create leader lease
         let lease_duration = self.config.raft.heartbeat_interval * 3;
         let lease = LeaderLease::new(lease_duration);
-        
+
         state.state = RaftState::Leader;
         state.current_leader = Some(self.node_id);
         state.leader_lease = Some(lease);
         state.quorum_status = QuorumStatus::HasQuorum;
-        
+
         info!(
             node_id = self.node_id,
             term = state.current_term,
             lease_duration_ms = lease_duration.as_millis(),
             "Promoted to leader with lease"
         );
-        
+
         Ok(())
     }
 
     /// Renew leader lease after successful heartbeat.
     pub async fn renew_lease(&self) -> ClusterResult<()> {
         let mut state = self.state.write().await;
-        
+
         if state.state != RaftState::Leader {
             return Err(ClusterError::NotLeader(self.node_id, state.current_leader));
         }
-        
+
         if let Some(lease) = &mut state.leader_lease {
             lease.renew();
             debug!(
@@ -501,14 +503,14 @@ impl RaftConsensus {
                 "Renewed leader lease"
             );
         }
-        
+
         Ok(())
     }
 
     /// Validate fencing token.
     pub async fn validate_fencing_token(&self, token: &FencingToken) -> ClusterResult<()> {
         let state = self.state.read().await;
-        
+
         // Token must be from current or higher term
         if token.term < state.current_term {
             return Err(ClusterError::StaleToken {
@@ -516,7 +518,7 @@ impl RaftConsensus {
                 received_term: token.term,
             });
         }
-        
+
         Ok(())
     }
 
@@ -599,7 +601,7 @@ impl RaftConsensus {
                                 // Vote for self
                                 state_guard.votes_received.clear();
                                 state_guard.votes_received.insert(node_id);
-                                
+
                                 // Get list of peers from next_index keys (if we have any).
                                 // Note: This assumes peers are already registered via initialize_replication_state().
                                 // In production, this would typically come from cluster configuration or
@@ -660,7 +662,11 @@ impl RaftConsensus {
                 };
 
                 if is_leader && !peer_ids.is_empty() {
-                    debug!(node_id, peers = peer_ids.len(), "Sending heartbeat to followers");
+                    debug!(
+                        node_id,
+                        peers = peer_ids.len(),
+                        "Sending heartbeat to followers"
+                    );
 
                     // Send AppendEntries (heartbeat) to all followers in parallel
                     let mut tasks = Vec::new();
@@ -696,14 +702,14 @@ impl RaftConsensus {
     /// Initialize replication state for all peers when becoming leader.
     pub async fn initialize_replication_state(&self, peer_ids: Vec<NodeId>) {
         let mut state = self.state.write().await;
-        
+
         // Set next_index to last log index + 1 for all peers
         let next_idx = state.log.len() as u64 + 1;
         for peer_id in peer_ids {
             state.next_index.insert(peer_id, next_idx);
             state.match_index.insert(peer_id, 0);
         }
-        
+
         info!(
             node_id = self.node_id,
             peers = state.next_index.len(),
@@ -715,20 +721,20 @@ impl RaftConsensus {
     /// Replicate log entries to a specific follower.
     pub async fn replicate_to_follower(&self, follower_id: NodeId) -> ClusterResult<()> {
         let state = self.state.read().await;
-        
+
         if state.state != RaftState::Leader {
             return Err(ClusterError::NotLeader(self.node_id, state.current_leader));
         }
-        
+
         let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
-        let prev_log_index = if next_idx > 1 { next_idx - 1 } else { 0 };
-        
+        let prev_log_index = next_idx.saturating_sub(1);
+
         let prev_log_term = if prev_log_index > 0 && prev_log_index <= state.log.len() as u64 {
             state.log[prev_log_index as usize - 1].term
         } else {
             0
         };
-        
+
         // Collect entries to send
         let entries: Vec<LogEntryCompact> = if next_idx <= state.log.len() as u64 {
             state.log[next_idx as usize - 1..]
@@ -741,7 +747,7 @@ impl RaftConsensus {
         } else {
             Vec::new()
         };
-        
+
         let request = AppendEntriesRequest {
             term: state.current_term,
             leader_id: self.node_id,
@@ -750,7 +756,7 @@ impl RaftConsensus {
             entries: entries.clone(),
             leader_commit: state.commit_index,
         };
-        
+
         debug!(
             node_id = self.node_id,
             follower = follower_id,
@@ -760,14 +766,14 @@ impl RaftConsensus {
             leader_commit = state.commit_index,
             "Sending AppendEntries to follower"
         );
-        
+
         drop(state); // Release read lock before async call
-        
+
         // Send AppendEntries RPC via network
         self.transport
             .send(follower_id, &ClusterMessage::AppendEntries(request))
             .await?;
-        
+
         Ok(())
     }
 
@@ -778,7 +784,7 @@ impl RaftConsensus {
         response: AppendEntriesResponse,
     ) -> ClusterResult<()> {
         let mut state = self.state.write().await;
-        
+
         // If response term is higher, step down
         if response.term > state.current_term {
             warn!(
@@ -794,11 +800,11 @@ impl RaftConsensus {
             state.voted_for = None;
             return Ok(());
         }
-        
+
         if state.state != RaftState::Leader {
             return Ok(()); // Ignore if no longer leader
         }
-        
+
         if response.success {
             // Update next_index and match_index for follower
             let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
@@ -813,10 +819,10 @@ impl RaftConsensus {
                 };
                 next_idx + entries_sent - 1
             };
-            
+
             state.match_index.insert(follower_id, new_match_index);
             state.next_index.insert(follower_id, new_match_index + 1);
-            
+
             debug!(
                 node_id = self.node_id,
                 follower = follower_id,
@@ -824,23 +830,24 @@ impl RaftConsensus {
                 next_index = new_match_index + 1,
                 "Updated follower replication state"
             );
-            
+
             // Try to advance commit index
             self.try_advance_commit_index(&mut state).await;
         } else {
             // Replication failed, decrement next_index for this follower
             let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
-            
+
             // Use conflict hints if provided for faster catchup
-            let new_next_idx = if let (Some(conflict_index), Some(conflict_term)) = 
-                (response.conflict_index, response.conflict_term) {
+            let new_next_idx = if let (Some(conflict_index), Some(conflict_term)) =
+                (response.conflict_index, response.conflict_term)
+            {
                 // Find the last entry in leader's log with conflict_term
                 let mut idx = conflict_index;
                 while idx > 0 {
-                    if idx as usize <= state.log.len() {
-                        if state.log[idx as usize - 1].term == conflict_term {
-                            break;
-                        }
+                    if idx as usize <= state.log.len()
+                        && state.log[idx as usize - 1].term == conflict_term
+                    {
+                        break;
                     }
                     idx -= 1;
                 }
@@ -857,9 +864,9 @@ impl RaftConsensus {
                     1
                 }
             };
-            
+
             state.next_index.insert(follower_id, new_next_idx);
-            
+
             warn!(
                 node_id = self.node_id,
                 follower = follower_id,
@@ -868,7 +875,7 @@ impl RaftConsensus {
                 "AppendEntries rejected, decrementing next_index"
             );
         }
-        
+
         Ok(())
     }
 
@@ -877,7 +884,7 @@ impl RaftConsensus {
         if state.state != RaftState::Leader {
             return;
         }
-        
+
         // Find the highest index replicated to a majority
         let log_len = state.log.len() as u64;
         for n in (state.commit_index + 1..=log_len).rev() {
@@ -888,7 +895,7 @@ impl RaftConsensus {
                     count += 1;
                 }
             }
-            
+
             // Check if we have majority
             let needed = (state.cluster_size / 2) + 1;
             if count >= needed {
@@ -919,7 +926,7 @@ impl RaftConsensus {
         request: AppendEntriesRequest,
     ) -> ClusterResult<AppendEntriesResponse> {
         let mut state = self.state.write().await;
-        
+
         // Reply false if term < currentTerm
         if request.term < state.current_term {
             return Ok(AppendEntriesResponse {
@@ -930,7 +937,7 @@ impl RaftConsensus {
                 conflict_term: None,
             });
         }
-        
+
         // Update term if higher
         if request.term > state.current_term {
             state.current_term = request.term;
@@ -938,15 +945,15 @@ impl RaftConsensus {
             state.voted_for = None;
             state.leader_lease = None;
         }
-        
+
         // Update current leader
         state.current_leader = Some(request.leader_id);
-        
+
         // Reset election timer (heartbeat received)
         drop(state);
         self.notify_heartbeat().await;
         let mut state = self.state.write().await;
-        
+
         // Check log consistency
         if request.prev_log_index > 0 {
             // If we don't have an entry at prev_log_index, reply false
@@ -959,14 +966,14 @@ impl RaftConsensus {
                     conflict_term: None,
                 });
             }
-            
+
             // If entry at prev_log_index has different term, reply false
             let prev_entry = &state.log[request.prev_log_index as usize - 1];
             if prev_entry.term != request.prev_log_term {
                 // Find conflict term and first index of that term
                 let conflict_term = prev_entry.term;
                 let mut conflict_index = request.prev_log_index;
-                
+
                 // Find first index of conflict term
                 while conflict_index > 1 {
                     if state.log[conflict_index as usize - 2].term != conflict_term {
@@ -974,7 +981,7 @@ impl RaftConsensus {
                     }
                     conflict_index -= 1;
                 }
-                
+
                 return Ok(AppendEntriesResponse {
                     term: state.current_term,
                     success: false,
@@ -984,22 +991,22 @@ impl RaftConsensus {
                 });
             }
         }
-        
+
         // Append new entries
         if !request.entries.is_empty() {
             let mut next_index = request.prev_log_index + 1;
-            
+
             for entry_compact in &request.entries {
-                let entry_data: LogEntryData = bincode::deserialize(&entry_compact.data)
-                    .unwrap_or(LogEntryData::Noop);
-                
+                let entry_data: LogEntryData =
+                    bincode::deserialize(&entry_compact.data).unwrap_or(LogEntryData::Noop);
+
                 let entry = LogEntry {
                     term: entry_compact.term,
                     index: next_index,
                     data: entry_data,
                     fencing_token: None, // Follower doesn't generate tokens
                 };
-                
+
                 // If an existing entry conflicts (same index, different term), delete it and all following
                 if next_index as usize <= state.log.len() {
                     if state.log[next_index as usize - 1].term != entry.term {
@@ -1010,10 +1017,10 @@ impl RaftConsensus {
                 } else {
                     state.log.push(entry);
                 }
-                
+
                 next_index += 1;
             }
-            
+
             debug!(
                 node_id = self.node_id,
                 leader = request.leader_id,
@@ -1022,7 +1029,7 @@ impl RaftConsensus {
                 "Appended entries to log"
             );
         }
-        
+
         // Update commit index
         if request.leader_commit > state.commit_index {
             let last_new_index = if request.entries.is_empty() {
@@ -1030,10 +1037,10 @@ impl RaftConsensus {
             } else {
                 request.prev_log_index + request.entries.len() as u64
             };
-            
+
             let old_commit = state.commit_index;
             state.commit_index = std::cmp::min(request.leader_commit, last_new_index);
-            
+
             if state.commit_index > old_commit {
                 info!(
                     node_id = self.node_id,
@@ -1043,9 +1050,9 @@ impl RaftConsensus {
                 );
             }
         }
-        
+
         let last_log_index = state.log.len() as u64;
-        
+
         Ok(AppendEntriesResponse {
             term: state.current_term,
             success: true,
@@ -1058,28 +1065,28 @@ impl RaftConsensus {
     /// Apply committed entries to state machine.
     pub async fn apply_committed_entries(&self) -> ClusterResult<usize> {
         let mut state = self.state.write().await;
-        
+
         let mut applied_count = 0;
-        
+
         while state.last_applied < state.commit_index {
             state.last_applied += 1;
-            
+
             if state.last_applied as usize <= state.log.len() {
                 let entry = &state.log[state.last_applied as usize - 1];
-                
+
                 debug!(
                     node_id = self.node_id,
                     index = state.last_applied,
                     term = entry.term,
                     "Applying committed entry to state machine"
                 );
-                
+
                 // In a full implementation, we would apply the entry to the state machine here
                 // For now, we just track that it was applied
                 applied_count += 1;
             }
         }
-        
+
         if applied_count > 0 {
             info!(
                 node_id = self.node_id,
@@ -1088,7 +1095,7 @@ impl RaftConsensus {
                 "Applied committed entries to state machine"
             );
         }
-        
+
         Ok(applied_count)
     }
 
@@ -1150,12 +1157,15 @@ impl RaftConsensus {
             let transport = Arc::clone(&self.transport);
             let consensus = self.clone();
             let request = request.clone();
-            
+
             let task = tokio::spawn(async move {
                 match transport.send_request_vote_rpc(peer_id, request).await {
                     Ok(response) => {
                         // Handle the vote response
-                        if let Err(e) = consensus.handle_request_vote_response(peer_id, response).await {
+                        if let Err(e) = consensus
+                            .handle_request_vote_response(peer_id, response)
+                            .await
+                        {
                             warn!(
                                 node_id = consensus.node_id,
                                 peer = peer_id,
@@ -1237,11 +1247,10 @@ impl RaftConsensus {
             // If the logs have last entries with different terms, then the log with
             // the later term is more up-to-date.
             // If the logs end with the same term, then whichever log is longer is more up-to-date.
-            let candidate_log_up_to_date = request.last_log_term > our_last_log_term
-                || (request.last_log_term == our_last_log_term
-                    && request.last_log_index >= our_last_log_index);
 
-            candidate_log_up_to_date
+            request.last_log_term > our_last_log_term
+                || (request.last_log_term == our_last_log_term
+                    && request.last_log_index >= our_last_log_index)
         };
 
         if can_grant_vote {
@@ -1318,7 +1327,7 @@ impl RaftConsensus {
         // Record vote if granted
         if response.vote_granted {
             state.votes_received.insert(from_node);
-            
+
             info!(
                 node_id = self.node_id,
                 from = from_node,
@@ -1344,11 +1353,11 @@ impl RaftConsensus {
                 // Transition to leader
                 state.state = RaftState::Leader;
                 state.current_leader = Some(self.node_id);
-                
+
                 // Create leader lease
                 let lease_duration = self.config.raft.heartbeat_interval * 3;
                 state.leader_lease = Some(LeaderLease::new(lease_duration));
-                
+
                 // Clear votes
                 state.votes_received.clear();
 
@@ -1579,14 +1588,14 @@ mod tests {
     #[test]
     fn test_leader_lease_validity() {
         let mut lease = LeaderLease::new(Duration::from_millis(100));
-        
+
         // Lease should be valid immediately
         assert!(lease.is_valid());
-        
+
         // Wait for lease to expire
         std::thread::sleep(Duration::from_millis(150));
         assert!(!lease.is_valid());
-        
+
         // Renew lease
         lease.renew();
         assert!(lease.is_valid());
@@ -1597,13 +1606,13 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Single node cluster always has quorum
         consensus.update_quorum_status(0, 1).await;
         assert_eq!(consensus.quorum_status().await, QuorumStatus::HasQuorum);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1612,17 +1621,17 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // 3 node cluster: need 2 nodes (self + 1 peer)
         consensus.update_quorum_status(1, 3).await;
         assert_eq!(consensus.quorum_status().await, QuorumStatus::HasQuorum);
-        
+
         // Lost majority
         consensus.update_quorum_status(0, 3).await;
         assert_eq!(consensus.quorum_status().await, QuorumStatus::NoQuorum);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1631,21 +1640,21 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set up as leader but without quorum
         consensus.promote_to_leader().await.unwrap();
         consensus.update_quorum_status(0, 3).await;
-        
+
         // Leader should have stepped down due to lost quorum
         let result = consensus.propose(b"test".to_vec()).await;
         assert!(result.is_err());
         match result {
-            Err(ClusterError::NotLeader(_, _)) => {},
+            Err(ClusterError::NotLeader(_, _)) => {}
             _ => panic!("Expected NotLeader error after losing quorum"),
         }
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1654,26 +1663,26 @@ mod tests {
         let mut config = get_test_config();
         // Very short lease for testing
         config.raft.heartbeat_interval = Duration::from_millis(10);
-        
+
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Promote to leader (lease duration = 3 * heartbeat = 30ms)
         consensus.promote_to_leader().await.unwrap();
-        
+
         // Wait for lease to expire
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         // Propose should fail with expired lease
         let result = consensus.propose(b"test".to_vec()).await;
         assert!(result.is_err());
         match result {
-            Err(ClusterError::LeaseExpired) => {},
+            Err(ClusterError::LeaseExpired) => {}
             _ => panic!("Expected LeaseExpired error"),
         }
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1682,21 +1691,21 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Promote to leader
         consensus.promote_to_leader().await.unwrap();
-        
+
         // Propose should succeed
         let result = consensus.propose(b"test".to_vec()).await;
         assert!(result.is_ok());
-        
+
         // Verify fencing token was added
         let state = consensus.state.read().await;
         assert_eq!(state.log.len(), 1);
         assert!(state.log[0].fencing_token.is_some());
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1705,21 +1714,21 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Setup 5-node cluster with quorum
         consensus.update_quorum_status(2, 5).await; // self + 2 peers = 3 (majority)
         consensus.promote_to_leader().await.unwrap();
-        
+
         assert!(consensus.is_leader().await);
-        
+
         // Lose quorum
         consensus.update_quorum_status(1, 5).await; // self + 1 peer = 2 (minority)
-        
+
         // Should have stepped down
         assert!(!consensus.is_leader().await);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1728,35 +1737,41 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set current term to 5
         {
             let mut state = consensus.state.write().await;
             state.current_term = 5;
         }
-        
+
         // Validate token from current term
         let valid_token = FencingToken::new(5, 0);
         assert!(consensus.validate_fencing_token(&valid_token).await.is_ok());
-        
+
         // Validate token from future term
         let future_token = FencingToken::new(6, 0);
-        assert!(consensus.validate_fencing_token(&future_token).await.is_ok());
-        
+        assert!(consensus
+            .validate_fencing_token(&future_token)
+            .await
+            .is_ok());
+
         // Validate stale token from past term
         let stale_token = FencingToken::new(4, 0);
         let result = consensus.validate_fencing_token(&stale_token).await;
         assert!(result.is_err());
         match result {
-            Err(ClusterError::StaleToken { current_term, received_term }) => {
+            Err(ClusterError::StaleToken {
+                current_term,
+                received_term,
+            }) => {
                 assert_eq!(current_term, 5);
                 assert_eq!(received_term, 4);
-            },
+            }
             _ => panic!("Expected StaleToken error"),
         }
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1765,30 +1780,30 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
         consensus.promote_to_leader().await.unwrap();
-        
+
         // Get initial lease expiry
         let initial_expiry = {
             let state = consensus.state.read().await;
             state.leader_lease.as_ref().unwrap().expiry
         };
-        
+
         // Wait a bit
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         // Renew lease
         consensus.renew_lease().await.unwrap();
-        
+
         // Lease expiry should be extended
         let new_expiry = {
             let state = consensus.state.read().await;
             state.leader_lease.as_ref().unwrap().expiry
         };
-        
+
         assert!(new_expiry > initial_expiry);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1797,26 +1812,26 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
         consensus.promote_to_leader().await.unwrap();
-        
+
         // Propose multiple entries
         consensus.propose(b"entry1".to_vec()).await.unwrap();
         consensus.propose(b"entry2".to_vec()).await.unwrap();
         consensus.propose(b"entry3".to_vec()).await.unwrap();
-        
+
         // Verify tokens are monotonically increasing
         let state = consensus.state.read().await;
         assert_eq!(state.log.len(), 3);
-        
+
         let token1 = state.log[0].fencing_token.unwrap();
         let token2 = state.log[1].fencing_token.unwrap();
         let token3 = state.log[2].fencing_token.unwrap();
-        
+
         assert!(token2.is_newer_than(&token1));
         assert!(token3.is_newer_than(&token2));
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1826,15 +1841,15 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set our term to 1
         {
             let mut state = consensus.state.write().await;
             state.current_term = 1;
         }
-        
+
         // Receive vote request from candidate in same term
         let request = crate::network::RequestVoteRequest {
             term: 1,
@@ -1843,16 +1858,16 @@ mod tests {
             last_log_term: 0,
             is_pre_vote: false,
         };
-        
+
         let response = consensus.handle_request_vote(request).await.unwrap();
-        
+
         assert_eq!(response.term, 1);
         assert!(response.vote_granted);
-        
+
         // Verify we voted for candidate 2
         let state = consensus.state.read().await;
         assert_eq!(state.voted_for, Some(2));
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1861,15 +1876,15 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set our term to 5
         {
             let mut state = consensus.state.write().await;
             state.current_term = 5;
         }
-        
+
         // Receive vote request from candidate in lower term
         let request = crate::network::RequestVoteRequest {
             term: 3,
@@ -1878,12 +1893,12 @@ mod tests {
             last_log_term: 0,
             is_pre_vote: false,
         };
-        
+
         let response = consensus.handle_request_vote(request).await.unwrap();
-        
+
         assert_eq!(response.term, 5);
         assert!(!response.vote_granted);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1892,16 +1907,16 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set our term and vote for candidate 2
         {
             let mut state = consensus.state.write().await;
             state.current_term = 5;
             state.voted_for = Some(2);
         }
-        
+
         // Receive vote request from different candidate in same term
         let request = crate::network::RequestVoteRequest {
             term: 5,
@@ -1910,12 +1925,12 @@ mod tests {
             last_log_term: 0,
             is_pre_vote: false,
         };
-        
+
         let response = consensus.handle_request_vote(request).await.unwrap();
-        
+
         assert_eq!(response.term, 5);
         assert!(!response.vote_granted);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1924,9 +1939,9 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Add some log entries to our log
         {
             let mut state = consensus.state.write().await;
@@ -1944,7 +1959,7 @@ mod tests {
                 fencing_token: None,
             });
         }
-        
+
         // Receive vote request from candidate with older log
         let request = crate::network::RequestVoteRequest {
             term: 2,
@@ -1953,12 +1968,12 @@ mod tests {
             last_log_term: 0,
             is_pre_vote: false,
         };
-        
+
         let response = consensus.handle_request_vote(request).await.unwrap();
-        
+
         assert_eq!(response.term, 2);
         assert!(!response.vote_granted);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -1967,12 +1982,12 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
         consensus.promote_to_leader().await.unwrap();
-        
+
         assert!(consensus.is_leader().await);
-        
+
         // Receive vote request with higher term
         let request = crate::network::RequestVoteRequest {
             term: 10,
@@ -1981,19 +1996,19 @@ mod tests {
             last_log_term: 0,
             is_pre_vote: false,
         };
-        
+
         let response = consensus.handle_request_vote(request).await.unwrap();
-        
+
         // Should step down and grant vote
         assert_eq!(response.term, 10);
         assert!(response.vote_granted);
         assert!(!consensus.is_leader().await);
-        
+
         let state = consensus.state.read().await;
         assert_eq!(state.current_term, 10);
         assert_eq!(state.state, RaftState::Follower);
         assert_eq!(state.voted_for, Some(2));
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -2002,9 +2017,9 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set up as candidate in 3-node cluster
         {
             let mut state = consensus.state.write().await;
@@ -2014,21 +2029,24 @@ mod tests {
             state.voted_for = Some(1);
             state.votes_received.insert(1); // Vote for self
         }
-        
+
         // Receive vote from peer 2
         let response = crate::network::RequestVoteResponse {
             term: 5,
             vote_granted: true,
         };
-        
-        consensus.handle_request_vote_response(2, response).await.unwrap();
-        
+
+        consensus
+            .handle_request_vote_response(2, response)
+            .await
+            .unwrap();
+
         // Should now be leader (2 out of 3 votes)
         assert!(consensus.is_leader().await);
         let state = consensus.state.read().await;
         assert_eq!(state.state, RaftState::Leader);
         assert!(state.leader_lease.is_some());
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -2037,9 +2055,9 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set up as candidate in 5-node cluster
         {
             let mut state = consensus.state.write().await;
@@ -2050,21 +2068,24 @@ mod tests {
             state.votes_received.clear();
             state.votes_received.insert(1); // Vote for self
         }
-        
+
         // Receive vote from peer 2 (only 2 out of 5 votes - not majority, need 3)
         let response = crate::network::RequestVoteResponse {
             term: 5,
             vote_granted: true,
         };
-        
-        consensus.handle_request_vote_response(2, response).await.unwrap();
-        
+
+        consensus
+            .handle_request_vote_response(2, response)
+            .await
+            .unwrap();
+
         // Should still be candidate (need 3 votes, have 2)
         let state = consensus.state.read().await;
         assert_eq!(state.state, RaftState::Candidate);
         assert_eq!(state.votes_received.len(), 2); // self + peer 2
         drop(state);
-        
+
         consensus.stop().await.unwrap();
     }
 
@@ -2073,9 +2094,9 @@ mod tests {
         let config = get_test_config();
         let transport = Arc::new(NetworkTransport::new(&config).await.unwrap());
         let consensus = RaftConsensus::new(1, transport, config).await.unwrap();
-        
+
         consensus.start().await.unwrap();
-        
+
         // Set up as candidate
         {
             let mut state = consensus.state.write().await;
@@ -2083,21 +2104,24 @@ mod tests {
             state.current_term = 5;
             state.cluster_size = 3;
         }
-        
+
         // Receive response with higher term
         let response = crate::network::RequestVoteResponse {
             term: 10,
             vote_granted: false,
         };
-        
-        consensus.handle_request_vote_response(2, response).await.unwrap();
-        
+
+        consensus
+            .handle_request_vote_response(2, response)
+            .await
+            .unwrap();
+
         // Should step down to follower
         let state = consensus.state.read().await;
         assert_eq!(state.current_term, 10);
         assert_eq!(state.state, RaftState::Follower);
         assert_eq!(state.voted_for, None);
-        
+
         consensus.stop().await.unwrap();
     }
 }

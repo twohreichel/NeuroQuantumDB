@@ -3,9 +3,8 @@
 #[cfg(test)]
 mod replication_tests {
     use super::super::*;
-    use std::sync::Arc;
-    use std::time::Duration;
     use std::sync::atomic::{AtomicU16, Ordering};
+    use std::sync::Arc;
 
     // Port counter for tests
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(20000);
@@ -30,7 +29,9 @@ mod replication_tests {
 
         // Initialize replication state for peers
         let peer_ids = vec![2, 3, 4];
-        consensus.initialize_replication_state(peer_ids.clone()).await;
+        consensus
+            .initialize_replication_state(peer_ids.clone())
+            .await;
 
         // Verify state was initialized
         let state = consensus.state.read().await;
@@ -364,7 +365,10 @@ mod replication_tests {
             conflict_term: None,
         };
 
-        consensus.handle_append_entries_response(2, response).await.unwrap();
+        consensus
+            .handle_append_entries_response(2, response)
+            .await
+            .unwrap();
 
         // Commit index should advance to 2 (majority has 1-2)
         let commit_index = consensus.commit_index().await;
@@ -384,7 +388,8 @@ mod replication_tests {
 
         {
             let state = consensus.state.read().await;
-            assert_eq!(state.current_term, 0);
+            // promote_to_leader increments the term
+            assert_eq!(state.current_term, 1);
             assert_eq!(state.state, RaftState::Leader);
         }
 
@@ -397,7 +402,10 @@ mod replication_tests {
             conflict_term: None,
         };
 
-        consensus.handle_append_entries_response(2, response).await.unwrap();
+        consensus
+            .handle_append_entries_response(2, response)
+            .await
+            .unwrap();
 
         // Should step down
         let state = consensus.state.read().await;
@@ -433,7 +441,10 @@ mod replication_tests {
             conflict_term: Some(1),
         };
 
-        consensus.handle_append_entries_response(2, response).await.unwrap();
+        consensus
+            .handle_append_entries_response(2, response)
+            .await
+            .unwrap();
 
         // next_index should be decremented
         let state = consensus.state.read().await;

@@ -30,6 +30,8 @@ ignore = [
     # Allow unmaintained crates that are still functional
     # Note: actix-web-prometheus replaced with actix-web-prom, eliminating mach dependency
     "RUSTSEC-2024-0436", # paste crate - unmaintained but required by pqcrypto-mldsa (transitive dependency)
+    "RUSTSEC-2025-0141", # bincode - unmaintained but still functional (v1.3.3 is considered complete)
+    "RUSTSEC-2026-0002", # lru v0.12.5 - locked by aws-sdk-s3 transitive dependency, cannot update
 ]
 
 [licenses]
