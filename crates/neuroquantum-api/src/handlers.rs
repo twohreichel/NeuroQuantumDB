@@ -36,6 +36,8 @@ use validator::Validate;
         eeg_authenticate,
         eeg_update_signature,
         eeg_list_users,
+        get_index_recommendations,
+        clear_index_advisor_statistics,
     ),
     components(
         schemas(
@@ -98,6 +100,11 @@ use validator::Validate;
             EEGAuthRequest,
             EEGAuthResponse,
 
+            // Index Advisor DTOs
+            IndexAdvisorResponse,
+            IndexRecommendationDto,
+            IndexAdvisorStatsDto,
+
             // Common DTOs
             TableSchema,
             ColumnDefinition,
@@ -109,7 +116,7 @@ use validator::Validate;
     tags(
         (name = "Authentication", description = "Authentication and API key management"),
         (name = "CRUD Operations", description = "Create, Read, Update, Delete operations"),
-        (name = "Advanced Features", description = "Neural networks, quantum search, DNA compression"),
+        (name = "Advanced Features", description = "Neural networks, quantum search, DNA compression, index advisor"),
         (name = "Monitoring", description = "Metrics and performance monitoring"),
         (name = "Biometric Authentication", description = "EEG-based biometric authentication")
     )
@@ -2678,6 +2685,182 @@ pub async fn execute_sql_query(
     Ok(HttpResponse::Ok().json(ApiResponse::success(
         response,
         ResponseMetadata::new(start.elapsed(), "SQL query executed successfully"),
+    )))
+}
+
+// =============================================================================
+// INDEX ADVISOR HANDLERS
+// =============================================================================
+
+/// Response containing index recommendations
+#[derive(Debug, Serialize, ToSchema)]
+pub struct IndexAdvisorResponse {
+    /// List of index recommendations
+    pub recommendations: Vec<IndexRecommendationDto>,
+    /// Statistics about query tracking
+    pub statistics: IndexAdvisorStatsDto,
+}
+
+/// A single index recommendation
+#[derive(Debug, Serialize, ToSchema)]
+pub struct IndexRecommendationDto {
+    /// Unique recommendation ID
+    pub id: String,
+    /// Table name
+    pub table_name: String,
+    /// Columns to index
+    pub columns: Vec<String>,
+    /// Type of index (BTREE, HASH, COMPOSITE, COVERING)
+    pub index_type: String,
+    /// Priority level (CRITICAL, HIGH, MEDIUM, LOW)
+    pub priority: String,
+    /// Estimated performance improvement (0.0 to 1.0)
+    pub estimated_improvement: f64,
+    /// Number of queries that would benefit
+    pub affected_query_count: u64,
+    /// SQL statement to create the index
+    pub create_statement: String,
+    /// Reason for the recommendation
+    pub reason: String,
+    /// Estimated index size in bytes
+    pub estimated_size_bytes: u64,
+}
+
+/// Statistics from the Index Advisor
+#[derive(Debug, Serialize, ToSchema)]
+pub struct IndexAdvisorStatsDto {
+    /// Total number of queries analyzed
+    pub total_queries_analyzed: u64,
+    /// Number of queries that resulted in full table scans
+    pub full_scan_queries: u64,
+    /// Number of tables being tracked
+    pub tables_tracked: usize,
+    /// Total number of columns being tracked
+    pub columns_tracked: usize,
+}
+
+/// Get index recommendations based on analyzed query patterns
+///
+/// Returns a list of recommended indexes ordered by priority, along with
+/// statistics about tracked queries. Each recommendation includes:
+/// - The SQL CREATE INDEX statement
+/// - Estimated performance improvement
+/// - Priority level
+/// - Reason for the recommendation
+#[utoipa::path(
+    get,
+    path = "/api/v1/advisor/indexes",
+    responses(
+        (status = 200, description = "Index recommendations retrieved", body = ApiResponse<IndexAdvisorResponse>),
+        (status = 403, description = "Read permission required", body = ApiResponse<String>),
+    ),
+    tag = "Advanced Features"
+)]
+pub async fn get_index_recommendations(
+    req: HttpRequest,
+    app_state: web::Data<crate::AppState>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Check permissions
+    let extensions = req.extensions();
+    let api_key = extensions
+        .get::<ApiKey>()
+        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+    if !api_key.permissions.contains(&"read".to_string())
+        && !api_key.permissions.contains(&"admin".to_string())
+    {
+        return Err(ApiError::Forbidden("Read permission required".to_string()));
+    }
+
+    info!("📊 Retrieving index recommendations");
+
+    // Get recommendations from the QSQL engine's index advisor
+    let qsql_engine = app_state.qsql_engine.lock().await;
+    let recommendations = qsql_engine.get_index_recommendations();
+    let statistics = qsql_engine.get_index_advisor_statistics();
+
+    // Convert to DTOs
+    let recommendation_dtos: Vec<IndexRecommendationDto> = recommendations
+        .into_iter()
+        .map(|r| IndexRecommendationDto {
+            id: r.id,
+            table_name: r.table_name,
+            columns: r.columns,
+            index_type: format!("{}", r.index_type),
+            priority: format!("{}", r.priority),
+            estimated_improvement: r.estimated_improvement,
+            affected_query_count: r.affected_query_count,
+            create_statement: r.create_statement,
+            reason: r.reason,
+            estimated_size_bytes: r.estimated_size_bytes,
+        })
+        .collect();
+
+    let stats_dto = IndexAdvisorStatsDto {
+        total_queries_analyzed: statistics.total_queries_analyzed,
+        full_scan_queries: statistics.full_scan_queries,
+        tables_tracked: statistics.tables_tracked,
+        columns_tracked: statistics.columns_tracked,
+    };
+
+    let response = IndexAdvisorResponse {
+        recommendations: recommendation_dtos,
+        statistics: stats_dto,
+    };
+
+    info!(
+        "✅ Retrieved {} index recommendations",
+        response.recommendations.len()
+    );
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        response,
+        ResponseMetadata::new(start.elapsed(), "Index recommendations retrieved"),
+    )))
+}
+
+/// Clear index advisor statistics
+///
+/// Clears all tracked query patterns and statistics from the index advisor.
+/// Use this to reset tracking after implementing recommendations.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/advisor/indexes/statistics",
+    responses(
+        (status = 200, description = "Statistics cleared", body = ApiResponse<String>),
+        (status = 403, description = "Admin permission required", body = ApiResponse<String>),
+    ),
+    tag = "Advanced Features"
+)]
+pub async fn clear_index_advisor_statistics(
+    req: HttpRequest,
+    app_state: web::Data<crate::AppState>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Check permissions - require admin
+    let extensions = req.extensions();
+    let api_key = extensions
+        .get::<ApiKey>()
+        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+    if !api_key.permissions.contains(&"admin".to_string()) {
+        return Err(ApiError::Forbidden(
+            "Admin permission required to clear statistics".to_string(),
+        ));
+    }
+
+    info!("🗑️ Clearing index advisor statistics");
+
+    // Clear statistics
+    let qsql_engine = app_state.qsql_engine.lock().await;
+    qsql_engine.clear_index_advisor_statistics();
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        "Index advisor statistics cleared".to_string(),
+        ResponseMetadata::new(start.elapsed(), "Statistics cleared"),
     )))
 }
 
