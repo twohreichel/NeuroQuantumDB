@@ -1603,10 +1603,11 @@ impl QueryExecutor {
             };
 
         // Build phase: Create hash table from smaller table
-        let mut hash_table: HashMap<Vec<String>, Vec<usize>> = HashMap::new();
+        // Using String concatenation with delimiter for hash keys (more efficient than Vec<String>)
+        let mut hash_table: HashMap<String, Vec<usize>> = HashMap::new();
         
         for (idx, row) in build_rows.iter().enumerate() {
-            let key = Self::extract_row_key(row, build_alias, &join_keys, build_is_left)?;
+            let key = Self::extract_row_key_string(row, build_alias, &join_keys, build_is_left)?;
             hash_table.entry(key).or_default().push(idx);
         }
 
@@ -1615,7 +1616,7 @@ impl QueryExecutor {
 
         // Probe phase: For each row in probe table, look up matches in hash table
         for probe_row in probe_rows {
-            let key = Self::extract_row_key(probe_row, probe_alias, &join_keys, !build_is_left)?;
+            let key = Self::extract_row_key_string(probe_row, probe_alias, &join_keys, !build_is_left)?;
             
             if let Some(build_indices) = hash_table.get(&key) {
                 // Found matching rows in build table
@@ -1770,14 +1771,15 @@ impl QueryExecutor {
         Ok(())
     }
 
-    /// Extract the join key values from a row
-    fn extract_row_key(
+    /// Extract the join key values from a row as a single concatenated string
+    /// This is more efficient than using Vec<String> as hash keys
+    fn extract_row_key_string(
         row: &Row,
         alias: &str,
         join_keys: &[(String, String)],
         is_left: bool,
-    ) -> QSQLResult<Vec<String>> {
-        let mut key = Vec::new();
+    ) -> QSQLResult<String> {
+        let mut key_parts = Vec::with_capacity(join_keys.len());
         
         for (left_key, right_key) in join_keys {
             let col_name = if is_left { left_key } else { right_key };
@@ -1790,10 +1792,11 @@ impl QueryExecutor {
                 })?;
             
             // Convert value to string for hashing
-            key.push(Self::value_to_key_string(value));
+            key_parts.push(Self::value_to_key_string(value));
         }
         
-        Ok(key)
+        // Join with null byte delimiter to avoid collisions
+        Ok(key_parts.join("\0"))
     }
 
     /// Convert a Value to a string suitable for use as a hash key
