@@ -1970,11 +1970,7 @@ async fn test_now_function_execution() {
     let plan = create_test_query_plan(ast);
 
     let result = executor.execute(&plan).await;
-    assert!(
-        result.is_ok(),
-        "NOW() execution failed: {:?}",
-        result.err()
-    );
+    assert!(result.is_ok(), "NOW() execution failed: {:?}", result.err());
 
     let query_result = result.unwrap();
     assert!(
