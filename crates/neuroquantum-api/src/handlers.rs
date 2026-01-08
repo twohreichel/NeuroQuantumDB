@@ -2762,16 +2762,18 @@ pub async fn get_index_recommendations(
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
-
-    if !api_key.permissions.contains(&"read".to_string())
-        && !api_key.permissions.contains(&"admin".to_string())
+    // Check permissions - extract data before await to avoid holding RefCell across await
     {
-        return Err(ApiError::Forbidden("Read permission required".to_string()));
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+        if !api_key.permissions.contains(&"read".to_string())
+            && !api_key.permissions.contains(&"admin".to_string())
+        {
+            return Err(ApiError::Forbidden("Read permission required".to_string()));
+        }
     }
 
     info!("📊 Retrieving index recommendations");
@@ -2840,16 +2842,18 @@ pub async fn clear_index_advisor_statistics(
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    // Check permissions - require admin
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - require admin. Extract data before await to avoid holding RefCell across await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required to clear statistics".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required to clear statistics".to_string(),
+            ));
+        }
     }
 
     info!("🗑️ Clearing index advisor statistics");

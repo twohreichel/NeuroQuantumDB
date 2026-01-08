@@ -11,9 +11,7 @@
 //! - **Recommendation Engine**: Generates single-column and composite index recommendations
 //! - **Impact Estimation**: Estimates performance improvement from recommended indexes
 
-use crate::ast::{
-    Expression, FromClause, JoinClause, OrderByItem, SelectStatement, Statement,
-};
+use crate::ast::{Expression, FromClause, JoinClause, OrderByItem, SelectStatement, Statement};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -22,7 +20,7 @@ use std::time::Instant;
 use tracing::{debug, info};
 
 /// Statistics for a column access pattern
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ColumnStats {
     /// Column name
     pub column_name: String,
@@ -42,23 +40,8 @@ pub struct ColumnStats {
     pub last_access_ms: u64,
 }
 
-impl Default for ColumnStats {
-    fn default() -> Self {
-        Self {
-            column_name: String::new(),
-            table_name: String::new(),
-            where_count: 0,
-            join_count: 0,
-            order_by_count: 0,
-            group_by_count: 0,
-            operators: HashMap::new(),
-            last_access_ms: 0,
-        }
-    }
-}
-
 /// Table-level statistics for query analysis
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TableStats {
     /// Table name
     pub table_name: String,
@@ -74,20 +57,6 @@ pub struct TableStats {
     pub existing_indexes: Vec<String>,
     /// Last access timestamp (Unix ms)
     pub last_access_ms: u64,
-}
-
-impl Default for TableStats {
-    fn default() -> Self {
-        Self {
-            table_name: String::new(),
-            query_count: 0,
-            full_scan_count: 0,
-            index_lookup_count: 0,
-            columns: HashMap::new(),
-            existing_indexes: Vec::new(),
-            last_access_ms: 0,
-        }
-    }
 }
 
 /// Priority level for index recommendations
@@ -293,7 +262,10 @@ impl IndexAdvisor {
     /// Get the primary table name from a FROM clause
     fn get_primary_table_name(&self, from: &FromClause) -> String {
         if let Some(first_relation) = from.relations.first() {
-            first_relation.alias.clone().unwrap_or(first_relation.name.clone())
+            first_relation
+                .alias
+                .clone()
+                .unwrap_or(first_relation.name.clone())
         } else {
             "unknown".to_string()
         }
@@ -381,11 +353,12 @@ impl IndexAdvisor {
             return;
         }
 
-        let table_stats = stats.entry(table_name.to_string()).or_insert_with(|| {
-            let mut ts = TableStats::default();
-            ts.table_name = table_name.to_string();
-            ts
-        });
+        let table_stats = stats
+            .entry(table_name.to_string())
+            .or_insert_with(|| TableStats {
+                table_name: table_name.to_string(),
+                ..Default::default()
+            });
 
         table_stats.query_count += 1;
         table_stats.last_access_ms = now_ms;
@@ -400,11 +373,10 @@ impl IndexAdvisor {
         let col_stats = table_stats
             .columns
             .entry(column_name.to_string())
-            .or_insert_with(|| {
-                let mut cs = ColumnStats::default();
-                cs.column_name = column_name.to_string();
-                cs.table_name = table_name.to_string();
-                cs
+            .or_insert_with(|| ColumnStats {
+                column_name: column_name.to_string(),
+                table_name: table_name.to_string(),
+                ..Default::default()
             });
 
         col_stats.last_access_ms = now_ms;
@@ -433,11 +405,12 @@ impl IndexAdvisor {
     /// Register an existing index on a table
     pub fn register_existing_index(&self, table_name: &str, index_columns: &[String]) {
         let mut stats = self.table_stats.write().unwrap();
-        let table_stats = stats.entry(table_name.to_string()).or_insert_with(|| {
-            let mut ts = TableStats::default();
-            ts.table_name = table_name.to_string();
-            ts
-        });
+        let table_stats = stats
+            .entry(table_name.to_string())
+            .or_insert_with(|| TableStats {
+                table_name: table_name.to_string(),
+                ..Default::default()
+            });
 
         let index_desc = index_columns.join(",");
         if !table_stats.existing_indexes.contains(&index_desc) {
@@ -468,7 +441,8 @@ impl IndexAdvisor {
                 .collect();
 
             // Sort by score descending
-            column_scores.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+            column_scores
+                .sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
 
             // Generate recommendations for top columns
             for (col_name, col_stats, score) in column_scores.iter().take(5) {
@@ -537,19 +511,10 @@ impl IndexAdvisor {
         let frequency_score = (total_usage as f64) / (table_stats.query_count as f64).max(1.0);
 
         // Boost for equality operators (better index utilization)
-        let equality_boost = col_stats
-            .operators
-            .get("Equal")
-            .copied()
-            .unwrap_or(0) as f64
-            * 0.1;
+        let equality_boost = col_stats.operators.get("Equal").copied().unwrap_or(0) as f64 * 0.1;
 
         // Boost for JOIN columns (often critical for performance)
-        let join_boost = if col_stats.join_count > 0 {
-            0.3
-        } else {
-            0.0
-        };
+        let join_boost = if col_stats.join_count > 0 { 0.3 } else { 0.0 };
 
         // Penalty for LIKE with leading wildcard (less useful for B-tree indexes)
         let like_penalty = col_stats.operators.get("Like").copied().unwrap_or(0) as f64 * 0.05;
@@ -560,9 +525,10 @@ impl IndexAdvisor {
     /// Check if an index already exists for given columns
     fn has_existing_index(&self, table_stats: &TableStats, columns: &[String]) -> bool {
         let columns_str = columns.join(",");
-        table_stats.existing_indexes.iter().any(|idx| {
-            idx == &columns_str || idx.starts_with(&format!("{},", columns_str))
-        })
+        table_stats
+            .existing_indexes
+            .iter()
+            .any(|idx| idx == &columns_str || idx.starts_with(&format!("{},", columns_str)))
     }
 
     /// Create an index recommendation
@@ -574,11 +540,7 @@ impl IndexAdvisor {
         score: f64,
         table_stats: &TableStats,
     ) -> IndexRecommendation {
-        let index_name = format!(
-            "idx_{}_{}_advisor",
-            table_name,
-            columns.join("_")
-        );
+        let index_name = format!("idx_{}_{}_advisor", table_name, columns.join("_"));
 
         let columns_sql = columns.join(", ");
         let create_statement = format!(
@@ -609,14 +571,9 @@ impl IndexAdvisor {
         let affected_query_count =
             col_stats.where_count + col_stats.join_count + col_stats.order_by_count;
 
-        // Determine index type based on operators used
-        let index_type = if col_stats.operators.get("Equal").copied().unwrap_or(0)
-            > col_stats.operators.values().sum::<u64>() / 2
-        {
-            IndexType::BTree // Could be Hash, but B-tree is more versatile
-        } else {
-            IndexType::BTree
-        };
+        // Determine index type - B-tree is most versatile for general use
+        // (could use Hash for purely equality operations, but B-tree handles ranges too)
+        let index_type = IndexType::BTree;
 
         let reason = self.generate_reason(col_stats, table_stats);
 
@@ -830,12 +787,10 @@ mod tests {
     use crate::ast::*;
 
     fn create_test_select(table: &str, where_column: Option<&str>) -> Statement {
-        let where_clause = where_column.map(|col| {
-            Expression::BinaryOp {
-                left: Box::new(Expression::Identifier(col.to_string())),
-                operator: BinaryOperator::Equal,
-                right: Box::new(Expression::Literal(Literal::Integer(1))),
-            }
+        let where_clause = where_column.map(|col| Expression::BinaryOp {
+            left: Box::new(Expression::Identifier(col.to_string())),
+            operator: BinaryOperator::Equal,
+            right: Box::new(Expression::Literal(Literal::Integer(1))),
         });
 
         Statement::Select(SelectStatement {
@@ -903,8 +858,10 @@ mod tests {
 
     #[test]
     fn test_generate_recommendations() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 2; // Lower threshold for testing
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 2, // Lower threshold for testing
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -925,8 +882,10 @@ mod tests {
 
     #[test]
     fn test_existing_index_not_recommended() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 2;
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 2,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -944,9 +903,7 @@ mod tests {
         // Should NOT recommend index on email since it already exists
         assert!(!recommendations
             .iter()
-            .any(|r| r.table_name == "users"
-                && r.columns.len() == 1
-                && r.columns[0] == "email"));
+            .any(|r| r.table_name == "users" && r.columns.len() == 1 && r.columns[0] == "email"));
     }
 
     #[test]
@@ -969,8 +926,10 @@ mod tests {
 
     #[test]
     fn test_recommendation_priority() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 1;
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 1,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -992,8 +951,10 @@ mod tests {
 
     #[test]
     fn test_create_statement_format() {
-        let mut config = IndexAdvisorConfig::default();
-        config.min_query_threshold = 1;
+        let config = IndexAdvisorConfig {
+            min_query_threshold: 1,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 
@@ -1013,8 +974,10 @@ mod tests {
 
     #[test]
     fn test_tracking_disabled() {
-        let mut config = IndexAdvisorConfig::default();
-        config.enable_tracking = false;
+        let config = IndexAdvisorConfig {
+            enable_tracking: false,
+            ..Default::default()
+        };
 
         let advisor = IndexAdvisor::with_config(config);
 

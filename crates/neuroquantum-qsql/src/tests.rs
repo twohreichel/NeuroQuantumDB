@@ -459,7 +459,11 @@ mod parser_tests {
 
         let sql = "TRUNCATE TABLE users";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse TRUNCATE TABLE: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to parse TRUNCATE TABLE: {:?}",
+            result.err()
+        );
 
         match result.unwrap() {
             Statement::TruncateTable(truncate) => {
@@ -475,7 +479,11 @@ mod parser_tests {
 
         let sql = "TRUNCATE orders";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse TRUNCATE (short form): {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to parse TRUNCATE (short form): {:?}",
+            result.err()
+        );
 
         match result.unwrap() {
             Statement::TruncateTable(truncate) => {
@@ -507,7 +515,10 @@ mod parser_tests {
 
         let sql = "TRUNCATE TABLE";
         let result = parser.parse_query(sql);
-        assert!(result.is_err(), "TRUNCATE TABLE without table name should fail");
+        assert!(
+            result.is_err(),
+            "TRUNCATE TABLE without table name should fail"
+        );
     }
 
     #[test]
@@ -628,7 +639,11 @@ mod parser_tests {
 
         let sql = "EXPLAIN SELECT * FROM users WHERE age > 30";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN SELECT: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN SELECT: {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -653,7 +668,11 @@ mod parser_tests {
 
         let sql = "EXPLAIN ANALYZE SELECT * FROM users WHERE age > 30";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN ANALYZE SELECT: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN ANALYZE SELECT: {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -676,7 +695,11 @@ mod parser_tests {
 
         let sql = "EXPLAIN (FORMAT JSON) SELECT * FROM users";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN (FORMAT JSON): {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (FORMAT JSON): {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -694,7 +717,11 @@ mod parser_tests {
 
         let sql = "EXPLAIN (ANALYZE, FORMAT JSON) SELECT id, name FROM users";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN (ANALYZE, FORMAT JSON): {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (ANALYZE, FORMAT JSON): {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -712,7 +739,11 @@ mod parser_tests {
 
         let sql = "EXPLAIN (FORMAT YAML) SELECT * FROM orders";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN (FORMAT YAML): {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (FORMAT YAML): {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -729,7 +760,11 @@ mod parser_tests {
 
         let sql = "EXPLAIN (FORMAT XML) SELECT * FROM products";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN (FORMAT XML): {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN (FORMAT XML): {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -746,7 +781,11 @@ mod parser_tests {
 
         let sql = "EXPLAIN VERBOSE SELECT * FROM users";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN VERBOSE: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN VERBOSE: {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -770,7 +809,11 @@ mod parser_tests {
             WHERE o.amount > 100
         "#;
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN with JOIN: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN with JOIN: {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
@@ -795,16 +838,18 @@ mod parser_tests {
 
         let sql = "EXPLAIN INSERT INTO users (name, age) VALUES ('John', 30)";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN INSERT: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN INSERT: {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
-                match explain.statement.as_ref() {
-                    Statement::Insert(_) => {}
-                    _ => panic!("Expected INSERT inside EXPLAIN"),
-                }
-            }
+            Statement::Explain(explain) => match explain.statement.as_ref() {
+                Statement::Insert(_) => {}
+                _ => panic!("Expected INSERT inside EXPLAIN"),
+            },
             _ => panic!("Expected EXPLAIN statement"),
         }
     }
@@ -815,16 +860,18 @@ mod parser_tests {
 
         let sql = "EXPLAIN UPDATE users SET age = 31 WHERE name = 'John'";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN UPDATE: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN UPDATE: {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
-                match explain.statement.as_ref() {
-                    Statement::Update(_) => {}
-                    _ => panic!("Expected UPDATE inside EXPLAIN"),
-                }
-            }
+            Statement::Explain(explain) => match explain.statement.as_ref() {
+                Statement::Update(_) => {}
+                _ => panic!("Expected UPDATE inside EXPLAIN"),
+            },
             _ => panic!("Expected EXPLAIN statement"),
         }
     }
@@ -835,16 +882,18 @@ mod parser_tests {
 
         let sql = "EXPLAIN DELETE FROM users WHERE age < 18";
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXPLAIN DELETE: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse EXPLAIN DELETE: {:?}",
+            result
+        );
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
-                match explain.statement.as_ref() {
-                    Statement::Delete(_) => {}
-                    _ => panic!("Expected DELETE inside EXPLAIN"),
-                }
-            }
+            Statement::Explain(explain) => match explain.statement.as_ref() {
+                Statement::Delete(_) => {}
+                _ => panic!("Expected DELETE inside EXPLAIN"),
+            },
             _ => panic!("Expected EXPLAIN statement"),
         }
     }
@@ -1170,7 +1219,9 @@ mod executor_tests {
         let parser = QSQLParser::new();
 
         let sql = "TRUNCATE TABLE test_users";
-        let stmt = parser.parse_query(sql).expect("Failed to parse TRUNCATE TABLE");
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse TRUNCATE TABLE");
 
         let plan = QueryPlan {
             statement: stmt,
@@ -1192,12 +1243,16 @@ mod executor_tests {
         let result = executor.execute(&plan).await;
         // Verify it fails with ExecutionError (storage engine not configured)
         // rather than a parsing or unknown statement error
-        assert!(result.is_err(), "TRUNCATE TABLE should fail without storage engine");
+        assert!(
+            result.is_err(),
+            "TRUNCATE TABLE should fail without storage engine"
+        );
         let err = result.unwrap_err();
         let err_msg = format!("{}", err);
         assert!(
             err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
-            "Expected storage-related error, got: {}", err_msg
+            "Expected storage-related error, got: {}",
+            err_msg
         );
     }
 
@@ -1207,7 +1262,9 @@ mod executor_tests {
         let parser = QSQLParser::new();
 
         let sql = "TRUNCATE orders";
-        let stmt = parser.parse_query(sql).expect("Failed to parse TRUNCATE (short form)");
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse TRUNCATE (short form)");
 
         let plan = QueryPlan {
             statement: stmt,
@@ -1226,12 +1283,16 @@ mod executor_tests {
 
         // Verify the statement is correctly routed and fails with storage error
         let result = executor.execute(&plan).await;
-        assert!(result.is_err(), "TRUNCATE should fail without storage engine");
+        assert!(
+            result.is_err(),
+            "TRUNCATE should fail without storage engine"
+        );
         let err = result.unwrap_err();
         let err_msg = format!("{}", err);
         assert!(
             err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
-            "Expected storage-related error, got: {}", err_msg
+            "Expected storage-related error, got: {}",
+            err_msg
         );
     }
 }
@@ -1950,7 +2011,9 @@ mod explain_execution_tests {
         let parser = QSQLParser::new();
 
         let sql = "EXPLAIN SELECT * FROM users WHERE age > 30";
-        let stmt = parser.parse_query(sql).expect("Failed to parse EXPLAIN query");
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse EXPLAIN query");
 
         let plan = QueryPlan {
             statement: stmt,
@@ -1968,15 +2031,28 @@ mod explain_execution_tests {
         };
 
         let result = executor.execute(&plan).await;
-        assert!(result.is_ok(), "EXPLAIN SELECT execution should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "EXPLAIN SELECT execution should succeed: {:?}",
+            result.err()
+        );
 
         let query_result = result.unwrap();
-        assert!(!query_result.rows.is_empty(), "EXPLAIN should return at least one row");
-        assert!(!query_result.columns.is_empty(), "EXPLAIN should have columns");
-        
+        assert!(
+            !query_result.rows.is_empty(),
+            "EXPLAIN should return at least one row"
+        );
+        assert!(
+            !query_result.columns.is_empty(),
+            "EXPLAIN should have columns"
+        );
+
         // Verify QUERY PLAN column exists
         let has_query_plan_column = query_result.columns.iter().any(|c| c.name == "QUERY PLAN");
-        assert!(has_query_plan_column, "EXPLAIN result should have 'QUERY PLAN' column");
+        assert!(
+            has_query_plan_column,
+            "EXPLAIN result should have 'QUERY PLAN' column"
+        );
     }
 
     #[tokio::test]
@@ -1986,7 +2062,9 @@ mod explain_execution_tests {
         let parser = QSQLParser::new();
 
         let sql = "EXPLAIN ANALYZE SELECT * FROM users";
-        let stmt = parser.parse_query(sql).expect("Failed to parse EXPLAIN ANALYZE query");
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse EXPLAIN ANALYZE query");
 
         let plan = QueryPlan {
             statement: stmt,
@@ -2004,7 +2082,11 @@ mod explain_execution_tests {
         };
 
         let result = executor.execute(&plan).await;
-        assert!(result.is_ok(), "EXPLAIN ANALYZE execution should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "EXPLAIN ANALYZE execution should succeed: {:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]
@@ -2014,7 +2096,9 @@ mod explain_execution_tests {
         let parser = QSQLParser::new();
 
         let sql = "EXPLAIN (FORMAT JSON) SELECT * FROM users";
-        let stmt = parser.parse_query(sql).expect("Failed to parse EXPLAIN FORMAT JSON query");
+        let stmt = parser
+            .parse_query(sql)
+            .expect("Failed to parse EXPLAIN FORMAT JSON query");
 
         let plan = QueryPlan {
             statement: stmt,
@@ -2032,7 +2116,11 @@ mod explain_execution_tests {
         };
 
         let result = executor.execute(&plan).await;
-        assert!(result.is_ok(), "EXPLAIN FORMAT JSON execution should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "EXPLAIN FORMAT JSON execution should succeed: {:?}",
+            result.err()
+        );
     }
 }
 

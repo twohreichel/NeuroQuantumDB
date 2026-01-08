@@ -385,7 +385,8 @@ impl QSQLEngine {
 
     /// Register an existing index so it won't be recommended again
     pub fn register_existing_index(&self, table_name: &str, columns: &[String]) {
-        self.index_advisor.register_existing_index(table_name, columns);
+        self.index_advisor
+            .register_existing_index(table_name, columns);
     }
 
     /// Clear index advisor statistics

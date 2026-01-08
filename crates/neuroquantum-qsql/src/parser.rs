@@ -4240,9 +4240,18 @@ impl QSQLParser {
         keywords.insert("ANALYZE".to_string(), TokenType::Analyze);
         keywords.insert("FORMAT".to_string(), TokenType::Format);
         keywords.insert("VERBOSE".to_string(), TokenType::Verbose);
-        keywords.insert("TEXT".to_string(), TokenType::Identifier("TEXT".to_string()));
-        keywords.insert("JSON".to_string(), TokenType::Identifier("JSON".to_string()));
-        keywords.insert("YAML".to_string(), TokenType::Identifier("YAML".to_string()));
+        keywords.insert(
+            "TEXT".to_string(),
+            TokenType::Identifier("TEXT".to_string()),
+        );
+        keywords.insert(
+            "JSON".to_string(),
+            TokenType::Identifier("JSON".to_string()),
+        );
+        keywords.insert(
+            "YAML".to_string(),
+            TokenType::Identifier("YAML".to_string()),
+        );
         keywords.insert("XML".to_string(), TokenType::Identifier("XML".to_string()));
 
         // Transaction control keywords
