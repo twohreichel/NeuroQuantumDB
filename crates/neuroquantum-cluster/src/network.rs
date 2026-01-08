@@ -557,8 +557,7 @@ impl NetworkTransport {
                         last_log_term: vote_req.last_log_term,
                         is_pre_vote: vote_req.is_pre_vote,
                     };
-                    // For vote requests, we just send without waiting for response
-                    // Response will be handled via send_request_vote_rpc
+                    // Send vote request and await response
                     client.request_vote(req).await.map_err(|e| {
                         ClusterError::ConnectionFailed(
                             peer.addr,

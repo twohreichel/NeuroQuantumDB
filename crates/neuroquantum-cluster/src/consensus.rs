@@ -600,14 +600,14 @@ impl RaftConsensus {
                                 state_guard.votes_received.clear();
                                 state_guard.votes_received.insert(node_id);
                                 
-                                // Get list of peers from next_index keys (if we have any)
-                                // or we'll need to get them from cluster config
+                                // Get list of peers from next_index keys (if we have any).
+                                // Note: This assumes peers are already registered via initialize_replication_state().
+                                // In production, this would typically come from cluster configuration or
+                                // a membership service.
                                 state_guard.next_index.keys().copied().collect::<Vec<_>>()
                             };
 
                             // Request votes from all peers
-                            // Note: This is a simplified version. In a full implementation,
-                            // we would get peer list from cluster membership.
                             if !peer_ids.is_empty() {
                                 let consensus_clone = consensus.clone();
                                 tokio::spawn(async move {
