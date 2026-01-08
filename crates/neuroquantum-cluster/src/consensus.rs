@@ -442,6 +442,19 @@ impl RaftConsensus {
         self.state.read().await.quorum_status
     }
 
+    /// Check if leader lease is valid.
+    pub async fn is_leader_lease_valid(&self) -> bool {
+        let state = self.state.read().await;
+        if state.state != RaftState::Leader {
+            return false;
+        }
+        if let Some(lease) = &state.leader_lease {
+            lease.is_valid()
+        } else {
+            false
+        }
+    }
+
     /// Promote to leader with lease.
     pub async fn promote_to_leader(&self) -> ClusterResult<()> {
         let mut state = self.state.write().await;
@@ -752,7 +765,7 @@ impl RaftConsensus {
         
         // Send AppendEntries RPC via network
         self.transport
-            .send(follower_id, ClusterMessage::AppendEntries(request))
+            .send(follower_id, &ClusterMessage::AppendEntries(request))
             .await?;
         
         Ok(())

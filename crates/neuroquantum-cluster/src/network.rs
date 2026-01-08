@@ -295,6 +295,8 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
             term: req.term,
             success: true,
             last_log_index: req.prev_log_index,
+            conflict_index: None,
+            conflict_term: None,
         }))
     }
 
@@ -528,7 +530,7 @@ impl NetworkTransport {
         debug!(
             from = self.node_id,
             to = target,
-            message_type = ?std::mem::discriminant(&message),
+            message_type = ?std::mem::discriminant(message),
             "Sending message via gRPC"
         );
 
