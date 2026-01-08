@@ -1275,8 +1275,8 @@ impl QueryExecutor {
 
         let anchor_result = self.execute(&anchor_plan).await?;
         let mut all_rows = self.query_result_to_storage_rows(&anchor_result.rows)?;
-        // Use iter().cloned() to avoid an extra clone of the entire vector
-        let mut working_rows: Vec<Row> = all_rows.iter().cloned().collect();
+        // Clone the rows to create a working set
+        let mut working_rows: Vec<Row> = all_rows.to_vec();
 
         // Get the recursive query
         let recursive_query = &union_clause.select;
