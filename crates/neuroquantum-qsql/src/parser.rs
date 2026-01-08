@@ -226,6 +226,12 @@ pub enum TokenType {
     Using,
     QuantumState,
 
+    // Query analysis keywords
+    Explain,
+    Analyze,
+    Format,
+    Verbose,
+
     // Transaction control keywords
     Begin,
     Start,
@@ -629,6 +635,7 @@ impl QSQLParser {
 
         // Check the first token to determine statement type
         match tokens.first() {
+            Some(TokenType::Explain) => self.parse_explain_statement(tokens),
             Some(TokenType::With) => self.parse_select_statement(tokens),
             Some(TokenType::Select) => self.parse_select_statement(tokens),
             Some(TokenType::Insert) => self.parse_insert_statement(tokens),
@@ -2713,6 +2720,144 @@ impl QSQLParser {
         }
     }
 
+    /// Parse EXPLAIN statement for query plan analysis
+    ///
+    /// Syntax:
+    /// - EXPLAIN SELECT ...
+    /// - EXPLAIN ANALYZE SELECT ...
+    /// - EXPLAIN (FORMAT JSON) SELECT ...
+    /// - EXPLAIN (ANALYZE, FORMAT TEXT) SELECT ...
+    /// - EXPLAIN VERBOSE SELECT ...
+    fn parse_explain_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        use crate::ast::{ExplainFormat, ExplainStatement};
+
+        let mut i = 0;
+
+        // Skip EXPLAIN keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Explain) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected EXPLAIN keyword".to_string(),
+                position: i,
+            });
+        }
+
+        let mut analyze = false;
+        let mut verbose = false;
+        let mut format = ExplainFormat::Text;
+
+        // Check for options in parentheses: EXPLAIN (ANALYZE, FORMAT JSON) SELECT ...
+        if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
+            i += 1; // consume '('
+
+            // Parse options inside parentheses
+            loop {
+                if i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Unclosed EXPLAIN options".to_string(),
+                        position: i,
+                    });
+                }
+
+                if matches!(tokens[i], TokenType::RightParen) {
+                    i += 1; // consume ')'
+                    break;
+                }
+
+                // Check for ANALYZE
+                if matches!(tokens[i], TokenType::Analyze) {
+                    analyze = true;
+                    i += 1;
+                }
+                // Check for VERBOSE
+                else if matches!(tokens[i], TokenType::Verbose) {
+                    verbose = true;
+                    i += 1;
+                }
+                // Check for FORMAT keyword
+                else if matches!(tokens[i], TokenType::Format) {
+                    i += 1; // consume FORMAT
+
+                    // Parse format type
+                    if i < tokens.len() {
+                        match &tokens[i] {
+                            TokenType::Identifier(f) => {
+                                format = match f.to_uppercase().as_str() {
+                                    "TEXT" => ExplainFormat::Text,
+                                    "JSON" => ExplainFormat::Json,
+                                    "YAML" => ExplainFormat::Yaml,
+                                    "XML" => ExplainFormat::Xml,
+                                    _ => {
+                                        return Err(QSQLError::ParseError {
+                                            message: format!(
+                                                "Unknown EXPLAIN format: {}. Expected TEXT, JSON, YAML, or XML",
+                                                f
+                                            ),
+                                            position: i,
+                                        });
+                                    }
+                                };
+                                i += 1;
+                            }
+                            _ => {
+                                return Err(QSQLError::ParseError {
+                                    message: "Expected format type after FORMAT".to_string(),
+                                    position: i,
+                                });
+                            }
+                        }
+                    }
+                }
+                // Skip comma between options
+                else if matches!(tokens[i], TokenType::Comma) {
+                    i += 1;
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: format!("Unexpected token in EXPLAIN options: {:?}", tokens[i]),
+                        position: i,
+                    });
+                }
+            }
+        }
+        // Check for shorthand ANALYZE: EXPLAIN ANALYZE SELECT ...
+        else if i < tokens.len() && matches!(tokens[i], TokenType::Analyze) {
+            analyze = true;
+            i += 1;
+        }
+        // Check for shorthand VERBOSE: EXPLAIN VERBOSE SELECT ...
+        else if i < tokens.len() && matches!(tokens[i], TokenType::Verbose) {
+            verbose = true;
+            i += 1;
+            // VERBOSE can be followed by ANALYZE
+            if i < tokens.len() && matches!(tokens[i], TokenType::Analyze) {
+                analyze = true;
+                i += 1;
+            }
+        }
+
+        // The rest of the tokens should be a valid statement to explain
+        if i >= tokens.len() || matches!(tokens[i], TokenType::EOF) {
+            return Err(QSQLError::ParseError {
+                message: "Expected a statement after EXPLAIN".to_string(),
+                position: i,
+            });
+        }
+
+        // Create a slice of the remaining tokens for the inner statement
+        let inner_tokens = &tokens[i..];
+
+        // Parse the inner statement
+        let inner_statement = self.parse_tokens(inner_tokens)?;
+
+        Ok(Statement::Explain(ExplainStatement {
+            statement: Box::new(inner_statement),
+            analyze,
+            verbose,
+            format,
+        }))
+    }
+
     /// Parse CREATE statement (TABLE or INDEX)
     fn parse_create_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         if tokens.len() < 2 {
@@ -4089,6 +4234,16 @@ impl QSQLParser {
         keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
         keywords.insert("GROVER".to_string(), TokenType::GroverSearch);
         keywords.insert("QUANTUM".to_string(), TokenType::QuantumSearch);
+
+        // Query analysis keywords
+        keywords.insert("EXPLAIN".to_string(), TokenType::Explain);
+        keywords.insert("ANALYZE".to_string(), TokenType::Analyze);
+        keywords.insert("FORMAT".to_string(), TokenType::Format);
+        keywords.insert("VERBOSE".to_string(), TokenType::Verbose);
+        keywords.insert("TEXT".to_string(), TokenType::Identifier("TEXT".to_string()));
+        keywords.insert("JSON".to_string(), TokenType::Identifier("JSON".to_string()));
+        keywords.insert("YAML".to_string(), TokenType::Identifier("YAML".to_string()));
+        keywords.insert("XML".to_string(), TokenType::Identifier("XML".to_string()));
 
         // Transaction control keywords
         keywords.insert("BEGIN".to_string(), TokenType::Begin);
