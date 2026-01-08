@@ -6377,6 +6377,12 @@ impl QueryExecutor {
     /// 3. Apply Hebbian learning formula: weight = activity1 * activity2
     /// 4. Normalize to [0, 1] range
     fn calculate_hebbian_weight(&self, val1: &QueryValue, val2: &QueryValue) -> QSQLResult<f32> {
+        // Special case: when both values are strings, use neuromorphic similarity
+        // This enables pattern matching use cases like SYNAPTIC_WEIGHT(name, 'John')
+        if let (QueryValue::String(s1), QueryValue::String(s2)) = (val1, val2) {
+            return Ok(self.calculate_neuromatch_similarity(s1, s2));
+        }
+
         // Helper to convert QueryValue to normalized activity level (0.0 to 1.0)
         let to_activity = |v: &QueryValue| -> f32 {
             match v {

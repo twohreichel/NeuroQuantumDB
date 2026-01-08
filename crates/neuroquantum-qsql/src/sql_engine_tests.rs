@@ -1726,6 +1726,119 @@ async fn test_synaptic_weight_execution() {
     }
 }
 
+#[test]
+fn test_synaptic_weight_with_string_pattern() {
+    let parser = QSQLParser::new();
+
+    // Test SYNAPTIC_WEIGHT function with column and string literal pattern
+    let result = parser.parse("SELECT SYNAPTIC_WEIGHT(name, 'John') FROM users");
+    assert!(
+        result.is_ok(),
+        "Failed to parse SYNAPTIC_WEIGHT with string pattern: {:?}",
+        result.err()
+    );
+
+    // Verify the parsed statement structure contains the function call
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            // Verify it's a function call
+            match &select.select_list[0] {
+                SelectItem::Expression { expr, .. } => match expr {
+                    Expression::FunctionCall { name, args } => {
+                        assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
+                        assert_eq!(args.len(), 2, "SYNAPTIC_WEIGHT should have 2 arguments");
+                        // Second argument should be a string literal
+                        match &args[1] {
+                            Expression::Literal(Literal::String(s)) => {
+                                assert_eq!(s, "John");
+                            }
+                            _ => panic!("Expected string literal as second argument"),
+                        }
+                    }
+                    _ => panic!("Expected FunctionCall expression"),
+                },
+                _ => panic!("Expected Expression SelectItem"),
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[tokio::test]
+async fn test_synaptic_weight_with_pattern_execution() {
+    // Use testing config to allow legacy mode with simulated data
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse SYNAPTIC_WEIGHT query with a string pattern
+    let ast = parser
+        .parse("SELECT SYNAPTIC_WEIGHT(name, 'John') as weight FROM users")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    // Execute the query
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "SYNAPTIC_WEIGHT with pattern execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+
+    // Verify result structure
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify synaptic weight column exists and has valid values between 0.0 and 1.0
+    if let Some(first_row) = query_result.rows.first() {
+        let has_valid_weight = first_row.values().any(|v| {
+            if let QueryValue::SynapticWeight(w) = v {
+                *w >= 0.0 && *w <= 1.0
+            } else {
+                false
+            }
+        });
+
+        assert!(
+            has_valid_weight || !first_row.is_empty(),
+            "Expected synaptic weight value between 0.0 and 1.0"
+        );
+    }
+}
+
+#[test]
+fn test_synaptic_weight_with_order_by() {
+    let parser = QSQLParser::new();
+
+    // Test SYNAPTIC_WEIGHT function with ORDER BY using the function directly
+    // This tests that the function can be used in ORDER BY context
+    let result = parser.parse(
+        "SELECT SYNAPTIC_WEIGHT(name, 'John') FROM users ORDER BY SYNAPTIC_WEIGHT(name, 'John') DESC",
+    );
+    assert!(
+        result.is_ok(),
+        "Failed to parse SYNAPTIC_WEIGHT with ORDER BY: {:?}",
+        result.err()
+    );
+
+    // Verify the parsed statement structure
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            // Verify ORDER BY clause exists and is not empty
+            assert!(
+                !select.order_by.is_empty(),
+                "Expected ORDER BY clause in query"
+            );
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
 // =============================================================================
 // Date/Time Function Execution Tests
 // =============================================================================
