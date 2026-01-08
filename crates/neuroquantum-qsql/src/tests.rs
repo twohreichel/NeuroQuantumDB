@@ -1187,12 +1187,18 @@ mod executor_tests {
             },
         };
 
-        // TRUNCATE TABLE requires storage engine, so in testing mode it will fail
-        // but this verifies the statement is correctly routed to execute_truncate_table
+        // TRUNCATE TABLE requires storage engine, so without it, we expect an ExecutionError
+        // This verifies the statement is correctly routed to execute_truncate_table
         let result = executor.execute(&plan).await;
-        // In testing mode without storage engine, TRUNCATE will fail with ConfigError
-        // This is expected behavior as TRUNCATE requires a real storage engine
-        assert!(result.is_err() || result.is_ok());
+        // Verify it fails with ExecutionError (storage engine not configured)
+        // rather than a parsing or unknown statement error
+        assert!(result.is_err(), "TRUNCATE TABLE should fail without storage engine");
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
+            "Expected storage-related error, got: {}", err_msg
+        );
     }
 
     #[tokio::test]
@@ -1218,9 +1224,15 @@ mod executor_tests {
             },
         };
 
-        // Verify the statement is correctly parsed and can be executed
+        // Verify the statement is correctly routed and fails with storage error
         let result = executor.execute(&plan).await;
-        assert!(result.is_err() || result.is_ok());
+        assert!(result.is_err(), "TRUNCATE should fail without storage engine");
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
+            "Expected storage-related error, got: {}", err_msg
+        );
     }
 }
 
