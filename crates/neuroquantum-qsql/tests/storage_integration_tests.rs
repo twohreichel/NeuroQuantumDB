@@ -795,10 +795,8 @@ async fn test_update_without_where_clause_affects_all_rows() {
                 updated_at: chrono::Utc::now(),
             };
             row.fields.insert("id".to_string(), Value::Integer(i));
-            row.fields.insert(
-                "name".to_string(),
-                Value::Text(format!("User{}", i)),
-            );
+            row.fields
+                .insert("name".to_string(), Value::Text(format!("User{}", i)));
             row.fields.insert("status".to_string(), Value::Integer(0));
             storage_guard.insert_row("users", row).await.unwrap();
         }
@@ -812,7 +810,11 @@ async fn test_update_without_where_clause_affects_all_rows() {
     // Verify all 5 rows exist before update
     let select_before = parser.parse("SELECT * FROM users").unwrap();
     let result_before = executor.execute_statement(&select_before).await.unwrap();
-    assert_eq!(result_before.rows.len(), 5, "Should have 5 users before update");
+    assert_eq!(
+        result_before.rows.len(),
+        5,
+        "Should have 5 users before update"
+    );
 
     // Execute UPDATE without WHERE clause - should update all rows
     let sql = "UPDATE users SET status = 1";
@@ -828,7 +830,9 @@ async fn test_update_without_where_clause_affects_all_rows() {
     println!("✏️ UPDATE result: rows_affected = {}", result.rows_affected);
 
     // Verify all users now have status = 1
-    let select_after = parser.parse("SELECT * FROM users WHERE status = 1").unwrap();
+    let select_after = parser
+        .parse("SELECT * FROM users WHERE status = 1")
+        .unwrap();
     let result_after = executor.execute_statement(&select_after).await.unwrap();
     assert_eq!(
         result_after.rows.len(),
