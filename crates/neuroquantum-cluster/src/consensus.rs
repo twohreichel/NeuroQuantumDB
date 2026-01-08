@@ -9,7 +9,7 @@ use tracing::{debug, info, warn};
 
 use crate::config::ClusterConfig;
 use crate::error::{ClusterError, ClusterResult};
-use crate::network::NetworkTransport;
+use crate::network::{NetworkTransport, ClusterMessage, AppendEntriesRequest, AppendEntriesResponse, LogEntryCompact};
 use crate::node::NodeId;
 
 /// Fencing token to prevent split brain scenarios.
@@ -166,6 +166,10 @@ struct ConsensusState {
     reachable_peers: usize,
     /// Total cluster size
     cluster_size: usize,
+    /// Next index to send to each follower (leader only)
+    next_index: std::collections::HashMap<NodeId, u64>,
+    /// Highest log entry known to be replicated on each follower (leader only)
+    match_index: std::collections::HashMap<NodeId, u64>,
 }
 
 impl Default for ConsensusState {
@@ -183,6 +187,8 @@ impl Default for ConsensusState {
             quorum_status: QuorumStatus::Unknown,
             reachable_peers: 0,
             cluster_size: 1,
+            next_index: std::collections::HashMap::new(),
+            match_index: std::collections::HashMap::new(),
         }
     }
 }
@@ -202,6 +208,19 @@ pub struct RaftConsensus {
     running: Arc<RwLock<bool>>,
     /// Notifier for heartbeat received events
     heartbeat_received: Arc<Notify>,
+}
+
+impl Clone for RaftConsensus {
+    fn clone(&self) -> Self {
+        Self {
+            node_id: self.node_id,
+            transport: Arc::clone(&self.transport),
+            config: self.config.clone(),
+            state: Arc::clone(&self.state),
+            running: Arc::clone(&self.running),
+            heartbeat_received: Arc::clone(&self.heartbeat_received),
+        }
+    }
 }
 
 impl RaftConsensus {
@@ -419,6 +438,9 @@ impl RaftConsensus {
             return Err(ClusterError::NoQuorum);
         }
         
+        // Increment term (as would happen in a real election)
+        state.current_term += 1;
+        
         // Create leader lease
         let lease_duration = self.config.raft.heartbeat_interval * 3;
         let lease = LeaderLease::new(lease_duration);
@@ -573,6 +595,7 @@ impl RaftConsensus {
         let state = self.state.clone();
         let running = self.running.clone();
         let heartbeat_interval = self.config.raft.heartbeat_interval;
+        let consensus = self.clone();
 
         tokio::spawn(async move {
             loop {
@@ -589,18 +612,37 @@ impl RaftConsensus {
                 tokio::time::sleep(heartbeat_interval).await;
 
                 // Send heartbeat if we're the leader
-                let is_leader = {
+                let (is_leader, peer_ids) = {
                     let state_guard = state.read().await;
-                    state_guard.state == RaftState::Leader
+                    let is_leader = state_guard.state == RaftState::Leader;
+                    let peer_ids: Vec<NodeId> = state_guard.next_index.keys().copied().collect();
+                    (is_leader, peer_ids)
                 };
 
-                if is_leader {
-                    debug!(node_id, "Sending heartbeat to followers");
+                if is_leader && !peer_ids.is_empty() {
+                    debug!(node_id, peers = peer_ids.len(), "Sending heartbeat to followers");
 
-                    // In a full implementation, we would:
-                    // 1. Send AppendEntries RPC with no entries to all followers
-                    // 2. Update match_index and next_index for each follower
-                    // 3. Commit entries that have been replicated to majority
+                    // Send AppendEntries (heartbeat) to all followers in parallel
+                    let mut tasks = Vec::new();
+                    for peer_id in peer_ids {
+                        let consensus_clone = consensus.clone();
+                        let task = tokio::spawn(async move {
+                            if let Err(e) = consensus_clone.replicate_to_follower(peer_id).await {
+                                warn!(
+                                    node_id,
+                                    peer = peer_id,
+                                    error = %e,
+                                    "Failed to send heartbeat to follower"
+                                );
+                            }
+                        });
+                        tasks.push(task);
+                    }
+
+                    // Wait for all heartbeat tasks to complete
+                    for task in tasks {
+                        let _ = task.await;
+                    }
                 }
             }
         });
@@ -609,6 +651,421 @@ impl RaftConsensus {
     /// Notify that a heartbeat was received (to reset election timer).
     pub async fn notify_heartbeat(&self) {
         self.heartbeat_received.notify_one();
+    }
+
+    /// Initialize replication state for all peers when becoming leader.
+    pub async fn initialize_replication_state(&self, peer_ids: Vec<NodeId>) {
+        let mut state = self.state.write().await;
+        
+        // Set next_index to last log index + 1 for all peers
+        let next_idx = state.log.len() as u64 + 1;
+        for peer_id in peer_ids {
+            state.next_index.insert(peer_id, next_idx);
+            state.match_index.insert(peer_id, 0);
+        }
+        
+        info!(
+            node_id = self.node_id,
+            peers = state.next_index.len(),
+            next_index = next_idx,
+            "Initialized replication state for peers"
+        );
+    }
+
+    /// Replicate log entries to a specific follower.
+    pub async fn replicate_to_follower(&self, follower_id: NodeId) -> ClusterResult<()> {
+        let state = self.state.read().await;
+        
+        if state.state != RaftState::Leader {
+            return Err(ClusterError::NotLeader(self.node_id, state.current_leader));
+        }
+        
+        let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
+        let prev_log_index = if next_idx > 1 { next_idx - 1 } else { 0 };
+        
+        let prev_log_term = if prev_log_index > 0 && prev_log_index <= state.log.len() as u64 {
+            state.log[prev_log_index as usize - 1].term
+        } else {
+            0
+        };
+        
+        // Collect entries to send
+        let entries: Vec<LogEntryCompact> = if next_idx <= state.log.len() as u64 {
+            state.log[next_idx as usize - 1..]
+                .iter()
+                .map(|entry| LogEntryCompact {
+                    term: entry.term,
+                    data: bincode::serialize(&entry.data).unwrap_or_default(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        
+        let request = AppendEntriesRequest {
+            term: state.current_term,
+            leader_id: self.node_id,
+            prev_log_index,
+            prev_log_term,
+            entries: entries.clone(),
+            leader_commit: state.commit_index,
+        };
+        
+        debug!(
+            node_id = self.node_id,
+            follower = follower_id,
+            prev_log_index,
+            prev_log_term,
+            entries_count = entries.len(),
+            leader_commit = state.commit_index,
+            "Sending AppendEntries to follower"
+        );
+        
+        drop(state); // Release read lock before async call
+        
+        // Send AppendEntries RPC via network
+        self.transport
+            .send(follower_id, ClusterMessage::AppendEntries(request))
+            .await?;
+        
+        Ok(())
+    }
+
+    /// Handle AppendEntries response from a follower (leader side).
+    pub async fn handle_append_entries_response(
+        &self,
+        follower_id: NodeId,
+        response: AppendEntriesResponse,
+    ) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+        
+        // If response term is higher, step down
+        if response.term > state.current_term {
+            warn!(
+                node_id = self.node_id,
+                current_term = state.current_term,
+                response_term = response.term,
+                "Received higher term in AppendEntries response, stepping down"
+            );
+            state.current_term = response.term;
+            state.state = RaftState::Follower;
+            state.leader_lease = None;
+            state.current_leader = None;
+            state.voted_for = None;
+            return Ok(());
+        }
+        
+        if state.state != RaftState::Leader {
+            return Ok(()); // Ignore if no longer leader
+        }
+        
+        if response.success {
+            // Update next_index and match_index for follower
+            let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
+            let new_match_index = if response.match_index.is_some() {
+                response.match_index.unwrap()
+            } else {
+                // Calculate based on what we sent
+                let entries_sent = if next_idx <= state.log.len() as u64 {
+                    state.log.len() as u64 - next_idx + 1
+                } else {
+                    0
+                };
+                next_idx + entries_sent - 1
+            };
+            
+            state.match_index.insert(follower_id, new_match_index);
+            state.next_index.insert(follower_id, new_match_index + 1);
+            
+            debug!(
+                node_id = self.node_id,
+                follower = follower_id,
+                match_index = new_match_index,
+                next_index = new_match_index + 1,
+                "Updated follower replication state"
+            );
+            
+            // Try to advance commit index
+            self.try_advance_commit_index(&mut state).await;
+        } else {
+            // Replication failed, decrement next_index for this follower
+            let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
+            
+            // Use conflict hints if provided for faster catchup
+            let new_next_idx = if let (Some(conflict_index), Some(conflict_term)) = 
+                (response.conflict_index, response.conflict_term) {
+                // Find the last entry in leader's log with conflict_term
+                let mut idx = conflict_index;
+                while idx > 0 {
+                    if idx as usize <= state.log.len() {
+                        if state.log[idx as usize - 1].term == conflict_term {
+                            break;
+                        }
+                    }
+                    idx -= 1;
+                }
+                if idx > 0 {
+                    idx + 1
+                } else {
+                    conflict_index
+                }
+            } else {
+                // Simple backtracking
+                if next_idx > 1 {
+                    next_idx - 1
+                } else {
+                    1
+                }
+            };
+            
+            state.next_index.insert(follower_id, new_next_idx);
+            
+            warn!(
+                node_id = self.node_id,
+                follower = follower_id,
+                old_next_index = next_idx,
+                new_next_index = new_next_idx,
+                "AppendEntries rejected, decrementing next_index"
+            );
+        }
+        
+        Ok(())
+    }
+
+    /// Try to advance commit index based on match_index from followers.
+    async fn try_advance_commit_index(&self, state: &mut ConsensusState) {
+        if state.state != RaftState::Leader {
+            return;
+        }
+        
+        // Find the highest index replicated to a majority
+        let log_len = state.log.len() as u64;
+        for n in (state.commit_index + 1..=log_len).rev() {
+            // Count replicas (including self)
+            let mut count = 1;
+            for &match_idx in state.match_index.values() {
+                if match_idx >= n {
+                    count += 1;
+                }
+            }
+            
+            // Check if we have majority
+            let needed = (state.cluster_size / 2) + 1;
+            if count >= needed {
+                // According to Raft §5.4.2, a leader can commit entries from previous terms
+                // once an entry from its current term is committed. However, it should never
+                // commit entries from previous terms directly.
+                // For now, we allow committing if it's from the current term.
+                // A more sophisticated implementation would track when a current-term entry is committed.
+                if state.log[n as usize - 1].term == state.current_term {
+                    let old_commit = state.commit_index;
+                    state.commit_index = n;
+                    info!(
+                        node_id = self.node_id,
+                        old_commit_index = old_commit,
+                        new_commit_index = n,
+                        replicas = count,
+                        "Advanced commit index"
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Handle incoming AppendEntries RPC (follower side).
+    pub async fn handle_append_entries(
+        &self,
+        request: AppendEntriesRequest,
+    ) -> ClusterResult<AppendEntriesResponse> {
+        let mut state = self.state.write().await;
+        
+        // Reply false if term < currentTerm
+        if request.term < state.current_term {
+            return Ok(AppendEntriesResponse {
+                term: state.current_term,
+                success: false,
+                match_index: None,
+                conflict_index: None,
+                conflict_term: None,
+            });
+        }
+        
+        // Update term if higher
+        if request.term > state.current_term {
+            state.current_term = request.term;
+            state.state = RaftState::Follower;
+            state.voted_for = None;
+            state.leader_lease = None;
+        }
+        
+        // Update current leader
+        state.current_leader = Some(request.leader_id);
+        
+        // Reset election timer (heartbeat received)
+        drop(state);
+        self.notify_heartbeat().await;
+        let mut state = self.state.write().await;
+        
+        // Check log consistency
+        if request.prev_log_index > 0 {
+            // If we don't have an entry at prev_log_index, reply false
+            if request.prev_log_index > state.log.len() as u64 {
+                return Ok(AppendEntriesResponse {
+                    term: state.current_term,
+                    success: false,
+                    match_index: None,
+                    conflict_index: Some(state.log.len() as u64 + 1),
+                    conflict_term: None,
+                });
+            }
+            
+            // If entry at prev_log_index has different term, reply false
+            let prev_entry = &state.log[request.prev_log_index as usize - 1];
+            if prev_entry.term != request.prev_log_term {
+                // Find conflict term and first index of that term
+                let conflict_term = prev_entry.term;
+                let mut conflict_index = request.prev_log_index;
+                
+                // Find first index of conflict term
+                while conflict_index > 1 {
+                    if state.log[conflict_index as usize - 2].term != conflict_term {
+                        break;
+                    }
+                    conflict_index -= 1;
+                }
+                
+                return Ok(AppendEntriesResponse {
+                    term: state.current_term,
+                    success: false,
+                    match_index: None,
+                    conflict_index: Some(conflict_index),
+                    conflict_term: Some(conflict_term),
+                });
+            }
+        }
+        
+        // Append new entries
+        if !request.entries.is_empty() {
+            let mut next_index = request.prev_log_index + 1;
+            
+            for entry_compact in &request.entries {
+                let entry_data: LogEntryData = bincode::deserialize(&entry_compact.data)
+                    .unwrap_or(LogEntryData::Noop);
+                
+                let entry = LogEntry {
+                    term: entry_compact.term,
+                    index: next_index,
+                    data: entry_data,
+                    fencing_token: None, // Follower doesn't generate tokens
+                };
+                
+                // If an existing entry conflicts (same index, different term), delete it and all following
+                if next_index as usize <= state.log.len() {
+                    if state.log[next_index as usize - 1].term != entry.term {
+                        state.log.truncate(next_index as usize - 1);
+                        state.log.push(entry);
+                    }
+                    // Otherwise entry matches, skip
+                } else {
+                    state.log.push(entry);
+                }
+                
+                next_index += 1;
+            }
+            
+            debug!(
+                node_id = self.node_id,
+                leader = request.leader_id,
+                entries_appended = request.entries.len(),
+                log_length = state.log.len(),
+                "Appended entries to log"
+            );
+        }
+        
+        // Update commit index
+        if request.leader_commit > state.commit_index {
+            let last_new_index = if request.entries.is_empty() {
+                request.prev_log_index
+            } else {
+                request.prev_log_index + request.entries.len() as u64
+            };
+            
+            let old_commit = state.commit_index;
+            state.commit_index = std::cmp::min(request.leader_commit, last_new_index);
+            
+            if state.commit_index > old_commit {
+                info!(
+                    node_id = self.node_id,
+                    old_commit = old_commit,
+                    new_commit = state.commit_index,
+                    "Updated commit index from leader"
+                );
+            }
+        }
+        
+        let last_log_index = state.log.len() as u64;
+        
+        Ok(AppendEntriesResponse {
+            term: state.current_term,
+            success: true,
+            match_index: Some(last_log_index),
+            conflict_index: None,
+            conflict_term: None,
+        })
+    }
+
+    /// Apply committed entries to state machine.
+    pub async fn apply_committed_entries(&self) -> ClusterResult<usize> {
+        let mut state = self.state.write().await;
+        
+        let mut applied_count = 0;
+        
+        while state.last_applied < state.commit_index {
+            state.last_applied += 1;
+            
+            if state.last_applied as usize <= state.log.len() {
+                let entry = &state.log[state.last_applied as usize - 1];
+                
+                debug!(
+                    node_id = self.node_id,
+                    index = state.last_applied,
+                    term = entry.term,
+                    "Applying committed entry to state machine"
+                );
+                
+                // In a full implementation, we would apply the entry to the state machine here
+                // For now, we just track that it was applied
+                applied_count += 1;
+            }
+        }
+        
+        if applied_count > 0 {
+            info!(
+                node_id = self.node_id,
+                applied = applied_count,
+                last_applied = state.last_applied,
+                "Applied committed entries to state machine"
+            );
+        }
+        
+        Ok(applied_count)
+    }
+
+    /// Get the last log index.
+    pub async fn last_log_index(&self) -> u64 {
+        let state = self.state.read().await;
+        state.log.len() as u64
+    }
+
+    /// Get the last log term.
+    pub async fn last_log_term(&self) -> u64 {
+        let state = self.state.read().await;
+        if state.log.is_empty() {
+            0
+        } else {
+            state.log[state.log.len() - 1].term
+        }
     }
 }
 
@@ -1066,3 +1523,13 @@ mod tests {
         consensus.stop().await.unwrap();
     }
 }
+
+// Include replication integration tests
+#[cfg(test)]
+#[path = "consensus_tests.rs"]
+mod consensus_tests;
+
+// Include chaos tests for failure scenarios
+#[cfg(test)]
+#[path = "consensus_chaos_tests.rs"]
+mod consensus_chaos_tests;
