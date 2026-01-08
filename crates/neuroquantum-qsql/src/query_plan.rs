@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-#[cfg(test)]
 use tracing::warn;
 
 // Import storage engine and related types
@@ -2192,6 +2191,9 @@ impl QueryExecutor {
     ) -> QSQLResult<QueryResult> {
         let start_time = std::time::Instant::now();
         if self.storage_engine.is_some() {
+            // Check if this UPDATE has no WHERE clause (will affect all rows)
+            let update_without_where = update.where_clause.is_none();
+
             // Convert SQL UPDATE to storage query (no borrow needed)
             let storage_query = Self::convert_update_to_storage_query_static(update)?;
 
@@ -2214,6 +2216,15 @@ impl QueryExecutor {
                     })?
             };
             drop(storage_guard); // Release lock early
+
+            // Safety warning: log if UPDATE had no WHERE clause (affected all rows)
+            if update_without_where {
+                warn!(
+                    table = %update.table_name,
+                    affected_rows = rows_affected,
+                    "UPDATE without WHERE clause affected all rows"
+                );
+            }
 
             // Plasticity adaptation: strengthen connections for updated patterns
             if self.config.enable_neuromorphic_learning && update.plasticity_adaptation.is_some() {

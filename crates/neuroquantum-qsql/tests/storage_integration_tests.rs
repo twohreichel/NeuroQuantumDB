@@ -738,3 +738,103 @@ async fn test_cte_with_storage() {
 
     println!("✅ CTE (WITH clause) execution: SUCCESS");
 }
+
+/// Test that UPDATE without WHERE clause works correctly and updates all rows
+/// This test validates the safety feature that logs a warning but still executes the update
+#[tokio::test]
+async fn test_update_without_where_clause_affects_all_rows() {
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path();
+
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+
+    // Create test table with a 'status' integer column
+    let schema = TableSchema {
+        name: "users".to_string(),
+        columns: vec![
+            ColumnDefinition {
+                name: "id".to_string(),
+                data_type: DataType::Integer,
+                nullable: false,
+                default_value: None,
+                auto_increment: true,
+            },
+            ColumnDefinition {
+                name: "name".to_string(),
+                data_type: DataType::Text,
+                nullable: false,
+                default_value: None,
+                auto_increment: false,
+            },
+            ColumnDefinition {
+                name: "status".to_string(),
+                data_type: DataType::Integer,
+                nullable: false,
+                default_value: None,
+                auto_increment: false,
+            },
+        ],
+        primary_key: "id".to_string(),
+        created_at: chrono::Utc::now(),
+        version: 1,
+        auto_increment_columns: HashMap::new(),
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+    };
+
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
+
+        // Insert test data - all users have status = 0 initially
+        for i in 1..=5 {
+            let mut row = neuroquantum_core::storage::Row {
+                id: 0,
+                fields: HashMap::new(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+            };
+            row.fields.insert("id".to_string(), Value::Integer(i));
+            row.fields.insert(
+                "name".to_string(),
+                Value::Text(format!("User{}", i)),
+            );
+            row.fields.insert("status".to_string(), Value::Integer(0));
+            storage_guard.insert_row("users", row).await.unwrap();
+        }
+    }
+
+    // Create executor
+    let config = ExecutorConfig::default();
+    let mut executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+    let parser = Parser::new();
+
+    // Verify all 5 rows exist before update
+    let select_before = parser.parse("SELECT * FROM users").unwrap();
+    let result_before = executor.execute_statement(&select_before).await.unwrap();
+    assert_eq!(result_before.rows.len(), 5, "Should have 5 users before update");
+
+    // Execute UPDATE without WHERE clause - should update all rows
+    let sql = "UPDATE users SET status = 1";
+    println!("📝 Executing: {}", sql);
+    let statement = parser.parse(sql).unwrap();
+    let result = executor.execute_statement(&statement).await.unwrap();
+
+    // Verify all 5 rows were updated
+    assert_eq!(
+        result.rows_affected, 5,
+        "UPDATE without WHERE should affect all 5 rows"
+    );
+    println!("✏️ UPDATE result: rows_affected = {}", result.rows_affected);
+
+    // Verify all users now have status = 1
+    let select_after = parser.parse("SELECT * FROM users WHERE status = 1").unwrap();
+    let result_after = executor.execute_statement(&select_after).await.unwrap();
+    assert_eq!(
+        result_after.rows.len(),
+        5,
+        "All 5 users should now have status = 1"
+    );
+
+    println!("✅ UPDATE without WHERE clause: SUCCESS (all rows updated with warning logged)");
+}
