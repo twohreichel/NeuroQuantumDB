@@ -45,6 +45,17 @@ use crate::config::ClusterConfig;
 use crate::error::{ClusterError, ClusterResult};
 use crate::node::NodeId;
 
+// Forward declare RaftConsensus to avoid circular dependency
+use std::future::Future;
+use std::pin::Pin;
+
+// Type alias for consensus handler callbacks
+type RequestVoteHandler = Arc<
+    dyn Fn(RequestVoteRequest) -> Pin<Box<dyn Future<Output = ClusterResult<RequestVoteResponse>> + Send>>
+        + Send
+        + Sync,
+>;
+
 // Include generated protobuf code
 pub mod proto {
     tonic::include_proto!("neuroquantum.cluster");
@@ -214,6 +225,8 @@ pub struct NetworkTransport {
     running: RwLock<bool>,
     /// Server shutdown signal
     server_shutdown: RwLock<Option<tokio::sync::oneshot::Sender<()>>>,
+    /// Handler for RequestVote RPCs
+    request_vote_handler: RwLock<Option<RequestVoteHandler>>,
 }
 
 /// gRPC service implementation for cluster node
@@ -282,6 +295,8 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
             term: req.term,
             success: true,
             last_log_index: req.prev_log_index,
+            conflict_index: None,
+            conflict_term: None,
         }))
     }
 
@@ -298,7 +313,41 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
             "Received vote request"
         );
 
-        // Placeholder response - actual Raft logic would be implemented here
+        // Convert proto request to internal format
+        let vote_request = RequestVoteRequest {
+            term: req.term,
+            candidate_id: req.candidate_id,
+            last_log_index: req.last_log_index,
+            last_log_term: req.last_log_term,
+            is_pre_vote: req.is_pre_vote,
+        };
+
+        // Call the registered handler if available
+        let handler = self.transport.request_vote_handler.read().await;
+        if let Some(ref h) = *handler {
+            match h(vote_request).await {
+                Ok(response) => {
+                    return Ok(tonic::Response::new(proto::VoteResponse {
+                        term: response.term,
+                        vote_granted: response.vote_granted,
+                        is_pre_vote: req.is_pre_vote,
+                    }));
+                }
+                Err(e) => {
+                    warn!(
+                        local_node = self.node_id,
+                        error = %e,
+                        "Failed to process vote request"
+                    );
+                    return Err(tonic::Status::internal(format!(
+                        "Failed to process vote request: {}",
+                        e
+                    )));
+                }
+            }
+        }
+
+        // Fallback: deny vote if no handler registered
         Ok(tonic::Response::new(proto::VoteResponse {
             term: req.term,
             vote_granted: false,
@@ -365,7 +414,20 @@ impl NetworkTransport {
             config: config.clone(),
             running: RwLock::new(false),
             server_shutdown: RwLock::new(None),
+            request_vote_handler: RwLock::new(None),
         })
+    }
+
+    /// Register a handler for RequestVote RPCs.
+    pub async fn register_request_vote_handler<F>(&self, handler: F)
+    where
+        F: Fn(RequestVoteRequest) -> Pin<Box<dyn Future<Output = ClusterResult<RequestVoteResponse>> + Send>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        let mut h = self.request_vote_handler.write().await;
+        *h = Some(Arc::new(handler));
     }
 
     /// Start the network transport.
@@ -468,7 +530,7 @@ impl NetworkTransport {
         debug!(
             from = self.node_id,
             to = target,
-            message_type = ?std::mem::discriminant(&message),
+            message_type = ?std::mem::discriminant(message),
             "Sending message via gRPC"
         );
 
@@ -495,6 +557,7 @@ impl NetworkTransport {
                         last_log_term: vote_req.last_log_term,
                         is_pre_vote: vote_req.is_pre_vote,
                     };
+                    // Send vote request and await response
                     client.request_vote(req).await.map_err(|e| {
                         ClusterError::ConnectionFailed(
                             peer.addr,
@@ -544,6 +607,71 @@ impl NetworkTransport {
         }
 
         Ok(())
+    }
+
+    /// Send RequestVote RPC and return the response.
+    pub async fn send_request_vote_rpc(
+        &self,
+        target: NodeId,
+        request: RequestVoteRequest,
+    ) -> ClusterResult<RequestVoteResponse> {
+        let mut peers = self.peers.write().await;
+
+        let peer = peers
+            .get_mut(&target)
+            .ok_or(ClusterError::NodeNotFound(target))?;
+
+        if !peer.connected {
+            return Err(ClusterError::ConnectionFailed(
+                peer.addr,
+                "Peer not connected".into(),
+            ));
+        }
+
+        debug!(
+            from = self.node_id,
+            to = target,
+            term = request.term,
+            "Sending RequestVote RPC"
+        );
+
+        // Use gRPC client to send the request
+        if let Some(ref mut client) = peer.client {
+            let req = proto::VoteRequest {
+                term: request.term,
+                candidate_id: request.candidate_id,
+                last_log_index: request.last_log_index,
+                last_log_term: request.last_log_term,
+                is_pre_vote: request.is_pre_vote,
+            };
+
+            let response = client
+                .request_vote(req)
+                .await
+                .map_err(|e| {
+                    ClusterError::ConnectionFailed(
+                        peer.addr,
+                        format!("gRPC call failed: {}", e),
+                    )
+                })?
+                .into_inner();
+
+            // Update last contact time
+            peer.last_contact_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+
+            Ok(RequestVoteResponse {
+                term: response.term,
+                vote_granted: response.vote_granted,
+            })
+        } else {
+            Err(ClusterError::ConnectionFailed(
+                peer.addr,
+                "No client available".into(),
+            ))
+        }
     }
 
     /// Broadcast a message to all peers.

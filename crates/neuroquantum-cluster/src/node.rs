@@ -380,14 +380,7 @@ impl ClusterNode {
         }
 
         // Check if leader lease is still valid
-        let state = self.consensus.state.read().await;
-        if let Some(lease) = &state.leader_lease {
-            if !lease.is_valid() {
-                return false;
-            }
-        }
-
-        true
+        self.consensus.is_leader_lease_valid().await
     }
 
     /// Update peer health status.
