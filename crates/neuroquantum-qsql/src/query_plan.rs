@@ -102,6 +102,10 @@ pub struct ExecutorConfig {
     #[cfg(test)]
     #[serde(default)]
     pub allow_legacy_mode: bool,
+    /// Threshold for using hash join over nested loop join.
+    /// If the product of left and right row counts exceeds this,
+    /// use hash join instead of nested loop for better performance.
+    pub hash_join_threshold: usize,
 }
 
 impl Default for ExecutorConfig {
@@ -118,6 +122,7 @@ impl Default for ExecutorConfig {
             enable_dna_compression: true,
             #[cfg(test)]
             allow_legacy_mode: false, // Only available in test builds
+            hash_join_threshold: 1000, // Use hash join when left * right > 1000
         }
     }
 }
@@ -1361,6 +1366,66 @@ impl QueryExecutor {
         join_type: &JoinType,
         condition: Option<&Expression>,
     ) -> QSQLResult<Vec<Row>> {
+        // Decide whether to use hash join or nested loop join
+        let left_count = left_rows.len();
+        let right_count = right_rows.len();
+        let product = left_count.saturating_mul(right_count);
+        
+        // Use hash join for large tables when we have an equi-join condition
+        // and the join type supports it (Inner, Left, Right, Full)
+        let should_use_hash_join = product > self.config.hash_join_threshold
+            && Self::is_equi_join_condition(condition)
+            && matches!(
+                join_type,
+                JoinType::Inner | JoinType::Left | JoinType::Right | JoinType::Full
+            );
+
+        if should_use_hash_join {
+            // Use hash join for better performance on large tables
+            return self.perform_hash_join(
+                left_rows,
+                left_alias,
+                right_rows,
+                right_alias,
+                join_type,
+                condition,
+            );
+        }
+
+        // Fall back to nested loop join for small tables or complex conditions
+        self.perform_nested_loop_join(
+            left_rows,
+            left_alias,
+            right_rows,
+            right_alias,
+            join_type,
+            condition,
+        )
+    }
+
+    /// Check if the join condition is an equi-join (uses = operator)
+    /// Hash join is most efficient for equi-joins
+    fn is_equi_join_condition(condition: Option<&Expression>) -> bool {
+        match condition {
+            Some(Expression::BinaryOp { operator: BinaryOperator::Equal, .. }) => true,
+            Some(Expression::BinaryOp { operator: BinaryOperator::And, left, right }) => {
+                // Check if all AND conditions are equi-joins
+                Self::is_equi_join_condition(Some(left)) && Self::is_equi_join_condition(Some(right))
+            }
+            _ => false,
+        }
+    }
+
+    /// Perform a nested loop JOIN (original O(n*m) algorithm)
+    fn perform_nested_loop_join(
+        &self,
+        left_rows: Vec<Row>,
+        left_alias: &str,
+        right_rows: Vec<Row>,
+        right_alias: &str,
+        join_type: &JoinType,
+        condition: Option<&Expression>,
+    ) -> QSQLResult<Vec<Row>> {
         let mut result = Vec::new();
 
         match join_type {
@@ -1508,6 +1573,243 @@ impl QueryExecutor {
         }
 
         Ok(result)
+    }
+
+    /// Perform a hash JOIN (optimized O(n+m) algorithm for large tables)
+    /// 
+    /// This implementation uses a hash table to build an index on the smaller table
+    /// (build phase) and then probes it with the larger table (probe phase).
+    /// 
+    /// Complexity: O(n + m) where n and m are the table sizes
+    /// Memory: O(min(n, m)) for the hash table
+    fn perform_hash_join(
+        &self,
+        left_rows: Vec<Row>,
+        left_alias: &str,
+        right_rows: Vec<Row>,
+        right_alias: &str,
+        join_type: &JoinType,
+        condition: Option<&Expression>,
+    ) -> QSQLResult<Vec<Row>> {
+        // Extract join keys from the condition
+        let join_keys = Self::extract_join_keys(condition, left_alias, right_alias)?;
+        
+        // Determine which table to use for build phase (smaller one)
+        let (build_rows, build_alias, probe_rows, probe_alias, build_is_left) = 
+            if left_rows.len() <= right_rows.len() {
+                (&left_rows, left_alias, &right_rows, right_alias, true)
+            } else {
+                (&right_rows, right_alias, &left_rows, left_alias, false)
+            };
+
+        // Build phase: Create hash table from smaller table
+        // Using String concatenation with delimiter for hash keys (more efficient than Vec<String>)
+        let mut hash_table: HashMap<String, Vec<usize>> = HashMap::new();
+        
+        for (idx, row) in build_rows.iter().enumerate() {
+            let key = Self::extract_row_key_string(row, build_alias, &join_keys, build_is_left)?;
+            hash_table.entry(key).or_default().push(idx);
+        }
+
+        let mut result = Vec::new();
+        let mut matched_build_indices = std::collections::HashSet::new();
+
+        // Probe phase: For each row in probe table, look up matches in hash table
+        for probe_row in probe_rows {
+            let key = Self::extract_row_key_string(probe_row, probe_alias, &join_keys, !build_is_left)?;
+            
+            if let Some(build_indices) = hash_table.get(&key) {
+                // Found matching rows in build table
+                for &build_idx in build_indices {
+                    let build_row = &build_rows[build_idx];
+                    
+                    // Verify the full join condition (in case of complex AND conditions)
+                    let (left_row, right_row) = if build_is_left {
+                        (build_row, probe_row)
+                    } else {
+                        (probe_row, build_row)
+                    };
+                    
+                    if Self::evaluate_join_condition(
+                        left_row,
+                        left_alias,
+                        right_row,
+                        right_alias,
+                        condition,
+                    )? {
+                        let merged = Self::merge_rows(left_row, left_alias, right_row, right_alias);
+                        result.push(merged);
+                        matched_build_indices.insert(build_idx);
+                    }
+                }
+            } else if matches!(join_type, JoinType::Left | JoinType::Full) && !build_is_left {
+                // LEFT JOIN or FULL JOIN: probe table is left, no match found
+                let merged = Self::merge_rows_with_nulls(
+                    probe_row,
+                    probe_alias,
+                    build_rows,
+                    build_alias,
+                    true,
+                );
+                result.push(merged);
+            } else if matches!(join_type, JoinType::Right | JoinType::Full) && build_is_left {
+                // RIGHT JOIN or FULL JOIN: probe table is right, no match found
+                let merged = Self::merge_rows_with_nulls(
+                    probe_row,
+                    probe_alias,
+                    build_rows,
+                    build_alias,
+                    false,
+                );
+                result.push(merged);
+            }
+        }
+
+        // Handle unmatched build rows for outer joins
+        if matches!(join_type, JoinType::Left | JoinType::Full) && build_is_left {
+            // LEFT JOIN or FULL JOIN: add unmatched left (build) rows
+            for (idx, build_row) in build_rows.iter().enumerate() {
+                if !matched_build_indices.contains(&idx) {
+                    let merged = Self::merge_rows_with_nulls(
+                        build_row,
+                        build_alias,
+                        probe_rows,
+                        probe_alias,
+                        true,
+                    );
+                    result.push(merged);
+                }
+            }
+        } else if matches!(join_type, JoinType::Right | JoinType::Full) && !build_is_left {
+            // RIGHT JOIN or FULL JOIN: add unmatched right (build) rows
+            for (idx, build_row) in build_rows.iter().enumerate() {
+                if !matched_build_indices.contains(&idx) {
+                    let merged = Self::merge_rows_with_nulls(
+                        build_row,
+                        build_alias,
+                        probe_rows,
+                        probe_alias,
+                        false,
+                    );
+                    result.push(merged);
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Extract join keys from the join condition
+    /// Returns a list of (left_column, right_column) pairs
+    fn extract_join_keys(
+        condition: Option<&Expression>,
+        left_alias: &str,
+        right_alias: &str,
+    ) -> QSQLResult<Vec<(String, String)>> {
+        let mut keys = Vec::new();
+        
+        if let Some(expr) = condition {
+            Self::collect_join_keys(expr, left_alias, right_alias, &mut keys)?;
+        }
+        
+        if keys.is_empty() {
+            return Err(QSQLError::ExecutionError {
+                message: "Hash join requires at least one equi-join condition".to_string(),
+            });
+        }
+        
+        Ok(keys)
+    }
+
+    /// Recursively collect join keys from expression
+    fn collect_join_keys(
+        expr: &Expression,
+        left_alias: &str,
+        right_alias: &str,
+        keys: &mut Vec<(String, String)>,
+    ) -> QSQLResult<()> {
+        match expr {
+            Expression::BinaryOp {
+                left,
+                operator: BinaryOperator::Equal,
+                right,
+            } => {
+                // Extract column names from both sides
+                if let (Expression::Identifier(left_col), Expression::Identifier(right_col)) =
+                    (left.as_ref(), right.as_ref())
+                {
+                    // Determine which column belongs to which table
+                    let (left_key, right_key) = if left_col.starts_with(&format!("{}.", left_alias)) {
+                        (
+                            left_col.strip_prefix(&format!("{}.", left_alias)).unwrap().to_string(),
+                            right_col.strip_prefix(&format!("{}.", right_alias)).unwrap_or(right_col).to_string(),
+                        )
+                    } else if left_col.starts_with(&format!("{}.", right_alias)) {
+                        (
+                            right_col.strip_prefix(&format!("{}.", left_alias)).unwrap_or(right_col).to_string(),
+                            left_col.strip_prefix(&format!("{}.", right_alias)).unwrap().to_string(),
+                        )
+                    } else {
+                        // Unqualified names - assume left column is from left table
+                        (left_col.clone(), right_col.clone())
+                    };
+                    
+                    keys.push((left_key, right_key));
+                }
+            }
+            Expression::BinaryOp {
+                left,
+                operator: BinaryOperator::And,
+                right,
+            } => {
+                // Recursively process AND conditions
+                Self::collect_join_keys(left, left_alias, right_alias, keys)?;
+                Self::collect_join_keys(right, left_alias, right_alias, keys)?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Extract the join key values from a row as a single concatenated string
+    /// This is more efficient than using Vec<String> as hash keys
+    fn extract_row_key_string(
+        row: &Row,
+        alias: &str,
+        join_keys: &[(String, String)],
+        is_left: bool,
+    ) -> QSQLResult<String> {
+        let mut key_parts = Vec::with_capacity(join_keys.len());
+        
+        for (left_key, right_key) in join_keys {
+            let col_name = if is_left { left_key } else { right_key };
+            
+            // Try to find the column value (with or without alias prefix)
+            let value = row.fields.get(col_name)
+                .or_else(|| row.fields.get(&format!("{}.{}", alias, col_name)))
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: format!("Join key column '{}' not found in table '{}'", col_name, alias),
+                })?;
+            
+            // Convert value to string for hashing
+            key_parts.push(Self::value_to_key_string(value));
+        }
+        
+        // Join with null byte delimiter to avoid collisions
+        Ok(key_parts.join("\0"))
+    }
+
+    /// Convert a Value to a string suitable for use as a hash key
+    fn value_to_key_string(value: &Value) -> String {
+        match value {
+            Value::Integer(i) => i.to_string(),
+            Value::Float(f) => f.to_string(),
+            Value::Text(s) => s.clone(),
+            Value::Boolean(b) => b.to_string(),
+            Value::Null => "NULL".to_string(),
+            Value::Timestamp(ts) => ts.to_rfc3339(),
+            Value::Binary(b) => format!("{:?}", b),
+        }
     }
 
     /// Evaluate JOIN condition (e.g., ON u.id = o.user_id)
