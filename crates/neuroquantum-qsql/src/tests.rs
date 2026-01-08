@@ -667,7 +667,11 @@ mod parser_tests {
         "#;
 
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse UNION ALL: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to parse UNION ALL: {:?}",
+            result.err()
+        );
 
         match result.unwrap() {
             Statement::Select(select) => {
@@ -694,7 +698,11 @@ mod parser_tests {
         "#;
 
         let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse recursive CTE: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to parse recursive CTE: {:?}",
+            result.err()
+        );
 
         match result.unwrap() {
             Statement::Select(select) => {
@@ -703,10 +711,13 @@ mod parser_tests {
                 assert!(with_clause.recursive, "Expected RECURSIVE flag");
                 assert_eq!(with_clause.ctes.len(), 1);
                 assert_eq!(with_clause.ctes[0].name, "hierarchy");
-                
+
                 // Check that the CTE query has UNION ALL
                 let cte_query = &with_clause.ctes[0].query;
-                assert!(cte_query.union_clause.is_some(), "Expected UNION clause in CTE");
+                assert!(
+                    cte_query.union_clause.is_some(),
+                    "Expected UNION clause in CTE"
+                );
                 let union = cte_query.union_clause.as_ref().unwrap();
                 assert!(matches!(union.union_type, crate::ast::UnionType::UnionAll));
             }
@@ -1182,7 +1193,7 @@ mod executor_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
-            union_clause: None,
+                union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -1231,7 +1242,7 @@ mod executor_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
-            union_clause: None,
+                union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -1280,7 +1291,7 @@ mod executor_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
-            union_clause: None,
+                union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -1740,7 +1751,7 @@ mod property_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
-            union_clause: None,
+                union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],

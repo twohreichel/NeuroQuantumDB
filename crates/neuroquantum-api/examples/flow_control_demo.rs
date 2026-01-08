@@ -200,8 +200,8 @@ async fn demo_drop_oldest() -> Result<(), Box<dyn std::error::Error>> {
     for i in 10..13 {
         let result = sender.send(format!("Message {}", i)).await;
         println!("  Sent: Message {} (oldest dropped)", i);
-        if result.is_err() {
-            println!("    Error: {}", result.unwrap_err());
+        if let Err(e) = result {
+            println!("    Error: {}", e);
         }
     }
 

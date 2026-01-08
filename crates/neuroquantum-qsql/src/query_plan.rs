@@ -1126,7 +1126,8 @@ impl QueryExecutor {
                         })?;
 
                 // Check if this is a recursive CTE (has UNION clause and context is recursive)
-                let is_recursive_cte = cte_context.is_recursive() && cte_query.union_clause.is_some();
+                let is_recursive_cte =
+                    cte_context.is_recursive() && cte_query.union_clause.is_some();
 
                 let storage_rows = if is_recursive_cte {
                     // Execute recursive CTE
@@ -1229,11 +1230,13 @@ impl QueryExecutor {
         cte_query: &SelectStatement,
     ) -> QSQLResult<Vec<Row>> {
         // Get the union clause which contains the recursive part
-        let union_clause = cte_query.union_clause.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: format!("Recursive CTE '{}' must have a UNION clause", cte_name),
-            }
-        })?;
+        let union_clause =
+            cte_query
+                .union_clause
+                .as_ref()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: format!("Recursive CTE '{}' must have a UNION clause", cte_name),
+                })?;
 
         // The anchor query is the main select (without the union clause)
         let anchor_query = SelectStatement {
@@ -1272,8 +1275,8 @@ impl QueryExecutor {
 
         let anchor_result = self.execute(&anchor_plan).await?;
         let mut all_rows = self.query_result_to_storage_rows(&anchor_result.rows)?;
-        // Use iter().cloned() to avoid an extra clone of the entire vector
-        let mut working_rows: Vec<Row> = all_rows.iter().cloned().collect();
+        // Clone the rows to create a working set
+        let mut working_rows: Vec<Row> = all_rows.to_vec();
 
         // Get the recursive query
         let recursive_query = &union_clause.select;
@@ -1342,12 +1345,13 @@ impl QueryExecutor {
         // 2. Replace those references with the working rows
         // 3. Execute the modified query
 
-        let from_clause = recursive_query
-            .from
-            .as_ref()
-            .ok_or_else(|| QSQLError::ExecutionError {
-                message: "Recursive query must have a FROM clause".to_string(),
-            })?;
+        let from_clause =
+            recursive_query
+                .from
+                .as_ref()
+                .ok_or_else(|| QSQLError::ExecutionError {
+                    message: "Recursive query must have a FROM clause".to_string(),
+                })?;
 
         // Execute the recursive query by treating the CTE reference as the working rows
         // We perform a JOIN between the base table and the working rows
@@ -1360,12 +1364,13 @@ impl QueryExecutor {
 
         if let Some(join) = cte_join {
             // Get the base table
-            let base_table_ref = from_clause
-                .relations
-                .first()
-                .ok_or_else(|| QSQLError::ExecutionError {
-                    message: "Missing base table in recursive query".to_string(),
-                })?;
+            let base_table_ref =
+                from_clause
+                    .relations
+                    .first()
+                    .ok_or_else(|| QSQLError::ExecutionError {
+                        message: "Missing base table in recursive query".to_string(),
+                    })?;
 
             // Fetch base table rows
             let storage_query = SelectQuery {
@@ -1378,11 +1383,12 @@ impl QueryExecutor {
             };
 
             let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
-            let base_rows = storage_guard.select_rows(&storage_query).await.map_err(|e| {
-                QSQLError::ExecutionError {
+            let base_rows = storage_guard
+                .select_rows(&storage_query)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
                     message: format!("Failed to fetch base table: {}", e),
-                }
-            })?;
+                })?;
             drop(storage_guard);
 
             let base_alias = base_table_ref
@@ -1465,7 +1471,7 @@ impl QueryExecutor {
                         // For wildcard projection, we keep only the unqualified versions to avoid
                         // column duplication in the result.
                         let mut seen_base_names = std::collections::HashSet::new();
-                        
+
                         // First pass: collect all base column names (without alias prefix)
                         for col in row.fields.keys() {
                             let base_name = if col.contains('.') {
@@ -1475,7 +1481,7 @@ impl QueryExecutor {
                             };
                             seen_base_names.insert(base_name.to_string());
                         }
-                        
+
                         // Second pass: add fields, preferring unqualified names
                         for (col, val) in &row.fields {
                             // If column contains a dot, check if we also have the unqualified version
@@ -1555,12 +1561,8 @@ impl QueryExecutor {
                         match (&left_val, &right_val) {
                             (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a + b)),
                             (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
-                            (Value::Integer(a), Value::Float(b)) => {
-                                Ok(Value::Float(*a as f64 + b))
-                            }
-                            (Value::Float(a), Value::Integer(b)) => {
-                                Ok(Value::Float(a + *b as f64))
-                            }
+                            (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 + b)),
+                            (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a + *b as f64)),
                             // String concatenation with || (treated as Add when both are strings)
                             (Value::Text(a), Value::Text(b)) => {
                                 Ok(Value::Text(format!("{}{}", a, b)))
