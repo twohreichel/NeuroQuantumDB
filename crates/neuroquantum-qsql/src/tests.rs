@@ -634,6 +634,87 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_union() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"
+            SELECT id, name FROM users
+            UNION
+            SELECT id, name FROM archived_users
+        "#;
+
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse UNION: {:?}", result.err());
+
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.union_clause.is_some(), "Expected UNION clause");
+                let union = select.union_clause.unwrap();
+                assert!(matches!(union.union_type, crate::ast::UnionType::Union));
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_union_all() {
+        let parser = QSQLParser::new();
+
+        let sql = r#"
+            SELECT id, name FROM users
+            UNION ALL
+            SELECT id, name FROM archived_users
+        "#;
+
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse UNION ALL: {:?}", result.err());
+
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.union_clause.is_some(), "Expected UNION ALL clause");
+                let union = select.union_clause.unwrap();
+                assert!(matches!(union.union_type, crate::ast::UnionType::UnionAll));
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_recursive_cte_with_union_all() {
+        let parser = QSQLParser::new();
+
+        // Start with a simpler test case
+        let sql = r#"
+            WITH RECURSIVE hierarchy AS (
+                SELECT id, name FROM employees WHERE parent_id IS NULL
+                UNION ALL
+                SELECT e.id, e.name FROM employees e JOIN hierarchy h ON e.parent_id = h.id
+            )
+            SELECT * FROM hierarchy
+        "#;
+
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse recursive CTE: {:?}", result.err());
+
+        match result.unwrap() {
+            Statement::Select(select) => {
+                assert!(select.with_clause.is_some(), "Expected WITH clause");
+                let with_clause = select.with_clause.unwrap();
+                assert!(with_clause.recursive, "Expected RECURSIVE flag");
+                assert_eq!(with_clause.ctes.len(), 1);
+                assert_eq!(with_clause.ctes[0].name, "hierarchy");
+                
+                // Check that the CTE query has UNION ALL
+                let cte_query = &with_clause.ctes[0].query;
+                assert!(cte_query.union_clause.is_some(), "Expected UNION clause in CTE");
+                let union = cte_query.union_clause.as_ref().unwrap();
+                assert!(matches!(union.union_type, crate::ast::UnionType::UnionAll));
+            }
+            _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
     fn test_parser_explain_select() {
         let parser = QSQLParser::new();
 
@@ -947,6 +1028,7 @@ mod optimizer_tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         });
 
         let optimized = optimizer.optimize(statement);
@@ -1015,6 +1097,7 @@ mod optimizer_tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         });
 
         // Optimizer should handle the statement
@@ -1051,6 +1134,7 @@ mod optimizer_tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         });
 
         // Test that optimizer can handle the statement
@@ -1098,6 +1182,7 @@ mod executor_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
+            union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -1146,6 +1231,7 @@ mod executor_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
+            union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -1194,6 +1280,7 @@ mod executor_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
+            union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
@@ -1653,6 +1740,7 @@ mod property_tests {
                 quantum_parallel: false,
                 grover_iterations: None,
                 with_clause: None,
+            union_clause: None,
             }),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],

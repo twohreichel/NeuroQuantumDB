@@ -734,6 +734,7 @@ mod tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         };
 
         let query_plan = QueryPlan {
@@ -787,6 +788,7 @@ mod tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         };
 
         let query_plan = QueryPlan {
@@ -920,6 +922,7 @@ mod tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         };
 
         let query_plan = QueryPlan {

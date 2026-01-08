@@ -120,6 +120,28 @@ pub struct SelectStatement {
     pub grover_iterations: Option<u32>,
     // WITH clause for CTEs
     pub with_clause: Option<WithClause>,
+    /// UNION clause for compound queries (UNION / UNION ALL)
+    /// Used in recursive CTEs: anchor_query UNION ALL recursive_query
+    pub union_clause: Option<UnionClause>,
+}
+
+/// UNION clause for compound queries
+/// Combines two SELECT statements with UNION or UNION ALL
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnionClause {
+    /// The type of set operation (UNION or UNION ALL)
+    pub union_type: UnionType,
+    /// The SELECT statement to combine with
+    pub select: Box<SelectStatement>,
+}
+
+/// Type of UNION operation
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum UnionType {
+    /// UNION - removes duplicate rows
+    Union,
+    /// UNION ALL - keeps all rows including duplicates
+    UnionAll,
 }
 
 /// NEUROMATCH clause for use within SELECT statements
