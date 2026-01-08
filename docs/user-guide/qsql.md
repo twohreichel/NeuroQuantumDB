@@ -55,9 +55,15 @@ INSERT INTO users (name, email) VALUES
 -- Update
 UPDATE users SET email = 'newemail@example.com' WHERE id = 1;
 
+-- Update without WHERE clause (updates all rows)
+-- NOTE: A warning is logged when executing UPDATE without WHERE
+UPDATE users SET status = 1;
+
 -- Delete
 DELETE FROM users WHERE id = 1;
 ```
+
+> **⚠️ Safety Note:** When executing an `UPDATE` statement without a `WHERE` clause, NeuroQuantumDB logs a warning indicating how many rows will be affected. This helps prevent accidental mass updates. The update still executes, but the warning is recorded in the logs.
 
 ### Query
 
