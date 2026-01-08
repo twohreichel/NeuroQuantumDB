@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
+use crate::consensus::FencingToken;
 use crate::error::{ClusterError, ClusterResult};
 use crate::node::NodeId;
 use crate::sharding::ShardId;
-use crate::consensus::FencingToken;
 
 /// Replication consistency level for read/write operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -203,7 +203,7 @@ impl ReplicationManager {
     /// Validate a fencing token against the highest seen token.
     pub async fn validate_token(&self, token: &FencingToken) -> ClusterResult<()> {
         let highest = self.highest_token.read().await;
-        
+
         if let Some(highest_token) = &*highest {
             // Token must be strictly newer than highest seen
             if token <= highest_token {
@@ -213,14 +213,14 @@ impl ReplicationManager {
                 });
             }
         }
-        
+
         Ok(())
     }
 
     /// Update the highest fencing token seen.
     pub async fn update_highest_token(&self, token: FencingToken) {
         let mut highest = self.highest_token.write().await;
-        
+
         if let Some(current) = &*highest {
             if token.is_newer_than(current) {
                 debug!(

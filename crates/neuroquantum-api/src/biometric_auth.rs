@@ -941,10 +941,11 @@ impl EEGAuthService {
             .ok_or_else(|| EEGError::SignatureNotFound(user_id.to_string()))?;
 
         let similarity = features.similarity(&signature.feature_template);
-        
+
         // Use constant-time threshold check to prevent timing attacks
         // This prevents attackers from learning how close they are to the threshold
-        let authenticated = constant_time_threshold_check(similarity, signature.authentication_threshold);
+        let authenticated =
+            constant_time_threshold_check(similarity, signature.authentication_threshold);
 
         if authenticated {
             info!(

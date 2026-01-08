@@ -51,7 +51,9 @@ use std::pin::Pin;
 
 // Type alias for consensus handler callbacks
 type RequestVoteHandler = Arc<
-    dyn Fn(RequestVoteRequest) -> Pin<Box<dyn Future<Output = ClusterResult<RequestVoteResponse>> + Send>>
+    dyn Fn(
+            RequestVoteRequest,
+        ) -> Pin<Box<dyn Future<Output = ClusterResult<RequestVoteResponse>> + Send>>
         + Send
         + Sync,
 >;
@@ -421,7 +423,10 @@ impl NetworkTransport {
     /// Register a handler for RequestVote RPCs.
     pub async fn register_request_vote_handler<F>(&self, handler: F)
     where
-        F: Fn(RequestVoteRequest) -> Pin<Box<dyn Future<Output = ClusterResult<RequestVoteResponse>> + Send>>
+        F: Fn(
+                RequestVoteRequest,
+            )
+                -> Pin<Box<dyn Future<Output = ClusterResult<RequestVoteResponse>> + Send>>
             + Send
             + Sync
             + 'static,
@@ -649,10 +654,7 @@ impl NetworkTransport {
                 .request_vote(req)
                 .await
                 .map_err(|e| {
-                    ClusterError::ConnectionFailed(
-                        peer.addr,
-                        format!("gRPC call failed: {}", e),
-                    )
+                    ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {}", e))
                 })?
                 .into_inner();
 

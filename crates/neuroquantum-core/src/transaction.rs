@@ -1345,7 +1345,10 @@ impl TransactionManager {
         // Savepoint is tracked in-memory with its LSN
         // Rollback to savepoint uses the undo log to restore state
 
-        debug!("💾 Savepoint '{}' created for transaction {:?} at LSN {}", name, tx_id, lsn);
+        debug!(
+            "💾 Savepoint '{}' created for transaction {:?} at LSN {}",
+            name, tx_id, lsn
+        );
         Ok(lsn)
     }
 
@@ -1380,7 +1383,10 @@ impl TransactionManager {
                 ..
             } = &log_record.record_type
             {
-                debug!("Undoing update on {}.{} (LSN: {})", table, key, log_record.lsn);
+                debug!(
+                    "Undoing update on {}.{} (LSN: {})",
+                    table, key, log_record.lsn
+                );
                 // NOTE: Actual storage undo is handled by StorageEngine::rollback_to_savepoint()
                 // which applies before_image data to restore previous state
             }
@@ -1389,7 +1395,10 @@ impl TransactionManager {
         // Remove undone records from undo log
         tx.undo_log.retain(|record| record.lsn <= savepoint_lsn);
 
-        info!("↩️  Transaction {:?} rolled back to savepoint (LSN: {})", tx_id, savepoint_lsn);
+        info!(
+            "↩️  Transaction {:?} rolled back to savepoint (LSN: {})",
+            tx_id, savepoint_lsn
+        );
         Ok(())
     }
 

@@ -239,10 +239,7 @@ async fn test_nested_savepoints_rollback() {
     // Rollback to first savepoint
     let rollback_to_stmt = parser.parse("ROLLBACK TO SAVEPOINT sp1").unwrap();
     let result = executor.execute_statement(&rollback_to_stmt).await;
-    assert!(
-        result.is_ok(),
-        "ROLLBACK TO first savepoint should succeed"
-    );
+    assert!(result.is_ok(), "ROLLBACK TO first savepoint should succeed");
 
     // Second savepoint should still exist (not removed by rollback to sp1)
     let rollback_to_stmt2 = parser.parse("ROLLBACK TO SAVEPOINT sp2").unwrap();
@@ -316,12 +313,9 @@ async fn test_rollback_to_savepoint_with_operations() {
     );
 
     // Verify rows_affected in result indicates operations were undone
-    if let Ok(query_result) = result {
-        // rows_affected should be 2 (two operations undone)
-        assert!(
-            query_result.rows_affected >= 0,
-            "Should report operations undone"
-        );
+    if let Ok(_query_result) = result {
+        // rows_affected is a usize, so it's always >= 0
+        // The assertion was checking that operations completed
     }
 
     // Clean up
