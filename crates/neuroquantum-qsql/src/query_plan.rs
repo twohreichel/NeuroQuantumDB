@@ -2999,19 +2999,26 @@ impl QueryExecutor {
             message: "No active transaction. BEGIN a transaction first.".to_string(),
         })?;
 
-        // Get current LSN from transaction manager
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not initialized".to_string(),
+        // Get current LSN - try storage engine first, then transaction manager
+        let current_lsn = if let Some(storage_engine) = &self.storage_engine {
+            let storage_guard = storage_engine.read().await;
+            // Access the transaction manager through storage engine
+            if let Some(undo_log) = storage_guard.get_undo_log(tx_id).await {
+                undo_log.last().map(|record| record.lsn).unwrap_or(0)
+            } else {
+                0
             }
-        })?;
-
-        // Get the undo log to determine the current LSN
-        // If there's no undo log yet (transaction just started), use LSN 0
-        let current_lsn = if let Some(undo_log) = tx_manager.get_undo_log(tx_id).await {
-            undo_log.last().map(|record| record.lsn).unwrap_or(0)
+        } else if let Some(tx_manager) = &self.transaction_manager {
+            // Get the undo log to determine the current LSN
+            if let Some(undo_log) = tx_manager.get_undo_log(tx_id).await {
+                undo_log.last().map(|record| record.lsn).unwrap_or(0)
+            } else {
+                0 // Transaction exists but has no operations yet
+            }
         } else {
-            0 // Transaction exists but has no operations yet
+            return Err(QSQLError::ExecutionError {
+                message: "No transaction manager available".to_string(),
+            });
         };
 
         // Store savepoint with transaction ID and LSN
@@ -3036,27 +3043,8 @@ impl QueryExecutor {
 
     /// Execute ROLLBACK TO SAVEPOINT statement
     ///
-    /// Rolls back the transaction to the specified savepoint by identifying all operations
+    /// Rolls back the transaction to the specified savepoint by undoing all operations
     /// that occurred after the savepoint was created using WAL (Write-Ahead Log) integration.
-    ///
-    /// ## Current Implementation
-    ///
-    /// This implementation provides the core infrastructure for WAL-based rollback:
-    /// - Validates savepoint existence and ownership
-    /// - Identifies undo log records since savepoint LSN
-    /// - Tracks operations that need to be undone (reports count in `rows_affected`)
-    /// - Logs undo operations for debugging and tracing
-    ///
-    /// ## Future Enhancement
-    ///
-    /// Full production undo functionality would require deeper integration with the
-    /// storage engine's buffer pool and page management to actually apply inverse operations:
-    /// - For INSERT (before_image = None): DELETE the row
-    /// - For UPDATE: Restore old values from before_image
-    /// - For DELETE: Re-insert row from before_image
-    ///
-    /// This would involve coordination with the WAL manager and buffer pool manager
-    /// to ensure ACID properties are maintained during rollback.
     async fn execute_rollback_to_savepoint(
         &mut self,
         rollback_to: &RollbackToSavepointStatement,
@@ -3083,52 +3071,38 @@ impl QueryExecutor {
             });
         }
 
-        // Get transaction manager
-        let tx_manager = self.transaction_manager.as_ref().ok_or_else(|| {
-            QSQLError::ExecutionError {
-                message: "Transaction manager not initialized".to_string(),
-            }
-        })?;
+        // Perform rollback using the appropriate transaction manager
+        let operations_undone = if let Some(storage_engine) = &self.storage_engine {
+            // Use storage engine's transaction manager
+            let mut storage_guard = storage_engine.write().await;
+            storage_guard
+                .rollback_to_savepoint(tx_id, savepoint_info.lsn)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to rollback to savepoint: {}", e),
+                })?
+        } else if let Some(tx_manager) = &self.transaction_manager {
+            // Count records that will be undone (before rollback)
+            let undo_log = tx_manager.get_undo_log(tx_id).await.unwrap_or_default();
+            let count = undo_log
+                .iter()
+                .filter(|record| record.lsn > savepoint_info.lsn)
+                .count();
 
-        // Get the undo log for the transaction (may be empty if no operations yet)
-        let undo_log = tx_manager.get_undo_log(tx_id).await.unwrap_or_default();
-
-        // Filter records that came after the savepoint LSN
-        let records_to_undo: Vec<_> = undo_log
-            .iter()
-            .filter(|record| record.lsn > savepoint_info.lsn)
-            .collect();
-
-        // Apply inverse operations in reverse order (LIFO - Last In, First Out)
-        // Note: This is a simplified implementation. Full WAL-based undo would require
-        // deeper integration with the storage engine's buffer pool and page management.
-        // For now, we track the conceptual rollback and report the operations.
-        for log_record in records_to_undo.iter().rev() {
-            if let neuroquantum_core::transaction::LogRecordType::Update {
-                before_image,
-                table,
-                key,
-                ..
-            } = &log_record.record_type
-            {
-                // In a full implementation, we would:
-                // 1. Apply the before_image to restore the previous state
-                // 2. For INSERT (before_image = None), delete the row
-                // 3. For UPDATE, restore old values from before_image
-                // 4. For DELETE, re-insert from before_image
-                
-                // Log the undo operation for tracing
-                tracing::debug!(
-                    "ROLLBACK TO SAVEPOINT: Undoing operation on table={}, key={}, has_before_image={}",
-                    table,
-                    key,
-                    before_image.is_some()
-                );
-
-                // Actual undo would happen here via storage engine integration
-                // This requires coordination with the WAL manager and buffer pool
-            }
-        }
+            // Perform rollback through transaction manager
+            tx_manager
+                .rollback_to_savepoint(tx_id, savepoint_info.lsn)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!("Failed to rollback to savepoint: {}", e),
+                })?;
+            
+            count as u64
+        } else {
+            return Err(QSQLError::ExecutionError {
+                message: "No transaction manager available".to_string(),
+            });
+        };
 
         // Savepoint remains active after rollback (per SQL standard)
         // Multiple rollbacks to the same savepoint should be possible
@@ -3137,7 +3111,7 @@ impl QueryExecutor {
             rows: vec![],
             columns: vec![],
             execution_time: Duration::from_micros(100),
-            rows_affected: records_to_undo.len() as u64,
+            rows_affected: operations_undone,
             optimization_applied: false,
             synaptic_pathways_used: 0,
             quantum_operations: 0,
@@ -3150,18 +3124,19 @@ impl QueryExecutor {
         release: &ReleaseSavepointStatement,
     ) -> QSQLResult<QueryResult> {
         // Check if transaction is active
-        if self.current_transaction.is_none() {
-            return Err(QSQLError::ExecutionError {
-                message: "No active transaction".to_string(),
-            });
-        }
+        let _tx_id = self.current_transaction.ok_or_else(|| QSQLError::ExecutionError {
+            message: "No active transaction".to_string(),
+        })?;
 
-        // Check if savepoint exists
+        // Check if savepoint exists and remove it
         if self.savepoints.remove(&release.name).is_none() {
             return Err(QSQLError::ExecutionError {
                 message: format!("Savepoint '{}' does not exist", release.name),
             });
         }
+
+        // Savepoints are tracked locally in the query executor
+        // WAL integration happens at transaction commit/rollback time
 
         Ok(QueryResult {
             rows: vec![],
