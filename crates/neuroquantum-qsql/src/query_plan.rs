@@ -1497,7 +1497,7 @@ impl QueryExecutor {
                     }
                     SelectItem::Expression { expr, alias } => {
                         // Evaluate the expression
-                        let value = self.evaluate_expression_for_row(expr, row)?;
+                        let value = Self::evaluate_expression_for_row(expr, row)?;
                         let col_name = alias
                             .clone()
                             .unwrap_or_else(|| Self::expression_to_string_static(expr));
@@ -1518,7 +1518,7 @@ impl QueryExecutor {
     }
 
     /// Evaluate an expression against a row (for projection in recursive CTEs)
-    fn evaluate_expression_for_row(&self, expr: &Expression, row: &Row) -> QSQLResult<Value> {
+    fn evaluate_expression_for_row(expr: &Expression, row: &Row) -> QSQLResult<Value> {
         match expr {
             Expression::Identifier(name) => {
                 // Try to find the column in the row
@@ -1553,8 +1553,8 @@ impl QueryExecutor {
                 operator,
                 right,
             } => {
-                let left_val = self.evaluate_expression_for_row(left, row)?;
-                let right_val = self.evaluate_expression_for_row(right, row)?;
+                let left_val = Self::evaluate_expression_for_row(left, row)?;
+                let right_val = Self::evaluate_expression_for_row(right, row)?;
 
                 match operator {
                     BinaryOperator::Add => {
