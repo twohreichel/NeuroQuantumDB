@@ -88,6 +88,10 @@ pub enum Statement {
     Savepoint(SavepointStatement),
     RollbackToSavepoint(RollbackToSavepointStatement),
     ReleaseSavepoint(ReleaseSavepointStatement),
+    // Prepared Statements
+    Prepare(PrepareStatement),
+    Execute(ExecuteStatement),
+    Deallocate(DeallocateStatement),
 }
 
 /// Common Table Expression (CTE) for WITH clauses
@@ -477,6 +481,13 @@ pub enum Expression {
         /// The OVER clause specification
         over_clause: WindowSpec,
     },
+
+    /// Parameter placeholder for prepared statements ($1, $2, etc.)
+    /// The index is 1-based to match PostgreSQL convention
+    Parameter {
+        /// Parameter index (1-based, e.g., $1 has index 1)
+        index: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -822,6 +833,39 @@ pub struct ReleaseSavepointStatement {
     pub name: String,
 }
 
+/// PREPARE statement for creating prepared statements
+/// Syntax: PREPARE statement_name AS query
+/// Example: PREPARE get_user AS SELECT * FROM users WHERE id = $1
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PrepareStatement {
+    /// Name of the prepared statement
+    pub name: String,
+    /// The query to prepare (stored as the raw query string for later parsing)
+    pub query: Box<Statement>,
+    /// Parameter placeholders found in the query ($1, $2, etc.)
+    pub parameter_count: usize,
+}
+
+/// EXECUTE statement for running prepared statements
+/// Syntax: EXECUTE statement_name(param1, param2, ...)
+/// Example: EXECUTE get_user(42)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExecuteStatement {
+    /// Name of the prepared statement to execute
+    pub name: String,
+    /// Parameter values to bind
+    pub parameters: Vec<Expression>,
+}
+
+/// DEALLOCATE statement for removing prepared statements
+/// Syntax: DEALLOCATE statement_name or DEALLOCATE ALL
+/// Example: DEALLOCATE get_user
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeallocateStatement {
+    /// Name of the prepared statement to deallocate (None for DEALLOCATE ALL)
+    pub name: Option<String>,
+}
+
 // Display implementations for better debugging and logging
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -845,6 +889,15 @@ impl fmt::Display for Statement {
             Statement::Savepoint(s) => write!(f, "SAVEPOINT {}", s.name),
             Statement::RollbackToSavepoint(s) => write!(f, "ROLLBACK TO SAVEPOINT {}", s.name),
             Statement::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
+            Statement::Prepare(p) => write!(f, "PREPARE {}", p.name),
+            Statement::Execute(e) => write!(f, "EXECUTE {}", e.name),
+            Statement::Deallocate(d) => {
+                if let Some(name) = &d.name {
+                    write!(f, "DEALLOCATE {}", name)
+                } else {
+                    write!(f, "DEALLOCATE ALL")
+                }
+            }
             _ => write!(f, "{:?}", self),
         }
     }

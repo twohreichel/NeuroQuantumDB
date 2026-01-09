@@ -253,6 +253,11 @@ pub enum TokenType {
     Repeatable,
     Serializable,
 
+    // Prepared statement keywords
+    Prepare,
+    Execute,
+    Deallocate,
+
     // Operators and punctuation
     Equal,
     NotEqual,
@@ -279,6 +284,8 @@ pub enum TokenType {
     BooleanLiteral(bool),
     DNALiteral(String),
     QuantumBitLiteral(bool, f64),
+    /// Parameter placeholder for prepared statements ($1, $2, etc.)
+    ParameterPlaceholder(usize),
 
     // Special tokens
     Whitespace,
@@ -416,6 +423,11 @@ impl QSQLParser {
         // DNA sequence literals (ATGC patterns)
         if self.is_dna_sequence_start(chars, position) {
             return self.parse_dna_literal(chars, position);
+        }
+
+        // Parameter placeholders ($1, $2, etc.)
+        if ch == '$' {
+            return self.parse_parameter_placeholder(chars, position);
         }
 
         // Identifiers and keywords
@@ -582,6 +594,44 @@ impl QSQLParser {
         }
     }
 
+    /// Parse parameter placeholder ($1, $2, etc.)
+    fn parse_parameter_placeholder(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> QSQLResult<(TokenType, usize)> {
+        // Skip the $ character
+        let mut new_pos = position + 1;
+        let mut number_str = String::new();
+
+        // Collect digits after the $
+        while new_pos < chars.len() && chars[new_pos].is_ascii_digit() {
+            number_str.push(chars[new_pos]);
+            new_pos += 1;
+        }
+
+        if number_str.is_empty() {
+            return Err(QSQLError::ParseError {
+                message: "Expected number after '$' for parameter placeholder".to_string(),
+                position,
+            });
+        }
+
+        let index: usize = number_str.parse().map_err(|_| QSQLError::ParseError {
+            message: format!("Invalid parameter index: ${}", number_str),
+            position,
+        })?;
+
+        if index == 0 {
+            return Err(QSQLError::ParseError {
+                message: "Parameter index must be 1 or greater (e.g., $1, $2)".to_string(),
+                position,
+            });
+        }
+
+        Ok((TokenType::ParameterPlaceholder(index), new_pos))
+    }
+
     /// Parse operator or punctuation
     fn parse_operator_or_punctuation(
         &self,
@@ -660,6 +710,10 @@ impl QSQLParser {
             Some(TokenType::Rollback) => self.parse_rollback(tokens),
             Some(TokenType::Savepoint) => self.parse_savepoint(tokens),
             Some(TokenType::Release) => self.parse_release_savepoint(tokens),
+            // Prepared statement operations
+            Some(TokenType::Prepare) => self.parse_prepare_statement(tokens),
+            Some(TokenType::Execute) => self.parse_execute_statement(tokens),
+            Some(TokenType::Deallocate) => self.parse_deallocate_statement(tokens),
             _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
                 position: 0,
@@ -2787,6 +2841,277 @@ impl QSQLParser {
         }
     }
 
+    /// Parse PREPARE statement for creating prepared statements
+    ///
+    /// Syntax: PREPARE statement_name AS query
+    /// Example: PREPARE get_user AS SELECT * FROM users WHERE id = $1
+    fn parse_prepare_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        use crate::ast::PrepareStatement;
+
+        let mut i = 0;
+
+        // Skip PREPARE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Prepare) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected PREPARE keyword".to_string(),
+                position: i,
+            });
+        }
+
+        // Get statement name
+        let name = if let Some(TokenType::Identifier(name)) = tokens.get(i) {
+            i += 1;
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected statement name after PREPARE".to_string(),
+                position: i,
+            });
+        };
+
+        // Skip AS keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected AS keyword after statement name".to_string(),
+                position: i,
+            });
+        }
+
+        // Parse the remaining tokens as the query
+        let query_tokens = &tokens[i..];
+        let query = self.parse_tokens(query_tokens)?;
+
+        // Count parameter placeholders in the query
+        let parameter_count = self.count_parameters(&query);
+
+        Ok(Statement::Prepare(PrepareStatement {
+            name,
+            query: Box::new(query),
+            parameter_count,
+        }))
+    }
+
+    /// Parse EXECUTE statement for running prepared statements
+    ///
+    /// Syntax: EXECUTE statement_name(param1, param2, ...)
+    /// Example: EXECUTE get_user(42)
+    fn parse_execute_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        use crate::ast::ExecuteStatement;
+
+        let mut i = 0;
+
+        // Skip EXECUTE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Execute) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected EXECUTE keyword".to_string(),
+                position: i,
+            });
+        }
+
+        // Get statement name
+        let name = if let Some(TokenType::Identifier(name)) = tokens.get(i) {
+            i += 1;
+            name.clone()
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected statement name after EXECUTE".to_string(),
+                position: i,
+            });
+        };
+
+        // Parse optional parameters in parentheses
+        let mut parameters = Vec::new();
+
+        if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
+            i += 1; // Skip (
+
+            // Parse parameter values
+            loop {
+                // Check for empty parameter list or end
+                if i < tokens.len() && matches!(tokens[i], TokenType::RightParen) {
+                    break;
+                }
+
+                // Parse parameter expression
+                let (expr, new_i) = self.parse_expression_with_precedence(tokens, i)?;
+                parameters.push(expr);
+                i = new_i;
+
+                // Check for comma or end
+                if i < tokens.len() {
+                    if matches!(tokens[i], TokenType::Comma) {
+                        i += 1; // Skip comma
+                    } else if matches!(tokens[i], TokenType::RightParen) {
+                        break;
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected ',' or ')' in parameter list".to_string(),
+                            position: i,
+                        });
+                    }
+                }
+            }
+
+            // Skip closing paren
+            if i < tokens.len() && matches!(tokens[i], TokenType::RightParen) {
+                i += 1;
+            }
+        }
+
+        // Check for EOF or semicolon
+        if i < tokens.len()
+            && !matches!(tokens[i], TokenType::EOF | TokenType::Semicolon)
+        {
+            return Err(QSQLError::ParseError {
+                message: format!("Unexpected token after EXECUTE statement: {:?}", tokens[i]),
+                position: i,
+            });
+        }
+
+        Ok(Statement::Execute(ExecuteStatement { name, parameters }))
+    }
+
+    /// Parse DEALLOCATE statement for removing prepared statements
+    ///
+    /// Syntax: DEALLOCATE statement_name or DEALLOCATE ALL
+    /// Example: DEALLOCATE get_user
+    fn parse_deallocate_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        use crate::ast::DeallocateStatement;
+
+        let mut i = 0;
+
+        // Skip DEALLOCATE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Deallocate) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected DEALLOCATE keyword".to_string(),
+                position: i,
+            });
+        }
+
+        // Check for ALL or statement name
+        let name = if i < tokens.len() {
+            match &tokens[i] {
+                TokenType::All | TokenType::Identifier(s) if s.to_uppercase() == "ALL" => {
+                    None // DEALLOCATE ALL
+                }
+                TokenType::Identifier(name) => Some(name.clone()),
+                _ => {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected statement name or ALL after DEALLOCATE".to_string(),
+                        position: i,
+                    });
+                }
+            }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected statement name or ALL after DEALLOCATE".to_string(),
+                position: i,
+            });
+        };
+
+        Ok(Statement::Deallocate(DeallocateStatement { name }))
+    }
+
+    /// Count parameter placeholders ($1, $2, etc.) in a statement
+    fn count_parameters(&self, statement: &Statement) -> usize {
+        self.count_parameters_in_statement(statement)
+    }
+
+    /// Recursively count parameters in a statement
+    fn count_parameters_in_statement(&self, statement: &Statement) -> usize {
+        match statement {
+            Statement::Select(select) => {
+                let mut max_param = 0;
+
+                // Check select list
+                for item in &select.select_list {
+                    if let crate::ast::SelectItem::Expression { expr, .. } = item {
+                        max_param = max_param.max(self.find_max_parameter(expr));
+                    }
+                }
+
+                // Check where clause
+                if let Some(where_expr) = &select.where_clause {
+                    max_param = max_param.max(self.find_max_parameter(where_expr));
+                }
+
+                // Check having clause
+                if let Some(having_expr) = &select.having {
+                    max_param = max_param.max(self.find_max_parameter(having_expr));
+                }
+
+                max_param
+            }
+            Statement::Insert(insert) => {
+                let mut max_param = 0;
+                for row in &insert.values {
+                    for expr in row {
+                        max_param = max_param.max(self.find_max_parameter(expr));
+                    }
+                }
+                max_param
+            }
+            Statement::Update(update) => {
+                let mut max_param = 0;
+                for assignment in &update.assignments {
+                    max_param = max_param.max(self.find_max_parameter(&assignment.value));
+                }
+                if let Some(where_expr) = &update.where_clause {
+                    max_param = max_param.max(self.find_max_parameter(where_expr));
+                }
+                max_param
+            }
+            Statement::Delete(delete) => {
+                if let Some(where_expr) = &delete.where_clause {
+                    self.find_max_parameter(where_expr)
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        }
+    }
+
+    /// Find the maximum parameter index in an expression
+    fn find_max_parameter(&self, expr: &crate::ast::Expression) -> usize {
+        use crate::ast::Expression;
+        match expr {
+            Expression::Parameter { index } => *index,
+            Expression::BinaryOp { left, right, .. } => {
+                self.find_max_parameter(left).max(self.find_max_parameter(right))
+            }
+            Expression::UnaryOp { operand, .. } => self.find_max_parameter(operand),
+            Expression::FunctionCall { args, .. } => {
+                args.iter().map(|a| self.find_max_parameter(a)).max().unwrap_or(0)
+            }
+            Expression::InList { expr, list, .. } => {
+                let max_expr = self.find_max_parameter(expr);
+                let max_list = list.iter().map(|e| self.find_max_parameter(e)).max().unwrap_or(0);
+                max_expr.max(max_list)
+            }
+            Expression::Case { when_clauses, else_result } => {
+                let mut max_param = 0;
+                for (cond, result) in when_clauses {
+                    max_param = max_param.max(self.find_max_parameter(cond));
+                    max_param = max_param.max(self.find_max_parameter(result));
+                }
+                if let Some(else_expr) = else_result {
+                    max_param = max_param.max(self.find_max_parameter(else_expr));
+                }
+                max_param
+            }
+            _ => 0,
+        }
+    }
+
     /// Parse EXPLAIN statement for query plan analysis
     ///
     /// Syntax:
@@ -4341,6 +4666,11 @@ impl QSQLParser {
         keywords.insert("COMMITTED".to_string(), TokenType::Committed);
         keywords.insert("REPEATABLE".to_string(), TokenType::Repeatable);
         keywords.insert("SERIALIZABLE".to_string(), TokenType::Serializable);
+
+        // Prepared statement keywords
+        keywords.insert("PREPARE".to_string(), TokenType::Prepare);
+        keywords.insert("EXECUTE".to_string(), TokenType::Execute);
+        keywords.insert("DEALLOCATE".to_string(), TokenType::Deallocate);
     }
 
     /// Initialize operator mappings with precedence for Pratt parsing
@@ -5065,6 +5395,12 @@ impl QSQLParser {
             TokenType::Null => {
                 *i += 1;
                 Ok(Expression::Literal(Literal::Null))
+            }
+
+            // Parameter placeholder ($1, $2, etc.)
+            TokenType::ParameterPlaceholder(index) => {
+                *i += 1;
+                Ok(Expression::Parameter { index: *index })
             }
 
             // Identifier or function call (including qualified names like table.column)
