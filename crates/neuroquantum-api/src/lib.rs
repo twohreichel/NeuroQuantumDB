@@ -241,17 +241,26 @@ pub fn configure_app(
         .unwrap();
 
     let cors_origins = app_state.config.cors.allowed_origins.clone();
+    let tracing_enabled = app_state.config.tracing.enabled;
 
-    App::new()
+    let app = App::new()
         // Add application state
         .app_data(web::Data::new(app_state.clone()))
         .app_data(web::Data::new(app_state.db.clone()))
         .app_data(web::Data::new(app_state.auth_service.clone()))
         .app_data(web::Data::new(app_state.jwt_service.clone()))
         .app_data(web::Data::new(app_state.rate_limit_service.clone()))
-        .app_data(web::Data::new(app_state.config.clone()))
+        .app_data(web::Data::new(app_state.config.clone()));
 
-        // Add middleware
+    // Add tracing middleware if enabled (first to capture everything)
+    let app = if tracing_enabled {
+        app.wrap(middleware::tracing_middleware())
+    } else {
+        app
+    };
+
+    app
+        // Add other middleware
         .wrap(prometheus.clone())
         .wrap(Logger::default())
         .wrap(Compress::default())

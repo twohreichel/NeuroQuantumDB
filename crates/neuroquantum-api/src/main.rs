@@ -51,6 +51,14 @@ async fn main() -> Result<()> {
         }
     };
 
+    // Initialize OpenTelemetry tracing if enabled
+    if config.tracing.enabled {
+        if let Err(e) = neuroquantum_api::tracing_setup::init_tracing(&config.tracing) {
+            warn!("⚠️  Failed to initialize distributed tracing: {}", e);
+            warn!("   Continuing without distributed tracing...");
+        }
+    }
+
     // Validate environment
     validate_environment(&config)?;
 
@@ -80,6 +88,9 @@ async fn main() -> Result<()> {
             info!("🛑 Received shutdown signal, stopping server...");
         }
     }
+
+    // Shutdown OpenTelemetry tracing if it was initialized
+    neuroquantum_api::tracing_setup::shutdown_tracing();
 
     info!("👋 NeuroQuantumDB API Server shutdown complete");
     Ok(())
