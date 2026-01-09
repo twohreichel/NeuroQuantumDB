@@ -524,13 +524,27 @@ impl QueryExecutor {
             // Check if we have scalar subqueries in the SELECT list
             let has_select_subqueries = Self::has_scalar_subqueries(&select.select_list);
 
+            // Extract outer table aliases for correlated subquery detection
+            let outer_aliases = Self::extract_outer_table_aliases(select);
+
+            // Check if any scalar subqueries are correlated
+            let has_correlated_subqueries =
+                Self::has_correlated_scalar_subqueries(&select.select_list, &outer_aliases);
+
             // Resolve subqueries if present in WHERE clause
+            // Note: For correlated subqueries in WHERE (like EXISTS), we resolve them per-row later
             let resolved_where_clause = if has_where_subqueries {
                 if let Some(where_expr) = &select.where_clause {
-                    Some(
-                        self.resolve_subqueries_in_expression(where_expr.clone())
-                            .await?,
-                    )
+                    // Only resolve non-correlated subqueries upfront
+                    if !Self::expression_references_outer_aliases(where_expr, &outer_aliases) {
+                        Some(
+                            self.resolve_subqueries_in_expression(where_expr.clone())
+                                .await?,
+                        )
+                    } else {
+                        // Keep correlated WHERE subqueries for per-row evaluation
+                        Some(where_expr.clone())
+                    }
                 } else {
                     None
                 }
@@ -539,6 +553,7 @@ impl QueryExecutor {
             };
 
             // Resolve scalar subqueries in SELECT list
+            // Keep correlated subqueries for per-row execution
             let resolved_select_list = if has_select_subqueries {
                 let mut new_list = Vec::new();
                 for item in &select.select_list {
@@ -547,12 +562,18 @@ impl QueryExecutor {
                             expr: Expression::ScalarSubquery { subquery },
                             alias,
                         } => {
-                            // Execute the scalar subquery and replace with literal
-                            let value = self.execute_scalar_subquery(subquery).await?;
-                            new_list.push(SelectItem::Expression {
-                                expr: Expression::Literal(value),
-                                alias: alias.clone(),
-                            });
+                            // Check if this subquery is correlated
+                            if Self::is_correlated_subquery(subquery, &outer_aliases) {
+                                // Keep correlated subqueries for per-row execution
+                                new_list.push(item.clone());
+                            } else {
+                                // Execute non-correlated scalar subquery and replace with literal
+                                let value = self.execute_scalar_subquery(subquery).await?;
+                                new_list.push(SelectItem::Expression {
+                                    expr: Expression::Literal(value),
+                                    alias: alias.clone(),
+                                });
+                            }
                         }
                         other => new_list.push(other.clone()),
                     }
@@ -645,8 +666,17 @@ impl QueryExecutor {
             }
 
             // Convert storage rows to query result
-            let (result_rows, columns) =
-                self.convert_storage_rows_to_result(neuromatch_filtered_rows, select)?;
+            // If we have correlated subqueries, we need to evaluate them per-row
+            let (result_rows, columns) = if has_correlated_subqueries {
+                self.convert_storage_rows_with_correlated_subqueries(
+                    neuromatch_filtered_rows,
+                    &resolved_select,
+                    &outer_aliases,
+                )
+                .await?
+            } else {
+                self.convert_storage_rows_to_result(neuromatch_filtered_rows, select)?
+            };
 
             let rows_affected = result_rows.len() as u64;
 
@@ -4085,6 +4115,227 @@ impl QueryExecutor {
         })
     }
 
+    /// Check if a scalar subquery in SELECT is correlated (references outer table aliases)
+    fn has_correlated_scalar_subqueries(
+        select_list: &[SelectItem],
+        outer_aliases: &[String],
+    ) -> bool {
+        select_list.iter().any(|item| {
+            if let SelectItem::Expression {
+                expr: Expression::ScalarSubquery { subquery },
+                ..
+            } = item
+            {
+                Self::is_correlated_subquery(subquery, outer_aliases)
+            } else {
+                false
+            }
+        })
+    }
+
+    /// Check if a subquery is correlated (references columns from outer table aliases)
+    fn is_correlated_subquery(subquery: &SelectStatement, outer_aliases: &[String]) -> bool {
+        // Check the WHERE clause for references to outer aliases
+        if let Some(where_clause) = &subquery.where_clause {
+            if Self::expression_references_outer_aliases(where_clause, outer_aliases) {
+                return true;
+            }
+        }
+        // Check the SELECT list for references to outer aliases
+        for item in &subquery.select_list {
+            if let SelectItem::Expression { expr, .. } = item {
+                if Self::expression_references_outer_aliases(expr, outer_aliases) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Check if an expression references any of the outer table aliases
+    fn expression_references_outer_aliases(expr: &Expression, outer_aliases: &[String]) -> bool {
+        match expr {
+            Expression::Identifier(name) => {
+                // Check if identifier is qualified with an outer alias (e.g., "u.id")
+                for alias in outer_aliases {
+                    if name.starts_with(&format!("{}.", alias)) {
+                        return true;
+                    }
+                }
+                false
+            }
+            Expression::BinaryOp { left, right, .. } => {
+                Self::expression_references_outer_aliases(left, outer_aliases)
+                    || Self::expression_references_outer_aliases(right, outer_aliases)
+            }
+            Expression::UnaryOp { operand, .. } => {
+                Self::expression_references_outer_aliases(operand, outer_aliases)
+            }
+            Expression::FunctionCall { args, .. } => args
+                .iter()
+                .any(|arg| Self::expression_references_outer_aliases(arg, outer_aliases)),
+            Expression::InList { expr, list, .. } => {
+                Self::expression_references_outer_aliases(expr, outer_aliases)
+                    || list
+                        .iter()
+                        .any(|e| Self::expression_references_outer_aliases(e, outer_aliases))
+            }
+            Expression::Case {
+                when_clauses,
+                else_result,
+            } => {
+                when_clauses.iter().any(|(cond, res)| {
+                    Self::expression_references_outer_aliases(cond, outer_aliases)
+                        || Self::expression_references_outer_aliases(res, outer_aliases)
+                }) || else_result
+                    .as_ref()
+                    .is_some_and(|e| Self::expression_references_outer_aliases(e, outer_aliases))
+            }
+            Expression::ScalarSubquery { subquery } => {
+                Self::is_correlated_subquery(subquery, outer_aliases)
+            }
+            Expression::Exists { subquery, .. } => {
+                Self::is_correlated_subquery(subquery, outer_aliases)
+            }
+            Expression::InSubquery { expr, subquery, .. } => {
+                Self::expression_references_outer_aliases(expr, outer_aliases)
+                    || Self::is_correlated_subquery(subquery, outer_aliases)
+            }
+            _ => false,
+        }
+    }
+
+    /// Extract table aliases from the FROM clause of a SELECT statement
+    fn extract_outer_table_aliases(select: &SelectStatement) -> Vec<String> {
+        let mut aliases = Vec::new();
+        if let Some(from) = &select.from {
+            for relation in &from.relations {
+                // Add the alias if present, otherwise use the table name
+                if let Some(alias) = &relation.alias {
+                    aliases.push(alias.clone());
+                } else {
+                    aliases.push(relation.name.clone());
+                }
+            }
+            // Also add aliases from JOINs
+            for join in &from.joins {
+                if let Some(alias) = &join.relation.alias {
+                    aliases.push(alias.clone());
+                } else {
+                    aliases.push(join.relation.name.clone());
+                }
+            }
+        }
+        aliases
+    }
+
+    /// Substitute outer row values into a correlated subquery's WHERE clause
+    /// This replaces references like "u.id" with the actual value from the outer row
+    fn substitute_outer_row_values(
+        expr: &Expression,
+        outer_row: &Row,
+        outer_aliases: &[String],
+    ) -> Expression {
+        match expr {
+            Expression::Identifier(name) => {
+                // Check if this is a qualified identifier referencing an outer alias
+                for alias in outer_aliases {
+                    if name.starts_with(&format!("{}.", alias)) {
+                        // Extract the column name after the alias
+                        let column_name = &name[alias.len() + 1..];
+                        // Try to find the value in the outer row
+                        // First try the full qualified name
+                        if let Some(value) = outer_row.fields.get(name) {
+                            return Expression::Literal(Self::value_to_literal(value.clone()));
+                        }
+                        // Then try just the column name
+                        if let Some(value) = outer_row.fields.get(column_name) {
+                            return Expression::Literal(Self::value_to_literal(value.clone()));
+                        }
+                    }
+                }
+                // Not an outer reference, return as-is
+                expr.clone()
+            }
+            Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => Expression::BinaryOp {
+                left: Box::new(Self::substitute_outer_row_values(
+                    left,
+                    outer_row,
+                    outer_aliases,
+                )),
+                operator: operator.clone(),
+                right: Box::new(Self::substitute_outer_row_values(
+                    right,
+                    outer_row,
+                    outer_aliases,
+                )),
+            },
+            Expression::UnaryOp { operator, operand } => Expression::UnaryOp {
+                operator: operator.clone(),
+                operand: Box::new(Self::substitute_outer_row_values(
+                    operand,
+                    outer_row,
+                    outer_aliases,
+                )),
+            },
+            Expression::FunctionCall { name, args } => Expression::FunctionCall {
+                name: name.clone(),
+                args: args
+                    .iter()
+                    .map(|arg| Self::substitute_outer_row_values(arg, outer_row, outer_aliases))
+                    .collect(),
+            },
+            Expression::InList {
+                expr,
+                list,
+                negated,
+            } => Expression::InList {
+                expr: Box::new(Self::substitute_outer_row_values(
+                    expr,
+                    outer_row,
+                    outer_aliases,
+                )),
+                list: list
+                    .iter()
+                    .map(|e| Self::substitute_outer_row_values(e, outer_row, outer_aliases))
+                    .collect(),
+                negated: *negated,
+            },
+            _ => expr.clone(),
+        }
+    }
+
+    /// Create a modified subquery with outer row values substituted
+    fn substitute_outer_row_in_subquery(
+        subquery: &SelectStatement,
+        outer_row: &Row,
+        outer_aliases: &[String],
+    ) -> SelectStatement {
+        SelectStatement {
+            select_list: subquery.select_list.clone(),
+            from: subquery.from.clone(),
+            where_clause: subquery.where_clause.as_ref().map(|w| {
+                Self::substitute_outer_row_values(w, outer_row, outer_aliases)
+            }),
+            group_by: subquery.group_by.clone(),
+            having: subquery.having.clone(),
+            order_by: subquery.order_by.clone(),
+            limit: subquery.limit,
+            offset: subquery.offset,
+            synaptic_weight: subquery.synaptic_weight,
+            plasticity_threshold: subquery.plasticity_threshold,
+            neuromatch_clause: subquery.neuromatch_clause.clone(),
+            quantum_parallel: subquery.quantum_parallel,
+            grover_iterations: subquery.grover_iterations,
+            with_clause: subquery.with_clause.clone(),
+            union_clause: subquery.union_clause.clone(),
+        }
+    }
+
     /// Check if an expression contains an InList or InSubquery that needs post-filtering
     fn contains_in_list_expression(expr: &Expression) -> bool {
         match expr {
@@ -4602,6 +4853,100 @@ impl QueryExecutor {
                 result_row.insert(col_name, query_value);
             }
 
+            result_rows.push(result_row);
+        }
+
+        Ok((result_rows, columns))
+    }
+
+    /// Convert storage rows to query result with correlated subquery evaluation
+    /// For each row, evaluate any correlated scalar subqueries with the outer row context
+    async fn convert_storage_rows_with_correlated_subqueries(
+        &mut self,
+        storage_rows: Vec<Row>,
+        select: &SelectStatement,
+        outer_aliases: &[String],
+    ) -> QSQLResult<QueryResultData> {
+        let mut result_rows = Vec::new();
+        let mut columns = Vec::new();
+        let mut columns_initialized = false;
+
+        for storage_row in storage_rows {
+            let mut result_row = HashMap::new();
+
+            for item in &select.select_list {
+                match item {
+                    SelectItem::Wildcard => {
+                        // Add all columns from the row
+                        for (col_name, value) in &storage_row.fields {
+                            let query_value = self.storage_value_to_query_value(value);
+                            result_row.insert(col_name.clone(), query_value);
+
+                            if !columns_initialized {
+                                columns.push(ColumnInfo {
+                                    name: col_name.clone(),
+                                    data_type: self.storage_value_to_datatype(value),
+                                    nullable: matches!(value, Value::Null),
+                                });
+                            }
+                        }
+                    }
+                    SelectItem::Expression {
+                        expr: Expression::ScalarSubquery { subquery },
+                        alias,
+                    } => {
+                        // This is a correlated scalar subquery - evaluate it with outer row context
+                        let result_name = alias.clone().unwrap_or_else(|| {
+                            format!("(subquery)")
+                        });
+
+                        // Substitute outer row values into the subquery
+                        let substituted_subquery = Self::substitute_outer_row_in_subquery(
+                            subquery,
+                            &storage_row,
+                            outer_aliases,
+                        );
+
+                        // Execute the substituted subquery
+                        let value = self.execute_scalar_subquery(&substituted_subquery).await?;
+                        let query_value = self.literal_to_query_value(&value);
+                        let data_type = match &value {
+                            Literal::Integer(_) => DataType::BigInt,
+                            Literal::Float(_) => DataType::Double,
+                            Literal::String(_) => DataType::Text,
+                            Literal::Boolean(_) => DataType::Boolean,
+                            _ => DataType::Text,
+                        };
+
+                        result_row.insert(result_name.clone(), query_value);
+
+                        if !columns_initialized {
+                            columns.push(ColumnInfo {
+                                name: result_name,
+                                data_type,
+                                nullable: true,
+                            });
+                        }
+                    }
+                    SelectItem::Expression { expr, alias } => {
+                        // Handle non-subquery expressions
+                        let (result_name, query_value, data_type) =
+                            self.evaluate_select_expression(expr, alias, &storage_row)?;
+
+                        result_row.insert(result_name.clone(), query_value);
+
+                        if !columns_initialized {
+                            columns.push(ColumnInfo {
+                                name: result_name,
+                                data_type,
+                                nullable: true,
+                            });
+                        }
+                    }
+                }
+            }
+
+            columns_initialized = true;
             result_rows.push(result_row);
         }
 
