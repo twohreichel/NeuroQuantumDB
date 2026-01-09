@@ -4321,9 +4321,10 @@ impl QueryExecutor {
         SelectStatement {
             select_list: subquery.select_list.clone(),
             from: subquery.from.clone(),
-            where_clause: subquery.where_clause.as_ref().map(|w| {
-                Self::substitute_outer_row_values(w, outer_row, outer_aliases)
-            }),
+            where_clause: subquery
+                .where_clause
+                .as_ref()
+                .map(|w| Self::substitute_outer_row_values(w, outer_row, outer_aliases)),
             group_by: subquery.group_by.clone(),
             having: subquery.having.clone(),
             order_by: subquery.order_by.clone(),
@@ -4899,9 +4900,9 @@ impl QueryExecutor {
                         alias,
                     } => {
                         // This is a correlated scalar subquery - evaluate it with outer row context
-                        let result_name = alias.clone().unwrap_or_else(|| {
-                            SCALAR_SUBQUERY_DEFAULT_NAME.to_string()
-                        });
+                        let result_name = alias
+                            .clone()
+                            .unwrap_or_else(|| SCALAR_SUBQUERY_DEFAULT_NAME.to_string());
 
                         // Substitute outer row values into the subquery
                         let substituted_subquery = Self::substitute_outer_row_in_subquery(

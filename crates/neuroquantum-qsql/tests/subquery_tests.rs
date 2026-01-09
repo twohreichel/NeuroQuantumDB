@@ -606,7 +606,10 @@ mod execution_tests {
 
         // Verify the result contains the order_count column
         assert!(
-            query_result.columns.iter().any(|c| c.name == "order_count" || c.name == "(subquery)"),
+            query_result
+                .columns
+                .iter()
+                .any(|c| c.name == "order_count" || c.name == "(subquery)"),
             "Expected order_count column in results"
         );
     }
