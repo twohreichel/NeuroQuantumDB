@@ -29,6 +29,8 @@
   - [Quantum Search](user-guide/features/quantum-search.md)
   - [Neural Networks](user-guide/features/neural-networks.md)
   - [Biometric Auth](user-guide/features/biometric-auth.md)
+- [🧠 Complete Feature Guide (DE)](user-guide/NEUROQUANTUM_FEATURES_GUIDE.md)
+- [🧠 Complete Feature Guide (EN)](user-guide/NEUROQUANTUM_FEATURES_GUIDE_EN.md)
 - [Cluster Mode](user-guide/cluster-split-brain-prevention.md)
 - [Performance Tuning](user-guide/performance-tuning.md)
 - [Monitoring](user-guide/monitoring.md)
