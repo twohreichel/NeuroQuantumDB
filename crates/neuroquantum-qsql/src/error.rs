@@ -53,6 +53,9 @@ pub enum QSQLError {
         #[from]
         source: serde_json::Error,
     },
+
+    #[error("Prepared statement error: {message}")]
+    PreparedStatementError { message: String },
 }
 
 // Remove Clone trait for error types that contain non-cloneable fields
@@ -98,6 +101,9 @@ impl Clone for QSQLError {
             },
             QSQLError::SerializationError { source } => QSQLError::SerializationError {
                 source: serde_json::Error::io(std::io::Error::other(format!("{}", source))),
+            },
+            QSQLError::PreparedStatementError { message } => QSQLError::PreparedStatementError {
+                message: message.clone(),
             },
         }
     }
