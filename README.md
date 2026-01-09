@@ -198,6 +198,15 @@ Comprehensive documentation is available for developers and users:
 - Monitoring and maintenance
 - Troubleshooting and FAQ
 
+### 🧠 Complete Feature Guides
+
+**Comprehensive guides explaining Quantum Search, Neural Endpoints, and DNA Compression in detail:**
+
+- **[🇩🇪 Feature Guide (Deutsch)](./docs/user-guide/NEUROQUANTUM_FEATURES_GUIDE.md)** - Detaillierte Erklärungen aller Features
+- **[🇬🇧 Feature Guide (English)](./docs/user-guide/NEUROQUANTUM_FEATURES_GUIDE_EN.md)** - Detailed explanations of all features
+
+*These guides explain complex concepts in simple terms that anyone can understand!*
+
 ### 🌐 Additional Resources
 
 - **API Documentation**: Run `make docs-api` and open `target/doc/index.html`
