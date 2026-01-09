@@ -110,7 +110,7 @@ impl ShardTransfer {
 }
 
 /// Progress of the rebalancing operation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RebalanceProgress {
     /// Whether rebalancing is active
     pub active: bool,
@@ -132,23 +132,6 @@ pub struct RebalanceProgress {
     pub started_at_ms: u64,
     /// Bytes per second throughput (0 if not yet calculated)
     pub throughput_bytes_per_sec: u64,
-}
-
-impl Default for RebalanceProgress {
-    fn default() -> Self {
-        Self {
-            active: false,
-            total_transfers: 0,
-            completed_transfers: 0,
-            in_progress_transfers: 0,
-            failed_transfers: 0,
-            total_bytes: 0,
-            bytes_transferred: 0,
-            eta_seconds: 0,
-            started_at_ms: 0,
-            throughput_bytes_per_sec: 0,
-        }
-    }
 }
 
 /// Configuration for bandwidth throttling during rebalancing.
@@ -403,14 +386,15 @@ impl ShardManager {
         let mut total_bytes = 0u64;
         for transfer in &transfers {
             total_bytes = total_bytes.saturating_add(transfer.total_bytes);
-            state.transfers.insert(transfer.transfer_id, transfer.clone());
+            state
+                .transfers
+                .insert(transfer.transfer_id, transfer.clone());
         }
         state.rebalance_total_bytes = total_bytes;
 
         info!(
             transfer_count = transfers.len(),
-            total_bytes,
-            "Rebalancing plan created"
+            total_bytes, "Rebalancing plan created"
         );
 
         Ok(transfers)
@@ -474,7 +458,10 @@ impl ShardManager {
     ///
     /// This determines which shards should be moved to the new node to
     /// achieve a balanced distribution.
-    pub async fn calculate_node_join_transfers(&self, new_node_id: NodeId) -> ClusterResult<Vec<ShardTransfer>> {
+    pub async fn calculate_node_join_transfers(
+        &self,
+        new_node_id: NodeId,
+    ) -> ClusterResult<Vec<ShardTransfer>> {
         let state = self.state.read().await;
 
         if state.ring.is_empty() {
@@ -503,7 +490,10 @@ impl ShardManager {
     ///
     /// This identifies orphaned shards and determines which remaining
     /// nodes should take ownership.
-    pub async fn calculate_node_leave_transfers(&self, leaving_node_id: NodeId) -> ClusterResult<Vec<ShardTransfer>> {
+    pub async fn calculate_node_leave_transfers(
+        &self,
+        leaving_node_id: NodeId,
+    ) -> ClusterResult<Vec<ShardTransfer>> {
         let state = self.state.read().await;
 
         // Find all shards that have the leaving node as primary
@@ -565,8 +555,7 @@ impl ShardManager {
 
             debug!(
                 shard_id = shard_info.shard_id,
-                target_node,
-                "Orphaned shard reassigned"
+                target_node, "Orphaned shard reassigned"
             );
         }
 
@@ -585,10 +574,9 @@ impl ShardManager {
 
         // First, check if transfer exists and is pending
         {
-            let transfer = state
-                .transfers
-                .get(&transfer_id)
-                .ok_or_else(|| ClusterError::Internal(format!("Transfer {} not found", transfer_id)))?;
+            let transfer = state.transfers.get(&transfer_id).ok_or_else(|| {
+                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+            })?;
 
             if transfer.status != TransferStatus::Pending {
                 return Err(ClusterError::Internal(format!(
@@ -662,10 +650,9 @@ impl ShardManager {
 
         // First, update the transfer and extract needed values
         let (shard_id, target_node) = {
-            let transfer = state
-                .transfers
-                .get_mut(&transfer_id)
-                .ok_or_else(|| ClusterError::Internal(format!("Transfer {} not found", transfer_id)))?;
+            let transfer = state.transfers.get_mut(&transfer_id).ok_or_else(|| {
+                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+            })?;
 
             transfer.status = TransferStatus::Completed;
             transfer.bytes_transferred = transfer.total_bytes;
@@ -696,7 +683,11 @@ impl ShardManager {
         }
 
         // Add shard to new node's list
-        state.node_shards.entry(target_node).or_default().push(shard_id);
+        state
+            .node_shards
+            .entry(target_node)
+            .or_default()
+            .push(shard_id);
 
         info!(transfer_id, shard_id, target_node, "Transfer completed");
 
@@ -709,10 +700,9 @@ impl ShardManager {
 
         // Update transfer and get shard_id
         let shard_id = {
-            let transfer = state
-                .transfers
-                .get_mut(&transfer_id)
-                .ok_or_else(|| ClusterError::Internal(format!("Transfer {} not found", transfer_id)))?;
+            let transfer = state.transfers.get_mut(&transfer_id).ok_or_else(|| {
+                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+            })?;
 
             transfer.status = TransferStatus::Failed;
             transfer.error = Some(error.clone());
@@ -760,11 +750,7 @@ impl ShardManager {
             .filter(|t| t.status == TransferStatus::Failed)
             .count();
 
-        let bytes_transferred: u64 = state
-            .transfers
-            .values()
-            .map(|t| t.bytes_transferred)
-            .sum();
+        let bytes_transferred: u64 = state.transfers.values().map(|t| t.bytes_transferred).sum();
 
         let started_at_ms = state
             .rebalance_started_at
@@ -778,23 +764,26 @@ impl ShardManager {
             .unwrap_or(0);
 
         // Calculate throughput and ETA
-        let (throughput_bytes_per_sec, eta_seconds) = if let Some(start) = state.rebalance_started_at {
-            let elapsed_secs = start.elapsed().as_secs_f64();
-            if elapsed_secs > 0.0 && bytes_transferred > 0 {
-                let throughput = (bytes_transferred as f64 / elapsed_secs) as u64;
-                let remaining_bytes = state.rebalance_total_bytes.saturating_sub(bytes_transferred);
-                let eta = if throughput > 0 {
-                    remaining_bytes / throughput
+        let (throughput_bytes_per_sec, eta_seconds) =
+            if let Some(start) = state.rebalance_started_at {
+                let elapsed_secs = start.elapsed().as_secs_f64();
+                if elapsed_secs > 0.0 && bytes_transferred > 0 {
+                    let throughput = (bytes_transferred as f64 / elapsed_secs) as u64;
+                    let remaining_bytes = state
+                        .rebalance_total_bytes
+                        .saturating_sub(bytes_transferred);
+                    let eta = if throughput > 0 {
+                        remaining_bytes / throughput
+                    } else {
+                        0
+                    };
+                    (throughput, eta)
                 } else {
-                    0
-                };
-                (throughput, eta)
+                    (0, 0)
+                }
             } else {
                 (0, 0)
-            }
-        } else {
-            (0, 0)
-        };
+            };
 
         RebalanceProgress {
             active: true,
@@ -859,7 +848,9 @@ impl ShardManager {
 
         // Cancel all pending transfers
         for transfer in state.transfers.values_mut() {
-            if transfer.status == TransferStatus::Pending || transfer.status == TransferStatus::InProgress {
+            if transfer.status == TransferStatus::Pending
+                || transfer.status == TransferStatus::InProgress
+            {
                 transfer.status = TransferStatus::Cancelled;
             }
         }
@@ -885,7 +876,11 @@ impl ShardManager {
         let primary_node = shard_info.primary_node;
 
         state.shards.insert(shard_id, shard_info);
-        state.node_shards.entry(primary_node).or_default().push(shard_id);
+        state
+            .node_shards
+            .entry(primary_node)
+            .or_default()
+            .push(shard_id);
 
         debug!(shard_id, primary_node, "Shard registered");
 
@@ -1176,7 +1171,10 @@ mod tests {
             manager.start_transfer(transfer_id).await.unwrap();
 
             // Update progress
-            manager.update_transfer_progress(transfer_id, 256 * 1024, 250).await.unwrap();
+            manager
+                .update_transfer_progress(transfer_id, 256 * 1024, 250)
+                .await
+                .unwrap();
 
             // Check progress
             let progress = manager.get_rebalance_progress().await;
@@ -1222,7 +1220,10 @@ mod tests {
 
             // Start and then fail the transfer
             manager.start_transfer(transfer_id).await.unwrap();
-            manager.fail_transfer(transfer_id, "Network error".into()).await.unwrap();
+            manager
+                .fail_transfer(transfer_id, "Network error".into())
+                .await
+                .unwrap();
 
             let failed_transfer = manager.get_transfer(transfer_id).await.unwrap();
             assert_eq!(failed_transfer.status, TransferStatus::Failed);

@@ -161,22 +161,30 @@ impl ClusterMetrics {
 
     /// Update rebalance progress metrics.
     pub fn update_rebalance_progress(&self, progress: &RebalanceProgress) {
-        self.rebalancing_active.store(if progress.active { 1 } else { 0 }, Ordering::Relaxed);
-        self.rebalance_transfers_total.store(progress.total_transfers as u64, Ordering::Relaxed);
-        self.rebalance_transfers_completed.store(progress.completed_transfers as u64, Ordering::Relaxed);
-        self.rebalance_transfers_failed.store(progress.failed_transfers as u64, Ordering::Relaxed);
-        self.rebalance_bytes_transferred.store(progress.bytes_transferred, Ordering::Relaxed);
-        self.rebalance_throughput.store(progress.throughput_bytes_per_sec, Ordering::Relaxed);
+        self.rebalancing_active
+            .store(if progress.active { 1 } else { 0 }, Ordering::Relaxed);
+        self.rebalance_transfers_total
+            .store(progress.total_transfers as u64, Ordering::Relaxed);
+        self.rebalance_transfers_completed
+            .store(progress.completed_transfers as u64, Ordering::Relaxed);
+        self.rebalance_transfers_failed
+            .store(progress.failed_transfers as u64, Ordering::Relaxed);
+        self.rebalance_bytes_transferred
+            .store(progress.bytes_transferred, Ordering::Relaxed);
+        self.rebalance_throughput
+            .store(progress.throughput_bytes_per_sec, Ordering::Relaxed);
     }
 
     /// Record a completed transfer.
     pub fn record_transfer_complete(&self) {
-        self.rebalance_transfers_completed.fetch_add(1, Ordering::Relaxed);
+        self.rebalance_transfers_completed
+            .fetch_add(1, Ordering::Relaxed);
     }
 
     /// Record a failed transfer.
     pub fn record_transfer_failed(&self) {
-        self.rebalance_transfers_failed.fetch_add(1, Ordering::Relaxed);
+        self.rebalance_transfers_failed
+            .fetch_add(1, Ordering::Relaxed);
     }
 
     /// Get all metrics as a snapshot.
@@ -213,7 +221,9 @@ impl ClusterMetrics {
             replication_lag_ms: self.replication_lag_ms.load(Ordering::Relaxed),
             rebalancing_active: self.rebalancing_active.load(Ordering::Relaxed) == 1,
             rebalance_transfers_total: self.rebalance_transfers_total.load(Ordering::Relaxed),
-            rebalance_transfers_completed: self.rebalance_transfers_completed.load(Ordering::Relaxed),
+            rebalance_transfers_completed: self
+                .rebalance_transfers_completed
+                .load(Ordering::Relaxed),
             rebalance_transfers_failed: self.rebalance_transfers_failed.load(Ordering::Relaxed),
             rebalance_bytes_transferred: self.rebalance_bytes_transferred.load(Ordering::Relaxed),
             rebalance_throughput_bytes_per_sec: self.rebalance_throughput.load(Ordering::Relaxed),

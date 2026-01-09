@@ -81,6 +81,6 @@ pub use metrics::{ClusterMetrics, MetricsSnapshot};
 pub use node::{ClusterNode, NodeId, NodeRole, NodeState};
 pub use replication::ConsistencyLevel;
 pub use sharding::{
-    RebalanceConfig, RebalanceProgress, ShardId, ShardInfo, ShardManager, ShardState,
-    ShardStats, ShardTransfer, TransferId, TransferStatus,
+    RebalanceConfig, RebalanceProgress, ShardId, ShardInfo, ShardManager, ShardState, ShardStats,
+    ShardTransfer, TransferId, TransferStatus,
 };
