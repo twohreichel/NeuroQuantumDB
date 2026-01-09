@@ -210,35 +210,119 @@ impl BTreeNode {
     }
 
     /// Get as internal node (panics if not internal)
+    ///
+    /// # Panics
+    /// Panics if the node is not an internal node.
+    ///
+    /// # Deprecated
+    /// Use [`try_as_internal`](Self::try_as_internal) or [`as_internal_checked`](Self::as_internal_checked) instead
+    /// for safer error handling.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use try_as_internal() or as_internal_checked() for proper error handling"
+    )]
     pub fn as_internal(&self) -> &InternalNode {
-        match self {
-            BTreeNode::Internal(node) => node,
-            _ => panic!("Not an internal node"),
-        }
+        self.try_as_internal()
+            .expect("BTreeNode::as_internal called on a leaf node")
     }
 
     /// Get as mutable internal node (panics if not internal)
+    ///
+    /// # Panics
+    /// Panics if the node is not an internal node.
+    ///
+    /// # Deprecated
+    /// Use [`try_as_internal_mut`](Self::try_as_internal_mut) or [`as_internal_mut_checked`](Self::as_internal_mut_checked) instead
+    /// for safer error handling.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use try_as_internal_mut() or as_internal_mut_checked() for proper error handling"
+    )]
     pub fn as_internal_mut(&mut self) -> &mut InternalNode {
-        match self {
-            BTreeNode::Internal(node) => node,
-            _ => panic!("Not an internal node"),
-        }
+        self.try_as_internal_mut()
+            .expect("BTreeNode::as_internal_mut called on a leaf node")
     }
 
     /// Get as leaf node (panics if not leaf)
+    ///
+    /// # Panics
+    /// Panics if the node is not a leaf node.
+    ///
+    /// # Deprecated
+    /// Use [`try_as_leaf`](Self::try_as_leaf) or [`as_leaf_checked`](Self::as_leaf_checked) instead
+    /// for safer error handling.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use try_as_leaf() or as_leaf_checked() for proper error handling"
+    )]
     pub fn as_leaf(&self) -> &LeafNode {
-        match self {
-            BTreeNode::Leaf(node) => node,
-            _ => panic!("Not a leaf node"),
-        }
+        self.try_as_leaf()
+            .expect("BTreeNode::as_leaf called on an internal node")
     }
 
     /// Get as mutable leaf node (panics if not leaf)
+    ///
+    /// # Panics
+    /// Panics if the node is not a leaf node.
+    ///
+    /// # Deprecated
+    /// Use [`try_as_leaf_mut`](Self::try_as_leaf_mut) or [`as_leaf_mut_checked`](Self::as_leaf_mut_checked) instead
+    /// for safer error handling.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use try_as_leaf_mut() or as_leaf_mut_checked() for proper error handling"
+    )]
     pub fn as_leaf_mut(&mut self) -> &mut LeafNode {
-        match self {
-            BTreeNode::Leaf(node) => node,
-            _ => panic!("Not a leaf node"),
-        }
+        self.try_as_leaf_mut()
+            .expect("BTreeNode::as_leaf_mut called on an internal node")
+    }
+
+    /// Get as internal node with Result-based error handling
+    ///
+    /// Returns an error if the node is not an internal node.
+    /// This is the recommended alternative to `as_internal()`.
+    ///
+    /// # Errors
+    /// Returns an error if this is a leaf node, not an internal node.
+    pub fn as_internal_checked(&self) -> Result<&InternalNode> {
+        self.try_as_internal()
+            .ok_or_else(|| anyhow!("Expected internal node, found leaf node"))
+    }
+
+    /// Get as mutable internal node with Result-based error handling
+    ///
+    /// Returns an error if the node is not an internal node.
+    /// This is the recommended alternative to `as_internal_mut()`.
+    ///
+    /// # Errors
+    /// Returns an error if this is a leaf node, not an internal node.
+    pub fn as_internal_mut_checked(&mut self) -> Result<&mut InternalNode> {
+        self.try_as_internal_mut()
+            .ok_or_else(|| anyhow!("Expected internal node, found leaf node"))
+    }
+
+    /// Get as leaf node with Result-based error handling
+    ///
+    /// Returns an error if the node is not a leaf node.
+    /// This is the recommended alternative to `as_leaf()`.
+    ///
+    /// # Errors
+    /// Returns an error if this is an internal node, not a leaf node.
+    pub fn as_leaf_checked(&self) -> Result<&LeafNode> {
+        self.try_as_leaf()
+            .ok_or_else(|| anyhow!("Expected leaf node, found internal node"))
+    }
+
+    /// Get as mutable leaf node with Result-based error handling
+    ///
+    /// Returns an error if the node is not a leaf node.
+    /// This is the recommended alternative to `as_leaf_mut()`.
+    ///
+    /// # Errors
+    /// Returns an error if this is an internal node, not a leaf node.
+    pub fn as_leaf_mut_checked(&mut self) -> Result<&mut LeafNode> {
+        self.try_as_leaf_mut()
+            .ok_or_else(|| anyhow!("Expected leaf node, found internal node"))
     }
 
     /// Try to get as internal node (returns None if not internal)
@@ -448,5 +532,61 @@ mod tests {
 
         // try_as_leaf_mut on internal node should return None
         assert!(internal.try_as_leaf_mut().is_none());
+    }
+
+    #[test]
+    fn test_as_internal_checked() {
+        let internal = BTreeNode::Internal(InternalNode::new(5));
+        let leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // as_internal_checked on internal node should return Ok
+        assert!(internal.as_internal_checked().is_ok());
+
+        // as_internal_checked on leaf node should return Err
+        let result = leaf.as_internal_checked();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("leaf"));
+    }
+
+    #[test]
+    fn test_as_internal_mut_checked() {
+        let mut internal = BTreeNode::Internal(InternalNode::new(5));
+        let mut leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // as_internal_mut_checked on internal node should return Ok
+        assert!(internal.as_internal_mut_checked().is_ok());
+
+        // as_internal_mut_checked on leaf node should return Err
+        let result = leaf.as_internal_mut_checked();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("leaf"));
+    }
+
+    #[test]
+    fn test_as_leaf_checked() {
+        let internal = BTreeNode::Internal(InternalNode::new(5));
+        let leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // as_leaf_checked on leaf node should return Ok
+        assert!(leaf.as_leaf_checked().is_ok());
+
+        // as_leaf_checked on internal node should return Err
+        let result = internal.as_leaf_checked();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("internal"));
+    }
+
+    #[test]
+    fn test_as_leaf_mut_checked() {
+        let mut internal = BTreeNode::Internal(InternalNode::new(5));
+        let mut leaf = BTreeNode::Leaf(LeafNode::new(5));
+
+        // as_leaf_mut_checked on leaf node should return Ok
+        assert!(leaf.as_leaf_mut_checked().is_ok());
+
+        // as_leaf_mut_checked on internal node should return Err
+        let result = internal.as_leaf_mut_checked();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("internal"));
     }
 }
