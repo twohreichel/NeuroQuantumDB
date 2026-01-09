@@ -38,6 +38,7 @@ fn test_quantum_tfim_trotter_ferromagnetic() {
         error_mitigation: false,
         trotter_steps: 20,   // More Trotter steps for better convergence
         evolution_time: 2.0, // Longer evolution for ground state preparation
+        seed: None,
     };
 
     let solver = QuantumTFIMSolver::with_config(config);
@@ -98,6 +99,7 @@ fn test_quantum_tfim_vqe_antiferromagnetic() {
         error_mitigation: false,
         trotter_steps: 10,
         evolution_time: 1.0,
+        seed: None,
     };
 
     let solver = QuantumTFIMSolver::with_config(config);
@@ -150,6 +152,7 @@ fn test_quantum_tfim_qaoa_optimization() {
         error_mitigation: false,
         trotter_steps: 10,
         evolution_time: 1.0,
+        seed: None,
     };
 
     let solver = QuantumTFIMSolver::with_config(config);
@@ -244,6 +247,7 @@ fn test_observables_magnetization() {
         error_mitigation: false,
         trotter_steps: 30,   // More Trotter steps
         evolution_time: 3.0, // Longer evolution time
+        seed: Some(42),      // Fixed seed for deterministic testing
     };
 
     let solver = QuantumTFIMSolver::with_config(config);
@@ -294,6 +298,7 @@ fn test_unified_solver_quantum_path() {
         error_mitigation: false,
         trotter_steps: 8,
         evolution_time: 1.0,
+        seed: None,
     };
 
     let unified_config = UnifiedTFIMConfig {
@@ -370,6 +375,7 @@ fn test_quantum_classical_consistency() {
         error_mitigation: false,
         trotter_steps: 20,
         evolution_time: 2.0,
+        seed: None,
     });
     let quantum_result = quantum_solver.solve(&classical_problem).unwrap();
 
@@ -432,6 +438,7 @@ fn test_vqe_ansatz_types() {
         error_mitigation: false,
         trotter_steps: 10,
         evolution_time: 1.0,
+        seed: None,
     };
 
     let solver_he = QuantumTFIMSolver::with_config(config_he);
@@ -450,6 +457,7 @@ fn test_vqe_ansatz_types() {
         error_mitigation: false,
         trotter_steps: 10,
         evolution_time: 1.0,
+        seed: None,
     };
 
     let solver_ucc = QuantumTFIMSolver::with_config(config_ucc);
@@ -485,6 +493,7 @@ fn test_large_system_performance() {
         error_mitigation: false,
         trotter_steps: 10,
         evolution_time: 1.0,
+        seed: None,
     };
 
     let start = std::time::Instant::now();

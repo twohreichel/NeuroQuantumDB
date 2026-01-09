@@ -27,7 +27,8 @@
 
 use crate::error::{CoreError, CoreResult};
 use nalgebra::{Complex, DMatrix};
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use tracing::{debug, info, instrument};
@@ -167,6 +168,9 @@ pub struct QuantumTFIMConfig {
     pub trotter_steps: usize,
     /// Evolution time
     pub evolution_time: f64,
+    /// Optional random seed for deterministic testing
+    #[serde(default)]
+    pub seed: Option<u64>,
 }
 
 /// Solution methods for quantum TFIM
@@ -215,6 +219,7 @@ impl Default for QuantumTFIMConfig {
             error_mitigation: true,
             trotter_steps: 10,
             evolution_time: 1.0,
+            seed: None,
         }
     }
 }
@@ -674,7 +679,10 @@ impl QuantumTFIMSolver {
         num_qubits: usize,
         num_shots: usize,
     ) -> CoreResult<Vec<Vec<bool>>> {
-        let mut rng = rand::thread_rng();
+        let mut rng: Box<dyn rand::RngCore> = match self.config.seed {
+            Some(seed) => Box::new(StdRng::seed_from_u64(seed)),
+            None => Box::new(rand::thread_rng()),
+        };
         let mut measurements = Vec::new();
 
         // Calculate probabilities
@@ -866,6 +874,7 @@ mod tests {
             error_mitigation: false,
             trotter_steps: 5,
             evolution_time: 1.0,
+            seed: None,
         };
 
         let solver = QuantumTFIMSolver::with_config(config);
@@ -897,6 +906,7 @@ mod tests {
             error_mitigation: false,
             trotter_steps: 10,
             evolution_time: 1.0,
+            seed: None,
         };
 
         let solver = QuantumTFIMSolver::with_config(config);
@@ -926,6 +936,7 @@ mod tests {
             error_mitigation: false,
             trotter_steps: 10,
             evolution_time: 1.0,
+            seed: None,
         };
 
         let solver = QuantumTFIMSolver::with_config(config);
