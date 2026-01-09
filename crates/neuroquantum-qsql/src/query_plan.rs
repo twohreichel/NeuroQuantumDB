@@ -7177,55 +7177,9 @@ impl QueryExecutor {
             return Ok(self.calculate_neuromatch_similarity(s1, s2));
         }
 
-        // Helper to convert QueryValue to normalized activity level (0.0 to 1.0)
-        let to_activity = |v: &QueryValue| -> f32 {
-            match v {
-                QueryValue::Null => 0.0,
-                QueryValue::Boolean(b) => {
-                    if *b {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                QueryValue::Integer(i) => {
-                    // Normalize to [0, 1] using sigmoid-like function
-                    let x = (*i as f32) / 100.0;
-                    1.0 / (1.0 + (-x).exp())
-                }
-                QueryValue::Float(f) => {
-                    // Normalize to [0, 1] using sigmoid-like function
-                    let x = (*f as f32) / 100.0;
-                    1.0 / (1.0 + (-x).exp())
-                }
-                QueryValue::String(s) => {
-                    // Hash string to a consistent activity level using DefaultHasher
-                    // This provides better distribution than a simple multiplicative hash
-                    use std::collections::hash_map::DefaultHasher;
-                    use std::hash::{Hash, Hasher};
-
-                    let mut hasher = DefaultHasher::new();
-                    s.hash(&mut hasher);
-                    let hash_value = hasher.finish();
-                    (hash_value % 1000) as f32 / 1000.0
-                }
-                QueryValue::Blob(b) => {
-                    // Use blob length as a proxy for activity
-                    let len = b.len() as f32;
-                    (len % 100.0) / 100.0
-                }
-                QueryValue::DNASequence(s) => {
-                    // DNA sequence: use length normalized
-                    (s.len() as f32 % 100.0) / 100.0
-                }
-                QueryValue::SynapticWeight(w) => *w,
-                QueryValue::QuantumState(_) => 0.5, // Quantum superposition = 0.5
-            }
-        };
-
-        // Get activity levels for both values
-        let activity1 = to_activity(val1);
-        let activity2 = to_activity(val2);
+        // Get activity levels for both values using the shared activity calculation
+        let activity1 = self.calculate_synaptic_activity(val1);
+        let activity2 = self.calculate_synaptic_activity(val2);
 
         // Hebbian learning: correlation is the product of activities
         // This implements the basic Hebbian rule: Δw = η * x_i * x_j
