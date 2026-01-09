@@ -29,6 +29,9 @@ type TableRowFuture<'a> = std::pin::Pin<
 /// This prevents infinite loops in recursive queries.
 pub const RECURSIVE_CTE_LIMIT: usize = 1000;
 
+/// Default column name for scalar subqueries without an alias
+const SCALAR_SUBQUERY_DEFAULT_NAME: &str = "(subquery)";
+
 /// Context for Common Table Expressions (CTEs) during query execution.
 /// Maps CTE names to their cached result rows.
 #[derive(Debug, Clone, Default)]
@@ -4897,7 +4900,7 @@ impl QueryExecutor {
                     } => {
                         // This is a correlated scalar subquery - evaluate it with outer row context
                         let result_name = alias.clone().unwrap_or_else(|| {
-                            format!("(subquery)")
+                            SCALAR_SUBQUERY_DEFAULT_NAME.to_string()
                         });
 
                         // Substitute outer row values into the subquery
