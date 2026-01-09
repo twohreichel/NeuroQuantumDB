@@ -30,6 +30,64 @@ BEGIN → [Operations] → COMMIT
         ROLLBACK
 ```
 
+## Savepoints
+
+Savepoints allow you to create named checkpoints within a transaction, enabling partial rollback without aborting the entire transaction.
+
+### Savepoint Operations
+
+| Statement | Description |
+|-----------|-------------|
+| `SAVEPOINT name` | Creates a named savepoint at the current position |
+| `ROLLBACK TO SAVEPOINT name` | Rolls back all operations since the savepoint |
+| `RELEASE SAVEPOINT name` | Removes the savepoint (commits intermediate changes) |
+
+### Savepoint Usage Example
+
+```sql
+BEGIN;
+INSERT INTO users (id, name) VALUES (1, 'Alice');
+SAVEPOINT sp1;
+INSERT INTO users (id, name) VALUES (2, 'Bob');
+-- Error occurs, rollback to savepoint
+ROLLBACK TO SAVEPOINT sp1;
+INSERT INTO users (id, name) VALUES (2, 'Charlie');
+COMMIT;
+-- Result: Alice and Charlie are committed, Bob is not
+```
+
+### Nested Savepoints
+
+Multiple savepoints can be created within a single transaction:
+
+```sql
+BEGIN;
+SAVEPOINT sp1;
+-- Operations A
+SAVEPOINT sp2;
+-- Operations B
+ROLLBACK TO SAVEPOINT sp2;  -- Undoes only Operations B
+ROLLBACK TO SAVEPOINT sp1;  -- Undoes everything since sp1
+COMMIT;
+```
+
+### Savepoint Implementation Details
+
+Savepoints are implemented using WAL (Write-Ahead Log) LSN tracking:
+
+```rust
+pub struct SavepointInfo {
+    transaction_id: TransactionId,
+    lsn: LSN,  // Log Sequence Number at savepoint creation
+}
+```
+
+When rolling back to a savepoint:
+1. All undo log entries after the savepoint LSN are applied in reverse order
+2. Inserted rows are deleted
+3. Updated/deleted rows are restored from before-images
+4. The savepoint remains active for multiple rollbacks
+
 ## Lock Manager
 
 Two-Phase Locking (2PL):
