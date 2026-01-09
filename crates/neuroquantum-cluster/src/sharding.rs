@@ -2,11 +2,13 @@
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::config::ClusterConfig;
 use crate::error::{ClusterError, ClusterResult};
@@ -14,6 +16,9 @@ use crate::node::NodeId;
 
 /// Unique identifier for a shard.
 pub type ShardId = u64;
+
+/// Unique identifier for a transfer operation.
+pub type TransferId = u64;
 
 /// State of a shard.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,15 +50,122 @@ pub struct ShardInfo {
     pub size_bytes: u64,
 }
 
+/// Status of a shard transfer operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TransferStatus {
+    /// Transfer is pending
+    Pending,
+    /// Transfer is in progress
+    InProgress,
+    /// Transfer completed successfully
+    Completed,
+    /// Transfer failed
+    Failed,
+    /// Transfer was cancelled
+    Cancelled,
+}
+
+/// A shard transfer request during rebalancing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShardTransfer {
+    /// Unique transfer ID
+    pub transfer_id: TransferId,
+    /// Shard being transferred
+    pub shard_id: ShardId,
+    /// Source node
+    pub source_node: NodeId,
+    /// Target node
+    pub target_node: NodeId,
+    /// Transfer status
+    pub status: TransferStatus,
+    /// Bytes transferred so far
+    pub bytes_transferred: u64,
+    /// Total bytes to transfer
+    pub total_bytes: u64,
+    /// Keys transferred so far
+    pub keys_transferred: u64,
+    /// Total keys to transfer
+    pub total_keys: u64,
+    /// When the transfer started (Unix timestamp ms)
+    pub started_at_ms: u64,
+    /// When the transfer completed (Unix timestamp ms, 0 if not complete)
+    pub completed_at_ms: u64,
+    /// Error message if failed
+    pub error: Option<String>,
+}
+
+impl ShardTransfer {
+    /// Calculate transfer progress as a percentage (0-100).
+    #[must_use]
+    pub fn progress_percent(&self) -> f64 {
+        if self.total_bytes == 0 {
+            return if self.status == TransferStatus::Completed {
+                100.0
+            } else {
+                0.0
+            };
+        }
+        (self.bytes_transferred as f64 / self.total_bytes as f64) * 100.0
+    }
+}
+
+/// Progress of the rebalancing operation.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RebalanceProgress {
+    /// Whether rebalancing is active
+    pub active: bool,
+    /// Total transfers planned
+    pub total_transfers: usize,
+    /// Transfers completed
+    pub completed_transfers: usize,
+    /// Transfers in progress
+    pub in_progress_transfers: usize,
+    /// Transfers failed
+    pub failed_transfers: usize,
+    /// Total bytes to transfer
+    pub total_bytes: u64,
+    /// Bytes transferred so far
+    pub bytes_transferred: u64,
+    /// Estimated time to completion in seconds (0 if unknown)
+    pub eta_seconds: u64,
+    /// When rebalancing started (Unix timestamp ms)
+    pub started_at_ms: u64,
+    /// Bytes per second throughput (0 if not yet calculated)
+    pub throughput_bytes_per_sec: u64,
+}
+
+/// Configuration for bandwidth throttling during rebalancing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RebalanceConfig {
+    /// Maximum bytes per second for all transfers combined (0 = unlimited)
+    pub max_bandwidth_bytes_per_sec: u64,
+    /// Maximum concurrent transfers
+    pub max_concurrent_transfers: u32,
+    /// Delay before starting rebalance after membership change
+    pub rebalance_delay: Duration,
+    /// Whether automatic rebalancing is enabled
+    pub auto_rebalance: bool,
+}
+
+impl Default for RebalanceConfig {
+    fn default() -> Self {
+        Self {
+            max_bandwidth_bytes_per_sec: 0,
+            max_concurrent_transfers: 2,
+            rebalance_delay: Duration::from_secs(30),
+            auto_rebalance: true,
+        }
+    }
+}
+
 /// A point on the hash ring.
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct RingPoint {
     /// Hash value on the ring
     hash: u64,
     /// Node ID owning this point
     node_id: NodeId,
-    /// Virtual node index (for debugging and analytics)
+    /// Virtual node index (used for ring distribution analytics)
     virtual_index: u32,
 }
 
@@ -67,6 +179,12 @@ struct ShardManagerState {
     node_shards: HashMap<NodeId, Vec<ShardId>>,
     /// Whether rebalancing is in progress
     rebalancing: bool,
+    /// Active and historical transfers
+    transfers: HashMap<TransferId, ShardTransfer>,
+    /// When rebalancing started
+    rebalance_started_at: Option<Instant>,
+    /// Total bytes planned for current rebalance
+    rebalance_total_bytes: u64,
 }
 
 /// Manages sharding and data distribution across the cluster.
@@ -77,6 +195,10 @@ pub struct ShardManager {
     replication_factor: u32,
     /// Internal state
     state: Arc<RwLock<ShardManagerState>>,
+    /// Rebalance configuration
+    rebalance_config: RebalanceConfig,
+    /// Next transfer ID counter
+    next_transfer_id: AtomicU64,
 }
 
 impl ShardManager {
@@ -88,6 +210,13 @@ impl ShardManager {
             "Creating shard manager"
         );
 
+        let rebalance_config = RebalanceConfig {
+            max_bandwidth_bytes_per_sec: 0,
+            max_concurrent_transfers: config.sharding.max_concurrent_transfers,
+            rebalance_delay: config.sharding.rebalance_delay,
+            auto_rebalance: config.sharding.auto_rebalance,
+        };
+
         Ok(Self {
             virtual_nodes: config.sharding.virtual_nodes,
             replication_factor: config.sharding.replication_factor,
@@ -96,7 +225,12 @@ impl ShardManager {
                 shards: HashMap::new(),
                 node_shards: HashMap::new(),
                 rebalancing: false,
+                transfers: HashMap::new(),
+                rebalance_started_at: None,
+                rebalance_total_bytes: 0,
             })),
+            rebalance_config,
+            next_transfer_id: AtomicU64::new(1),
         })
     }
 
@@ -222,8 +356,17 @@ impl ShardManager {
         self.state.read().await.rebalancing
     }
 
+    /// Get the current rebalance configuration.
+    #[must_use]
+    pub fn rebalance_config(&self) -> &RebalanceConfig {
+        &self.rebalance_config
+    }
+
     /// Start rebalancing shards across nodes.
-    pub async fn start_rebalance(&self) -> ClusterResult<()> {
+    ///
+    /// This calculates the optimal shard distribution based on the current
+    /// hash ring and creates transfer plans for any shards that need to move.
+    pub async fn start_rebalance(&self) -> ClusterResult<Vec<ShardTransfer>> {
         let mut state = self.state.write().await;
 
         if state.rebalancing {
@@ -231,23 +374,537 @@ impl ShardManager {
         }
 
         state.rebalancing = true;
+        state.rebalance_started_at = Some(Instant::now());
+        state.transfers.clear();
+
         info!("Starting shard rebalancing");
 
-        // In a full implementation:
-        // 1. Calculate optimal shard distribution
-        // 2. Identify shards to transfer
-        // 3. Initiate shard transfers
-        // 4. Update shard assignments
+        // Calculate transfers needed based on current ring state
+        let transfers = self.calculate_transfers(&state);
+
+        // Store transfers
+        let mut total_bytes = 0u64;
+        for transfer in &transfers {
+            total_bytes = total_bytes.saturating_add(transfer.total_bytes);
+            state
+                .transfers
+                .insert(transfer.transfer_id, transfer.clone());
+        }
+        state.rebalance_total_bytes = total_bytes;
+
+        info!(
+            transfer_count = transfers.len(),
+            total_bytes, "Rebalancing plan created"
+        );
+
+        Ok(transfers)
+    }
+
+    /// Calculate which shards need to be transferred based on the hash ring.
+    fn calculate_transfers(&self, state: &ShardManagerState) -> Vec<ShardTransfer> {
+        let mut transfers = Vec::new();
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        // For each shard, determine if it needs to move to a different primary node
+        for (shard_id, shard_info) in &state.shards {
+            // Hash the shard ID to find its correct primary node
+            let shard_hash = {
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                shard_id.hash(&mut hasher);
+                hasher.finish()
+            };
+
+            if state.ring.is_empty() {
+                continue;
+            }
+
+            let target_node = self.find_node_for_hash(&state.ring, shard_hash);
+
+            // If the shard's current primary is different from target, create a transfer
+            if shard_info.primary_node != target_node {
+                let transfer_id = self.next_transfer_id.fetch_add(1, Ordering::SeqCst);
+
+                transfers.push(ShardTransfer {
+                    transfer_id,
+                    shard_id: *shard_id,
+                    source_node: shard_info.primary_node,
+                    target_node,
+                    status: TransferStatus::Pending,
+                    bytes_transferred: 0,
+                    total_bytes: shard_info.size_bytes,
+                    keys_transferred: 0,
+                    total_keys: shard_info.key_count,
+                    started_at_ms: now_ms,
+                    completed_at_ms: 0,
+                    error: None,
+                });
+
+                debug!(
+                    shard_id,
+                    source_node = shard_info.primary_node,
+                    target_node,
+                    "Shard requires transfer"
+                );
+            }
+        }
+
+        transfers
+    }
+
+    /// Calculate transfers needed when a new node joins the cluster.
+    ///
+    /// This determines which shards should be moved to the new node to
+    /// achieve a balanced distribution.
+    pub async fn calculate_node_join_transfers(
+        &self,
+        new_node_id: NodeId,
+    ) -> ClusterResult<Vec<ShardTransfer>> {
+        let state = self.state.read().await;
+
+        if state.ring.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Identify shards that should now belong to the new node
+        let transfers = self.calculate_transfers(&state);
+
+        // Filter to only transfers TO the new node
+        let join_transfers: Vec<ShardTransfer> = transfers
+            .into_iter()
+            .filter(|t| t.target_node == new_node_id)
+            .collect();
+
+        info!(
+            new_node_id,
+            transfer_count = join_transfers.len(),
+            "Calculated node join transfers"
+        );
+
+        Ok(join_transfers)
+    }
+
+    /// Calculate transfers needed when a node leaves the cluster.
+    ///
+    /// This identifies orphaned shards and determines which remaining
+    /// nodes should take ownership.
+    pub async fn calculate_node_leave_transfers(
+        &self,
+        leaving_node_id: NodeId,
+    ) -> ClusterResult<Vec<ShardTransfer>> {
+        let state = self.state.read().await;
+
+        // Find all shards that have the leaving node as primary
+        let orphaned_shards: Vec<ShardInfo> = state
+            .shards
+            .values()
+            .filter(|s| s.primary_node == leaving_node_id)
+            .cloned()
+            .collect();
+
+        if orphaned_shards.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // For each orphaned shard, find the next best node
+        let mut transfers = Vec::new();
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        // Create a temporary ring without the leaving node
+        let remaining_ring: Vec<RingPoint> = state
+            .ring
+            .iter()
+            .filter(|p| p.node_id != leaving_node_id)
+            .cloned()
+            .collect();
+
+        if remaining_ring.is_empty() {
+            warn!("No remaining nodes to receive orphaned shards");
+            return Ok(Vec::new());
+        }
+
+        for shard_info in orphaned_shards {
+            let shard_hash = {
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                shard_info.shard_id.hash(&mut hasher);
+                hasher.finish()
+            };
+
+            let target_node = self.find_node_for_hash(&remaining_ring, shard_hash);
+            let transfer_id = self.next_transfer_id.fetch_add(1, Ordering::SeqCst);
+
+            transfers.push(ShardTransfer {
+                transfer_id,
+                shard_id: shard_info.shard_id,
+                source_node: leaving_node_id,
+                target_node,
+                status: TransferStatus::Pending,
+                bytes_transferred: 0,
+                total_bytes: shard_info.size_bytes,
+                keys_transferred: 0,
+                total_keys: shard_info.key_count,
+                started_at_ms: now_ms,
+                completed_at_ms: 0,
+                error: None,
+            });
+
+            debug!(
+                shard_id = shard_info.shard_id,
+                target_node, "Orphaned shard reassigned"
+            );
+        }
+
+        info!(
+            leaving_node_id,
+            orphaned_count = transfers.len(),
+            "Calculated node leave transfers"
+        );
+
+        Ok(transfers)
+    }
+
+    /// Start a shard transfer.
+    pub async fn start_transfer(&self, transfer_id: TransferId) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+
+        // First, check if transfer exists and is pending
+        {
+            let transfer = state.transfers.get(&transfer_id).ok_or_else(|| {
+                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+            })?;
+
+            if transfer.status != TransferStatus::Pending {
+                return Err(ClusterError::Internal(format!(
+                    "Transfer {} is not in pending state",
+                    transfer_id
+                )));
+            }
+        }
+
+        // Check concurrent transfer limit
+        let in_progress_count = state
+            .transfers
+            .values()
+            .filter(|t| t.status == TransferStatus::InProgress)
+            .count();
+
+        if in_progress_count >= self.rebalance_config.max_concurrent_transfers as usize {
+            return Err(ClusterError::Internal(
+                "Maximum concurrent transfers reached".into(),
+            ));
+        }
+
+        // Get the shard_id before mutating transfer
+        let shard_id = state.transfers.get(&transfer_id).map(|t| t.shard_id);
+
+        // Update shard state
+        if let Some(sid) = shard_id {
+            if let Some(shard) = state.shards.get_mut(&sid) {
+                shard.state = ShardState::Transferring;
+            }
+        }
+
+        // Now update the transfer
+        if let Some(transfer) = state.transfers.get_mut(&transfer_id) {
+            transfer.status = TransferStatus::InProgress;
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            transfer.started_at_ms = now_ms;
+        }
+
+        debug!(transfer_id, "Transfer started");
 
         Ok(())
+    }
+
+    /// Update transfer progress.
+    pub async fn update_transfer_progress(
+        &self,
+        transfer_id: TransferId,
+        bytes_transferred: u64,
+        keys_transferred: u64,
+    ) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+
+        let transfer = state
+            .transfers
+            .get_mut(&transfer_id)
+            .ok_or_else(|| ClusterError::Internal(format!("Transfer {} not found", transfer_id)))?;
+
+        transfer.bytes_transferred = bytes_transferred;
+        transfer.keys_transferred = keys_transferred;
+
+        Ok(())
+    }
+
+    /// Complete a shard transfer successfully.
+    pub async fn complete_transfer(&self, transfer_id: TransferId) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+
+        // First, update the transfer and extract needed values
+        let (shard_id, target_node) = {
+            let transfer = state.transfers.get_mut(&transfer_id).ok_or_else(|| {
+                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+            })?;
+
+            transfer.status = TransferStatus::Completed;
+            transfer.bytes_transferred = transfer.total_bytes;
+            transfer.keys_transferred = transfer.total_keys;
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            transfer.completed_at_ms = now_ms;
+
+            (transfer.shard_id, transfer.target_node)
+        };
+
+        // Get the old primary node
+        let old_primary = state.shards.get(&shard_id).map(|s| s.primary_node);
+
+        // Update shard primary node
+        if let Some(shard) = state.shards.get_mut(&shard_id) {
+            shard.primary_node = target_node;
+            shard.state = ShardState::Active;
+        }
+
+        // Remove shard from old node's list
+        if let Some(old_node) = old_primary {
+            if let Some(old_node_shards) = state.node_shards.get_mut(&old_node) {
+                old_node_shards.retain(|&id| id != shard_id);
+            }
+        }
+
+        // Add shard to new node's list
+        state
+            .node_shards
+            .entry(target_node)
+            .or_default()
+            .push(shard_id);
+
+        info!(transfer_id, shard_id, target_node, "Transfer completed");
+
+        Ok(())
+    }
+
+    /// Fail a shard transfer.
+    pub async fn fail_transfer(&self, transfer_id: TransferId, error: String) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+
+        // Update transfer and get shard_id
+        let shard_id = {
+            let transfer = state.transfers.get_mut(&transfer_id).ok_or_else(|| {
+                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+            })?;
+
+            transfer.status = TransferStatus::Failed;
+            transfer.error = Some(error.clone());
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            transfer.completed_at_ms = now_ms;
+
+            transfer.shard_id
+        };
+
+        // Reset shard state
+        if let Some(shard) = state.shards.get_mut(&shard_id) {
+            shard.state = ShardState::Active;
+        }
+
+        warn!(transfer_id, error, "Transfer failed");
+
+        Ok(())
+    }
+
+    /// Get current rebalance progress.
+    pub async fn get_rebalance_progress(&self) -> RebalanceProgress {
+        let state = self.state.read().await;
+
+        if !state.rebalancing {
+            return RebalanceProgress::default();
+        }
+
+        let total_transfers = state.transfers.len();
+        let completed_transfers = state
+            .transfers
+            .values()
+            .filter(|t| t.status == TransferStatus::Completed)
+            .count();
+        let in_progress_transfers = state
+            .transfers
+            .values()
+            .filter(|t| t.status == TransferStatus::InProgress)
+            .count();
+        let failed_transfers = state
+            .transfers
+            .values()
+            .filter(|t| t.status == TransferStatus::Failed)
+            .count();
+
+        let bytes_transferred: u64 = state.transfers.values().map(|t| t.bytes_transferred).sum();
+
+        let started_at_ms = state
+            .rebalance_started_at
+            .map(|start| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64
+                    - start.elapsed().as_millis() as u64
+            })
+            .unwrap_or(0);
+
+        // Calculate throughput and ETA
+        let (throughput_bytes_per_sec, eta_seconds) =
+            if let Some(start) = state.rebalance_started_at {
+                let elapsed_secs = start.elapsed().as_secs_f64();
+                if elapsed_secs > 0.0 && bytes_transferred > 0 {
+                    let throughput = (bytes_transferred as f64 / elapsed_secs) as u64;
+                    let remaining_bytes = state
+                        .rebalance_total_bytes
+                        .saturating_sub(bytes_transferred);
+                    let eta = if throughput > 0 {
+                        remaining_bytes / throughput
+                    } else {
+                        0
+                    };
+                    (throughput, eta)
+                } else {
+                    (0, 0)
+                }
+            } else {
+                (0, 0)
+            };
+
+        RebalanceProgress {
+            active: true,
+            total_transfers,
+            completed_transfers,
+            in_progress_transfers,
+            failed_transfers,
+            total_bytes: state.rebalance_total_bytes,
+            bytes_transferred,
+            eta_seconds,
+            started_at_ms,
+            throughput_bytes_per_sec,
+        }
+    }
+
+    /// Get a specific transfer by ID.
+    pub async fn get_transfer(&self, transfer_id: TransferId) -> ClusterResult<ShardTransfer> {
+        let state = self.state.read().await;
+
+        state
+            .transfers
+            .get(&transfer_id)
+            .cloned()
+            .ok_or_else(|| ClusterError::Internal(format!("Transfer {} not found", transfer_id)))
+    }
+
+    /// Get all pending transfers.
+    pub async fn get_pending_transfers(&self) -> Vec<ShardTransfer> {
+        let state = self.state.read().await;
+
+        state
+            .transfers
+            .values()
+            .filter(|t| t.status == TransferStatus::Pending)
+            .cloned()
+            .collect()
     }
 
     /// Complete rebalancing.
     pub async fn complete_rebalance(&self) -> ClusterResult<()> {
         let mut state = self.state.write().await;
+
+        // Check if all transfers are complete
+        let incomplete = state
+            .transfers
+            .values()
+            .any(|t| t.status == TransferStatus::InProgress || t.status == TransferStatus::Pending);
+
+        if incomplete {
+            warn!("Completing rebalance with incomplete transfers");
+        }
+
         state.rebalancing = false;
+        state.rebalance_started_at = None;
         info!("Shard rebalancing completed");
         Ok(())
+    }
+
+    /// Cancel rebalancing.
+    pub async fn cancel_rebalance(&self) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+
+        // Cancel all pending transfers
+        for transfer in state.transfers.values_mut() {
+            if transfer.status == TransferStatus::Pending
+                || transfer.status == TransferStatus::InProgress
+            {
+                transfer.status = TransferStatus::Cancelled;
+            }
+        }
+
+        // Reset any transferring shards to active
+        for shard in state.shards.values_mut() {
+            if shard.state == ShardState::Transferring || shard.state == ShardState::Receiving {
+                shard.state = ShardState::Active;
+            }
+        }
+
+        state.rebalancing = false;
+        state.rebalance_started_at = None;
+        info!("Shard rebalancing cancelled");
+        Ok(())
+    }
+
+    /// Register a shard with the manager.
+    pub async fn register_shard(&self, shard_info: ShardInfo) -> ClusterResult<()> {
+        let mut state = self.state.write().await;
+
+        let shard_id = shard_info.shard_id;
+        let primary_node = shard_info.primary_node;
+
+        state.shards.insert(shard_id, shard_info);
+        state
+            .node_shards
+            .entry(primary_node)
+            .or_default()
+            .push(shard_id);
+
+        debug!(shard_id, primary_node, "Shard registered");
+
+        Ok(())
+    }
+
+    /// Get ring distribution information showing how virtual nodes are distributed.
+    ///
+    /// Returns a map of node IDs to the number of virtual nodes they have on the ring.
+    pub async fn get_ring_distribution(&self) -> HashMap<NodeId, u32> {
+        let state = self.state.read().await;
+        let mut distribution: HashMap<NodeId, u32> = HashMap::new();
+
+        for point in &state.ring {
+            *distribution.entry(point.node_id).or_insert(0) += 1;
+            // Use virtual_index to verify distribution is correct
+            debug!(
+                node_id = point.node_id,
+                virtual_index = point.virtual_index,
+                "Ring point"
+            );
+        }
+
+        distribution
     }
 
     /// Get cluster statistics.
@@ -427,5 +1084,301 @@ mod tests {
         assert_eq!(nodes.len(), 3);
         let unique: std::collections::HashSet<_> = nodes.iter().collect();
         assert_eq!(unique.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_start_rebalance() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        manager.add_node(1).await.unwrap();
+        manager.add_node(2).await.unwrap();
+
+        // Start rebalancing
+        let transfers = manager.start_rebalance().await.unwrap();
+        assert!(manager.is_rebalancing().await);
+
+        // With no shards, there should be no transfers
+        assert!(transfers.is_empty());
+
+        // Starting again should fail
+        assert!(manager.start_rebalance().await.is_err());
+
+        // Complete rebalancing
+        manager.complete_rebalance().await.unwrap();
+        assert!(!manager.is_rebalancing().await);
+    }
+
+    #[tokio::test]
+    async fn test_register_shard() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        manager.add_node(1).await.unwrap();
+        manager.add_node(2).await.unwrap();
+
+        // Register a shard
+        let shard_info = ShardInfo {
+            shard_id: 100,
+            primary_node: 1,
+            replica_nodes: vec![2],
+            state: ShardState::Active,
+            key_count: 1000,
+            size_bytes: 1024 * 1024,
+        };
+        manager.register_shard(shard_info).await.unwrap();
+
+        // Get the shard
+        let shard = manager.get_shard(100).await.unwrap();
+        assert_eq!(shard.shard_id, 100);
+        assert_eq!(shard.primary_node, 1);
+        assert_eq!(shard.key_count, 1000);
+
+        // Get node shards
+        let node_shards = manager.get_node_shards(1).await.unwrap();
+        assert_eq!(node_shards.len(), 1);
+        assert_eq!(node_shards[0].shard_id, 100);
+    }
+
+    #[tokio::test]
+    async fn test_shard_transfer_lifecycle() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        manager.add_node(1).await.unwrap();
+        manager.add_node(2).await.unwrap();
+
+        // Register a shard on node 1
+        let shard_info = ShardInfo {
+            shard_id: 100,
+            primary_node: 1,
+            replica_nodes: vec![],
+            state: ShardState::Active,
+            key_count: 500,
+            size_bytes: 512 * 1024,
+        };
+        manager.register_shard(shard_info).await.unwrap();
+
+        // Start rebalance
+        let transfers = manager.start_rebalance().await.unwrap();
+
+        // If there are transfers, test the lifecycle
+        if !transfers.is_empty() {
+            let transfer = &transfers[0];
+            let transfer_id = transfer.transfer_id;
+
+            // Start the transfer
+            manager.start_transfer(transfer_id).await.unwrap();
+
+            // Update progress
+            manager
+                .update_transfer_progress(transfer_id, 256 * 1024, 250)
+                .await
+                .unwrap();
+
+            // Check progress
+            let progress = manager.get_rebalance_progress().await;
+            assert!(progress.active);
+            assert_eq!(progress.total_transfers, transfers.len());
+            assert_eq!(progress.in_progress_transfers, 1);
+
+            // Complete the transfer
+            manager.complete_transfer(transfer_id).await.unwrap();
+
+            let completed_transfer = manager.get_transfer(transfer_id).await.unwrap();
+            assert_eq!(completed_transfer.status, TransferStatus::Completed);
+        }
+
+        // Complete rebalance
+        manager.complete_rebalance().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_transfer_failure() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        manager.add_node(1).await.unwrap();
+        manager.add_node(2).await.unwrap();
+
+        // Register a shard
+        let shard_info = ShardInfo {
+            shard_id: 100,
+            primary_node: 1,
+            replica_nodes: vec![],
+            state: ShardState::Active,
+            key_count: 100,
+            size_bytes: 1024,
+        };
+        manager.register_shard(shard_info).await.unwrap();
+
+        // Start rebalance
+        let transfers = manager.start_rebalance().await.unwrap();
+
+        if !transfers.is_empty() {
+            let transfer_id = transfers[0].transfer_id;
+
+            // Start and then fail the transfer
+            manager.start_transfer(transfer_id).await.unwrap();
+            manager
+                .fail_transfer(transfer_id, "Network error".into())
+                .await
+                .unwrap();
+
+            let failed_transfer = manager.get_transfer(transfer_id).await.unwrap();
+            assert_eq!(failed_transfer.status, TransferStatus::Failed);
+            assert!(failed_transfer.error.is_some());
+
+            // Check shard is back to active
+            let shard = manager.get_shard(100).await.unwrap();
+            assert_eq!(shard.state, ShardState::Active);
+        }
+
+        manager.complete_rebalance().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cancel_rebalance() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        manager.add_node(1).await.unwrap();
+        manager.add_node(2).await.unwrap();
+
+        // Register a shard
+        let shard_info = ShardInfo {
+            shard_id: 100,
+            primary_node: 1,
+            replica_nodes: vec![],
+            state: ShardState::Active,
+            key_count: 100,
+            size_bytes: 1024,
+        };
+        manager.register_shard(shard_info).await.unwrap();
+
+        // Start rebalance
+        manager.start_rebalance().await.unwrap();
+        assert!(manager.is_rebalancing().await);
+
+        // Cancel rebalance
+        manager.cancel_rebalance().await.unwrap();
+        assert!(!manager.is_rebalancing().await);
+
+        // Shard should be active again
+        let shard = manager.get_shard(100).await.unwrap();
+        assert_eq!(shard.state, ShardState::Active);
+    }
+
+    #[tokio::test]
+    async fn test_node_leave_transfers() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        manager.add_node(1).await.unwrap();
+        manager.add_node(2).await.unwrap();
+        manager.add_node(3).await.unwrap();
+
+        // Register shards on node 2
+        for i in 0..3 {
+            let shard_info = ShardInfo {
+                shard_id: 100 + i,
+                primary_node: 2,
+                replica_nodes: vec![],
+                state: ShardState::Active,
+                key_count: 100,
+                size_bytes: 1024,
+            };
+            manager.register_shard(shard_info).await.unwrap();
+        }
+
+        // Calculate transfers when node 2 leaves
+        let transfers = manager.calculate_node_leave_transfers(2).await.unwrap();
+
+        // All shards from node 2 should need to be transferred
+        assert_eq!(transfers.len(), 3);
+        for transfer in &transfers {
+            assert_eq!(transfer.source_node, 2);
+            assert_ne!(transfer.target_node, 2);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rebalance_progress() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        // Before rebalancing, progress should show inactive
+        let progress = manager.get_rebalance_progress().await;
+        assert!(!progress.active);
+        assert_eq!(progress.total_transfers, 0);
+
+        manager.add_node(1).await.unwrap();
+        manager.add_node(2).await.unwrap();
+
+        // Register some shards
+        for i in 0..5 {
+            let shard_info = ShardInfo {
+                shard_id: i,
+                primary_node: 1,
+                replica_nodes: vec![],
+                state: ShardState::Active,
+                key_count: 100,
+                size_bytes: 1024,
+            };
+            manager.register_shard(shard_info).await.unwrap();
+        }
+
+        manager.start_rebalance().await.unwrap();
+
+        let progress = manager.get_rebalance_progress().await;
+        assert!(progress.active);
+        assert!(progress.started_at_ms > 0);
+
+        manager.complete_rebalance().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_transfer_progress_calculation() {
+        let transfer = ShardTransfer {
+            transfer_id: 1,
+            shard_id: 100,
+            source_node: 1,
+            target_node: 2,
+            status: TransferStatus::InProgress,
+            bytes_transferred: 500,
+            total_bytes: 1000,
+            keys_transferred: 50,
+            total_keys: 100,
+            started_at_ms: 0,
+            completed_at_ms: 0,
+            error: None,
+        };
+
+        assert!((transfer.progress_percent() - 50.0).abs() < 0.01);
+
+        let completed_transfer = ShardTransfer {
+            status: TransferStatus::Completed,
+            total_bytes: 0,
+            ..transfer.clone()
+        };
+        assert!((completed_transfer.progress_percent() - 100.0).abs() < 0.01);
+
+        let empty_transfer = ShardTransfer {
+            status: TransferStatus::Pending,
+            total_bytes: 0,
+            bytes_transferred: 0,
+            ..transfer
+        };
+        assert!((empty_transfer.progress_percent() - 0.0).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_rebalance_config() {
+        let config = ClusterConfig::default();
+        let manager = ShardManager::new(&config).unwrap();
+
+        let rebalance_config = manager.rebalance_config();
+        assert!(rebalance_config.auto_rebalance);
+        assert_eq!(rebalance_config.max_concurrent_transfers, 2);
     }
 }

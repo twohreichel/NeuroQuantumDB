@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::debug;
 
 use crate::node::{ClusterHealth, NodeId};
+use crate::sharding::RebalanceProgress;
 
 /// Cluster metrics collection.
 pub struct ClusterMetrics {
@@ -43,6 +44,18 @@ pub struct ClusterMetrics {
     last_heartbeat_ms: AtomicU64,
     /// Replication lag in ms
     replication_lag_ms: AtomicU64,
+    /// Rebalancing active flag (1 = active, 0 = inactive)
+    rebalancing_active: AtomicU64,
+    /// Total shard transfers
+    rebalance_transfers_total: AtomicU64,
+    /// Completed shard transfers
+    rebalance_transfers_completed: AtomicU64,
+    /// Failed shard transfers
+    rebalance_transfers_failed: AtomicU64,
+    /// Bytes transferred during rebalancing
+    rebalance_bytes_transferred: AtomicU64,
+    /// Rebalancing throughput (bytes/sec)
+    rebalance_throughput: AtomicU64,
 }
 
 impl ClusterMetrics {
@@ -68,6 +81,12 @@ impl ClusterMetrics {
             start_time_ms: AtomicU64::new(0),
             last_heartbeat_ms: AtomicU64::new(0),
             replication_lag_ms: AtomicU64::new(0),
+            rebalancing_active: AtomicU64::new(0),
+            rebalance_transfers_total: AtomicU64::new(0),
+            rebalance_transfers_completed: AtomicU64::new(0),
+            rebalance_transfers_failed: AtomicU64::new(0),
+            rebalance_bytes_transferred: AtomicU64::new(0),
+            rebalance_throughput: AtomicU64::new(0),
         }
     }
 
@@ -140,6 +159,34 @@ impl ClusterMetrics {
         self.replication_lag_ms.store(lag_ms, Ordering::Relaxed);
     }
 
+    /// Update rebalance progress metrics.
+    pub fn update_rebalance_progress(&self, progress: &RebalanceProgress) {
+        self.rebalancing_active
+            .store(if progress.active { 1 } else { 0 }, Ordering::Relaxed);
+        self.rebalance_transfers_total
+            .store(progress.total_transfers as u64, Ordering::Relaxed);
+        self.rebalance_transfers_completed
+            .store(progress.completed_transfers as u64, Ordering::Relaxed);
+        self.rebalance_transfers_failed
+            .store(progress.failed_transfers as u64, Ordering::Relaxed);
+        self.rebalance_bytes_transferred
+            .store(progress.bytes_transferred, Ordering::Relaxed);
+        self.rebalance_throughput
+            .store(progress.throughput_bytes_per_sec, Ordering::Relaxed);
+    }
+
+    /// Record a completed transfer.
+    pub fn record_transfer_complete(&self) {
+        self.rebalance_transfers_completed
+            .fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Record a failed transfer.
+    pub fn record_transfer_failed(&self) {
+        self.rebalance_transfers_failed
+            .fetch_add(1, Ordering::Relaxed);
+    }
+
     /// Get all metrics as a snapshot.
     #[must_use]
     pub fn snapshot(&self) -> MetricsSnapshot {
@@ -172,6 +219,14 @@ impl ClusterMetrics {
             healthy_peer_count: self.healthy_peer_count.load(Ordering::Relaxed),
             last_heartbeat_ms: self.last_heartbeat_ms.load(Ordering::Relaxed),
             replication_lag_ms: self.replication_lag_ms.load(Ordering::Relaxed),
+            rebalancing_active: self.rebalancing_active.load(Ordering::Relaxed) == 1,
+            rebalance_transfers_total: self.rebalance_transfers_total.load(Ordering::Relaxed),
+            rebalance_transfers_completed: self
+                .rebalance_transfers_completed
+                .load(Ordering::Relaxed),
+            rebalance_transfers_failed: self.rebalance_transfers_failed.load(Ordering::Relaxed),
+            rebalance_bytes_transferred: self.rebalance_bytes_transferred.load(Ordering::Relaxed),
+            rebalance_throughput_bytes_per_sec: self.rebalance_throughput.load(Ordering::Relaxed),
         }
     }
 
@@ -232,6 +287,30 @@ neuroquantum_cluster_healthy_peer_count{{node_id="{node_id}"}} {healthy_peer_cou
 # HELP neuroquantum_cluster_replication_lag_ms Current replication lag in milliseconds
 # TYPE neuroquantum_cluster_replication_lag_ms gauge
 neuroquantum_cluster_replication_lag_ms{{node_id="{node_id}"}} {replication_lag}
+
+# HELP neuroquantum_cluster_rebalancing_active Whether shard rebalancing is active
+# TYPE neuroquantum_cluster_rebalancing_active gauge
+neuroquantum_cluster_rebalancing_active{{node_id="{node_id}"}} {rebalancing_active}
+
+# HELP neuroquantum_cluster_rebalance_transfers_total Total shard transfers in current rebalance
+# TYPE neuroquantum_cluster_rebalance_transfers_total gauge
+neuroquantum_cluster_rebalance_transfers_total{{node_id="{node_id}"}} {rebalance_transfers_total}
+
+# HELP neuroquantum_cluster_rebalance_transfers_completed Completed shard transfers
+# TYPE neuroquantum_cluster_rebalance_transfers_completed counter
+neuroquantum_cluster_rebalance_transfers_completed{{node_id="{node_id}"}} {rebalance_transfers_completed}
+
+# HELP neuroquantum_cluster_rebalance_transfers_failed Failed shard transfers
+# TYPE neuroquantum_cluster_rebalance_transfers_failed counter
+neuroquantum_cluster_rebalance_transfers_failed{{node_id="{node_id}"}} {rebalance_transfers_failed}
+
+# HELP neuroquantum_cluster_rebalance_bytes_transferred Bytes transferred during rebalancing
+# TYPE neuroquantum_cluster_rebalance_bytes_transferred counter
+neuroquantum_cluster_rebalance_bytes_transferred{{node_id="{node_id}"}} {rebalance_bytes_transferred}
+
+# HELP neuroquantum_cluster_rebalance_throughput_bytes_per_sec Rebalancing throughput in bytes per second
+# TYPE neuroquantum_cluster_rebalance_throughput_bytes_per_sec gauge
+neuroquantum_cluster_rebalance_throughput_bytes_per_sec{{node_id="{node_id}"}} {rebalance_throughput}
 "#,
             node_id = snapshot.node_id,
             uptime = snapshot.uptime_secs,
@@ -247,6 +326,12 @@ neuroquantum_cluster_replication_lag_ms{{node_id="{node_id}"}} {replication_lag}
             peer_count = snapshot.peer_count,
             healthy_peer_count = snapshot.healthy_peer_count,
             replication_lag = snapshot.replication_lag_ms,
+            rebalancing_active = if snapshot.rebalancing_active { 1 } else { 0 },
+            rebalance_transfers_total = snapshot.rebalance_transfers_total,
+            rebalance_transfers_completed = snapshot.rebalance_transfers_completed,
+            rebalance_transfers_failed = snapshot.rebalance_transfers_failed,
+            rebalance_bytes_transferred = snapshot.rebalance_bytes_transferred,
+            rebalance_throughput = snapshot.rebalance_throughput_bytes_per_sec,
         )
     }
 }
@@ -286,6 +371,18 @@ pub struct MetricsSnapshot {
     pub last_heartbeat_ms: u64,
     /// Replication lag in ms
     pub replication_lag_ms: u64,
+    /// Whether rebalancing is active
+    pub rebalancing_active: bool,
+    /// Total shard transfers in current rebalance
+    pub rebalance_transfers_total: u64,
+    /// Completed shard transfers
+    pub rebalance_transfers_completed: u64,
+    /// Failed shard transfers
+    pub rebalance_transfers_failed: u64,
+    /// Bytes transferred during rebalancing
+    pub rebalance_bytes_transferred: u64,
+    /// Rebalancing throughput (bytes/sec)
+    pub rebalance_throughput_bytes_per_sec: u64,
 }
 
 #[cfg(test)]

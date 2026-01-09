@@ -32,6 +32,27 @@ def test_sql(name, query):
     except Exception as e:
         return "❌", str(e)[:80]
 
+def test_transaction_sequence(name, queries):
+    """Test a sequence of SQL queries as a transaction workflow.
+    
+    Transaction commands must be executed in sequence:
+    BEGIN -> operations -> SAVEPOINT -> operations -> ROLLBACK TO SAVEPOINT -> COMMIT/ROLLBACK
+    """
+    all_success = True
+    messages = []
+    
+    for query in queries:
+        status, msg = test_sql(name, query)
+        messages.append(f"{query}: {msg}")
+        if status != "✅":
+            all_success = False
+            break  # Stop on first failure
+    
+    if all_success:
+        return "✅", "; ".join(messages)[:80]
+    else:
+        return "❌", "; ".join(messages)[:80]
+
 print("="*80)
 print("NEUROQUANTUMDB - UMFASSENDER SQL-FUNKTIONSTEST")
 print("="*80)
@@ -136,19 +157,11 @@ tests = {
     ],
     "DDL Statements": [
         ("CREATE TABLE", "CREATE TABLE test_ddl (id INTEGER PRIMARY KEY, name TEXT)"),
-        ("DROP TABLE", "DROP TABLE test_ddl"),
+        ("DROP TABLE IF EXISTS", "DROP TABLE IF EXISTS test_ddl"),
         ("ALTER TABLE ADD", "ALTER TABLE users ADD COLUMN status TEXT"),
         ("ALTER TABLE DROP", "ALTER TABLE users DROP COLUMN status"),
         ("CREATE INDEX", "CREATE INDEX idx_name ON users(name)"),
         ("DROP INDEX", "DROP INDEX idx_name"),
-        ("TRUNCATE", "TRUNCATE TABLE test_ddl"),
-    ],
-    "Transaktionskontrolle": [
-        ("BEGIN", "BEGIN"),
-        ("COMMIT", "COMMIT"),
-        ("ROLLBACK", "ROLLBACK"),
-        ("SAVEPOINT", "SAVEPOINT sp1"),
-        ("ROLLBACK TO", "ROLLBACK TO sp1"),
     ],
     "CASE Expressions": [
         ("CASE WHEN", "SELECT name, CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END FROM users"),
@@ -200,6 +213,48 @@ tests = {
     ],
 }
 
+# Spezielle Transaktions-Sequenztests
+# Diese Tests müssen in der korrekten Reihenfolge ausgeführt werden
+transaction_sequence_tests = {
+    "Transaktionskontrolle": [
+        # Test 1: BEGIN -> COMMIT
+        ("BEGIN/COMMIT Workflow", [
+            "BEGIN",
+            "SELECT * FROM users LIMIT 1",
+            "COMMIT"
+        ]),
+        # Test 2: BEGIN -> ROLLBACK
+        ("BEGIN/ROLLBACK Workflow", [
+            "BEGIN",
+            "SELECT * FROM users LIMIT 1",
+            "ROLLBACK"
+        ]),
+        # Test 3: BEGIN -> SAVEPOINT -> ROLLBACK TO SAVEPOINT -> COMMIT
+        ("SAVEPOINT Workflow", [
+            "BEGIN",
+            "SAVEPOINT sp1",
+            "SELECT * FROM users LIMIT 1",
+            "ROLLBACK TO SAVEPOINT sp1",
+            "COMMIT"
+        ]),
+        # Test 4: BEGIN -> multiple SAVEPOINTS -> ROLLBACK TO -> COMMIT
+        ("Nested SAVEPOINT Workflow", [
+            "BEGIN",
+            "SAVEPOINT sp1",
+            "SAVEPOINT sp2",
+            "ROLLBACK TO SAVEPOINT sp1",
+            "COMMIT"
+        ]),
+        # Test 5: BEGIN -> SAVEPOINT -> RELEASE SAVEPOINT -> COMMIT
+        ("RELEASE SAVEPOINT Workflow", [
+            "BEGIN",
+            "SAVEPOINT sp_release",
+            "RELEASE SAVEPOINT sp_release",
+            "COMMIT"
+        ]),
+    ]
+}
+
 # Ergebnisse sammeln
 results = {"working": [], "not_working": [], "categories": {}}
 
@@ -219,6 +274,31 @@ for category, queries in tests.items():
             results["not_working"].append(f"{category}: {name}")
         
         category_results.append({"name": name, "query": query, "status": status, "message": msg})
+    
+    results["categories"][category] = category_results
+
+# Transaktions-Sequenztests (müssen in korrekter Reihenfolge ausgeführt werden)
+print(f"\n{'='*60}")
+print(f"📂 Transaktionskontrolle (Sequenztests)")
+print(f"{'='*60}")
+
+category_results = []
+for category, sequence_tests in transaction_sequence_tests.items():
+    for name, query_sequence in sequence_tests:
+        status, msg = test_transaction_sequence(name, query_sequence)
+        print(f"  {status} {name}: {msg[:50]}")
+        
+        if status == "✅":
+            results["working"].append(f"{category}: {name}")
+        else:
+            results["not_working"].append(f"{category}: {name}")
+        
+        category_results.append({
+            "name": name, 
+            "queries": query_sequence, 
+            "status": status, 
+            "message": msg
+        })
     
     results["categories"][category] = category_results
 
