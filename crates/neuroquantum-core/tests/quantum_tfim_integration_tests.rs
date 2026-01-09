@@ -14,6 +14,9 @@ use neuroquantum_core::quantum::{
     TFIMProblem, TFIMQuantumBackend, UnifiedTFIMConfig, UnifiedTFIMSolver, VQEAnsatz,
 };
 
+/// Fixed seed for deterministic tests that require reproducible random sampling
+const DETERMINISTIC_TEST_SEED: u64 = 42;
+
 #[test]
 fn test_quantum_tfim_trotter_ferromagnetic() {
     // Ferromagnetic Ising model (J > 0)
@@ -247,7 +250,7 @@ fn test_observables_magnetization() {
         error_mitigation: false,
         trotter_steps: 30,   // More Trotter steps
         evolution_time: 3.0, // Longer evolution time
-        seed: Some(42),      // Fixed seed for deterministic testing
+        seed: Some(DETERMINISTIC_TEST_SEED), // Fixed seed for deterministic testing
     };
 
     let solver = QuantumTFIMSolver::with_config(config);

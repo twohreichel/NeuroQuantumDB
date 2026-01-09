@@ -679,14 +679,31 @@ impl QuantumTFIMSolver {
         num_qubits: usize,
         num_shots: usize,
     ) -> CoreResult<Vec<Vec<bool>>> {
-        let mut rng: Box<dyn rand::RngCore> = match self.config.seed {
-            Some(seed) => Box::new(StdRng::seed_from_u64(seed)),
-            None => Box::new(rand::thread_rng()),
-        };
-        let mut measurements = Vec::new();
-
         // Calculate probabilities
         let probabilities: Vec<f64> = state.iter().map(|c| c.norm_sqr()).collect();
+
+        let measurements = match self.config.seed {
+            Some(seed) => {
+                let mut rng = StdRng::seed_from_u64(seed);
+                Self::sample_measurements(&mut rng, &probabilities, num_qubits, num_shots)
+            }
+            None => {
+                let mut rng = rand::thread_rng();
+                Self::sample_measurements(&mut rng, &probabilities, num_qubits, num_shots)
+            }
+        };
+
+        Ok(measurements)
+    }
+
+    /// Sample measurements from probability distribution using the provided RNG
+    fn sample_measurements<R: Rng>(
+        rng: &mut R,
+        probabilities: &[f64],
+        num_qubits: usize,
+        num_shots: usize,
+    ) -> Vec<Vec<bool>> {
+        let mut measurements = Vec::with_capacity(num_shots);
 
         for _ in 0..num_shots {
             let rand_val: f64 = rng.gen();
@@ -708,7 +725,7 @@ impl QuantumTFIMSolver {
             measurements.push(bits);
         }
 
-        Ok(measurements)
+        measurements
     }
 
     /// Measure observable quantities
