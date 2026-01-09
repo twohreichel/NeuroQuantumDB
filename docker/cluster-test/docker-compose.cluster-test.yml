@@ -1,0 +1,350 @@
+# NeuroQuantumDB Cluster E2E Testing Docker Compose
+#
+# This configuration sets up a multi-node NeuroQuantumDB cluster for E2E testing.
+# It supports 3-node, 5-node, and 7-node cluster configurations.
+#
+# Usage:
+#   # Start 3-node cluster
+#   docker-compose -f docker-compose.cluster-test.yml up -d
+#
+#   # Start 5-node cluster
+#   docker-compose -f docker-compose.cluster-test.yml --profile five-node up -d
+#
+#   # Start 7-node cluster
+#   docker-compose -f docker-compose.cluster-test.yml --profile seven-node up -d
+#
+#   # Run E2E tests against the cluster
+#   cargo test --package neuroquantum-core --test cluster_e2e_tests -- --ignored --nocapture
+#
+#   # Stop cluster
+#   docker-compose -f docker-compose.cluster-test.yml down -v
+
+services:
+  # ============================================================================
+  # 3-Node Cluster (Default)
+  # ============================================================================
+  
+  node1:
+    image: neuroquantumdb:latest
+    container_name: neuroquantumdb-node1
+    hostname: node1
+    restart: unless-stopped
+    ports:
+      - "9001:9000"
+      - "8081:8080"
+    environment:
+      - RUST_LOG=info,neuroquantum_cluster=debug
+      - NEUROQUANTUM_NODE_ID=1
+      - NEUROQUANTUM_BIND_ADDR=0.0.0.0:9000
+      - NEUROQUANTUM_ADVERTISE_ADDR=node1:9000
+      - NEUROQUANTUM_PEERS=node2:9000,node3:9000
+      - NEUROQUANTUM_DATA_DIR=/var/lib/neuroquantumdb
+      - NEUROQUANTUM_CLUSTER_MODE=true
+    volumes:
+      - node1_data:/var/lib/neuroquantumdb
+      - node1_logs:/var/log/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.11
+
+  node2:
+    image: neuroquantumdb:latest
+    container_name: neuroquantumdb-node2
+    hostname: node2
+    restart: unless-stopped
+    ports:
+      - "9002:9000"
+      - "8082:8080"
+    environment:
+      - RUST_LOG=info,neuroquantum_cluster=debug
+      - NEUROQUANTUM_NODE_ID=2
+      - NEUROQUANTUM_BIND_ADDR=0.0.0.0:9000
+      - NEUROQUANTUM_ADVERTISE_ADDR=node2:9000
+      - NEUROQUANTUM_PEERS=node1:9000,node3:9000
+      - NEUROQUANTUM_DATA_DIR=/var/lib/neuroquantumdb
+      - NEUROQUANTUM_CLUSTER_MODE=true
+    volumes:
+      - node2_data:/var/lib/neuroquantumdb
+      - node2_logs:/var/log/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.12
+
+  node3:
+    image: neuroquantumdb:latest
+    container_name: neuroquantumdb-node3
+    hostname: node3
+    restart: unless-stopped
+    ports:
+      - "9003:9000"
+      - "8083:8080"
+    environment:
+      - RUST_LOG=info,neuroquantum_cluster=debug
+      - NEUROQUANTUM_NODE_ID=3
+      - NEUROQUANTUM_BIND_ADDR=0.0.0.0:9000
+      - NEUROQUANTUM_ADVERTISE_ADDR=node3:9000
+      - NEUROQUANTUM_PEERS=node1:9000,node2:9000
+      - NEUROQUANTUM_DATA_DIR=/var/lib/neuroquantumdb
+      - NEUROQUANTUM_CLUSTER_MODE=true
+    volumes:
+      - node3_data:/var/lib/neuroquantumdb
+      - node3_logs:/var/log/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.13
+
+  # ============================================================================
+  # 5-Node Cluster (Additional Nodes)
+  # ============================================================================
+
+  node4:
+    image: neuroquantumdb:latest
+    container_name: neuroquantumdb-node4
+    hostname: node4
+    restart: unless-stopped
+    profiles:
+      - five-node
+      - seven-node
+    ports:
+      - "9004:9000"
+      - "8084:8080"
+    environment:
+      - RUST_LOG=info,neuroquantum_cluster=debug
+      - NEUROQUANTUM_NODE_ID=4
+      - NEUROQUANTUM_BIND_ADDR=0.0.0.0:9000
+      - NEUROQUANTUM_ADVERTISE_ADDR=node4:9000
+      - NEUROQUANTUM_PEERS=node1:9000,node2:9000,node3:9000,node5:9000
+      - NEUROQUANTUM_DATA_DIR=/var/lib/neuroquantumdb
+      - NEUROQUANTUM_CLUSTER_MODE=true
+    volumes:
+      - node4_data:/var/lib/neuroquantumdb
+      - node4_logs:/var/log/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.14
+
+  node5:
+    image: neuroquantumdb:latest
+    container_name: neuroquantumdb-node5
+    hostname: node5
+    restart: unless-stopped
+    profiles:
+      - five-node
+      - seven-node
+    ports:
+      - "9005:9000"
+      - "8085:8080"
+    environment:
+      - RUST_LOG=info,neuroquantum_cluster=debug
+      - NEUROQUANTUM_NODE_ID=5
+      - NEUROQUANTUM_BIND_ADDR=0.0.0.0:9000
+      - NEUROQUANTUM_ADVERTISE_ADDR=node5:9000
+      - NEUROQUANTUM_PEERS=node1:9000,node2:9000,node3:9000,node4:9000
+      - NEUROQUANTUM_DATA_DIR=/var/lib/neuroquantumdb
+      - NEUROQUANTUM_CLUSTER_MODE=true
+    volumes:
+      - node5_data:/var/lib/neuroquantumdb
+      - node5_logs:/var/log/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.15
+
+  # ============================================================================
+  # 7-Node Cluster (Additional Nodes)
+  # ============================================================================
+
+  node6:
+    image: neuroquantumdb:latest
+    container_name: neuroquantumdb-node6
+    hostname: node6
+    restart: unless-stopped
+    profiles:
+      - seven-node
+    ports:
+      - "9006:9000"
+      - "8086:8080"
+    environment:
+      - RUST_LOG=info,neuroquantum_cluster=debug
+      - NEUROQUANTUM_NODE_ID=6
+      - NEUROQUANTUM_BIND_ADDR=0.0.0.0:9000
+      - NEUROQUANTUM_ADVERTISE_ADDR=node6:9000
+      - NEUROQUANTUM_PEERS=node1:9000,node2:9000,node3:9000,node4:9000,node5:9000,node7:9000
+      - NEUROQUANTUM_DATA_DIR=/var/lib/neuroquantumdb
+      - NEUROQUANTUM_CLUSTER_MODE=true
+    volumes:
+      - node6_data:/var/lib/neuroquantumdb
+      - node6_logs:/var/log/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.16
+
+  node7:
+    image: neuroquantumdb:latest
+    container_name: neuroquantumdb-node7
+    hostname: node7
+    restart: unless-stopped
+    profiles:
+      - seven-node
+    ports:
+      - "9007:9000"
+      - "8087:8080"
+    environment:
+      - RUST_LOG=info,neuroquantum_cluster=debug
+      - NEUROQUANTUM_NODE_ID=7
+      - NEUROQUANTUM_BIND_ADDR=0.0.0.0:9000
+      - NEUROQUANTUM_ADVERTISE_ADDR=node7:9000
+      - NEUROQUANTUM_PEERS=node1:9000,node2:9000,node3:9000,node4:9000,node5:9000,node6:9000
+      - NEUROQUANTUM_DATA_DIR=/var/lib/neuroquantumdb
+      - NEUROQUANTUM_CLUSTER_MODE=true
+    volumes:
+      - node7_data:/var/lib/neuroquantumdb
+      - node7_logs:/var/log/neuroquantumdb
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.17
+
+  # ============================================================================
+  # Chaos Engineering Tools
+  # ============================================================================
+
+  # Toxiproxy for network chaos injection
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:latest
+    container_name: toxiproxy
+    hostname: toxiproxy
+    profiles:
+      - chaos
+    ports:
+      - "8474:8474"  # Toxiproxy API
+      - "19001:19001"  # Proxy for node1
+      - "19002:19002"  # Proxy for node2
+      - "19003:19003"  # Proxy for node3
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.100
+
+  # Pumba for container chaos (pause, kill, network emulation)
+  pumba:
+    image: gaiaadm/pumba:latest
+    container_name: pumba
+    hostname: pumba
+    profiles:
+      - chaos
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.101
+    command: --help  # Override with actual chaos commands
+
+  # ============================================================================
+  # Monitoring Stack for E2E Tests
+  # ============================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cluster-prometheus
+    hostname: prometheus
+    profiles:
+      - monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus-cluster.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.200
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cluster-grafana
+    hostname: grafana
+    profiles:
+      - monitoring
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=cluster-test
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      cluster-net:
+        ipv4_address: 172.30.0.201
+
+volumes:
+  node1_data:
+    driver: local
+  node1_logs:
+    driver: local
+  node2_data:
+    driver: local
+  node2_logs:
+    driver: local
+  node3_data:
+    driver: local
+  node3_logs:
+    driver: local
+  node4_data:
+    driver: local
+  node4_logs:
+    driver: local
+  node5_data:
+    driver: local
+  node5_logs:
+    driver: local
+  node6_data:
+    driver: local
+  node6_logs:
+    driver: local
+  node7_data:
+    driver: local
+  node7_logs:
+    driver: local
+
+networks:
+  cluster-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
