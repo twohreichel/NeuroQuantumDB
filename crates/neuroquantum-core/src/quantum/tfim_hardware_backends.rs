@@ -700,6 +700,7 @@ impl UnifiedTFIMAnnealingSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nalgebra::DMatrix;
 
     #[test]
     fn test_bqm_from_tfim() {
