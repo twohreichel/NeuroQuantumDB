@@ -15,6 +15,7 @@
 6. [Biometrische Authentifizierung](#-biometrische-authentifizierung)
 7. [Praktische Anwendungsfälle](#-praktische-anwendungsfälle)
 8. [API Referenz](#-api-referenz)
+9. [Vollständiges Bibliotheks-Beispiel](#-vollständiges-bibliotheks-beispiel)
 
 ---
 
@@ -1330,6 +1331,553 @@ WITH ITERATIONS 100;
 - [Feature: Quantum Search](features/quantum-search.md)
 - [Feature: Neural Networks](features/neural-networks.md)
 - [Feature: Biometric Auth](features/biometric-auth.md)
+- [Vollständiges Bibliotheks-Beispiel](#-vollständiges-bibliotheks-beispiel)
+
+---
+
+## 📖 Vollständiges Bibliotheks-Beispiel
+
+### Das Szenario: Die Quantum-Bibliothek
+
+Stell dir vor, du betreibst die **"Quantum-Bibliothek"** - eine riesige digitale Bibliothek mit **10 Millionen Büchern**. Hier zeigen wir dir Schritt für Schritt, wie NeuroQuantumDB alle Features kombiniert, um diese Bibliothek ultraschnell und intelligent zu machen.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    🏛️ DIE QUANTUM-BIBLIOTHEK                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   📚 10 Millionen Bücher    👥 1 Million Benutzer                   │
+│   📁 500 TB Metadaten       🔍 10.000 Suchanfragen/Sekunde          │
+│                                                                      │
+│   Herausforderungen:                                                 │
+│   ─────────────────                                                  │
+│   1. 🗄️  Speicherplatz sparen (DNA Kompression)                     │
+│   2. ⚡  Blitzschnelle Suche (Quantum Search)                        │
+│   3. 🧠  Intelligente Empfehlungen (Neural Networks)                │
+│   4. 🔐  Sichere Bibliothekars-Anmeldung (Biometrie)                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🔄 Ausführungsreihenfolge: Schritt für Schritt
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              WORKFLOW: Von der Einrichtung zur Suche                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐  │
+│   │ SCHRITT 1│────▶│ SCHRITT 2│────▶│ SCHRITT 3│────▶│ SCHRITT 4│  │
+│   │  Setup   │     │Kompression│    │ Training │     │Biometrie │  │
+│   └──────────┘     └──────────┘     └──────────┘     └──────────┘  │
+│        │                │                │                │         │
+│        ▼                ▼                ▼                ▼         │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐  │
+│   │ SCHRITT 5│────▶│ SCHRITT 6│────▶│ SCHRITT 7│────▶│ SCHRITT 8│  │
+│   │  Login   │     │  Suche   │     │Empfehlung│     │ Analyse  │  │
+│   └──────────┘     └──────────┘     └──────────┘     └──────────┘  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 Schritt 1: Datenbank und Tabellen einrichten
+
+**Ziel:** Erstelle die Grundstruktur für unsere Bibliothek.
+
+```bash
+# Health-Check: Ist die Datenbank bereit?
+curl -X GET http://localhost:8080/health
+```
+
+```sql
+-- Bücher-Tabelle erstellen
+CREATE TABLE books (
+    id AUTO_INCREMENT PRIMARY KEY,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL,
+    isbn TEXT,
+    description TEXT,
+    genre TEXT,
+    publication_year INT,
+    content BLOB,  -- Der vollständige Buchinhalt
+    embedding VECTOR(768),  -- Für semantische Suche
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Benutzer-Tabelle erstellen
+CREATE TABLE library_users (
+    id AUTO_INCREMENT PRIMARY KEY,
+    username TEXT NOT NULL,
+    email TEXT,
+    preferences TEXT,
+    reading_history TEXT,
+    eeg_template BLOB  -- Für biometrische Authentifizierung
+);
+
+-- Such-Historie für Lernalgorithmen
+CREATE TABLE search_history (
+    id AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    search_query TEXT,
+    results_clicked TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+### 📋 Schritt 2: Buchinhalte mit DNA-Kompression speichern
+
+**Ziel:** Speichere 10 Millionen Bücher mit 75% weniger Speicherplatz.
+
+```bash
+# Buchinhalt komprimieren bevor es gespeichert wird
+curl -X POST http://localhost:8080/api/v1/dna/compress \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sequences": [
+      "Es war einmal vor langer Zeit in einer weit entfernten Galaxie..."
+    ],
+    "algorithm": "Hybrid",
+    "compression_level": 7
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "compressed_data": [
+    {
+      "original_size": 65536,
+      "compressed_size": 16384,
+      "compression_ratio": 4.0,
+      "dna_sequence": "ACGTACGT..."
+    }
+  ],
+  "statistics": {
+    "total_original_size": 65536,
+    "total_compressed_size": 16384,
+    "overall_ratio": 4.0,
+    "algorithm_used": "Hybrid"
+  }
+}
+```
+
+```sql
+-- Alle alten Bücher komprimieren (Batch-Operation)
+COMPRESS TABLE books USING DNA;
+
+-- Kompressionsstatistiken anzeigen
+SHOW COMPRESSION STATS FOR books;
+
+-- Ergebnis:
+-- ┌────────────────────┬───────────────┐
+-- │ original_size      │ 500 TB        │
+-- │ compressed_size    │ 125 TB        │
+-- │ compression_ratio  │ 4:1           │
+-- │ space_saved        │ 375 TB        │
+-- │ monthly_savings    │ €15.000       │
+-- └────────────────────┴───────────────┘
+```
+
+---
+
+### 📋 Schritt 3: Neuronales Netzwerk für Empfehlungen trainieren
+
+**Ziel:** Trainiere ein Netzwerk, das lernt, welche Bücher Benutzern gefallen könnten.
+
+```bash
+# Empfehlungssystem trainieren
+curl -X POST http://localhost:8080/api/v1/neural/train \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_name": "book_recommender",
+    "training_data": [
+      {
+        "input": [0.9, 0.1, 0.8, 0.2],
+        "target": [1.0],
+        "metadata": {"user": "fantasy_lover", "book": "Der Herr der Ringe"}
+      },
+      {
+        "input": [0.1, 0.9, 0.2, 0.8],
+        "target": [1.0],
+        "metadata": {"user": "scifi_fan", "book": "Dune"}
+      },
+      {
+        "input": [0.9, 0.1, 0.8, 0.2],
+        "target": [0.1],
+        "metadata": {"user": "fantasy_lover", "book": "Quantenphysik für Anfänger"}
+      }
+    ],
+    "config": {
+      "layers": [
+        {"layer_type": "Dense", "size": 64, "activation": "ReLU"},
+        {"layer_type": "Dense", "size": 32, "activation": "ReLU"},
+        {"layer_type": "Neuromorphic", "size": 16, "activation": "SpikingNeuron"},
+        {"layer_type": "Dense", "size": 1, "activation": "Sigmoid"}
+      ],
+      "learning_rate": 0.001,
+      "epochs": 100,
+      "batch_size": 32,
+      "optimizer": "NeuromorphicSTDP",
+      "loss_function": "BinaryCrossEntropy",
+      "hebbian_learning": true
+    },
+    "validation_split": 0.2
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "network_id": "nn_book_recommender_20260109",
+  "status": "training",
+  "estimated_completion": "2026-01-09T15:30:00Z"
+}
+```
+
+```bash
+# Training-Status überprüfen
+curl -X GET http://localhost:8080/api/v1/neural/train/nn_book_recommender_20260109 \
+  -H "X-API-Key: library_admin_key"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "network_id": "nn_book_recommender_20260109",
+  "status": "completed",
+  "metrics": {
+    "accuracy": 0.94,
+    "loss": 0.08,
+    "epochs_completed": 100,
+    "training_time_seconds": 45.2
+  }
+}
+```
+
+---
+
+### 📋 Schritt 4: Bibliothekar mit EEG-Biometrie registrieren
+
+**Ziel:** Höchste Sicherheit für Bibliothekare, die auf sensible Daten zugreifen.
+
+```bash
+# Bibliothekar für biometrische Authentifizierung registrieren
+curl -X POST http://localhost:8080/api/v1/biometric/enroll \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "librarian_mueller",
+    "eeg_samples": [
+      [0.1, 0.2, 0.15, 0.3, 0.25, 0.1, 0.2, 0.15],
+      [0.12, 0.18, 0.14, 0.32, 0.23, 0.11, 0.19, 0.16],
+      [0.09, 0.22, 0.16, 0.28, 0.27, 0.09, 0.21, 0.14]
+    ],
+    "sampling_rate": 256,
+    "channels": ["F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"]
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "user_id": "librarian_mueller",
+  "enrollment_status": "completed",
+  "template_quality": 0.95,
+  "message": "EEG-Muster erfolgreich registriert"
+}
+```
+
+---
+
+### 📋 Schritt 5: Bibliothekar-Login mit Gehirnwellen
+
+**Ziel:** Sichere Anmeldung ohne Passwort.
+
+```bash
+# Bibliothekar verifizieren
+curl -X POST http://localhost:8080/api/v1/biometric/verify \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "librarian_mueller",
+    "eeg_sample": [0.11, 0.21, 0.15, 0.29, 0.24, 0.10, 0.20, 0.15]
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "verified": true,
+  "confidence": 0.97,
+  "liveness_detected": true,
+  "session_token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+---
+
+### 📋 Schritt 6: Quantum-Suche nach Büchern
+
+**Ziel:** Finde das richtige Buch in Millisekunden statt Sekunden.
+
+#### 6a. Einfache Quantum-Suche
+
+```bash
+# Quantum-beschleunigte Suche
+curl -X POST http://localhost:8080/api/v1/quantum/search \
+  -H "X-API-Key: library_admin_key" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "table_name": "books",
+    "query_vector": [0.8, 0.2, 0.9, 0.1, 0.7, 0.3],
+    "similarity_threshold": 0.7,
+    "use_grover": true,
+    "grover_iterations": 100,
+    "max_results": 10
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "search_mode": "grover",
+  "results": [
+    {
+      "id": 42,
+      "title": "Der Herr der Ringe",
+      "author": "J.R.R. Tolkien",
+      "similarity_score": 0.95,
+      "quantum_speedup": "1000x"
+    },
+    {
+      "id": 1337,
+      "title": "Der Hobbit",
+      "author": "J.R.R. Tolkien",
+      "similarity_score": 0.89
+    }
+  ],
+  "metrics": {
+    "search_time_ms": 2.3,
+    "classical_estimate_ms": 2300,
+    "records_searched": 10000000,
+    "grover_iterations": 100
+  }
+}
+```
+
+#### 6b. Semantische Suche mit NEUROMATCH
+
+```sql
+-- Benutzer sucht: "Bücher über Zauberer in einer Schule"
+SELECT 
+    id, 
+    title, 
+    author,
+    SYNAPTIC_WEIGHT(description, 'Zauberer Schule Magie lernen Abenteuer') AS relevanz
+FROM books
+NEUROMATCH 'Zauberer Schule Magie lernen Abenteuer'
+STRENGTH > 0.6
+HEBBIAN_STRENGTHENING true
+ORDER BY relevanz DESC
+LIMIT 10;
+```
+
+**Ergebnis:**
+
+| id | title | author | relevanz |
+|----|-------|--------|----------|
+| 101 | Harry Potter und der Stein der Weisen | J.K. Rowling | 0.98 |
+| 102 | Harry Potter und die Kammer des Schreckens | J.K. Rowling | 0.96 |
+| 203 | Der Name des Windes | Patrick Rothfuss | 0.85 |
+| 304 | Die Magier | Lev Grossman | 0.82 |
+| 405 | Der Zauberlehrling (Goethe) | J.W. Goethe | 0.78 |
+
+---
+
+### 📋 Schritt 7: Personalisierte Buchempfehlungen
+
+**Ziel:** Nutze das trainierte neuronale Netzwerk für Empfehlungen.
+
+```sql
+-- Kombiniere Benutzerhistorie mit Hebbian Learning
+WITH user_profile AS (
+    SELECT 
+        u.id,
+        u.preferences,
+        HEBBIAN_LEARNING(u.reading_history) as learned_preferences
+    FROM library_users u
+    WHERE u.username = 'max_mustermann'
+)
+SELECT 
+    b.id,
+    b.title,
+    b.author,
+    b.genre,
+    SYNAPTIC_WEIGHT(b.description, up.learned_preferences) AS empfehlungswert
+FROM books b, user_profile up
+WHERE b.id NOT IN (
+    SELECT DISTINCT book_id FROM reading_history WHERE user_id = up.id
+)
+NEUROMATCH up.learned_preferences
+STRENGTH > 0.7
+ACTIVATION_THRESHOLD 0.8
+ORDER BY empfehlungswert DESC
+LIMIT 5;
+```
+
+**Ergebnis:**
+
+| id | title | author | genre | empfehlungswert |
+|----|-------|--------|-------|-----------------|
+| 5001 | Eragon | Christopher Paolini | Fantasy | 0.94 |
+| 5002 | Mistborn | Brandon Sanderson | Fantasy | 0.91 |
+| 5003 | Die Zwerge | Markus Heitz | Fantasy | 0.88 |
+
+---
+
+### 📋 Schritt 8: Hybrid-Query für komplexe Analysen
+
+**Ziel:** Kombiniere ALLE NeuroQuantumDB-Features in einer Abfrage.
+
+```sql
+-- 🚀 Die ultimative Bibliotheks-Query
+-- Kombiniert: Quantum Search + Neural Networks + NEUROMATCH + Hebbian Learning
+
+WITH 
+-- Schritt 1: Quantum-Suche für schnelle Vorfilterung
+quantum_candidates AS (
+    QUANTUM SEARCH books
+    WHERE genre IN ('Fantasy', 'Science-Fiction', 'Abenteuer')
+    WITH ITERATIONS 50
+    LIMIT 1000
+),
+
+-- Schritt 2: Benutzer-Profil mit Hebbian Learning
+user_neural_profile AS (
+    SELECT 
+        u.id as user_id,
+        HEBBIAN_LEARNING(sh.search_query) as learned_interests
+    FROM library_users u
+    JOIN search_history sh ON u.id = sh.user_id
+    WHERE u.username = 'max_mustermann'
+    GROUP BY u.id
+)
+
+-- Schritt 3: Finale Empfehlung mit NEUROMATCH
+SELECT 
+    b.id,
+    b.title,
+    b.author,
+    b.genre,
+    b.publication_year,
+    SYNAPTIC_WEIGHT(b.description, unp.learned_interests) AS neural_score,
+    qc.similarity_score AS quantum_score,
+    (SYNAPTIC_WEIGHT(b.description, unp.learned_interests) * 0.6 + 
+     qc.similarity_score * 0.4) AS combined_score
+FROM quantum_candidates qc
+JOIN books b ON qc.id = b.id
+CROSS JOIN user_neural_profile unp
+WHERE SYNAPTIC_WEIGHT(b.description, unp.learned_interests) > 0.5
+ORDER BY combined_score DESC
+LIMIT 10;
+```
+
+**Ergebnis:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    📊 EMPFEHLUNGSERGEBNIS                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  🥇 Platz 1: "Der Name des Windes" (Patrick Rothfuss)               │
+│     ├── Neural Score:    0.94                                       │
+│     ├── Quantum Score:   0.91                                       │
+│     └── Combined Score:  0.928                                      │
+│                                                                      │
+│  🥈 Platz 2: "Mistborn: Das letzte Imperium" (Brandon Sanderson)   │
+│     ├── Neural Score:    0.89                                       │
+│     ├── Quantum Score:   0.93                                       │
+│     └── Combined Score:  0.906                                      │
+│                                                                      │
+│  🥉 Platz 3: "Die Lügen des Locke Lamora" (Scott Lynch)            │
+│     ├── Neural Score:    0.91                                       │
+│     ├── Quantum Score:   0.85                                       │
+│     └── Combined Score:  0.886                                      │
+│                                                                      │
+│  ⏱️ Ausführungszeit: 15ms (statt 45 Sekunden klassisch)             │
+│  📈 Speedup: 3000x                                                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📊 Zusammenfassung: Alle Endpunkte auf einen Blick
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│         🏛️ QUANTUM-BIBLIOTHEK: ENDPUNKT-ÜBERSICHT                   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  PHASE 1: SETUP                                                      │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ GET  /health                    → System-Check                  │
+│  ✅ POST /api/v1/query              → Tabellen erstellen            │
+│                                                                      │
+│  PHASE 2: DATEN OPTIMIEREN                                          │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/dna/compress       → Bücher komprimieren           │
+│  ✅ GET  /api/v1/dna/stats          → Kompression prüfen            │
+│                                                                      │
+│  PHASE 3: INTELLIGENZ TRAINIEREN                                    │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/neural/train       → Empfehlungssystem trainieren  │
+│  ✅ GET  /api/v1/neural/train/{id}  → Training-Status prüfen        │
+│                                                                      │
+│  PHASE 4: SICHERHEIT EINRICHTEN                                     │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/biometric/enroll   → Bibliothekar registrieren     │
+│  ✅ POST /api/v1/biometric/verify   → Login mit Gehirnwellen        │
+│                                                                      │
+│  PHASE 5: SUCHEN & EMPFEHLEN                                        │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/quantum/search     → Quantum-Suche                 │
+│  ✅ POST /api/v1/query              → QSQL mit NEUROMATCH           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 💡 Tipps für die Praxis
+
+| Schritt | Tipp |
+|---------|------|
+| DNA-Kompression | Nutze `Hybrid` für beste Kompression, `KmerBased` für Geschwindigkeit |
+| Neural Training | Starte mit wenigen Epochen (50), erhöhe bei Bedarf |
+| Biometrie | Sammle mindestens 3 EEG-Samples für zuverlässige Erkennung |
+| Quantum Search | Mehr Iterationen = höhere Genauigkeit, aber längere Zeit |
+| NEUROMATCH | Kombiniere mit `HEBBIAN_STRENGTHENING` für lernende Suche |
+| Hybrid Queries | Nutze CTEs (WITH) für bessere Lesbarkeit |
+
+---
+
+*Mit diesem vollständigen Beispiel bist du bereit, deine eigene Quantum-Bibliothek zu bauen!* 🚀📚
 
 ---
 
