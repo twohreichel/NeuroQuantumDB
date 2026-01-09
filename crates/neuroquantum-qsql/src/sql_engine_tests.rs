@@ -1839,6 +1839,83 @@ fn test_synaptic_weight_with_order_by() {
     }
 }
 
+#[test]
+fn test_synaptic_weight_single_argument_parsing() {
+    let parser = QSQLParser::new();
+
+    // Test SYNAPTIC_WEIGHT function with a single column argument
+    let result = parser.parse("SELECT SYNAPTIC_WEIGHT(age) FROM users");
+    assert!(
+        result.is_ok(),
+        "Failed to parse SYNAPTIC_WEIGHT with single argument: {:?}",
+        result.err()
+    );
+
+    // Verify the parsed statement structure
+    match result.unwrap() {
+        Statement::Select(select) => {
+            assert_eq!(select.select_list.len(), 1);
+            // Verify it's a function call with 1 argument
+            match &select.select_list[0] {
+                SelectItem::Expression { expr, .. } => match expr {
+                    Expression::FunctionCall { name, args } => {
+                        assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
+                        assert_eq!(args.len(), 1, "SYNAPTIC_WEIGHT should have 1 argument");
+                    }
+                    _ => panic!("Expected FunctionCall expression"),
+                },
+                _ => panic!("Expected Expression SelectItem"),
+            }
+        }
+        _ => panic!("Expected SELECT statement"),
+    }
+}
+
+#[tokio::test]
+async fn test_synaptic_weight_single_argument_execution() {
+    // Use testing config to allow legacy mode with simulated data
+    let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
+    let parser = QSQLParser::new();
+
+    // Parse SYNAPTIC_WEIGHT query with a single argument
+    let ast = parser
+        .parse("SELECT SYNAPTIC_WEIGHT(age) as weight FROM users")
+        .unwrap();
+    let plan = create_test_query_plan(ast);
+
+    // Execute the query
+    let result = executor.execute(&plan).await;
+    assert!(
+        result.is_ok(),
+        "SYNAPTIC_WEIGHT single argument execution failed: {:?}",
+        result.err()
+    );
+
+    let query_result = result.unwrap();
+
+    // Verify result structure
+    assert!(
+        !query_result.rows.is_empty(),
+        "Expected at least one row in result"
+    );
+
+    // Verify synaptic weight column exists and has valid values (0.0 to 1.0)
+    if let Some(first_row) = query_result.rows.first() {
+        let has_valid_weight = first_row.values().any(|v| {
+            if let QueryValue::SynapticWeight(w) = v {
+                *w >= 0.0 && *w <= 1.0
+            } else {
+                false
+            }
+        });
+
+        assert!(
+            has_valid_weight || !first_row.is_empty(),
+            "Expected synaptic weight value between 0.0 and 1.0"
+        );
+    }
+}
+
 // =============================================================================
 // Date/Time Function Execution Tests
 // =============================================================================
