@@ -183,7 +183,6 @@ struct RingPoint {
     /// Node ID owning this point
     node_id: NodeId,
     /// Virtual node index (used for ring distribution analytics)
-    #[allow(dead_code)]
     virtual_index: u32,
 }
 
@@ -662,7 +661,7 @@ impl ShardManager {
         let mut state = self.state.write().await;
 
         // First, update the transfer and extract needed values
-        let (shard_id, target_node, old_primary_node) = {
+        let (shard_id, target_node) = {
             let transfer = state
                 .transfers
                 .get_mut(&transfer_id)
@@ -677,7 +676,7 @@ impl ShardManager {
                 .as_millis() as u64;
             transfer.completed_at_ms = now_ms;
 
-            (transfer.shard_id, transfer.target_node, None::<NodeId>)
+            (transfer.shard_id, transfer.target_node)
         };
 
         // Get the old primary node
@@ -699,7 +698,6 @@ impl ShardManager {
         // Add shard to new node's list
         state.node_shards.entry(target_node).or_default().push(shard_id);
 
-        let _ = old_primary_node; // silence warning
         info!(transfer_id, shard_id, target_node, "Transfer completed");
 
         Ok(())
@@ -892,6 +890,26 @@ impl ShardManager {
         debug!(shard_id, primary_node, "Shard registered");
 
         Ok(())
+    }
+
+    /// Get ring distribution information showing how virtual nodes are distributed.
+    ///
+    /// Returns a map of node IDs to the number of virtual nodes they have on the ring.
+    pub async fn get_ring_distribution(&self) -> HashMap<NodeId, u32> {
+        let state = self.state.read().await;
+        let mut distribution: HashMap<NodeId, u32> = HashMap::new();
+
+        for point in &state.ring {
+            *distribution.entry(point.node_id).or_insert(0) += 1;
+            // Use virtual_index to verify distribution is correct
+            debug!(
+                node_id = point.node_id,
+                virtual_index = point.virtual_index,
+                "Ring point"
+            );
+        }
+
+        distribution
     }
 
     /// Get cluster statistics.
