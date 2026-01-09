@@ -196,6 +196,7 @@ mod tests {
             error_mitigation: false,
             trotter_steps: 5,
             evolution_time: 1.0,
+            seed: None,
         };
 
         let config = UnifiedTFIMConfig {
@@ -249,6 +250,7 @@ mod tests {
             error_mitigation: false,
             trotter_steps: 10,
             evolution_time: 1.0,
+            seed: None,
         };
 
         let solver = UnifiedTFIMSolver::quantum_only(quantum_config);
