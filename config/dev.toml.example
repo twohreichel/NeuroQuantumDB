@@ -75,8 +75,8 @@ structured_logging = false  # Plain logs for dev
 
 [tracing]
 enabled = true  # Enable distributed tracing in development
-exporter = "jaeger"  # Use Jaeger for local development
-endpoint = "http://localhost:14268/api/traces"  # Jaeger collector endpoint
+exporter = "jaeger"  # Use Jaeger for local development (via OTLP)
+endpoint = "http://localhost:4317"  # Jaeger OTLP gRPC endpoint
 sampling_rate = 1.0  # Sample 100% of traces in development
 service_name = "neuroquantumdb-dev"
 trace_level = "debug"  # Capture detailed traces in development

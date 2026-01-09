@@ -22,8 +22,8 @@ Add the following to your configuration file (e.g., `config/dev.toml`):
 ```toml
 [tracing]
 enabled = true
-exporter = "jaeger"  # or "otlp", "console"
-endpoint = "http://localhost:14268/api/traces"
+exporter = "jaeger"  # Uses OTLP protocol under the hood
+endpoint = "http://localhost:4317"  # Jaeger OTLP gRPC endpoint
 sampling_rate = 1.0  # 100% for development, 0.1 for production (10%)
 service_name = "neuroquantumdb"
 trace_level = "detailed"  # "minimal", "detailed", or "debug"
@@ -87,13 +87,13 @@ Configure sampling rate based on your environment:
 
 ### Jaeger Exporter
 
-Best for local development and testing.
+Best for local development and testing. Uses OTLP protocol.
 
 ```toml
 [tracing]
 enabled = true
 exporter = "jaeger"
-endpoint = "http://localhost:14268/api/traces"
+endpoint = "http://localhost:4317"  # Jaeger OTLP gRPC endpoint
 ```
 
 ### OTLP Exporter
@@ -176,7 +176,7 @@ trace_level = "detailed"
 [tracing]
 enabled = true
 exporter = "jaeger"
-endpoint = "http://jaeger-collector:14268/api/traces"
+endpoint = "http://jaeger-collector:4317"  # OTLP gRPC endpoint
 sampling_rate = 0.1
 service_name = "neuroquantumdb"
 trace_level = "detailed"

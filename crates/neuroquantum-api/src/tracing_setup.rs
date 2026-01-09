@@ -62,14 +62,21 @@ pub fn init_tracing(config: &TracingConfig) -> Result<()> {
 
 /// Create Jaeger tracer with HTTP exporter
 fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
-    info!("🔧 Setting up Jaeger HTTP exporter");
+    info!("🔧 Setting up Jaeger via OTLP exporter");
 
-    // Parse endpoint to extract collector endpoint
-    let collector_endpoint = if config.endpoint.contains("/api/traces") {
+    // Jaeger supports OTLP natively now - use OTLP gRPC endpoint
+    // Default Jaeger OTLP endpoint is port 4317
+    let otlp_endpoint = if config.endpoint.contains("14268") {
+        // Convert old HTTP collector endpoint to OTLP gRPC endpoint
+        config.endpoint.replace("14268", "4317").replace("/api/traces", "")
+    } else if config.endpoint.contains("4317") {
         config.endpoint.clone()
     } else {
-        format!("{}/api/traces", config.endpoint)
+        // Default to OTLP gRPC port
+        format!("http://localhost:4317")
     };
+
+    info!("   Using OTLP endpoint: {}", otlp_endpoint);
 
     // Create resource with service information
     let resource = create_resource(config);
@@ -77,10 +84,14 @@ fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
     // Create sampler based on sampling rate
     let sampler = create_sampler(config.sampling_rate);
 
-    // Build Jaeger pipeline
-    let tracer = opentelemetry_jaeger::new_agent_pipeline()
-        .with_service_name(&config.service_name)
-        .with_endpoint(&collector_endpoint)
+    // Build OTLP pipeline targeting Jaeger
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(
+            opentelemetry_otlp::new_exporter()
+                .tonic()
+                .with_endpoint(&otlp_endpoint),
+        )
         .with_trace_config(
             opentelemetry_sdk::trace::Config::default()
                 .with_sampler(sampler)
@@ -88,7 +99,7 @@ fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
                 .with_resource(resource),
         )
         .install_batch(runtime::Tokio)
-        .context("Failed to install Jaeger tracer")?;
+        .context("Failed to install OTLP tracer for Jaeger")?;
 
     Ok(tracer)
 }

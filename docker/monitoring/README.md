@@ -66,7 +66,7 @@ Configure NeuroQuantumDB to send traces to Jaeger:
 [tracing]
 enabled = true
 exporter = "jaeger"
-endpoint = "http://localhost:14268/api/traces"
+endpoint = "http://localhost:4317"
 sampling_rate = 1.0
 service_name = "neuroquantumdb-dev"
 ```

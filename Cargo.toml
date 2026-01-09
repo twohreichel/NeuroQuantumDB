@@ -37,7 +37,6 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
 opentelemetry = "0.27.1"
 opentelemetry_sdk = { version = "0.27.1", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.27.0", features = ["tonic", "tokio"] }
-opentelemetry-jaeger = { version = "0.26.0", features = ["rt-tokio"] }
 opentelemetry-semantic-conventions = "0.27.0"
 tracing-opentelemetry = "0.28.0"
 
