@@ -1381,6 +1381,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             error_mitigation: true,
             trotter_steps: tfim_config.trotter_steps as usize,
             evolution_time: tfim_config.evolution_time,
+            seed: None,
         },
         "qaoa" => QuantumTFIMConfig {
             method: SolutionMethod::QAOA {
@@ -1392,6 +1393,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             error_mitigation: true,
             trotter_steps: tfim_config.trotter_steps as usize,
             evolution_time: tfim_config.evolution_time,
+            seed: None,
         },
         _ => QuantumTFIMConfig {
             method: SolutionMethod::TrotterSuzuki { order: 2 },
@@ -1400,6 +1402,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             error_mitigation: true,
             trotter_steps: tfim_config.trotter_steps as usize,
             evolution_time: tfim_config.evolution_time,
+            seed: None,
         },
     };
 

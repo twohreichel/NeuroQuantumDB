@@ -248,8 +248,8 @@ fn test_observables_magnetization() {
         num_shots: 2000, // More shots for statistical stability
         hardware_mapping: None,
         error_mitigation: false,
-        trotter_steps: 30,   // More Trotter steps
-        evolution_time: 3.0, // Longer evolution time
+        trotter_steps: 30,                   // More Trotter steps
+        evolution_time: 3.0,                 // Longer evolution time
         seed: Some(DETERMINISTIC_TEST_SEED), // Fixed seed for deterministic testing
     };
 
