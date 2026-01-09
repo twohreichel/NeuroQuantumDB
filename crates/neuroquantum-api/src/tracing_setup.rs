@@ -60,7 +60,10 @@ pub fn init_tracing(config: &TracingConfig) -> Result<()> {
     Ok(())
 }
 
-/// Create Jaeger tracer with HTTP exporter
+/// Default OTLP gRPC endpoint for Jaeger
+const DEFAULT_JAEGER_OTLP_ENDPOINT: &str = "http://localhost:4317";
+
+/// Create Jaeger tracer using OTLP gRPC protocol
 fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
     info!("🔧 Setting up Jaeger via OTLP exporter");
 
@@ -73,7 +76,7 @@ fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
         config.endpoint.clone()
     } else {
         // Default to OTLP gRPC port
-        format!("http://localhost:4317")
+        DEFAULT_JAEGER_OTLP_ENDPOINT.to_string()
     };
 
     info!("   Using OTLP endpoint: {}", otlp_endpoint);

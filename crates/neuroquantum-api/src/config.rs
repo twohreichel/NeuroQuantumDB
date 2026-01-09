@@ -371,7 +371,7 @@ impl Default for TracingConfig {
         Self {
             enabled: false,
             exporter: TracingExporter::Console,
-            endpoint: "http://localhost:14268/api/traces".to_string(),
+            endpoint: "http://localhost:4317".to_string(),
             sampling_rate: 0.1,
             service_name: "neuroquantumdb".to_string(),
             trace_level: TraceLevel::Detailed,
@@ -384,7 +384,7 @@ impl Default for TracingConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TracingExporter {
-    /// Jaeger exporter (HTTP)
+    /// Jaeger exporter (uses OTLP gRPC)
     Jaeger,
     /// OTLP exporter (gRPC)
     Otlp,
