@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper function to setup test environment with storage
-async fn setup_test_env() -> (Arc<tokio::sync::RwLock<StorageEngine>>, QueryExecutor, Parser) {
+async fn setup_test_env() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>>, QueryExecutor, Parser) {
     let temp_dir = TempDir::new().unwrap();
     let storage_path = temp_dir.path();
     
@@ -31,16 +31,13 @@ async fn setup_test_env() -> (Arc<tokio::sync::RwLock<StorageEngine>>, QueryExec
     let executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
     let parser = Parser::new();
     
-    // Leak the TempDir to keep it alive for the duration of the test
-    std::mem::forget(temp_dir);
-    
-    (storage_arc, executor, parser)
+    (temp_dir, storage_arc, executor, parser)
 }
 
 /// Test simple recursive CTE for hierarchical employee-manager relationships
 #[tokio::test]
 async fn test_recursive_cte_employee_hierarchy() {
-    let (storage_arc, mut executor, parser) = setup_test_env().await;
+    let (_temp_dir, storage_arc, mut executor, parser) = setup_test_env().await;
     
     // Create employees table
     let schema = TableSchema {
@@ -140,7 +137,7 @@ async fn test_recursive_cte_employee_hierarchy() {
 /// Test recursive CTE with UNION (removes duplicates) vs UNION ALL
 #[tokio::test]
 async fn test_recursive_cte_union_semantics() {
-    let (storage_arc, mut executor, parser) = setup_test_env().await;
+    let (_temp_dir, storage_arc, mut executor, parser) = setup_test_env().await;
     
     // Create a simple nodes table for graph traversal
     let schema = TableSchema {
@@ -196,7 +193,7 @@ async fn test_recursive_cte_union_semantics() {
 /// Test recursive CTE for series generation (similar to generate_series)
 #[tokio::test]
 async fn test_recursive_cte_generate_series() {
-    let (_storage_arc, mut executor, parser) = setup_test_env().await;
+    let (_temp_dir, _storage_arc, mut executor, parser) = setup_test_env().await;
     
     // Note: This test demonstrates the concept, but our implementation
     // may not support generating rows without a base table yet.
@@ -219,7 +216,7 @@ async fn test_recursive_cte_generate_series() {
 /// Test that recursion depth limit prevents infinite loops
 #[tokio::test]
 async fn test_recursive_cte_depth_limit() {
-    let (storage_arc, mut executor, parser) = setup_test_env().await;
+    let (_temp_dir, storage_arc, mut executor, parser) = setup_test_env().await;
     
     // Create a simple table
     let schema = TableSchema {
@@ -252,10 +249,12 @@ async fn test_recursive_cte_depth_limit() {
         storage_guard.create_table(schema).await.unwrap();
     }
     
-    // Create a very deep chain that would exceed the recursion limit
-    // Insert 100 nodes in a chain
+    // Create a long chain to test depth limiting
+    // Insert 100 nodes in a chain: 1->2->3->...->100->1 (cycle at end)
+    // The depth limit in the query (WHERE ch.depth < 50) should prevent 
+    // the query from hitting the cycle
     for i in 1..=100 {
-        let next_id = if i < 100 { i + 1 } else { 1 }; // Create cycle at the end
+        let next_id = if i < 100 { i + 1 } else { 1 }; // Closes the loop
         let insert_sql = format!("INSERT INTO circular (id, next_id) VALUES ({}, {})", i, next_id);
         let statement = parser.parse(&insert_sql).unwrap();
         executor.execute_statement(&statement).await.unwrap();
@@ -285,7 +284,7 @@ async fn test_recursive_cte_depth_limit() {
 /// Test recursive CTE with multiple CTEs (recursive + non-recursive)
 #[tokio::test]
 async fn test_recursive_cte_with_multiple_ctes() {
-    let (storage_arc, mut executor, parser) = setup_test_env().await;
+    let (_temp_dir, storage_arc, mut executor, parser) = setup_test_env().await;
     
     // Create test table
     let schema = TableSchema {
@@ -363,7 +362,7 @@ async fn test_recursive_cte_with_multiple_ctes() {
 /// Test graph traversal using recursive CTE
 #[tokio::test]
 async fn test_recursive_cte_graph_traversal() {
-    let (storage_arc, mut executor, parser) = setup_test_env().await;
+    let (_temp_dir, storage_arc, mut executor, parser) = setup_test_env().await;
     
     // Create edges table for a graph
     let schema = TableSchema {
@@ -483,7 +482,7 @@ fn test_parser_non_recursive_cte() {
 /// Test recursive CTE with column list
 #[tokio::test]
 async fn test_recursive_cte_with_column_list() {
-    let (_storage_arc, _executor, parser) = setup_test_env().await;
+    let (_temp_dir, _storage_arc, _executor, parser) = setup_test_env().await;
     
     let sql = r#"
         WITH RECURSIVE numbered (n, squared) AS (
