@@ -88,6 +88,10 @@ pub enum Statement {
     Savepoint(SavepointStatement),
     RollbackToSavepoint(RollbackToSavepointStatement),
     ReleaseSavepoint(ReleaseSavepointStatement),
+    // Prepared Statements
+    Prepare(PrepareStatement),
+    Execute(ExecuteStatement),
+    Deallocate(DeallocateStatement),
 }
 
 /// Common Table Expression (CTE) for WITH clauses
@@ -477,6 +481,10 @@ pub enum Expression {
         /// The OVER clause specification
         over_clause: WindowSpec,
     },
+
+    // Parameter placeholder for prepared statements
+    // Supports positional ($1, $2) and named (:name) parameters
+    Parameter(ParameterRef),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -822,6 +830,53 @@ pub struct ReleaseSavepointStatement {
     pub name: String,
 }
 
+/// PREPARE statement for creating prepared statements
+/// Syntax: PREPARE name AS query
+/// Example: PREPARE get_user AS SELECT * FROM users WHERE id = $1
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PrepareStatement {
+    /// Name of the prepared statement
+    pub name: String,
+    /// The SQL statement to prepare (with parameter placeholders)
+    pub statement: Box<Statement>,
+    /// Parameter definitions (optional, for type hints)
+    /// Maps parameter name/index to expected data type
+    pub parameter_types: Option<Vec<DataType>>,
+}
+
+/// EXECUTE statement for running prepared statements
+/// Syntax: EXECUTE name [(param1, param2, ...)]
+/// Example: EXECUTE get_user(42)
+/// Named parameters: EXECUTE find_users(age := 25, pattern := 'John%')
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExecuteStatement {
+    /// Name of the prepared statement to execute
+    pub name: String,
+    /// Positional parameter values
+    pub parameters: Vec<Expression>,
+    /// Named parameter values (for :name style parameters)
+    pub named_parameters: HashMap<String, Expression>,
+}
+
+/// DEALLOCATE statement for removing prepared statements
+/// Syntax: DEALLOCATE name | DEALLOCATE ALL
+/// Example: DEALLOCATE get_user
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeallocateStatement {
+    /// Name of the prepared statement to deallocate (None for ALL)
+    pub name: Option<String>,
+}
+
+/// Parameter placeholder expression for prepared statements
+/// Supports both positional ($1, $2) and named (:name) parameters
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ParameterRef {
+    /// Positional parameter ($1, $2, etc.) - 1-indexed
+    Positional(u32),
+    /// Named parameter (:name)
+    Named(String),
+}
+
 // Display implementations for better debugging and logging
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -845,6 +900,14 @@ impl fmt::Display for Statement {
             Statement::Savepoint(s) => write!(f, "SAVEPOINT {}", s.name),
             Statement::RollbackToSavepoint(s) => write!(f, "ROLLBACK TO SAVEPOINT {}", s.name),
             Statement::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
+            Statement::Prepare(p) => write!(f, "PREPARE {}", p.name),
+            Statement::Execute(e) => write!(f, "EXECUTE {}", e.name),
+            Statement::Deallocate(d) => {
+                match &d.name {
+                    Some(name) => write!(f, "DEALLOCATE {}", name),
+                    None => write!(f, "DEALLOCATE ALL"),
+                }
+            }
             _ => write!(f, "{:?}", self),
         }
     }
