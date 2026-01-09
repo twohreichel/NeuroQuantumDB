@@ -214,15 +214,15 @@ fn create_spin_glass_with_fields(n: usize) -> TFIMProblem {
     use rand::Rng;
     let mut rng = rand::thread_rng();
 
-    let couplings = DMatrix::from_fn(n, n, |i, j| {
-        if i < j {
-            (rng.gen::<f64>() - 0.5) * 2.0
-        } else if i == j {
-            0.0
-        } else {
-            0.0
+    // Create symmetric coupling matrix
+    let mut couplings = DMatrix::zeros(n, n);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let coupling = (rng.gen::<f64>() - 0.5) * 2.0;
+            couplings[(i, j)] = coupling;
+            couplings[(j, i)] = coupling; // Make symmetric
         }
-    });
+    }
 
     let external_fields: Vec<f64> = (0..n)
         .map(|_| (rng.gen::<f64>() - 0.5) * 1.0)

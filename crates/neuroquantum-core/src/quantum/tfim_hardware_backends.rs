@@ -282,8 +282,7 @@ impl DWaveTFIMSolver {
     async fn submit_to_dwave(&self, _bqm: &BinaryQuadraticModel) -> CoreResult<Vec<(Vec<i8>, f64)>> {
         let api_token = self.get_api_token().ok_or_else(|| {
             CoreError::invalid_operation(
-                "D-Wave API token not configured. Set DWAVE_API_TOKEN environment variable \
-                 or provide api_token in DWaveTFIMConfig.",
+                "D-Wave API token not configured. Set DWAVE_API_TOKEN environment variable or provide api_token in DWaveTFIMConfig."
             )
         })?;
 
@@ -305,10 +304,7 @@ impl DWaveTFIMSolver {
 
         // For now, return an error indicating API connection would be made
         Err(CoreError::invalid_operation(&format!(
-            "D-Wave API integration requires external HTTP client. \
-             API token present: {}, endpoint: {}. \
-             To enable real D-Wave execution, implement HTTP client with \
-             reqwest or similar crate.",
+            "D-Wave API integration requires external HTTP client. API token present: {}, endpoint: {}. To enable real D-Wave execution, implement HTTP client with reqwest or similar crate.",
             !api_token.is_empty(),
             self.config.api_endpoint
         )))
