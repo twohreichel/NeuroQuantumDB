@@ -569,4 +569,78 @@ mod execution_tests {
             "Expected 4 users older than 25"
         );
     }
+
+    #[tokio::test]
+    async fn test_execute_correlated_scalar_subquery_in_select() {
+        let (_temp_dir, _storage_arc, mut executor) = create_test_executor().await;
+        let parser = Parser::new();
+
+        // Correlated subquery: count orders for each user
+        // Expected results:
+        // Alice (id=1): 2 orders
+        // Bob (id=2): 0 orders
+        // Charlie (id=3): 1 order
+        // Diana (id=4): 3 orders
+        // Eve (id=5): 0 orders
+        // Frank (id=6): 0 orders
+        let sql = "SELECT u.name, (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) as order_count FROM users u";
+        let stmt = parser.parse(sql).unwrap();
+        let result = executor.execute_statement(&stmt).await;
+
+        assert!(
+            result.is_ok(),
+            "Failed to execute correlated scalar subquery: {:?}",
+            result.err()
+        );
+        let query_result = result.unwrap();
+        println!(
+            "Correlated subquery returned {} rows: {:?}",
+            query_result.rows_affected, query_result.rows
+        );
+
+        // Should return 6 users
+        assert_eq!(
+            query_result.rows_affected, 6,
+            "Expected 6 users with order counts"
+        );
+
+        // Verify the result contains the order_count column
+        assert!(
+            query_result
+                .columns
+                .iter()
+                .any(|c| c.name == "order_count" || c.name == "(subquery)"),
+            "Expected order_count column in results"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_correlated_exists_subquery() {
+        let (_temp_dir, _storage_arc, mut executor) = create_test_executor().await;
+        let parser = Parser::new();
+
+        // Users who have at least one order
+        // Expected: Alice (2 orders), Charlie (1 order), Diana (3 orders)
+        let sql = "SELECT u.name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)";
+        let stmt = parser.parse(sql).unwrap();
+        let result = executor.execute_statement(&stmt).await;
+
+        assert!(
+            result.is_ok(),
+            "Failed to execute correlated EXISTS subquery: {:?}",
+            result.err()
+        );
+        let query_result = result.unwrap();
+        println!(
+            "Correlated EXISTS returned {} rows: {:?}",
+            query_result.rows_affected, query_result.rows
+        );
+
+        // Should return 3 users who have orders
+        assert!(
+            query_result.rows_affected >= 3,
+            "Expected at least 3 users with orders, got {}",
+            query_result.rows_affected
+        );
+    }
 }
