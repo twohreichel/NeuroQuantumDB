@@ -58,6 +58,7 @@ pub mod grover_quantum;
 
 // Quantum extensions
 pub mod quantum_parallel_tempering;
+pub mod qubo_hardware_backends;
 pub mod qubo_quantum;
 pub mod tfim;
 pub mod tfim_quantum;
@@ -99,6 +100,30 @@ pub use qubo_quantum::{
     QuantumQuboSolver,
     QuboQuantumBackend,
     VqeAnsatz,
+};
+
+// Real quantum hardware backends for QUBO
+pub use qubo_hardware_backends::{
+    // D-Wave quantum annealer
+    DWaveConfig,
+    DWaveQUBOSolver,
+    DWaveTiming,
+    // IBM Quantum QAOA
+    IBMConfig,
+    IBMOptimizer,
+    IBMQUBOSolver,
+    QAOACircuit,
+    QAOAGate,
+    // D-Wave Hybrid solver
+    HybridQUBOSolver,
+    HybridSolverConfig,
+    // Classical fallback
+    SimulatedAnnealingConfig,
+    SimulatedAnnealingQUBOSolver,
+    // Unified solver with auto-selection
+    QUBOSolverBackend,
+    UnifiedQUBOConfig,
+    UnifiedQUBOSolver,
 };
 
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
