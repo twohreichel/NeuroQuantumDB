@@ -6,10 +6,12 @@
 //!   implementations** including VQE, QAOA, and Simulated Quantum Annealing (SQA).
 //!   Features automatic fallback to classical solver when quantum backends unavailable.
 //!
-//! - **TFIM (Transverse Field Ising Model)**: Now with **real quantum
-//!   implementations** including Trotter-Suzuki time evolution, VQE for ground state
-//!   finding, and QAOA for optimization. The classical Monte Carlo simulation is still
-//!   available as a fallback method.
+//! - **TFIM (Transverse Field Ising Model)**: Now with **real quantum hardware integration**:
+//!   - **Quantum Annealing Backends**: D-Wave and AWS Braket quantum annealers for native
+//!     Ising model solving (NEW!)
+//!   - **Gate-Based Quantum**: Trotter-Suzuki time evolution, VQE for ground state
+//!     finding, and QAOA for optimization
+//!   - **Classical Fallback**: Monte Carlo simulation when quantum hardware unavailable
 //!
 //! - **Quantum Parallel Tempering**: Real quantum algorithms for parallel tempering
 //!   including Path Integral Monte Carlo (PIMC), Quantum Monte Carlo (QMC),
@@ -38,6 +40,34 @@
 //! - **Quantum Annealing**: For D-Wave style quantum annealers
 //! - **Simulated Quantum Annealing (SQA)**: Path Integral Monte Carlo simulation
 //! - **Classical Fallback**: Simulated annealing when quantum unavailable
+//!
+//! ## Quantum Backends for TFIM (NEW!)
+//!
+//! The `tfim_hardware_backends` module provides real quantum annealing hardware:
+//!
+//! - **D-Wave Quantum Annealer**: Native Ising model solving on D-Wave quantum annealers
+//!   - Direct problem embedding on quantum hardware
+//!   - Supports Advantage and Advantage2 systems with Pegasus/Zephyr topology
+//!   - Up to ~5000 qubits
+//! - **AWS Braket Annealer**: D-Wave access via AWS Braket
+//!   - Integrated AWS billing and resource management
+//!   - Same underlying quantum annealing technology
+//! - **Unified Solver**: Automatic backend selection with classical fallback
+//!
+//! ### TFIM Configuration Example
+//!
+//! ```rust,ignore
+//! use neuroquantum_core::quantum::{UnifiedTFIMAnnealingSolver, TFIMProblem};
+//!
+//! // Auto-detect available backends from environment
+//! let solver = UnifiedTFIMAnnealingSolver::from_env();
+//!
+//! // Create TFIM problem
+//! let problem = TFIMProblem { /* ... */ };
+//!
+//! // Execute on best available backend (D-Wave, Braket, or classical)
+//! let result = solver.solve(&problem).await?;
+//! ```
 //!
 //! ## Quantum Backends for Grover's Search
 //!
@@ -93,6 +123,7 @@ pub mod quantum_parallel_tempering;
 pub mod qubo_hardware_backends;
 pub mod qubo_quantum;
 pub mod tfim;
+pub mod tfim_hardware_backends;
 pub mod tfim_quantum;
 pub mod tfim_unified;
 
@@ -160,7 +191,26 @@ pub use qubo_hardware_backends::{
 
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
 
-// Real quantum TFIM exports
+// Real quantum hardware backends for TFIM (Quantum Annealing)
+pub use tfim_hardware_backends::{
+    // Backend trait
+    AnnealingBackend,
+    // Binary Quadratic Model
+    BinaryQuadraticModel,
+    VarType,
+    // D-Wave quantum annealer
+    DWaveTFIMConfig,
+    DWaveTFIMSolver,
+    // AWS Braket annealer
+    BraketTFIMConfig,
+    BraketTFIMSolver,
+    // Unified solver with auto-selection
+    TFIMBackendPreference,
+    UnifiedTFIMAnnealingConfig,
+    UnifiedTFIMAnnealingSolver,
+};
+
+// Real quantum TFIM exports (VQE, QAOA, Trotter-Suzuki)
 pub use tfim_quantum::{
     HardwareMapping, QuantumBackend as TFIMQuantumBackend, QuantumCircuit, QuantumGate,
     QuantumObservables, QuantumTFIMConfig, QuantumTFIMProblem, QuantumTFIMSolution,
