@@ -817,6 +817,7 @@ mod tests {
             quantum_parallel: false,
             grover_iterations: None,
             with_clause: None,
+            union_clause: None,
         })
     }
 

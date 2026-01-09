@@ -150,6 +150,9 @@ pub enum TokenType {
     Recursive,
     Distinct,
     Extract,
+    // Set operations
+    Union,
+    All,
 
     // CASE expression keywords
     Case,
@@ -1130,9 +1133,40 @@ impl QSQLParser {
             if i < tokens.len() {
                 if let TokenType::IntegerLiteral(n) = tokens[i] {
                     limit = Some(n as u64);
+                    i += 1;
                 }
             }
         }
+
+        // Parse UNION / UNION ALL clause
+        let union_clause = if i < tokens.len() && matches!(tokens[i], TokenType::Union) {
+            i += 1; // consume UNION
+
+            // Check for ALL keyword
+            let union_type = if i < tokens.len() && matches!(tokens[i], TokenType::All) {
+                i += 1; // consume ALL
+                crate::ast::UnionType::UnionAll
+            } else {
+                crate::ast::UnionType::Union
+            };
+
+            // Parse the second SELECT statement
+            if i >= tokens.len() || !matches!(tokens[i], TokenType::Select) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected SELECT after UNION".to_string(),
+                    position: i,
+                });
+            }
+
+            let union_select = self.parse_select_statement_at(tokens, &mut i)?;
+
+            Some(crate::ast::UnionClause {
+                union_type,
+                select: Box::new(union_select),
+            })
+        } else {
+            None
+        };
 
         Ok(Statement::Select(SelectStatement {
             select_list,
@@ -1149,6 +1183,7 @@ impl QSQLParser {
             quantum_parallel,
             grover_iterations,
             with_clause,
+            union_clause,
         }))
     }
 
@@ -1634,6 +1669,37 @@ impl QSQLParser {
             }
         }
 
+        // Parse UNION / UNION ALL clause
+        // This is valid in CTE contexts as well as top-level queries
+        let union_clause = if *i < tokens.len() && matches!(tokens[*i], TokenType::Union) {
+            *i += 1; // consume UNION
+
+            // Check for ALL keyword
+            let union_type = if *i < tokens.len() && matches!(tokens[*i], TokenType::All) {
+                *i += 1; // consume ALL
+                crate::ast::UnionType::UnionAll
+            } else {
+                crate::ast::UnionType::Union
+            };
+
+            // Parse the second SELECT statement
+            if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Select) {
+                return Err(QSQLError::ParseError {
+                    message: "Expected SELECT after UNION".to_string(),
+                    position: *i,
+                });
+            }
+
+            let union_select = self.parse_select_statement_at(tokens, i)?;
+
+            Some(crate::ast::UnionClause {
+                union_type,
+                select: Box::new(union_select),
+            })
+        } else {
+            None
+        };
+
         Ok(SelectStatement {
             select_list,
             from,
@@ -1649,6 +1715,7 @@ impl QSQLParser {
             quantum_parallel,
             grover_iterations,
             with_clause: None, // Subqueries don't support WITH clauses (for now)
+            union_clause,
         })
     }
 
@@ -4112,6 +4179,9 @@ impl QSQLParser {
         keywords.insert("BETWEEN".to_string(), TokenType::Between);
         keywords.insert("IS".to_string(), TokenType::Is);
         keywords.insert("NULL".to_string(), TokenType::Null);
+        // Set operations
+        keywords.insert("UNION".to_string(), TokenType::Union);
+        keywords.insert("ALL".to_string(), TokenType::All);
 
         // CASE expression keywords
         keywords.insert("CASE".to_string(), TokenType::Case);
