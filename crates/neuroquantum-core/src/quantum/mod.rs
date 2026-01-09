@@ -15,9 +15,14 @@
 //!   including Path Integral Monte Carlo (PIMC), Quantum Monte Carlo (QMC),
 //!   and Quantum Annealing with multi-temperature support.
 //!
-//! - **Grover's Search**: Now with **real quantum circuit implementation** providing
-//!   theoretical O(√N) speedup for unstructured search. Supports multiple quantum
-//!   backends and automatic oracle construction for database and pattern search.
+//! - **Grover's Search**: Now with **real quantum hardware integration** supporting:
+//!   - **IBM Quantum**: Execute on IBM gate-based quantum computers via Qiskit Runtime
+//!   - **AWS Braket**: Execute on IonQ, Rigetti, and OQC devices via AWS Braket
+//!   - **IonQ Direct**: Direct API access to IonQ trapped-ion quantum computers
+//!   - **Local Simulator**: State vector simulation for development and testing
+//!   
+//!   The `UnifiedGroverSolver` provides automatic backend selection with fallback
+//!   to local simulation when quantum hardware is unavailable.
 //!
 //! - **Grover's Search (Legacy)**: Classical state vector simulation of Grover's
 //!   quantum search algorithm. Useful for validation but does NOT provide
@@ -33,6 +38,30 @@
 //! - **Quantum Annealing**: For D-Wave style quantum annealers
 //! - **Simulated Quantum Annealing (SQA)**: Path Integral Monte Carlo simulation
 //! - **Classical Fallback**: Simulated annealing when quantum unavailable
+//!
+//! ## Quantum Backends for Grover's Search
+//!
+//! The `grover_hardware_backends` module provides real quantum hardware integration:
+//!
+//! - **IBM Quantum**: Gate-based superconducting qubits via IBM Quantum Experience
+//! - **AWS Braket**: Multi-vendor access (IonQ, Rigetti, OQC) via AWS
+//! - **IonQ Direct**: Native trapped-ion quantum computing API
+//! - **Local Simulator**: State vector simulation (always available)
+//!
+//! ### Configuration Example
+//!
+//! ```rust,ignore
+//! use neuroquantum_core::quantum::{UnifiedGroverSolver, QuantumOracle};
+//!
+//! // Auto-detect available backends from environment
+//! let solver = UnifiedGroverSolver::from_env();
+//!
+//! // Create search oracle
+//! let oracle = QuantumOracle::new(4, vec![7, 12]); // 16-element search for items 7 and 12
+//!
+//! // Execute on best available backend
+//! let result = solver.search(&oracle, 1024).await?;
+//! ```
 //!
 //! ## Performance Notes
 //!
@@ -55,6 +84,9 @@ pub mod legacy;
 
 // Real quantum Grover's search algorithm
 pub mod grover_quantum;
+
+// Real quantum hardware backends for Grover's search
+pub mod grover_hardware_backends;
 
 // Quantum extensions
 pub mod quantum_parallel_tempering;
@@ -142,4 +174,25 @@ pub use tfim_unified::{UnifiedTFIMConfig, UnifiedTFIMResult, UnifiedTFIMSolver};
 pub use grover_quantum::{
     GroverCircuit, GroverGate, GroverMeasurementStats, GroverQuantumBackend, OracleType,
     QuantumGroverConfig, QuantumGroverResult, QuantumGroverSolver, QuantumOracle,
+};
+
+// Real quantum hardware backends for Grover's search
+pub use grover_hardware_backends::{
+    // Backend trait
+    GroverHardwareBackend,
+    // IBM Quantum
+    IBMGroverConfig,
+    IBMGroverSolver,
+    // AWS Braket
+    BraketGroverConfig,
+    BraketGroverSolver,
+    // IonQ
+    IonQGroverConfig,
+    IonQGroverSolver,
+    // Local simulator
+    SimulatorGroverConfig,
+    SimulatorGroverSolver,
+    // Unified solver with auto-selection
+    UnifiedGroverConfig,
+    UnifiedGroverSolver,
 };
