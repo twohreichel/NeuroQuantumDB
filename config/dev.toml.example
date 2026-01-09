@@ -72,3 +72,11 @@ format = "Plain"  # Plain text easier to read during dev
 max_file_size_mb = 100
 max_files = 3  # Fewer log files in dev
 structured_logging = false  # Plain logs for dev
+
+[tracing]
+enabled = true  # Enable distributed tracing in development
+exporter = "jaeger"  # Use Jaeger for local development
+endpoint = "http://localhost:14268/api/traces"  # Jaeger collector endpoint
+sampling_rate = 1.0  # Sample 100% of traces in development
+service_name = "neuroquantumdb-dev"
+trace_level = "debug"  # Capture detailed traces in development

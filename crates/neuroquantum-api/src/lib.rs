@@ -22,6 +22,7 @@ pub mod middleware;
 pub mod permissions;
 pub mod rate_limit;
 pub mod storage;
+pub mod tracing_setup;
 pub mod websocket;
 
 use auth::AuthService;

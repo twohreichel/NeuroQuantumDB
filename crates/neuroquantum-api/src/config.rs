@@ -32,6 +32,7 @@ pub struct ApiConfig {
     pub monitoring: MonitoringConfig,
     pub redis: Option<RedisConfig>,
     pub logging: LoggingConfig,
+    pub tracing: TracingConfig,
 }
 
 /// Server configuration
@@ -345,6 +346,66 @@ pub enum LogFormat {
     Plain,
     Compact,
 }
+
+/// Distributed tracing configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TracingConfig {
+    /// Enable distributed tracing
+    pub enabled: bool,
+    /// Exporter type: "jaeger", "otlp", "zipkin", or "console"
+    pub exporter: TracingExporter,
+    /// Endpoint URL for the tracing backend
+    pub endpoint: String,
+    /// Sampling rate (0.0 to 1.0, where 1.0 = 100% of traces)
+    pub sampling_rate: f64,
+    /// Service name for trace identification
+    pub service_name: String,
+    /// Trace level: "minimal", "detailed", or "debug"
+    pub trace_level: TraceLevel,
+    /// Additional resource attributes
+    pub resource_attributes: Option<std::collections::HashMap<String, String>>,
+}
+
+impl Default for TracingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            exporter: TracingExporter::Console,
+            endpoint: "http://localhost:14268/api/traces".to_string(),
+            sampling_rate: 0.1,
+            service_name: "neuroquantumdb".to_string(),
+            trace_level: TraceLevel::Detailed,
+            resource_attributes: None,
+        }
+    }
+}
+
+/// Tracing exporter types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TracingExporter {
+    /// Jaeger exporter (HTTP)
+    Jaeger,
+    /// OTLP exporter (gRPC)
+    Otlp,
+    /// Zipkin exporter
+    Zipkin,
+    /// Console exporter (for development/debugging)
+    Console,
+}
+
+/// Trace detail level
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TraceLevel {
+    /// Minimal tracing - only HTTP endpoints
+    Minimal,
+    /// Detailed tracing - includes query execution
+    Detailed,
+    /// Debug tracing - includes all internal operations
+    Debug,
+}
+
 
 impl ApiConfig {
     /// Load configuration from file
