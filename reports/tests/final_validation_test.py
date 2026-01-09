@@ -78,7 +78,7 @@ print("\n[2] SQL Operations via /api/v1/query...")
 
 ops = [
     ("SQL SELECT", {"query": "SELECT * FROM users LIMIT 5"}),
-    ("SQL INSERT", {"query": "INSERT INTO users (name, email, age) VALUES ('FinalTest', 'final@test.com', 35)"}),
+    ("SQL INSERT", {"query": "INSERT INTO users (id, name, email, age) VALUES (999, 'FinalTest', 'final@test.com', 35)"}),
     ("SQL UPDATE", {"query": "UPDATE users SET age = 36 WHERE name = 'FinalTest'"}),
     ("SQL SELECT WHERE", {"query": "SELECT * FROM users WHERE age > 30"}),
     ("SQL SELECT ORDER BY", {"query": "SELECT * FROM users ORDER BY age DESC"}),
@@ -119,7 +119,7 @@ print(f"  {'✅' if success else '❌'} REST Create Table")
 # Insert via REST
 success, _ = test("REST Insert Data", "POST", "/api/v1/tables/users/data", {
     "table_name": "users",
-    "records": [{"name": "RestValidation", "email": "validate@rest.com", "age": 27}]
+    "records": [{"id": 998, "name": "RestValidation", "email": "validate@rest.com", "age": 27}]
 })
 print(f"  {'✅' if success else '❌'} REST Insert Data")
 
@@ -134,9 +134,32 @@ print(f"  {'✅' if success else '❌'} REST Query Data")
 print("\n[5] Advanced Features (Specialized Endpoints)...")
 
 endpoints = [
-    ("DNA Compression", "POST", "/api/v1/dna/compress", {"data": "Test data for compression"}),
-    ("Quantum Search", "POST", "/api/v1/quantum/search", {"query": "test", "table": "users", "column": "name"}),
-    ("Neural Train", "POST", "/api/v1/neural/train", {"table": "users", "features": ["age"], "target": "name"}),
+    ("DNA Compression", "POST", "/api/v1/dna/compress", {
+        "sequences": ["ATCGATCGATCGATCG", "GCTAGCTAGCTAGCTA"],
+        "algorithm": "KmerBased",
+        "compression_level": 5
+    }),
+    ("Quantum Search", "POST", "/api/v1/quantum/search", {
+        "table_name": "users",
+        "query_vector": [0.5, 0.3, 0.2, 0.1],
+        "similarity_threshold": 0.5,
+        "max_results": 10
+    }),
+    ("Neural Train", "POST", "/api/v1/neural/train", {
+        "network_name": "validation_network",
+        "training_data": [
+            {"input": [0.5, 0.3], "target": [1.0, 0.0]},
+            {"input": [0.1, 0.8], "target": [0.0, 1.0]}
+        ],
+        "config": {
+            "layers": [{"layer_type": "Dense", "size": 10, "activation": "ReLU"}],
+            "learning_rate": 0.01,
+            "epochs": 10,
+            "batch_size": 2,
+            "optimizer": "Adam",
+            "loss_function": "MeanSquaredError"
+        }
+    }),
     ("EEG List Users", "GET", "/api/v1/biometric/eeg/users", None),
     ("Performance Stats", "GET", "/api/v1/stats/performance", None),
 ]

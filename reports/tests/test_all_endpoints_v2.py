@@ -108,11 +108,24 @@ def main():
                                    {"query": "SELECT * FROM users"})
     results.append(("SQL SELECT", success))
     
-    # ===== 4. SQL - INSERT =====
-    print("\n[4] SQL - INSERT INTO users")
-    success, data = test_endpoint("INSERT", "POST", "/api/v1/query",
-                                   {"query": "INSERT INTO users (name, email, age) VALUES ('TestAPI', 'testapi@test.com', 33)"})
-    results.append(("SQL INSERT", success))
+    # ===== 4. SQL - INSERT with Auto-Increment (BIGSERIAL) =====
+    print("\n[4] SQL - CREATE TABLE with BIGSERIAL + INSERT without ID")
+    # First create a table with BIGSERIAL for auto-increment
+    test_endpoint("Drop auto_inc_test", "POST", "/api/v1/query",
+                  {"query": "DROP TABLE IF EXISTS auto_inc_test"})
+    test_endpoint("Create BIGSERIAL table", "POST", "/api/v1/query",
+                  {"query": "CREATE TABLE auto_inc_test (id BIGSERIAL PRIMARY KEY, name TEXT, email TEXT)"})
+    # Now insert WITHOUT specifying ID - auto-increment should work!
+    success, data = test_endpoint("INSERT without ID (BIGSERIAL)", "POST", "/api/v1/query",
+                                   {"query": "INSERT INTO auto_inc_test (name, email) VALUES ('AutoUser', 'auto@test.com')"})
+    if success and data:
+        try:
+            rows = data.get("data", {}).get("rows", [])
+            if rows and "inserted_id" in rows[0]:
+                print(f"  ✅ Auto-generated ID: {rows[0]['inserted_id']}")
+        except:
+            pass
+    results.append(("SQL INSERT (Auto-Increment)", success))
     
     # ===== 5. SQL - UPDATE =====
     print("\n[5] SQL - UPDATE users")
@@ -177,41 +190,64 @@ def main():
     # ===== 15. REST - Create Table =====
     print("\n[15] REST - Create Table")
     success, data = test_endpoint("Create Table via REST", "POST", "/api/v1/tables",
-                                   {"name": "api_test_table", 
-                                    "schema": [
-                                        {"name": "id", "data_type": "INTEGER", "primary_key": True},
-                                        {"name": "value", "data_type": "TEXT"}
-                                    ]})
+                                   {"schema": {
+                                       "name": "api_test_table",
+                                       "columns": [
+                                           {"name": "id", "data_type": "Integer", "nullable": False},
+                                           {"name": "value", "data_type": "Text", "nullable": True}
+                                       ]
+                                   },
+                                    "if_not_exists": True})
     results.append(("REST Create Table", success))
     
     # ===== 16. REST - Insert via /tables/{name}/data =====
     print("\n[16] REST - Insert Records via REST")
     success, data = test_endpoint("Insert via REST", "POST", "/api/v1/tables/users/data",
-                                   {"records": [{"name": "RESTUser", "email": "rest@test.com", "age": 29}]})
+                                   {"table_name": "users",
+                                    "records": [{"id": 100, "name": "RESTUser", "email": "rest@test.com", "age": 29}]})
     results.append(("REST Insert", success))
     
     # ===== 17. REST - Query via /tables/{name}/query =====
     print("\n[17] REST - Query via REST")
     success, data = test_endpoint("Query via REST", "POST", "/api/v1/tables/users/query",
-                                   {"conditions": {"name": "RESTUser"}})
+                                   {"table_name": "users",
+                                    "filters": {"name": {"operator": "Equal", "value": "RESTUser"}},
+                                    "limit": 10})
     results.append(("REST Query", success))
     
     # ===== 18. Neural - Train =====
     print("\n[18] Neural - Train Network")
     success, data = test_endpoint("Neural Train", "POST", "/api/v1/neural/train",
-                                   {"table": "users", "features": ["age"], "target": "name"})
+                                   {"network_name": "test_network",
+                                    "training_data": [
+                                        {"input": [0.5, 0.3], "target": [1.0, 0.0]},
+                                        {"input": [0.1, 0.8], "target": [0.0, 1.0]}
+                                    ],
+                                    "config": {
+                                        "layers": [{"layer_type": "Dense", "size": 10, "activation": "ReLU"}],
+                                        "learning_rate": 0.01,
+                                        "epochs": 10,
+                                        "batch_size": 2,
+                                        "optimizer": "Adam",
+                                        "loss_function": "MeanSquaredError"
+                                    }})
     results.append(("Neural Train", success))
     
     # ===== 19. Quantum - Search =====
     print("\n[19] Quantum - Search")
     success, data = test_endpoint("Quantum Search", "POST", "/api/v1/quantum/search",
-                                   {"query": "test", "table": "users", "column": "name"})
+                                   {"table_name": "users",
+                                    "query_vector": [0.5, 0.3, 0.2, 0.1],
+                                    "similarity_threshold": 0.5,
+                                    "max_results": 10})
     results.append(("Quantum Search", success))
     
     # ===== 20. DNA - Compress =====
     print("\n[20] DNA - Compress")
     success, data = test_endpoint("DNA Compress", "POST", "/api/v1/dna/compress",
-                                   {"data": "Hello, NeuroQuantumDB!"})
+                                   {"sequences": ["ATCGATCGATCGATCG", "GCTAGCTAGCTAGCTA"],
+                                    "algorithm": "KmerBased",
+                                    "compression_level": 5})
     results.append(("DNA Compress", success))
     
     # ===== 21. Biometric EEG - List Users =====
