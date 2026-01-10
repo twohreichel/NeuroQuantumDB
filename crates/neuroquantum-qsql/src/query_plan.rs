@@ -112,6 +112,10 @@ pub struct ExecutorConfig {
     /// If the product of left and right row counts exceeds this,
     /// use hash join instead of nested loop for better performance.
     pub hash_join_threshold: usize,
+    /// Maximum recursion depth for recursive CTEs (WITH RECURSIVE).
+    /// Default is RECURSIVE_CTE_LIMIT (1000).
+    /// Set this to prevent infinite loops in recursive queries.
+    pub max_recursive_cte_depth: usize,
 }
 
 impl Default for ExecutorConfig {
@@ -129,6 +133,7 @@ impl Default for ExecutorConfig {
             #[cfg(test)]
             allow_legacy_mode: false, // Only available in test builds
             hash_join_threshold: 1000, // Use hash join when left * right > 1000
+            max_recursive_cte_depth: RECURSIVE_CTE_LIMIT, // Default to 1000 iterations
         }
     }
 }
@@ -1315,8 +1320,11 @@ impl QueryExecutor {
         let recursive_query = &union_clause.select;
         let is_union_all = matches!(union_clause.union_type, crate::ast::UnionType::UnionAll);
 
+        // Get the configured recursion limit
+        let max_depth = self.config.max_recursive_cte_depth;
+
         // Iteratively execute the recursive part
-        for iteration in 0..RECURSIVE_CTE_LIMIT {
+        for iteration in 0..max_depth {
             if working_rows.is_empty() {
                 // No more rows to process, recursion complete
                 break;
@@ -1353,11 +1361,11 @@ impl QueryExecutor {
             working_rows = new_rows;
 
             // Check if we've reached the recursion limit (final iteration)
-            if iteration == RECURSIVE_CTE_LIMIT - 1 {
+            if iteration == max_depth - 1 {
                 return Err(QSQLError::ExecutionError {
                     message: format!(
                         "Recursive CTE '{}' exceeded maximum recursion limit of {} iterations",
-                        cte_name, RECURSIVE_CTE_LIMIT
+                        cte_name, max_depth
                     ),
                 });
             }
