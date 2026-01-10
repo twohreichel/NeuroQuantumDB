@@ -320,7 +320,12 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
             document.getElementById(tab + '-tab').classList.add('active');
-            event.target.classList.add('active');
+            // Find the button that was clicked by checking which button has this onclick handler
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                if (btn.textContent.toLowerCase().includes(tab === 'sql' ? 'sql' : tab === 'dna' ? 'dna' : 'statistics')) {
+                    btn.classList.add('active');
+                }
+            });
             if (tab === 'stats') refreshStats();
         };
 

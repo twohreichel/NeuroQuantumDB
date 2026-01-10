@@ -124,16 +124,22 @@ impl NeuroQuantumDB {
     }
 
     /// Compress a DNA sequence
+    /// 
+    /// Note: This is a placeholder implementation for demonstration.
+    /// For production use, integrate with the full NeuroQuantumDB DNA compressor.
     #[wasm_bindgen(js_name = compressDna)]
     pub fn compress_dna(&self, sequence: &str) -> Result<Vec<u8>, JsValue> {
         console_log(&format!("Compressing DNA sequence of length: {}", sequence.len()));
         
-        // For now, return a simple compressed representation
-        // In a full implementation, this would use the actual DNA compressor
+        // TODO: Integrate with neuroquantum_core::dna::QuantumDNACompressor
+        // For now, return a simple representation
         Ok(sequence.as_bytes().to_vec())
     }
 
     /// Decompress a DNA sequence
+    /// 
+    /// Note: This is a placeholder implementation for demonstration.
+    /// For production use, integrate with the full NeuroQuantumDB DNA compressor.
     #[wasm_bindgen(js_name = decompressDna)]
     pub fn decompress_dna(&self, compressed: Vec<u8>) -> Result<String, JsValue> {
         console_log(&format!("Decompressing DNA data of size: {}", compressed.len()));
@@ -220,14 +226,14 @@ impl NeuroQuantumDB {
         Err("Invalid SELECT query".to_string())
     }
 
-    /// Parse table name from SQL
+    /// Parse table name from SQL - converts to uppercase for case-insensitive matching
     fn parse_table_name(&self, sql: &str, prefix: &str) -> Result<String, String> {
         let after_prefix = sql[prefix.len()..].trim();
         let table_name = after_prefix
             .split_whitespace()
             .next()
             .ok_or("Missing table name")?
-            .to_string();
+            .to_uppercase(); // Convert to uppercase for consistency
         Ok(table_name)
     }
 
@@ -276,7 +282,11 @@ impl NeuroQuantumDB {
             let json_val = if let Ok(num) = val.parse::<i64>() {
                 serde_json::Value::Number(num.into())
             } else if let Ok(num) = val.parse::<f64>() {
-                serde_json::Value::Number(serde_json::Number::from_f64(num).unwrap_or(0.into()))
+                // Handle floating point values carefully
+                match serde_json::Number::from_f64(num) {
+                    Some(n) => serde_json::Value::Number(n),
+                    None => return Err(format!("Invalid floating point value: {}", val)),
+                }
             } else {
                 serde_json::Value::String(val.clone())
             };
@@ -291,16 +301,14 @@ impl NeuroQuantumDB {
         Ok(1)
     }
 
-    /// Execute UPDATE statement
+    /// Execute UPDATE statement (Not yet implemented)
     fn execute_update(&mut self, _sql: &str) -> Result<u32, String> {
-        // Simplified: not implemented yet
-        Ok(0)
+        Err("UPDATE statements are not yet implemented in the WASM version".to_string())
     }
 
-    /// Execute DELETE statement
+    /// Execute DELETE statement (Not yet implemented)
     fn execute_delete(&mut self, _sql: &str) -> Result<u32, String> {
-        // Simplified: not implemented yet
-        Ok(0)
+        Err("DELETE statements are not yet implemented in the WASM version".to_string())
     }
 }
 
