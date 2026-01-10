@@ -72,10 +72,11 @@ pub mod network;
 pub mod node;
 pub mod replication;
 pub mod sharding;
+pub mod upgrade;
 
 // Re-export main types
 pub use cluster_manager::{ClusterManager, ClusterStatus};
-pub use config::{ClusterConfig, ClusterManagerConfig};
+pub use config::{ClusterConfig, ClusterManagerConfig, UpgradeConfig};
 pub use error::{ClusterError, ClusterResult};
 pub use metrics::{ClusterMetrics, MetricsSnapshot};
 pub use node::{ClusterNode, NodeId, NodeRole, NodeState};
@@ -84,3 +85,4 @@ pub use sharding::{
     RebalanceConfig, RebalanceProgress, ShardId, ShardInfo, ShardManager, ShardState, ShardStats,
     ShardTransfer, TransferId, TransferStatus,
 };
+pub use upgrade::{UpgradeCoordinator, UpgradeProgress, UpgradeStatus, canary_upgrade};

@@ -96,6 +96,30 @@ pub enum ClusterError {
     /// Network partition detected
     #[error("Network partition detected: node is in minority partition")]
     NetworkPartition,
+
+    /// Invalid state transition
+    #[error("Invalid state: expected {expected}, actual {actual}")]
+    InvalidState { expected: String, actual: String },
+
+    /// Health check failed
+    #[error("Health check failed: {0}")]
+    HealthCheckFailed(String),
+
+    /// Protocol version mismatch
+    #[error("Protocol version mismatch with node {node_id}: expected >= {expected}, got {actual}")]
+    ProtocolVersionMismatch {
+        node_id: u64,
+        expected: u32,
+        actual: u32,
+    },
+
+    /// Upgrade in progress
+    #[error("Upgrade operation already in progress")]
+    UpgradeInProgress,
+
+    /// Minimum healthy nodes requirement not met
+    #[error("Minimum healthy nodes requirement not met: {current} < {required}")]
+    InsufficientHealthyNodes { current: usize, required: usize },
 }
 
 impl From<std::io::Error> for ClusterError {
