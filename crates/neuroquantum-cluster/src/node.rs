@@ -471,7 +471,12 @@ impl ClusterNode {
             self.consensus.transfer_leadership().await?;
 
             // Wait for leadership to be transferred
-            let timeout = std::time::Duration::from_secs(10);
+            let timeout = {
+                let inner = self.inner.read().await;
+                std::time::Duration::from_secs(
+                    inner.config.manager.upgrades.leadership_transfer_timeout_secs,
+                )
+            };
             let start = std::time::Instant::now();
             while self.is_leader().await && start.elapsed() < timeout {
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;

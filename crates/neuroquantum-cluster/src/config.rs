@@ -89,6 +89,9 @@ pub struct UpgradeConfig {
 
     /// Minimum compatible protocol version
     pub min_compatible_version: u32,
+
+    /// Timeout for leadership transfer during upgrade (in seconds)
+    pub leadership_transfer_timeout_secs: u64,
 }
 
 impl Default for UpgradeConfig {
@@ -100,6 +103,7 @@ impl Default for UpgradeConfig {
             rollback_on_failure: true,
             protocol_version: 1,
             min_compatible_version: 1,
+            leadership_transfer_timeout_secs: 10,
         }
     }
 }

@@ -111,7 +111,8 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "sleep 30"]  # Allow time for connection draining
+                # Use configured drain timeout, defaulting to 30 seconds
+                command: ["/bin/sh", "-c", "sleep ${CLUSTER_DRAIN_TIMEOUT_SECS:-30}"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

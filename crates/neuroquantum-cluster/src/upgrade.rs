@@ -292,7 +292,17 @@ impl UpgradeCoordinator {
     /// This is a placeholder for rollback logic. In a real implementation,
     /// this would coordinate with the deployment system to roll back to the
     /// previous version.
-    pub async fn rollback(&self, _node_id: NodeId) -> ClusterResult<()> {
+    ///
+    /// # TODO
+    ///
+    /// Implementation requirements:
+    /// 1. Stop the upgraded node
+    /// 2. Restore the previous version (binary/container)
+    /// 3. Restart the node with previous version
+    /// 4. Verify health after rollback
+    /// 5. Update cluster state to reflect rollback
+    #[allow(unused_variables)]
+    pub async fn rollback(&self, node_id: NodeId) -> ClusterResult<()> {
         info!("Initiating automatic rollback");
 
         {
@@ -310,7 +320,7 @@ impl UpgradeCoordinator {
         // 3. Restart the node
         // 4. Verify health
 
-        warn!("Rollback functionality not yet implemented");
+        warn!("Rollback functionality not yet implemented - requires deployment system integration");
 
         Ok(())
     }
@@ -335,11 +345,14 @@ pub async fn canary_upgrade(
     coordinator.upgrade_node(canary_node.clone()).await?;
 
     // Wait for external upgrade to complete
-    info!("Waiting for canary node to be upgraded externally");
-
     // In a real system, we would wait for the node to restart and rejoin
-    // For now, we simulate with a delay
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    // This simulated delay represents the time for the deployment system to:
+    // 1. Stop the old container/binary
+    // 2. Start the new version
+    // 3. Wait for the node to initialize
+    const SIMULATED_UPGRADE_TIME: Duration = Duration::from_secs(5);
+    info!("Waiting for canary node to be upgraded externally");
+    tokio::time::sleep(SIMULATED_UPGRADE_TIME).await;
 
     // Complete the upgrade and run health checks
     coordinator.complete_node_upgrade(canary_node.clone()).await?;
