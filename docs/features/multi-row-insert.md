@@ -35,7 +35,7 @@ INSERT INTO users (name, email, age) VALUES
 
 ### Parser (`crates/neuroquantum-qsql/src/parser.rs`)
 
-The parser correctly handles multiple value tuples separated by commas (lines 1987-2026).
+The parser correctly handles multiple value tuples separated by commas in the `parse_insert_statement` method.
 
 ### AST (`crates/neuroquantum-qsql/src/ast.rs`)
 
@@ -53,7 +53,7 @@ pub struct InsertStatement {
 
 ### Query Executor (`crates/neuroquantum-qsql/src/query_plan.rs`)
 
-The executor processes each value set in a loop with proper transaction support (lines 2562-2588).
+The executor processes each value set in a loop with proper transaction support in the `execute_insert` method.
 
 ## Tests
 
