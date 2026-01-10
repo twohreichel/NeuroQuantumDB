@@ -13,12 +13,14 @@ All planned features have been implemented and tested.
 ### 1. Size Optimization 🎯
 
 **Target:** < 1MB gzipped
-**Achieved:** 55 KB gzipped (95% smaller than target!)
+**Achieved:** 56 KB gzipped (94% smaller than target!)
 
-- Uncompressed WASM: 114 KB
-- Gzipped WASM: 55 KB  
+- Uncompressed WASM: 115 KB
+- Gzipped WASM: 56 KB  
 - JavaScript glue: ~10-20 KB
-- Total bundle (gzipped): ~65-75 KB
+- Total bundle (gzipped): ~66-76 KB
+
+**Note:** Uses default WASM allocator (wee_alloc removed due to being unmaintained)
 
 ### 2. Core Functionality ✅
 

@@ -198,11 +198,13 @@ The WASM module is optimized for size:
 - wasm-opt used for additional optimization
 
 Typical bundle sizes:
-- Gzipped WASM: ~55 KB (release build)
-- Uncompressed WASM: ~114 KB
+- Gzipped WASM: ~56 KB (release build)
+- Uncompressed WASM: ~115 KB
 - JavaScript glue code: ~10-20 KB
 
-Total optimized bundle: **~65-75 KB gzipped**
+Total optimized bundle: **~66-76 KB gzipped**
+
+> **Note:** Uses default WASM allocator for optimal security (wee_alloc removed as it's unmaintained).
 
 ## Browser Compatibility
 

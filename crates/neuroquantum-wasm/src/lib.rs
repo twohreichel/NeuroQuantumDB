@@ -34,11 +34,6 @@ use js_sys::{Array, Object, Reflect};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// When the `wee_alloc_feature` feature is enabled, use `wee_alloc` as the global allocator.
-#[cfg(feature = "wee_alloc_feature")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 /// Initialize panic hook for better error messages in the browser console
 #[wasm_bindgen(start)]
 pub fn init() {

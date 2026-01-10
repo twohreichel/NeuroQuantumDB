@@ -29,14 +29,6 @@ anyhow = "1.0"
 # Logging for browser console
 console_error_panic_hook = "0.1"
 
-[features]
-default = []
-wee_alloc_feature = ["wee_alloc"]
-
-[dependencies.wee_alloc]
-version = "0.4"
-optional = true
-
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
