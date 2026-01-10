@@ -827,17 +827,33 @@ SELECT id, name, email FROM large_table WHERE id = 123;
 
 ### Batch Operations
 
-#### Example 36: Batch Inserts
+#### Example 36: Batch Inserts (Multi-Row INSERT)
 
 ```sql
--- Efficient batch insert
+-- Efficient batch insert with multiple rows in a single statement
 INSERT INTO logs (timestamp, level, message) VALUES
     ('2024-01-07 10:00:00', 'INFO', 'Service started'),
     ('2024-01-07 10:00:01', 'INFO', 'Connection established'),
     ('2024-01-07 10:00:02', 'DEBUG', 'Processing request'),
     ('2024-01-07 10:00:03', 'INFO', 'Request completed');
+
+-- For larger batches, you can insert hundreds of rows at once
+INSERT INTO events (user_id, event_type, timestamp) VALUES
+    (1, 'login', '2024-01-07 10:00:00'),
+    (2, 'page_view', '2024-01-07 10:00:01'),
+    (1, 'click', '2024-01-07 10:00:02'),
+    (3, 'login', '2024-01-07 10:00:03'),
+    (2, 'logout', '2024-01-07 10:00:04');
 ```
-**Tip**: Batch operations reduce transaction overhead. Aim for 100-1000 rows per batch.
+
+**Performance Benefits:**
+- **Reduced Network Roundtrips**: One query instead of N queries
+- **Batch WAL Writes**: All rows written to Write-Ahead Log together
+- **Optimized B+ Tree Operations**: Insertions can be batched and optimized
+- **Atomic Operation**: All rows inserted together (transaction semantics)
+- **DNA Compression**: Compression applied across all rows efficiently
+
+**Tip**: Batch operations reduce transaction overhead. Aim for 100-1000 rows per batch for optimal performance. For even larger datasets, consider splitting into multiple batches.
 
 #### Example 37: Batch Updates with CASE
 
