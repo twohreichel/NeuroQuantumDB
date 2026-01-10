@@ -30,6 +30,7 @@ async fn main() -> Result<()> {
             neuroquantum_api::cli::Commands::Init { .. }
             | neuroquantum_api::cli::Commands::GenerateJwtSecret { .. }
             | neuroquantum_api::cli::Commands::Key { .. }
+            | neuroquantum_api::cli::Commands::Migrate { .. }
             | neuroquantum_api::cli::Commands::HealthCheck { .. } => {
                 return cli.execute().await;
             }
