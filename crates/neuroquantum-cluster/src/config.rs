@@ -53,6 +53,9 @@ pub struct ClusterManagerConfig {
 
     /// Interval for replication cleanup
     pub replication_cleanup_interval: Duration,
+
+    /// Rolling upgrade configuration
+    pub upgrades: UpgradeConfig,
 }
 
 impl Default for ClusterManagerConfig {
@@ -61,6 +64,42 @@ impl Default for ClusterManagerConfig {
             replication_timeout: Duration::from_secs(30),
             health_check_interval: Duration::from_secs(5),
             replication_cleanup_interval: Duration::from_secs(60),
+            upgrades: UpgradeConfig::default(),
+        }
+    }
+}
+
+/// Configuration for rolling upgrades.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpgradeConfig {
+    /// Timeout for draining connections before shutdown (in seconds)
+    pub drain_timeout_secs: u64,
+
+    /// Interval for health checks during upgrade (in seconds)
+    pub health_check_interval_secs: u64,
+
+    /// Minimum number of healthy nodes required during upgrade
+    pub min_healthy_nodes: usize,
+
+    /// Enable automatic rollback on upgrade failure
+    pub rollback_on_failure: bool,
+
+    /// Protocol version for this node
+    pub protocol_version: u32,
+
+    /// Minimum compatible protocol version
+    pub min_compatible_version: u32,
+}
+
+impl Default for UpgradeConfig {
+    fn default() -> Self {
+        Self {
+            drain_timeout_secs: 30,
+            health_check_interval_secs: 5,
+            min_healthy_nodes: 2,
+            rollback_on_failure: true,
+            protocol_version: 1,
+            min_compatible_version: 1,
         }
     }
 }
