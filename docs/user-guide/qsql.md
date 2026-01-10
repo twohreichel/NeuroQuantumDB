@@ -47,7 +47,7 @@ DROP TABLE products;
 -- Insert WITHOUT specifying ID - it's auto-generated!
 INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
 
--- Insert multiple rows (Bulk Insert) - More efficient!
+-- Insert multiple rows (Bulk Insert) - more efficient for batch operations
 INSERT INTO users (name, email) VALUES 
     ('Bob', 'bob@example.com'),
     ('Charlie', 'charlie@example.com'),

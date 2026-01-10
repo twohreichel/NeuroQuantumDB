@@ -830,7 +830,7 @@ SELECT id, name, email FROM large_table WHERE id = 123;
 #### Example 36: Batch Inserts (Multi-Row INSERT)
 
 ```sql
--- Efficient batch insert - inserts 4 rows in a single statement
+-- Efficient batch insert with multiple rows in a single statement
 INSERT INTO logs (timestamp, level, message) VALUES
     ('2024-01-07 10:00:00', 'INFO', 'Service started'),
     ('2024-01-07 10:00:01', 'INFO', 'Connection established'),

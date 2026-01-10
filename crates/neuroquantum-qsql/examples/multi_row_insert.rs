@@ -13,6 +13,7 @@
 
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tempfile::TempDir;
@@ -76,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         primary_key: "id".to_string(),
         created_at: chrono::Utc::now(),
         version: 1,
-        auto_increment_columns: std::collections::HashMap::new(),
+        auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
