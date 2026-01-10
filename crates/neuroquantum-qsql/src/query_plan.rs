@@ -3473,6 +3473,7 @@ impl QueryExecutor {
             AlterTableOperation::ModifyColumn {
                 column_name,
                 new_data_type,
+                using_expression: _,
             } => neuroquantum_core::storage::AlterTableOp::ModifyColumn {
                 column_name: column_name.clone(),
                 new_data_type: Self::convert_data_type(new_data_type),
