@@ -258,6 +258,9 @@ pub enum TokenType {
     Execute,
     Deallocate,
 
+    // Schema migration keywords
+    Concurrently,
+
     // Operators and punctuation
     Equal,
     NotEqual,
@@ -3559,9 +3562,36 @@ impl QSQLParser {
 
                 let new_data_type = self.parse_data_type(tokens, &mut i)?;
 
+                // Check for USING clause
+                let using_expression = if i < tokens.len() && matches!(tokens[i], TokenType::Using) {
+                    i += 1;
+                    // Parse the expression as a string until CONCURRENTLY or EOF
+                    let mut expr = String::new();
+                    while i < tokens.len() 
+                        && !matches!(tokens[i], TokenType::Concurrently | TokenType::Semicolon | TokenType::EOF) {
+                        match &tokens[i] {
+                            TokenType::Identifier(s) => expr.push_str(s),
+                            TokenType::StringLiteral(s) => {
+                                expr.push('\'');
+                                expr.push_str(s);
+                                expr.push('\'');
+                            }
+                            _ => expr.push_str(&format!("{:?}", tokens[i])),
+                        }
+                        i += 1;
+                        if i < tokens.len() {
+                            expr.push(' ');
+                        }
+                    }
+                    Some(expr.trim().to_string())
+                } else {
+                    None
+                };
+
                 AlterTableOperation::ModifyColumn {
                     column_name,
                     new_data_type,
+                    using_expression,
                 }
             }
             TokenType::Rename => {
@@ -3609,9 +3639,17 @@ impl QSQLParser {
             }
         };
 
+        // Check for CONCURRENTLY keyword at the end
+        let concurrently = if i + 1 < tokens.len() && matches!(tokens[i + 1], TokenType::Concurrently) {
+            true
+        } else {
+            false
+        };
+
         Ok(Statement::AlterTable(AlterTableStatement {
             table_name,
             operation,
+            concurrently,
         }))
     }
 
@@ -3636,6 +3674,14 @@ impl QSQLParser {
         if i < tokens.len() && matches!(tokens[i], TokenType::Index) {
             i += 1;
         }
+
+        // Check for CONCURRENTLY
+        let concurrently = if i < tokens.len() && matches!(tokens[i], TokenType::Concurrently) {
+            i += 1;
+            true
+        } else {
+            false
+        };
 
         // Check for IF NOT EXISTS
         let mut if_not_exists = false;
@@ -3732,6 +3778,7 @@ impl QSQLParser {
             columns,
             unique,
             if_not_exists,
+            concurrently,
         }))
     }
 
@@ -3748,6 +3795,14 @@ impl QSQLParser {
         if i < tokens.len() && matches!(tokens[i], TokenType::Index) {
             i += 1;
         }
+
+        // Check for CONCURRENTLY
+        let concurrently = if i < tokens.len() && matches!(tokens[i], TokenType::Concurrently) {
+            i += 1;
+            true
+        } else {
+            false
+        };
 
         // Check for IF EXISTS
         let mut if_exists = false;
@@ -3772,6 +3827,7 @@ impl QSQLParser {
         Ok(Statement::DropIndex(DropIndexStatement {
             index_name,
             if_exists,
+            concurrently,
         }))
     }
 
@@ -4400,6 +4456,9 @@ impl QSQLParser {
         keywords.insert("PREPARE".to_string(), TokenType::Prepare);
         keywords.insert("EXECUTE".to_string(), TokenType::Execute);
         keywords.insert("DEALLOCATE".to_string(), TokenType::Deallocate);
+
+        // Schema migration keywords
+        keywords.insert("CONCURRENTLY".to_string(), TokenType::Concurrently);
     }
 
     /// Initialize operator mappings with precedence for Pratt parsing
