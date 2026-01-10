@@ -28,7 +28,14 @@ anyhow = "1.0"
 
 # Logging for browser console
 console_error_panic_hook = "0.1"
-wee_alloc = "0.4"
+
+[features]
+default = []
+wee_alloc_feature = ["wee_alloc"]
+
+[dependencies.wee_alloc]
+version = "0.4"
+optional = true
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
@@ -42,4 +49,4 @@ panic = "abort"     # Remove unwinding code for smaller binary
 strip = true        # Strip debug symbols
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-Oz", "--enable-mutable-globals"]
+wasm-opt = false
