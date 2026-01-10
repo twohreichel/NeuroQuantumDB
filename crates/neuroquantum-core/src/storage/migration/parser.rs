@@ -6,6 +6,9 @@ use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Timestamp format for migration files
+const TIMESTAMP_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+
 /// Direction of migration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MigrationDirection {
@@ -134,9 +137,14 @@ impl MigrationParser {
             fs::create_dir_all(&self.migrations_dir)?;
         }
 
-        // Find the next migration number
+        // Find the highest existing migration number
         let migrations = self.load_all()?;
-        let next_num = migrations.len() + 1;
+        let next_num = migrations
+            .iter()
+            .filter_map(|m| m.id.parse::<u32>().ok())
+            .max()
+            .map(|n| n + 1)
+            .unwrap_or(1);
 
         // Create filename with zero-padded number
         let filename = format!("{:03}_{}", next_num, name.replace(' ', "_"));
@@ -147,13 +155,13 @@ impl MigrationParser {
         let up_template = format!(
             "-- Migration: {}\n-- Created: {}\n\n-- Add your up migration SQL here\n",
             name,
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+            chrono::Utc::now().format(TIMESTAMP_FORMAT)
         );
 
         let down_template = format!(
             "-- Migration: {}\n-- Created: {}\n\n-- Add your down migration SQL here\n",
             name,
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+            chrono::Utc::now().format(TIMESTAMP_FORMAT)
         );
 
         fs::write(&up_file, up_template)?;

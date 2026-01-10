@@ -226,7 +226,13 @@ impl MigrationExecutor {
         }
 
         // TODO: Actually execute SQL against database
+        // This requires integration with the storage engine's query executor
         // For now, simulate execution
+        // Future implementation should:
+        // 1. Parse SQL using neuroquantum_qsql parser
+        // 2. Execute DDL operations through storage engine
+        // 3. Use CONCURRENTLY flag to implement non-blocking operations
+        // 4. Track actual rows affected
         self.progress
             .update(50, "Executing SQL...".to_string())
             .await;

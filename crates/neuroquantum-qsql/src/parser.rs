@@ -3576,7 +3576,14 @@ impl QSQLParser {
                                 expr.push_str(s);
                                 expr.push('\'');
                             }
-                            _ => expr.push_str(&format!("{:?}", tokens[i])),
+                            TokenType::Colon => expr.push(':'),
+                            TokenType::Dot => expr.push('.'),
+                            TokenType::LeftParen => expr.push('('),
+                            TokenType::RightParen => expr.push(')'),
+                            _ => {
+                                // For other tokens, use a simple string representation
+                                expr.push_str(&format!("{:?}", tokens[i]));
+                            }
                         }
                         i += 1;
                         if i < tokens.len() {
@@ -3640,11 +3647,7 @@ impl QSQLParser {
         };
 
         // Check for CONCURRENTLY keyword at the end
-        let concurrently = if i + 1 < tokens.len() && matches!(tokens[i + 1], TokenType::Concurrently) {
-            true
-        } else {
-            false
-        };
+        let concurrently = i + 1 < tokens.len() && matches!(tokens[i + 1], TokenType::Concurrently);
 
         Ok(Statement::AlterTable(AlterTableStatement {
             table_name,

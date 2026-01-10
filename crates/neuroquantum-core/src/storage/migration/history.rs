@@ -45,6 +45,11 @@ pub struct MigrationRecord {
 }
 
 /// Manages migration history
+///
+/// NOTE: Current implementation uses in-memory storage for migration records.
+/// In a production environment, this should be backed by persistent storage
+/// (e.g., a dedicated migrations table in the database) to survive restarts.
+/// The in-memory implementation is suitable for development and testing.
 pub struct MigrationHistory {
     /// In-memory cache of migration records
     records: RwLock<HashMap<MigrationId, MigrationRecord>>,
@@ -59,6 +64,10 @@ impl MigrationHistory {
     }
 
     /// Initialize the migration history table
+    ///
+    /// NOTE: In a production implementation, this would create a dedicated table
+    /// in the database to persist migration history. The current implementation
+    /// uses in-memory storage only.
     pub async fn initialize(&self) -> Result<()> {
         // This would create the migration history table in the database
         // For now, we'll use in-memory storage
