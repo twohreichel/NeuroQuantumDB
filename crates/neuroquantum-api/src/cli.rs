@@ -662,12 +662,14 @@ async fn health_check(url: String, timeout_secs: u64) -> Result<()> {
 }
 
 async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
-    use neuroquantum_core::storage::{
-        MigrationConfig, MigrationExecutor, MigrationExecutorConfig,
-    };
+    use neuroquantum_core::storage::{MigrationConfig, MigrationExecutor, MigrationExecutorConfig};
 
     match action {
-        MigrateAction::Up { dir, dry_run, verbose } => {
+        MigrateAction::Up {
+            dir,
+            dry_run,
+            verbose,
+        } => {
             println!("🚀 Running migrations...\n");
 
             let config = MigrationExecutorConfig {
@@ -690,10 +692,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 println!("📊 Migration Results:\n");
                 for result in results {
                     if result.success {
-                        println!(
-                            "  ✅ {} - {}ms",
-                            result.migration_id, result.duration_ms
-                        );
+                        println!("  ✅ {} - {}ms", result.migration_id, result.duration_ms);
                     } else {
                         println!(
                             "  ❌ {} - Failed: {}",
@@ -733,10 +732,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 println!("📊 Rollback Results:\n");
                 for result in results {
                     if result.success {
-                        println!(
-                            "  ✅ {} - {}ms",
-                            result.migration_id, result.duration_ms
-                        );
+                        println!("  ✅ {} - {}ms", result.migration_id, result.duration_ms);
                     } else {
                         println!(
                             "  ❌ {} - Failed: {}",
@@ -773,7 +769,11 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                     println!(
                         "{:<20}  | {:<8} | {}",
                         migration.id,
-                        if applied { "✅ Applied" } else { "⏳ Pending" },
+                        if applied {
+                            "✅ Applied"
+                        } else {
+                            "⏳ Pending"
+                        },
                         migration.description
                     );
                 }

@@ -11,7 +11,7 @@
 //! - Performance benefits of bulk operations
 //! - Error handling for batch inserts
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("─────────────────────────────────");
 
     let start = Instant::now();
-    
+
     // Insert one row at a time
     let sql1 = "INSERT INTO users (name, email, age) VALUES ('Alice', 'alice@example.com', 25)";
     let stmt1 = parser.parse(sql1)?;
@@ -112,7 +112,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Inserted {} row", result3.rows_affected);
 
     let single_duration = start.elapsed();
-    println!("⏱️  Time taken for 3 single-row INSERTs: {:?}\n", single_duration);
+    println!(
+        "⏱️  Time taken for 3 single-row INSERTs: {:?}\n",
+        single_duration
+    );
 
     // Clear the table for next example
     let truncate_sql = "DELETE FROM users WHERE id > 0";
@@ -134,15 +137,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ('Bob', 'bob@example.com', 30),
             ('Charlie', 'charlie@example.com', 35)
     "#;
-    
+
     let multi_stmt = parser.parse(multi_sql)?;
     let multi_result = executor.execute_statement(&multi_stmt).await?;
-    
+
     let multi_duration = start.elapsed();
-    
-    println!("✅ Inserted {} rows in a single statement", multi_result.rows_affected);
+
+    println!(
+        "✅ Inserted {} rows in a single statement",
+        multi_result.rows_affected
+    );
     println!("⏱️  Time taken: {:?}", multi_duration);
-    
+
     if multi_duration < single_duration {
         let speedup = single_duration.as_micros() as f64 / multi_duration.as_micros() as f64;
         println!("🚀 Multi-row INSERT was {:.2}x faster!", speedup);
@@ -160,7 +166,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for i in 1..=50 {
         values_parts.push(format!(
             "('User{}', 'user{}@example.com', {})",
-            i, i, 20 + (i % 50)
+            i,
+            i,
+            20 + (i % 50)
         ));
     }
     let large_sql = format!(
@@ -189,9 +197,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Found {} users with age >= 30:", select_result.rows.len());
     for row in select_result.rows.iter().take(5) {
-        let name = row.get("name").map(|v| format!("{:?}", v)).unwrap_or_default();
-        let email = row.get("email").map(|v| format!("{:?}", v)).unwrap_or_default();
-        let age = row.get("age").map(|v| format!("{:?}", v)).unwrap_or_default();
+        let name = row
+            .get("name")
+            .map(|v| format!("{:?}", v))
+            .unwrap_or_default();
+        let email = row
+            .get("email")
+            .map(|v| format!("{:?}", v))
+            .unwrap_or_default();
+        let age = row
+            .get("age")
+            .map(|v| format!("{:?}", v))
+            .unwrap_or_default();
         println!("  - {} ({}) - Age: {}", name, email, age);
     }
     println!();
@@ -215,10 +232,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ('Eve', 'eve@example.com', 32),
             ('Frank', 'frank@example.com', 45)
     "#;
-    
+
     let tx_stmt = parser.parse(tx_sql)?;
     let tx_result = executor.execute_statement(&tx_stmt).await?;
-    println!("📝 Inserted {} rows (not yet committed)", tx_result.rows_affected);
+    println!(
+        "📝 Inserted {} rows (not yet committed)",
+        tx_result.rows_affected
+    );
 
     // Commit transaction
     let commit_sql = "COMMIT";

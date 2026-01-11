@@ -157,10 +157,7 @@ impl MigrationHistory {
     }
 
     /// Get pending migrations from a list
-    pub async fn get_pending(
-        &self,
-        all_migrations: Vec<MigrationId>,
-    ) -> Result<Vec<MigrationId>> {
+    pub async fn get_pending(&self, all_migrations: Vec<MigrationId>) -> Result<Vec<MigrationId>> {
         let records = self.records.read().await;
         Ok(all_migrations
             .into_iter()

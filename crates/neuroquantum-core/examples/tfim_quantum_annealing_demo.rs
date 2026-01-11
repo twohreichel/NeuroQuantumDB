@@ -26,11 +26,11 @@
 //! cargo run --example tfim_quantum_annealing_demo
 //! ```
 
+use nalgebra::DMatrix;
 use neuroquantum_core::quantum::{
     AnnealingBackend, BraketTFIMConfig, BraketTFIMSolver, DWaveTFIMConfig, DWaveTFIMSolver,
     TFIMBackendPreference, TFIMProblem, UnifiedTFIMAnnealingConfig, UnifiedTFIMAnnealingSolver,
 };
-use nalgebra::DMatrix;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -87,7 +87,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Demonstrate unified solver with automatic backend selection
-async fn demo_unified_solver(problem: &TFIMProblem, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_unified_solver(
+    problem: &TFIMProblem,
+    name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("  Solving using UnifiedTFIMAnnealingSolver (auto-select)...");
 
     let solver = UnifiedTFIMAnnealingSolver::from_env();
@@ -96,8 +99,14 @@ async fn demo_unified_solver(problem: &TFIMProblem, name: &str) -> Result<(), Bo
     println!("  ✓ Solution found:");
     println!("    Spins: {:?}", solution.spins);
     println!("    Energy: {:.6}", solution.energy);
-    println!("    Ground state probability: {:.4}", solution.ground_state_prob);
-    println!("    Computation time: {:.2} ms", solution.computation_time_ms);
+    println!(
+        "    Ground state probability: {:.4}",
+        solution.ground_state_prob
+    );
+    println!(
+        "    Computation time: {:.2} ms",
+        solution.computation_time_ms
+    );
     println!("    Tunneling events: {}", solution.tunneling_events);
 
     // Analyze solution
@@ -116,15 +125,21 @@ async fn demo_specific_backends(problem: &TFIMProblem) -> Result<(), Box<dyn std
         ..Default::default()
     };
     let dwave_solver = DWaveTFIMSolver::new(dwave_config);
-    
+
     if dwave_solver.is_available() {
         println!("    ✓ D-Wave API available");
         let solution = dwave_solver.solve(problem).await?;
-        println!("    Energy: {:.6}, Time: {:.2} ms", solution.energy, solution.computation_time_ms);
+        println!(
+            "    Energy: {:.6}, Time: {:.2} ms",
+            solution.energy, solution.computation_time_ms
+        );
     } else {
         println!("    ⚠ D-Wave API not configured (will use classical fallback)");
         let solution = dwave_solver.solve(problem).await?;
-        println!("    Energy (classical): {:.6}, Time: {:.2} ms", solution.energy, solution.computation_time_ms);
+        println!(
+            "    Energy (classical): {:.6}, Time: {:.2} ms",
+            solution.energy, solution.computation_time_ms
+        );
     }
 
     println!("\n  Testing AWS Braket backend:");
@@ -133,15 +148,21 @@ async fn demo_specific_backends(problem: &TFIMProblem) -> Result<(), Box<dyn std
         ..Default::default()
     };
     let braket_solver = BraketTFIMSolver::new(braket_config);
-    
+
     if braket_solver.is_available() {
         println!("    ✓ AWS Braket available");
         let solution = braket_solver.solve(problem).await?;
-        println!("    Energy: {:.6}, Time: {:.2} ms", solution.energy, solution.computation_time_ms);
+        println!(
+            "    Energy: {:.6}, Time: {:.2} ms",
+            solution.energy, solution.computation_time_ms
+        );
     } else {
         println!("    ⚠ AWS Braket not configured (will use classical fallback)");
         let solution = braket_solver.solve(problem).await?;
-        println!("    Energy (classical): {:.6}, Time: {:.2} ms", solution.energy, solution.computation_time_ms);
+        println!(
+            "    Energy (classical): {:.6}, Time: {:.2} ms",
+            solution.energy, solution.computation_time_ms
+        );
     }
 
     println!("\n  Testing explicit classical backend:");
@@ -153,7 +174,10 @@ async fn demo_specific_backends(problem: &TFIMProblem) -> Result<(), Box<dyn std
     };
     let classical_solver = UnifiedTFIMAnnealingSolver::new(classical_config);
     let solution = classical_solver.solve(problem).await?;
-    println!("    Energy: {:.6}, Time: {:.2} ms", solution.energy, solution.computation_time_ms);
+    println!(
+        "    Energy: {:.6}, Time: {:.2} ms",
+        solution.energy, solution.computation_time_ms
+    );
 
     Ok(())
 }
@@ -224,9 +248,7 @@ fn create_spin_glass_with_fields(n: usize) -> TFIMProblem {
         }
     }
 
-    let external_fields: Vec<f64> = (0..n)
-        .map(|_| (rng.gen::<f64>() - 0.5) * 1.0)
-        .collect();
+    let external_fields: Vec<f64> = (0..n).map(|_| (rng.gen::<f64>() - 0.5) * 1.0).collect();
 
     TFIMProblem {
         num_spins: n,
@@ -239,10 +261,10 @@ fn create_spin_glass_with_fields(n: usize) -> TFIMProblem {
 /// Analyze the solution and provide insights
 fn analyze_solution(solution: &neuroquantum_core::quantum::TFIMSolution, problem_type: &str) {
     let n = solution.spins.len();
-    
+
     // Calculate magnetization
     let magnetization: f64 = solution.spins.iter().map(|&s| s as f64).sum::<f64>() / n as f64;
-    
+
     // Check if all spins are aligned
     let all_up = solution.spins.iter().all(|&s| s == 1);
     let all_down = solution.spins.iter().all(|&s| s == -1);
@@ -251,7 +273,7 @@ fn analyze_solution(solution: &neuroquantum_core::quantum::TFIMSolution, problem
     println!("    Analysis:");
     println!("      Magnetization: {:.3}", magnetization);
     println!("      All aligned: {}", if aligned { "Yes" } else { "No" });
-    
+
     match problem_type {
         "Ferromagnetic" => {
             if aligned {

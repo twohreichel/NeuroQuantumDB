@@ -760,12 +760,12 @@ pub struct ParallelTemperingResults {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct GroverRequestConfig {
     /// Backend: "simulator", "ibm", "braket", "ionq", "superconducting", "trapped_ion", "neutral_atom", or "classical"
-    /// 
+    ///
     /// Real hardware backends:
     /// - "ibm": IBM Quantum via Qiskit Runtime (requires IBM_QUANTUM_API_KEY)
     /// - "braket": AWS Braket (requires AWS credentials)
     /// - "ionq": IonQ trapped-ion (requires IONQ_API_KEY)
-    /// 
+    ///
     /// Simulation backends:
     /// - "simulator": Local state vector simulation (default)
     /// - "superconducting", "trapped_ion", "neutral_atom": Simulated hardware characteristics

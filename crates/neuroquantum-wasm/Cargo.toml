@@ -42,3 +42,6 @@ strip = true        # Strip debug symbols
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false
+
+[package.metadata.cargo-machete]
+ignored = ["anyhow", "thiserror", "wasm-bindgen-futures", "web-sys"]

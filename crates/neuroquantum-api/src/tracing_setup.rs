@@ -1,9 +1,10 @@
 //! OpenTelemetry distributed tracing setup and configuration
 
-use crate::config::{TracingConfig, TracingExporter, TraceLevel};
+use crate::config::{TracingConfig, TracingExporter};
 use anyhow::{Context, Result};
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};
+use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler, Tracer};
 use opentelemetry_sdk::{runtime, Resource};
 use opentelemetry_semantic_conventions::resource::{SERVICE_NAME, SERVICE_VERSION};
@@ -71,7 +72,10 @@ fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
     // Default Jaeger OTLP endpoint is port 4317
     let otlp_endpoint = if config.endpoint.contains("14268") {
         // Convert old HTTP collector endpoint to OTLP gRPC endpoint
-        config.endpoint.replace("14268", "4317").replace("/api/traces", "")
+        config
+            .endpoint
+            .replace("14268", "4317")
+            .replace("/api/traces", "")
     } else if config.endpoint.contains("4317") {
         config.endpoint.clone()
     } else {
@@ -87,22 +91,23 @@ fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
     // Create sampler based on sampling rate
     let sampler = create_sampler(config.sampling_rate);
 
-    // Build OTLP pipeline targeting Jaeger
-    let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(
-            opentelemetry_otlp::new_exporter()
-                .tonic()
-                .with_endpoint(&otlp_endpoint),
-        )
-        .with_trace_config(
-            opentelemetry_sdk::trace::Config::default()
-                .with_sampler(sampler)
-                .with_id_generator(RandomIdGenerator::default())
-                .with_resource(resource),
-        )
-        .install_batch(runtime::Tokio)
-        .context("Failed to install OTLP tracer for Jaeger")?;
+    // Build OTLP exporter targeting Jaeger
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(&otlp_endpoint)
+        .build()
+        .context("Failed to build OTLP exporter for Jaeger")?;
+
+    // Build tracer provider with the exporter
+    let provider = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_batch_exporter(exporter, runtime::Tokio)
+        .with_sampler(sampler)
+        .with_id_generator(RandomIdGenerator::default())
+        .with_resource(resource)
+        .build();
+
+    let tracer = provider.tracer("neuroquantumdb");
+    global::set_tracer_provider(provider);
 
     Ok(tracer)
 }
@@ -117,22 +122,23 @@ fn create_otlp_tracer(config: &TracingConfig) -> Result<Tracer> {
     // Create sampler based on sampling rate
     let sampler = create_sampler(config.sampling_rate);
 
-    // Build OTLP pipeline
-    let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(
-            opentelemetry_otlp::new_exporter()
-                .tonic()
-                .with_endpoint(&config.endpoint),
-        )
-        .with_trace_config(
-            opentelemetry_sdk::trace::Config::default()
-                .with_sampler(sampler)
-                .with_id_generator(RandomIdGenerator::default())
-                .with_resource(resource),
-        )
-        .install_batch(runtime::Tokio)
-        .context("Failed to install OTLP tracer")?;
+    // Build OTLP exporter
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(&config.endpoint)
+        .build()
+        .context("Failed to build OTLP exporter")?;
+
+    // Build tracer provider with the exporter
+    let provider = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_batch_exporter(exporter, runtime::Tokio)
+        .with_sampler(sampler)
+        .with_id_generator(RandomIdGenerator::default())
+        .with_resource(resource)
+        .build();
+
+    let tracer = provider.tracer("neuroquantumdb");
+    global::set_tracer_provider(provider);
 
     Ok(tracer)
 }
@@ -148,16 +154,15 @@ fn create_console_tracer(config: &TracingConfig) -> Result<Tracer> {
     let sampler = create_sampler(config.sampling_rate);
 
     // Build console/stdout pipeline
-    let tracer = opentelemetry_sdk::trace::TracerProvider::builder()
-        .with_config(
-            opentelemetry_sdk::trace::Config::default()
-                .with_sampler(sampler)
-                .with_id_generator(RandomIdGenerator::default())
-                .with_resource(resource),
-        )
+    let provider = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_sampler(sampler)
+        .with_id_generator(RandomIdGenerator::default())
+        .with_resource(resource)
         .with_simple_exporter(opentelemetry_stdout::SpanExporter::default())
-        .build()
-        .tracer("neuroquantumdb");
+        .build();
+
+    let tracer = provider.tracer("neuroquantumdb");
+    global::set_tracer_provider(provider);
 
     Ok(tracer)
 }
@@ -241,7 +246,7 @@ mod tests {
     fn test_create_resource() {
         let config = TracingConfig::default();
         let resource = create_resource(&config);
-        
+
         // Check that resource has required attributes
         let attrs: Vec<_> = resource.iter().collect();
         assert!(!attrs.is_empty());

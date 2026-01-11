@@ -493,6 +493,11 @@ pub enum Expression {
     // Parameter placeholder for prepared statements
     // Supports positional ($1, $2) and named (:name) parameters
     Parameter(ParameterRef),
+
+    // DEFAULT keyword for INSERT statements
+    // Used when inserting a row with a column that should use its default value
+    // Syntax: INSERT INTO table (col1, col2) VALUES ('value', DEFAULT)
+    Default,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -910,12 +915,10 @@ impl fmt::Display for Statement {
             Statement::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
             Statement::Prepare(p) => write!(f, "PREPARE {}", p.name),
             Statement::Execute(e) => write!(f, "EXECUTE {}", e.name),
-            Statement::Deallocate(d) => {
-                match &d.name {
-                    Some(name) => write!(f, "DEALLOCATE {}", name),
-                    None => write!(f, "DEALLOCATE ALL"),
-                }
-            }
+            Statement::Deallocate(d) => match &d.name {
+                Some(name) => write!(f, "DEALLOCATE {}", name),
+                None => write!(f, "DEALLOCATE ALL"),
+            },
             _ => write!(f, "{:?}", self),
         }
     }

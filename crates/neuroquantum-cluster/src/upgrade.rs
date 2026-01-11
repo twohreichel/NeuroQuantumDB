@@ -320,7 +320,9 @@ impl UpgradeCoordinator {
         // 3. Restart the node
         // 4. Verify health
 
-        warn!("Rollback functionality not yet implemented - requires deployment system integration");
+        warn!(
+            "Rollback functionality not yet implemented - requires deployment system integration"
+        );
 
         Ok(())
     }
@@ -336,10 +338,7 @@ pub async fn canary_upgrade(
     canary_node: Arc<ClusterNode>,
     health_check_duration: Duration,
 ) -> ClusterResult<()> {
-    info!(
-        node_id = canary_node.node_id(),
-        "Starting canary upgrade"
-    );
+    info!(node_id = canary_node.node_id(), "Starting canary upgrade");
 
     // Perform the upgrade
     coordinator.upgrade_node(canary_node.clone()).await?;
@@ -355,7 +354,9 @@ pub async fn canary_upgrade(
     tokio::time::sleep(SIMULATED_UPGRADE_TIME).await;
 
     // Complete the upgrade and run health checks
-    coordinator.complete_node_upgrade(canary_node.clone()).await?;
+    coordinator
+        .complete_node_upgrade(canary_node.clone())
+        .await?;
 
     // Monitor the canary for a period
     info!(

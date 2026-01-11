@@ -212,6 +212,7 @@ struct PeerConnection {
     /// gRPC client for this peer
     client: Option<ClusterNodeClient<tonic::transport::Channel>>,
     /// Protocol version of the peer
+    #[allow(dead_code)]
     protocol_version: u32,
 }
 
@@ -262,7 +263,12 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
 
         // Get our protocol version
         let our_protocol_version = self.transport.config.manager.upgrades.protocol_version;
-        let min_compatible = self.transport.config.manager.upgrades.min_compatible_version;
+        let min_compatible = self
+            .transport
+            .config
+            .manager
+            .upgrades
+            .min_compatible_version;
 
         // Check protocol compatibility
         if req.protocol_version < min_compatible {

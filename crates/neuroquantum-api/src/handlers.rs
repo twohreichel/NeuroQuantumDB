@@ -1653,10 +1653,18 @@ fn execute_parallel_tempering(
 /// Execute real quantum Grover's search algorithm
 fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResults, ApiError> {
     use neuroquantum_core::quantum::{
-        GroverQuantumBackend, QuantumGroverConfig, QuantumGroverSolver, QuantumOracle,
+        BraketGroverConfig,
+        BraketGroverSolver,
+        GroverHardwareBackend,
+        GroverQuantumBackend,
         // Hardware backends
-        IBMGroverConfig, IBMGroverSolver, BraketGroverConfig, BraketGroverSolver,
-        IonQGroverConfig, IonQGroverSolver, GroverHardwareBackend,
+        IBMGroverConfig,
+        IBMGroverSolver,
+        IonQGroverConfig,
+        IonQGroverSolver,
+        QuantumGroverConfig,
+        QuantumGroverSolver,
+        QuantumOracle,
     };
 
     let grover_config = search_req.grover_config.clone().unwrap_or_default();
@@ -1727,16 +1735,16 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
 
     // Check for real hardware backend requests
     let backend_name = grover_config.backend.to_lowercase();
-    
+
     // Use hardware backends for IBM, Braket, or IonQ
     if matches!(backend_name.as_str(), "ibm" | "braket" | "ionq") {
         // Execute on real quantum hardware (async)
         let num_shots = grover_config.num_shots as usize;
-        
+
         let result = match backend_name.as_str() {
             "ibm" => {
                 let config = IBMGroverConfig {
-                    num_shots: num_shots,
+                    num_shots,
                     error_mitigation: grover_config.error_mitigation,
                     ..Default::default()
                 };
@@ -1748,7 +1756,7 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
             }
             "braket" => {
                 let config = BraketGroverConfig {
-                    num_shots: num_shots,
+                    num_shots,
                     ..Default::default()
                 };
                 let solver = BraketGroverSolver::new(config);
@@ -1758,7 +1766,7 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
             }
             "ionq" => {
                 let config = IonQGroverConfig {
-                    num_shots: num_shots,
+                    num_shots,
                     ..Default::default()
                 };
                 let solver = IonQGroverSolver::new(config);
@@ -1768,14 +1776,14 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
             }
             _ => unreachable!(),
         };
-        
+
         let result = result.map_err(|e| ApiError::QuantumOperationFailed {
             operation: "Grover's search".to_string(),
             reason: e.to_string(),
         })?;
-        
+
         let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
-        
+
         return Ok(GroverResults {
             found_indices: result.found_indices,
             probabilities: result.probabilities,

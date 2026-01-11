@@ -3563,12 +3563,17 @@ impl QSQLParser {
                 let new_data_type = self.parse_data_type(tokens, &mut i)?;
 
                 // Check for USING clause
-                let using_expression = if i < tokens.len() && matches!(tokens[i], TokenType::Using) {
+                let using_expression = if i < tokens.len() && matches!(tokens[i], TokenType::Using)
+                {
                     i += 1;
                     // Parse the expression as a string until CONCURRENTLY or EOF
                     let mut expr = String::new();
-                    while i < tokens.len() 
-                        && !matches!(tokens[i], TokenType::Concurrently | TokenType::Semicolon | TokenType::EOF) {
+                    while i < tokens.len()
+                        && !matches!(
+                            tokens[i],
+                            TokenType::Concurrently | TokenType::Semicolon | TokenType::EOF
+                        )
+                    {
                         match &tokens[i] {
                             TokenType::Identifier(s) => expr.push_str(s),
                             TokenType::StringLiteral(s) => {
@@ -5290,6 +5295,13 @@ impl QSQLParser {
                 Ok(Expression::Parameter(ParameterRef::Named(param_name)))
             }
 
+            // DEFAULT keyword for INSERT statements
+            // Allows using column's default value: INSERT INTO t (a, b) VALUES (1, DEFAULT)
+            TokenType::Default => {
+                *i += 1;
+                Ok(Expression::Default)
+            }
+
             _ => Err(QSQLError::ParseError {
                 message: format!("Unexpected token in expression: {:?}", tokens[*i]),
                 position: *i,
@@ -5859,7 +5871,7 @@ impl QSQLParser {
 
                 // Check for closing paren (empty parameter list)
                 if matches!(tokens[i], TokenType::RightParen) {
-                    i += 1; // consume ')'
+                    // Consume ')' - no need to increment i since we break immediately
                     break;
                 }
 
@@ -5893,7 +5905,7 @@ impl QSQLParser {
                 if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
                     i += 1; // consume ','
                 } else if i < tokens.len() && matches!(tokens[i], TokenType::RightParen) {
-                    i += 1; // consume ')'
+                    // Consume ')' - no need to increment i since we break immediately
                     break;
                 }
             }

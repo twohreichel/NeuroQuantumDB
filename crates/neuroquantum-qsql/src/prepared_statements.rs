@@ -143,11 +143,12 @@ impl PreparedStatementManager {
         name: &str,
         execute_stmt: &ExecuteStatement,
     ) -> QSQLResult<Statement> {
-        let prepared = self.statements.get(name).ok_or_else(|| {
-            QSQLError::PreparedStatementError {
-                message: format!("Prepared statement '{}' not found", name),
-            }
-        })?;
+        let prepared =
+            self.statements
+                .get(name)
+                .ok_or_else(|| QSQLError::PreparedStatementError {
+                    message: format!("Prepared statement '{}' not found", name),
+                })?;
 
         // Build parameter map from positional and named parameters
         let mut param_values: HashMap<ParameterRef, Expression> = HashMap::new();
@@ -317,11 +318,7 @@ fn count_parameters(statement: &Statement) -> (usize, Vec<String>) {
         }
     }
 
-    fn visit_statement(
-        stmt: &Statement,
-        positional_max: &mut u32,
-        named_params: &mut Vec<String>,
-    ) {
+    fn visit_statement(stmt: &Statement, positional_max: &mut u32, named_params: &mut Vec<String>) {
         match stmt {
             Statement::Select(select) => {
                 if let Some(where_clause) = &select.where_clause {
@@ -376,17 +373,15 @@ fn substitute_parameters(
         params: &HashMap<ParameterRef, Expression>,
     ) -> QSQLResult<Expression> {
         match expr {
-            Expression::Parameter(param_ref) => {
-                params.get(param_ref).cloned().ok_or_else(|| {
-                    let param_str = match param_ref {
-                        ParameterRef::Positional(idx) => format!("${}", idx),
-                        ParameterRef::Named(name) => format!(":{}", name),
-                    };
-                    QSQLError::PreparedStatementError {
-                        message: format!("Missing parameter value for {}", param_str),
-                    }
-                })
-            }
+            Expression::Parameter(param_ref) => params.get(param_ref).cloned().ok_or_else(|| {
+                let param_str = match param_ref {
+                    ParameterRef::Positional(idx) => format!("${}", idx),
+                    ParameterRef::Named(name) => format!(":{}", name),
+                };
+                QSQLError::PreparedStatementError {
+                    message: format!("Missing parameter value for {}", param_str),
+                }
+            }),
             Expression::BinaryOp {
                 left,
                 operator,

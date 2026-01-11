@@ -1253,6 +1253,9 @@ impl StorageEngine {
         // Process AUTO_INCREMENT columns
         self.populate_auto_increment_columns(table, &schema, &mut row)?;
 
+        // Apply DEFAULT values for missing columns
+        Self::populate_default_values(&schema, &mut row);
+
         // Validate row against schema
         self.validate_row(&schema, &row)?;
 
@@ -1345,6 +1348,30 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Populate missing columns with their default values
+    ///
+    /// This function fills in any columns that are missing from the row
+    /// with their defined default values from the schema. This is called
+    /// during INSERT to ensure all columns have appropriate values.
+    fn populate_default_values(schema: &TableSchema, row: &mut Row) {
+        for column in &schema.columns {
+            // Skip if value is already provided
+            if row.fields.contains_key(&column.name) {
+                continue;
+            }
+
+            // Apply default value if available
+            if let Some(default_value) = &column.default_value {
+                row.fields
+                    .insert(column.name.clone(), default_value.clone());
+                debug!(
+                    "📝 Applied default value {:?} for column '{}'",
+                    default_value, column.name
+                );
+            }
+        }
+    }
+
     /// Select rows matching the given query
     #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn select_rows(&self, query: &SelectQuery) -> Result<Vec<Row>> {
@@ -1432,6 +1459,14 @@ impl StorageEngine {
     /// Get the number of tables in the database
     pub fn get_table_count(&self) -> usize {
         self.metadata.tables.len()
+    }
+
+    /// Get the schema for a specific table
+    ///
+    /// Returns the table schema if it exists, or None if the table doesn't exist.
+    /// This is useful for checking column definitions and default values during INSERT.
+    pub fn get_table_schema(&self, table_name: &str) -> Option<&TableSchema> {
+        self.metadata.tables.get(table_name)
     }
 
     /// Update rows matching the given query

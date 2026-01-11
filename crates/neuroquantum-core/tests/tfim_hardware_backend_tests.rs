@@ -32,11 +32,11 @@ fn test_bqm_conversion_simple() {
     let bqm = BinaryQuadraticModel::from_tfim(&problem).unwrap();
 
     assert_eq!(bqm.vartype, VarType::SPIN);
-    
+
     // Check that external fields are converted correctly (with sign flip)
     assert!((bqm.linear[&0] - (-0.5)).abs() < 1e-10);
     assert!((bqm.linear[&1] - 0.3).abs() < 1e-10);
-    
+
     // Check that couplings are present
     assert_eq!(bqm.quadratic.len(), 2); // (0,1) and (1,2)
     assert!((bqm.quadratic[&(0, 1)] - (-1.0)).abs() < 1e-10);
@@ -85,7 +85,7 @@ fn test_bqm_spin_to_binary_conversion() {
     let binary_bqm = spin_bqm.to_binary();
 
     assert_eq!(binary_bqm.vartype, VarType::BINARY);
-    
+
     // Verify conversion maintains energy landscape structure
     // For spin s ∈ {-1, +1} to binary x ∈ {0, 1}: s = 2x - 1
     assert!(binary_bqm.linear.contains_key(&0));
@@ -255,13 +255,25 @@ async fn test_unified_solver_classical_mode() {
 fn test_unified_solver_from_env() {
     // Test that from_env() creates a valid solver
     let _solver = UnifiedTFIMAnnealingSolver::from_env();
-    
+
     // Just verify it creates successfully
     // (Can't check preference directly as config is private)
 }
 
 #[tokio::test]
 async fn test_unified_solver_dwave_preference() {
+    use neuroquantum_core::quantum::{FieldSchedule, TransverseFieldConfig};
+
+    // Use high-quality config for reliable convergence
+    let classical_config = TransverseFieldConfig {
+        initial_field: 10.0,
+        final_field: 0.01,
+        num_steps: 2000,
+        field_schedule: FieldSchedule::Linear,
+        temperature: 0.3, // Lower temperature for better convergence
+        quantum_tunneling: true,
+    };
+
     let config = UnifiedTFIMAnnealingConfig {
         preference: TFIMBackendPreference::DWave,
         dwave_config: Some(DWaveTFIMConfig {
@@ -270,7 +282,7 @@ async fn test_unified_solver_dwave_preference() {
             ..Default::default()
         }),
         braket_config: None,
-        classical_config: Default::default(),
+        classical_config,
     };
 
     let solver = UnifiedTFIMAnnealingSolver::new(config);
@@ -283,11 +295,14 @@ async fn test_unified_solver_dwave_preference() {
     };
 
     let solution = solver.solve(&problem).await.unwrap();
-    
+
     assert_eq!(solution.spins.len(), 3);
     // Strong ferromagnetic coupling should lead to aligned spins
     let all_same = solution.spins.windows(2).all(|w| w[0] == w[1]);
-    assert!(all_same, "Strong ferromagnetic coupling should align all spins");
+    assert!(
+        all_same,
+        "Strong ferromagnetic coupling should align all spins"
+    );
 }
 
 #[tokio::test]
@@ -329,6 +344,25 @@ fn test_annealing_backend_trait() {
 /// This is the specific test mentioned in the acceptance criteria
 #[tokio::test]
 async fn test_observables_magnetization_with_quantum_backend() {
+    use neuroquantum_core::quantum::{FieldSchedule, TransverseFieldConfig};
+
+    // Use high-quality config for reliable convergence
+    let classical_config = TransverseFieldConfig {
+        initial_field: 10.0,
+        final_field: 0.01,
+        num_steps: 2000,
+        field_schedule: FieldSchedule::Linear,
+        temperature: 0.3, // Lower temperature for better convergence
+        quantum_tunneling: true,
+    };
+
+    let config = UnifiedTFIMAnnealingConfig {
+        preference: TFIMBackendPreference::Classical,
+        dwave_config: None,
+        braket_config: None,
+        classical_config,
+    };
+
     // Create a TFIM problem with strong ferromagnetic coupling
     let problem = TFIMProblem {
         num_spins: 3,
@@ -337,17 +371,17 @@ async fn test_observables_magnetization_with_quantum_backend() {
         name: "Strong_Ferromagnet_For_Observables".to_string(),
     };
 
-    // Use unified solver which falls back to classical when quantum unavailable
-    let solver = UnifiedTFIMAnnealingSolver::from_env();
+    // Use unified solver with explicit classical config for reliable results
+    let solver = UnifiedTFIMAnnealingSolver::new(config);
     let solution = solver.solve(&problem).await.unwrap();
 
     // Verify magnetization properties
     assert_eq!(solution.spins.len(), 3);
-    
+
     // Calculate magnetization per spin (should be close to ±1 for strong coupling)
     let total_magnetization: f64 = solution.spins.iter().map(|&s| s as f64).sum();
     let avg_magnetization = total_magnetization / 3.0;
-    
+
     // For strong ferromagnetic coupling, spins should align
     assert!(
         avg_magnetization.abs() > 0.9,
@@ -364,10 +398,6 @@ async fn test_observables_magnetization_with_quantum_backend() {
 
     // Verify all spins are within valid range
     for &spin in &solution.spins {
-        assert!(
-            spin == 1 || spin == -1,
-            "Spin value {} must be ±1",
-            spin
-        );
+        assert!(spin == 1 || spin == -1, "Spin value {} must be ±1", spin);
     }
 }

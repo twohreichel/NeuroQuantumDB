@@ -28,7 +28,6 @@
 //! cargo test --package neuroquantum-core --test cluster_e2e_tests -- --include-ignored --nocapture
 //! ```
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -39,6 +38,7 @@ use tokio::sync::RwLock;
 // Test Configuration
 // ============================================================================
 
+#[allow(dead_code)]
 mod config {
     use std::time::Duration;
 
@@ -78,6 +78,7 @@ fn get_test_port() -> u16 {
 
 /// Statistics for cluster E2E tests
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 struct ClusterTestStats {
     successful_elections: AtomicU64,
     failed_elections: AtomicU64,
@@ -89,10 +90,12 @@ struct ClusterTestStats {
     total_latency_ms: AtomicU64,
 }
 
+#[allow(dead_code)]
 impl ClusterTestStats {
     fn record_successful_election(&self, latency_ms: u64) {
         self.successful_elections.fetch_add(1, Ordering::SeqCst);
-        self.total_latency_ms.fetch_add(latency_ms, Ordering::SeqCst);
+        self.total_latency_ms
+            .fetch_add(latency_ms, Ordering::SeqCst);
     }
 
     fn record_failed_election(&self) {
@@ -154,6 +157,7 @@ impl ClusterTestStats {
 
 /// State of a simulated cluster node
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 enum NodeState {
     Follower,
     Candidate,
@@ -163,6 +167,7 @@ enum NodeState {
 }
 
 /// A simulated cluster node for E2E testing
+#[allow(dead_code)]
 struct SimulatedNode {
     id: u64,
     state: Arc<RwLock<NodeState>>,
@@ -175,6 +180,7 @@ struct SimulatedNode {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct LogEntry {
     term: u64,
     index: u64,
@@ -217,6 +223,7 @@ impl SimulatedNode {
         *self.state.read().await == NodeState::Leader
     }
 
+    #[allow(dead_code)]
     async fn promote_to_leader(&self) {
         let mut state = self.state.write().await;
         let mut term = self.term.write().await;
@@ -268,8 +275,10 @@ impl SimulatedNode {
 struct SimulatedCluster {
     nodes: Vec<Arc<SimulatedNode>>,
     leader_id: Arc<RwLock<Option<u64>>>,
+    cluster_term: Arc<RwLock<u64>>,
 }
 
+#[allow(dead_code)]
 impl SimulatedCluster {
     fn new(node_count: usize) -> Self {
         let nodes: Vec<Arc<SimulatedNode>> = (1..=node_count)
@@ -279,6 +288,7 @@ impl SimulatedCluster {
         Self {
             nodes,
             leader_id: Arc::new(RwLock::new(None)),
+            cluster_term: Arc::new(RwLock::new(0)),
         }
     }
 
@@ -302,12 +312,27 @@ impl SimulatedCluster {
         // Simulate leader election: pick the first running node
         for node in &self.nodes {
             if node.running.load(Ordering::SeqCst) {
-                node.promote_to_leader().await;
+                self.promote_node_to_leader(node.clone()).await;
                 *self.leader_id.write().await = Some(node.id);
                 return Some(node.id);
             }
         }
         None
+    }
+
+    async fn promote_node_to_leader(&self, node: Arc<SimulatedNode>) {
+        // Increment cluster-wide term and set node's term to match
+        let mut cluster_term = self.cluster_term.write().await;
+        *cluster_term += 1;
+        let new_term = *cluster_term;
+        drop(cluster_term);
+
+        let mut node_term = node.term.write().await;
+        *node_term = new_term;
+        drop(node_term);
+
+        let mut state = node.state.write().await;
+        *state = NodeState::Leader;
     }
 
     async fn get_leader(&self) -> Option<Arc<SimulatedNode>> {
@@ -323,7 +348,10 @@ impl SimulatedCluster {
         for node in &self.nodes {
             let state = node.get_state().await;
             // Only count nodes that are running and not partitioned
-            if node.running.load(Ordering::SeqCst) && state != NodeState::Partitioned && state != NodeState::Stopped {
+            if node.running.load(Ordering::SeqCst)
+                && state != NodeState::Partitioned
+                && state != NodeState::Stopped
+            {
                 running.push(node.clone());
             }
         }
@@ -335,10 +363,11 @@ impl SimulatedCluster {
         let leader_id = *self.leader_id.read().await;
         for node in &self.nodes {
             let state = node.get_state().await;
-            if node.running.load(Ordering::SeqCst) 
-                && Some(node.id) != leader_id 
-                && state != NodeState::Partitioned 
-                && state != NodeState::Stopped {
+            if node.running.load(Ordering::SeqCst)
+                && Some(node.id) != leader_id
+                && state != NodeState::Partitioned
+                && state != NodeState::Stopped
+            {
                 followers.push(node.clone());
             }
         }
@@ -372,12 +401,16 @@ impl SimulatedCluster {
         *self.leader_id.write().await = None;
         for node in &self.nodes {
             if node.running.load(Ordering::SeqCst) {
-                node.promote_to_leader().await;
+                self.promote_node_to_leader(node.clone()).await;
                 *self.leader_id.write().await = Some(node.id);
                 return Some(node.id);
             }
         }
         None
+    }
+
+    async fn get_cluster_term(&self) -> u64 {
+        *self.cluster_term.read().await
     }
 }
 
@@ -396,8 +429,15 @@ async fn test_cluster_formation_3_nodes() {
     assert_eq!(running.len(), 3, "All 3 nodes should be running");
 
     // Verify quorum
-    assert!(cluster.has_quorum().await, "3-node cluster should have quorum");
-    assert_eq!(cluster.quorum_size().await, 2, "Quorum size for 3 nodes is 2");
+    assert!(
+        cluster.has_quorum().await,
+        "3-node cluster should have quorum"
+    );
+    assert_eq!(
+        cluster.quorum_size().await,
+        2,
+        "Quorum size for 3 nodes is 2"
+    );
 
     cluster.stop().await;
 }
@@ -410,7 +450,11 @@ async fn test_cluster_formation_5_nodes() {
 
     let running = cluster.get_running_nodes().await;
     assert_eq!(running.len(), 5, "All 5 nodes should be running");
-    assert_eq!(cluster.quorum_size().await, 3, "Quorum size for 5 nodes is 3");
+    assert_eq!(
+        cluster.quorum_size().await,
+        3,
+        "Quorum size for 5 nodes is 3"
+    );
 
     cluster.stop().await;
 }
@@ -423,7 +467,11 @@ async fn test_cluster_formation_7_nodes() {
 
     let running = cluster.get_running_nodes().await;
     assert_eq!(running.len(), 7, "All 7 nodes should be running");
-    assert_eq!(cluster.quorum_size().await, 4, "Quorum size for 7 nodes is 4");
+    assert_eq!(
+        cluster.quorum_size().await,
+        4,
+        "Quorum size for 7 nodes is 4"
+    );
 
     cluster.stop().await;
 }
@@ -492,7 +540,10 @@ async fn test_leader_failure_and_reelection() {
     cluster.start().await;
 
     // Elect initial leader
-    let initial_leader_id = cluster.elect_leader().await.expect("Initial leader elected");
+    let initial_leader_id = cluster
+        .elect_leader()
+        .await
+        .expect("Initial leader elected");
 
     // Simulate leader failure
     let initial_leader = cluster
@@ -557,7 +608,10 @@ async fn test_follower_failure_and_recovery() {
 
     // Verify follower is back in cluster
     let recovered_node = cluster.get_node(follower_id).await;
-    assert!(recovered_node.is_some(), "Recovered node should be in cluster");
+    assert!(
+        recovered_node.is_some(),
+        "Recovered node should be in cluster"
+    );
 
     cluster.stop().await;
 }
@@ -582,12 +636,15 @@ async fn test_network_partition_split_brain() {
 
     // Remaining 4 nodes should elect new leader
     *cluster.leader_id.write().await = None;
-    
+
     // Find a non-partitioned node to become leader
     for node in &cluster.nodes {
         let state = node.get_state().await;
-        if node.id != leader_id && state != NodeState::Partitioned && node.running.load(Ordering::SeqCst) {
-            node.promote_to_leader().await;
+        if node.id != leader_id
+            && state != NodeState::Partitioned
+            && node.running.load(Ordering::SeqCst)
+        {
+            cluster.promote_node_to_leader(node.clone()).await;
             *cluster.leader_id.write().await = Some(node.id);
             break;
         }
@@ -732,7 +789,10 @@ async fn test_consistency_after_failover() {
 
     // Failover
     let new_leader_id = cluster.failover().await.expect("New leader elected");
-    let new_leader = cluster.get_node(new_leader_id).await.expect("New leader exists");
+    let new_leader = cluster
+        .get_node(new_leader_id)
+        .await
+        .expect("New leader exists");
 
     // Verify new leader has all committed data
     let log_length_after = new_leader.get_log_length().await;
@@ -857,7 +917,10 @@ async fn test_latency_during_election() {
     let avg_latency: u64 = election_latencies.iter().sum::<u64>() / election_latencies.len() as u64;
     let max_latency: u64 = *election_latencies.iter().max().unwrap_or(&0);
 
-    println!("Election latency - Avg: {}ms, Max: {}ms", avg_latency, max_latency);
+    println!(
+        "Election latency - Avg: {}ms, Max: {}ms",
+        avg_latency, max_latency
+    );
 
     // Election should complete within reasonable time (simulated)
     assert!(
@@ -1058,8 +1121,11 @@ async fn test_chaos_split_brain_recovery() {
     *cluster.leader_id.write().await = None;
     for node in &cluster.nodes {
         let state = node.get_state().await;
-        if node.id != initial_leader_id && state != NodeState::Partitioned && node.running.load(Ordering::SeqCst) {
-            node.promote_to_leader().await;
+        if node.id != initial_leader_id
+            && state != NodeState::Partitioned
+            && node.running.load(Ordering::SeqCst)
+        {
+            cluster.promote_node_to_leader(node.clone()).await;
             *cluster.leader_id.write().await = Some(node.id);
             break;
         }
@@ -1163,7 +1229,10 @@ async fn test_chaos_concurrent_load_with_failures() {
     println!("Total writes during chaos: {}", total_writes);
     println!("{}", stats.report());
 
-    assert!(total_writes > 0, "Should have successful writes during chaos");
+    assert!(
+        total_writes > 0,
+        "Should have successful writes during chaos"
+    );
     assert_eq!(
         stats.consistency_violations.load(Ordering::SeqCst),
         0,
@@ -1244,7 +1313,7 @@ async fn test_rapid_leadership_changes() {
         // Immediately failover (this stops the current leader)
         cluster.failover().await;
         leadership_changes += 1;
-        
+
         // Restart stopped nodes to maintain cluster size for next iteration
         for node in &cluster.nodes {
             if !node.running.load(Ordering::SeqCst) {
@@ -1257,7 +1326,10 @@ async fn test_rapid_leadership_changes() {
     stats.record_successful_election(0);
 
     // Verify cluster is still functional
-    assert!(cluster.has_quorum().await, "Cluster should still have quorum");
+    assert!(
+        cluster.has_quorum().await,
+        "Cluster should still have quorum"
+    );
 
     cluster.stop().await;
 }

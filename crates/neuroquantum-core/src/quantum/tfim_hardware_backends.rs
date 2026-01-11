@@ -279,7 +279,10 @@ impl DWaveTFIMSolver {
     }
 
     /// Submit problem to D-Wave API (placeholder for actual HTTP client)
-    async fn submit_to_dwave(&self, _bqm: &BinaryQuadraticModel) -> CoreResult<Vec<(Vec<i8>, f64)>> {
+    async fn submit_to_dwave(
+        &self,
+        _bqm: &BinaryQuadraticModel,
+    ) -> CoreResult<Vec<(Vec<i8>, f64)>> {
         let api_token = self.get_api_token().ok_or_else(|| {
             CoreError::invalid_operation(
                 "D-Wave API token not configured. Set DWAVE_API_TOKEN environment variable or provide api_token in DWaveTFIMConfig."
@@ -317,16 +320,18 @@ impl DWaveTFIMSolver {
             problem.name
         );
 
-        // Use the classical TFIM solver as fallback
+        // Use the classical TFIM solver as fallback with high-quality settings
         let classical_config = TransverseFieldConfig {
-            num_steps: 1000,
-            temperature: 0.5,
+            initial_field: 10.0,
+            final_field: 0.01,
+            num_steps: 2000,
+            temperature: 0.3, // Lower temperature for better convergence
             quantum_tunneling: true,
             ..Default::default()
         };
 
         let classical_solver = TFIMSolver::with_config(classical_config);
-        let num_retries = (self.config.num_reads / 100).max(1); // At least 1 retry
+        let num_retries = (self.config.num_reads / 100).max(3); // At least 3 retries for reliability
         classical_solver.solve_with_retries(problem, num_retries)
     }
 }
@@ -351,7 +356,9 @@ impl AnnealingBackend for DWaveTFIMSolver {
                 let (best_spins, best_energy) = samples
                     .into_iter()
                     .min_by(|(_, e1), (_, e2)| e1.partial_cmp(e2).unwrap())
-                    .ok_or_else(|| CoreError::invalid_operation("No samples returned from D-Wave"))?;
+                    .ok_or_else(|| {
+                        CoreError::invalid_operation("No samples returned from D-Wave")
+                    })?;
 
                 let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
@@ -458,7 +465,10 @@ impl BraketTFIMSolver {
     }
 
     /// Submit problem to AWS Braket (placeholder for actual SDK call)
-    async fn submit_to_braket(&self, _bqm: &BinaryQuadraticModel) -> CoreResult<Vec<(Vec<i8>, f64)>> {
+    async fn submit_to_braket(
+        &self,
+        _bqm: &BinaryQuadraticModel,
+    ) -> CoreResult<Vec<(Vec<i8>, f64)>> {
         info!(
             "Submitting TFIM problem to AWS Braket device: {}",
             self.config.device_arn
@@ -485,15 +495,18 @@ impl BraketTFIMSolver {
             problem.name
         );
 
+        // Use high-quality settings for reliable fallback
         let classical_config = TransverseFieldConfig {
-            num_steps: 1000,
-            temperature: 0.5,
+            initial_field: 10.0,
+            final_field: 0.01,
+            num_steps: 2000,
+            temperature: 0.3, // Lower temperature for better convergence
             quantum_tunneling: true,
             ..Default::default()
         };
 
         let classical_solver = TFIMSolver::with_config(classical_config);
-        let num_retries = (self.config.num_shots / 100).max(1); // At least 1 retry
+        let num_retries = (self.config.num_shots / 100).max(3); // At least 3 retries for reliability
         classical_solver.solve_with_retries(problem, num_retries)
     }
 }
@@ -517,7 +530,9 @@ impl AnnealingBackend for BraketTFIMSolver {
                 let (best_spins, best_energy) = samples
                     .into_iter()
                     .min_by(|(_, e1), (_, e2)| e1.partial_cmp(e2).unwrap())
-                    .ok_or_else(|| CoreError::invalid_operation("No samples returned from Braket"))?;
+                    .ok_or_else(|| {
+                        CoreError::invalid_operation("No samples returned from Braket")
+                    })?;
 
                 let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
@@ -543,8 +558,7 @@ impl AnnealingBackend for BraketTFIMSolver {
 
     fn is_available(&self) -> bool {
         // Check if AWS credentials are available
-        std::env::var("AWS_ACCESS_KEY_ID").is_ok()
-            && std::env::var("AWS_SECRET_ACCESS_KEY").is_ok()
+        std::env::var("AWS_ACCESS_KEY_ID").is_ok() && std::env::var("AWS_SECRET_ACCESS_KEY").is_ok()
     }
 
     fn max_qubits(&self) -> usize {
@@ -689,7 +703,8 @@ impl UnifiedTFIMAnnealingSolver {
 
     fn solve_classical(&self, problem: &TFIMProblem) -> CoreResult<TFIMSolution> {
         let solver = TFIMSolver::with_config(self.config.classical_config.clone());
-        solver.solve(problem)
+        // Use multiple retries for better convergence with stochastic solver
+        solver.solve_with_retries(problem, 5)
     }
 }
 
