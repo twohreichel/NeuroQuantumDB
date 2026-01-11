@@ -99,6 +99,7 @@ impl DiscoveryService {
                 role: NodeRole::Follower, // Unknown at discovery time
                 last_heartbeat: None,
                 healthy: false, // Will be updated after connection
+                protocol_version: 1, // Default version, will be updated during handshake
             });
         }
 
@@ -154,6 +155,7 @@ impl DiscoveryService {
                                         role: NodeRole::Follower,
                                         last_heartbeat: None,
                                         healthy: false,
+                                        protocol_version: 1, // Default, updated during handshake
                                     });
                                 }
                             }
@@ -181,6 +183,7 @@ impl DiscoveryService {
                                     role: NodeRole::Follower,
                                     last_heartbeat: None,
                                     healthy: false,
+                                    protocol_version: 1, // Default, updated during handshake
                                 });
                             }
                         }
@@ -267,6 +270,7 @@ impl DiscoveryService {
                     role: NodeRole::Follower,
                     last_heartbeat: None,
                     healthy: false,
+                    protocol_version: 1, // Default, updated during handshake
                 });
             }
         }
@@ -331,6 +335,7 @@ impl DiscoveryService {
                         role: NodeRole::Follower,
                         last_heartbeat: None,
                         healthy: false,
+                        protocol_version: 1, // Default, updated during handshake
                     });
                 }
                 Err(e) => {

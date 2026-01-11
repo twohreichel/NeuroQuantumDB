@@ -18,7 +18,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0
+      maxUnavailable: 0  # Zero-downtime upgrades
   template:
     metadata:
       labels:
@@ -28,6 +28,9 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
+        # Rolling upgrade configuration
+        neuroquantum.io/protocol-version: "1"
+        neuroquantum.io/min-compatible-version: "1"
     spec:
       serviceAccountName: neuroquantumdb
       securityContext:
@@ -60,6 +63,19 @@ spec:
                 secretKeyRef:
                   name: neuroquantumdb-secrets
                   key: JWT_SECRET
+            # Cluster upgrade configuration
+            - name: CLUSTER_DRAIN_TIMEOUT_SECS
+              value: "30"
+            - name: CLUSTER_HEALTH_CHECK_INTERVAL_SECS
+              value: "5"
+            - name: CLUSTER_MIN_HEALTHY_NODES
+              value: "2"
+            - name: CLUSTER_ROLLBACK_ON_FAILURE
+              value: "true"
+            - name: CLUSTER_PROTOCOL_VERSION
+              value: "1"
+            - name: CLUSTER_MIN_COMPATIBLE_VERSION
+              value: "1"
           volumeMounts:
             - name: config
               mountPath: /etc/neuroquantumdb
@@ -91,6 +107,12 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+          # Lifecycle hooks for graceful upgrades
+          lifecycle:
+            preStop:
+              exec:
+                # Use configured drain timeout, defaulting to 30 seconds
+                command: ["/bin/sh", "-c", "sleep ${CLUSTER_DRAIN_TIMEOUT_SECS:-30}"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

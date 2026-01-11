@@ -312,6 +312,82 @@ FROM org_hierarchy
 ORDER BY level, name;
 ```
 
+#### Example 14b: Recursive CTE - Graph Traversal
+
+```sql
+-- Find all reachable nodes in a graph using recursive traversal
+WITH RECURSIVE reachable_nodes AS (
+    -- Base case: start from a specific node
+    SELECT 
+        to_node AS node,
+        1 AS distance,
+        CAST(from_node AS TEXT) || ' -> ' || CAST(to_node AS TEXT) AS path
+    FROM edges
+    WHERE from_node = 1
+    
+    UNION ALL
+    
+    -- Recursive case: traverse edges from reachable nodes
+    SELECT 
+        e.to_node,
+        rn.distance + 1,
+        rn.path || ' -> ' || CAST(e.to_node AS TEXT)
+    FROM edges e
+    INNER JOIN reachable_nodes rn ON e.from_node = rn.node
+    WHERE rn.distance < 5  -- Limit traversal depth
+)
+SELECT DISTINCT node, MIN(distance) AS shortest_distance
+FROM reachable_nodes
+GROUP BY node
+ORDER BY shortest_distance, node;
+```
+
+#### Example 14c: Recursive CTE - Bill of Materials
+
+```sql
+-- Calculate total component costs for a product with recursive BOM
+WITH RECURSIVE bom_explosion AS (
+    -- Base case: top-level product
+    SELECT 
+        product_id,
+        component_id,
+        quantity,
+        1 AS level,
+        CAST(component_id AS TEXT) AS path
+    FROM bill_of_materials
+    WHERE product_id = 1000  -- Top-level product
+    
+    UNION ALL
+    
+    -- Recursive case: components of components
+    SELECT 
+        bom.product_id,
+        bom.component_id,
+        be.quantity * bom.quantity AS total_quantity,
+        be.level + 1,
+        be.path || ' > ' || CAST(bom.component_id AS TEXT)
+    FROM bill_of_materials bom
+    INNER JOIN bom_explosion be ON bom.product_id = be.component_id
+    WHERE be.level < 10  -- Prevent infinite loops
+)
+SELECT 
+    be.component_id,
+    c.name AS component_name,
+    SUM(be.total_quantity) AS total_needed,
+    c.unit_cost,
+    SUM(be.total_quantity * c.unit_cost) AS total_cost
+FROM bom_explosion be
+INNER JOIN components c ON be.component_id = c.id
+GROUP BY be.component_id, c.name, c.unit_cost
+ORDER BY total_cost DESC;
+```
+
+**Recursive CTE Configuration:**
+- Maximum recursion depth is configurable (default: 1000 iterations)
+- Use WHERE conditions to limit depth and prevent infinite loops
+- UNION ALL is more efficient than UNION for recursive CTEs
+- UNION removes duplicates (useful for cycle detection)
+
 #### Example 15: Multiple CTEs
 
 ```sql
@@ -751,17 +827,33 @@ SELECT id, name, email FROM large_table WHERE id = 123;
 
 ### Batch Operations
 
-#### Example 36: Batch Inserts
+#### Example 36: Batch Inserts (Multi-Row INSERT)
 
 ```sql
--- Efficient batch insert
+-- Efficient batch insert with multiple rows in a single statement
 INSERT INTO logs (timestamp, level, message) VALUES
     ('2024-01-07 10:00:00', 'INFO', 'Service started'),
     ('2024-01-07 10:00:01', 'INFO', 'Connection established'),
     ('2024-01-07 10:00:02', 'DEBUG', 'Processing request'),
     ('2024-01-07 10:00:03', 'INFO', 'Request completed');
+
+-- For larger batches, you can insert hundreds of rows at once
+INSERT INTO events (user_id, event_type, timestamp) VALUES
+    (1, 'login', '2024-01-07 10:00:00'),
+    (2, 'page_view', '2024-01-07 10:00:01'),
+    (1, 'click', '2024-01-07 10:00:02'),
+    (3, 'login', '2024-01-07 10:00:03'),
+    (2, 'logout', '2024-01-07 10:00:04');
 ```
-**Tip**: Batch operations reduce transaction overhead. Aim for 100-1000 rows per batch.
+
+**Performance Benefits:**
+- **Reduced Network Roundtrips**: One query instead of N queries
+- **Batch WAL Writes**: All rows written to Write-Ahead Log together
+- **Optimized B+ Tree Operations**: Insertions can be batched and optimized
+- **Atomic Operation**: All rows inserted together (transaction semantics)
+- **DNA Compression**: Compression applied across all rows efficiently
+
+**Tip**: Batch operations reduce transaction overhead. Aim for 100-1000 rows per batch for optimal performance. For even larger datasets, consider splitting into multiple batches.
 
 #### Example 37: Batch Updates with CASE
 

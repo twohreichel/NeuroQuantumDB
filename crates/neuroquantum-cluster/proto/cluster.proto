@@ -25,6 +25,7 @@ message HandshakeRequest {
     uint64 node_id = 1;
     string address = 2;
     uint64 term = 3;
+    uint32 protocol_version = 4;
 }
 
 // Handshake response with remote node info
@@ -32,6 +33,7 @@ message HandshakeResponse {
     uint64 node_id = 1;
     bool success = 2;
     string error = 3;
+    uint32 protocol_version = 4;
 }
 
 // Append entries request (Raft log replication)

@@ -6,6 +6,7 @@ pub mod backup;
 pub mod btree;
 pub mod buffer;
 pub mod encryption;
+pub mod migration;
 pub mod pager;
 pub mod wal;
 
@@ -28,6 +29,11 @@ pub use backup::{
 pub use btree::{BTree, BTreeConfig};
 pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
 pub use encryption::{EncryptedData, EncryptionManager};
+pub use migration::{
+    Migration, MigrationConfig, MigrationDirection, MigrationExecutor, MigrationExecutorConfig,
+    MigrationHistory, MigrationParser, MigrationProgress, MigrationRecord, MigrationResult,
+    MigrationStatus, ProgressTracker, SafetyCheck, ValidationResult,
+};
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
 pub use wal::{RecoveryStats, WALConfig, WALManager};
 

@@ -266,6 +266,8 @@ pub struct DropTableStatement {
 pub struct AlterTableStatement {
     pub table_name: String,
     pub operation: AlterTableOperation,
+    /// Execute operation concurrently without blocking reads/writes
+    pub concurrently: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -283,6 +285,8 @@ pub enum AlterTableOperation {
     ModifyColumn {
         column_name: String,
         new_data_type: DataType,
+        /// USING clause for type conversion
+        using_expression: Option<String>,
     },
 }
 
@@ -294,6 +298,8 @@ pub struct CreateIndexStatement {
     pub columns: Vec<String>,
     pub unique: bool,
     pub if_not_exists: bool,
+    /// Create index concurrently without blocking writes
+    pub concurrently: bool,
 }
 
 /// DROP INDEX statement
@@ -301,6 +307,8 @@ pub struct CreateIndexStatement {
 pub struct DropIndexStatement {
     pub index_name: String,
     pub if_exists: bool,
+    /// Drop index concurrently without blocking writes
+    pub concurrently: bool,
 }
 
 /// TRUNCATE TABLE statement

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroQuantumDB Browser Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; color: white; margin-bottom: 30px; }
+        h1 { font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .subtitle { font-size: 1.2em; opacity: 0.9; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-button {
+            flex: 1; padding: 15px; background: white; border: none;
+            border-radius: 8px 8px 0 0; font-size: 16px; font-weight: bold;
+            cursor: pointer; transition: all 0.3s; color: #667eea;
+        }
+        .tab-button:hover { background: #f0f0f0; }
+        .tab-button.active { box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
+        .tab-content {
+            display: none; background: white; padding: 30px;
+            border-radius: 0 0 8px 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .tab-content.active { display: block; }
+        textarea {
+            width: 100%; height: 150px; padding: 15px; border: 2px solid #e0e0e0;
+            border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px;
+            resize: vertical; margin-bottom: 10px;
+        }
+        textarea:focus { outline: none; border-color: #667eea; }
+        .button-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        button {
+            padding: 12px 24px; background: #667eea; color: white; border: none;
+            border-radius: 8px; font-size: 16px; font-weight: bold;
+            cursor: pointer; transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3; transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button.secondary { background: #6c757d; }
+        button.secondary:hover { background: #5a6268; }
+        .results {
+            background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px;
+            padding: 15px; max-height: 400px; overflow-y: auto;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin-top: 10px;
+        }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #667eea; color: white; font-weight: bold; }
+        tr:hover { background: #f5f5f5; }
+        .error {
+            background: #fee; border: 2px solid #fcc; color: #c33;
+            padding: 15px; border-radius: 8px; margin-bottom: 20px;
+        }
+        .success {
+            background: #efe; border: 2px solid #cfc; color: #3c3;
+            padding: 15px; border-radius: 8px; margin-bottom: 20px;
+        }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin-top: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 20px; border-radius: 8px; text-align: center;
+        }
+        .stat-value { font-size: 2.5em; font-weight: bold; margin: 10px 0; }
+        footer { text-align: center; color: white; margin-top: 40px; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 NeuroQuantumDB</h1>
+            <p class="subtitle">Neuromorphic Database Running in Your Browser via WebAssembly</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('sql')">SQL Console</button>
+            <button class="tab-button" onclick="switchTab('dna')">DNA Compression</button>
+            <button class="tab-button" onclick="switchTab('stats')">Statistics</button>
+        </div>
+
+        <div id="sql-tab" class="tab-content active">
+            <h2>Interactive SQL Console</h2>
+            <textarea id="sql-input" placeholder="Enter your SQL query here...">CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)</textarea>
+            <div class="button-group">
+                <button onclick="executeSQL()">Execute</button>
+                <button onclick="querySQL()">Query</button>
+                <button class="secondary" onclick="clearResults()">Clear Results</button>
+                <button class="secondary" onclick="clearDB()">Clear Database</button>
+            </div>
+            <div id="sql-results" class="results" style="display: none;">
+                <h3>Results</h3>
+                <div id="sql-output"></div>
+            </div>
+        </div>
+
+        <div id="dna-tab" class="tab-content">
+            <h2>DNA Sequence Compression</h2>
+            <input type="text" id="dna-input" style="width: 100%; padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-family: 'Courier New', monospace; margin-bottom: 10px;"
+                   placeholder="Enter DNA sequence (A, T, C, G)" value="ATCGATCGATCGATCGATCG">
+            <div class="button-group">
+                <button onclick="compressDNA()">Compress</button>
+            </div>
+            <div id="dna-results" class="results" style="display: none;">
+                <h3>Compression Results</h3>
+                <div id="dna-output"></div>
+            </div>
+        </div>
+
+        <div id="stats-tab" class="tab-content">
+            <h2>Database Statistics</h2>
+            <button onclick="refreshStats()">Refresh Statistics</button>
+            <div id="stats-display" class="stats-grid" style="margin-top: 20px;"></div>
+        </div>
+
+        <footer>
+            <p>Built with WebAssembly • MIT License • <a href="https://github.com/neuroquantumdb/neuroquantumdb" style="color: white;">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script type="module">
+        // Import the WASM module - update path based on where pkg is located
+        // import init, { NeuroQuantumDB } from '../pkg/neuroquantum_wasm.js';
+        
+        // For demo purposes, using a mock implementation
+        let db = null;
+        let initialized = false;
+
+        class MockNeuroQuantumDB {
+            constructor() { this.tables = {}; }
+            async execute(sql) {
+                const upper = sql.trim().toUpperCase();
+                if (upper.startsWith('CREATE TABLE')) {
+                    const match = sql.match(/CREATE TABLE (\w+)/i);
+                    if (match) { this.tables[match[1].toUpperCase()] = []; return 0; }
+                } else if (upper.startsWith('INSERT INTO')) {
+                    const match = sql.match(/INSERT INTO (\w+) \(([^)]+)\) VALUES \(([^)]+)\)/i);
+                    if (match) {
+                        const table = match[1].toUpperCase();
+                        const cols = match[2].split(',').map(s => s.trim());
+                        const vals = match[3].split(',').map(s => s.trim().replace(/['"]/g, ''));
+                        if (!this.tables[table]) throw new Error(`Table ${table} does not exist`);
+                        const row = {};
+                        cols.forEach((col, i) => row[col] = isNaN(vals[i]) ? vals[i] : Number(vals[i]));
+                        this.tables[table].push(row);
+                        return 1;
+                    }
+                }
+                throw new Error('Unsupported SQL statement');
+            }
+            async query(sql) {
+                const match = sql.match(/SELECT \* FROM (\w+)/i);
+                if (match) {
+                    const table = match[1].toUpperCase();
+                    if (!this.tables[table]) throw new Error(`Table ${table} does not exist`);
+                    return this.tables[table];
+                }
+                throw new Error('Only SELECT * FROM table queries are supported');
+            }
+            compressDna(sequence) { return new TextEncoder().encode(sequence); }
+            decompressDna(compressed) { return new TextDecoder().decode(compressed); }
+            stats() {
+                const tableCount = Object.keys(this.tables).length;
+                const totalRows = Object.values(this.tables).reduce((sum, t) => sum + t.length, 0);
+                return { table_count: tableCount, total_rows: totalRows };
+            }
+            clear() { this.tables = {}; }
+        }
+
+        async function initDB() {
+            if (!initialized) {
+                // await init(); // Uncomment when using real WASM
+                // db = new NeuroQuantumDB(); // Uncomment when using real WASM
+                db = new MockNeuroQuantumDB();
+                initialized = true;
+                console.log('✅ NeuroQuantumDB initialized');
+            }
+        }
+
+        window.executeSQL = async function() {
+            await initDB();
+            const sql = document.getElementById('sql-input').value.trim();
+            if (!sql) return;
+            try {
+                const result = await db.execute(sql);
+                showSuccess(`✅ Query executed successfully. Rows affected: ${result}`);
+                refreshStats();
+            } catch (error) {
+                showError('❌ Error: ' + error.message);
+            }
+        };
+
+        window.querySQL = async function() {
+            await initDB();
+            const sql = document.getElementById('sql-input').value.trim();
+            if (!sql) return;
+            try {
+                const results = await db.query(sql);
+                displayResults(results);
+                refreshStats();
+            } catch (error) {
+                showError('❌ Error: ' + error.message);
+            }
+        };
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('sql-results');
+            const outputDiv = document.getElementById('sql-output');
+            if (!results || results.length === 0) {
+                outputDiv.innerHTML = '<p>No results returned</p>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+            const keys = Object.keys(results[0]);
+            let html = '<table><thead><tr>';
+            keys.forEach(key => html += `<th>${key}</th>`);
+            html += '</tr></thead><tbody>';
+            results.forEach(row => {
+                html += '<tr>';
+                keys.forEach(key => html += `<td>${row[key]}</td>`);
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            outputDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+        }
+
+        window.compressDNA = async function() {
+            await initDB();
+            const sequence = document.getElementById('dna-input').value.trim().toUpperCase();
+            if (!/^[ATCG]+$/.test(sequence)) {
+                showError('❌ Invalid DNA sequence. Only A, T, C, G allowed.');
+                return;
+            }
+            try {
+                const start = performance.now();
+                const compressed = db.compressDna(sequence);
+                const decompressed = db.decompressDna(compressed);
+                const elapsed = performance.now() - start;
+                const originalSize = sequence.length;
+                const compressedSize = compressed.length;
+                const ratio = ((1 - compressedSize / originalSize) * 100).toFixed(2);
+                const resultsDiv = document.getElementById('dna-results');
+                const outputDiv = document.getElementById('dna-output');
+                outputDiv.innerHTML = `
+                    <p><strong>Original Size:</strong> ${originalSize} bytes</p>
+                    <p><strong>Compressed Size:</strong> ${compressedSize} bytes</p>
+                    <p><strong>Compression Ratio:</strong> ${ratio}%</p>
+                    <p><strong>Time:</strong> ${elapsed.toFixed(2)} ms</p>
+                    <p><strong>Verification:</strong> ${sequence === decompressed ? '✅ Success' : '❌ Failed'}</p>
+                `;
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                showError('❌ Compression error: ' + error.message);
+            }
+        };
+
+        window.refreshStats = async function() {
+            await initDB();
+            try {
+                const stats = db.stats();
+                const statsDiv = document.getElementById('stats-display');
+                statsDiv.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-label">Tables</div>
+                        <div class="stat-value">${stats.table_count}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Rows</div>
+                        <div class="stat-value">${stats.total_rows}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Status</div>
+                        <div class="stat-value">✅</div>
+                    </div>
+                `;
+            } catch (error) {
+                showError('❌ Error getting stats: ' + error.message);
+            }
+        };
+
+        function showError(message) {
+            const resultsDiv = document.getElementById('sql-results');
+            const outputDiv = document.getElementById('sql-output');
+            outputDiv.innerHTML = `<div class="error">${message}</div>`;
+            resultsDiv.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            const resultsDiv = document.getElementById('sql-results');
+            const outputDiv = document.getElementById('sql-output');
+            outputDiv.innerHTML = `<div class="success">${message}</div>`;
+            resultsDiv.style.display = 'block';
+        }
+
+        window.clearResults = function() {
+            document.getElementById('sql-results').style.display = 'none';
+            document.getElementById('dna-results').style.display = 'none';
+        };
+
+        window.clearDB = async function() {
+            await initDB();
+            db.clear();
+            showSuccess('✅ Database cleared');
+            refreshStats();
+        };
+
+        window.switchTab = function(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab + '-tab').classList.add('active');
+            // Find the button that was clicked by checking which button has this onclick handler
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                if (btn.textContent.toLowerCase().includes(tab === 'sql' ? 'sql' : tab === 'dna' ? 'dna' : 'statistics')) {
+                    btn.classList.add('active');
+                }
+            });
+            if (tab === 'stats') refreshStats();
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🧠 NeuroQuantumDB Browser Demo loaded');
+            initDB();
+        });
+    </script>
+</body>
+</html>

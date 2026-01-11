@@ -47,10 +47,11 @@ DROP TABLE products;
 -- Insert WITHOUT specifying ID - it's auto-generated!
 INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
 
--- Insert multiple rows
+-- Insert multiple rows (Bulk Insert) - more efficient for batch operations
 INSERT INTO users (name, email) VALUES 
     ('Bob', 'bob@example.com'),
-    ('Charlie', 'charlie@example.com');
+    ('Charlie', 'charlie@example.com'),
+    ('Dave', 'dave@example.com');
 
 -- Update
 UPDATE users SET email = 'newemail@example.com' WHERE id = 1;
@@ -64,6 +65,8 @@ DELETE FROM users WHERE id = 1;
 ```
 
 > **⚠️ Safety Note:** When executing an `UPDATE` statement without a `WHERE` clause, NeuroQuantumDB logs a warning indicating how many rows will be affected. This helps prevent accidental mass updates. The update still executes, but the warning is recorded in the logs.
+
+> **💡 Performance Tip:** Multi-row INSERT statements are significantly more efficient than multiple single-row inserts. They reduce network roundtrips, enable batch WAL writes, and optimize B+ tree operations. For bulk data loading, aim for 100-1000 rows per batch. See [Batch Operations Examples](qsql-examples.md#batch-operations) for more details.
 
 ### Query
 
