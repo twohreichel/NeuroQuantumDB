@@ -7,7 +7,7 @@
 //! - UNION vs UNION ALL semantics
 //! - Recursion depth limits
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -74,7 +74,7 @@ async fn test_recursive_cte_employee_hierarchy() {
         created_at: chrono::Utc::now(),
         version: 1,
         auto_increment_columns: HashMap::new(),
-        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::Manual,
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     {
@@ -170,7 +170,7 @@ async fn test_recursive_cte_union_semantics() {
         created_at: chrono::Utc::now(),
         version: 1,
         auto_increment_columns: HashMap::new(),
-        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::Manual,
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     {
@@ -201,7 +201,7 @@ async fn test_recursive_cte_union_semantics() {
 /// Test recursive CTE for series generation (similar to generate_series)
 #[tokio::test]
 async fn test_recursive_cte_generate_series() {
-    let (_temp_dir, _storage_arc, mut executor, parser) = setup_test_env().await;
+    let (_temp_dir, _storage_arc, _executor, parser) = setup_test_env().await;
 
     // Note: This test demonstrates the concept, but our implementation
     // may not support generating rows without a base table yet.
@@ -252,7 +252,7 @@ async fn test_recursive_cte_depth_limit() {
         created_at: chrono::Utc::now(),
         version: 1,
         auto_increment_columns: HashMap::new(),
-        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::Manual,
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     {
@@ -330,7 +330,7 @@ async fn test_recursive_cte_with_multiple_ctes() {
         created_at: chrono::Utc::now(),
         version: 1,
         auto_increment_columns: HashMap::new(),
-        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::Manual,
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     {
@@ -401,7 +401,7 @@ async fn test_recursive_cte_graph_traversal() {
         created_at: chrono::Utc::now(),
         version: 1,
         auto_increment_columns: HashMap::new(),
-        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::Manual,
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
     };
 
     {

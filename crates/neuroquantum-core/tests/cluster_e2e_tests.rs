@@ -28,7 +28,6 @@
 //! cargo test --package neuroquantum-core --test cluster_e2e_tests -- --include-ignored --nocapture
 //! ```
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -39,6 +38,7 @@ use tokio::sync::RwLock;
 // Test Configuration
 // ============================================================================
 
+#[allow(dead_code)]
 mod config {
     use std::time::Duration;
 
@@ -78,6 +78,7 @@ fn get_test_port() -> u16 {
 
 /// Statistics for cluster E2E tests
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 struct ClusterTestStats {
     successful_elections: AtomicU64,
     failed_elections: AtomicU64,
@@ -89,6 +90,7 @@ struct ClusterTestStats {
     total_latency_ms: AtomicU64,
 }
 
+#[allow(dead_code)]
 impl ClusterTestStats {
     fn record_successful_election(&self, latency_ms: u64) {
         self.successful_elections.fetch_add(1, Ordering::SeqCst);
@@ -155,6 +157,7 @@ impl ClusterTestStats {
 
 /// State of a simulated cluster node
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 enum NodeState {
     Follower,
     Candidate,
@@ -164,6 +167,7 @@ enum NodeState {
 }
 
 /// A simulated cluster node for E2E testing
+#[allow(dead_code)]
 struct SimulatedNode {
     id: u64,
     state: Arc<RwLock<NodeState>>,
@@ -176,6 +180,7 @@ struct SimulatedNode {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct LogEntry {
     term: u64,
     index: u64,
@@ -271,6 +276,7 @@ struct SimulatedCluster {
     leader_id: Arc<RwLock<Option<u64>>>,
 }
 
+#[allow(dead_code)]
 impl SimulatedCluster {
     fn new(node_count: usize) -> Self {
         let nodes: Vec<Arc<SimulatedNode>> = (1..=node_count)

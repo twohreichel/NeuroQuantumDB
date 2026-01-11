@@ -4,7 +4,7 @@
 //! with proper parsing, execution, and storage integration.
 
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{query_plan::QueryValue, ExecutorConfig, Parser, QueryExecutor};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -233,10 +233,10 @@ async fn test_multi_row_insert_auto_increment() {
         table: "products".to_string(),
         columns: vec!["*".to_string()],
         where_clause: None,
-        order_by: Some(vec![neuroquantum_core::storage::OrderBy {
-            column: "id".to_string(),
-            direction: neuroquantum_core::storage::SortDirection::Asc,
-        }]),
+        order_by: Some(neuroquantum_core::storage::OrderBy {
+            field: "id".to_string(),
+            direction: neuroquantum_core::storage::SortDirection::Ascending,
+        }),
         limit: None,
         offset: None,
     };

@@ -212,6 +212,7 @@ struct PeerConnection {
     /// gRPC client for this peer
     client: Option<ClusterNodeClient<tonic::transport::Channel>>,
     /// Protocol version of the peer
+    #[allow(dead_code)]
     protocol_version: u32,
 }
 

@@ -639,7 +639,6 @@ where
         let service = self.service.clone();
 
         Box::pin(async move {
-            use opentelemetry::trace::TraceContextExt;
             use tracing::Span;
             use tracing_opentelemetry::OpenTelemetrySpanExt;
 

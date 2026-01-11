@@ -5871,7 +5871,7 @@ impl QSQLParser {
 
                 // Check for closing paren (empty parameter list)
                 if matches!(tokens[i], TokenType::RightParen) {
-                    i += 1; // consume ')'
+                    // Consume ')' - no need to increment i since we break immediately
                     break;
                 }
 
@@ -5905,7 +5905,7 @@ impl QSQLParser {
                 if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
                     i += 1; // consume ','
                 } else if i < tokens.len() && matches!(tokens[i], TokenType::RightParen) {
-                    i += 1; // consume ')'
+                    // Consume ')' - no need to increment i since we break immediately
                     break;
                 }
             }
