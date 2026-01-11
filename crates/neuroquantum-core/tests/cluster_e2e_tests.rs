@@ -223,6 +223,7 @@ impl SimulatedNode {
         *self.state.read().await == NodeState::Leader
     }
 
+    #[allow(dead_code)]
     async fn promote_to_leader(&self) {
         let mut state = self.state.write().await;
         let mut term = self.term.write().await;
@@ -274,6 +275,7 @@ impl SimulatedNode {
 struct SimulatedCluster {
     nodes: Vec<Arc<SimulatedNode>>,
     leader_id: Arc<RwLock<Option<u64>>>,
+    cluster_term: Arc<RwLock<u64>>,
 }
 
 #[allow(dead_code)]
@@ -286,6 +288,7 @@ impl SimulatedCluster {
         Self {
             nodes,
             leader_id: Arc::new(RwLock::new(None)),
+            cluster_term: Arc::new(RwLock::new(0)),
         }
     }
 
@@ -309,12 +312,27 @@ impl SimulatedCluster {
         // Simulate leader election: pick the first running node
         for node in &self.nodes {
             if node.running.load(Ordering::SeqCst) {
-                node.promote_to_leader().await;
+                self.promote_node_to_leader(node.clone()).await;
                 *self.leader_id.write().await = Some(node.id);
                 return Some(node.id);
             }
         }
         None
+    }
+
+    async fn promote_node_to_leader(&self, node: Arc<SimulatedNode>) {
+        // Increment cluster-wide term and set node's term to match
+        let mut cluster_term = self.cluster_term.write().await;
+        *cluster_term += 1;
+        let new_term = *cluster_term;
+        drop(cluster_term);
+        
+        let mut node_term = node.term.write().await;
+        *node_term = new_term;
+        drop(node_term);
+        
+        let mut state = node.state.write().await;
+        *state = NodeState::Leader;
     }
 
     async fn get_leader(&self) -> Option<Arc<SimulatedNode>> {
@@ -383,12 +401,16 @@ impl SimulatedCluster {
         *self.leader_id.write().await = None;
         for node in &self.nodes {
             if node.running.load(Ordering::SeqCst) {
-                node.promote_to_leader().await;
+                self.promote_node_to_leader(node.clone()).await;
                 *self.leader_id.write().await = Some(node.id);
                 return Some(node.id);
             }
         }
         None
+    }
+
+    async fn get_cluster_term(&self) -> u64 {
+        *self.cluster_term.read().await
     }
 }
 
@@ -622,7 +644,7 @@ async fn test_network_partition_split_brain() {
             && state != NodeState::Partitioned
             && node.running.load(Ordering::SeqCst)
         {
-            node.promote_to_leader().await;
+            cluster.promote_node_to_leader(node.clone()).await;
             *cluster.leader_id.write().await = Some(node.id);
             break;
         }
@@ -1103,7 +1125,7 @@ async fn test_chaos_split_brain_recovery() {
             && state != NodeState::Partitioned
             && node.running.load(Ordering::SeqCst)
         {
-            node.promote_to_leader().await;
+            cluster.promote_node_to_leader(node.clone()).await;
             *cluster.leader_id.write().await = Some(node.id);
             break;
         }
