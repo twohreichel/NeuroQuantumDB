@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::warn;
+use tracing::{info_span, instrument, warn};
 
 // Import storage engine and related types
 use neuroquantum_core::learning::HebbianLearningEngine;
@@ -400,6 +400,7 @@ impl QueryExecutor {
     /// Returns `QSQLError::ConfigError` if no storage engine is configured and
     /// legacy mode is disabled (production mode). In production, always use
     /// `ExecutorConfig::production()` to ensure real storage is required.
+    #[instrument(level = "info", skip(self, plan), fields(statement_type = ?plan.statement))]
     pub async fn execute(&mut self, plan: &QueryPlan) -> QSQLResult<QueryResult> {
         // Production guard: ensure storage engine or explicit legacy mode
         self.require_storage_or_legacy()?;

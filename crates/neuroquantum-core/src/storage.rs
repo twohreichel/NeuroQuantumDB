@@ -18,7 +18,7 @@ use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info};
+use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
 pub use backup::{
@@ -1234,6 +1234,7 @@ impl StorageEngine {
     /// row.set("email", Value::Text("alice@example.com".to_string()));
     /// let id = storage.insert_row("users", row).await?;
     /// ```
+    #[instrument(level = "debug", skip(self, row), fields(table = %table))]
     pub async fn insert_row(&mut self, table: &str, mut row: Row) -> Result<RowId> {
         debug!("➕ Inserting row into table: {}", table);
 
@@ -1345,12 +1346,14 @@ impl StorageEngine {
     }
 
     /// Select rows matching the given query
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn select_rows(&self, query: &SelectQuery) -> Result<Vec<Row>> {
         let (rows, _stats) = self.select_rows_with_stats(query).await?;
         Ok(rows)
     }
 
     /// Select rows matching the given query with execution statistics
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn select_rows_with_stats(
         &self,
         query: &SelectQuery,
@@ -1432,6 +1435,7 @@ impl StorageEngine {
     }
 
     /// Update rows matching the given query
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn update_rows(&mut self, query: &UpdateQuery) -> Result<u64> {
         debug!("✏️ Updating rows in table: {}", query.table);
 
@@ -1495,6 +1499,7 @@ impl StorageEngine {
     }
 
     /// Delete rows matching the given query
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn delete_rows(&mut self, query: &DeleteQuery) -> Result<u64> {
         debug!("🗑️ Deleting rows from table: {}", query.table);
 
@@ -2447,6 +2452,7 @@ impl StorageEngine {
     }
 
     /// Begin a new transaction
+    #[instrument(level = "debug", skip(self))]
     pub async fn begin_transaction(&self) -> Result<crate::transaction::TransactionId> {
         self.transaction_manager
             .begin_transaction(IsolationLevel::ReadCommitted)
@@ -2455,6 +2461,7 @@ impl StorageEngine {
     }
 
     /// Begin a transaction with specific isolation level
+    #[instrument(level = "debug", skip(self), fields(isolation_level = ?isolation_level))]
     pub async fn begin_transaction_with_isolation(
         &self,
         isolation_level: crate::transaction::IsolationLevel,
@@ -2466,6 +2473,7 @@ impl StorageEngine {
     }
 
     /// Commit a transaction and persist pending writes to disk
+    #[instrument(level = "debug", skip(self), fields(tx_id = ?tx_id))]
     pub async fn commit_transaction(
         &mut self,
         tx_id: crate::transaction::TransactionId,

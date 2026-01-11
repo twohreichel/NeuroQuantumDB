@@ -24,6 +24,12 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 
+# OpenTelemetry distributed tracing
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+opentelemetry-semantic-conventions.workspace = true
+tracing-opentelemetry.workspace = true
+
 # DNA compression specific dependencies
 # Replaced reed-solomon-erasure with reed-solomon-simd to resolve RUSTSEC-2024-0384
 # reed-solomon-simd is actively maintained and provides better SIMD performance
