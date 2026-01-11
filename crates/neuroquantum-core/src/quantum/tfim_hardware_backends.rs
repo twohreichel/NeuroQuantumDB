@@ -320,16 +320,18 @@ impl DWaveTFIMSolver {
             problem.name
         );
 
-        // Use the classical TFIM solver as fallback
+        // Use the classical TFIM solver as fallback with high-quality settings
         let classical_config = TransverseFieldConfig {
-            num_steps: 1000,
-            temperature: 0.5,
+            initial_field: 10.0,
+            final_field: 0.01,
+            num_steps: 2000,
+            temperature: 0.3, // Lower temperature for better convergence
             quantum_tunneling: true,
             ..Default::default()
         };
 
         let classical_solver = TFIMSolver::with_config(classical_config);
-        let num_retries = (self.config.num_reads / 100).max(1); // At least 1 retry
+        let num_retries = (self.config.num_reads / 100).max(3); // At least 3 retries for reliability
         classical_solver.solve_with_retries(problem, num_retries)
     }
 }
@@ -493,15 +495,18 @@ impl BraketTFIMSolver {
             problem.name
         );
 
+        // Use high-quality settings for reliable fallback
         let classical_config = TransverseFieldConfig {
-            num_steps: 1000,
-            temperature: 0.5,
+            initial_field: 10.0,
+            final_field: 0.01,
+            num_steps: 2000,
+            temperature: 0.3, // Lower temperature for better convergence
             quantum_tunneling: true,
             ..Default::default()
         };
 
         let classical_solver = TFIMSolver::with_config(classical_config);
-        let num_retries = (self.config.num_shots / 100).max(1); // At least 1 retry
+        let num_retries = (self.config.num_shots / 100).max(3); // At least 3 retries for reliability
         classical_solver.solve_with_retries(problem, num_retries)
     }
 }
@@ -698,7 +703,8 @@ impl UnifiedTFIMAnnealingSolver {
 
     fn solve_classical(&self, problem: &TFIMProblem) -> CoreResult<TFIMSolution> {
         let solver = TFIMSolver::with_config(self.config.classical_config.clone());
-        solver.solve(problem)
+        // Use multiple retries for better convergence with stochastic solver
+        solver.solve_with_retries(problem, 5)
     }
 }
 

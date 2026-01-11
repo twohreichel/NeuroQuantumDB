@@ -262,6 +262,18 @@ fn test_unified_solver_from_env() {
 
 #[tokio::test]
 async fn test_unified_solver_dwave_preference() {
+    use neuroquantum_core::quantum::{FieldSchedule, TransverseFieldConfig};
+    
+    // Use high-quality config for reliable convergence
+    let classical_config = TransverseFieldConfig {
+        initial_field: 10.0,
+        final_field: 0.01,
+        num_steps: 2000,
+        field_schedule: FieldSchedule::Linear,
+        temperature: 0.3, // Lower temperature for better convergence
+        quantum_tunneling: true,
+    };
+    
     let config = UnifiedTFIMAnnealingConfig {
         preference: TFIMBackendPreference::DWave,
         dwave_config: Some(DWaveTFIMConfig {
@@ -270,7 +282,7 @@ async fn test_unified_solver_dwave_preference() {
             ..Default::default()
         }),
         braket_config: None,
-        classical_config: Default::default(),
+        classical_config,
     };
 
     let solver = UnifiedTFIMAnnealingSolver::new(config);
@@ -332,6 +344,25 @@ fn test_annealing_backend_trait() {
 /// This is the specific test mentioned in the acceptance criteria
 #[tokio::test]
 async fn test_observables_magnetization_with_quantum_backend() {
+    use neuroquantum_core::quantum::{FieldSchedule, TransverseFieldConfig};
+    
+    // Use high-quality config for reliable convergence
+    let classical_config = TransverseFieldConfig {
+        initial_field: 10.0,
+        final_field: 0.01,
+        num_steps: 2000,
+        field_schedule: FieldSchedule::Linear,
+        temperature: 0.3, // Lower temperature for better convergence
+        quantum_tunneling: true,
+    };
+    
+    let config = UnifiedTFIMAnnealingConfig {
+        preference: TFIMBackendPreference::Classical,
+        dwave_config: None,
+        braket_config: None,
+        classical_config,
+    };
+    
     // Create a TFIM problem with strong ferromagnetic coupling
     let problem = TFIMProblem {
         num_spins: 3,
@@ -340,8 +371,8 @@ async fn test_observables_magnetization_with_quantum_backend() {
         name: "Strong_Ferromagnet_For_Observables".to_string(),
     };
 
-    // Use unified solver which falls back to classical when quantum unavailable
-    let solver = UnifiedTFIMAnnealingSolver::from_env();
+    // Use unified solver with explicit classical config for reliable results
+    let solver = UnifiedTFIMAnnealingSolver::new(config);
     let solution = solver.solve(&problem).await.unwrap();
 
     // Verify magnetization properties
