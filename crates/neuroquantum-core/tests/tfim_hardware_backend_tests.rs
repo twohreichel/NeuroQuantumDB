@@ -263,7 +263,7 @@ fn test_unified_solver_from_env() {
 #[tokio::test]
 async fn test_unified_solver_dwave_preference() {
     use neuroquantum_core::quantum::{FieldSchedule, TransverseFieldConfig};
-    
+
     // Use high-quality config for reliable convergence
     let classical_config = TransverseFieldConfig {
         initial_field: 10.0,
@@ -273,7 +273,7 @@ async fn test_unified_solver_dwave_preference() {
         temperature: 0.3, // Lower temperature for better convergence
         quantum_tunneling: true,
     };
-    
+
     let config = UnifiedTFIMAnnealingConfig {
         preference: TFIMBackendPreference::DWave,
         dwave_config: Some(DWaveTFIMConfig {
@@ -345,7 +345,7 @@ fn test_annealing_backend_trait() {
 #[tokio::test]
 async fn test_observables_magnetization_with_quantum_backend() {
     use neuroquantum_core::quantum::{FieldSchedule, TransverseFieldConfig};
-    
+
     // Use high-quality config for reliable convergence
     let classical_config = TransverseFieldConfig {
         initial_field: 10.0,
@@ -355,14 +355,14 @@ async fn test_observables_magnetization_with_quantum_backend() {
         temperature: 0.3, // Lower temperature for better convergence
         quantum_tunneling: true,
     };
-    
+
     let config = UnifiedTFIMAnnealingConfig {
         preference: TFIMBackendPreference::Classical,
         dwave_config: None,
         braket_config: None,
         classical_config,
     };
-    
+
     // Create a TFIM problem with strong ferromagnetic coupling
     let problem = TFIMProblem {
         num_spins: 3,

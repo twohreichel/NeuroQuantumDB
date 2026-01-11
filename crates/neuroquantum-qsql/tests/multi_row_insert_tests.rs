@@ -167,7 +167,7 @@ async fn test_execute_multi_row_insert() {
 }
 
 /// Test multi-row INSERT with auto-increment IDs
-/// 
+///
 /// NOTE: This test is currently ignored due to a bug in DNA compression
 /// that causes certain rows to fail decompression when reading back from disk.
 /// The issue appears to be related to how Float values are serialized/compressed.

@@ -326,11 +326,11 @@ impl SimulatedCluster {
         *cluster_term += 1;
         let new_term = *cluster_term;
         drop(cluster_term);
-        
+
         let mut node_term = node.term.write().await;
         *node_term = new_term;
         drop(node_term);
-        
+
         let mut state = node.state.write().await;
         *state = NodeState::Leader;
     }
