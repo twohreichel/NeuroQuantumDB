@@ -311,10 +311,27 @@ pub struct DropIndexStatement {
     pub concurrently: bool,
 }
 
+/// CASCADE/RESTRICT behavior for TRUNCATE TABLE
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub enum TruncateBehavior {
+    /// Default behavior - error if foreign key constraints exist
+    #[default]
+    Restrict,
+    /// CASCADE - also truncate all tables that have foreign key references
+    Cascade,
+}
+
 /// TRUNCATE TABLE statement
+/// Quickly removes all rows from a table without logging individual row deletions.
+/// Syntax: TRUNCATE TABLE table_name [CASCADE | RESTRICT]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TruncateTableStatement {
+    /// The name of the table to truncate
     pub table_name: String,
+    /// CASCADE or RESTRICT behavior for foreign key constraints
+    pub behavior: TruncateBehavior,
+    /// RESTART IDENTITY - reset identity/serial columns to initial values
+    pub restart_identity: bool,
 }
 
 /// FROM clause with quantum join support

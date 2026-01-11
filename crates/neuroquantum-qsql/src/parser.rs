@@ -260,6 +260,10 @@ pub enum TokenType {
 
     // Schema migration keywords
     Concurrently,
+    Cascade,
+    Restrict,
+    Restart,
+    Continue,
 
     // Operators and punctuation
     Equal,
@@ -3840,6 +3844,7 @@ impl QSQLParser {
     }
 
     /// Parse TRUNCATE TABLE statement
+    /// Syntax: TRUNCATE [TABLE] table_name [RESTART IDENTITY | CONTINUE IDENTITY] [CASCADE | RESTRICT]
     fn parse_truncate_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut i = 0;
 
@@ -3854,8 +3859,16 @@ impl QSQLParser {
         }
 
         // Parse table name
-        let table_name = if let TokenType::Identifier(name) = &tokens[i] {
-            name.clone()
+        let table_name = if i < tokens.len() {
+            if let TokenType::Identifier(name) = &tokens[i] {
+                i += 1;
+                name.clone()
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected table name".to_string(),
+                    position: i,
+                });
+            }
         } else {
             return Err(QSQLError::ParseError {
                 message: "Expected table name".to_string(),
@@ -3863,8 +3876,51 @@ impl QSQLParser {
             });
         };
 
+        // Parse optional RESTART IDENTITY or CONTINUE IDENTITY
+        let mut restart_identity = false;
+        if i < tokens.len() && matches!(tokens[i], TokenType::Restart) {
+            i += 1;
+            // Expect IDENTITY keyword
+            if i < tokens.len() && matches!(tokens[i], TokenType::Identity) {
+                i += 1;
+                restart_identity = true;
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected IDENTITY after RESTART".to_string(),
+                    position: i,
+                });
+            }
+        } else if i < tokens.len() && matches!(tokens[i], TokenType::Continue) {
+            i += 1;
+            // Expect IDENTITY keyword (CONTINUE IDENTITY is the default, but we accept it)
+            if i < tokens.len() && matches!(tokens[i], TokenType::Identity) {
+                i += 1;
+                // restart_identity stays false (CONTINUE IDENTITY = don't reset)
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected IDENTITY after CONTINUE".to_string(),
+                    position: i,
+                });
+            }
+        }
+
+        // Parse optional CASCADE or RESTRICT
+        let behavior = if i < tokens.len() && matches!(tokens[i], TokenType::Cascade) {
+            i += 1;
+            let _ = i; // Mark as used (avoid unused warning)
+            TruncateBehavior::Cascade
+        } else if i < tokens.len() && matches!(tokens[i], TokenType::Restrict) {
+            i += 1;
+            let _ = i; // Mark as used
+            TruncateBehavior::Restrict
+        } else {
+            TruncateBehavior::default() // Default is RESTRICT
+        };
+
         Ok(Statement::TruncateTable(TruncateTableStatement {
             table_name,
+            behavior,
+            restart_identity,
         }))
     }
 
@@ -4467,6 +4523,10 @@ impl QSQLParser {
 
         // Schema migration keywords
         keywords.insert("CONCURRENTLY".to_string(), TokenType::Concurrently);
+        keywords.insert("CASCADE".to_string(), TokenType::Cascade);
+        keywords.insert("RESTRICT".to_string(), TokenType::Restrict);
+        keywords.insert("RESTART".to_string(), TokenType::Restart);
+        keywords.insert("CONTINUE".to_string(), TokenType::Continue);
     }
 
     /// Initialize operator mappings with precedence for Pratt parsing
