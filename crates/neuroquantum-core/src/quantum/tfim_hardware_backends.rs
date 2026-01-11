@@ -279,7 +279,10 @@ impl DWaveTFIMSolver {
     }
 
     /// Submit problem to D-Wave API (placeholder for actual HTTP client)
-    async fn submit_to_dwave(&self, _bqm: &BinaryQuadraticModel) -> CoreResult<Vec<(Vec<i8>, f64)>> {
+    async fn submit_to_dwave(
+        &self,
+        _bqm: &BinaryQuadraticModel,
+    ) -> CoreResult<Vec<(Vec<i8>, f64)>> {
         let api_token = self.get_api_token().ok_or_else(|| {
             CoreError::invalid_operation(
                 "D-Wave API token not configured. Set DWAVE_API_TOKEN environment variable or provide api_token in DWaveTFIMConfig."
@@ -351,7 +354,9 @@ impl AnnealingBackend for DWaveTFIMSolver {
                 let (best_spins, best_energy) = samples
                     .into_iter()
                     .min_by(|(_, e1), (_, e2)| e1.partial_cmp(e2).unwrap())
-                    .ok_or_else(|| CoreError::invalid_operation("No samples returned from D-Wave"))?;
+                    .ok_or_else(|| {
+                        CoreError::invalid_operation("No samples returned from D-Wave")
+                    })?;
 
                 let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
@@ -458,7 +463,10 @@ impl BraketTFIMSolver {
     }
 
     /// Submit problem to AWS Braket (placeholder for actual SDK call)
-    async fn submit_to_braket(&self, _bqm: &BinaryQuadraticModel) -> CoreResult<Vec<(Vec<i8>, f64)>> {
+    async fn submit_to_braket(
+        &self,
+        _bqm: &BinaryQuadraticModel,
+    ) -> CoreResult<Vec<(Vec<i8>, f64)>> {
         info!(
             "Submitting TFIM problem to AWS Braket device: {}",
             self.config.device_arn
@@ -517,7 +525,9 @@ impl AnnealingBackend for BraketTFIMSolver {
                 let (best_spins, best_energy) = samples
                     .into_iter()
                     .min_by(|(_, e1), (_, e2)| e1.partial_cmp(e2).unwrap())
-                    .ok_or_else(|| CoreError::invalid_operation("No samples returned from Braket"))?;
+                    .ok_or_else(|| {
+                        CoreError::invalid_operation("No samples returned from Braket")
+                    })?;
 
                 let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
@@ -543,8 +553,7 @@ impl AnnealingBackend for BraketTFIMSolver {
 
     fn is_available(&self) -> bool {
         // Check if AWS credentials are available
-        std::env::var("AWS_ACCESS_KEY_ID").is_ok()
-            && std::env::var("AWS_SECRET_ACCESS_KEY").is_ok()
+        std::env::var("AWS_ACCESS_KEY_ID").is_ok() && std::env::var("AWS_SECRET_ACCESS_KEY").is_ok()
     }
 
     fn max_qubits(&self) -> usize {

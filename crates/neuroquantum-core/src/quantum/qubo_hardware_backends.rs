@@ -523,10 +523,7 @@ impl IBMQUBOSolver {
     }
 
     /// Submit circuit to IBM Quantum API (placeholder)
-    async fn submit_to_ibm(
-        &self,
-        _circuit: &QAOACircuit,
-    ) -> CoreResult<HashMap<Vec<u8>, usize>> {
+    async fn submit_to_ibm(&self, _circuit: &QAOACircuit) -> CoreResult<HashMap<Vec<u8>, usize>> {
         let api_token = self.get_api_token().ok_or_else(|| {
             CoreError::invalid_operation(
                 "IBM Quantum API token not configured. Set IBM_QUANTUM_TOKEN environment variable \
@@ -750,10 +747,7 @@ impl HybridQUBOSolver {
     }
 
     /// Simulate hybrid solver response (fallback)
-    fn simulate_hybrid_response(
-        &self,
-        problem: &QUBOProblem,
-    ) -> CoreResult<QuantumQuboSolution> {
+    fn simulate_hybrid_response(&self, problem: &QUBOProblem) -> CoreResult<QuantumQuboSolution> {
         warn!(
             "D-Wave Hybrid API not available, using local simulation for problem '{}'",
             problem.name

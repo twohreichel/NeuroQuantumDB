@@ -406,7 +406,6 @@ pub enum TraceLevel {
     Debug,
 }
 
-
 impl ApiConfig {
     /// Load configuration from file
     pub fn from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {

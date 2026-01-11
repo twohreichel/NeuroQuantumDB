@@ -98,7 +98,7 @@ impl DiscoveryService {
                 addr,
                 role: NodeRole::Follower, // Unknown at discovery time
                 last_heartbeat: None,
-                healthy: false, // Will be updated after connection
+                healthy: false,      // Will be updated after connection
                 protocol_version: 1, // Default version, will be updated during handshake
             });
         }

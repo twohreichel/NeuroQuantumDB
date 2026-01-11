@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Timestamp format for migration files
 const TIMESTAMP_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
@@ -66,10 +66,10 @@ impl MigrationParser {
         for entry in entries {
             let entry = entry?;
             let path = entry.path();
-            
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "sql") {
+
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "sql") {
                 let filename = path.file_stem().unwrap().to_string_lossy();
-                
+
                 // Check if this is an up or down migration
                 if filename.ends_with(".up") {
                     let base_name = filename.trim_end_matches(".up");

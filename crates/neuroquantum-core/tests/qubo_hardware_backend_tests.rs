@@ -240,10 +240,7 @@ fn test_hybrid_config_default() {
     assert_eq!(config.time_limit_secs, 5);
     assert_eq!(config.min_samples, 1);
     assert_eq!(config.max_samples, 100);
-    assert_eq!(
-        config.solver_name,
-        "hybrid_binary_quadratic_model_version2"
-    );
+    assert_eq!(config.solver_name, "hybrid_binary_quadratic_model_version2");
 }
 
 #[test]
@@ -361,7 +358,9 @@ fn test_unified_config_default() {
     assert!(config.ibm.is_none());
     assert!(config.hybrid.is_none());
     assert_eq!(config.hybrid_threshold, 5000);
-    assert!(config.backend_priority.contains(&"simulated_annealing".to_string()));
+    assert!(config
+        .backend_priority
+        .contains(&"simulated_annealing".to_string()));
 }
 
 #[test]

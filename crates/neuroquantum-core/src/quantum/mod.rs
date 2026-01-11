@@ -171,20 +171,20 @@ pub use qubo_hardware_backends::{
     DWaveConfig,
     DWaveQUBOSolver,
     DWaveTiming,
+    // D-Wave Hybrid solver
+    HybridQUBOSolver,
+    HybridSolverConfig,
     // IBM Quantum QAOA
     IBMConfig,
     IBMOptimizer,
     IBMQUBOSolver,
     QAOACircuit,
     QAOAGate,
-    // D-Wave Hybrid solver
-    HybridQUBOSolver,
-    HybridSolverConfig,
+    // Unified solver with auto-selection
+    QUBOSolverBackend,
     // Classical fallback
     SimulatedAnnealingConfig,
     SimulatedAnnealingQUBOSolver,
-    // Unified solver with auto-selection
-    QUBOSolverBackend,
     UnifiedQUBOConfig,
     UnifiedQUBOSolver,
 };
@@ -197,17 +197,17 @@ pub use tfim_hardware_backends::{
     AnnealingBackend,
     // Binary Quadratic Model
     BinaryQuadraticModel,
-    VarType,
-    // D-Wave quantum annealer
-    DWaveTFIMConfig,
-    DWaveTFIMSolver,
     // AWS Braket annealer
     BraketTFIMConfig,
     BraketTFIMSolver,
+    // D-Wave quantum annealer
+    DWaveTFIMConfig,
+    DWaveTFIMSolver,
     // Unified solver with auto-selection
     TFIMBackendPreference,
     UnifiedTFIMAnnealingConfig,
     UnifiedTFIMAnnealingSolver,
+    VarType,
 };
 
 // Real quantum TFIM exports (VQE, QAOA, Trotter-Suzuki)
@@ -228,14 +228,14 @@ pub use grover_quantum::{
 
 // Real quantum hardware backends for Grover's search
 pub use grover_hardware_backends::{
+    // AWS Braket
+    BraketGroverConfig,
+    BraketGroverSolver,
     // Backend trait
     GroverHardwareBackend,
     // IBM Quantum
     IBMGroverConfig,
     IBMGroverSolver,
-    // AWS Braket
-    BraketGroverConfig,
-    BraketGroverSolver,
     // IonQ
     IonQGroverConfig,
     IonQGroverSolver,

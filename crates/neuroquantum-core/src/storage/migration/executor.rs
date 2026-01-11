@@ -9,27 +9,19 @@ use std::time::Instant;
 use tracing::{error, info};
 
 use super::{
-    history::MigrationHistory, parser::{Migration, MigrationDirection, MigrationParser},
-    progress::ProgressTracker, MigrationConfig, MigrationId, MigrationResult, SafetyCheck,
-    ValidationResult,
+    history::MigrationHistory,
+    parser::{Migration, MigrationDirection, MigrationParser},
+    progress::ProgressTracker,
+    MigrationConfig, MigrationResult, SafetyCheck, ValidationResult,
 };
 
 /// Configuration for migration executor
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MigrationExecutorConfig {
     /// Base migration configuration
     pub config: MigrationConfig,
     /// Enable verbose logging
     pub verbose: bool,
-}
-
-impl Default for MigrationExecutorConfig {
-    fn default() -> Self {
-        Self {
-            config: MigrationConfig::default(),
-            verbose: false,
-        }
-    }
 }
 
 /// Executes database migrations
@@ -180,10 +172,7 @@ impl MigrationExecutor {
     ) -> Result<MigrationResult> {
         let start_time = Instant::now();
 
-        info!(
-            "Executing migration {} ({:?})",
-            migration.id, direction
-        );
+        info!("Executing migration {} ({:?})", migration.id, direction);
 
         // Validate before executing
         if direction == MigrationDirection::Up {
@@ -205,17 +194,15 @@ impl MigrationExecutor {
         self.history.record_start(migration.id.clone()).await?;
 
         // Start progress tracking
-        self.progress
-            .start(migration.id.clone(), 100)
-            .await;
+        self.progress.start(migration.id.clone(), 100).await;
 
         // Execute the migration
         let sql = migration.get_sql(direction);
-        
+
         if self.config.config.dry_run {
             info!("DRY RUN: Would execute SQL:\n{}", sql);
             self.progress.complete().await;
-            
+
             return Ok(MigrationResult {
                 migration_id: migration.id.clone(),
                 success: true,
@@ -246,13 +233,15 @@ impl MigrationExecutor {
 
         // Record completion
         self.history
-            .record_complete(migration.id.clone(), duration_ms, Some(0), "checksum".to_string())
+            .record_complete(
+                migration.id.clone(),
+                duration_ms,
+                Some(0),
+                "checksum".to_string(),
+            )
             .await?;
 
-        info!(
-            "Migration {} completed in {}ms",
-            migration.id, duration_ms
-        );
+        info!("Migration {} completed in {}ms", migration.id, duration_ms);
 
         Ok(MigrationResult {
             migration_id: migration.id.clone(),
@@ -311,7 +300,7 @@ mod tests {
     async fn test_dry_run_migration() {
         let temp_dir = TempDir::new().unwrap();
         let migrations_dir = temp_dir.path().to_path_buf();
-        
+
         // Create a test migration
         std::fs::write(
             migrations_dir.join("001_test.up.sql"),

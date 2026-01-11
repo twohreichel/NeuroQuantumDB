@@ -169,10 +169,7 @@ fn test_braket_grover_solver_backend_type_rigetti() {
     };
     let solver = BraketGroverSolver::new(config);
 
-    assert_eq!(
-        solver.backend_type(),
-        GroverQuantumBackend::Superconducting
-    );
+    assert_eq!(solver.backend_type(), GroverQuantumBackend::Superconducting);
 }
 
 #[test]

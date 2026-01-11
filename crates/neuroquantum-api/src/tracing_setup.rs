@@ -1,6 +1,6 @@
 //! OpenTelemetry distributed tracing setup and configuration
 
-use crate::config::{TracingConfig, TracingExporter, TraceLevel};
+use crate::config::{TraceLevel, TracingConfig, TracingExporter};
 use anyhow::{Context, Result};
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};
@@ -71,7 +71,10 @@ fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
     // Default Jaeger OTLP endpoint is port 4317
     let otlp_endpoint = if config.endpoint.contains("14268") {
         // Convert old HTTP collector endpoint to OTLP gRPC endpoint
-        config.endpoint.replace("14268", "4317").replace("/api/traces", "")
+        config
+            .endpoint
+            .replace("14268", "4317")
+            .replace("/api/traces", "")
     } else if config.endpoint.contains("4317") {
         config.endpoint.clone()
     } else {
@@ -241,7 +244,7 @@ mod tests {
     fn test_create_resource() {
         let config = TracingConfig::default();
         let resource = create_resource(&config);
-        
+
         // Check that resource has required attributes
         let attrs: Vec<_> = resource.iter().collect();
         assert!(!attrs.is_empty());

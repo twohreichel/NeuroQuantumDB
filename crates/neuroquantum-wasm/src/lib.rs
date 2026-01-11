@@ -29,10 +29,10 @@
 //! }
 //! ```
 
-use wasm_bindgen::prelude::*;
 use js_sys::{Array, Object, Reflect};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use wasm_bindgen::prelude::*;
 
 /// Initialize panic hook for better error messages in the browser console
 #[wasm_bindgen(start)]
@@ -75,7 +75,7 @@ impl NeuroQuantumDB {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<NeuroQuantumDB, JsValue> {
         console_log("🧠 Initializing NeuroQuantumDB WASM...");
-        
+
         Ok(NeuroQuantumDB {
             tables: HashMap::new(),
         })
@@ -86,7 +86,7 @@ impl NeuroQuantumDB {
     #[wasm_bindgen]
     pub async fn execute(&mut self, sql: &str) -> Result<u32, JsValue> {
         console_log(&format!("Executing SQL: {}", sql));
-        
+
         // Parse and execute SQL
         match self.execute_internal(sql) {
             Ok(rows_affected) => Ok(rows_affected),
@@ -98,7 +98,7 @@ impl NeuroQuantumDB {
     #[wasm_bindgen]
     pub async fn query(&self, sql: &str) -> Result<JsValue, JsValue> {
         console_log(&format!("Querying SQL: {}", sql));
-        
+
         match self.query_internal(sql) {
             Ok(results) => {
                 // Convert results to JavaScript array
@@ -106,8 +106,9 @@ impl NeuroQuantumDB {
                 for row in results {
                     let obj = Object::new();
                     for (key, value) in row {
-                        let js_val = serde_wasm_bindgen::to_value(&value)
-                            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;
+                        let js_val = serde_wasm_bindgen::to_value(&value).map_err(|e| {
+                            JsValue::from_str(&format!("Serialization error: {}", e))
+                        })?;
                         Reflect::set(&obj, &JsValue::from_str(&key), &js_val)?;
                     }
                     array.push(&obj);
@@ -119,26 +120,32 @@ impl NeuroQuantumDB {
     }
 
     /// Compress a DNA sequence
-    /// 
+    ///
     /// Note: This is a placeholder implementation for demonstration.
     /// For production use, integrate with the full NeuroQuantumDB DNA compressor.
     #[wasm_bindgen(js_name = compressDna)]
     pub fn compress_dna(&self, sequence: &str) -> Result<Vec<u8>, JsValue> {
-        console_log(&format!("Compressing DNA sequence of length: {}", sequence.len()));
-        
+        console_log(&format!(
+            "Compressing DNA sequence of length: {}",
+            sequence.len()
+        ));
+
         // TODO: Integrate with neuroquantum_core::dna::QuantumDNACompressor
         // For now, return a simple representation
         Ok(sequence.as_bytes().to_vec())
     }
 
     /// Decompress a DNA sequence
-    /// 
+    ///
     /// Note: This is a placeholder implementation for demonstration.
     /// For production use, integrate with the full NeuroQuantumDB DNA compressor.
     #[wasm_bindgen(js_name = decompressDna)]
     pub fn decompress_dna(&self, compressed: Vec<u8>) -> Result<String, JsValue> {
-        console_log(&format!("Decompressing DNA data of size: {}", compressed.len()));
-        
+        console_log(&format!(
+            "Decompressing DNA data of size: {}",
+            compressed.len()
+        ));
+
         String::from_utf8(compressed)
             .map_err(|e| JsValue::from_str(&format!("Decompression error: {}", e)))
     }
@@ -147,11 +154,17 @@ impl NeuroQuantumDB {
     #[wasm_bindgen]
     pub fn stats(&self) -> Result<JsValue, JsValue> {
         let mut stats = HashMap::new();
-        stats.insert("table_count".to_string(), serde_json::Value::Number(self.tables.len().into()));
-        
+        stats.insert(
+            "table_count".to_string(),
+            serde_json::Value::Number(self.tables.len().into()),
+        );
+
         let total_rows: usize = self.tables.values().map(|t| t.len()).sum();
-        stats.insert("total_rows".to_string(), serde_json::Value::Number(total_rows.into()));
-        
+        stats.insert(
+            "total_rows".to_string(),
+            serde_json::Value::Number(total_rows.into()),
+        );
+
         serde_wasm_bindgen::to_value(&stats)
             .map_err(|e| JsValue::from_str(&format!("Stats serialization error: {}", e)))
     }
@@ -169,40 +182,40 @@ impl NeuroQuantumDB {
     /// Internal SQL execution logic
     fn execute_internal(&mut self, sql: &str) -> Result<u32, String> {
         let sql_upper = sql.trim().to_uppercase();
-        
+
         // Parse CREATE TABLE
         if sql_upper.starts_with("CREATE TABLE") {
             let table_name = self.parse_table_name(&sql_upper, "CREATE TABLE")?;
             self.tables.insert(table_name, Vec::new());
             return Ok(0);
         }
-        
+
         // Parse INSERT
         if sql_upper.starts_with("INSERT INTO") {
             return self.execute_insert(sql);
         }
-        
+
         // Parse UPDATE
         if sql_upper.starts_with("UPDATE") {
             return self.execute_update(sql);
         }
-        
+
         // Parse DELETE
         if sql_upper.starts_with("DELETE FROM") {
             return self.execute_delete(sql);
         }
-        
+
         Err(format!("Unsupported SQL statement: {}", sql))
     }
 
     /// Internal query logic
     fn query_internal(&self, sql: &str) -> Result<Vec<HashMap<String, serde_json::Value>>, String> {
         let sql_upper = sql.trim().to_uppercase();
-        
+
         if !sql_upper.starts_with("SELECT") {
             return Err("Only SELECT queries are supported".to_string());
         }
-        
+
         // Simple SELECT * FROM table parsing
         if let Some(from_idx) = sql_upper.find("FROM") {
             let after_from = &sql[from_idx + 4..].trim();
@@ -211,13 +224,15 @@ impl NeuroQuantumDB {
                 .next()
                 .ok_or("Missing table name")?
                 .to_string();
-            
-            let table = self.tables.get(&table_name)
+
+            let table = self
+                .tables
+                .get(&table_name)
                 .ok_or(format!("Table '{}' not found", table_name))?;
-            
+
             return Ok(table.clone());
         }
-        
+
         Err("Invalid SELECT query".to_string())
     }
 
@@ -236,11 +251,11 @@ impl NeuroQuantumDB {
     fn execute_insert(&mut self, sql: &str) -> Result<u32, String> {
         // Simple INSERT parser: INSERT INTO table (col1, col2) VALUES (val1, val2)
         let sql_upper = sql.to_uppercase();
-        
+
         // Extract table name
         let into_pos = sql_upper.find("INTO").ok_or("Invalid INSERT syntax")?;
         let values_pos = sql_upper.find("VALUES").ok_or("Invalid INSERT syntax")?;
-        
+
         let table_part = sql[into_pos + 4..values_pos].trim();
         let table_name = table_part
             .split('(')
@@ -248,7 +263,7 @@ impl NeuroQuantumDB {
             .ok_or("Invalid table name")?
             .trim()
             .to_string();
-        
+
         // Extract columns
         let cols_start = table_part.find('(').ok_or("Missing column list")?;
         let cols_end = table_part.find(')').ok_or("Missing column list")?;
@@ -256,7 +271,7 @@ impl NeuroQuantumDB {
             .split(',')
             .map(|s| s.trim().to_string())
             .collect();
-        
+
         // Extract values
         let values_part = sql[values_pos + 6..].trim();
         let vals_start = values_part.find('(').ok_or("Missing values")?;
@@ -265,11 +280,11 @@ impl NeuroQuantumDB {
             .split(',')
             .map(|s| s.trim().trim_matches('\'').trim_matches('"').to_string())
             .collect();
-        
+
         if cols.len() != values.len() {
             return Err("Column and value count mismatch".to_string());
         }
-        
+
         // Create row
         let mut row = HashMap::new();
         for (col, val) in cols.iter().zip(values.iter()) {
@@ -287,12 +302,14 @@ impl NeuroQuantumDB {
             };
             row.insert(col.clone(), json_val);
         }
-        
+
         // Insert into table
-        let table = self.tables.get_mut(&table_name)
+        let table = self
+            .tables
+            .get_mut(&table_name)
             .ok_or(format!("Table '{}' not found", table_name))?;
         table.push(row);
-        
+
         Ok(1)
     }
 
@@ -347,7 +364,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_insert() {
         let mut db = NeuroQuantumDB::new().unwrap();
-        db.execute_internal("CREATE TABLE users (id INTEGER, name TEXT)").unwrap();
+        db.execute_internal("CREATE TABLE users (id INTEGER, name TEXT)")
+            .unwrap();
         let result = db.execute_internal("INSERT INTO users (id, name) VALUES (1, 'Alice')");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 1);
@@ -356,9 +374,11 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_query() {
         let mut db = NeuroQuantumDB::new().unwrap();
-        db.execute_internal("CREATE TABLE users (id INTEGER, name TEXT)").unwrap();
-        db.execute_internal("INSERT INTO users (id, name) VALUES (1, 'Alice')").unwrap();
-        
+        db.execute_internal("CREATE TABLE users (id INTEGER, name TEXT)")
+            .unwrap();
+        db.execute_internal("INSERT INTO users (id, name) VALUES (1, 'Alice')")
+            .unwrap();
+
         let results = db.query_internal("SELECT * FROM users");
         assert!(results.is_ok());
         let rows = results.unwrap();

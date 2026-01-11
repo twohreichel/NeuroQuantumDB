@@ -85,4 +85,4 @@ pub use sharding::{
     RebalanceConfig, RebalanceProgress, ShardId, ShardInfo, ShardManager, ShardState, ShardStats,
     ShardTransfer, TransferId, TransferStatus,
 };
-pub use upgrade::{UpgradeCoordinator, UpgradeProgress, UpgradeStatus, canary_upgrade};
+pub use upgrade::{canary_upgrade, UpgradeCoordinator, UpgradeProgress, UpgradeStatus};

@@ -2,7 +2,6 @@
 //!
 //! Tracks progress of long-running migrations.
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -164,17 +163,17 @@ mod tests {
     #[tokio::test]
     async fn test_progress_tracking() {
         let tracker = ProgressTracker::new();
-        
+
         // Start tracking
         tracker.start("001".to_string(), 100).await;
-        
+
         // Update progress
         tracker.update(50, "Processing...".to_string()).await;
-        
+
         let progress = tracker.get_progress().await.unwrap();
         assert_eq!(progress.processed_items, 50);
         assert_eq!(progress.percentage, 50.0);
-        
+
         // Complete
         tracker.complete().await;
         let progress = tracker.get_progress().await.unwrap();
@@ -184,12 +183,12 @@ mod tests {
     #[tokio::test]
     async fn test_pause_resume() {
         let tracker = ProgressTracker::new();
-        
+
         assert!(!tracker.is_paused());
-        
+
         tracker.pause();
         assert!(tracker.is_paused());
-        
+
         tracker.resume();
         assert!(!tracker.is_paused());
     }
@@ -197,9 +196,9 @@ mod tests {
     #[tokio::test]
     async fn test_cancel() {
         let tracker = ProgressTracker::new();
-        
+
         assert!(!tracker.is_cancelled());
-        
+
         tracker.cancel();
         assert!(tracker.is_cancelled());
     }

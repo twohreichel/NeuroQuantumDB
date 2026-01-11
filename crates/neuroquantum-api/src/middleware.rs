@@ -646,9 +646,9 @@ where
             // Extract trace context from headers if present
             let parent_context = opentelemetry::global::get_text_map_propagator(|propagator| {
                 use opentelemetry::propagation::Extractor;
-                
+
                 struct HeaderExtractor<'a>(&'a actix_web::http::header::HeaderMap);
-                
+
                 impl<'a> Extractor for HeaderExtractor<'a> {
                     fn get(&self, key: &str) -> Option<&str> {
                         self.0.get(key).and_then(|v| v.to_str().ok())
@@ -669,25 +669,29 @@ where
                 uri = %req.uri(),
                 version = ?req.version(),
             );
-            
+
             span.set_parent(parent_context);
 
             let _guard = span.enter();
 
             // Add trace context to response headers
             let mut res = service.call(req).await?;
-            
+
             // Inject trace context into response headers
             let context = Span::current().context();
             opentelemetry::global::get_text_map_propagator(|propagator| {
                 use opentelemetry::propagation::Injector;
-                
+
                 struct HeaderInjector<'a>(&'a mut actix_web::http::header::HeaderMap);
-                
+
                 impl<'a> Injector for HeaderInjector<'a> {
                     fn set(&mut self, key: &str, value: String) {
-                        if let Ok(header_name) = actix_web::http::header::HeaderName::from_bytes(key.as_bytes()) {
-                            if let Ok(header_value) = actix_web::http::header::HeaderValue::from_str(&value) {
+                        if let Ok(header_name) =
+                            actix_web::http::header::HeaderName::from_bytes(key.as_bytes())
+                        {
+                            if let Ok(header_value) =
+                                actix_web::http::header::HeaderValue::from_str(&value)
+                            {
                                 self.0.insert(header_name, header_value);
                             }
                         }
@@ -726,7 +730,6 @@ where
 pub fn tracing_middleware() -> TracingMiddlewareFactory {
     TracingMiddlewareFactory
 }
-
 
 #[cfg(test)]
 mod tests {

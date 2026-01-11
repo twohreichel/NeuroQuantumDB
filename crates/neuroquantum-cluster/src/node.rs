@@ -474,7 +474,11 @@ impl ClusterNode {
             let timeout = {
                 let inner = self.inner.read().await;
                 std::time::Duration::from_secs(
-                    inner.config.manager.upgrades.leadership_transfer_timeout_secs,
+                    inner
+                        .config
+                        .manager
+                        .upgrades
+                        .leadership_transfer_timeout_secs,
                 )
             };
             let start = std::time::Instant::now();
@@ -550,10 +554,7 @@ impl ClusterNode {
             )));
         }
 
-        info!(
-            node_id = self.node_id,
-            healthy_peers, "Health check passed"
-        );
+        info!(node_id = self.node_id, healthy_peers, "Health check passed");
         Ok(())
     }
 
@@ -576,9 +577,7 @@ impl ClusterNode {
                 });
             }
 
-            if peer.protocol_version < our_version
-                && our_version - peer.protocol_version > 1
-            {
+            if peer.protocol_version < our_version && our_version - peer.protocol_version > 1 {
                 warn!(
                     node_id = self.node_id,
                     peer_id = peer.node_id,
