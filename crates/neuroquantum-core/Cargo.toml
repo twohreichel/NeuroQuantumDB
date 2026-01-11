@@ -10,7 +10,7 @@ keywords = ["database", "neuromorphic", "dna-compression", "bioinformatics", "si
 
 [package.metadata.cargo-machete]
 # These dependencies are used conditionally or reserved for future features
-ignored = ["bitvec", "bytemuck", "hashbrown", "wide", "chacha20poly1305"]
+ignored = ["bitvec", "bytemuck", "hashbrown", "wide", "chacha20poly1305", "opentelemetry", "opentelemetry-semantic-conventions", "opentelemetry_sdk", "tracing-opentelemetry"]
 
 [dependencies]
 # Workspace dependencies
@@ -23,6 +23,12 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 chrono.workspace = true
+
+# OpenTelemetry distributed tracing
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+opentelemetry-semantic-conventions.workspace = true
+tracing-opentelemetry.workspace = true
 
 # DNA compression specific dependencies
 # Replaced reed-solomon-erasure with reed-solomon-simd to resolve RUSTSEC-2024-0384

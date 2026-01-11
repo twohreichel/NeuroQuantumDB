@@ -253,6 +253,14 @@ pub enum TokenType {
     Repeatable,
     Serializable,
 
+    // Prepared statement keywords
+    Prepare,
+    Execute,
+    Deallocate,
+
+    // Schema migration keywords
+    Concurrently,
+
     // Operators and punctuation
     Equal,
     NotEqual,
@@ -270,6 +278,9 @@ pub enum TokenType {
     Comma,
     Semicolon,
     Dot,
+    Colon,
+    ColonEqual,
+    Dollar,
 
     // Literals and identifiers
     Identifier(String),
@@ -279,6 +290,10 @@ pub enum TokenType {
     BooleanLiteral(bool),
     DNALiteral(String),
     QuantumBitLiteral(bool, f64),
+    /// Positional parameter ($1, $2, etc.)
+    PositionalParameter(u32),
+    /// Named parameter (:name)
+    NamedParameter(String),
 
     // Special tokens
     Whitespace,
@@ -597,8 +612,46 @@ impl QSQLParser {
                 "<=" => return Ok((TokenType::LessThanOrEqual, position + 2)),
                 ">=" => return Ok((TokenType::GreaterThanOrEqual, position + 2)),
                 "!=" | "<>" => return Ok((TokenType::NotEqual, position + 2)),
+                ":=" => return Ok((TokenType::ColonEqual, position + 2)),
                 _ => {}
             }
+        }
+
+        // Handle positional parameter ($1, $2, etc.)
+        if ch == '$' {
+            let mut new_pos = position + 1;
+            let mut value = String::new();
+            while new_pos < chars.len() && chars[new_pos].is_ascii_digit() {
+                value.push(chars[new_pos]);
+                new_pos += 1;
+            }
+            if !value.is_empty() {
+                let param_index: u32 = value.parse().map_err(|_| QSQLError::ParseError {
+                    message: format!("Invalid parameter index: ${}", value),
+                    position,
+                })?;
+                return Ok((TokenType::PositionalParameter(param_index), new_pos));
+            }
+            return Ok((TokenType::Dollar, position + 1));
+        }
+
+        // Handle named parameter (:name)
+        if ch == ':' {
+            // Check if followed by identifier (named parameter)
+            if position + 1 < chars.len()
+                && (chars[position + 1].is_alphabetic() || chars[position + 1] == '_')
+            {
+                let mut new_pos = position + 1;
+                let mut name = String::new();
+                while new_pos < chars.len()
+                    && (chars[new_pos].is_alphanumeric() || chars[new_pos] == '_')
+                {
+                    name.push(chars[new_pos]);
+                    new_pos += 1;
+                }
+                return Ok((TokenType::NamedParameter(name), new_pos));
+            }
+            return Ok((TokenType::Colon, position + 1));
         }
 
         // Single-character operators and punctuation
@@ -660,6 +713,10 @@ impl QSQLParser {
             Some(TokenType::Rollback) => self.parse_rollback(tokens),
             Some(TokenType::Savepoint) => self.parse_savepoint(tokens),
             Some(TokenType::Release) => self.parse_release_savepoint(tokens),
+            // Prepared statement statements
+            Some(TokenType::Prepare) => self.parse_prepare_statement(tokens),
+            Some(TokenType::Execute) => self.parse_execute_statement(tokens),
+            Some(TokenType::Deallocate) => self.parse_deallocate_statement(tokens),
             _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
                 position: 0,
@@ -3505,9 +3562,48 @@ impl QSQLParser {
 
                 let new_data_type = self.parse_data_type(tokens, &mut i)?;
 
+                // Check for USING clause
+                let using_expression = if i < tokens.len() && matches!(tokens[i], TokenType::Using)
+                {
+                    i += 1;
+                    // Parse the expression as a string until CONCURRENTLY or EOF
+                    let mut expr = String::new();
+                    while i < tokens.len()
+                        && !matches!(
+                            tokens[i],
+                            TokenType::Concurrently | TokenType::Semicolon | TokenType::EOF
+                        )
+                    {
+                        match &tokens[i] {
+                            TokenType::Identifier(s) => expr.push_str(s),
+                            TokenType::StringLiteral(s) => {
+                                expr.push('\'');
+                                expr.push_str(s);
+                                expr.push('\'');
+                            }
+                            TokenType::Colon => expr.push(':'),
+                            TokenType::Dot => expr.push('.'),
+                            TokenType::LeftParen => expr.push('('),
+                            TokenType::RightParen => expr.push(')'),
+                            _ => {
+                                // For other tokens, use a simple string representation
+                                expr.push_str(&format!("{:?}", tokens[i]));
+                            }
+                        }
+                        i += 1;
+                        if i < tokens.len() {
+                            expr.push(' ');
+                        }
+                    }
+                    Some(expr.trim().to_string())
+                } else {
+                    None
+                };
+
                 AlterTableOperation::ModifyColumn {
                     column_name,
                     new_data_type,
+                    using_expression,
                 }
             }
             TokenType::Rename => {
@@ -3555,9 +3651,13 @@ impl QSQLParser {
             }
         };
 
+        // Check for CONCURRENTLY keyword at the end
+        let concurrently = i + 1 < tokens.len() && matches!(tokens[i + 1], TokenType::Concurrently);
+
         Ok(Statement::AlterTable(AlterTableStatement {
             table_name,
             operation,
+            concurrently,
         }))
     }
 
@@ -3582,6 +3682,14 @@ impl QSQLParser {
         if i < tokens.len() && matches!(tokens[i], TokenType::Index) {
             i += 1;
         }
+
+        // Check for CONCURRENTLY
+        let concurrently = if i < tokens.len() && matches!(tokens[i], TokenType::Concurrently) {
+            i += 1;
+            true
+        } else {
+            false
+        };
 
         // Check for IF NOT EXISTS
         let mut if_not_exists = false;
@@ -3678,6 +3786,7 @@ impl QSQLParser {
             columns,
             unique,
             if_not_exists,
+            concurrently,
         }))
     }
 
@@ -3694,6 +3803,14 @@ impl QSQLParser {
         if i < tokens.len() && matches!(tokens[i], TokenType::Index) {
             i += 1;
         }
+
+        // Check for CONCURRENTLY
+        let concurrently = if i < tokens.len() && matches!(tokens[i], TokenType::Concurrently) {
+            i += 1;
+            true
+        } else {
+            false
+        };
 
         // Check for IF EXISTS
         let mut if_exists = false;
@@ -3718,6 +3835,7 @@ impl QSQLParser {
         Ok(Statement::DropIndex(DropIndexStatement {
             index_name,
             if_exists,
+            concurrently,
         }))
     }
 
@@ -4341,6 +4459,14 @@ impl QSQLParser {
         keywords.insert("COMMITTED".to_string(), TokenType::Committed);
         keywords.insert("REPEATABLE".to_string(), TokenType::Repeatable);
         keywords.insert("SERIALIZABLE".to_string(), TokenType::Serializable);
+
+        // Prepared statement keywords
+        keywords.insert("PREPARE".to_string(), TokenType::Prepare);
+        keywords.insert("EXECUTE".to_string(), TokenType::Execute);
+        keywords.insert("DEALLOCATE".to_string(), TokenType::Deallocate);
+
+        // Schema migration keywords
+        keywords.insert("CONCURRENTLY".to_string(), TokenType::Concurrently);
     }
 
     /// Initialize operator mappings with precedence for Pratt parsing
@@ -5155,6 +5281,27 @@ impl QSQLParser {
                 }
             }
 
+            // Positional parameter ($1, $2, etc.) for prepared statements
+            TokenType::PositionalParameter(index) => {
+                let param_index = *index;
+                *i += 1;
+                Ok(Expression::Parameter(ParameterRef::Positional(param_index)))
+            }
+
+            // Named parameter (:name) for prepared statements
+            TokenType::NamedParameter(name) => {
+                let param_name = name.clone();
+                *i += 1;
+                Ok(Expression::Parameter(ParameterRef::Named(param_name)))
+            }
+
+            // DEFAULT keyword for INSERT statements
+            // Allows using column's default value: INSERT INTO t (a, b) VALUES (1, DEFAULT)
+            TokenType::Default => {
+                *i += 1;
+                Ok(Expression::Default)
+            }
+
             _ => Err(QSQLError::ParseError {
                 message: format!("Unexpected token in expression: {:?}", tokens[*i]),
                 position: *i,
@@ -5607,6 +5754,205 @@ impl QSQLParser {
         };
 
         self.operators.get(op_key).cloned()
+    }
+
+    /// Parse PREPARE statement
+    /// Syntax: PREPARE name AS statement
+    /// Example: PREPARE get_user AS SELECT * FROM users WHERE id = $1
+    fn parse_prepare_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip PREPARE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Prepare) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected PREPARE keyword".to_string(),
+                position: i,
+            });
+        }
+
+        // Parse statement name
+        let name = if i < tokens.len() {
+            match &tokens[i] {
+                TokenType::Identifier(n) => {
+                    let name = n.clone();
+                    i += 1;
+                    name
+                }
+                _ => {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected prepared statement name".to_string(),
+                        position: i,
+                    });
+                }
+            }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected prepared statement name".to_string(),
+                position: i,
+            });
+        };
+
+        // Expect AS keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected AS keyword after prepared statement name".to_string(),
+                position: i,
+            });
+        }
+
+        // Parse the remaining tokens as the statement body
+        let remaining_tokens = &tokens[i..];
+        let statement = self.parse_tokens(remaining_tokens)?;
+
+        Ok(Statement::Prepare(PrepareStatement {
+            name,
+            statement: Box::new(statement),
+            parameter_types: None,
+        }))
+    }
+
+    /// Parse EXECUTE statement
+    /// Syntax: EXECUTE name [(param1, param2, ...)]
+    /// Named parameters: EXECUTE name(param := value, ...)
+    fn parse_execute_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip EXECUTE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Execute) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected EXECUTE keyword".to_string(),
+                position: i,
+            });
+        }
+
+        // Parse statement name
+        let name = if i < tokens.len() {
+            match &tokens[i] {
+                TokenType::Identifier(n) => {
+                    let name = n.clone();
+                    i += 1;
+                    name
+                }
+                _ => {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected prepared statement name".to_string(),
+                        position: i,
+                    });
+                }
+            }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected prepared statement name".to_string(),
+                position: i,
+            });
+        };
+
+        let mut parameters = Vec::new();
+        let mut named_parameters = std::collections::HashMap::new();
+
+        // Check for optional parameter list
+        if i < tokens.len() && matches!(tokens[i], TokenType::LeftParen) {
+            i += 1; // consume '('
+
+            // Parse parameters
+            loop {
+                if i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Unclosed parameter list".to_string(),
+                        position: i,
+                    });
+                }
+
+                // Check for closing paren (empty parameter list)
+                if matches!(tokens[i], TokenType::RightParen) {
+                    // Consume ')' - no need to increment i since we break immediately
+                    break;
+                }
+
+                // Check if this is a named parameter (identifier followed by :=)
+                let is_named = if let TokenType::Identifier(_) = &tokens[i] {
+                    i + 1 < tokens.len() && matches!(tokens[i + 1], TokenType::ColonEqual)
+                } else {
+                    false
+                };
+
+                if is_named {
+                    // Parse named parameter: name := value
+                    let param_name = if let TokenType::Identifier(n) = &tokens[i] {
+                        n.clone()
+                    } else {
+                        unreachable!()
+                    };
+                    i += 1; // consume identifier
+                    i += 1; // consume :=
+
+                    // Parse the value expression
+                    let value = self.parse_expression(tokens, &mut i)?;
+                    named_parameters.insert(param_name, value);
+                } else {
+                    // Parse positional parameter value
+                    let value = self.parse_expression(tokens, &mut i)?;
+                    parameters.push(value);
+                }
+
+                // Check for comma or closing paren
+                if i < tokens.len() && matches!(tokens[i], TokenType::Comma) {
+                    i += 1; // consume ','
+                } else if i < tokens.len() && matches!(tokens[i], TokenType::RightParen) {
+                    // Consume ')' - no need to increment i since we break immediately
+                    break;
+                }
+            }
+        }
+
+        Ok(Statement::Execute(ExecuteStatement {
+            name,
+            parameters,
+            named_parameters,
+        }))
+    }
+
+    /// Parse DEALLOCATE statement
+    /// Syntax: DEALLOCATE name | DEALLOCATE ALL
+    fn parse_deallocate_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip DEALLOCATE keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Deallocate) {
+            i += 1;
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected DEALLOCATE keyword".to_string(),
+                position: i,
+            });
+        }
+
+        // Parse name or ALL
+        let name = if i < tokens.len() {
+            match &tokens[i] {
+                TokenType::All => None, // DEALLOCATE ALL
+                TokenType::Identifier(n) => Some(n.clone()),
+                _ => {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected prepared statement name or ALL".to_string(),
+                        position: i,
+                    });
+                }
+            }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected prepared statement name or ALL".to_string(),
+                position: i,
+            });
+        };
+
+        Ok(Statement::Deallocate(DeallocateStatement { name }))
     }
 }
 

@@ -6,6 +6,7 @@ pub mod backup;
 pub mod btree;
 pub mod buffer;
 pub mod encryption;
+pub mod migration;
 pub mod pager;
 pub mod wal;
 
@@ -17,7 +18,7 @@ use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info};
+use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
 pub use backup::{
@@ -28,6 +29,11 @@ pub use backup::{
 pub use btree::{BTree, BTreeConfig};
 pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
 pub use encryption::{EncryptedData, EncryptionManager};
+pub use migration::{
+    Migration, MigrationConfig, MigrationDirection, MigrationExecutor, MigrationExecutorConfig,
+    MigrationHistory, MigrationParser, MigrationProgress, MigrationRecord, MigrationResult,
+    MigrationStatus, ProgressTracker, SafetyCheck, ValidationResult,
+};
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
 pub use wal::{RecoveryStats, WALConfig, WALManager};
 
@@ -1228,6 +1234,7 @@ impl StorageEngine {
     /// row.set("email", Value::Text("alice@example.com".to_string()));
     /// let id = storage.insert_row("users", row).await?;
     /// ```
+    #[instrument(level = "debug", skip(self, row), fields(table = %table))]
     pub async fn insert_row(&mut self, table: &str, mut row: Row) -> Result<RowId> {
         debug!("➕ Inserting row into table: {}", table);
 
@@ -1245,6 +1252,9 @@ impl StorageEngine {
 
         // Process AUTO_INCREMENT columns
         self.populate_auto_increment_columns(table, &schema, &mut row)?;
+
+        // Apply DEFAULT values for missing columns
+        Self::populate_default_values(&schema, &mut row);
 
         // Validate row against schema
         self.validate_row(&schema, &row)?;
@@ -1338,13 +1348,39 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Populate missing columns with their default values
+    ///
+    /// This function fills in any columns that are missing from the row
+    /// with their defined default values from the schema. This is called
+    /// during INSERT to ensure all columns have appropriate values.
+    fn populate_default_values(schema: &TableSchema, row: &mut Row) {
+        for column in &schema.columns {
+            // Skip if value is already provided
+            if row.fields.contains_key(&column.name) {
+                continue;
+            }
+
+            // Apply default value if available
+            if let Some(default_value) = &column.default_value {
+                row.fields
+                    .insert(column.name.clone(), default_value.clone());
+                debug!(
+                    "📝 Applied default value {:?} for column '{}'",
+                    default_value, column.name
+                );
+            }
+        }
+    }
+
     /// Select rows matching the given query
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn select_rows(&self, query: &SelectQuery) -> Result<Vec<Row>> {
         let (rows, _stats) = self.select_rows_with_stats(query).await?;
         Ok(rows)
     }
 
     /// Select rows matching the given query with execution statistics
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn select_rows_with_stats(
         &self,
         query: &SelectQuery,
@@ -1425,7 +1461,16 @@ impl StorageEngine {
         self.metadata.tables.len()
     }
 
+    /// Get the schema for a specific table
+    ///
+    /// Returns the table schema if it exists, or None if the table doesn't exist.
+    /// This is useful for checking column definitions and default values during INSERT.
+    pub fn get_table_schema(&self, table_name: &str) -> Option<&TableSchema> {
+        self.metadata.tables.get(table_name)
+    }
+
     /// Update rows matching the given query
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn update_rows(&mut self, query: &UpdateQuery) -> Result<u64> {
         debug!("✏️ Updating rows in table: {}", query.table);
 
@@ -1489,6 +1534,7 @@ impl StorageEngine {
     }
 
     /// Delete rows matching the given query
+    #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn delete_rows(&mut self, query: &DeleteQuery) -> Result<u64> {
         debug!("🗑️ Deleting rows from table: {}", query.table);
 
@@ -2441,6 +2487,7 @@ impl StorageEngine {
     }
 
     /// Begin a new transaction
+    #[instrument(level = "debug", skip(self))]
     pub async fn begin_transaction(&self) -> Result<crate::transaction::TransactionId> {
         self.transaction_manager
             .begin_transaction(IsolationLevel::ReadCommitted)
@@ -2449,6 +2496,7 @@ impl StorageEngine {
     }
 
     /// Begin a transaction with specific isolation level
+    #[instrument(level = "debug", skip(self), fields(isolation_level = ?isolation_level))]
     pub async fn begin_transaction_with_isolation(
         &self,
         isolation_level: crate::transaction::IsolationLevel,
@@ -2460,6 +2508,7 @@ impl StorageEngine {
     }
 
     /// Commit a transaction and persist pending writes to disk
+    #[instrument(level = "debug", skip(self), fields(tx_id = ?tx_id))]
     pub async fn commit_transaction(
         &mut self,
         tx_id: crate::transaction::TransactionId,

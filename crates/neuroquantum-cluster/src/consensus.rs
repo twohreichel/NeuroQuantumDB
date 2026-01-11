@@ -210,7 +210,7 @@ pub struct RaftConsensus {
     /// Internal state
     state: Arc<RwLock<ConsensusState>>,
     /// Running flag
-    running: Arc<RwLock<bool>>,
+    pub(crate) running: Arc<RwLock<bool>>,
     /// Notifier for heartbeat received events
     heartbeat_received: Arc<Notify>,
 }

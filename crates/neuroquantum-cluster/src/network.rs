@@ -211,6 +211,9 @@ struct PeerConnection {
     last_contact_ms: u64,
     /// gRPC client for this peer
     client: Option<ClusterNodeClient<tonic::transport::Channel>>,
+    /// Protocol version of the peer
+    #[allow(dead_code)]
+    protocol_version: u32,
 }
 
 /// Network transport for cluster communication.
@@ -248,6 +251,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
             local_node = self.node_id,
             remote_node = req.node_id,
             remote_addr = req.address,
+            remote_protocol_version = req.protocol_version,
             "Received handshake request"
         );
 
@@ -256,6 +260,35 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
             .address
             .parse()
             .map_err(|e| tonic::Status::invalid_argument(format!("Invalid address: {}", e)))?;
+
+        // Get our protocol version
+        let our_protocol_version = self.transport.config.manager.upgrades.protocol_version;
+        let min_compatible = self
+            .transport
+            .config
+            .manager
+            .upgrades
+            .min_compatible_version;
+
+        // Check protocol compatibility
+        if req.protocol_version < min_compatible {
+            warn!(
+                local_node = self.node_id,
+                remote_node = req.node_id,
+                remote_version = req.protocol_version,
+                min_compatible,
+                "Incompatible protocol version"
+            );
+            return Ok(tonic::Response::new(proto::HandshakeResponse {
+                node_id: self.node_id,
+                success: false,
+                error: format!(
+                    "Incompatible protocol version: {} < {}",
+                    req.protocol_version, min_compatible
+                ),
+                protocol_version: our_protocol_version,
+            }));
+        }
 
         // Add the peer to our connections
         if let Err(e) = self.transport.add_peer(req.node_id, remote_addr).await {
@@ -269,6 +302,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
                 node_id: self.node_id,
                 success: false,
                 error: format!("Failed to add peer: {}", e),
+                protocol_version: our_protocol_version,
             }));
         }
 
@@ -276,6 +310,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
             node_id: self.node_id,
             success: true,
             error: String::new(),
+            protocol_version: our_protocol_version,
         }))
     }
 
@@ -723,6 +758,7 @@ impl NetworkTransport {
                         node_id: self.node_id,
                         address: self.bind_addr.to_string(),
                         term: 0, // Current term would come from Raft consensus
+                        protocol_version: self.config.manager.upgrades.protocol_version,
                     };
 
                     match client.handshake(handshake_req).await {
@@ -732,6 +768,7 @@ impl NetworkTransport {
                                 info!(
                                     local_node = self.node_id,
                                     remote_node = resp.node_id,
+                                    remote_protocol_version = resp.protocol_version,
                                     "Handshake successful"
                                 );
 
@@ -761,6 +798,7 @@ impl NetworkTransport {
                                             .as_millis()
                                             as u64,
                                         client: Some(client),
+                                        protocol_version: resp.protocol_version,
                                     },
                                 );
                             } else {
@@ -818,6 +856,7 @@ impl NetworkTransport {
                 connected: false,
                 last_contact_ms: 0,
                 client: None,
+                protocol_version: 0, // Will be updated during handshake
             },
         );
 
@@ -898,11 +937,13 @@ mod tests {
             node_id: 1,
             address: "127.0.0.1:8080".to_string(),
             term: 0,
+            protocol_version: 1,
         };
 
         assert_eq!(handshake_req.node_id, 1);
         assert_eq!(handshake_req.address, "127.0.0.1:8080");
         assert_eq!(handshake_req.term, 0);
+        assert_eq!(handshake_req.protocol_version, 1);
     }
 
     #[tokio::test]

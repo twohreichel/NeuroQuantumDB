@@ -22,6 +22,7 @@ pub mod middleware;
 pub mod permissions;
 pub mod rate_limit;
 pub mod storage;
+pub mod tracing_setup;
 pub mod websocket;
 
 use auth::AuthService;
@@ -240,6 +241,8 @@ pub fn configure_app(
         .unwrap();
 
     let cors_origins = app_state.config.cors.allowed_origins.clone();
+    #[allow(unused_variables)]
+    let tracing_enabled = app_state.config.tracing.enabled;
 
     App::new()
         // Add application state
@@ -249,8 +252,9 @@ pub fn configure_app(
         .app_data(web::Data::new(app_state.jwt_service.clone()))
         .app_data(web::Data::new(app_state.rate_limit_service.clone()))
         .app_data(web::Data::new(app_state.config.clone()))
-
-        // Add middleware
+        // Add tracing middleware (the middleware itself checks if tracing is enabled)
+        .wrap(middleware::tracing_middleware())
+        // Add other middleware
         .wrap(prometheus.clone())
         .wrap(Logger::default())
         .wrap(Compress::default())

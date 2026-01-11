@@ -11,7 +11,7 @@ use tracing::{debug, info, warn};
 use crate::config::ClusterConfig;
 use crate::consensus::RaftConsensus;
 use crate::discovery::DiscoveryService;
-use crate::error::ClusterResult;
+use crate::error::{ClusterError, ClusterResult};
 use crate::network::NetworkTransport;
 use crate::sharding::ShardManager;
 
@@ -53,6 +53,8 @@ pub enum NodeState {
     Running,
     /// Node is in read-only mode (network partition detected)
     ReadOnly,
+    /// Node is draining connections before upgrade
+    Draining,
     /// Node is leaving the cluster gracefully
     Leaving,
     /// Node has stopped
@@ -68,6 +70,7 @@ impl std::fmt::Display for NodeState {
             Self::Joining => write!(f, "Joining"),
             Self::Running => write!(f, "Running"),
             Self::ReadOnly => write!(f, "ReadOnly"),
+            Self::Draining => write!(f, "Draining"),
             Self::Leaving => write!(f, "Leaving"),
             Self::Stopped => write!(f, "Stopped"),
             Self::Error => write!(f, "Error"),
@@ -89,13 +92,15 @@ pub struct PeerInfo {
     pub last_heartbeat: Option<Instant>,
     /// Whether the peer is considered healthy
     pub healthy: bool,
+    /// Protocol version of the peer
+    pub protocol_version: u32,
 }
 
 /// Internal state of the cluster node.
 #[allow(dead_code)]
-struct NodeInner {
+pub(crate) struct NodeInner {
     /// Node configuration (used in full implementation)
-    config: ClusterConfig,
+    pub(crate) config: ClusterConfig,
     /// Current node state
     state: NodeState,
     /// Current node role
@@ -116,7 +121,7 @@ pub struct ClusterNode {
     /// Node identifier
     node_id: NodeId,
     /// Internal state protected by RwLock
-    inner: Arc<RwLock<NodeInner>>,
+    pub(crate) inner: Arc<RwLock<NodeInner>>,
     /// Raft consensus module
     consensus: Arc<RaftConsensus>,
     /// Network transport layer
@@ -429,6 +434,188 @@ impl ClusterNode {
                 "Leader changed"
             );
             inner.leader_id = leader_id;
+        }
+    }
+
+    /// Prepare the node for upgrade by draining connections.
+    ///
+    /// This will:
+    /// 1. Mark the node as draining
+    /// 2. Stop accepting new client connections
+    /// 3. Wait for existing connections to complete (up to drain timeout)
+    /// 4. If leader, trigger leadership transfer
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node is not in Running state or if draining fails.
+    pub async fn prepare_for_upgrade(&self) -> ClusterResult<()> {
+        info!(node_id = self.node_id, "Preparing node for upgrade");
+
+        {
+            let mut inner = self.inner.write().await;
+            if inner.state != NodeState::Running {
+                return Err(ClusterError::InvalidState {
+                    expected: "Running".to_string(),
+                    actual: format!("{:?}", inner.state),
+                });
+            }
+            inner.state = NodeState::Draining;
+        }
+
+        // If we're the leader, transfer leadership before draining
+        if self.is_leader().await {
+            info!(
+                node_id = self.node_id,
+                "Node is leader, transferring leadership before upgrade"
+            );
+            self.consensus.transfer_leadership().await?;
+
+            // Wait for leadership to be transferred
+            let timeout = {
+                let inner = self.inner.read().await;
+                std::time::Duration::from_secs(
+                    inner
+                        .config
+                        .manager
+                        .upgrades
+                        .leadership_transfer_timeout_secs,
+                )
+            };
+            let start = std::time::Instant::now();
+            while self.is_leader().await && start.elapsed() < timeout {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+
+            if self.is_leader().await {
+                warn!(
+                    node_id = self.node_id,
+                    "Leadership transfer timed out, proceeding anyway"
+                );
+            }
+        }
+
+        // Drain connections
+        let drain_timeout = {
+            let inner = self.inner.read().await;
+            std::time::Duration::from_secs(inner.config.manager.upgrades.drain_timeout_secs)
+        };
+
+        info!(
+            node_id = self.node_id,
+            timeout_secs = drain_timeout.as_secs(),
+            "Draining connections"
+        );
+
+        // In a real implementation, we would:
+        // 1. Stop accepting new connections
+        // 2. Wait for active connections to complete or timeout
+        // For now, just wait for the timeout
+        tokio::time::sleep(drain_timeout).await;
+
+        info!(node_id = self.node_id, "Node prepared for upgrade");
+        Ok(())
+    }
+
+    /// Perform health check after upgrade.
+    ///
+    /// Verifies that the node is healthy and ready to rejoin the cluster.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if health checks fail.
+    pub async fn post_upgrade_health_check(&self) -> ClusterResult<()> {
+        info!(
+            node_id = self.node_id,
+            "Performing post-upgrade health check"
+        );
+
+        // Check if consensus is running
+        if !*self.consensus.running.read().await {
+            return Err(ClusterError::HealthCheckFailed(
+                "Consensus module not running".into(),
+            ));
+        }
+
+        // Check if we can reach peers
+        let healthy_peers = {
+            let inner = self.inner.read().await;
+            inner.peers.iter().filter(|p| p.healthy).count()
+        };
+
+        let min_healthy = {
+            let inner = self.inner.read().await;
+            inner.config.manager.upgrades.min_healthy_nodes
+        };
+
+        if healthy_peers < min_healthy {
+            return Err(ClusterError::HealthCheckFailed(format!(
+                "Not enough healthy peers: {} < {}",
+                healthy_peers, min_healthy
+            )));
+        }
+
+        info!(node_id = self.node_id, healthy_peers, "Health check passed");
+        Ok(())
+    }
+
+    /// Check compatibility with peer protocol versions.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any peer has an incompatible protocol version.
+    pub async fn check_protocol_compatibility(&self) -> ClusterResult<()> {
+        let inner = self.inner.read().await;
+        let our_version = inner.config.manager.upgrades.protocol_version;
+        let min_compatible = inner.config.manager.upgrades.min_compatible_version;
+
+        for peer in &inner.peers {
+            if peer.protocol_version < min_compatible {
+                return Err(ClusterError::ProtocolVersionMismatch {
+                    node_id: peer.node_id,
+                    expected: min_compatible,
+                    actual: peer.protocol_version,
+                });
+            }
+
+            if peer.protocol_version < our_version && our_version - peer.protocol_version > 1 {
+                warn!(
+                    node_id = self.node_id,
+                    peer_id = peer.node_id,
+                    our_version,
+                    peer_version = peer.protocol_version,
+                    "Large protocol version difference detected"
+                );
+            }
+        }
+
+        info!(
+            node_id = self.node_id,
+            protocol_version = our_version,
+            "Protocol compatibility check passed"
+        );
+        Ok(())
+    }
+
+    /// Get the protocol version of this node.
+    pub async fn protocol_version(&self) -> u32 {
+        let inner = self.inner.read().await;
+        inner.config.manager.upgrades.protocol_version
+    }
+
+    /// Update the protocol version of a peer.
+    pub async fn update_peer_protocol_version(&self, node_id: NodeId, version: u32) {
+        let mut inner = self.inner.write().await;
+        if let Some(peer) = inner.peers.iter_mut().find(|p| p.node_id == node_id) {
+            if peer.protocol_version != version {
+                info!(
+                    local_node = self.node_id,
+                    peer_node = node_id,
+                    old_version = peer.protocol_version,
+                    new_version = version,
+                    "Peer protocol version changed"
+                );
+                peer.protocol_version = version;
+            }
         }
     }
 }

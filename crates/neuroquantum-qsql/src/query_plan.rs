@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 // Import storage engine and related types
 use neuroquantum_core::learning::HebbianLearningEngine;
@@ -112,6 +112,10 @@ pub struct ExecutorConfig {
     /// If the product of left and right row counts exceeds this,
     /// use hash join instead of nested loop for better performance.
     pub hash_join_threshold: usize,
+    /// Maximum recursion depth for recursive CTEs (WITH RECURSIVE).
+    /// Default is RECURSIVE_CTE_LIMIT (1000).
+    /// Set this to prevent infinite loops in recursive queries.
+    pub max_recursive_cte_depth: usize,
 }
 
 impl Default for ExecutorConfig {
@@ -129,6 +133,7 @@ impl Default for ExecutorConfig {
             #[cfg(test)]
             allow_legacy_mode: false, // Only available in test builds
             hash_join_threshold: 1000, // Use hash join when left * right > 1000
+            max_recursive_cte_depth: RECURSIVE_CTE_LIMIT, // Default to 1000 iterations
         }
     }
 }
@@ -395,6 +400,7 @@ impl QueryExecutor {
     /// Returns `QSQLError::ConfigError` if no storage engine is configured and
     /// legacy mode is disabled (production mode). In production, always use
     /// `ExecutorConfig::production()` to ensure real storage is required.
+    #[instrument(level = "info", skip(self, plan), fields(statement_type = ?plan.statement))]
     pub async fn execute(&mut self, plan: &QueryPlan) -> QSQLResult<QueryResult> {
         // Production guard: ensure storage engine or explicit legacy mode
         self.require_storage_or_legacy()?;
@@ -1315,8 +1321,11 @@ impl QueryExecutor {
         let recursive_query = &union_clause.select;
         let is_union_all = matches!(union_clause.union_type, crate::ast::UnionType::UnionAll);
 
+        // Get the configured recursion limit
+        let max_depth = self.config.max_recursive_cte_depth;
+
         // Iteratively execute the recursive part
-        for iteration in 0..RECURSIVE_CTE_LIMIT {
+        for iteration in 0..max_depth {
             if working_rows.is_empty() {
                 // No more rows to process, recursion complete
                 break;
@@ -1353,11 +1362,11 @@ impl QueryExecutor {
             working_rows = new_rows;
 
             // Check if we've reached the recursion limit (final iteration)
-            if iteration == RECURSIVE_CTE_LIMIT - 1 {
+            if iteration == max_depth - 1 {
                 return Err(QSQLError::ExecutionError {
                     message: format!(
                         "Recursive CTE '{}' exceeded maximum recursion limit of {} iterations",
-                        cte_name, RECURSIVE_CTE_LIMIT
+                        cte_name, max_depth
                     ),
                 });
             }
@@ -2550,10 +2559,17 @@ impl QueryExecutor {
             let mut total_rows_affected = 0;
             let mut inserted_ids = Vec::new();
 
+            // Get the table schema to handle DEFAULT values
+            let schema = {
+                let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+                storage_guard.get_table_schema(&insert.table_name).cloned()
+            };
+
             // Process each value set
             for value_set in &insert.values {
-                // Convert SQL INSERT to storage Row (no borrow of self needed)
-                let row = Self::convert_insert_to_row_static(insert, value_set)?;
+                // Convert SQL INSERT to storage Row, handling DEFAULT values
+                let row =
+                    Self::convert_insert_to_row_with_defaults(insert, value_set, schema.as_ref())?;
 
                 // Insert via storage engine (automatically DNA-compressed!)
                 // Use transactional insert if we have an active transaction
@@ -3465,6 +3481,7 @@ impl QueryExecutor {
             AlterTableOperation::ModifyColumn {
                 column_name,
                 new_data_type,
+                using_expression: _,
             } => neuroquantum_core::storage::AlterTableOp::ModifyColumn {
                 column_name: column_name.clone(),
                 new_data_type: Self::convert_data_type(new_data_type),
@@ -3962,6 +3979,10 @@ impl QueryExecutor {
     // =============================================================================
 
     /// Convert SQL INSERT to storage Row (static to avoid borrowing issues)
+    ///
+    /// Note: This function is kept as a fallback when no schema is available.
+    /// For full DEFAULT value support, use `convert_insert_to_row_with_defaults`.
+    #[allow(dead_code)]
     fn convert_insert_to_row_static(
         insert: &InsertStatement,
         values: &[Expression],
@@ -3986,6 +4007,85 @@ impl QueryExecutor {
             let column_name = &column_names[i];
             let value = Self::convert_expression_to_value_static(expr)?;
             fields.insert(column_name.clone(), value);
+        }
+
+        Ok(Row {
+            id: 0, // Will be assigned by storage engine
+            fields,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        })
+    }
+
+    /// Convert SQL INSERT to storage Row with DEFAULT value support
+    ///
+    /// This function handles:
+    /// 1. Explicit DEFAULT keyword in VALUES (e.g., INSERT INTO t VALUES (1, DEFAULT))
+    /// 2. Missing columns that have default values in the schema
+    /// 3. CURRENT_TIMESTAMP and other special default expressions
+    fn convert_insert_to_row_with_defaults(
+        insert: &InsertStatement,
+        values: &[Expression],
+        schema: Option<&neuroquantum_core::storage::TableSchema>,
+    ) -> QSQLResult<Row> {
+        use chrono::prelude::*;
+
+        let mut fields = HashMap::new();
+
+        // Get column names from INSERT statement (either explicit or infer from schema)
+        let insert_columns = if let Some(cols) = &insert.columns {
+            cols.clone()
+        } else if let Some(s) = schema {
+            // Use schema column order if no columns specified
+            s.columns.iter().map(|c| c.name.clone()).collect()
+        } else {
+            // Fallback: Generate default column names
+            (0..values.len()).map(|i| format!("col_{}", i)).collect()
+        };
+
+        // Convert each provided value
+        for (i, expr) in values.iter().enumerate() {
+            if i >= insert_columns.len() {
+                break;
+            }
+            let column_name = &insert_columns[i];
+
+            // Handle Expression::Default - lookup the default value from schema
+            let value = match expr {
+                Expression::Default => {
+                    // Find the default value from schema
+                    if let Some(s) = schema {
+                        if let Some(col_def) = s.columns.iter().find(|c| &c.name == column_name) {
+                            col_def.default_value.clone().unwrap_or(Value::Null)
+                        } else {
+                            Value::Null
+                        }
+                    } else {
+                        Value::Null
+                    }
+                }
+                Expression::FunctionCall { name, .. }
+                    if name.to_uppercase() == "CURRENT_TIMESTAMP" =>
+                {
+                    Value::Timestamp(Utc::now())
+                }
+                _ => Self::convert_expression_to_value_static(expr)?,
+            };
+            fields.insert(column_name.clone(), value);
+        }
+
+        // Fill in missing columns with their default values
+        if let Some(s) = schema {
+            for col_def in &s.columns {
+                if !fields.contains_key(&col_def.name) {
+                    // Column not provided in INSERT - check for default value
+                    if let Some(default_val) = &col_def.default_value {
+                        fields.insert(col_def.name.clone(), default_val.clone());
+                    }
+                    // Note: auto_increment columns and NOT NULL without defaults
+                    // will be handled by the storage engine
+                }
+            }
         }
 
         Ok(Row {

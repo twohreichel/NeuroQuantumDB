@@ -6,18 +6,25 @@
 //!   implementations** including VQE, QAOA, and Simulated Quantum Annealing (SQA).
 //!   Features automatic fallback to classical solver when quantum backends unavailable.
 //!
-//! - **TFIM (Transverse Field Ising Model)**: Now with **real quantum
-//!   implementations** including Trotter-Suzuki time evolution, VQE for ground state
-//!   finding, and QAOA for optimization. The classical Monte Carlo simulation is still
-//!   available as a fallback method.
+//! - **TFIM (Transverse Field Ising Model)**: Now with **real quantum hardware integration**:
+//!   - **Quantum Annealing Backends**: D-Wave and AWS Braket quantum annealers for native
+//!     Ising model solving (NEW!)
+//!   - **Gate-Based Quantum**: Trotter-Suzuki time evolution, VQE for ground state
+//!     finding, and QAOA for optimization
+//!   - **Classical Fallback**: Monte Carlo simulation when quantum hardware unavailable
 //!
 //! - **Quantum Parallel Tempering**: Real quantum algorithms for parallel tempering
 //!   including Path Integral Monte Carlo (PIMC), Quantum Monte Carlo (QMC),
 //!   and Quantum Annealing with multi-temperature support.
 //!
-//! - **Grover's Search**: Now with **real quantum circuit implementation** providing
-//!   theoretical O(√N) speedup for unstructured search. Supports multiple quantum
-//!   backends and automatic oracle construction for database and pattern search.
+//! - **Grover's Search**: Now with **real quantum hardware integration** supporting:
+//!   - **IBM Quantum**: Execute on IBM gate-based quantum computers via Qiskit Runtime
+//!   - **AWS Braket**: Execute on IonQ, Rigetti, and OQC devices via AWS Braket
+//!   - **IonQ Direct**: Direct API access to IonQ trapped-ion quantum computers
+//!   - **Local Simulator**: State vector simulation for development and testing
+//!   
+//!   The `UnifiedGroverSolver` provides automatic backend selection with fallback
+//!   to local simulation when quantum hardware is unavailable.
 //!
 //! - **Grover's Search (Legacy)**: Classical state vector simulation of Grover's
 //!   quantum search algorithm. Useful for validation but does NOT provide
@@ -33,6 +40,58 @@
 //! - **Quantum Annealing**: For D-Wave style quantum annealers
 //! - **Simulated Quantum Annealing (SQA)**: Path Integral Monte Carlo simulation
 //! - **Classical Fallback**: Simulated annealing when quantum unavailable
+//!
+//! ## Quantum Backends for TFIM (NEW!)
+//!
+//! The `tfim_hardware_backends` module provides real quantum annealing hardware:
+//!
+//! - **D-Wave Quantum Annealer**: Native Ising model solving on D-Wave quantum annealers
+//!   - Direct problem embedding on quantum hardware
+//!   - Supports Advantage and Advantage2 systems with Pegasus/Zephyr topology
+//!   - Up to ~5000 qubits
+//! - **AWS Braket Annealer**: D-Wave access via AWS Braket
+//!   - Integrated AWS billing and resource management
+//!   - Same underlying quantum annealing technology
+//! - **Unified Solver**: Automatic backend selection with classical fallback
+//!
+//! ### TFIM Configuration Example
+//!
+//! ```rust,ignore
+//! use neuroquantum_core::quantum::{UnifiedTFIMAnnealingSolver, TFIMProblem};
+//!
+//! // Auto-detect available backends from environment
+//! let solver = UnifiedTFIMAnnealingSolver::from_env();
+//!
+//! // Create TFIM problem
+//! let problem = TFIMProblem { /* ... */ };
+//!
+//! // Execute on best available backend (D-Wave, Braket, or classical)
+//! let result = solver.solve(&problem).await?;
+//! ```
+//!
+//! ## Quantum Backends for Grover's Search
+//!
+//! The `grover_hardware_backends` module provides real quantum hardware integration:
+//!
+//! - **IBM Quantum**: Gate-based superconducting qubits via IBM Quantum Experience
+//! - **AWS Braket**: Multi-vendor access (IonQ, Rigetti, OQC) via AWS
+//! - **IonQ Direct**: Native trapped-ion quantum computing API
+//! - **Local Simulator**: State vector simulation (always available)
+//!
+//! ### Configuration Example
+//!
+//! ```rust,ignore
+//! use neuroquantum_core::quantum::{UnifiedGroverSolver, QuantumOracle};
+//!
+//! // Auto-detect available backends from environment
+//! let solver = UnifiedGroverSolver::from_env();
+//!
+//! // Create search oracle
+//! let oracle = QuantumOracle::new(4, vec![7, 12]); // 16-element search for items 7 and 12
+//!
+//! // Execute on best available backend
+//! let result = solver.search(&oracle, 1024).await?;
+//! ```
 //!
 //! ## Performance Notes
 //!
@@ -56,10 +115,15 @@ pub mod legacy;
 // Real quantum Grover's search algorithm
 pub mod grover_quantum;
 
+// Real quantum hardware backends for Grover's search
+pub mod grover_hardware_backends;
+
 // Quantum extensions
 pub mod quantum_parallel_tempering;
+pub mod qubo_hardware_backends;
 pub mod qubo_quantum;
 pub mod tfim;
+pub mod tfim_hardware_backends;
 pub mod tfim_quantum;
 pub mod tfim_unified;
 
@@ -101,9 +165,52 @@ pub use qubo_quantum::{
     VqeAnsatz,
 };
 
+// Real quantum hardware backends for QUBO
+pub use qubo_hardware_backends::{
+    // D-Wave quantum annealer
+    DWaveConfig,
+    DWaveQUBOSolver,
+    DWaveTiming,
+    // D-Wave Hybrid solver
+    HybridQUBOSolver,
+    HybridSolverConfig,
+    // IBM Quantum QAOA
+    IBMConfig,
+    IBMOptimizer,
+    IBMQUBOSolver,
+    QAOACircuit,
+    QAOAGate,
+    // Unified solver with auto-selection
+    QUBOSolverBackend,
+    // Classical fallback
+    SimulatedAnnealingConfig,
+    SimulatedAnnealingQUBOSolver,
+    UnifiedQUBOConfig,
+    UnifiedQUBOSolver,
+};
+
 pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
 
-// Real quantum TFIM exports
+// Real quantum hardware backends for TFIM (Quantum Annealing)
+pub use tfim_hardware_backends::{
+    // Backend trait
+    AnnealingBackend,
+    // Binary Quadratic Model
+    BinaryQuadraticModel,
+    // AWS Braket annealer
+    BraketTFIMConfig,
+    BraketTFIMSolver,
+    // D-Wave quantum annealer
+    DWaveTFIMConfig,
+    DWaveTFIMSolver,
+    // Unified solver with auto-selection
+    TFIMBackendPreference,
+    UnifiedTFIMAnnealingConfig,
+    UnifiedTFIMAnnealingSolver,
+    VarType,
+};
+
+// Real quantum TFIM exports (VQE, QAOA, Trotter-Suzuki)
 pub use tfim_quantum::{
     HardwareMapping, QuantumBackend as TFIMQuantumBackend, QuantumCircuit, QuantumGate,
     QuantumObservables, QuantumTFIMConfig, QuantumTFIMProblem, QuantumTFIMSolution,
@@ -117,4 +224,25 @@ pub use tfim_unified::{UnifiedTFIMConfig, UnifiedTFIMResult, UnifiedTFIMSolver};
 pub use grover_quantum::{
     GroverCircuit, GroverGate, GroverMeasurementStats, GroverQuantumBackend, OracleType,
     QuantumGroverConfig, QuantumGroverResult, QuantumGroverSolver, QuantumOracle,
+};
+
+// Real quantum hardware backends for Grover's search
+pub use grover_hardware_backends::{
+    // AWS Braket
+    BraketGroverConfig,
+    BraketGroverSolver,
+    // Backend trait
+    GroverHardwareBackend,
+    // IBM Quantum
+    IBMGroverConfig,
+    IBMGroverSolver,
+    // IonQ
+    IonQGroverConfig,
+    IonQGroverSolver,
+    // Local simulator
+    SimulatorGroverConfig,
+    SimulatorGroverSolver,
+    // Unified solver with auto-selection
+    UnifiedGroverConfig,
+    UnifiedGroverSolver,
 };

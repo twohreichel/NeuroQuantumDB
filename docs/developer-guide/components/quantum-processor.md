@@ -7,6 +7,7 @@
 | Grover's Search | `quantum_processor.rs` | Unstructured search |
 | QUBO (Classical) | `quantum/qubo.rs` | Fast optimization |
 | QUBO (Quantum) | `quantum/qubo_quantum.rs` | Real quantum optimization |
+| QUBO (Hardware) | `quantum/qubo_hardware_backends.rs` | Real quantum hardware integration |
 | TFIM | `quantum/tfim.rs` | Ising simulation |
 | Parallel Tempering | `quantum/parallel_tempering.rs` | Global optimization |
 
@@ -46,7 +47,63 @@ Quadratic Unconstrained Binary Optimization with **real quantum backends**:
 | SQA | Simulated Quantum Annealing (PIMC) | Classical simulation |
 | Classical Fallback | Simulated annealing | Classical |
 
-### Usage
+### Real Quantum Hardware Backends
+
+The `qubo_hardware_backends` module provides production-ready integration with real quantum hardware:
+
+| Backend | Class | Hardware | Max Variables |
+|---------|-------|----------|---------------|
+| D-Wave Quantum Annealer | `DWaveQUBOSolver` | D-Wave Advantage | ~5000 |
+| IBM Quantum QAOA | `IBMQUBOSolver` | IBM Quantum | ~100 |
+| D-Wave Hybrid | `HybridQUBOSolver` | D-Wave Leap | 1,000,000+ |
+| Classical Fallback | `SimulatedAnnealingQUBOSolver` | Classical | 100,000+ |
+
+### Real Hardware Usage
+
+```rust
+use neuroquantum_core::quantum::{
+    DWaveQUBOSolver, DWaveConfig, QUBOSolverBackend, QUBOProblem
+};
+
+// Create D-Wave solver (requires DWAVE_API_TOKEN env var)
+let config = DWaveConfig {
+    num_reads: 1000,
+    annealing_time_us: 20,
+    auto_scale: true,
+    ..Default::default()
+};
+let solver = DWaveQUBOSolver::new(config);
+
+// Solve QUBO problem on real quantum hardware
+let solution = solver.solve(&problem).await?;
+println!("Energy: {}", solution.energy);
+```
+
+### Unified Solver with Auto-Selection
+
+```rust
+use neuroquantum_core::quantum::{
+    UnifiedQUBOSolver, UnifiedQUBOConfig
+};
+
+// Auto-detects available backends from environment
+let solver = UnifiedQUBOSolver::from_env();
+
+// Automatically selects best available backend
+let solution = solver.solve(&problem).await?;
+println!("Used backend: {:?}", solution.backend_used);
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `DWAVE_API_TOKEN` | D-Wave Leap API token |
+| `DWAVE_SOLVER` | D-Wave solver name (optional) |
+| `IBM_QUANTUM_TOKEN` | IBM Quantum Experience token |
+| `IBM_QUANTUM_BACKEND` | IBM backend name (optional) |
+
+### Usage (Simulation Backends)
 
 ```rust
 use neuroquantum_core::quantum::{

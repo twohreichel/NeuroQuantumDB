@@ -21,6 +21,7 @@ pub mod index_advisor;
 pub mod natural_language;
 pub mod optimizer;
 pub mod parser;
+pub mod prepared_statements;
 pub mod query_plan;
 
 // SQL Engine Integration Tests
@@ -504,3 +505,7 @@ pub use index_advisor::{
     IndexType, RecommendationPriority, TableStats,
 };
 pub use natural_language::NaturalLanguageProcessor;
+pub use prepared_statements::{
+    PreparedStatement, PreparedStatementManager, PreparedStatementStats,
+    PreparedStatementsStatistics,
+};

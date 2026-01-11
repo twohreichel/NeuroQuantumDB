@@ -78,3 +78,17 @@ file_path = "/var/log/neuroquantumdb/api.log"
 max_file_size_mb = 100
 max_files = 10
 structured_logging = true
+
+[tracing]
+enabled = true
+exporter = "otlp"  # Use OTLP for production (more flexible than Jaeger)
+endpoint = "http://localhost:4317"  # OTLP gRPC endpoint (update for your collector)
+sampling_rate = 0.1  # Sample 10% of requests to reduce overhead
+service_name = "neuroquantumdb"
+trace_level = "detailed"  # Detailed tracing for production debugging
+
+# Optional: Add resource attributes for better trace identification
+# [tracing.resource_attributes]
+# environment = "production"
+# datacenter = "us-east-1"
+# cluster_id = "prod-cluster-01"

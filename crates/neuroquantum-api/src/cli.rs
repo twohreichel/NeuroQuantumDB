@@ -56,6 +56,12 @@ pub enum Commands {
     /// Start the API server (default command)
     Serve,
 
+    /// Manage database migrations
+    Migrate {
+        #[command(subcommand)]
+        action: MigrateAction,
+    },
+
     /// Health check for Docker/Kubernetes
     HealthCheck {
         /// Server URL to check
@@ -123,6 +129,60 @@ pub enum KeyAction {
     },
 }
 
+#[derive(Subcommand)]
+pub enum MigrateAction {
+    /// Run pending migrations (up direction)
+    Up {
+        /// Migrations directory
+        #[arg(short, long, default_value = "migrations")]
+        dir: PathBuf,
+
+        /// Dry run - don't actually apply changes
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Rollback last N migrations (down direction)
+    Down {
+        /// Number of migrations to rollback
+        #[arg(short, long, default_value = "1")]
+        count: usize,
+
+        /// Migrations directory
+        #[arg(short = 'd', long, default_value = "migrations")]
+        dir: PathBuf,
+
+        /// Dry run - don't actually apply changes
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Show migration status
+    Status {
+        /// Migrations directory
+        #[arg(short, long, default_value = "migrations")]
+        dir: PathBuf,
+    },
+
+    /// Create a new migration file
+    Create {
+        /// Migration name (e.g., "add status column")
+        name: String,
+
+        /// Migrations directory
+        #[arg(short, long, default_value = "migrations")]
+        dir: PathBuf,
+    },
+}
+
 impl Cli {
     pub fn parse_args() -> Self {
         Self::parse()
@@ -143,6 +203,9 @@ impl Cli {
             }
             Some(Commands::Key { action }) => {
                 handle_key_command(action).await?;
+            }
+            Some(Commands::Migrate { action }) => {
+                handle_migrate_command(action).await?;
             }
             Some(Commands::HealthCheck { url, timeout }) => {
                 health_check(url, timeout).await?;
@@ -596,4 +659,147 @@ async fn health_check(url: String, timeout_secs: u64) -> Result<()> {
             std::process::exit(1);
         }
     }
+}
+
+async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
+    use neuroquantum_core::storage::{MigrationConfig, MigrationExecutor, MigrationExecutorConfig};
+
+    match action {
+        MigrateAction::Up {
+            dir,
+            dry_run,
+            verbose,
+        } => {
+            println!("🚀 Running migrations...\n");
+
+            let config = MigrationExecutorConfig {
+                config: MigrationConfig {
+                    migrations_dir: dir,
+                    dry_run,
+                    ..Default::default()
+                },
+                verbose,
+            };
+
+            let executor = MigrationExecutor::new(config);
+            executor.initialize().await?;
+
+            let results = executor.migrate_up().await?;
+
+            if results.is_empty() {
+                println!("✅ No pending migrations");
+            } else {
+                println!("📊 Migration Results:\n");
+                for result in results {
+                    if result.success {
+                        println!("  ✅ {} - {}ms", result.migration_id, result.duration_ms);
+                    } else {
+                        println!(
+                            "  ❌ {} - Failed: {}",
+                            result.migration_id,
+                            result.error.unwrap_or_else(|| "Unknown error".to_string())
+                        );
+                    }
+                }
+                println!("\n✅ Migration complete");
+            }
+        }
+        MigrateAction::Down {
+            count,
+            dir,
+            dry_run,
+            verbose,
+        } => {
+            println!("⏪ Rolling back {} migration(s)...\n", count);
+
+            let config = MigrationExecutorConfig {
+                config: MigrationConfig {
+                    migrations_dir: dir,
+                    dry_run,
+                    ..Default::default()
+                },
+                verbose,
+            };
+
+            let executor = MigrationExecutor::new(config);
+            executor.initialize().await?;
+
+            let results = executor.migrate_down(count).await?;
+
+            if results.is_empty() {
+                println!("✅ No migrations to rollback");
+            } else {
+                println!("📊 Rollback Results:\n");
+                for result in results {
+                    if result.success {
+                        println!("  ✅ {} - {}ms", result.migration_id, result.duration_ms);
+                    } else {
+                        println!(
+                            "  ❌ {} - Failed: {}",
+                            result.migration_id,
+                            result.error.unwrap_or_else(|| "Unknown error".to_string())
+                        );
+                    }
+                }
+                println!("\n✅ Rollback complete");
+            }
+        }
+        MigrateAction::Status { dir } => {
+            println!("📋 Migration Status\n");
+
+            let config = MigrationExecutorConfig {
+                config: MigrationConfig {
+                    migrations_dir: dir,
+                    ..Default::default()
+                },
+                verbose: false,
+            };
+
+            let executor = MigrationExecutor::new(config);
+            executor.initialize().await?;
+
+            let status = executor.status().await?;
+
+            if status.is_empty() {
+                println!("No migrations found");
+            } else {
+                println!("Migration ID          | Status   | Description");
+                println!("----------------------|----------|--------------------");
+                for (migration, applied) in status {
+                    println!(
+                        "{:<20}  | {:<8} | {}",
+                        migration.id,
+                        if applied {
+                            "✅ Applied"
+                        } else {
+                            "⏳ Pending"
+                        },
+                        migration.description
+                    );
+                }
+            }
+        }
+        MigrateAction::Create { name, dir } => {
+            println!("📝 Creating new migration: {}\n", name);
+
+            let config = MigrationExecutorConfig {
+                config: MigrationConfig {
+                    migrations_dir: dir,
+                    ..Default::default()
+                },
+                verbose: false,
+            };
+
+            let executor = MigrationExecutor::new(config);
+
+            let (up_file, down_file) = executor.create(&name)?;
+
+            println!("✅ Created migration files:");
+            println!("  Up:   {}", up_file.display());
+            println!("  Down: {}", down_file.display());
+            println!("\n💡 Edit these files to add your migration SQL");
+        }
+    }
+
+    Ok(())
 }

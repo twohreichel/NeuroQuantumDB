@@ -4,6 +4,7 @@ members = [
     "crates/neuroquantum-qsql",
     "crates/neuroquantum-api",
     "crates/neuroquantum-cluster",
+    "crates/neuroquantum-wasm",
     "scripts",
 ]
 resolver = "2"
@@ -32,6 +33,13 @@ thiserror = "2.0.17"
 # Logging and tracing
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
+
+# OpenTelemetry distributed tracing
+opentelemetry = "0.27.1"
+opentelemetry_sdk = { version = "0.27.1", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.27.0", features = ["tonic", "tokio"] }
+opentelemetry-semantic-conventions = "0.27.0"
+tracing-opentelemetry = "0.28.0"
 
 # UUID and time handling
 uuid = { version = "1.19.0", features = ["v4", "serde"] }

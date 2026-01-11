@@ -72,3 +72,29 @@ format = "Plain"  # Plain text easier to read during dev
 max_file_size_mb = 100
 max_files = 3  # Fewer log files in dev
 structured_logging = false  # Plain logs for dev
+
+# Quantum Computing Configuration (Optional)
+[quantum.annealing]
+# Backend preference: "auto", "dwave", "braket", or "classical"
+backend = "auto"
+
+# D-Wave Quantum Annealer Configuration
+[quantum.annealing.dwave]
+# API token from D-Wave Leap account (or set DWAVE_API_TOKEN env var)
+# api_token = "${DWAVE_API_TOKEN}"
+api_endpoint = "https://cloud.dwavesys.com/sapi/v2"
+# solver = "Advantage_system6.4"  # Optional: specify solver
+num_reads = 1000
+annealing_time_us = 20
+auto_scale = true
+timeout_secs = 300
+
+# AWS Braket Annealer Configuration
+[quantum.annealing.braket]
+# AWS credentials via environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+region = "us-west-1"
+device_arn = "arn:aws:braket:::device/qpu/d-wave/Advantage_system6"
+num_shots = 1000
+s3_bucket = "amazon-braket-results"
+s3_prefix = "neuroquantum-tfim"
+timeout_secs = 300
