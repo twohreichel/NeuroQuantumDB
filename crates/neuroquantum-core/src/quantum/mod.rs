@@ -15,7 +15,13 @@
 //!
 //! - **Quantum Parallel Tempering**: Real quantum algorithms for parallel tempering
 //!   including Path Integral Monte Carlo (PIMC), Quantum Monte Carlo (QMC),
-//!   and Quantum Annealing with multi-temperature support.
+//!   and Quantum Annealing with multi-temperature support. Now with **real quantum
+//!   hardware integration**:
+//!   - **IBM Quantum**: QITE (Quantum Imaginary Time Evolution) for thermal state preparation
+//!   - **AWS Braket**: Multi-vendor access for thermal sampling
+//!   - **D-Wave**: Native quantum annealing with reverse annealing for temperature control
+//!   - **IonQ**: High-fidelity trapped-ion thermal state preparation
+//!   - **Local Simulator**: Classical fallback (always available)
 //!
 //! - **Grover's Search**: Now with **real quantum hardware integration** supporting:
 //!   - **IBM Quantum**: Execute on IBM gate-based quantum computers via Qiskit Runtime
@@ -93,6 +99,46 @@
 //! let result = solver.search(&oracle, 1024).await?;
 //! ```
 //!
+//! ## Quantum Backends for Parallel Tempering (NEW!)
+//!
+//! The `parallel_tempering_hardware_backends` module provides real quantum hardware integration
+//! for Parallel Tempering optimization:
+//!
+//! - **IBM Quantum**: QITE (Quantum Imaginary Time Evolution) for thermal state preparation
+//!   - Trotter-based thermal state preparation at multiple temperatures
+//!   - Supports all IBM Quantum Experience backends
+//! - **D-Wave Quantum Annealer**: Native quantum annealing with temperature control
+//!   - Reverse annealing for thermal state preparation
+//!   - Multi-temperature annealing schedules
+//! - **AWS Braket**: Multi-vendor quantum access including D-Wave annealers
+//! - **IonQ**: High-fidelity trapped-ion thermal state preparation
+//! - **Local Simulator**: Classical PIMC/QMC fallback (always available)
+//!
+//! ### Parallel Tempering Configuration Example
+//!
+//! ```rust,ignore
+//! use neuroquantum_core::quantum::{
+//!     UnifiedPTSolver, IsingHamiltonian, QuantumParallelTemperingConfig
+//! };
+//!
+//! // Auto-detect available backends from environment
+//! let solver = UnifiedPTSolver::from_env();
+//!
+//! // Create Ising Hamiltonian
+//! let hamiltonian = IsingHamiltonian::new(num_spins, couplings, fields, transverse_field);
+//!
+//! // Configure parallel tempering
+//! let config = QuantumParallelTemperingConfig {
+//!     num_replicas: 8,
+//!     min_temperature: 0.1,
+//!     max_temperature: 10.0,
+//!     ..Default::default()
+//! };
+//!
+//! // Execute on best available backend (D-Wave, IBM, Braket, IonQ, or classical)
+//! let result = solver.optimize(&hamiltonian, &initial_config, &config).await?;
+//! ```
+//!
 //! ## Performance Notes
 //!
 //! These quantum algorithms provide advantages through:
@@ -119,6 +165,7 @@ pub mod grover_quantum;
 pub mod grover_hardware_backends;
 
 // Quantum extensions
+pub mod parallel_tempering_hardware_backends;
 pub mod quantum_parallel_tempering;
 pub mod qubo_hardware_backends;
 pub mod qubo_quantum;
@@ -245,4 +292,32 @@ pub use grover_hardware_backends::{
     // Unified solver with auto-selection
     UnifiedGroverConfig,
     UnifiedGroverSolver,
+};
+
+// Real quantum hardware backends for Parallel Tempering
+pub use parallel_tempering_hardware_backends::{
+    BraketPTConfig,
+    // AWS Braket
+    BraketParallelTemperingSolver,
+    DWavePTConfig,
+    // D-Wave
+    DWaveParallelTemperingSolver,
+    IBMPTConfig,
+    // IBM Quantum
+    IBMParallelTemperingSolver,
+    IonQPTConfig,
+    // IonQ
+    IonQParallelTemperingSolver,
+    // Backend trait
+    PTBackendType,
+    PTHardwareBackend,
+    PTMeasurementResult,
+    PTQuantumGate,
+    QITECircuit,
+    SimulatorPTConfig,
+    // Local simulator
+    SimulatorParallelTemperingSolver,
+    // Unified solver with auto-selection
+    UnifiedPTConfig,
+    UnifiedPTSolver,
 };
