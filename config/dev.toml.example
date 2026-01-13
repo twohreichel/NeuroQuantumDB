@@ -98,3 +98,45 @@ num_shots = 1000
 s3_bucket = "amazon-braket-results"
 s3_prefix = "neuroquantum-tfim"
 timeout_secs = 300
+
+# Gate-Based Quantum Computing Configuration
+[quantum.gate]
+# Backend preference: "auto", "ibm", "ionq", "braket", or "simulator"
+backend = "auto"
+
+# IBM Quantum Configuration
+[quantum.gate.ibm]
+# API token from IBM Quantum Experience (or set IBM_QUANTUM_API_KEY env var)
+# api_token = "${IBM_QUANTUM_API_KEY}"
+api_endpoint = "https://api.quantum.ibm.com/runtime"
+backend_name = "ibm_brisbane"  # Options: ibm_brisbane, ibm_kyoto, ibmq_qasm_simulator
+num_shots = 1024
+error_mitigation = true
+dynamic_decoupling = true
+max_qubits = 127  # IBM Eagle processor
+timeout_secs = 300
+
+# IonQ Configuration
+[quantum.gate.ionq]
+# API key from IonQ Cloud (or set IONQ_API_KEY env var)
+# api_key = "${IONQ_API_KEY}"
+api_endpoint = "https://api.ionq.co/v0.3"
+target = "simulator"  # Options: aria, forte, simulator
+num_shots = 1024
+error_mitigation = 1  # 0=none, 1=debias, 2=full
+native_gates = false  # Use native IonQ gates (GPi, GPi2, MS)
+timeout_secs = 300
+
+# AWS Braket Gate-Based Configuration
+[quantum.gate.braket]
+# AWS credentials via environment variables
+region = "us-east-1"
+# Device options:
+# - IonQ Aria: "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1"
+# - Rigetti: "arn:aws:braket:us-west-1::device/qpu/rigetti/Aspen-M-3"
+# - Simulator: "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+device_arn = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+num_shots = 1024
+s3_bucket = "amazon-braket-results"
+s3_prefix = "neuroquantum-gate"
+timeout_secs = 300

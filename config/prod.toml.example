@@ -92,3 +92,67 @@ trace_level = "detailed"  # Detailed tracing for production debugging
 # environment = "production"
 # datacenter = "us-east-1"
 # cluster_id = "prod-cluster-01"
+
+# Quantum Computing Configuration (Production)
+# ⚠️  All API tokens should be provided via environment variables!
+[quantum.annealing]
+# Backend preference: "auto", "dwave", "braket", or "classical"
+backend = "auto"
+fallback_to_simulation = true  # Fall back to classical simulation if quantum unavailable
+
+# D-Wave Quantum Annealer Configuration
+[quantum.annealing.dwave]
+# API token from D-Wave Leap account (set via DWAVE_API_TOKEN env var)
+api_endpoint = "https://cloud.dwavesys.com/sapi/v2"
+# solver = "Advantage_system6.4"  # Auto-select if not specified
+num_reads = 2000  # More reads for production accuracy
+annealing_time_us = 20
+auto_scale = true
+timeout_secs = 600  # Longer timeout for production
+
+# AWS Braket Annealer Configuration
+[quantum.annealing.braket]
+# AWS credentials via environment variables or IAM role
+region = "us-west-1"
+device_arn = "arn:aws:braket:::device/qpu/d-wave/Advantage_system6"
+num_shots = 2000
+s3_bucket = "neuroquantum-production-results"
+s3_prefix = "quantum-annealing"
+timeout_secs = 600
+
+# Gate-Based Quantum Computing Configuration
+[quantum.gate]
+# Backend preference: "auto", "ibm", "ionq", "braket", or "simulator"
+backend = "auto"
+fallback_to_simulation = true
+
+# IBM Quantum Configuration
+[quantum.gate.ibm]
+# API token via IBM_QUANTUM_API_KEY env var
+api_endpoint = "https://api.quantum.ibm.com/runtime"
+backend_name = "ibm_brisbane"
+num_shots = 2048  # More shots for production accuracy
+error_mitigation = true
+dynamic_decoupling = true
+max_qubits = 127
+timeout_secs = 600
+
+# IonQ Configuration
+[quantum.gate.ionq]
+# API key via IONQ_API_KEY env var
+api_endpoint = "https://api.ionq.co/v0.3"
+target = "aria"  # Production: use real hardware
+num_shots = 2048
+error_mitigation = 2  # Full error mitigation for production
+native_gates = false
+timeout_secs = 600
+
+# AWS Braket Gate-Based Configuration
+[quantum.gate.braket]
+# AWS credentials via environment variables or IAM role
+region = "us-east-1"
+device_arn = "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1"
+num_shots = 2048
+s3_bucket = "neuroquantum-production-results"
+s3_prefix = "quantum-gate"
+timeout_secs = 600
