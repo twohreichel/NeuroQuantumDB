@@ -68,7 +68,10 @@ impl MigrationParser {
             let path = entry.path();
 
             if path.is_file() && path.extension().is_some_and(|ext| ext == "sql") {
-                let filename = path.file_stem().unwrap().to_string_lossy();
+                let filename = path
+                    .file_stem()
+                    .expect("SQL file should have a filename")
+                    .to_string_lossy();
 
                 // Check if this is an up or down migration
                 if filename.ends_with(".up") {

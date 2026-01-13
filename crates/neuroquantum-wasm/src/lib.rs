@@ -326,7 +326,7 @@ impl NeuroQuantumDB {
 
 impl Default for NeuroQuantumDB {
     fn default() -> Self {
-        Self::new().unwrap()
+        Self::new().expect("Failed to create default NeuroQuantumDB instance")
     }
 }
 

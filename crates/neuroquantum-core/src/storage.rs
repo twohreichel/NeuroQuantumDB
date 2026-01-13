@@ -522,7 +522,7 @@ impl StorageEngine {
             dna_compressor: QuantumDNACompressor::new(),
             next_row_id: 1,
             next_lsn: 1,
-            row_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
+            row_cache: LruCache::new(NonZeroUsize::new(10000).expect("10000 is non-zero")),
             transaction_manager: TransactionManager::new(),
             encryption_manager: None,
             last_query_stats: QueryExecutionStats::default(),
@@ -569,7 +569,7 @@ impl StorageEngine {
             dna_compressor,
             next_row_id: 1,
             next_lsn: 1,
-            row_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()), // 10k rows LRU cache
+            row_cache: LruCache::new(NonZeroUsize::new(10000).expect("10000 is non-zero")), // 10k rows LRU cache
             transaction_manager,
             encryption_manager: Some(encryption_manager),
             last_query_stats: QueryExecutionStats::default(),
@@ -1498,7 +1498,11 @@ impl StorageEngine {
             row.updated_at = chrono::Utc::now();
 
             // Validate updated row
-            let schema = self.metadata.tables.get(&query.table).unwrap();
+            let schema = self
+                .metadata
+                .tables
+                .get(&query.table)
+                .expect("table schema should exist for update operation");
             self.validate_row(schema, &row)?;
 
             // Update compressed data
@@ -1563,7 +1567,12 @@ impl StorageEngine {
             self.row_cache.pop(&row.id);
 
             // Update indexes - clone schema to avoid borrow checker issues
-            let schema = self.metadata.tables.get(&query.table).unwrap().clone();
+            let schema = self
+                .metadata
+                .tables
+                .get(&query.table)
+                .expect("table schema should exist for delete operation")
+                .clone();
             self.update_indexes_for_delete(&schema, &row)?;
 
             // Log operation
@@ -2789,7 +2798,11 @@ impl StorageEngine {
             row.updated_at = chrono::Utc::now();
 
             // Validate updated row
-            let schema = self.metadata.tables.get(&query.table).unwrap();
+            let schema = self
+                .metadata
+                .tables
+                .get(&query.table)
+                .expect("table schema should exist for transactional update");
             self.validate_row(schema, &row)?;
 
             // Serialize after-image for WAL
@@ -2889,7 +2902,12 @@ impl StorageEngine {
             self.compressed_blocks.remove(&row.id);
             self.row_cache.pop(&row.id);
 
-            let schema = self.metadata.tables.get(&query.table).unwrap().clone();
+            let schema = self
+                .metadata
+                .tables
+                .get(&query.table)
+                .expect("table schema should exist for transactional delete")
+                .clone();
             self.update_indexes_for_delete(&schema, &row)?;
 
             // Log operation

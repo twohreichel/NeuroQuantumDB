@@ -346,7 +346,10 @@ impl IndexAdvisor {
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
 
-        let mut stats = self.table_stats.write().unwrap();
+        let mut stats = self
+            .table_stats
+            .write()
+            .expect("table_stats RwLock poisoned");
 
         // Check table limit
         if !stats.contains_key(table_name) && stats.len() >= self.config.max_tracked_tables {
@@ -396,7 +399,10 @@ impl IndexAdvisor {
 
     /// Increment full scan count for a table
     fn increment_full_scan(&self, table_name: &str) {
-        let mut stats = self.table_stats.write().unwrap();
+        let mut stats = self
+            .table_stats
+            .write()
+            .expect("table_stats RwLock poisoned");
         if let Some(table_stats) = stats.get_mut(table_name) {
             table_stats.full_scan_count += 1;
         }
@@ -404,7 +410,10 @@ impl IndexAdvisor {
 
     /// Register an existing index on a table
     pub fn register_existing_index(&self, table_name: &str, index_columns: &[String]) {
-        let mut stats = self.table_stats.write().unwrap();
+        let mut stats = self
+            .table_stats
+            .write()
+            .expect("table_stats RwLock poisoned");
         let table_stats = stats
             .entry(table_name.to_string())
             .or_insert_with(|| TableStats {
@@ -420,7 +429,10 @@ impl IndexAdvisor {
 
     /// Generate index recommendations based on collected statistics
     pub fn get_recommendations(&self) -> Vec<IndexRecommendation> {
-        let stats = self.table_stats.read().unwrap();
+        let stats = self
+            .table_stats
+            .read()
+            .expect("table_stats RwLock poisoned");
         let mut recommendations = Vec::new();
 
         for (table_name, table_stats) in stats.iter() {
@@ -731,7 +743,10 @@ impl IndexAdvisor {
 
     /// Get current statistics summary
     pub fn get_statistics(&self) -> IndexAdvisorStatistics {
-        let stats = self.table_stats.read().unwrap();
+        let stats = self
+            .table_stats
+            .read()
+            .expect("table_stats RwLock poisoned");
 
         let mut total_columns_tracked = 0;
         for table_stats in stats.values() {
@@ -748,7 +763,10 @@ impl IndexAdvisor {
 
     /// Clear all collected statistics
     pub fn clear_statistics(&self) {
-        let mut stats = self.table_stats.write().unwrap();
+        let mut stats = self
+            .table_stats
+            .write()
+            .expect("table_stats RwLock poisoned");
         stats.clear();
         self.total_queries.store(0, Ordering::Relaxed);
         self.full_scan_queries.store(0, Ordering::Relaxed);
@@ -757,7 +775,10 @@ impl IndexAdvisor {
 
     /// Get table statistics for a specific table
     pub fn get_table_stats(&self, table_name: &str) -> Option<TableStats> {
-        let stats = self.table_stats.read().unwrap();
+        let stats = self
+            .table_stats
+            .read()
+            .expect("table_stats RwLock poisoned");
         stats.get(table_name).cloned()
     }
 }

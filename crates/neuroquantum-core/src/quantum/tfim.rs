@@ -170,7 +170,8 @@ impl TFIMSolver {
             }
         }
 
-        let mut final_solution = best_solution.unwrap();
+        let mut final_solution =
+            best_solution.expect("at least one solution should exist after retries");
         final_solution.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
         info!(

@@ -266,15 +266,26 @@ impl DNACompressionEngine {
                     // Encode pattern reference
                     if let Some(&pattern_id) = self.pattern_dictionary.get(pattern) {
                         compressed.push(DNABase::Adenine); // Special marker
-                        compressed
-                            .push(DNABase::from_bits((pattern_id >> 8) as u8 & 0b11).unwrap());
-                        compressed
-                            .push(DNABase::from_bits((pattern_id >> 6) as u8 & 0b11).unwrap());
-                        compressed
-                            .push(DNABase::from_bits((pattern_id >> 4) as u8 & 0b11).unwrap());
-                        compressed
-                            .push(DNABase::from_bits((pattern_id >> 2) as u8 & 0b11).unwrap());
-                        compressed.push(DNABase::from_bits(pattern_id as u8 & 0b11).unwrap());
+                        compressed.push(
+                            DNABase::from_bits((pattern_id >> 8) as u8 & 0b11)
+                                .expect("valid 2-bit pattern"),
+                        );
+                        compressed.push(
+                            DNABase::from_bits((pattern_id >> 6) as u8 & 0b11)
+                                .expect("valid 2-bit pattern"),
+                        );
+                        compressed.push(
+                            DNABase::from_bits((pattern_id >> 4) as u8 & 0b11)
+                                .expect("valid 2-bit pattern"),
+                        );
+                        compressed.push(
+                            DNABase::from_bits((pattern_id >> 2) as u8 & 0b11)
+                                .expect("valid 2-bit pattern"),
+                        );
+                        compressed.push(
+                            DNABase::from_bits(pattern_id as u8 & 0b11)
+                                .expect("valid 2-bit pattern"),
+                        );
 
                         i += pattern.len();
                         savings += pattern.len().saturating_sub(6);
@@ -476,7 +487,7 @@ impl HuffmanTree {
                 heap.push(HuffmanNodeFreq {
                     freq,
                     node: HuffmanNode::Leaf {
-                        base: DNABase::from_bits(i as u8).unwrap(),
+                        base: DNABase::from_bits(i as u8).expect("valid DNA base index 0-3"),
                     },
                 });
             }
@@ -484,8 +495,8 @@ impl HuffmanTree {
 
         // Build tree
         while heap.len() > 1 {
-            let node1 = heap.pop().unwrap();
-            let node2 = heap.pop().unwrap();
+            let node1 = heap.pop().expect("heap has at least 2 nodes in loop");
+            let node2 = heap.pop().expect("heap has at least 2 nodes in loop");
 
             heap.push(HuffmanNodeFreq {
                 freq: node1.freq + node2.freq,
@@ -496,7 +507,10 @@ impl HuffmanTree {
             });
         }
 
-        let root = heap.pop().unwrap().node;
+        let root = heap
+            .pop()
+            .expect("heap should have exactly one root node")
+            .node;
         let mut tree = HuffmanTree {
             root,
             codes: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],

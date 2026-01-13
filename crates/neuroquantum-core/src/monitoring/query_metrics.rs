@@ -186,12 +186,12 @@ impl IndexUsageStats {
                 avg_rows_per_scan: 0.0,
                 last_used: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0),
                 created_at: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0),
             });
 
         entry.total_scans += 1;
@@ -199,8 +199,8 @@ impl IndexUsageStats {
         entry.avg_rows_per_scan = entry.total_rows_read as f64 / entry.total_scans as f64;
         entry.last_used = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
     }
 
     /// Get all index usage statistics
@@ -212,8 +212,8 @@ impl IndexUsageStats {
     pub fn get_unused_indexes(&mut self, threshold_secs: u64) -> Vec<String> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
 
         self.unused_indexes.clear();
 
@@ -460,7 +460,11 @@ impl QueryExecutionStats {
     /// Get slowest query patterns
     pub fn get_slowest_patterns(&self, limit: usize) -> Vec<QueryHistogram> {
         let mut histograms: Vec<QueryHistogram> = self.query_histogram.values().cloned().collect();
-        histograms.sort_by(|a, b| b.avg_time_ms.partial_cmp(&a.avg_time_ms).unwrap());
+        histograms.sort_by(|a, b| {
+            b.avg_time_ms
+                .partial_cmp(&a.avg_time_ms)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         histograms.truncate(limit);
         histograms
     }
@@ -526,8 +530,8 @@ impl AdvancedQueryMetrics {
                 execution_time_ms,
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0),
                 user: params.user,
                 rows_examined: params.rows_examined,
                 rows_returned: params.rows_returned,
@@ -574,8 +578,8 @@ impl AdvancedQueryMetrics {
             wait_time_ms: wait_time.as_millis() as u64,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
             holder_query_id,
         };
 
