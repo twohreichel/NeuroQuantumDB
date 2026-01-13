@@ -16,6 +16,8 @@ ignored = ["arbitrary"]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1.4", features = ["derive"] }
 tokio = { version = "1.48", features = ["rt", "macros"] }
+serde_json = "1.0"
+chrono = "0.4"
 
 [dependencies.neuroquantum-qsql]
 path = "../crates/neuroquantum-qsql"
@@ -26,6 +28,10 @@ path = "../crates/neuroquantum-core"
 # Prevent this from interfering with workspaces
 [workspace]
 members = ["."]
+
+# =============================================================================
+# Existing Fuzz Targets
+# =============================================================================
 
 [[bin]]
 name = "fuzz_qsql_parser"
@@ -51,6 +57,38 @@ bench = false
 [[bin]]
 name = "fuzz_qsql_tokenizer"
 path = "fuzz_targets/fuzz_qsql_tokenizer.rs"
+test = false
+doc = false
+bench = false
+
+# =============================================================================
+# New Fuzz Targets (Issue #262)
+# =============================================================================
+
+[[bin]]
+name = "fuzz_qsql_functions"
+path = "fuzz_targets/fuzz_qsql_functions.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_api_json"
+path = "fuzz_targets/fuzz_api_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_dna_roundtrip"
+path = "fuzz_targets/fuzz_dna_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_websocket"
+path = "fuzz_targets/fuzz_websocket.rs"
 test = false
 doc = false
 bench = false
