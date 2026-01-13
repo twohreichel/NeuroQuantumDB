@@ -155,6 +155,10 @@
 //! - Graph problems (partitioning, coloring, max-cut)
 //! - Machine learning hyperparameter tuning
 
+// Unified quantum hardware backends (NEW!)
+// Provides consolidated access to IBM Quantum, AWS Braket, D-Wave, and IonQ
+pub mod backends;
+
 // Legacy quantum algorithms (Grover's search, basic annealing)
 pub mod legacy;
 
@@ -320,4 +324,41 @@ pub use parallel_tempering_hardware_backends::{
     // Unified solver with auto-selection
     UnifiedPTConfig,
     UnifiedPTSolver,
+};
+
+// Unified quantum hardware backends (NEW!)
+// These provide a reorganized, provider-centric view of quantum backends
+// The module is exported for direct use; common types are re-exported with prefixes
+// to avoid conflicts with the algorithm-specific hardware backends above
+pub use backends::{
+    // Common types (no conflicts)
+    QuantumBackendConfig as UnifiedBackendConfig,
+    QuantumBackendFactory,
+    QuantumBackendInfo,
+    QuantumExecutionResult,
+    QuantumProvider,
+};
+
+// Re-export IBM Quantum backend (new provider-centric implementation)
+pub use backends::ibm::{
+    IBMJobInfo, IBMJobStatus, IBMProcessorFamily, IBMQuantumBackend, IBMQuantumConfig,
+};
+
+// Re-export AWS Braket backend (new provider-centric implementation)
+pub use backends::braket::{
+    BraketAnnealingProblem, BraketBackend, BraketConfig as UnifiedBraketConfig, BraketDeviceType,
+    BraketGate, BraketProblemType, BraketTaskInfo, BraketTaskStatus,
+};
+
+// Re-export D-Wave backend (new provider-centric implementation)
+// Use aliases to avoid conflicts with qubo_hardware_backends exports
+pub use backends::dwave::{
+    DWaveBackend, DWaveConfig as UnifiedDWaveConfig, DWavePostprocessing, DWaveProblem,
+    DWaveSample, DWaveSampleSet, DWaveSolverInfo, DWaveTiming as UnifiedDWaveTiming, DWaveTopology,
+};
+
+// Re-export IonQ backend (new provider-centric implementation)
+pub use backends::ionq::{
+    IonQBackend, IonQCircuit, IonQConfig as UnifiedIonQConfig, IonQDeviceSpec, IonQGate,
+    IonQJobStatus, IonQMetadata, IonQResult, IonQTarget,
 };
