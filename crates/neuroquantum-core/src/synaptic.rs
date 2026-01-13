@@ -512,7 +512,7 @@ impl SynapticNetwork {
         }
 
         // Sort by score and take top neurons
-        scored_neurons.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        scored_neurons.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         Ok(scored_neurons.iter().take(10).map(|(id, _)| *id).collect())
     }
 
@@ -1021,9 +1021,8 @@ impl SynapticNetwork {
         // Instead, we provide a way to check if the node exists
         self.nodes
             .read()
-            .unwrap()
-            .contains_key(&node_id)
-            .then_some(())
+            .ok()
+            .and_then(|nodes| nodes.contains_key(&node_id).then_some(()))
     }
 
     /// Optimize query using neuromorphic principles

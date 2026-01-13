@@ -470,7 +470,7 @@ impl BackupManager {
         while let Some(entry) = wal_files.next_entry().await? {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("wal") {
-                let filename = path.file_name().unwrap();
+                let filename = path.file_name().expect("WAL file should have a filename");
                 let dest_path = wal_dir.join(filename);
 
                 // Read and optionally compress WAL file

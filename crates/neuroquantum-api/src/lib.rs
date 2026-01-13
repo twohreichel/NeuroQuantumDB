@@ -238,7 +238,7 @@ pub fn configure_app(
     let prometheus = PrometheusMetricsBuilder::new("neuroquantum_api")
         .endpoint("/internal/metrics")
         .build()
-        .unwrap();
+        .expect("Prometheus metrics builder should succeed");
 
     let cors_origins = app_state.config.cors.allowed_origins.clone();
     #[allow(unused_variables)]

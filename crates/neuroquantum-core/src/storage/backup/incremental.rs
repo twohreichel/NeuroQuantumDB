@@ -156,7 +156,8 @@ impl IncrementalBackup {
                     Ok(parsed_data) => {
                         if !parsed_data.is_empty() {
                             // This segment contains records after since_lsn
-                            let filename = path.file_name().unwrap();
+                            let filename =
+                                path.file_name().expect("WAL file should have a filename");
                             let dest_path = wal_dir.join(filename);
 
                             // Write only the relevant records
@@ -193,7 +194,7 @@ impl IncrementalBackup {
                         );
 
                         // Fallback: backup entire segment if parsing fails
-                        let filename = path.file_name().unwrap();
+                        let filename = path.file_name().expect("WAL file should have a filename");
                         let dest_path = wal_dir.join(filename);
 
                         self.storage_backend

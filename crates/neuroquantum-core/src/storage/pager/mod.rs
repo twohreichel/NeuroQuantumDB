@@ -121,7 +121,7 @@ impl PageStorageManager {
             free_list: Arc::new(RwLock::new(free_list)),
             total_pages: Arc::new(RwLock::new(total_pages)),
             page_cache: Arc::new(RwLock::new(LruCache::new(
-                std::num::NonZeroUsize::new(1000).unwrap(),
+                std::num::NonZeroUsize::new(1000).expect("1000 is non-zero"),
             ))),
         };
 

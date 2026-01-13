@@ -323,7 +323,9 @@ impl QUBOSolverBackend for DWaveQUBOSolver {
         // Find best sample
         let (best_vars, best_energy, _count) = samples
             .into_iter()
-            .min_by(|(_, e1, _), (_, e2, _)| e1.partial_cmp(e2).unwrap())
+            .min_by(|(_, e1, _), (_, e2, _)| {
+                e1.partial_cmp(e2).unwrap_or(std::cmp::Ordering::Equal)
+            })
             .ok_or_else(|| CoreError::invalid_operation("No samples returned from D-Wave"))?;
 
         let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;

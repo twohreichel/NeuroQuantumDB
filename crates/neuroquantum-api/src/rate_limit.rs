@@ -479,7 +479,7 @@ where
                             actix_web::http::header::HeaderValue::from_str(
                                 &result.limit.to_string(),
                             )
-                            .unwrap(),
+                            .expect("numeric value should be valid header value"),
                         );
                         headers.insert(
                             actix_web::http::header::HeaderName::from_static(
@@ -488,14 +488,14 @@ where
                             actix_web::http::header::HeaderValue::from_str(
                                 &result.remaining.to_string(),
                             )
-                            .unwrap(),
+                            .expect("numeric value should be valid header value"),
                         );
                         headers.insert(
                             actix_web::http::header::HeaderName::from_static("x-ratelimit-reset"),
                             actix_web::http::header::HeaderValue::from_str(
                                 &result.reset_time.to_string(),
                             )
-                            .unwrap(),
+                            .expect("numeric value should be valid header value"),
                         );
                         Ok(response)
                     } else {

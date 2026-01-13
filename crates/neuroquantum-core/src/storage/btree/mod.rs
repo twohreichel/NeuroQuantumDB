@@ -142,7 +142,9 @@ impl BTree {
         }
 
         // Insert into existing tree
-        let root_page_id = self.root_page_id.unwrap();
+        let root_page_id = self
+            .root_page_id
+            .expect("root_page_id should be set when tree is not empty");
         let split_result = self.insert_recursive(root_page_id, key, value).await?;
 
         // Handle root split
@@ -195,7 +197,9 @@ impl BTree {
         }
 
         // Upsert into existing tree
-        let root_page_id = self.root_page_id.unwrap();
+        let root_page_id = self
+            .root_page_id
+            .expect("root_page_id should be set when tree is not empty");
         let (split_result, is_new_key) = self.upsert_recursive(root_page_id, key, value).await?;
 
         // Handle root split
@@ -235,7 +239,9 @@ impl BTree {
             return Ok(None);
         }
 
-        let root_page_id = self.root_page_id.unwrap();
+        let root_page_id = self
+            .root_page_id
+            .expect("root_page_id should be set when tree is not empty");
         self.search_recursive(root_page_id, key).await
     }
 
@@ -252,7 +258,9 @@ impl BTree {
             return Ok(Vec::new());
         }
 
-        let root_page_id = self.root_page_id.unwrap();
+        let root_page_id = self
+            .root_page_id
+            .expect("root_page_id should be set when tree is not empty");
         self.range_scan_recursive(root_page_id, start_key, end_key)
             .await
     }
@@ -270,7 +278,9 @@ impl BTree {
             return Ok(false);
         }
 
-        let root_page_id = self.root_page_id.unwrap();
+        let root_page_id = self
+            .root_page_id
+            .expect("root_page_id should be set when tree is not empty");
         let deleted = self.delete_recursive(root_page_id, key).await?;
 
         if deleted {

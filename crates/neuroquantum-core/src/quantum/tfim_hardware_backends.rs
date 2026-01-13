@@ -355,7 +355,9 @@ impl AnnealingBackend for DWaveTFIMSolver {
                 // Find best sample from D-Wave results
                 let (best_spins, best_energy) = samples
                     .into_iter()
-                    .min_by(|(_, e1), (_, e2)| e1.partial_cmp(e2).unwrap())
+                    .min_by(|(_, e1), (_, e2)| {
+                        e1.partial_cmp(e2).unwrap_or(std::cmp::Ordering::Equal)
+                    })
                     .ok_or_else(|| {
                         CoreError::invalid_operation("No samples returned from D-Wave")
                     })?;
@@ -529,7 +531,9 @@ impl AnnealingBackend for BraketTFIMSolver {
             Ok(samples) => {
                 let (best_spins, best_energy) = samples
                     .into_iter()
-                    .min_by(|(_, e1), (_, e2)| e1.partial_cmp(e2).unwrap())
+                    .min_by(|(_, e1), (_, e2)| {
+                        e1.partial_cmp(e2).unwrap_or(std::cmp::Ordering::Equal)
+                    })
                     .ok_or_else(|| {
                         CoreError::invalid_operation("No samples returned from Braket")
                     })?;

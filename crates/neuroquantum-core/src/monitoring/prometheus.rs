@@ -769,7 +769,7 @@ impl MetricsExporter {
         let metric_families = self.registry.gather();
         let mut buffer = Vec::new();
         encoder.encode(&metric_families, &mut buffer)?;
-        Ok(String::from_utf8(buffer).unwrap())
+        Ok(String::from_utf8(buffer).expect("Prometheus metrics should be valid UTF-8"))
     }
 
     /// Get the registry

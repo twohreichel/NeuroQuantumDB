@@ -469,7 +469,7 @@ impl LogManager {
     pub fn new_placeholder() -> Self {
         Self {
             log_file: Arc::new(Mutex::new(File::from_std(
-                std::fs::File::open("/dev/null").unwrap(),
+                std::fs::File::open("/dev/null").expect("/dev/null should always be accessible"),
             ))),
             log_path: PathBuf::from("/dev/null"),
             lsn_counter: Arc::new(AtomicU64::new(1)),

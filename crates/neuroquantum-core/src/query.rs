@@ -921,7 +921,7 @@ impl NeuromorphicQueryProcessor {
             a.priority.cmp(&b.priority).then(
                 b.estimated_improvement
                     .partial_cmp(&a.estimated_improvement)
-                    .unwrap(),
+                    .unwrap_or(std::cmp::Ordering::Equal),
             )
         });
 

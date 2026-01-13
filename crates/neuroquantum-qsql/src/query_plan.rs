@@ -488,7 +488,12 @@ impl QueryExecutor {
             // If we have CTE references, resolve them by converting to derived tables
             if has_cte_references {
                 return self
-                    .execute_select_with_ctes(select, plan, start_time, cte_context.unwrap())
+                    .execute_select_with_ctes(
+                        select,
+                        plan,
+                        start_time,
+                        cte_context.expect("CTE context required for CTE references"),
+                    )
                     .await;
             }
 
@@ -627,7 +632,12 @@ impl QueryExecutor {
 
             // Execute query via storage engine (automatically DNA-decompressed!)
             // Acquire read lock for query execution
-            let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+            let storage_guard = self
+                .storage_engine
+                .as_ref()
+                .expect("storage engine required for query execution")
+                .read()
+                .await;
             let storage_rows = storage_guard
                 .select_rows(&storage_query)
                 .await
@@ -786,7 +796,12 @@ impl QueryExecutor {
             offset: None,
         };
 
-        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let storage_guard = self
+            .storage_engine
+            .as_ref()
+            .expect("storage engine required for JOIN execution")
+            .read()
+            .await;
         let base_rows = storage_guard.select_rows(&base_query).await.map_err(|e| {
             QSQLError::ExecutionError {
                 message: format!("Failed to fetch base table: {}", e),
@@ -1213,7 +1228,12 @@ impl QueryExecutor {
                 offset: None,
             };
 
-            let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+            let storage_guard = self
+                .storage_engine
+                .as_ref()
+                .expect("storage engine required for table fetch")
+                .read()
+                .await;
             let rows = storage_guard
                 .select_rows(&storage_query)
                 .await
@@ -1424,7 +1444,12 @@ impl QueryExecutor {
                 offset: None,
             };
 
-            let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+            let storage_guard = self
+                .storage_engine
+                .as_ref()
+                .expect("storage engine required for CTE base table fetch")
+                .read()
+                .await;
             let base_rows = storage_guard
                 .select_rows(&storage_query)
                 .await
@@ -1742,7 +1767,12 @@ impl QueryExecutor {
                     offset: None,
                 };
 
-                let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+                let storage_guard = self
+                    .storage_engine
+                    .as_ref()
+                    .expect("storage engine required for table fetch")
+                    .read()
+                    .await;
                 let rows = storage_guard
                     .select_rows(&storage_query)
                     .await
@@ -2222,7 +2252,7 @@ impl QueryExecutor {
                         (
                             left_col
                                 .strip_prefix(&format!("{}.", left_alias))
-                                .unwrap()
+                                .expect("prefix was just checked")
                                 .to_string(),
                             right_col
                                 .strip_prefix(&format!("{}.", right_alias))
@@ -2237,7 +2267,7 @@ impl QueryExecutor {
                                 .to_string(),
                             left_col
                                 .strip_prefix(&format!("{}.", right_alias))
-                                .unwrap()
+                                .expect("prefix was just checked")
                                 .to_string(),
                         )
                     } else {
@@ -2561,7 +2591,12 @@ impl QueryExecutor {
 
             // Get the table schema to handle DEFAULT values
             let schema = {
-                let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+                let storage_guard = self
+                    .storage_engine
+                    .as_ref()
+                    .expect("storage engine required for INSERT")
+                    .read()
+                    .await;
                 storage_guard.get_table_schema(&insert.table_name).cloned()
             };
 
@@ -2573,7 +2608,12 @@ impl QueryExecutor {
 
                 // Insert via storage engine (automatically DNA-compressed!)
                 // Use transactional insert if we have an active transaction
-                let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
+                let mut storage_guard = self
+                    .storage_engine
+                    .as_ref()
+                    .expect("storage engine required for INSERT")
+                    .write()
+                    .await;
                 let row_id = if let Some(tx_id) = self.current_transaction {
                     storage_guard
                         .insert_row_transactional(tx_id, &insert.table_name, row)
@@ -2676,7 +2716,12 @@ impl QueryExecutor {
 
             // Execute update via storage engine (automatically DNA re-compressed!)
             // Use transactional update if we have an active transaction
-            let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
+            let mut storage_guard = self
+                .storage_engine
+                .as_ref()
+                .expect("storage engine required for UPDATE")
+                .write()
+                .await;
             let rows_affected = if let Some(tx_id) = self.current_transaction {
                 storage_guard
                     .update_rows_transactional(tx_id, &storage_query)
@@ -2764,7 +2809,12 @@ impl QueryExecutor {
 
             // Execute delete via storage engine (frees compressed DNA blocks!)
             // Use transactional delete if we have an active transaction
-            let mut storage_guard = self.storage_engine.as_ref().unwrap().write().await;
+            let mut storage_guard = self
+                .storage_engine
+                .as_ref()
+                .expect("storage engine required for DELETE")
+                .write()
+                .await;
             let rows_affected = if let Some(tx_id) = self.current_transaction {
                 storage_guard
                     .delete_rows_transactional(tx_id, &storage_query)
@@ -8345,7 +8395,12 @@ impl QueryExecutor {
         };
 
         // Execute the subquery
-        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let storage_guard = self
+            .storage_engine
+            .as_ref()
+            .expect("storage engine required for EXISTS subquery")
+            .read()
+            .await;
         let rows = storage_guard
             .select_rows(&storage_query)
             .await
@@ -8398,7 +8453,12 @@ impl QueryExecutor {
         };
 
         // Execute the subquery
-        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let storage_guard = self
+            .storage_engine
+            .as_ref()
+            .expect("storage engine required for scalar subquery")
+            .read()
+            .await;
         let rows = storage_guard
             .select_rows(&storage_query)
             .await
@@ -8490,7 +8550,12 @@ impl QueryExecutor {
         };
 
         // Execute the subquery
-        let storage_guard = self.storage_engine.as_ref().unwrap().read().await;
+        let storage_guard = self
+            .storage_engine
+            .as_ref()
+            .expect("storage engine required for IN subquery")
+            .read()
+            .await;
         let rows = storage_guard
             .select_rows(&storage_query)
             .await

@@ -250,7 +250,7 @@ impl GroverSearch {
             .map(|(i, &amp)| (i, amp * amp))
             .collect();
 
-        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let execution_time = start_time.elapsed();
         let classical_time = Duration::from_nanos((n as f64 * query.len() as f64) as u64);
@@ -349,7 +349,7 @@ impl QuantumSearch for GroverSearch {
         let mut iterations = 0;
 
         let mut rng = rand::thread_rng();
-        let normal = Normal::new(0.0, 1.0).unwrap();
+        let normal = Normal::new(0.0, 1.0).expect("valid normal distribution parameters");
 
         debug!(
             "Starting quantum annealing: {} data points, T={:.2}",
@@ -618,7 +618,8 @@ impl QuantumProcessor {
     /// Create a new quantum processor with the given synaptic network
     pub fn new() -> Self {
         // Create a minimal synaptic network for now
-        let synaptic_network = Arc::new(SynapticNetwork::new(1000, 0.5).unwrap());
+        let synaptic_network =
+            Arc::new(SynapticNetwork::new(1000, 0.5).expect("valid synaptic network parameters"));
         let config = QuantumConfig::default();
         let grover_search = GroverSearch::new(config.clone(), synaptic_network);
 

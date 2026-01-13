@@ -308,12 +308,17 @@ impl RestoreManager {
                 };
 
                 // Write to output directory
-                let output_file = self
-                    .options
-                    .output_path
-                    .join("data")
-                    .join(chunk_file.file_name().unwrap());
-                tokio::fs::create_dir_all(output_file.parent().unwrap()).await?;
+                let output_file = self.options.output_path.join("data").join(
+                    chunk_file
+                        .file_name()
+                        .expect("chunk file should have a filename"),
+                );
+                tokio::fs::create_dir_all(
+                    output_file
+                        .parent()
+                        .expect("output file should have parent dir"),
+                )
+                .await?;
                 tokio::fs::write(&output_file, &decompressed).await?;
 
                 stats.bytes_written += decompressed.len() as u64;
@@ -352,7 +357,11 @@ impl RestoreManager {
                     wal_data
                 };
 
-                let output_file = output_wal_dir.join(wal_file.file_name().unwrap());
+                let output_file = output_wal_dir.join(
+                    wal_file
+                        .file_name()
+                        .expect("WAL file should have a filename"),
+                );
                 tokio::fs::write(&output_file, &decompressed).await?;
 
                 stats.bytes_written += decompressed.len() as u64;

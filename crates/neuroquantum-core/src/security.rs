@@ -1220,8 +1220,8 @@ impl AuditLogger {
         hasher.update(
             log.timestamp
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
                 .to_le_bytes(),
         );
         if let Some(ref user_id) = log.user_id {

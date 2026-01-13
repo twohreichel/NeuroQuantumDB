@@ -5,12 +5,12 @@ use std::path::Path;
 
 fn main() {
     // Change to project root if we're in scripts directory
-    let current_dir = env::current_dir().unwrap();
+    let current_dir = env::current_dir().expect("Failed to get current directory");
     if current_dir.ends_with("scripts") {
-        env::set_current_dir("..").unwrap();
+        env::set_current_dir("..").expect("Failed to change to parent directory");
     }
 
-    let working_dir = env::current_dir().unwrap();
+    let working_dir = env::current_dir().expect("Failed to get working directory");
     println!("📂 Working directory: {}", working_dir.display());
 
     let docs = vec![
