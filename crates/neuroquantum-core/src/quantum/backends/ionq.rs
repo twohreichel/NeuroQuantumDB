@@ -362,7 +362,7 @@ impl IonQBackend {
             )
         })?;
 
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
 
         // Convert to native gates if configured
         let circuit = if self.config.native_gates {

@@ -281,7 +281,7 @@ impl BraketBackend {
             ));
         }
 
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
 
         info!(
             "Submitting task to AWS Braket in region {}",
@@ -317,7 +317,7 @@ impl BraketBackend {
     pub async fn submit_annealing(
         &self,
         problem: &BraketAnnealingProblem,
-        MIN_QUANTUM_SEARCH_SPACE: usize,
+        _num_reads: usize,
     ) -> CoreResult<QuantumExecutionResult> {
         if !self.has_credentials() {
             return Err(CoreError::invalid_operation(
@@ -501,18 +501,25 @@ mod tests {
 
     #[test]
     fn test_device_type_detection() {
-        let mut config = BraketConfig::default();
-
-        config.device_arn = "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1".to_string();
-        let backend = BraketBackend::new(config.clone());
+        let config = BraketConfig {
+            device_arn: "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1".to_string(),
+            ..BraketConfig::default()
+        };
+        let backend = BraketBackend::new(config);
         assert_eq!(backend.device_type(), BraketDeviceType::IonQ);
 
-        config.device_arn = "arn:aws:braket:::device/qpu/d-wave/Advantage_system6".to_string();
-        let backend = BraketBackend::new(config.clone());
+        let config = BraketConfig {
+            device_arn: "arn:aws:braket:::device/qpu/d-wave/Advantage_system6".to_string(),
+            ..BraketConfig::default()
+        };
+        let backend = BraketBackend::new(config);
         assert_eq!(backend.device_type(), BraketDeviceType::DWave);
         assert!(backend.is_annealer());
 
-        config.device_arn = "arn:aws:braket:us-west-1::device/qpu/rigetti/Aspen-M-3".to_string();
+        let config = BraketConfig {
+            device_arn: "arn:aws:braket:us-west-1::device/qpu/rigetti/Aspen-M-3".to_string(),
+            ..BraketConfig::default()
+        };
         let backend = BraketBackend::new(config);
         assert_eq!(backend.device_type(), BraketDeviceType::Rigetti);
         assert!(backend.is_gate_based());

@@ -311,7 +311,7 @@ impl IBMQuantumBackend {
             )
         })?;
 
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
 
         info!(
             "Submitting circuit to IBM Quantum API at {}",

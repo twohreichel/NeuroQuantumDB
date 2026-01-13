@@ -307,7 +307,7 @@ impl DWaveBackend {
             )
         })?;
 
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
 
         info!(
             "Submitting problem to D-Wave API at {}",
