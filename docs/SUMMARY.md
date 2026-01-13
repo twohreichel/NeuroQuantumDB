@@ -49,6 +49,7 @@
   - [Synaptic Network](developer-guide/components/synaptic-network.md)
 - [Security](developer-guide/security.md)
 - [Building & Testing](developer-guide/building-testing.md)
+- [Benchmarking](developer-guide/benchmarking.md)
 - [Contributing](developer-guide/contributing.md)
 
 ---

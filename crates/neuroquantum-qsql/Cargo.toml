@@ -36,14 +36,22 @@ chrono = { version = "0.4", features = ["serde"] }
 proptest = "1.9"
 tempfile = "3.23"
 tracing-subscriber = "0.3"
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
 
 [[example]]
 name = "transaction_control"
 path = "examples/transaction_control.rs"
+
+[[bench]]
+name = "qsql_functions"
+harness = false
+required-features = ["benchmarks"]
 
 [features]
 default = ["neuromorphic", "quantum", "natural-language"]
 neuromorphic = []
 quantum = []
 natural-language = []
+benchmarks = []
 
