@@ -65,6 +65,26 @@ jobs:
             -- --noplot
 
       # =========================================
+      # Run Neuromorphic Index Benchmarks
+      # =========================================
+      - name: Run Neuromorphic Index Benchmarks
+        run: |
+          cargo bench --package neuroquantum-core \
+            --bench neuromorphic_index \
+            --features benchmarks \
+            -- --noplot
+
+      # =========================================
+      # Run Transaction Benchmarks
+      # =========================================
+      - name: Run Transaction Benchmarks
+        run: |
+          cargo bench --package neuroquantum-core \
+            --bench transactions \
+            --features benchmarks \
+            -- --noplot
+
+      # =========================================
       # Run Quantum Algorithm Benchmarks
       # =========================================
       - name: Run Grover Search Benchmarks
@@ -109,6 +129,16 @@ jobs:
             -- --noplot
 
       # =========================================
+      # Run QSQL Function Benchmarks
+      # =========================================
+      - name: Run QSQL Function Benchmarks
+        run: |
+          cargo bench --package neuroquantum-qsql \
+            --bench qsql_functions \
+            --features benchmarks \
+            -- --noplot
+
+      # =========================================
       # Collect and Process Results
       # =========================================
       - name: Collect benchmark results
@@ -129,6 +159,18 @@ jobs:
 
           ### 🧬 DNA Compression
           Performance of DNA-based compression with quaternary encoding and Reed-Solomon error correction.
+          Includes comparison with gzip, lz4, and zstd.
+
+          ### 🧠 Neuromorphic Indexes
+          - **Hebbian Index**: Synaptic network-based adaptive indexing
+          - **Comparison**: Hebbian vs B+ Tree performance
+          - **Learning**: Hebbian and Anti-Hebbian weight updates
+
+          ### 💳 Transactions
+          - **Concurrent Transactions**: Throughput under concurrent load
+          - **Savepoints**: Overhead for savepoint creation and rollback
+          - **WAL Operations**: Write-Ahead Log performance
+          - **Lock Manager**: Lock acquisition and deadlock detection
 
           ### ⚛️ Quantum Algorithms
           - **Grover's Search**: Quantum amplitude amplification vs classical search
@@ -140,6 +182,12 @@ jobs:
 
           ### 🚀 SIMD Optimizations
           NEON (ARM64) and AVX2 (x86-64) vectorized operations benchmarks.
+
+          ### 📊 QSQL Functions
+          - **NEUROMATCH**: Neuromorphic pattern matching vs SQL LIKE
+          - **QUANTUM_SEARCH**: Quantum-inspired parallel search
+          - **HEBBIAN_LEARNING**: Query optimization through learning
+          - **SQL Parsing**: Query parsing performance
 
           ---
           EOF
@@ -198,214 +246,95 @@ jobs:
           fail-threshold: '130%'
           # Store benchmark data
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: benchmarks
+          benchmark-data-dir-path: dev/bench
 
       # =========================================
-      # PR Comment with Results
+      # Post Performance Summary to PR
       # =========================================
-      - name: Comment PR with benchmark results
+      - name: Comment on PR with benchmark results
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            
-            let summary = '## 📊 Benchmark Results\n\n';
-            summary += '**Commit**: `${{ github.sha }}`\n\n';
-            
-            // Read summary if available
+            let summary = '';
             try {
-              const summaryContent = fs.readFileSync('benchmark-results/summary.md', 'utf8');
-              summary += summaryContent;
+              summary = fs.readFileSync('benchmark-results/summary.md', 'utf8');
             } catch (e) {
-              summary += '### Benchmark Categories\n\n';
-              summary += '- 🧬 **DNA Compression**: Quaternary encoding with SIMD\n';
-              summary += '- ⚛️ **Quantum Algorithms**: Grover\'s search, Quantum annealing\n';
-              summary += '- 💾 **Storage**: B+ Tree, Page storage\n';
-              summary += '- 🚀 **SIMD**: NEON/AVX2 optimizations\n\n';
-              summary += '*Full results in workflow artifacts*\n';
+              summary = '## Benchmark Results\n\nBenchmark summary not available.';
             }
             
-            // Find existing comment
-            const { data: comments } = await github.rest.issues.listComments({
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              body: summary
             });
-            
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('📊 Benchmark Results')
-            );
-            
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: summary
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: summary
-              });
-            }
 
-  # =========================================
-  # Comparative Benchmarks (PRs only)
-  # =========================================
-  benchmark-comparison:
-    name: Benchmark Comparison
+  benchmark-regression:
+    name: Benchmark Regression Check
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
+
+      - name: Checkout base branch
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.base_ref }}
+          path: base
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "benchmarks-pr"
 
       - name: Create data directory
         run: mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
 
       - name: Run benchmarks on PR branch
         run: |
-          cargo bench --package neuroquantum-core \
-            --features benchmarks \
-            -- --save-baseline pr-${{ github.event.pull_request.number }}
-
-      - name: Checkout base branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          clean: false
+          cargo bench --package neuroquantum-core --features benchmarks -- --noplot --save-baseline pr
+          cargo bench --package neuroquantum-qsql --features benchmarks -- --noplot --save-baseline pr
 
       - name: Run benchmarks on base branch
         run: |
-          cargo bench --package neuroquantum-core \
-            --features benchmarks \
-            -- --save-baseline base-${{ github.event.pull_request.number }}
+          cd base
+          mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
+          cargo bench --package neuroquantum-core --features benchmarks -- --noplot --save-baseline base
+          cargo bench --package neuroquantum-qsql --features benchmarks -- --noplot --save-baseline base
 
       - name: Compare benchmarks
-        id: compare
         run: |
           # Install critcmp for comparison
           cargo install critcmp --locked || true
           
-          # Compare baselines
-          critcmp base-${{ github.event.pull_request.number }} \
-                  pr-${{ github.event.pull_request.number }} \
-                  > benchmark-comparison.txt 2>&1 || true
+          # Compare results
+          echo "## Benchmark Comparison: PR vs Base" > comparison.md
+          echo "" >> comparison.md
+          critcmp base pr >> comparison.md 2>&1 || echo "No comparison data available" >> comparison.md
           
-          # Check for regressions (>10% slower)
-          if grep -q "regressed" benchmark-comparison.txt; then
-            echo "has_regression=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_regression=false" >> $GITHUB_OUTPUT
-          fi
+          cat comparison.md
 
-      - name: Upload comparison results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-comparison-pr-${{ github.event.pull_request.number }}
-          path: benchmark-comparison.txt
-          retention-days: 30
-
-      - name: Comment on PR with comparison
+      - name: Post comparison to PR
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            
-            let comparison = '## 📈 Benchmark Comparison\n\n';
-            comparison += '**Base**: `${{ github.event.pull_request.base.sha }}`\n';
-            comparison += '**PR**: `${{ github.event.pull_request.head.sha }}`\n\n';
-            
+            let comparison = '';
             try {
-              const content = fs.readFileSync('benchmark-comparison.txt', 'utf8');
-              comparison += '```\n' + content + '\n```\n';
+              comparison = fs.readFileSync('comparison.md', 'utf8');
             } catch (e) {
-              comparison += '*Comparison data not available*\n';
+              comparison = '## Benchmark Comparison\n\nComparison data not available.';
             }
             
-            if ('${{ steps.compare.outputs.has_regression }}' === 'true') {
-              comparison += '\n⚠️ **Warning**: Performance regressions detected!\n';
-            } else {
-              comparison += '\n✅ No significant performance regressions detected.\n';
-            }
-            
-            const { data: comments } = await github.rest.issues.listComments({
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              body: comparison
             });
-            
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('📈 Benchmark Comparison')
-            );
-            
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: comparison
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: comparison
-              });
-            }
-
-  # =========================================
-  # Scheduled Full Benchmark Suite
-  # =========================================
-  scheduled-benchmarks:
-    name: Scheduled Full Benchmark Suite
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_comparison)
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Create data directory
-        run: mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
-
-      - name: Run full benchmark suite
-        run: |
-          cargo bench --package neuroquantum-core \
-            --features benchmarks \
-            -- --verbose
-
-      - name: Generate HTML reports
-        run: |
-          # Criterion generates HTML reports automatically
-          echo "HTML reports generated in target/criterion/"
-
-      - name: Upload full benchmark report
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-benchmark-report-${{ github.run_number }}
-          path: target/criterion/
-          retention-days: 365

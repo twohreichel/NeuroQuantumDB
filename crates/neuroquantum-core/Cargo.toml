@@ -102,6 +102,8 @@ proptest = "1.9"
 rand.workspace = true
 tempfile = "3.23"
 tokio-test = "0.4"
+futures = "0.3"
+uuid = { version = "1.0", features = ["v4"] }
 
 [features]
 default = ["simd"]
@@ -136,6 +138,16 @@ required-features = ["benchmarks"]
 
 [[bench]]
 name = "quantum_annealing"
+harness = false
+required-features = ["benchmarks"]
+
+[[bench]]
+name = "neuromorphic_index"
+harness = false
+required-features = ["benchmarks"]
+
+[[bench]]
+name = "transactions"
 harness = false
 required-features = ["benchmarks"]
 
