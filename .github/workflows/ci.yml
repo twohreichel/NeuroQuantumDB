@@ -227,7 +227,7 @@ jobs:
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: neuroquantumdb/neuroquantum-api:${{ steps.meta.outputs.version }}
+          image: neuroquantumdb/neuroquantum-api:latest
           format: spdx-json
           output-file: sbom.spdx.json
 
