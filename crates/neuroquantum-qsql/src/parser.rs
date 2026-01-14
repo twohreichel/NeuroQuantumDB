@@ -122,6 +122,7 @@ pub enum TokenType {
     Drop,
     Alter,
     Truncate,
+    Compress,
     Table,
     Index,
     Add,
@@ -705,6 +706,7 @@ impl QSQLParser {
             Some(TokenType::Drop) => self.parse_drop_statement(tokens),
             Some(TokenType::Alter) => self.parse_alter_table_statement(tokens),
             Some(TokenType::Truncate) => self.parse_truncate_table_statement(tokens),
+            Some(TokenType::Compress) => self.parse_compress_table_statement(tokens),
             Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
             Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
             Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
@@ -3924,6 +3926,84 @@ impl QSQLParser {
         }))
     }
 
+    /// Parse COMPRESS TABLE statement
+    /// Syntax: COMPRESS TABLE table_name USING compression_algorithm
+    fn parse_compress_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
+        let mut i = 0;
+
+        // Skip COMPRESS keyword
+        if i < tokens.len() && matches!(tokens[i], TokenType::Compress) {
+            i += 1;
+        }
+
+        // Expect TABLE keyword
+        if i >= tokens.len() || !matches!(tokens[i], TokenType::Table) {
+            return Err(QSQLError::ParseError {
+                message: "Expected TABLE after COMPRESS".to_string(),
+                position: i,
+            });
+        }
+        i += 1;
+
+        // Parse table name
+        let table_name = if i < tokens.len() {
+            if let TokenType::Identifier(name) = &tokens[i] {
+                i += 1;
+                name.clone()
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected table name after COMPRESS TABLE".to_string(),
+                    position: i,
+                });
+            }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected table name after COMPRESS TABLE".to_string(),
+                position: i,
+            });
+        };
+
+        // Expect USING keyword
+        if i >= tokens.len() || !matches!(tokens[i], TokenType::Using) {
+            return Err(QSQLError::ParseError {
+                message: "Expected USING after table name".to_string(),
+                position: i,
+            });
+        }
+        i += 1;
+
+        // Parse compression algorithm
+        let algorithm = if i < tokens.len() {
+            if let TokenType::Identifier(alg) = &tokens[i] {
+                let alg_upper = alg.to_uppercase();
+                match alg_upper.as_str() {
+                    "DNA" => CompressionAlgorithm::DNA,
+                    _ => {
+                        return Err(QSQLError::ParseError {
+                            message: format!("Unknown compression algorithm: {}", alg),
+                            position: i,
+                        });
+                    }
+                }
+            } else {
+                return Err(QSQLError::ParseError {
+                    message: "Expected compression algorithm after USING".to_string(),
+                    position: i,
+                });
+            }
+        } else {
+            return Err(QSQLError::ParseError {
+                message: "Expected compression algorithm after USING".to_string(),
+                position: i,
+            });
+        };
+
+        Ok(Statement::CompressTable(CompressTableStatement {
+            table_name,
+            algorithm,
+        }))
+    }
+
     /// Parse an optional table alias (AS alias or just identifier after table name)
     fn parse_table_alias(&self, tokens: &[TokenType], i: &mut usize) -> Option<String> {
         if *i >= tokens.len() {
@@ -4383,6 +4463,7 @@ impl QSQLParser {
         keywords.insert("DROP".to_string(), TokenType::Drop);
         keywords.insert("ALTER".to_string(), TokenType::Alter);
         keywords.insert("TRUNCATE".to_string(), TokenType::Truncate);
+        keywords.insert("COMPRESS".to_string(), TokenType::Compress);
         keywords.insert("TABLE".to_string(), TokenType::Table);
         keywords.insert("INDEX".to_string(), TokenType::Index);
         keywords.insert("ADD".to_string(), TokenType::Add);
@@ -4478,6 +4559,7 @@ impl QSQLParser {
         keywords.insert("QUANTUM_ANNEALING".to_string(), TokenType::QuantumAnnealing);
         keywords.insert("GROVER".to_string(), TokenType::GroverSearch);
         keywords.insert("QUANTUM".to_string(), TokenType::QuantumSearch);
+        keywords.insert("USING".to_string(), TokenType::Using);
 
         // Query analysis keywords
         keywords.insert("EXPLAIN".to_string(), TokenType::Explain);
