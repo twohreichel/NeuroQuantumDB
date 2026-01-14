@@ -672,15 +672,17 @@ impl QueryExecutor {
             };
 
             // Apply NEUROMATCH clause if present (neuromorphic pattern matching)
-            let neuromatch_filtered_rows = if let Some(neuromatch) = &select.neuromatch_clause {
-                self.apply_neuromatch_filter(filtered_rows, neuromatch)?
-            } else {
-                filtered_rows
-            };
+            let neuromatch_filtered_rows =
+                if let Some(neuromatch) = &resolved_select.neuromatch_clause {
+                    self.apply_neuromatch_filter(filtered_rows, neuromatch)?
+                } else {
+                    filtered_rows
+                };
 
             // Neuromorphic learning: learn from access pattern
-            if self.config.enable_synaptic_optimization && select.synaptic_weight.is_some() {
-                self.learn_from_select(select, &neuromatch_filtered_rows)
+            if self.config.enable_synaptic_optimization && resolved_select.synaptic_weight.is_some()
+            {
+                self.learn_from_select(&resolved_select, &neuromatch_filtered_rows)
                     .await?;
             }
 
@@ -694,7 +696,7 @@ impl QueryExecutor {
                 )
                 .await?
             } else {
-                self.convert_storage_rows_to_result(neuromatch_filtered_rows, select)?
+                self.convert_storage_rows_to_result(neuromatch_filtered_rows, &resolved_select)?
             };
 
             let rows_affected = result_rows.len() as u64;
@@ -704,10 +706,14 @@ impl QueryExecutor {
                 columns,
                 execution_time: start_time.elapsed(),
                 rows_affected,
-                optimization_applied: select.synaptic_weight.is_some()
+                optimization_applied: resolved_select.synaptic_weight.is_some()
                     || !plan.synaptic_pathways.is_empty(),
                 synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
-                quantum_operations: if select.quantum_parallel { 1 } else { 0 },
+                quantum_operations: if resolved_select.quantum_parallel {
+                    1
+                } else {
+                    0
+                },
             })
         } else {
             // Fallback: Simulate data (legacy mode) - only available in test builds
@@ -4758,28 +4764,74 @@ impl QueryExecutor {
         let value_lower = value.to_lowercase();
         let pattern_lower = pattern.to_lowercase();
 
-        // Exact match check
+        // Exact match check for the full pattern
         if value_lower.contains(&pattern_lower) {
             return 1.0;
         }
 
-        // Use Levenshtein-based similarity for fuzzy matching
-        // This simulates synaptic pattern recognition
-        let distance = Self::levenshtein_distance(&value_lower, &pattern_lower);
-        let max_len = value_lower.len().max(pattern_lower.len());
+        // Word-based matching: Split pattern into words and check for matches
+        // This implements a more neuromorphic approach where we look for semantic overlap
+        let pattern_words: Vec<&str> = pattern_lower.split_whitespace().collect();
+        let value_words: Vec<&str> = value_lower.split_whitespace().collect();
 
-        if max_len == 0 {
+        if pattern_words.is_empty() || value_words.is_empty() {
             return 0.0;
         }
 
-        // Calculate similarity as inverse of normalized distance
-        let similarity = 1.0 - (distance as f32 / max_len as f32);
+        // Calculate word-based similarity
+        let mut max_word_similarity = 0.0f32;
+        let mut matching_words = 0;
+        let mut total_word_score = 0.0f32;
+
+        for pattern_word in &pattern_words {
+            let mut best_match_for_word = 0.0f32;
+
+            for value_word in &value_words {
+                // Check for exact word match or substring match
+                if value_word.contains(pattern_word) || pattern_word.contains(value_word) {
+                    best_match_for_word = 1.0;
+                    break;
+                }
+
+                // Use Levenshtein-based similarity for fuzzy matching
+                let distance = Self::levenshtein_distance(value_word, pattern_word);
+                let max_len = value_word.len().max(pattern_word.len());
+
+                if max_len > 0 {
+                    let word_similarity = 1.0 - (distance as f32 / max_len as f32);
+                    if word_similarity > best_match_for_word {
+                        best_match_for_word = word_similarity;
+                    }
+                }
+            }
+
+            // Count words that match with > 0.7 similarity as true matches
+            if best_match_for_word > 0.7 {
+                matching_words += 1;
+            }
+
+            total_word_score += best_match_for_word;
+
+            if best_match_for_word > max_word_similarity {
+                max_word_similarity = best_match_for_word;
+            }
+        }
+
+        // Calculate final score as combination of:
+        // 1. Ratio of matching words (how many pattern words are present)
+        // 2. Average word match quality (how well they match)
+        let word_ratio = matching_words as f32 / pattern_words.len() as f32;
+        let average_word_score = total_word_score / pattern_words.len() as f32;
+
+        // Weight the word ratio more heavily to require multiple word matches
+        // This prevents false positives where only 1-2 words match
+        let combined_score = (word_ratio * 0.7) + (average_word_score * 0.3);
 
         // Apply synaptic threshold - small similarities are filtered out
-        if similarity < 0.3 {
+        if combined_score < 0.3 {
             0.0
         } else {
-            similarity
+            combined_score
         }
     }
 
