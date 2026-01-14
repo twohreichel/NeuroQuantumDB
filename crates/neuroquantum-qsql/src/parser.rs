@@ -3324,6 +3324,13 @@ impl QSQLParser {
                 *i += 1;
                 DataType::SmallSerial
             }
+            // AUTO_INCREMENT without explicit type defaults to INTEGER
+            // This allows MySQL-style syntax: `id AUTO_INCREMENT PRIMARY KEY`
+            TokenType::AutoIncrement => {
+                // Don't consume the token here - let parse_column_definition handle it
+                // Just return Integer as the implicit data type
+                DataType::Integer
+            }
             _ => {
                 return Err(QSQLError::ParseError {
                     message: format!("Expected data type, found {:?}", tokens[*i]),
