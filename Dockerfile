@@ -101,11 +101,23 @@ COPY --from=rust-builder --chown=nonroot:nonroot \
     /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-api \
     /usr/local/bin/neuroquantum-api
 
-# Copy production configuration
-COPY --chown=nonroot:nonroot config/prod.toml /etc/neuroquantumdb/config.toml
+# Configuration can be provided in multiple ways (in order of precedence):
+# 1. Volume mount: -v /path/to/config.toml:/etc/neuroquantumdb/config.toml:ro
+# 2. Build-time: docker build --build-arg CONFIG_FILE=path/to/custom.toml
+# 3. Default: Uses the bundled prod.toml configuration
+#
+# Example usage:
+#   docker run -v $(pwd)/myconfig.toml:/etc/neuroquantumdb/config.toml:ro neuroquantumdb:latest
+#   docker run -e NEUROQUANTUM_CONFIG=/custom/path.toml -v ./config:/custom neuroquantumdb:latest
 
-# Define volume for persistent data
-VOLUME ["/data"]
+# Build arg for custom configuration file (default: config/prod.toml)
+ARG CONFIG_FILE=config/prod.toml
+
+# Copy configuration (can be overridden by volume mount at runtime)
+COPY --chown=nonroot:nonroot ${CONFIG_FILE} /etc/neuroquantumdb/config.toml
+
+# Define volumes for persistent data and optional config override
+VOLUME ["/data", "/etc/neuroquantumdb"]
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \

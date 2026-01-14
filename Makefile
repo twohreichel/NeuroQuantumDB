@@ -248,7 +248,7 @@ docker-build: ## Build production Docker image (<15MB target)
 	docker build --platform linux/arm64 -t neuroquantumdb:latest .
 	@echo "📦 Image size: $$(docker images neuroquantumdb:latest --format 'table {{.Size}}')"
 
-docker-run: ## Run NeuroQuantumDB in Docker container
+docker-run: ## Run NeuroQuantumDB in Docker container (use default config)
 	@echo "🚀 Starting NeuroQuantumDB container..."
 	docker run -d \
 		--name neuroquantumdb \
@@ -258,6 +258,31 @@ docker-run: ## Run NeuroQuantumDB in Docker container
 		neuroquantumdb:latest
 	@echo "✅ NeuroQuantumDB is running at http://localhost:8080"
 	@echo "🔍 Check health: curl http://localhost:8080/health"
+
+docker-run-config: ## Run with custom config: make docker-run-config CONFIG=/path/to/config.toml
+	@echo "🚀 Starting NeuroQuantumDB container with custom config..."
+	@if [ -z "$(CONFIG)" ]; then \
+		echo "❌ Error: CONFIG parameter required. Usage: make docker-run-config CONFIG=/path/to/config.toml"; \
+		exit 1; \
+	fi
+	docker run -d \
+		--name neuroquantumdb \
+		--platform linux/arm64 \
+		-p 8080:8080 \
+		-v $(CONFIG):/etc/neuroquantumdb/config.toml:ro \
+		--restart unless-stopped \
+		neuroquantumdb:latest
+	@echo "✅ NeuroQuantumDB is running with config: $(CONFIG)"
+	@echo "🔍 Check health: curl http://localhost:8080/health"
+
+docker-build-config: ## Build with custom config: make docker-build-config CONFIG=path/to/config.toml
+	@echo "🐳 Building Docker image with custom config..."
+	@if [ -z "$(CONFIG)" ]; then \
+		echo "❌ Error: CONFIG parameter required. Usage: make docker-build-config CONFIG=path/to/config.toml"; \
+		exit 1; \
+	fi
+	docker build --platform linux/arm64 --build-arg CONFIG_FILE=$(CONFIG) -t neuroquantumdb:latest .
+	@echo "📦 Image size: $$(docker images neuroquantumdb:latest --format 'table {{.Size}}')"
 
 docker-clean: ## Stop and remove Docker containers and images
 	@echo "🧹 Cleaning up Docker resources..."
