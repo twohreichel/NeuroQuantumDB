@@ -7187,6 +7187,47 @@ impl QueryExecutor {
                 Ok(result.unwrap_or(QueryValue::Null))
             }
 
+            // Neuromorphic function: HEBBIAN_LEARNING
+            // Applies Hebbian learning principle to compute synaptic weight adjustments
+            // "Neurons that fire together, wire together"
+            // Supports three modes:
+            // - 1 argument: Returns the learning weight for a single value (activity-based)
+            // - 2 arguments: Returns the Hebbian correlation weight between two values
+            // - 3 arguments: Returns weighted correlation with custom learning rate
+            "HEBBIAN_LEARNING" => {
+                if args.is_empty() || args.len() > 3 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "HEBBIAN_LEARNING requires 1, 2, or 3 arguments".to_string(),
+                    });
+                }
+
+                let val1 = get_arg_value(0)?;
+
+                let weight = if args.len() == 1 {
+                    // Single argument: return normalized learning weight based on activity
+                    // This represents the baseline synaptic strength
+                    self.calculate_synaptic_activity(&val1)
+                } else if args.len() == 2 {
+                    // Two arguments: calculate Hebbian correlation between values
+                    let val2 = get_arg_value(1)?;
+                    // Apply Hebbian learning rule: Δw = x_i * x_j
+                    self.calculate_hebbian_weight(&val1, &val2)?
+                } else {
+                    // Three arguments: weighted correlation with custom learning rate
+                    let val2 = get_arg_value(1)?;
+                    let learning_rate = match get_arg_value(2)? {
+                        QueryValue::Float(f) => f as f32,
+                        QueryValue::Integer(i) => i as f32,
+                        _ => 0.01, // Default learning rate
+                    };
+                    // Apply weighted Hebbian rule: Δw = η * x_i * x_j
+                    let base_weight = self.calculate_hebbian_weight(&val1, &val2)?;
+                    (base_weight * learning_rate.clamp(0.0, 1.0)).clamp(0.0, 1.0)
+                };
+
+                Ok(QueryValue::SynapticWeight(weight))
+            }
+
             // Neuromorphic function: SYNAPTIC_WEIGHT
             // Calculate synaptic weight/activity level using Hebbian learning principles
             // Supports two modes:
@@ -7469,7 +7510,7 @@ impl QueryExecutor {
             | "SIGN" | "TRUNCATE" | "TRUNC" | "EXP" | "LN" | "LOG" | "LOG10" | "LOG2" | "PI"
             | "RANDOM" | "RAND" => DataType::Double,
             // Neuromorphic functions
-            "SYNAPTIC_WEIGHT" => DataType::SynapticWeight,
+            "SYNAPTIC_WEIGHT" | "HEBBIAN_LEARNING" => DataType::SynapticWeight,
             _ => DataType::Text,
         }
     }
