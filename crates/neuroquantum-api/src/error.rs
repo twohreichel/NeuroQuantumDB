@@ -397,6 +397,8 @@ pub struct TrainingExample {
     pub input: Vec<f32>,
     pub target: Vec<f32>,
     pub weight: Option<f32>,
+    #[serde(default)]
+    pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -407,6 +409,8 @@ pub struct NeuralNetworkConfig {
     pub batch_size: u32,
     pub optimizer: OptimizerType,
     pub loss_function: LossFunction,
+    #[serde(default)]
+    pub hebbian_learning: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
