@@ -1,5 +1,17 @@
+# NeuroQuantumDB Production Docker Compose
+# Last Updated: January 2026
+#
+# Usage:
+#   1. Copy .env.example to .env and configure secrets
+#   2. docker-compose up -d
+#   3. Check health: curl http://localhost:8080/health
+#
+# Configuration:
+#   - Config file: Mount your config.toml to /etc/neuroquantumdb/config.toml
+#   - Environment variables override config file values (see below)
+
 services:
-  # Redis for rate limiting and caching
+  # Redis for rate limiting and distributed caching
   redis:
     image: redis:7-alpine
     platform: linux/arm64
@@ -42,19 +54,45 @@ services:
     container_name: neuroquantumdb-main
     restart: unless-stopped
     ports:
-      - "8080:8080"
-      - "9090:9090"
+      - "8080:8080"   # Main API port
+      - "9090:9090"   # Metrics port
     environment:
-      - RUST_LOG=info
+      # Logging configuration
+      - RUST_LOG=${RUST_LOG:-info}
+      - NEUROQUANTUM_LOG_LEVEL=${NEUROQUANTUM_LOG_LEVEL:-info}
+      - NEUROQUANTUM_LOG_FORMAT=${NEUROQUANTUM_LOG_FORMAT:-json}
+      
+      # Core configuration
       - NEUROQUANTUM_ENV=production
       - NEUROQUANTUM_CONFIG=/etc/neuroquantumdb/config.toml
-      - REDIS_URL=redis://redis:6379
+      
+      # Server configuration (override config file)
+      - NEUROQUANTUM_HOST=${NEUROQUANTUM_HOST:-0.0.0.0}
+      - NEUROQUANTUM_PORT=${NEUROQUANTUM_PORT:-8080}
+      
+      # Security - REQUIRED: Set these in .env file!
+      - NEUROQUANTUM_JWT_SECRET=${NEUROQUANTUM_JWT_SECRET:?JWT secret is required}
+      - NEUROQUANTUM_ADMIN_KEY=${NEUROQUANTUM_ADMIN_KEY:-}
+      
+      # Redis connection for rate limiting
+      - NEUROQUANTUM_REDIS_URL=redis://redis:6379
+      
+      # Rate limiting
+      - NEUROQUANTUM_RATE_LIMIT=${NEUROQUANTUM_RATE_LIMIT:-10000}
+      - NEUROQUANTUM_MAX_PAYLOAD_SIZE=${NEUROQUANTUM_MAX_PAYLOAD_SIZE:-5242880}
+      
+      # OpenTelemetry tracing
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=neuroquantumdb-prod
     volumes:
-      - ./config/prod.toml:/etc/neuroquantumdb/config.toml:ro
+      # Configuration file - mount your own or use the bundled default
+      - ${NEUROQUANTUM_CONFIG_FILE:-./config/prod.toml}:/etc/neuroquantumdb/config.toml:ro
+      # Persistent data storage
       - neuroquantum_data:/var/lib/neuroquantumdb
+      # Log files
       - neuroquantum_logs:/var/log/neuroquantumdb
     healthcheck:
-      test: ["CMD", "/usr/local/bin/neuroquantumdb", "health-check"]
+      test: ["CMD", "/usr/local/bin/neuroquantum-api", "health-check"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -70,6 +108,40 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - neuroquantum-net
+
+  # Jaeger for distributed tracing (OpenTelemetry compatible)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    platform: linux/arm64
+    container_name: neuroquantum-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - SPAN_STORAGE_TYPE=badger
+      - BADGER_EPHEMERAL=false
+      - BADGER_DIRECTORY_VALUE=/badger/data
+      - BADGER_DIRECTORY_KEY=/badger/key
+    volumes:
+      - jaeger_data:/badger
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
     networks:
       - neuroquantum-net
 
@@ -91,6 +163,8 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=30d'
       - '--web.enable-lifecycle'
+    depends_on:
+      - neuroquantumdb
     networks:
       - neuroquantum-net
 
@@ -103,30 +177,22 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=neuroquantum2024
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-neuroquantum2024}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3000}
+      # Jaeger datasource
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+      - jaeger
     networks:
       - neuroquantum-net
 
-  # Jaeger for distributed tracing
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    platform: linux/arm64
-    container_name: neuroquantum-jaeger
-    restart: unless-stopped
-    ports:
-      - "16686:16686"
-      - "14268:14268"
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    networks:
-      - neuroquantum-net
-
-  # Vector for log aggregation
+  # Vector for log aggregation (optional - comment out if not needed)
   vector:
     image: timberio/vector:latest-alpine
     platform: linux/arm64
@@ -135,23 +201,29 @@ services:
     command: ["--config", "/etc/vector/config/vector.toml"]
     volumes:
       - ./monitoring/vector.toml:/etc/vector/config/vector.toml:ro
-      - /var/log:/var/log:ro
+      - neuroquantum_logs:/var/log/neuroquantumdb:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - neuroquantumdb
     networks:
       - neuroquantum-net
 
-  # Edge node load balancer (HAProxy)
+  # Edge node load balancer (HAProxy) - optional for single-node deployments
   loadbalancer:
     image: haproxy:alpine
     platform: linux/arm64
     container_name: neuroquantum-lb
     restart: unless-stopped
+    profiles:
+      - with-lb  # Only start with: docker-compose --profile with-lb up
     ports:
       - "80:80"
       - "443:443"
       - "8404:8404"  # HAProxy stats
     volumes:
       - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ${TLS_CERT_PATH:-/dev/null}:/etc/ssl/certs/neuroquantumdb.crt:ro
+      - ${TLS_KEY_PATH:-/dev/null}:/etc/ssl/private/neuroquantumdb.key:ro
     depends_on:
       - neuroquantumdb
     networks:
@@ -167,6 +239,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  jaeger_data:
     driver: local
 
 networks:

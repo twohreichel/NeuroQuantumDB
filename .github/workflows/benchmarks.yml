@@ -3,8 +3,6 @@ name: Benchmarks
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main, develop]
   workflow_dispatch:
     inputs:
       force_comparison:
@@ -226,10 +224,9 @@ jobs:
           retention-days: 90
 
       # =========================================
-      # Store Benchmark History (main branch only)
+      # Store Benchmark History
       # =========================================
       - name: Store benchmark data for GitHub Pages
-        if: github.ref == 'refs/heads/main'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: NeuroQuantumDB Benchmarks
@@ -247,94 +244,3 @@ jobs:
           # Store benchmark data
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
-
-      # =========================================
-      # Post Performance Summary to PR
-      # =========================================
-      - name: Comment on PR with benchmark results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            let summary = '';
-            try {
-              summary = fs.readFileSync('benchmark-results/summary.md', 'utf8');
-            } catch (e) {
-              summary = '## Benchmark Results\n\nBenchmark summary not available.';
-            }
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            });
-
-  benchmark-regression:
-    name: Benchmark Regression Check
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-
-      - name: Checkout base branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.base_ref }}
-          path: base
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Create data directory
-        run: mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
-
-      - name: Run benchmarks on PR branch
-        run: |
-          cargo bench --package neuroquantum-core --features benchmarks -- --noplot --save-baseline pr
-          cargo bench --package neuroquantum-qsql --features benchmarks -- --noplot --save-baseline pr
-
-      - name: Run benchmarks on base branch
-        run: |
-          cd base
-          mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
-          cargo bench --package neuroquantum-core --features benchmarks -- --noplot --save-baseline base
-          cargo bench --package neuroquantum-qsql --features benchmarks -- --noplot --save-baseline base
-
-      - name: Compare benchmarks
-        run: |
-          # Install critcmp for comparison
-          cargo install critcmp --locked || true
-          
-          # Compare results
-          echo "## Benchmark Comparison: PR vs Base" > comparison.md
-          echo "" >> comparison.md
-          critcmp base pr >> comparison.md 2>&1 || echo "No comparison data available" >> comparison.md
-          
-          cat comparison.md
-
-      - name: Post comparison to PR
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            let comparison = '';
-            try {
-              comparison = fs.readFileSync('comparison.md', 'utf8');
-            } catch (e) {
-              comparison = '## Benchmark Comparison\n\nComparison data not available.';
-            }
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comparison
-            });

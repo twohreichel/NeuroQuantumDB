@@ -1,67 +1,89 @@
+# NeuroQuantumDB Production Configuration (Docker)
+# ⚠️  CRITICAL: Review and customize all values before deployment!
+# Last Updated: January 2026
+#
+# Environment variables override these settings:
+#   NEUROQUANTUM_HOST, NEUROQUANTUM_PORT, NEUROQUANTUM_JWT_SECRET,
+#   NEUROQUANTUM_REDIS_URL, NEUROQUANTUM_LOG_LEVEL, NEUROQUANTUM_RATE_LIMIT
+
 [server]
-host = "0.0.0.0"
+host = "0.0.0.0"  # Bind to all interfaces (required for Docker)
 port = 8080
-workers = 4
-keep_alive = 300
-client_timeout = 30
-shutdown_timeout = 30
+workers = 4  # Adjust based on container CPU limits
+max_connections = 10000
+keep_alive = 75
+client_timeout = 5000
+client_shutdown = 5000
 
 [database]
-connection_string = "neuroquantum://production:5432/neuroquantumdb"
-max_connections = 50
-connection_timeout = 10
-query_timeout = 30
+data_path = "/var/lib/neuroquantumdb/data"  # Docker volume mount point
+max_connections = 500
+connection_timeout_seconds = 30
 
-[database.neuromorphic_config]
-synaptic_strength_threshold = 0.7
-learning_rate = 0.005
-plasticity_decay = 0.01
-max_synaptic_connections = 5000
-hebbian_window_ms = 500
+[jwt]
+# ⚠️  SECURITY CRITICAL: Override via NEUROQUANTUM_JWT_SECRET environment variable!
+secret = "REPLACE_ME_WITH_SECURE_SECRET_VIA_ENV_VAR"
+expiration_hours = 1
+refresh_threshold_minutes = 15
+quantum_enabled = true
+algorithm = "HS256"
+issuer = "neuroquantum-db"
+audience = "neuroquantum-api"
 
-[database.quantum_config]
-default_quantum_level = 192
-grovers_iterations = 1500
-annealing_temperature = 0.8
-superposition_depth = 12
-quantum_error_correction = true
+# JWT Secret Key Rotation
+rotation_enabled = true
+rotation_interval_days = 90
+rotation_grace_period_hours = 24
 
-[database.dna_config]
-target_compression_ratio = 1000.0
-error_correction_redundancy = 5
-quaternary_encoding_block_size = 2048
-protein_folding_levels = 6
-cache_size_mb = 64
-
-[auth]
-jwt_secret = "${NEUROQUANTUM_JWT_SECRET}"
-token_expiry_seconds = 1800
-quantum_level = 192
-kyber_key_size = 1184
-dilithium_signature_size = 1952
-password_hash_cost = 14
-
-[metrics]
+[rate_limit]
+requests_per_hour = 10000
+burst_allowance = 100
 enabled = true
-port = 9090
-path = "/metrics"
-collection_interval_ms = 5000
-retention_hours = 168
-export_format = "prometheus"
+strategy = "TokenBucket"
+
+[cors]
+# ⚠️  Update with your actual frontend domain(s)
+allowed_origins = ["https://app.neuroquantumdb.com", "https://dashboard.neuroquantumdb.com"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+allowed_headers = ["Authorization", "Content-Type", "X-API-Key", "X-Request-ID", "X-Quantum-Level"]
+expose_headers = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID"]
+max_age = 3600
+allow_credentials = true
 
 [security]
-quantum_resistant_encryption = true
-tls_enabled = true
-tls_cert_path = "/etc/ssl/certs/neuroquantumdb.crt"
-tls_key_path = "/etc/ssl/private/neuroquantumdb.key"
-cors_origins = ["https://neuroquantumdb.org"]
-rate_limit_requests_per_minute = 500
-max_request_size_mb = 5
+max_payload_size = 5242880  # 5MB
+request_timeout_seconds = 60
+security_headers = true
+csrf_protection = false
+quantum_encryption = true
+admin_ip_whitelist = ["127.0.0.1", "::1"]
 
-[performance]
-arm64_neon_enabled = true
-power_management_enabled = true
-max_power_consumption_mw = 1500.0
-cpu_frequency_scaling = true
-memory_pool_size_mb = 256
-gc_threshold_mb = 50
+[security.circuit_breaker]
+failure_threshold = 10
+success_threshold = 5
+timeout_seconds = 120
+enabled = true
+
+[monitoring]
+metrics_enabled = true
+prometheus_endpoint = "/metrics"
+health_check_endpoint = "/health"
+performance_stats = true
+detailed_logging = false
+websocket_enabled = true
+
+[logging]
+level = "info"
+format = "Json"
+file_path = "/var/log/neuroquantumdb/api.log"
+max_file_size_mb = 100
+max_files = 10
+structured_logging = true
+
+[tracing]
+enabled = true
+exporter = "otlp"
+endpoint = "http://jaeger:4317"  # Docker service name
+sampling_rate = 0.1
+service_name = "neuroquantumdb-prod"
+trace_level = "minimal"
