@@ -92,3 +92,4 @@ dev.toml
 test.toml
 sql_test_results.json
 validation_test_results.json
+prompt.md
