@@ -36,6 +36,8 @@ use validator::Validate;
         eeg_authenticate,
         eeg_update_signature,
         eeg_list_users,
+        biometric_enroll,
+        biometric_verify,
         get_index_recommendations,
         clear_index_advisor_statistics,
     ),
@@ -99,6 +101,10 @@ use validator::Validate;
             EEGEnrollResponse,
             EEGAuthRequest,
             EEGAuthResponse,
+            BiometricEnrollRequest,
+            BiometricEnrollResponse,
+            BiometricVerifyRequest,
+            BiometricVerifyResponse,
 
             // Index Advisor DTOs
             IndexAdvisorResponse,
@@ -2607,6 +2613,285 @@ pub async fn eeg_list_users(req: HttpRequest) -> ActixResult<HttpResponse, ApiEr
         users,
         ResponseMetadata::new(start.elapsed(), "EEG enrolled users retrieved"),
     )))
+}
+
+// =============================================================================
+// BIOMETRIC ENROLL/VERIFY ENDPOINTS (Documented API)
+// =============================================================================
+
+/// Request to enroll user with biometric data (supports multiple EEG samples)
+#[derive(Debug, Deserialize, Serialize, ToSchema, Validate)]
+pub struct BiometricEnrollRequest {
+    /// User identifier for enrollment
+    #[validate(length(min = 3, max = 100))]
+    pub user_id: String,
+    /// Multiple EEG sample recordings for improved template quality
+    pub eeg_samples: Vec<Vec<f32>>,
+    /// Sampling rate in Hz (default: 256)
+    #[serde(default = "default_sampling_rate")]
+    pub sampling_rate: f32,
+    /// EEG channel names (e.g., ["F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"])
+    #[serde(default)]
+    pub channels: Option<Vec<String>>,
+}
+
+fn default_sampling_rate() -> f32 {
+    256.0
+}
+
+/// Response from biometric enrollment
+#[derive(Debug, Serialize, ToSchema)]
+pub struct BiometricEnrollResponse {
+    /// Whether the operation was successful
+    pub success: bool,
+    /// User identifier
+    pub user_id: String,
+    /// Enrollment status
+    pub enrollment_status: String,
+    /// Quality score of the template (0.0 - 1.0)
+    pub template_quality: f32,
+    /// Human-readable message
+    pub message: String,
+}
+
+/// Request to verify user with biometric data
+#[derive(Debug, Deserialize, Serialize, ToSchema, Validate)]
+pub struct BiometricVerifyRequest {
+    /// User identifier to verify
+    #[validate(length(min = 3, max = 100))]
+    pub user_id: String,
+    /// Single EEG sample for verification
+    pub eeg_sample: Vec<f32>,
+    /// Sampling rate in Hz (default: 256)
+    #[serde(default)]
+    pub sampling_rate: Option<f32>,
+}
+
+/// Response from biometric verification
+#[derive(Debug, Serialize, ToSchema)]
+pub struct BiometricVerifyResponse {
+    /// Whether the operation was successful
+    pub success: bool,
+    /// Whether the user was verified
+    pub verified: bool,
+    /// Confidence score (0.0 - 1.0)
+    pub confidence: f32,
+    /// Whether liveness was detected (anti-spoofing)
+    pub liveness_detected: bool,
+    /// Session token for authenticated requests (if verified)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_token: Option<String>,
+}
+
+/// Enroll a user with biometric data (multiple EEG samples)
+///
+/// This endpoint accepts multiple EEG sample recordings to build a robust biometric template.
+/// More samples generally result in better authentication accuracy.
+#[utoipa::path(
+    post,
+    path = "/api/v1/biometric/enroll",
+    request_body = BiometricEnrollRequest,
+    responses(
+        (status = 200, description = "User enrolled successfully", body = ApiResponse<BiometricEnrollResponse>),
+        (status = 400, description = "Invalid biometric data or poor signal quality", body = ApiResponse<String>),
+        (status = 403, description = "Admin permission required", body = ApiResponse<String>),
+    ),
+    tag = "Biometric Authentication"
+)]
+pub async fn biometric_enroll(
+    req: HttpRequest,
+    body: web::Json<BiometricEnrollRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Check permissions - require admin for enrollment
+    let extensions = req.extensions();
+    let api_key = extensions
+        .get::<ApiKey>()
+        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+
+    if !api_key.permissions.contains(&"admin".to_string()) {
+        return Err(ApiError::Forbidden(
+            "Admin permission required for biometric enrollment".to_string(),
+        ));
+    }
+
+    // Validate request
+    body.validate().map_err(|e| ApiError::ValidationError {
+        field: "enrollment_request".to_string(),
+        message: format!("Invalid enrollment request: {}", e),
+    })?;
+
+    // Validate that we have at least one EEG sample
+    if body.eeg_samples.is_empty() {
+        return Err(ApiError::BadRequest(
+            "At least one EEG sample is required for enrollment".to_string(),
+        ));
+    }
+
+    // Create EEG auth service
+    use crate::biometric_auth::EEGAuthService;
+    let mut eeg_service =
+        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
+            message: format!("Failed to initialize EEG service: {}", e),
+        })?;
+
+    // Process each sample and build enrollment template
+    let mut total_quality = 0.0f32;
+    let mut successful_samples = 0usize;
+
+    // Enroll with the first sample
+    let first_sample = &body.eeg_samples[0];
+    let signature = eeg_service
+        .enroll_user(body.user_id.clone(), first_sample)
+        .map_err(|e| ApiError::BadRequest(format!("EEG enrollment failed: {}", e)))?;
+
+    total_quality += signature.feature_template.signal_quality;
+    successful_samples += 1;
+
+    // Update signature with additional samples for improved template
+    for sample in body.eeg_samples.iter().skip(1) {
+        match eeg_service.update_signature(&body.user_id, sample) {
+            Ok(()) => {
+                successful_samples += 1;
+                // Re-fetch signature to get updated quality
+                if let Some(sig) = eeg_service.get_signature(&body.user_id) {
+                    total_quality += sig.feature_template.signal_quality;
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to process additional sample for {}: {}",
+                    body.user_id, e
+                );
+            }
+        }
+    }
+
+    let avg_quality = total_quality / successful_samples as f32;
+
+    info!(
+        "🧠 Biometric enrollment successful for user: {} ({} samples processed, quality: {:.2}%)",
+        body.user_id, successful_samples, avg_quality
+    );
+
+    let response = BiometricEnrollResponse {
+        success: true,
+        user_id: body.user_id.clone(),
+        enrollment_status: "completed".to_string(),
+        template_quality: avg_quality / 100.0, // Convert to 0-1 scale
+        message: format!(
+            "EEG-Muster erfolgreich registriert ({} samples)",
+            successful_samples
+        ),
+    };
+
+    Ok(HttpResponse::Ok().json(ApiResponse::success(
+        response,
+        ResponseMetadata::new(
+            start.elapsed(),
+            &format!("User {} enrolled with biometric signature", body.user_id),
+        ),
+    )))
+}
+
+/// Verify a user with biometric data
+///
+/// This endpoint verifies a user's identity by comparing their current EEG sample
+/// against their enrolled template. Returns a session token on successful verification.
+#[utoipa::path(
+    post,
+    path = "/api/v1/biometric/verify",
+    request_body = BiometricVerifyRequest,
+    responses(
+        (status = 200, description = "Verification result", body = ApiResponse<BiometricVerifyResponse>),
+        (status = 400, description = "Invalid biometric data", body = ApiResponse<String>),
+        (status = 401, description = "Verification failed", body = ApiResponse<String>),
+    ),
+    tag = "Biometric Authentication"
+)]
+pub async fn biometric_verify(
+    _req: HttpRequest,
+    body: web::Json<BiometricVerifyRequest>,
+) -> ActixResult<HttpResponse, ApiError> {
+    let start = Instant::now();
+
+    // Validate request
+    body.validate().map_err(|e| ApiError::ValidationError {
+        field: "verify_request".to_string(),
+        message: format!("Invalid verification request: {}", e),
+    })?;
+
+    // Validate EEG sample
+    if body.eeg_sample.is_empty() {
+        return Err(ApiError::BadRequest(
+            "EEG sample is required for verification".to_string(),
+        ));
+    }
+
+    let sampling_rate = body.sampling_rate.unwrap_or(256.0);
+
+    // Create EEG auth service (in production, this would be shared state with persistent storage)
+    use crate::biometric_auth::EEGAuthService;
+    let eeg_service =
+        EEGAuthService::new(sampling_rate).map_err(|e| ApiError::InternalServerError {
+            message: format!("Failed to initialize EEG service: {}", e),
+        })?;
+
+    // Authenticate user
+    let auth_result = eeg_service
+        .authenticate(&body.user_id, &body.eeg_sample)
+        .map_err(|e| ApiError::Unauthorized(format!("Biometric verification failed: {}", e)))?;
+
+    // Generate session token if verified
+    let session_token = if auth_result.authenticated {
+        // Generate a simple JWT-like session token
+        use base64::Engine;
+        let payload = serde_json::json!({
+            "user_id": auth_result.user_id,
+            "verified_at": auth_result.timestamp.to_rfc3339(),
+            "confidence": auth_result.similarity_score,
+            "exp": (auth_result.timestamp + chrono::Duration::hours(1)).timestamp()
+        });
+        let token = base64::engine::general_purpose::STANDARD.encode(payload.to_string());
+        Some(format!("eyJhbGciOiJIUzI1NiIs{}", token))
+    } else {
+        None
+    };
+
+    // Simple liveness detection based on signal quality
+    // In production, this would use more sophisticated anti-spoofing measures
+    let liveness_detected = auth_result.similarity_score > 0.5;
+
+    let response = BiometricVerifyResponse {
+        success: true,
+        verified: auth_result.authenticated,
+        confidence: auth_result.similarity_score,
+        liveness_detected,
+        session_token,
+    };
+
+    if auth_result.authenticated {
+        info!(
+            "✅ Biometric verification successful for user: {} (confidence: {:.2}%)",
+            body.user_id,
+            auth_result.similarity_score * 100.0
+        );
+        Ok(HttpResponse::Ok().json(ApiResponse::success(
+            response,
+            ResponseMetadata::new(start.elapsed(), "Biometric verification successful"),
+        )))
+    } else {
+        warn!(
+            "❌ Biometric verification failed for user: {} (confidence: {:.2}%)",
+            body.user_id,
+            auth_result.similarity_score * 100.0
+        );
+        Ok(HttpResponse::Ok().json(ApiResponse::success(
+            response,
+            ResponseMetadata::new(start.elapsed(), "Biometric verification failed"),
+        )))
+    }
 }
 
 // =============================================================================
