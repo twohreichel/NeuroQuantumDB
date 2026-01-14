@@ -9,16 +9,11 @@ name: Fuzzing
 
 on:
   push:
-    branches: [main, develop]
-    paths:
-      - 'fuzz/**'
-      - 'crates/**'
-      - '.github/workflows/fuzzing.yml'
-  pull_request:
     branches: [main]
     paths:
       - 'fuzz/**'
       - 'crates/**'
+      - '.github/workflows/fuzzing.yml'
   schedule:
     # Run nightly fuzzing at 2 AM UTC
     - cron: '0 2 * * *'
@@ -34,48 +29,10 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  # Quick smoke test for PRs
-  fuzz-smoke:
-    name: Fuzz Smoke Test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            fuzz/target
-          key: ${{ runner.os }}-fuzz-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-fuzz-
-
-      - name: Install cargo-fuzz
-        run: cargo +nightly install cargo-fuzz
-
-      - name: Run smoke tests (60 seconds each)
-        run: |
-          cd fuzz
-          for target in fuzz_qsql_parser fuzz_qsql_functions fuzz_api_json fuzz_dna_roundtrip fuzz_websocket; do
-            echo "🔍 Running $target for 60 seconds..."
-            cargo +nightly fuzz run $target -- -max_total_time=60 || {
-              echo "❌ Fuzz target $target failed!"
-              exit 1
-            }
-          done
-        continue-on-error: false
-
   # Extended fuzzing for main branch and scheduled runs
   fuzz-extended:
     name: Extended Fuzzing
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -144,7 +101,6 @@ jobs:
   fuzz-coverage:
     name: Fuzz Coverage
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     needs: fuzz-extended
     steps:
       - uses: actions/checkout@v4

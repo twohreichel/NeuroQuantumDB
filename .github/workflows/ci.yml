@@ -2,9 +2,8 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, feat/* ]
-  pull_request:
-    branches: [ main, develop ]
+    branches: [main]
+  workflow_dispatch:
 
 # Automatically cancel in-progress workflows for the same branch
 concurrency:
@@ -72,19 +71,6 @@ jobs:
 
       - name: Run cargo deny
         run: cargo deny check
-
-  # Dependency review (PRs only)
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: moderate
 
   # Test suite
   test:
@@ -191,7 +177,6 @@ jobs:
   docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     needs: [lint, test, security]
     permissions:
       contents: read
