@@ -349,11 +349,18 @@ pub fn configure_app(
 
                         // Biometric Authentication
                         .service(
-                            web::scope("/biometric/eeg")
-                                .route("/enroll", web::post().to(handlers::eeg_enroll))
-                                .route("/authenticate", web::post().to(handlers::eeg_authenticate))
-                                .route("/update", web::post().to(handlers::eeg_update_signature))
-                                .route("/users", web::get().to(handlers::eeg_list_users))
+                            web::scope("/biometric")
+                                // New documented endpoints at /biometric/enroll and /biometric/verify
+                                .route("/enroll", web::post().to(handlers::biometric_enroll))
+                                .route("/verify", web::post().to(handlers::biometric_verify))
+                                // EEG-specific endpoints under /biometric/eeg/
+                                .service(
+                                    web::scope("/eeg")
+                                        .route("/enroll", web::post().to(handlers::eeg_enroll))
+                                        .route("/authenticate", web::post().to(handlers::eeg_authenticate))
+                                        .route("/update", web::post().to(handlers::eeg_update_signature))
+                                        .route("/users", web::get().to(handlers::eeg_list_users))
+                                )
                         )
 
                         // Monitoring
