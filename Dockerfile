@@ -48,8 +48,12 @@ COPY crates/neuroquantum-qsql/Cargo.toml crates/neuroquantum-qsql/Cargo.toml
 COPY crates/neuroquantum-api/Cargo.toml crates/neuroquantum-api/Cargo.toml
 COPY neuroquantum_data /neuroquantum_data
 
-# Create production Cargo.toml without tests workspace member
-RUN sed '/^[[:space:]]*"tests"/d' Cargo.toml.full > Cargo.toml
+# Create production Cargo.toml without tests, scripts, cluster, and wasm workspace members
+RUN sed -e '/^[[:space:]]*"tests"/d' \
+        -e '/^[[:space:]]*"scripts"/d' \
+        -e '/^[[:space:]]*"crates\/neuroquantum-cluster"/d' \
+        -e '/^[[:space:]]*"crates\/neuroquantum-wasm"/d' \
+        Cargo.toml.full > Cargo.toml
 
 # Create dummy source files to cache dependencies
 RUN mkdir -p crates/neuroquantum-core/src && \
