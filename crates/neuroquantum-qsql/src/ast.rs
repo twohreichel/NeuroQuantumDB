@@ -69,6 +69,7 @@ pub enum Statement {
     CreateIndex(CreateIndexStatement),
     DropIndex(DropIndexStatement),
     TruncateTable(TruncateTableStatement),
+    CompressTable(CompressTableStatement),
     // Neuromorphic extensions
     NeuroMatch(NeuroMatchStatement),
     SynapticOptimize(SynapticOptimizeStatement),
@@ -332,6 +333,24 @@ pub struct TruncateTableStatement {
     pub behavior: TruncateBehavior,
     /// RESTART IDENTITY - reset identity/serial columns to initial values
     pub restart_identity: bool,
+}
+
+/// Compression algorithm for COMPRESS TABLE statement
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CompressionAlgorithm {
+    /// DNA-based compression using genetic encoding
+    DNA,
+}
+
+/// COMPRESS TABLE statement
+/// Applies compression algorithm to table data
+/// Syntax: COMPRESS TABLE table_name USING compression_algorithm
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompressTableStatement {
+    /// The name of the table to compress
+    pub table_name: String,
+    /// The compression algorithm to use
+    pub algorithm: CompressionAlgorithm,
 }
 
 /// FROM clause with quantum join support

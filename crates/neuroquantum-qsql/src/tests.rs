@@ -2435,4 +2435,107 @@ mod derived_table_tests {
             _ => panic!("Expected SELECT statement"),
         }
     }
+
+    #[test]
+    fn test_parser_compress_table_basic() {
+        let parser = QSQLParser::new();
+        let sql = "COMPRESS TABLE logs USING DNA";
+        let result = parser.parse_query(sql);
+        assert!(result.is_ok(), "Failed to parse COMPRESS TABLE statement");
+
+        match result.unwrap() {
+            Statement::CompressTable(compress) => {
+                assert_eq!(compress.table_name, "logs");
+                assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
+            }
+            _ => panic!("Expected COMPRESS TABLE statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_compress_table_case_insensitive() {
+        let parser = QSQLParser::new();
+
+        // Test various case combinations
+        let test_cases = vec![
+            "COMPRESS TABLE logs USING DNA",
+            "compress table logs using dna",
+            "CoMpReSs TaBlE logs UsInG dNa",
+        ];
+
+        for sql in test_cases {
+            let result = parser.parse_query(sql);
+            assert!(result.is_ok(), "Failed to parse: {}", sql);
+
+            match result.unwrap() {
+                Statement::CompressTable(compress) => {
+                    assert_eq!(compress.table_name, "logs");
+                    assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
+                }
+                _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
+            }
+        }
+    }
+
+    #[test]
+    fn test_parser_compress_table_different_table_names() {
+        let parser = QSQLParser::new();
+
+        let test_cases = vec![
+            ("COMPRESS TABLE users USING DNA", "users"),
+            ("COMPRESS TABLE orders USING DNA", "orders"),
+            (
+                "COMPRESS TABLE product_inventory USING DNA",
+                "product_inventory",
+            ),
+        ];
+
+        for (sql, expected_table) in test_cases {
+            let result = parser.parse_query(sql);
+            assert!(result.is_ok(), "Failed to parse: {}", sql);
+
+            match result.unwrap() {
+                Statement::CompressTable(compress) => {
+                    assert_eq!(compress.table_name, expected_table);
+                    assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
+                }
+                _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
+            }
+        }
+    }
+
+    #[test]
+    fn test_parser_compress_table_missing_table_keyword() {
+        let parser = QSQLParser::new();
+        let sql = "COMPRESS logs USING DNA";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without TABLE keyword");
+    }
+
+    #[test]
+    fn test_parser_compress_table_missing_using_keyword() {
+        let parser = QSQLParser::new();
+        let sql = "COMPRESS TABLE logs DNA";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without USING keyword");
+    }
+
+    #[test]
+    fn test_parser_compress_table_missing_algorithm() {
+        let parser = QSQLParser::new();
+        let sql = "COMPRESS TABLE logs USING";
+        let result = parser.parse_query(sql);
+        assert!(result.is_err(), "Should fail without compression algorithm");
+    }
+
+    #[test]
+    fn test_parser_compress_table_unknown_algorithm() {
+        let parser = QSQLParser::new();
+        let sql = "COMPRESS TABLE logs USING UNKNOWN";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_err(),
+            "Should fail with unknown compression algorithm"
+        );
+    }
 }
