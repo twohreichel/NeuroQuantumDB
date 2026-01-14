@@ -32,13 +32,8 @@ console_error_panic_hook = "0.1"
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
-[profile.release]
-# Optimize for size in release builds
-opt-level = "z"     # Optimize for size
-lto = true          # Enable Link Time Optimization
-codegen-units = 1   # Better optimization at cost of compile time
-panic = "abort"     # Remove unwinding code for smaller binary
-strip = true        # Strip debug symbols
+# NOTE: Release profile is defined in workspace root Cargo.toml
+# WASM-specific optimizations are applied via wasm-pack profile
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false
