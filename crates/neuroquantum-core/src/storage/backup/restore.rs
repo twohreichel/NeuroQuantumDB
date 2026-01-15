@@ -116,17 +116,17 @@ impl RestoreManager {
 
         // Step 4: Restore based on backup type
         match metadata.backup_type {
-            BackupType::Full => {
+            | BackupType::Full => {
                 self.restore_full_backup(&metadata, &mut stats).await?;
-            }
-            BackupType::Incremental => {
+            },
+            | BackupType::Incremental => {
                 self.restore_incremental_backup(&metadata, &mut stats)
                     .await?;
-            }
-            BackupType::Differential => {
+            },
+            | BackupType::Differential => {
                 self.restore_differential_backup(&metadata, &mut stats)
                     .await?;
-            }
+            },
         }
 
         // Step 5: Apply WAL for PITR if requested

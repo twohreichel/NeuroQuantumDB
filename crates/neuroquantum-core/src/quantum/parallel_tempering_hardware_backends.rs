@@ -121,11 +121,11 @@ pub enum PTBackendType {
 impl std::fmt::Display for PTBackendType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PTBackendType::IBMQuantum => write!(f, "IBM Quantum"),
-            PTBackendType::AWSBraket => write!(f, "AWS Braket"),
-            PTBackendType::DWave => write!(f, "D-Wave"),
-            PTBackendType::IonQ => write!(f, "IonQ"),
-            PTBackendType::LocalSimulator => write!(f, "Local Simulator"),
+            | PTBackendType::IBMQuantum => write!(f, "IBM Quantum"),
+            | PTBackendType::AWSBraket => write!(f, "AWS Braket"),
+            | PTBackendType::DWave => write!(f, "D-Wave"),
+            | PTBackendType::IonQ => write!(f, "IonQ"),
+            | PTBackendType::LocalSimulator => write!(f, "Local Simulator"),
         }
     }
 }
@@ -1399,41 +1399,41 @@ impl UnifiedPTSolver {
     fn select_backend(&self, num_qubits: usize) -> Option<&dyn PTHardwareBackend> {
         for backend_type in &self.config.backend_preference {
             match backend_type {
-                PTBackendType::IBMQuantum => {
+                | PTBackendType::IBMQuantum => {
                     if let Some(ref solver) = self.ibm_solver {
                         if solver.is_available() && num_qubits <= solver.max_qubits() {
                             return Some(solver);
                         }
                     }
-                }
-                PTBackendType::AWSBraket => {
+                },
+                | PTBackendType::AWSBraket => {
                     if let Some(ref solver) = self.braket_solver {
                         if solver.is_available() && num_qubits <= solver.max_qubits() {
                             return Some(solver);
                         }
                     }
-                }
-                PTBackendType::DWave => {
+                },
+                | PTBackendType::DWave => {
                     if let Some(ref solver) = self.dwave_solver {
                         if solver.is_available() && num_qubits <= solver.max_qubits() {
                             return Some(solver);
                         }
                     }
-                }
-                PTBackendType::IonQ => {
+                },
+                | PTBackendType::IonQ => {
                     if let Some(ref solver) = self.ionq_solver {
                         if solver.is_available() && num_qubits <= solver.max_qubits() {
                             return Some(solver);
                         }
                     }
-                }
-                PTBackendType::LocalSimulator => {
+                },
+                | PTBackendType::LocalSimulator => {
                     if self.config.fallback_to_simulator
                         && num_qubits <= self.simulator_solver.max_qubits()
                     {
                         return Some(&self.simulator_solver);
                     }
-                }
+                },
             }
         }
 

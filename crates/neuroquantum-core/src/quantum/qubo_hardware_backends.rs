@@ -316,8 +316,8 @@ impl QUBOSolverBackend for DWaveQUBOSolver {
 
         // Try to submit to D-Wave API, fall back to simulation if unavailable
         let samples = match self.submit_to_dwave(&q_dict, problem.num_vars).await {
-            Ok(samples) => samples,
-            Err(_) => self.simulate_dwave_response(problem)?,
+            | Ok(samples) => samples,
+            | Err(_) => self.simulate_dwave_response(problem)?,
         };
 
         // Find best sample
@@ -607,19 +607,19 @@ impl QUBOSolverBackend for IBMQUBOSolver {
 
         // Try to use IBM API, fall back to simulation
         let mut solution = match self.get_api_token() {
-            Some(_) => {
+            | Some(_) => {
                 // Build and submit circuit
                 let circuit = self.build_qaoa_circuit(&ising, &params);
                 match self.submit_to_ibm(&circuit).await {
-                    Ok(_counts) => {
+                    | Ok(_counts) => {
                         // Process measurement counts
                         // This would be implemented with actual API integration
                         self.simulate_qaoa(problem)?
-                    }
-                    Err(_) => self.simulate_qaoa(problem)?,
+                    },
+                    | Err(_) => self.simulate_qaoa(problem)?,
                 }
-            }
-            None => self.simulate_qaoa(problem)?,
+            },
+            | None => self.simulate_qaoa(problem)?,
         };
 
         solution.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -1014,7 +1014,7 @@ impl UnifiedQUBOSolver {
         // Try backends in priority order
         for backend_name in &self.config.backend_priority {
             match backend_name.as_str() {
-                "dwave" => {
+                | "dwave" => {
                     if let Some(ref dwave_config) = self.config.dwave {
                         let solver = DWaveQUBOSolver::new(dwave_config.clone());
                         if solver.is_available() && n <= solver.max_variables() {
@@ -1022,8 +1022,8 @@ impl UnifiedQUBOSolver {
                             return Box::new(solver);
                         }
                     }
-                }
-                "ibm" => {
+                },
+                | "ibm" => {
                     if let Some(ref ibm_config) = self.config.ibm {
                         let solver = IBMQUBOSolver::new(ibm_config.clone());
                         if solver.is_available() && n <= solver.max_variables() {
@@ -1031,8 +1031,8 @@ impl UnifiedQUBOSolver {
                             return Box::new(solver);
                         }
                     }
-                }
-                "hybrid" => {
+                },
+                | "hybrid" => {
                     if let Some(ref hybrid_config) = self.config.hybrid {
                         let solver = HybridQUBOSolver::new(hybrid_config.clone());
                         if solver.is_available() {
@@ -1040,8 +1040,8 @@ impl UnifiedQUBOSolver {
                             return Box::new(solver);
                         }
                     }
-                }
-                _ => {}
+                },
+                | _ => {},
             }
         }
 

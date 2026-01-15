@@ -451,35 +451,35 @@ impl NeuromorphicQueryProcessor {
         // In a real implementation, this would check node data against condition
 
         match condition.operator.as_str() {
-            "=" | "==" => {
+            | "=" | "==" => {
                 // Exact match check
                 if node.strength > 0.5 {
                     0.9
                 } else {
                     0.1
                 }
-            }
-            ">" => {
+            },
+            | ">" => {
                 // Greater than check
                 if node.strength > condition.value.parse::<f32>().unwrap_or(0.0) {
                     0.8
                 } else {
                     0.0
                 }
-            }
-            "<" => {
+            },
+            | "<" => {
                 // Less than check
                 if node.strength < condition.value.parse::<f32>().unwrap_or(1.0) {
                     0.8
                 } else {
                     0.0
                 }
-            }
-            "LIKE" => {
+            },
+            | "LIKE" => {
                 // Pattern matching
                 0.7 // Simplified - would do actual pattern matching
-            }
-            _ => 0.0,
+            },
+            | _ => 0.0,
         }
     }
 
@@ -633,31 +633,31 @@ impl NeuromorphicQueryProcessor {
 
         // Equality operators benefit most from indexes
         let confidence = match operator {
-            "=" | "==" => {
+            | "=" | "==" => {
                 improvement += 0.5;
                 0.9
-            }
-            ">" | "<" | ">=" | "<=" => {
+            },
+            | ">" | "<" | ">=" | "<=" => {
                 improvement += 0.35;
                 0.8
-            }
-            "BETWEEN" => {
+            },
+            | "BETWEEN" => {
                 improvement += 0.4;
                 0.85
-            }
-            "IN" => {
+            },
+            | "IN" => {
                 improvement += 0.3;
                 0.7
-            }
-            "LIKE" => {
+            },
+            | "LIKE" => {
                 // Only beneficial if pattern doesn't start with wildcard
                 improvement += 0.15;
                 0.4
-            }
-            _ => {
+            },
+            | _ => {
                 improvement += 0.1;
                 0.3
-            }
+            },
         };
 
         // Cap improvement at 0.9 (90% improvement)

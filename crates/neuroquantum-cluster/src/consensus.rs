@@ -1158,7 +1158,7 @@ impl RaftConsensus {
 
             let task = tokio::spawn(async move {
                 match transport.send_request_vote_rpc(peer_id, request).await {
-                    Ok(response) => {
+                    | Ok(response) => {
                         // Handle the vote response
                         if let Err(e) = consensus
                             .handle_request_vote_response(peer_id, response)
@@ -1171,15 +1171,15 @@ impl RaftConsensus {
                                 "Failed to handle vote response"
                             );
                         }
-                    }
-                    Err(e) => {
+                    },
+                    | Err(e) => {
                         warn!(
                             node_id = consensus.node_id,
                             peer = peer_id,
                             error = %e,
                             "Failed to send vote request"
                         );
-                    }
+                    },
                 }
             });
             tasks.push(task);
@@ -1649,8 +1649,8 @@ mod tests {
         let result = consensus.propose(b"test".to_vec()).await;
         assert!(result.is_err());
         match result {
-            Err(ClusterError::NotLeader(_, _)) => {}
-            _ => panic!("Expected NotLeader error after losing quorum"),
+            | Err(ClusterError::NotLeader(_, _)) => {},
+            | _ => panic!("Expected NotLeader error after losing quorum"),
         }
 
         consensus.stop().await.unwrap();
@@ -1677,8 +1677,8 @@ mod tests {
         let result = consensus.propose(b"test".to_vec()).await;
         assert!(result.is_err());
         match result {
-            Err(ClusterError::LeaseExpired) => {}
-            _ => panic!("Expected LeaseExpired error"),
+            | Err(ClusterError::LeaseExpired) => {},
+            | _ => panic!("Expected LeaseExpired error"),
         }
 
         consensus.stop().await.unwrap();
@@ -1760,14 +1760,14 @@ mod tests {
         let result = consensus.validate_fencing_token(&stale_token).await;
         assert!(result.is_err());
         match result {
-            Err(ClusterError::StaleToken {
+            | Err(ClusterError::StaleToken {
                 current_term,
                 received_term,
             }) => {
                 assert_eq!(current_term, 5);
                 assert_eq!(received_term, 4);
-            }
-            _ => panic!("Expected StaleToken error"),
+            },
+            | _ => panic!("Expected StaleToken error"),
         }
 
         consensus.stop().await.unwrap();

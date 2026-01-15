@@ -40,13 +40,13 @@ pub enum UpgradeStatus {
 impl std::fmt::Display for UpgradeStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Idle => write!(f, "Idle"),
-            Self::Preparing => write!(f, "Preparing"),
-            Self::UpgradePending => write!(f, "UpgradePending"),
-            Self::HealthChecking => write!(f, "HealthChecking"),
-            Self::Completed => write!(f, "Completed"),
-            Self::Failed => write!(f, "Failed"),
-            Self::RollingBack => write!(f, "RollingBack"),
+            | Self::Idle => write!(f, "Idle"),
+            | Self::Preparing => write!(f, "Preparing"),
+            | Self::UpgradePending => write!(f, "UpgradePending"),
+            | Self::HealthChecking => write!(f, "HealthChecking"),
+            | Self::Completed => write!(f, "Completed"),
+            | Self::Failed => write!(f, "Failed"),
+            | Self::RollingBack => write!(f, "RollingBack"),
         }
     }
 }

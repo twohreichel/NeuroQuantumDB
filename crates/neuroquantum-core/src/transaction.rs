@@ -581,14 +581,14 @@ impl LogManager {
         loop {
             // Read length prefix
             match log_file.read_exact(&mut len_buf).await {
-                Ok(_) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
-                Err(e) => {
+                | Ok(_) => {},
+                | Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                | Err(e) => {
                     return Err(NeuroQuantumError::StorageError(format!(
                         "Failed to read log length: {}",
                         e
-                    )))
-                }
+                    )));
+                },
             }
 
             let len = u32::from_le_bytes(len_buf) as usize;
@@ -938,17 +938,17 @@ impl RecoveryManager {
 
         for record in log_records {
             match &record.record_type {
-                LogRecordType::Begin { tx_id, .. } => {
+                | LogRecordType::Begin { tx_id, .. } => {
                     active_txs.insert(*tx_id);
-                }
-                LogRecordType::Commit { tx_id } => {
+                },
+                | LogRecordType::Commit { tx_id } => {
                     active_txs.remove(tx_id);
                     committed_txs.insert(*tx_id);
-                }
-                LogRecordType::Abort { tx_id } => {
+                },
+                | LogRecordType::Abort { tx_id } => {
                     active_txs.remove(tx_id);
-                }
-                _ => {}
+                },
+                | _ => {},
             }
         }
 
@@ -1263,12 +1263,12 @@ impl TransactionManager {
 
                 // Add to read/write set for conflict detection
                 match lock_type {
-                    LockType::Shared | LockType::IntentionShared => {
+                    | LockType::Shared | LockType::IntentionShared => {
                         tx.read_set.insert(resource.clone());
-                    }
-                    LockType::Exclusive | LockType::IntentionExclusive => {
+                    },
+                    | LockType::Exclusive | LockType::IntentionExclusive => {
                         tx.write_set.insert(resource.clone());
-                    }
+                    },
                 }
 
                 tx.locks.insert(resource.clone());

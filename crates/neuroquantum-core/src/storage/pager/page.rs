@@ -51,13 +51,13 @@ impl TryFrom<u8> for PageType {
 
     fn try_from(value: u8) -> Result<Self> {
         match value {
-            0 => Ok(PageType::FreePage),
-            1 => Ok(PageType::Data),
-            2 => Ok(PageType::BTreeInternal),
-            3 => Ok(PageType::BTreeLeaf),
-            4 => Ok(PageType::Overflow),
-            5 => Ok(PageType::WAL),
-            _ => Err(anyhow!("Invalid page type: {}", value)),
+            | 0 => Ok(PageType::FreePage),
+            | 1 => Ok(PageType::Data),
+            | 2 => Ok(PageType::BTreeInternal),
+            | 3 => Ok(PageType::BTreeLeaf),
+            | 4 => Ok(PageType::Overflow),
+            | 5 => Ok(PageType::WAL),
+            | _ => Err(anyhow!("Invalid page type: {}", value)),
         }
     }
 }

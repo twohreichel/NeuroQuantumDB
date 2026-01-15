@@ -27,29 +27,29 @@ async fn main() -> Result<()> {
     // Handle CLI commands (init, generate-jwt-secret, key management, health-check, etc.)
     if let Some(ref cmd) = cli.command {
         match cmd {
-            neuroquantum_api::cli::Commands::Init { .. }
+            | neuroquantum_api::cli::Commands::Init { .. }
             | neuroquantum_api::cli::Commands::GenerateJwtSecret { .. }
             | neuroquantum_api::cli::Commands::Key { .. }
             | neuroquantum_api::cli::Commands::Migrate { .. }
             | neuroquantum_api::cli::Commands::HealthCheck { .. } => {
                 return cli.execute().await;
-            }
-            neuroquantum_api::cli::Commands::Serve => {
+            },
+            | neuroquantum_api::cli::Commands::Serve => {
                 // Continue to start server
-            }
+            },
         }
     }
 
     // Load configuration
     let config = match load_config(cli.config.as_ref()) {
-        Ok(config) => {
+        | Ok(config) => {
             info!("✅ Configuration loaded successfully");
             config
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             error!("❌ Failed to load configuration: {}", e);
             std::process::exit(1);
-        }
+        },
     };
 
     // Initialize OpenTelemetry tracing if enabled
@@ -126,7 +126,7 @@ fn init_logging() -> Result<()> {
         .or_else(|_| tracing_subscriber::EnvFilter::try_new(&log_level))?;
 
     match log_format.to_lowercase().as_str() {
-        "json" => {
+        | "json" => {
             tracing_subscriber::registry()
                 .with(filter)
                 .with(
@@ -136,8 +136,8 @@ fn init_logging() -> Result<()> {
                         .with_span_list(true),
                 )
                 .init();
-        }
-        "plain" | "pretty" => {
+        },
+        | "plain" | "pretty" => {
             tracing_subscriber::registry()
                 .with(filter)
                 .with(
@@ -148,8 +148,8 @@ fn init_logging() -> Result<()> {
                         .with_line_number(true),
                 )
                 .init();
-        }
-        "compact" => {
+        },
+        | "compact" => {
             tracing_subscriber::registry()
                 .with(filter)
                 .with(
@@ -158,14 +158,14 @@ fn init_logging() -> Result<()> {
                         .with_target(false),
                 )
                 .init();
-        }
-        _ => {
+        },
+        | _ => {
             // Default to JSON for unknown formats
             tracing_subscriber::registry()
                 .with(filter)
                 .with(tracing_subscriber::fmt::layer().json())
                 .init();
-        }
+        },
     }
 
     Ok(())
@@ -219,7 +219,10 @@ fn validate_environment(config: &ApiConfig) -> Result<()> {
                     info!("💾 Available memory: {} MB", mem_mb);
 
                     if mem_mb < 512 {
-                        warn!("⚠️  Low memory detected ({}MB). Consider increasing memory for optimal performance.", mem_mb);
+                        warn!(
+                            "⚠️  Low memory detected ({}MB). Consider increasing memory for optimal performance.",
+                            mem_mb
+                        );
                     }
                 }
             }
@@ -240,7 +243,9 @@ fn validate_environment(config: &ApiConfig) -> Result<()> {
 
     // Check if JWT secret is production-ready
     if config.jwt.secret.contains("change-this") || config.jwt.secret.len() < 32 {
-        warn!("🔐 JWT secret appears to be using default/weak value. Please set NEUROQUANTUM_JWT_SECRET environment variable.");
+        warn!(
+            "🔐 JWT secret appears to be using default/weak value. Please set NEUROQUANTUM_JWT_SECRET environment variable."
+        );
     }
 
     // Validate TLS configuration if enabled
@@ -270,8 +275,8 @@ fn validate_environment(config: &ApiConfig) -> Result<()> {
 async fn setup_graceful_shutdown() {
     let ctrl_c = async {
         match signal::ctrl_c().await {
-            Ok(()) => {}
-            Err(e) => {
+            | Ok(()) => {},
+            | Err(e) => {
                 error!(
                     "❌ Failed to install Ctrl+C handler: {}. \
                      Graceful shutdown via Ctrl+C may not work.",
@@ -279,17 +284,17 @@ async fn setup_graceful_shutdown() {
                 );
                 // Fall through - the future will never complete, but other signals may still work
                 std::future::pending::<()>().await;
-            }
+            },
         }
     };
 
     #[cfg(unix)]
     let terminate = async {
         match signal::unix::signal(signal::unix::SignalKind::terminate()) {
-            Ok(mut stream) => {
+            | Ok(mut stream) => {
                 stream.recv().await;
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 error!(
                     "❌ Failed to install SIGTERM handler: {}. \
                      Graceful shutdown via SIGTERM may not work.",
@@ -297,7 +302,7 @@ async fn setup_graceful_shutdown() {
                 );
                 // Fall through - the future will never complete, but Ctrl+C may still work
                 std::future::pending::<()>().await;
-            }
+            },
         }
     };
 
@@ -371,10 +376,10 @@ fn setup_panic_handler() {
             .unwrap_or_else(|| std::panic::Location::caller());
 
         let msg = match panic_info.payload().downcast_ref::<&'static str>() {
-            Some(s) => *s,
-            None => match panic_info.payload().downcast_ref::<String>() {
-                Some(s) => &s[..],
-                None => "Box<dyn Any>",
+            | Some(s) => *s,
+            | None => match panic_info.payload().downcast_ref::<String>() {
+                | Some(s) => &s[..],
+                | None => "Box<dyn Any>",
             },
         };
 

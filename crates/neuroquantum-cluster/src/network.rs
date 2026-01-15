@@ -365,14 +365,14 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
         let handler = self.transport.request_vote_handler.read().await;
         if let Some(ref h) = *handler {
             match h(vote_request).await {
-                Ok(response) => {
+                | Ok(response) => {
                     return Ok(tonic::Response::new(proto::VoteResponse {
                         term: response.term,
                         vote_granted: response.vote_granted,
                         is_pre_vote: req.is_pre_vote,
                     }));
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!(
                         local_node = self.node_id,
                         error = %e,
@@ -382,7 +382,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
                         "Failed to process vote request: {}",
                         e
                     )));
-                }
+                },
             }
         }
 
@@ -579,7 +579,7 @@ impl NetworkTransport {
         // Use gRPC client to send the message
         if let Some(ref mut client) = peer.client {
             match message {
-                ClusterMessage::Ping(ping_req) => {
+                | ClusterMessage::Ping(ping_req) => {
                     let req = proto::HeartbeatRequest {
                         from: ping_req.from,
                         timestamp_ms: ping_req.timestamp_ms,
@@ -590,8 +590,8 @@ impl NetworkTransport {
                             format!("gRPC call failed: {}", e),
                         )
                     })?;
-                }
-                ClusterMessage::RequestVote(vote_req) => {
+                },
+                | ClusterMessage::RequestVote(vote_req) => {
                     let req = proto::VoteRequest {
                         term: vote_req.term,
                         candidate_id: vote_req.candidate_id,
@@ -606,8 +606,8 @@ impl NetworkTransport {
                             format!("gRPC call failed: {}", e),
                         )
                     })?;
-                }
-                ClusterMessage::AppendEntries(append_req) => {
+                },
+                | ClusterMessage::AppendEntries(append_req) => {
                     // Convert entries to proto format
                     let proto_entries: Vec<proto::LogEntry> = append_req
                         .entries
@@ -634,11 +634,11 @@ impl NetworkTransport {
                             format!("gRPC call failed: {}", e),
                         )
                     })?;
-                }
-                _ => {
+                },
+                | _ => {
                     // Other message types would be handled similarly
                     debug!("Message type not yet implemented for gRPC");
-                }
+                },
             }
 
             // Update last contact time
@@ -748,7 +748,7 @@ impl NetworkTransport {
             // Establish gRPC connection
             let endpoint = format!("http://{}", peer_addr);
             match ClusterNodeClient::connect(endpoint.clone()).await {
-                Ok(mut client) => {
+                | Ok(mut client) => {
                     info!(
                         node_id = self.node_id,
                         peer = peer_addr,
@@ -764,7 +764,7 @@ impl NetworkTransport {
                     };
 
                     match client.handshake(handshake_req).await {
-                        Ok(response) => {
+                        | Ok(response) => {
                             let resp = response.into_inner();
                             if resp.success {
                                 info!(
@@ -776,8 +776,8 @@ impl NetworkTransport {
 
                                 // Add peer to connections
                                 let peer_socket_addr: SocketAddr = match peer_addr.parse() {
-                                    Ok(addr) => addr,
-                                    Err(e) => {
+                                    | Ok(addr) => addr,
+                                    | Err(e) => {
                                         warn!(
                                             node_id = self.node_id,
                                             peer = peer_addr,
@@ -785,7 +785,7 @@ impl NetworkTransport {
                                             "Failed to parse peer address, skipping"
                                         );
                                         continue;
-                                    }
+                                    },
                                 };
 
                                 peers.insert(
@@ -811,25 +811,25 @@ impl NetworkTransport {
                                     "Handshake failed"
                                 );
                             }
-                        }
-                        Err(e) => {
+                        },
+                        | Err(e) => {
                             warn!(
                                 node_id = self.node_id,
                                 peer = peer_addr,
                                 error = %e,
                                 "Failed to perform handshake"
                             );
-                        }
+                        },
                     }
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!(
                         node_id = self.node_id,
                         peer = peer_addr,
                         error = %e,
                         "Failed to establish gRPC connection"
                     );
-                }
+                },
             }
         }
 

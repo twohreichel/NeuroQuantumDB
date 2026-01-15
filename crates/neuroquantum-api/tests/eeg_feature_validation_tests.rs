@@ -63,11 +63,11 @@ fn generate_realistic_eeg(sampling_rate: f32, duration_secs: f32, state: EEGStat
 
     // Amplitudes in arbitrary units (scaled for typical EEG ratios)
     let (delta_amp, theta_amp, alpha_amp, beta_amp, gamma_amp) = match state {
-        EEGState::RelaxedAwake => (0.5, 0.3, 2.0, 0.5, 0.2), // Strong alpha
-        EEGState::DeepSleep => (3.0, 1.0, 0.2, 0.1, 0.05),   // Strong delta
-        EEGState::ActiveThinking => (0.3, 0.3, 0.5, 2.0, 1.0), // Strong beta/gamma
-        EEGState::Meditation => (0.5, 2.0, 1.5, 0.3, 0.1),   // Strong theta/alpha
-        EEGState::Drowsy => (1.0, 2.0, 1.0, 0.3, 0.1),       // Strong theta
+        | EEGState::RelaxedAwake => (0.5, 0.3, 2.0, 0.5, 0.2), // Strong alpha
+        | EEGState::DeepSleep => (3.0, 1.0, 0.2, 0.1, 0.05),   // Strong delta
+        | EEGState::ActiveThinking => (0.3, 0.3, 0.5, 2.0, 1.0), // Strong beta/gamma
+        | EEGState::Meditation => (0.5, 2.0, 1.5, 0.3, 0.1),   // Strong theta/alpha
+        | EEGState::Drowsy => (1.0, 2.0, 1.0, 0.3, 0.1),       // Strong theta
     };
 
     (0..num_samples)

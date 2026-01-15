@@ -236,7 +236,7 @@ async fn test_wal_partial_write_recovery() {
 
     // Recovery should either succeed or fail gracefully with an error
     match recovery_result {
-        Ok(storage) => {
+        | Ok(storage) => {
             // If recovery succeeded, verify we can still read data
             let query = SelectQuery {
                 table: "chaos_test".to_string(),
@@ -249,11 +249,11 @@ async fn test_wal_partial_write_recovery() {
             let result = storage.select_rows(&query).await;
             // Should be able to query without panic
             assert!(result.is_ok() || result.is_err());
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             // Graceful failure is acceptable
             println!("Recovery failed gracefully: {}", e);
-        }
+        },
     }
 }
 
@@ -302,7 +302,7 @@ async fn test_wal_checksum_corruption_recovery() {
 
     // System should handle corruption gracefully
     match recovery_result {
-        Ok(storage) => {
+        | Ok(storage) => {
             println!("Recovery succeeded despite corruption - data may be partial");
             let query = SelectQuery {
                 table: "checksum_test".to_string(),
@@ -314,10 +314,10 @@ async fn test_wal_checksum_corruption_recovery() {
             };
             // Should not panic
             let _ = storage.select_rows(&query).await;
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             println!("Recovery detected corruption and failed safely: {}", e);
-        }
+        },
     }
 }
 
@@ -580,7 +580,7 @@ async fn test_torn_write_recovery() {
     let recovery_result = StorageEngine::new(&data_dir).await;
 
     match recovery_result {
-        Ok(storage) => {
+        | Ok(storage) => {
             // Recovery succeeded, verify we can read whatever data is valid
             let query = SelectQuery {
                 table: "torn_write".to_string(),
@@ -592,10 +592,10 @@ async fn test_torn_write_recovery() {
             };
             let _ = storage.select_rows(&query).await;
             println!("Recovered from torn write successfully");
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             println!("Torn write detected, recovery handled error: {}", e);
-        }
+        },
     }
 }
 
@@ -671,7 +671,7 @@ async fn test_concurrent_transactions_crash() {
         {
             let start = Instant::now();
             match StorageEngine::new(&data_dir).await {
-                Ok(mut storage) => {
+                | Ok(mut storage) => {
                     let recovery_time = start.elapsed().as_millis() as u64;
 
                     if storage.perform_recovery().await.is_ok() {
@@ -697,10 +697,10 @@ async fn test_concurrent_transactions_crash() {
                     } else {
                         stats.record_failed_recovery();
                     }
-                }
-                Err(_) => {
+                },
+                | Err(_) => {
                     stats.record_failed_recovery();
-                }
+                },
             }
         }
     }
@@ -747,14 +747,14 @@ async fn test_missing_metadata_recovery() {
     let recovery_result = StorageEngine::new(&data_dir).await;
 
     match recovery_result {
-        Ok(_storage) => {
+        | Ok(_storage) => {
             // New metadata was created
             assert!(metadata_path.exists(), "Metadata file should be recreated");
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             // Graceful failure
             println!("Failed gracefully without metadata: {}", e);
-        }
+        },
     }
 }
 
@@ -949,7 +949,7 @@ async fn test_repeated_crash_recovery_cycles() {
         {
             let start = Instant::now();
             match StorageEngine::new(&data_dir).await {
-                Ok(mut storage) => {
+                | Ok(mut storage) => {
                     if storage.perform_recovery().await.is_ok() {
                         stats.record_successful_recovery(start.elapsed().as_millis() as u64);
 
@@ -973,10 +973,10 @@ async fn test_repeated_crash_recovery_cycles() {
                     } else {
                         stats.record_failed_recovery();
                     }
-                }
-                Err(_) => {
+                },
+                | Err(_) => {
                     stats.record_failed_recovery();
-                }
+                },
             }
         }
     }

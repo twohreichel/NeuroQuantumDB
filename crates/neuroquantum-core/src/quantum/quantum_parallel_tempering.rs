@@ -322,18 +322,18 @@ impl QuantumParallelTempering {
         for exchange_round in 0..self.config.num_exchanges {
             // Perform quantum Monte Carlo sweeps on each replica
             match self.config.backend {
-                QuantumBackend::PathIntegralMonteCarlo => {
+                | QuantumBackend::PathIntegralMonteCarlo => {
                     self.pimc_sweep_all_replicas().await?;
-                }
-                QuantumBackend::QuantumMonteCarlo => {
+                },
+                | QuantumBackend::QuantumMonteCarlo => {
                     self.qmc_sweep_all_replicas().await?;
-                }
-                QuantumBackend::QuantumAnnealing => {
+                },
+                | QuantumBackend::QuantumAnnealing => {
                     self.quantum_annealing_step_all_replicas().await?;
-                }
-                QuantumBackend::Hybrid => {
+                },
+                | QuantumBackend::Hybrid => {
                     self.hybrid_sweep_all_replicas().await?;
-                }
+                },
             }
 
             // Attempt quantum-aware replica exchanges
@@ -392,7 +392,7 @@ impl QuantumParallelTempering {
 
             // Create initial state based on backend
             let state = match self.config.backend {
-                QuantumBackend::PathIntegralMonteCarlo => {
+                | QuantumBackend::PathIntegralMonteCarlo => {
                     // Initialize Trotter slices with random configurations
                     let slices: Vec<Vec<i8>> = (0..self.config.trotter_slices)
                         .map(|_| {
@@ -403,8 +403,8 @@ impl QuantumParallelTempering {
                         })
                         .collect();
                     QuantumState::TrotterSlices(slices)
-                }
-                QuantumBackend::QuantumMonteCarlo | QuantumBackend::QuantumAnnealing => {
+                },
+                | QuantumBackend::QuantumMonteCarlo | QuantumBackend::QuantumAnnealing => {
                     // Start with superposition state for small systems
                     if hamiltonian.num_spins <= 12 {
                         let dim = 1 << hamiltonian.num_spins;
@@ -422,8 +422,8 @@ impl QuantumParallelTempering {
                             quantum_amplitude: 1.0,
                         }
                     }
-                }
-                QuantumBackend::Hybrid => {
+                },
+                | QuantumBackend::Hybrid => {
                     let config: Vec<i8> = initial_config
                         .iter()
                         .map(|&s| if rng.gen::<bool>() { s } else { -s })
@@ -432,7 +432,7 @@ impl QuantumParallelTempering {
                         configuration: config,
                         quantum_amplitude: 1.0,
                     }
-                }
+                },
             };
 
             let energy = self.calculate_state_energy(&state)?;
@@ -583,7 +583,7 @@ impl QuantumParallelTempering {
             let beta = replica.beta;
 
             match &mut replica.state {
-                QuantumState::StateVector(ref mut state_vec) => {
+                | QuantumState::StateVector(ref mut state_vec) => {
                     // Imaginary time evolution: |ψ⟩ → exp(-βH)|ψ⟩
                     let h_matrix = hamiltonian.build_matrix();
 
@@ -601,8 +601,8 @@ impl QuantumParallelTempering {
 
                     // Calculate energy expectation
                     replica.energy = Self::calculate_energy_expectation(state_vec, &h_matrix);
-                }
-                QuantumState::ClassicalWithCorrections {
+                },
+                | QuantumState::ClassicalWithCorrections {
                     ref mut configuration,
                     ref mut quantum_amplitude,
                 } => {
@@ -615,10 +615,10 @@ impl QuantumParallelTempering {
                         sweeps,
                     )?;
                     replica.energy = hamiltonian.classical_energy(configuration);
-                }
-                _ => {
+                },
+                | _ => {
                     warn!("QMC backend used with PIMC state, falling back to PIMC");
-                }
+                },
             }
 
             replica.sweeps += sweeps;
@@ -718,7 +718,7 @@ impl QuantumParallelTempering {
             let beta = replica.beta;
 
             match &mut replica.state {
-                QuantumState::StateVector(ref mut state_vec) => {
+                | QuantumState::StateVector(ref mut state_vec) => {
                     // Quantum annealing with transverse field
                     let h_matrix = hamiltonian.build_matrix();
 
@@ -736,8 +736,8 @@ impl QuantumParallelTempering {
                     }
 
                     replica.energy = Self::calculate_energy_expectation(state_vec, &h_matrix);
-                }
-                QuantumState::ClassicalWithCorrections {
+                },
+                | QuantumState::ClassicalWithCorrections {
                     ref mut configuration,
                     quantum_amplitude: _,
                 } => {
@@ -749,8 +749,8 @@ impl QuantumParallelTempering {
                         sweeps,
                     )?;
                     replica.energy = hamiltonian.classical_energy(configuration);
-                }
-                _ => {}
+                },
+                | _ => {},
             }
 
             replica.sweeps += sweeps;
@@ -865,9 +865,9 @@ impl QuantumParallelTempering {
             let beta = replica_guard.beta;
 
             let config = match &mut replica_guard.state {
-                QuantumState::TrotterSlices(slices) => &mut slices[0],
-                QuantumState::ClassicalWithCorrections { configuration, .. } => configuration,
-                _ => continue,
+                | QuantumState::TrotterSlices(slices) => &mut slices[0],
+                | QuantumState::ClassicalWithCorrections { configuration, .. } => configuration,
+                | _ => continue,
             };
 
             let n = config.len();
@@ -993,18 +993,18 @@ impl QuantumParallelTempering {
             .ok_or_else(|| CoreError::invalid_operation("Hamiltonian not set"))?;
 
         let energy = match state {
-            QuantumState::StateVector(state_vec) => {
+            | QuantumState::StateVector(state_vec) => {
                 let h_matrix = hamiltonian.build_matrix();
                 Self::calculate_energy_expectation(state_vec, &h_matrix)
-            }
-            QuantumState::TrotterSlices(slices) => {
+            },
+            | QuantumState::TrotterSlices(slices) => {
                 // Average energy over slices (physical observable)
                 let total: f64 = slices.iter().map(|s| hamiltonian.classical_energy(s)).sum();
                 total / slices.len() as f64
-            }
-            QuantumState::ClassicalWithCorrections { configuration, .. } => {
+            },
+            | QuantumState::ClassicalWithCorrections { configuration, .. } => {
                 hamiltonian.classical_energy(configuration)
-            }
+            },
         };
 
         Ok(energy)
@@ -1028,14 +1028,14 @@ impl QuantumParallelTempering {
 
             // Extract classical configuration from quantum state
             let config = match &replica.state {
-                QuantumState::StateVector(state_vec) => {
+                | QuantumState::StateVector(state_vec) => {
                     // Sample from quantum state
                     self.sample_from_state_vector(state_vec)?
-                }
-                QuantumState::TrotterSlices(slices) => slices[0].clone(),
-                QuantumState::ClassicalWithCorrections { configuration, .. } => {
+                },
+                | QuantumState::TrotterSlices(slices) => slices[0].clone(),
+                | QuantumState::ClassicalWithCorrections { configuration, .. } => {
                     configuration.clone()
-                }
+                },
             };
 
             let energy = self.calculate_state_energy(&replica.state)?;

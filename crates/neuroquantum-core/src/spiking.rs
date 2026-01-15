@@ -98,43 +98,43 @@ impl IzhikevichNeuronType {
     /// from Izhikevich's original publications and subsequent refinements.
     pub fn parameters(&self) -> IzhikevichParameters {
         match self {
-            IzhikevichNeuronType::RegularSpiking => IzhikevichParameters {
+            | IzhikevichNeuronType::RegularSpiking => IzhikevichParameters {
                 a: 0.02,
                 b: 0.2,
                 c: -65.0,
                 d: 8.0,
             },
-            IzhikevichNeuronType::IntrinsicallyBursting => IzhikevichParameters {
+            | IzhikevichNeuronType::IntrinsicallyBursting => IzhikevichParameters {
                 a: 0.02,
                 b: 0.2,
                 c: -55.0,
                 d: 4.0,
             },
-            IzhikevichNeuronType::Chattering => IzhikevichParameters {
+            | IzhikevichNeuronType::Chattering => IzhikevichParameters {
                 a: 0.02,
                 b: 0.2,
                 c: -50.0,
                 d: 2.0,
             },
-            IzhikevichNeuronType::FastSpiking => IzhikevichParameters {
+            | IzhikevichNeuronType::FastSpiking => IzhikevichParameters {
                 a: 0.1,
                 b: 0.2,
                 c: -65.0,
                 d: 2.0,
             },
-            IzhikevichNeuronType::Thalamocortical => IzhikevichParameters {
+            | IzhikevichNeuronType::Thalamocortical => IzhikevichParameters {
                 a: 0.02,
                 b: 0.25,
                 c: -65.0,
                 d: 0.05,
             },
-            IzhikevichNeuronType::Resonator => IzhikevichParameters {
+            | IzhikevichNeuronType::Resonator => IzhikevichParameters {
                 a: 0.1,
                 b: 0.26,
                 c: -65.0,
                 d: 2.0,
             },
-            IzhikevichNeuronType::LowThresholdSpiking => IzhikevichParameters {
+            | IzhikevichNeuronType::LowThresholdSpiking => IzhikevichParameters {
                 a: 0.02,
                 b: 0.25,
                 c: -65.0,

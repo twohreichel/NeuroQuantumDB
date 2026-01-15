@@ -229,16 +229,16 @@ fn format_account_row(
     row: &std::collections::HashMap<String, neuroquantum_qsql::query_plan::QueryValue>,
 ) -> String {
     let id = match row.get("id") {
-        Some(neuroquantum_qsql::query_plan::QueryValue::Integer(i)) => i.to_string(),
-        _ => "?".to_string(),
+        | Some(neuroquantum_qsql::query_plan::QueryValue::Integer(i)) => i.to_string(),
+        | _ => "?".to_string(),
     };
     let name = match row.get("name") {
-        Some(neuroquantum_qsql::query_plan::QueryValue::String(s)) => s.clone(),
-        _ => "Unknown".to_string(),
+        | Some(neuroquantum_qsql::query_plan::QueryValue::String(s)) => s.clone(),
+        | _ => "Unknown".to_string(),
     };
     let balance = match row.get("balance") {
-        Some(neuroquantum_qsql::query_plan::QueryValue::Integer(b)) => b.to_string(),
-        _ => "?".to_string(),
+        | Some(neuroquantum_qsql::query_plan::QueryValue::Integer(b)) => b.to_string(),
+        | _ => "?".to_string(),
     };
     format!("ID: {}, Name: {}, Balance: {}", id, name, balance)
 }

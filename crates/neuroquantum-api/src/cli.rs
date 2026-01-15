@@ -190,30 +190,30 @@ impl Cli {
 
     pub async fn execute(self) -> Result<()> {
         match self.command {
-            Some(Commands::Init {
+            | Some(Commands::Init {
                 name,
                 expiry_hours,
                 output,
                 yes,
             }) => {
                 init_database(name, expiry_hours, output, yes).await?;
-            }
-            Some(Commands::GenerateJwtSecret { output }) => {
+            },
+            | Some(Commands::GenerateJwtSecret { output }) => {
                 generate_jwt_secret(output)?;
-            }
-            Some(Commands::Key { action }) => {
+            },
+            | Some(Commands::Key { action }) => {
                 handle_key_command(action).await?;
-            }
-            Some(Commands::Migrate { action }) => {
+            },
+            | Some(Commands::Migrate { action }) => {
                 handle_migrate_command(action).await?;
-            }
-            Some(Commands::HealthCheck { url, timeout }) => {
+            },
+            | Some(Commands::HealthCheck { url, timeout }) => {
                 health_check(url, timeout).await?;
-            }
-            Some(Commands::Serve) | None => {
+            },
+            | Some(Commands::Serve) | None => {
                 // Will be handled by main.rs to start the server
                 return Ok(());
-            }
+            },
         }
         Ok(())
     }
@@ -333,7 +333,9 @@ async fn init_database(
     println!("💡 Next steps:");
     println!("   1. Export your API key: export NEUROQUANTUM_API_KEY=<your-key>");
     println!("   2. Start the server: neuroquantum-api serve");
-    println!("   3. Test the connection: curl -H \"Authorization: Bearer $NEUROQUANTUM_API_KEY\" http://localhost:8080/health");
+    println!(
+        "   3. Test the connection: curl -H \"Authorization: Bearer $NEUROQUANTUM_API_KEY\" http://localhost:8080/health"
+    );
 
     Ok(())
 }
@@ -385,7 +387,7 @@ fn generate_jwt_secret(output: Option<PathBuf>) -> Result<()> {
 
 async fn handle_key_command(action: KeyAction) -> Result<()> {
     match action {
-        KeyAction::Create {
+        | KeyAction::Create {
             name,
             admin_key,
             permissions,
@@ -402,10 +404,10 @@ async fn handle_key_command(action: KeyAction) -> Result<()> {
                 output,
             )
             .await
-        }
-        KeyAction::List { admin_key } => list_api_keys(admin_key).await,
-        KeyAction::Revoke { admin_key, key } => revoke_api_key(admin_key, key).await,
-        KeyAction::Stats { admin_key } => show_stats(admin_key).await,
+        },
+        | KeyAction::List { admin_key } => list_api_keys(admin_key).await,
+        | KeyAction::Revoke { admin_key, key } => revoke_api_key(admin_key, key).await,
+        | KeyAction::Stats { admin_key } => show_stats(admin_key).await,
     }
 }
 
@@ -645,7 +647,7 @@ async fn health_check(url: String, timeout_secs: u64) -> Result<()> {
 
     // Send health check request
     match client.get(&health_url).send().await {
-        Ok(response) => {
+        | Ok(response) => {
             if response.status().is_success() {
                 // Exit with 0 for healthy
                 std::process::exit(0);
@@ -653,11 +655,11 @@ async fn health_check(url: String, timeout_secs: u64) -> Result<()> {
                 eprintln!("Health check failed: HTTP {}", response.status());
                 std::process::exit(1);
             }
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             eprintln!("Health check failed: {}", e);
             std::process::exit(1);
-        }
+        },
     }
 }
 
@@ -665,7 +667,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
     use neuroquantum_core::storage::{MigrationConfig, MigrationExecutor, MigrationExecutorConfig};
 
     match action {
-        MigrateAction::Up {
+        | MigrateAction::Up {
             dir,
             dry_run,
             verbose,
@@ -703,8 +705,8 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 }
                 println!("\n✅ Migration complete");
             }
-        }
-        MigrateAction::Down {
+        },
+        | MigrateAction::Down {
             count,
             dir,
             dry_run,
@@ -743,8 +745,8 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 }
                 println!("\n✅ Rollback complete");
             }
-        }
-        MigrateAction::Status { dir } => {
+        },
+        | MigrateAction::Status { dir } => {
             println!("📋 Migration Status\n");
 
             let config = MigrationExecutorConfig {
@@ -778,8 +780,8 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                     );
                 }
             }
-        }
-        MigrateAction::Create { name, dir } => {
+        },
+        | MigrateAction::Create { name, dir } => {
             println!("📝 Creating new migration: {}\n", name);
 
             let config = MigrationExecutorConfig {
@@ -798,7 +800,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
             println!("  Up:   {}", up_file.display());
             println!("  Down: {}", down_file.display());
             println!("\n💡 Edit these files to add your migration SQL");
-        }
+        },
     }
 
     Ok(())

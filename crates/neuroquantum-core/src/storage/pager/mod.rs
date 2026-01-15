@@ -151,16 +151,16 @@ impl PageStorageManager {
 
         // Try to read free list from first page
         match io.read_page(PageId(0)).await {
-            Ok(page) if page.header().page_type == PageType::FreePage => {
+            | Ok(page) if page.header().page_type == PageType::FreePage => {
                 let free_list = FreeList::deserialize(page.data())?;
                 debug!("📋 Loaded free list: {} free pages", free_list.free_count());
                 Ok((free_list, total_pages))
-            }
-            _ => {
+            },
+            | _ => {
                 // Create new free list
                 warn!("⚠️ Free list not found, rebuilding...");
                 Ok((FreeList::new(), total_pages.max(1)))
-            }
+            },
         }
     }
 

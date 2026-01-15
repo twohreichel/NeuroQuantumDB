@@ -108,11 +108,11 @@ impl PageIO {
 
         for &page_id in page_ids {
             match self.read_page(page_id).await {
-                Ok(page) => pages.push(page),
-                Err(e) => {
+                | Ok(page) => pages.push(page),
+                | Err(e) => {
                     warn!("⚠️ Failed to read page {:?}: {}", page_id, e);
                     return Err(e);
-                }
+                },
             }
         }
 

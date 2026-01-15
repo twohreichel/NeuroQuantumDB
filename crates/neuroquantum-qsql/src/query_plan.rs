@@ -412,37 +412,43 @@ impl QueryExecutor {
         let start_time = std::time::Instant::now();
 
         let result = match &plan.statement {
-            Statement::Select(select) => self.execute_select(select, plan).await,
-            Statement::Insert(insert) => self.execute_insert(insert, plan).await,
-            Statement::Update(update) => self.execute_update(update, plan).await,
-            Statement::Delete(delete) => self.execute_delete(delete, plan).await,
-            Statement::CreateTable(create) => self.execute_create_table(create, plan).await,
-            Statement::DropTable(drop) => self.execute_drop_table(drop, plan).await,
-            Statement::AlterTable(alter) => self.execute_alter_table(alter, plan).await,
-            Statement::CreateIndex(create_idx) => self.execute_create_index(create_idx, plan).await,
-            Statement::DropIndex(drop_idx) => self.execute_drop_index(drop_idx, plan).await,
-            Statement::TruncateTable(truncate) => self.execute_truncate_table(truncate, plan).await,
-            Statement::CompressTable(compress) => self.execute_compress_table(compress, plan).await,
-            Statement::NeuroMatch(neuromatch) => self.execute_neuromatch(neuromatch, plan).await,
-            Statement::QuantumSearch(quantum) => self.execute_quantum_search(quantum, plan).await,
-            Statement::SuperpositionQuery(superpos) => {
+            | Statement::Select(select) => self.execute_select(select, plan).await,
+            | Statement::Insert(insert) => self.execute_insert(insert, plan).await,
+            | Statement::Update(update) => self.execute_update(update, plan).await,
+            | Statement::Delete(delete) => self.execute_delete(delete, plan).await,
+            | Statement::CreateTable(create) => self.execute_create_table(create, plan).await,
+            | Statement::DropTable(drop) => self.execute_drop_table(drop, plan).await,
+            | Statement::AlterTable(alter) => self.execute_alter_table(alter, plan).await,
+            | Statement::CreateIndex(create_idx) => {
+                self.execute_create_index(create_idx, plan).await
+            },
+            | Statement::DropIndex(drop_idx) => self.execute_drop_index(drop_idx, plan).await,
+            | Statement::TruncateTable(truncate) => {
+                self.execute_truncate_table(truncate, plan).await
+            },
+            | Statement::CompressTable(compress) => {
+                self.execute_compress_table(compress, plan).await
+            },
+            | Statement::NeuroMatch(neuromatch) => self.execute_neuromatch(neuromatch, plan).await,
+            | Statement::QuantumSearch(quantum) => self.execute_quantum_search(quantum, plan).await,
+            | Statement::SuperpositionQuery(superpos) => {
                 self.execute_superposition_query(superpos, plan).await
-            }
-            Statement::LearnPattern(learn) => self.execute_learn_pattern(learn, plan).await,
-            Statement::AdaptWeights(adapt) => self.execute_adapt_weights(adapt, plan).await,
-            Statement::QuantumJoin(qjoin) => self.execute_quantum_join(qjoin, plan).await,
-            Statement::Explain(explain) => self.execute_explain(explain, plan).await,
-            Statement::Analyze(analyze) => self.execute_analyze(analyze, plan).await,
+            },
+            | Statement::LearnPattern(learn) => self.execute_learn_pattern(learn, plan).await,
+            | Statement::AdaptWeights(adapt) => self.execute_adapt_weights(adapt, plan).await,
+            | Statement::QuantumJoin(qjoin) => self.execute_quantum_join(qjoin, plan).await,
+            | Statement::Explain(explain) => self.execute_explain(explain, plan).await,
+            | Statement::Analyze(analyze) => self.execute_analyze(analyze, plan).await,
             // Transaction control statements
-            Statement::BeginTransaction(begin) => self.execute_begin_transaction(begin).await,
-            Statement::Commit(_) => self.execute_commit().await,
-            Statement::Rollback(_) => self.execute_rollback().await,
-            Statement::Savepoint(savepoint) => self.execute_savepoint(savepoint).await,
-            Statement::RollbackToSavepoint(rollback_to) => {
+            | Statement::BeginTransaction(begin) => self.execute_begin_transaction(begin).await,
+            | Statement::Commit(_) => self.execute_commit().await,
+            | Statement::Rollback(_) => self.execute_rollback().await,
+            | Statement::Savepoint(savepoint) => self.execute_savepoint(savepoint).await,
+            | Statement::RollbackToSavepoint(rollback_to) => {
                 self.execute_rollback_to_savepoint(rollback_to).await
-            }
-            Statement::ReleaseSavepoint(release) => self.execute_release_savepoint(release).await,
-            _ => Err(QSQLError::ExecutionError {
+            },
+            | Statement::ReleaseSavepoint(release) => self.execute_release_savepoint(release).await,
+            | _ => Err(QSQLError::ExecutionError {
                 message: "Statement type not yet implemented".to_string(),
             }),
         }?;
@@ -577,7 +583,7 @@ impl QueryExecutor {
                 let mut new_list = Vec::new();
                 for item in &select.select_list {
                     match item {
-                        SelectItem::Expression {
+                        | SelectItem::Expression {
                             expr: Expression::ScalarSubquery { subquery },
                             alias,
                         } => {
@@ -593,8 +599,8 @@ impl QueryExecutor {
                                     alias: alias.clone(),
                                 });
                             }
-                        }
-                        other => new_list.push(other.clone()),
+                        },
+                        | other => new_list.push(other.clone()),
                     }
                 }
                 new_list
@@ -1542,7 +1548,7 @@ impl QueryExecutor {
 
             for item in select_list {
                 match item {
-                    SelectItem::Wildcard => {
+                    | SelectItem::Wildcard => {
                         // Include all fields, but skip qualified column names (table.column format)
                         // that are duplicates of unqualified versions.
                         // The add_alias_to_rows function creates both "table.col" and "col" entries.
@@ -1572,15 +1578,15 @@ impl QueryExecutor {
                             }
                             fields.insert(col.clone(), val.clone());
                         }
-                    }
-                    SelectItem::Expression { expr, alias } => {
+                    },
+                    | SelectItem::Expression { expr, alias } => {
                         // Evaluate the expression
                         let value = Self::evaluate_expression_for_row(expr, row)?;
                         let col_name = alias
                             .clone()
                             .unwrap_or_else(|| Self::expression_to_string_static(expr));
                         fields.insert(col_name, value);
-                    }
+                    },
                 }
             }
 
@@ -1598,7 +1604,7 @@ impl QueryExecutor {
     /// Evaluate an expression against a row (for projection in recursive CTEs)
     fn evaluate_expression_for_row(expr: &Expression, row: &Row) -> QSQLResult<Value> {
         match expr {
-            Expression::Identifier(name) => {
+            | Expression::Identifier(name) => {
                 // Try to find the column in the row
                 if let Some(val) = row.fields.get(name) {
                     return Ok(val.clone());
@@ -1616,17 +1622,17 @@ impl QueryExecutor {
                     }
                 }
                 Ok(Value::Null)
-            }
-            Expression::Literal(lit) => match lit {
-                Literal::Integer(i) => Ok(Value::Integer(*i)),
-                Literal::Float(f) => Ok(Value::Float(*f)),
-                Literal::String(s) => Ok(Value::Text(s.clone())),
-                Literal::Boolean(b) => Ok(Value::Boolean(*b)),
-                Literal::Null => Ok(Value::Null),
-                Literal::DNA(s) => Ok(Value::Text(s.clone())),
-                Literal::QuantumBit(_, _) => Ok(Value::Null),
             },
-            Expression::BinaryOp {
+            | Expression::Literal(lit) => match lit {
+                | Literal::Integer(i) => Ok(Value::Integer(*i)),
+                | Literal::Float(f) => Ok(Value::Float(*f)),
+                | Literal::String(s) => Ok(Value::Text(s.clone())),
+                | Literal::Boolean(b) => Ok(Value::Boolean(*b)),
+                | Literal::Null => Ok(Value::Null),
+                | Literal::DNA(s) => Ok(Value::Text(s.clone())),
+                | Literal::QuantumBit(_, _) => Ok(Value::Null),
+            },
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
@@ -1635,50 +1641,56 @@ impl QueryExecutor {
                 let right_val = Self::evaluate_expression_for_row(right, row)?;
 
                 match operator {
-                    BinaryOperator::Add => {
+                    | BinaryOperator::Add => {
                         match (&left_val, &right_val) {
-                            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a + b)),
-                            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
-                            (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 + b)),
-                            (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a + *b as f64)),
+                            | (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a + b)),
+                            | (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
+                            | (Value::Integer(a), Value::Float(b)) => {
+                                Ok(Value::Float(*a as f64 + b))
+                            },
+                            | (Value::Float(a), Value::Integer(b)) => {
+                                Ok(Value::Float(a + *b as f64))
+                            },
                             // String concatenation with || (treated as Add when both are strings)
-                            (Value::Text(a), Value::Text(b)) => {
+                            | (Value::Text(a), Value::Text(b)) => {
                                 Ok(Value::Text(format!("{}{}", a, b)))
-                            }
-                            _ => Ok(Value::Null),
+                            },
+                            | _ => Ok(Value::Null),
                         }
-                    }
-                    BinaryOperator::Subtract => match (&left_val, &right_val) {
-                        (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a - b)),
-                        (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a - b)),
-                        (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 - b)),
-                        (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a - *b as f64)),
-                        _ => Ok(Value::Null),
                     },
-                    BinaryOperator::Multiply => match (&left_val, &right_val) {
-                        (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a * b)),
-                        (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a * b)),
-                        (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 * b)),
-                        (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a * *b as f64)),
-                        _ => Ok(Value::Null),
+                    | BinaryOperator::Subtract => match (&left_val, &right_val) {
+                        | (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a - b)),
+                        | (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a - b)),
+                        | (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 - b)),
+                        | (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a - *b as f64)),
+                        | _ => Ok(Value::Null),
                     },
-                    BinaryOperator::Divide => match (&left_val, &right_val) {
-                        (Value::Integer(a), Value::Integer(b)) if *b != 0 => {
+                    | BinaryOperator::Multiply => match (&left_val, &right_val) {
+                        | (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a * b)),
+                        | (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a * b)),
+                        | (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(*a as f64 * b)),
+                        | (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a * *b as f64)),
+                        | _ => Ok(Value::Null),
+                    },
+                    | BinaryOperator::Divide => match (&left_val, &right_val) {
+                        | (Value::Integer(a), Value::Integer(b)) if *b != 0 => {
                             Ok(Value::Integer(a / b))
-                        }
-                        (Value::Float(a), Value::Float(b)) if *b != 0.0 => Ok(Value::Float(a / b)),
-                        (Value::Integer(a), Value::Float(b)) if *b != 0.0 => {
+                        },
+                        | (Value::Float(a), Value::Float(b)) if *b != 0.0 => {
+                            Ok(Value::Float(a / b))
+                        },
+                        | (Value::Integer(a), Value::Float(b)) if *b != 0.0 => {
                             Ok(Value::Float(*a as f64 / b))
-                        }
-                        (Value::Float(a), Value::Integer(b)) if *b != 0 => {
+                        },
+                        | (Value::Float(a), Value::Integer(b)) if *b != 0 => {
                             Ok(Value::Float(a / *b as f64))
-                        }
-                        _ => Ok(Value::Null),
+                        },
+                        | _ => Ok(Value::Null),
                     },
-                    _ => Ok(Value::Null),
+                    | _ => Ok(Value::Null),
                 }
-            }
-            _ => Ok(Value::Null),
+            },
+            | _ => Ok(Value::Null),
         }
     }
 
@@ -1831,15 +1843,15 @@ impl QueryExecutor {
 
             for (col, qval) in qrow {
                 let value = match qval {
-                    QueryValue::Null => Value::Null,
-                    QueryValue::Boolean(b) => Value::Boolean(*b),
-                    QueryValue::Integer(i) => Value::Integer(*i),
-                    QueryValue::Float(f) => Value::Float(*f),
-                    QueryValue::String(s) => Value::Text(s.clone()),
-                    QueryValue::Blob(b) => Value::Binary(b.clone()),
-                    QueryValue::DNASequence(s) => Value::Text(s.clone()),
-                    QueryValue::SynapticWeight(w) => Value::Float(*w as f64),
-                    QueryValue::QuantumState(s) => Value::Text(s.clone()),
+                    | QueryValue::Null => Value::Null,
+                    | QueryValue::Boolean(b) => Value::Boolean(*b),
+                    | QueryValue::Integer(i) => Value::Integer(*i),
+                    | QueryValue::Float(f) => Value::Float(*f),
+                    | QueryValue::String(s) => Value::Text(s.clone()),
+                    | QueryValue::Blob(b) => Value::Binary(b.clone()),
+                    | QueryValue::DNASequence(s) => Value::Text(s.clone()),
+                    | QueryValue::SynapticWeight(w) => Value::Float(*w as f64),
+                    | QueryValue::QuantumState(s) => Value::Text(s.clone()),
                 };
                 fields.insert(col.clone(), value);
             }
@@ -1917,11 +1929,11 @@ impl QueryExecutor {
     /// Hash join is most efficient for equi-joins
     fn is_equi_join_condition(condition: Option<&Expression>) -> bool {
         match condition {
-            Some(Expression::BinaryOp {
+            | Some(Expression::BinaryOp {
                 operator: BinaryOperator::Equal,
                 ..
             }) => true,
-            Some(Expression::BinaryOp {
+            | Some(Expression::BinaryOp {
                 operator: BinaryOperator::And,
                 left,
                 right,
@@ -1929,8 +1941,8 @@ impl QueryExecutor {
                 // Check if all AND conditions are equi-joins
                 Self::is_equi_join_condition(Some(left))
                     && Self::is_equi_join_condition(Some(right))
-            }
-            _ => false,
+            },
+            | _ => false,
         }
     }
 
@@ -1947,7 +1959,7 @@ impl QueryExecutor {
         let mut result = Vec::new();
 
         match join_type {
-            JoinType::Inner => {
+            | JoinType::Inner => {
                 // INNER JOIN: Only matching rows
                 for left_row in &left_rows {
                     for right_row in &right_rows {
@@ -1964,8 +1976,8 @@ impl QueryExecutor {
                         }
                     }
                 }
-            }
-            JoinType::Left => {
+            },
+            | JoinType::Left => {
                 // LEFT JOIN: All left rows, matching right rows or NULLs
                 for left_row in &left_rows {
                     let mut found_match = false;
@@ -1995,8 +2007,8 @@ impl QueryExecutor {
                         result.push(merged);
                     }
                 }
-            }
-            JoinType::Right => {
+            },
+            | JoinType::Right => {
                 // RIGHT JOIN: All right rows, matching left rows or NULLs
                 for right_row in &right_rows {
                     let mut found_match = false;
@@ -2026,8 +2038,8 @@ impl QueryExecutor {
                         result.push(merged);
                     }
                 }
-            }
-            JoinType::Full => {
+            },
+            | JoinType::Full => {
                 // FULL OUTER JOIN: All rows from both sides
                 let mut matched_right_indices = std::collections::HashSet::new();
 
@@ -2073,8 +2085,8 @@ impl QueryExecutor {
                         result.push(merged);
                     }
                 }
-            }
-            JoinType::Cross => {
+            },
+            | JoinType::Cross => {
                 // CROSS JOIN: Cartesian product
                 for left_row in &left_rows {
                     for right_row in &right_rows {
@@ -2082,12 +2094,12 @@ impl QueryExecutor {
                         result.push(merged);
                     }
                 }
-            }
-            _ => {
+            },
+            | _ => {
                 return Err(QSQLError::ExecutionError {
                     message: format!("Unsupported join type: {:?}", join_type),
                 });
-            }
+            },
         }
 
         Ok(result)
@@ -2248,7 +2260,7 @@ impl QueryExecutor {
         keys: &mut Vec<(String, String)>,
     ) -> QSQLResult<()> {
         match expr {
-            Expression::BinaryOp {
+            | Expression::BinaryOp {
                 left,
                 operator: BinaryOperator::Equal,
                 right,
@@ -2288,8 +2300,8 @@ impl QueryExecutor {
 
                     keys.push((left_key, right_key));
                 }
-            }
-            Expression::BinaryOp {
+            },
+            | Expression::BinaryOp {
                 left,
                 operator: BinaryOperator::And,
                 right,
@@ -2297,8 +2309,8 @@ impl QueryExecutor {
                 // Recursively process AND conditions
                 Self::collect_join_keys(left, left_alias, right_alias, keys)?;
                 Self::collect_join_keys(right, left_alias, right_alias, keys)?;
-            }
-            _ => {}
+            },
+            | _ => {},
         }
         Ok(())
     }
@@ -2339,13 +2351,13 @@ impl QueryExecutor {
     /// Convert a Value to a string suitable for use as a hash key
     fn value_to_key_string(value: &Value) -> String {
         match value {
-            Value::Integer(i) => i.to_string(),
-            Value::Float(f) => f.to_string(),
-            Value::Text(s) => s.clone(),
-            Value::Boolean(b) => b.to_string(),
-            Value::Null => "NULL".to_string(),
-            Value::Timestamp(ts) => ts.to_rfc3339(),
-            Value::Binary(b) => format!("{:?}", b),
+            | Value::Integer(i) => i.to_string(),
+            | Value::Float(f) => f.to_string(),
+            | Value::Text(s) => s.clone(),
+            | Value::Boolean(b) => b.to_string(),
+            | Value::Null => "NULL".to_string(),
+            | Value::Timestamp(ts) => ts.to_rfc3339(),
+            | Value::Binary(b) => format!("{:?}", b),
         }
     }
 
@@ -2374,12 +2386,12 @@ impl QueryExecutor {
         expr: &Expression,
     ) -> QSQLResult<bool> {
         match expr {
-            Expression::BinaryOp {
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
             } => match operator {
-                BinaryOperator::And => {
+                | BinaryOperator::And => {
                     let left_result = Self::evaluate_join_expression(
                         left_row,
                         left_alias,
@@ -2395,8 +2407,8 @@ impl QueryExecutor {
                         right,
                     )?;
                     Ok(left_result && right_result)
-                }
-                BinaryOperator::Or => {
+                },
+                | BinaryOperator::Or => {
                     let left_result = Self::evaluate_join_expression(
                         left_row,
                         left_alias,
@@ -2412,17 +2424,17 @@ impl QueryExecutor {
                         right,
                     )?;
                     Ok(left_result || right_result)
-                }
-                BinaryOperator::Equal => {
+                },
+                | BinaryOperator::Equal => {
                     let left_val =
                         Self::get_join_value(left_row, left_alias, right_row, right_alias, left)?;
                     let right_val =
                         Self::get_join_value(left_row, left_alias, right_row, right_alias, right)?;
                     Ok(Self::values_equal(&left_val, &right_val))
-                }
-                _ => Ok(false),
+                },
+                | _ => Ok(false),
             },
-            _ => Ok(false),
+            | _ => Ok(false),
         }
     }
 
@@ -2435,7 +2447,7 @@ impl QueryExecutor {
         expr: &Expression,
     ) -> QSQLResult<Value> {
         match expr {
-            Expression::Identifier(name) => {
+            | Expression::Identifier(name) => {
                 // Handle qualified names like "u.id" or unqualified names like "id"
                 if let Some((table, col)) = name.split_once('.') {
                     if table == left_alias {
@@ -2462,11 +2474,11 @@ impl QueryExecutor {
                 Err(QSQLError::ExecutionError {
                     message: format!("Column {} not found in any table", name),
                 })
-            }
-            Expression::Literal(lit) => {
+            },
+            | Expression::Literal(lit) => {
                 Self::convert_expression_to_value_static(&Expression::Literal(lit.clone()))
-            }
-            _ => Err(QSQLError::ExecutionError {
+            },
+            | _ => Err(QSQLError::ExecutionError {
                 message: "Unsupported expression in JOIN condition".to_string(),
             }),
         }
@@ -2563,13 +2575,13 @@ impl QueryExecutor {
                 let b_val = b.fields.get(&col_name);
 
                 let cmp = match (a_val, b_val) {
-                    (Some(Value::Integer(a)), Some(Value::Integer(b))) => a.cmp(b),
-                    (Some(Value::Float(a)), Some(Value::Float(b))) => {
+                    | (Some(Value::Integer(a)), Some(Value::Integer(b))) => a.cmp(b),
+                    | (Some(Value::Float(a)), Some(Value::Float(b))) => {
                         a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-                    }
-                    (Some(Value::Text(a)), Some(Value::Text(b))) => a.cmp(b),
-                    (Some(Value::Boolean(a)), Some(Value::Boolean(b))) => a.cmp(b),
-                    _ => std::cmp::Ordering::Equal,
+                    },
+                    | (Some(Value::Text(a)), Some(Value::Text(b))) => a.cmp(b),
+                    | (Some(Value::Boolean(a)), Some(Value::Boolean(b))) => a.cmp(b),
+                    | _ => std::cmp::Ordering::Equal,
                 };
 
                 if cmp != std::cmp::Ordering::Equal {
@@ -3170,16 +3182,16 @@ impl QueryExecutor {
 
         // Format output based on format
         let output = match explain.format {
-            ExplainFormat::Text => generator.format_text(&explain_plan),
-            ExplainFormat::Json => generator.format_json(&explain_plan)?,
-            ExplainFormat::Yaml => generator.format_yaml(&explain_plan)?,
-            ExplainFormat::Xml => {
+            | ExplainFormat::Text => generator.format_text(&explain_plan),
+            | ExplainFormat::Json => generator.format_json(&explain_plan)?,
+            | ExplainFormat::Yaml => generator.format_yaml(&explain_plan)?,
+            | ExplainFormat::Xml => {
                 // Simple XML wrapper (full XML support could be added later)
                 format!(
                     "<explain>{}</explain>",
                     generator.format_text(&explain_plan)
                 )
-            }
+            },
         };
 
         // Return as a single-row result
@@ -3318,26 +3330,26 @@ impl QueryExecutor {
             .map(|col| {
                 // Convert data type
                 let data_type = match col.data_type {
-                    DataType::Integer => neuroquantum_core::storage::DataType::Integer,
-                    DataType::BigInt => neuroquantum_core::storage::DataType::Integer,
-                    DataType::SmallInt => neuroquantum_core::storage::DataType::Integer,
-                    DataType::Real | DataType::Double => {
+                    | DataType::Integer => neuroquantum_core::storage::DataType::Integer,
+                    | DataType::BigInt => neuroquantum_core::storage::DataType::Integer,
+                    | DataType::SmallInt => neuroquantum_core::storage::DataType::Integer,
+                    | DataType::Real | DataType::Double => {
                         neuroquantum_core::storage::DataType::Float
-                    }
-                    DataType::Text
+                    },
+                    | DataType::Text
                     | DataType::VarChar(_)
                     | DataType::Varchar(_)
                     | DataType::Char(_) => neuroquantum_core::storage::DataType::Text,
-                    DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
-                    DataType::Timestamp | DataType::Date | DataType::Time => {
+                    | DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
+                    | DataType::Timestamp | DataType::Date | DataType::Time => {
                         neuroquantum_core::storage::DataType::Timestamp
-                    }
-                    DataType::Blob => neuroquantum_core::storage::DataType::Binary,
-                    DataType::Serial | DataType::BigSerial | DataType::SmallSerial => {
+                    },
+                    | DataType::Blob => neuroquantum_core::storage::DataType::Binary,
+                    | DataType::Serial | DataType::BigSerial | DataType::SmallSerial => {
                         neuroquantum_core::storage::DataType::Integer
-                    }
-                    DataType::Decimal(_, _) => neuroquantum_core::storage::DataType::Float,
-                    _ => neuroquantum_core::storage::DataType::Text,
+                    },
+                    | DataType::Decimal(_, _) => neuroquantum_core::storage::DataType::Float,
+                    | _ => neuroquantum_core::storage::DataType::Text,
                 };
 
                 // Check constraints for NOT NULL and DEFAULT
@@ -3411,7 +3423,7 @@ impl QueryExecutor {
         let result = storage.create_table(schema).await;
 
         match result {
-            Ok(()) => Ok(QueryResult {
+            | Ok(()) => Ok(QueryResult {
                 rows: vec![],
                 columns: vec![],
                 execution_time: Duration::from_millis(10),
@@ -3420,7 +3432,7 @@ impl QueryExecutor {
                 synaptic_pathways_used: 0,
                 quantum_operations: 0,
             }),
-            Err(e) => {
+            | Err(e) => {
                 // Check if it's a "table already exists" error and if_not_exists is true
                 let error_msg = e.to_string().to_lowercase();
                 if (error_msg.contains("already exists") || error_msg.contains("exist"))
@@ -3441,7 +3453,7 @@ impl QueryExecutor {
                         message: format!("Failed to create table: {}", e),
                     })
                 }
-            }
+            },
         }
     }
 
@@ -3464,7 +3476,7 @@ impl QueryExecutor {
         let result = storage.drop_table(&drop.table_name, drop.if_exists).await;
 
         match result {
-            Ok(()) => Ok(QueryResult {
+            | Ok(()) => Ok(QueryResult {
                 rows: vec![],
                 columns: vec![],
                 execution_time: Duration::from_millis(10),
@@ -3473,13 +3485,13 @@ impl QueryExecutor {
                 synaptic_pathways_used: 0,
                 quantum_operations: 0,
             }),
-            Err(e) => {
+            | Err(e) => {
                 // If the table doesn't exist and IF EXISTS was specified,
                 // the storage engine will return Ok(()) - so this is a real error
                 Err(QSQLError::ExecutionError {
                     message: format!("Failed to drop table: {}", e),
                 })
-            }
+            },
         }
     }
 
@@ -3499,7 +3511,7 @@ impl QueryExecutor {
 
         // Convert AST operation to storage operation
         let storage_op = match &alter.operation {
-            AlterTableOperation::AddColumn { column } => {
+            | AlterTableOperation::AddColumn { column } => {
                 // Extract nullable and default value from constraints
                 let mut nullable = true;
                 let mut default_value = None;
@@ -3507,12 +3519,12 @@ impl QueryExecutor {
 
                 for constraint in &column.constraints {
                     match constraint {
-                        ColumnConstraint::NotNull => nullable = false,
-                        ColumnConstraint::Default(expr) => {
+                        | ColumnConstraint::NotNull => nullable = false,
+                        | ColumnConstraint::Default(expr) => {
                             default_value = Some(Self::convert_default_value(expr));
-                        }
-                        ColumnConstraint::AutoIncrement => auto_increment = true,
-                        _ => {}
+                        },
+                        | ColumnConstraint::AutoIncrement => auto_increment = true,
+                        | _ => {},
                     }
                 }
 
@@ -3527,19 +3539,19 @@ impl QueryExecutor {
                 neuroquantum_core::storage::AlterTableOp::AddColumn {
                     column: storage_column,
                 }
-            }
-            AlterTableOperation::DropColumn { column_name } => {
+            },
+            | AlterTableOperation::DropColumn { column_name } => {
                 neuroquantum_core::storage::AlterTableOp::DropColumn {
                     column_name: column_name.clone(),
                 }
-            }
-            AlterTableOperation::RenameColumn { old_name, new_name } => {
+            },
+            | AlterTableOperation::RenameColumn { old_name, new_name } => {
                 neuroquantum_core::storage::AlterTableOp::RenameColumn {
                     old_name: old_name.clone(),
                     new_name: new_name.clone(),
                 }
-            }
-            AlterTableOperation::ModifyColumn {
+            },
+            | AlterTableOperation::ModifyColumn {
                 column_name,
                 new_data_type,
                 using_expression: _,
@@ -3572,53 +3584,53 @@ impl QueryExecutor {
     /// Convert AST DataType to storage DataType
     fn convert_data_type(ast_type: &DataType) -> neuroquantum_core::storage::DataType {
         match ast_type {
-            DataType::Integer | DataType::BigInt | DataType::SmallInt => {
+            | DataType::Integer | DataType::BigInt | DataType::SmallInt => {
                 neuroquantum_core::storage::DataType::Integer
-            }
-            DataType::Real | DataType::Double | DataType::Decimal(_, _) => {
+            },
+            | DataType::Real | DataType::Double | DataType::Decimal(_, _) => {
                 neuroquantum_core::storage::DataType::Float
-            }
-            DataType::VarChar(_) | DataType::Varchar(_) | DataType::Char(_) | DataType::Text => {
+            },
+            | DataType::VarChar(_) | DataType::Varchar(_) | DataType::Char(_) | DataType::Text => {
                 neuroquantum_core::storage::DataType::Text
-            }
-            DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
-            DataType::Timestamp | DataType::Date | DataType::Time => {
+            },
+            | DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
+            | DataType::Timestamp | DataType::Date | DataType::Time => {
                 neuroquantum_core::storage::DataType::Timestamp
-            }
-            DataType::Blob => neuroquantum_core::storage::DataType::Binary,
-            DataType::Serial => neuroquantum_core::storage::DataType::Serial,
-            DataType::BigSerial => neuroquantum_core::storage::DataType::BigSerial,
-            DataType::SmallSerial => neuroquantum_core::storage::DataType::Serial,
+            },
+            | DataType::Blob => neuroquantum_core::storage::DataType::Binary,
+            | DataType::Serial => neuroquantum_core::storage::DataType::Serial,
+            | DataType::BigSerial => neuroquantum_core::storage::DataType::BigSerial,
+            | DataType::SmallSerial => neuroquantum_core::storage::DataType::Serial,
             // Neuromorphic types map to their storage equivalents
-            DataType::DNASequence | DataType::NeuralPattern => {
+            | DataType::DNASequence | DataType::NeuralPattern => {
                 neuroquantum_core::storage::DataType::Binary
-            }
-            DataType::SynapticWeight => neuroquantum_core::storage::DataType::Float,
-            DataType::PlasticityMatrix => neuroquantum_core::storage::DataType::Binary,
+            },
+            | DataType::SynapticWeight => neuroquantum_core::storage::DataType::Float,
+            | DataType::PlasticityMatrix => neuroquantum_core::storage::DataType::Binary,
             // Quantum types map to their storage equivalents
-            DataType::QuantumBit | DataType::QuantumRegister(_) => {
+            | DataType::QuantumBit | DataType::QuantumRegister(_) => {
                 neuroquantum_core::storage::DataType::Integer
-            }
-            DataType::SuperpositionState | DataType::EntanglementPair => {
+            },
+            | DataType::SuperpositionState | DataType::EntanglementPair => {
                 neuroquantum_core::storage::DataType::Binary
-            }
+            },
         }
     }
 
     /// Convert AST Expression default value to storage Value
     fn convert_default_value(expr: &Expression) -> Value {
         match expr {
-            Expression::Literal(lit) => match lit {
-                Literal::Integer(i) => Value::Integer(*i),
-                Literal::Float(f) => Value::Float(*f),
-                Literal::String(s) => Value::Text(s.clone()),
-                Literal::Boolean(b) => Value::Boolean(*b),
-                Literal::Null => Value::Null,
+            | Expression::Literal(lit) => match lit {
+                | Literal::Integer(i) => Value::Integer(*i),
+                | Literal::Float(f) => Value::Float(*f),
+                | Literal::String(s) => Value::Text(s.clone()),
+                | Literal::Boolean(b) => Value::Boolean(*b),
+                | Literal::Null => Value::Null,
                 // For complex types, use Text representation
-                _ => Value::Text(format!("{:?}", lit)),
+                | _ => Value::Text(format!("{:?}", lit)),
             },
             // For non-literal expressions, use Text representation as fallback
-            _ => Value::Text(format!("{:?}", expr)),
+            | _ => Value::Text(format!("{:?}", expr)),
         }
     }
 
@@ -3691,22 +3703,22 @@ impl QueryExecutor {
         // TODO: When foreign key constraints are implemented, check for referencing tables
         // For now, we log the CASCADE behavior but proceed with the truncation
         match &truncate.behavior {
-            TruncateBehavior::Cascade => {
+            | TruncateBehavior::Cascade => {
                 // CASCADE: Would also truncate referencing tables
                 // Currently, foreign key constraints are not enforced, so we just log this
                 tracing::debug!(
                     "TRUNCATE TABLE {} CASCADE - foreign key constraints not yet enforced",
                     truncate.table_name
                 );
-            }
-            TruncateBehavior::Restrict => {
+            },
+            | TruncateBehavior::Restrict => {
                 // RESTRICT: Would error if there are referencing tables
                 // Currently, foreign key constraints are not enforced
                 tracing::debug!(
                     "TRUNCATE TABLE {} RESTRICT - foreign key constraints not yet enforced",
                     truncate.table_name
                 );
-            }
+            },
         }
 
         // Delete all rows from the table
@@ -3806,7 +3818,7 @@ impl QueryExecutor {
 
         // Apply compression based on algorithm
         match &compress.algorithm {
-            CompressionAlgorithm::DNA => {
+            | CompressionAlgorithm::DNA => {
                 // DNA compression is always active in the storage engine
                 // This statement serves to explicitly trigger compression optimization
                 // and return compression statistics
@@ -3909,7 +3921,7 @@ impl QueryExecutor {
                     synaptic_pathways_used: 0,
                     quantum_operations: 0,
                 })
-            }
+            },
         }
     }
 
@@ -3931,16 +3943,16 @@ impl QueryExecutor {
 
         // Parse isolation level (default to ReadCommitted)
         let isolation_level = match begin.isolation_level.as_deref() {
-            Some("READ UNCOMMITTED") => IsolationLevel::ReadUncommitted,
-            Some("READ COMMITTED") => IsolationLevel::ReadCommitted,
-            Some("REPEATABLE READ") => IsolationLevel::RepeatableRead,
-            Some("SERIALIZABLE") => IsolationLevel::Serializable,
-            None => IsolationLevel::ReadCommitted,
-            Some(level) => {
+            | Some("READ UNCOMMITTED") => IsolationLevel::ReadUncommitted,
+            | Some("READ COMMITTED") => IsolationLevel::ReadCommitted,
+            | Some("REPEATABLE READ") => IsolationLevel::RepeatableRead,
+            | Some("SERIALIZABLE") => IsolationLevel::Serializable,
+            | None => IsolationLevel::ReadCommitted,
+            | Some(level) => {
                 return Err(QSQLError::ExecutionError {
                     message: format!("Unknown isolation level: {}", level),
                 });
-            }
+            },
         };
 
         // Prefer using storage engine's transaction manager for consistency
@@ -4318,7 +4330,7 @@ impl QueryExecutor {
 
             // Handle Expression::Default - lookup the default value from schema
             let value = match expr {
-                Expression::Default => {
+                | Expression::Default => {
                     // Find the default value from schema
                     if let Some(s) = schema {
                         if let Some(col_def) = s.columns.iter().find(|c| &c.name == column_name) {
@@ -4329,13 +4341,13 @@ impl QueryExecutor {
                     } else {
                         Value::Null
                     }
-                }
-                Expression::FunctionCall { name, .. }
+                },
+                | Expression::FunctionCall { name, .. }
                     if name.to_uppercase() == "CURRENT_TIMESTAMP" =>
                 {
                     Value::Timestamp(Utc::now())
-                }
-                _ => Self::convert_expression_to_value_static(expr)?,
+                },
+                | _ => Self::convert_expression_to_value_static(expr)?,
             };
             fields.insert(column_name.clone(), value);
         }
@@ -4589,7 +4601,7 @@ impl QueryExecutor {
     /// Check if an expression references any of the outer table aliases
     fn expression_references_outer_aliases(expr: &Expression, outer_aliases: &[String]) -> bool {
         match expr {
-            Expression::Identifier(name) => {
+            | Expression::Identifier(name) => {
                 // Check if identifier is qualified with an outer alias (e.g., "u.id")
                 for alias in outer_aliases {
                     if name.starts_with(&format!("{}.", alias)) {
@@ -4597,24 +4609,24 @@ impl QueryExecutor {
                     }
                 }
                 false
-            }
-            Expression::BinaryOp { left, right, .. } => {
+            },
+            | Expression::BinaryOp { left, right, .. } => {
                 Self::expression_references_outer_aliases(left, outer_aliases)
                     || Self::expression_references_outer_aliases(right, outer_aliases)
-            }
-            Expression::UnaryOp { operand, .. } => {
+            },
+            | Expression::UnaryOp { operand, .. } => {
                 Self::expression_references_outer_aliases(operand, outer_aliases)
-            }
-            Expression::FunctionCall { args, .. } => args
+            },
+            | Expression::FunctionCall { args, .. } => args
                 .iter()
                 .any(|arg| Self::expression_references_outer_aliases(arg, outer_aliases)),
-            Expression::InList { expr, list, .. } => {
+            | Expression::InList { expr, list, .. } => {
                 Self::expression_references_outer_aliases(expr, outer_aliases)
                     || list
                         .iter()
                         .any(|e| Self::expression_references_outer_aliases(e, outer_aliases))
-            }
-            Expression::Case {
+            },
+            | Expression::Case {
                 when_clauses,
                 else_result,
             } => {
@@ -4624,18 +4636,18 @@ impl QueryExecutor {
                 }) || else_result
                     .as_ref()
                     .is_some_and(|e| Self::expression_references_outer_aliases(e, outer_aliases))
-            }
-            Expression::ScalarSubquery { subquery } => {
+            },
+            | Expression::ScalarSubquery { subquery } => {
                 Self::is_correlated_subquery(subquery, outer_aliases)
-            }
-            Expression::Exists { subquery, .. } => {
+            },
+            | Expression::Exists { subquery, .. } => {
                 Self::is_correlated_subquery(subquery, outer_aliases)
-            }
-            Expression::InSubquery { expr, subquery, .. } => {
+            },
+            | Expression::InSubquery { expr, subquery, .. } => {
                 Self::expression_references_outer_aliases(expr, outer_aliases)
                     || Self::is_correlated_subquery(subquery, outer_aliases)
-            }
-            _ => false,
+            },
+            | _ => false,
         }
     }
 
@@ -4671,7 +4683,7 @@ impl QueryExecutor {
         outer_aliases: &[String],
     ) -> Expression {
         match expr {
-            Expression::Identifier(name) => {
+            | Expression::Identifier(name) => {
                 // Check if this is a qualified identifier referencing an outer alias
                 for alias in outer_aliases {
                     if name.starts_with(&format!("{}.", alias)) {
@@ -4690,8 +4702,8 @@ impl QueryExecutor {
                 }
                 // Not an outer reference, return as-is
                 expr.clone()
-            }
-            Expression::BinaryOp {
+            },
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
@@ -4708,7 +4720,7 @@ impl QueryExecutor {
                     outer_aliases,
                 )),
             },
-            Expression::UnaryOp { operator, operand } => Expression::UnaryOp {
+            | Expression::UnaryOp { operator, operand } => Expression::UnaryOp {
                 operator: operator.clone(),
                 operand: Box::new(Self::substitute_outer_row_values(
                     operand,
@@ -4716,14 +4728,14 @@ impl QueryExecutor {
                     outer_aliases,
                 )),
             },
-            Expression::FunctionCall { name, args } => Expression::FunctionCall {
+            | Expression::FunctionCall { name, args } => Expression::FunctionCall {
                 name: name.clone(),
                 args: args
                     .iter()
                     .map(|arg| Self::substitute_outer_row_values(arg, outer_row, outer_aliases))
                     .collect(),
             },
-            Expression::InList {
+            | Expression::InList {
                 expr,
                 list,
                 negated,
@@ -4739,7 +4751,7 @@ impl QueryExecutor {
                     .collect(),
                 negated: *negated,
             },
-            _ => expr.clone(),
+            | _ => expr.clone(),
         }
     }
 
@@ -4774,20 +4786,20 @@ impl QueryExecutor {
     /// Check if an expression contains an InList or InSubquery that needs post-filtering
     fn contains_in_list_expression(expr: &Expression) -> bool {
         match expr {
-            Expression::InList { .. } => true,
-            Expression::InSubquery { .. } => true,
-            Expression::BinaryOp { left, right, .. } => {
+            | Expression::InList { .. } => true,
+            | Expression::InSubquery { .. } => true,
+            | Expression::BinaryOp { left, right, .. } => {
                 Self::contains_in_list_expression(left) || Self::contains_in_list_expression(right)
-            }
-            Expression::UnaryOp { operand, .. } => Self::contains_in_list_expression(operand),
-            _ => false,
+            },
+            | Expression::UnaryOp { operand, .. } => Self::contains_in_list_expression(operand),
+            | _ => false,
         }
     }
 
     /// Evaluate a WHERE expression against a storage Row
     fn evaluate_where_expression(expr: &Expression, row: &Row) -> QSQLResult<bool> {
         match expr {
-            Expression::InList {
+            | Expression::InList {
                 expr: field_expr,
                 list,
                 negated,
@@ -4797,7 +4809,7 @@ impl QueryExecutor {
                 let field_value = row.fields.get(&field_name);
 
                 match field_value {
-                    Some(val) => {
+                    | Some(val) => {
                         // Check if field value matches any value in the list
                         let matches = list.iter().any(|list_item| {
                             if let Ok(list_val) =
@@ -4809,67 +4821,67 @@ impl QueryExecutor {
                             }
                         });
                         Ok(if *negated { !matches } else { matches })
-                    }
-                    None => Ok(*negated), // NULL NOT IN (...) is true, NULL IN (...) is false
+                    },
+                    | None => Ok(*negated), // NULL NOT IN (...) is true, NULL IN (...) is false
                 }
-            }
-            Expression::BinaryOp {
+            },
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
             } => {
                 match operator {
-                    BinaryOperator::And => {
+                    | BinaryOperator::And => {
                         let left_result = Self::evaluate_where_expression(left, row)?;
                         let right_result = Self::evaluate_where_expression(right, row)?;
                         Ok(left_result && right_result)
-                    }
-                    BinaryOperator::Or => {
+                    },
+                    | BinaryOperator::Or => {
                         let left_result = Self::evaluate_where_expression(left, row)?;
                         let right_result = Self::evaluate_where_expression(right, row)?;
                         Ok(left_result || right_result)
-                    }
-                    _ => {
+                    },
+                    | _ => {
                         // For other operators, evaluate as a simple comparison
                         if let Expression::Identifier(field) = left.as_ref() {
                             let field_value = row.fields.get(field);
                             let compare_value = Self::convert_expression_to_value_static(right)?;
 
                             match field_value {
-                                Some(val) => {
+                                | Some(val) => {
                                     Self::evaluate_comparison(val, operator, &compare_value)
-                                }
-                                None => Ok(false),
+                                },
+                                | None => Ok(false),
                             }
                         } else {
                             Ok(true) // Default to true for unsupported patterns
                         }
-                    }
+                    },
                 }
-            }
-            Expression::UnaryOp {
+            },
+            | Expression::UnaryOp {
                 operator: UnaryOperator::Not,
                 operand,
             } => {
                 let result = Self::evaluate_where_expression(operand, row)?;
                 Ok(!result)
-            }
-            _ => Ok(true), // Default to true for unsupported expressions
+            },
+            | _ => Ok(true), // Default to true for unsupported expressions
         }
     }
 
     /// Compare two Values for equality
     fn values_equal(a: &Value, b: &Value) -> bool {
         match (a, b) {
-            (Value::Integer(a), Value::Integer(b)) => a == b,
-            (Value::Float(a), Value::Float(b)) => (a - b).abs() < f64::EPSILON,
-            (Value::Text(a), Value::Text(b)) => a == b,
-            (Value::Boolean(a), Value::Boolean(b)) => a == b,
-            (Value::Null, Value::Null) => true,
+            | (Value::Integer(a), Value::Integer(b)) => a == b,
+            | (Value::Float(a), Value::Float(b)) => (a - b).abs() < f64::EPSILON,
+            | (Value::Text(a), Value::Text(b)) => a == b,
+            | (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            | (Value::Null, Value::Null) => true,
             // Handle cross-type comparisons
-            (Value::Integer(a), Value::Float(b)) => (*a as f64 - b).abs() < f64::EPSILON,
-            (Value::Float(a), Value::Integer(b)) => (a - *b as f64).abs() < f64::EPSILON,
-            _ => false,
+            | (Value::Integer(a), Value::Float(b)) => (*a as f64 - b).abs() < f64::EPSILON,
+            | (Value::Float(a), Value::Integer(b)) => (a - *b as f64).abs() < f64::EPSILON,
+            | _ => false,
         }
     }
 
@@ -4880,21 +4892,21 @@ impl QueryExecutor {
         compare_val: &Value,
     ) -> QSQLResult<bool> {
         match op {
-            BinaryOperator::Equal => Ok(Self::values_equal(field_val, compare_val)),
-            BinaryOperator::NotEqual => Ok(!Self::values_equal(field_val, compare_val)),
-            BinaryOperator::LessThan => {
+            | BinaryOperator::Equal => Ok(Self::values_equal(field_val, compare_val)),
+            | BinaryOperator::NotEqual => Ok(!Self::values_equal(field_val, compare_val)),
+            | BinaryOperator::LessThan => {
                 Self::compare_values_order(field_val, compare_val, |o| o.is_lt())
-            }
-            BinaryOperator::LessThanOrEqual => {
+            },
+            | BinaryOperator::LessThanOrEqual => {
                 Self::compare_values_order(field_val, compare_val, |o| o.is_le())
-            }
-            BinaryOperator::GreaterThan => {
+            },
+            | BinaryOperator::GreaterThan => {
                 Self::compare_values_order(field_val, compare_val, |o| o.is_gt())
-            }
-            BinaryOperator::GreaterThanOrEqual => {
+            },
+            | BinaryOperator::GreaterThanOrEqual => {
                 Self::compare_values_order(field_val, compare_val, |o| o.is_ge())
-            }
-            BinaryOperator::Like => {
+            },
+            | BinaryOperator::Like => {
                 if let (Value::Text(field_text), Value::Text(pattern)) = (field_val, compare_val) {
                     // Simple LIKE implementation: convert SQL pattern to contains check
                     let pattern_trimmed = pattern.trim_matches('%');
@@ -4902,16 +4914,16 @@ impl QueryExecutor {
                 } else {
                     Ok(false)
                 }
-            }
-            BinaryOperator::NotLike => {
+            },
+            | BinaryOperator::NotLike => {
                 if let (Value::Text(field_text), Value::Text(pattern)) = (field_val, compare_val) {
                     let pattern_trimmed = pattern.trim_matches('%');
                     Ok(!field_text.contains(pattern_trimmed))
                 } else {
                     Ok(true)
                 }
-            }
-            _ => Ok(true), // Default to true for unsupported operators
+            },
+            | _ => Ok(true), // Default to true for unsupported operators
         }
     }
 
@@ -4921,18 +4933,18 @@ impl QueryExecutor {
         F: Fn(std::cmp::Ordering) -> bool,
     {
         let ordering = match (a, b) {
-            (Value::Integer(a), Value::Integer(b)) => a.cmp(b),
-            (Value::Float(a), Value::Float(b)) => {
+            | (Value::Integer(a), Value::Integer(b)) => a.cmp(b),
+            | (Value::Float(a), Value::Float(b)) => {
                 a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-            }
-            (Value::Text(a), Value::Text(b)) => a.cmp(b),
-            (Value::Integer(a), Value::Float(b)) => (*a as f64)
+            },
+            | (Value::Text(a), Value::Text(b)) => a.cmp(b),
+            | (Value::Integer(a), Value::Float(b)) => (*a as f64)
                 .partial_cmp(b)
                 .unwrap_or(std::cmp::Ordering::Equal),
-            (Value::Float(a), Value::Integer(b)) => a
+            | (Value::Float(a), Value::Integer(b)) => a
                 .partial_cmp(&(*b as f64))
                 .unwrap_or(std::cmp::Ordering::Equal),
-            _ => return Ok(false),
+            | _ => return Ok(false),
         };
         Ok(pred(ordering))
     }
@@ -4957,12 +4969,12 @@ impl QueryExecutor {
     ) -> QSQLResult<Vec<Row>> {
         // Extract the pattern string from the expression
         let pattern = match &neuromatch.pattern {
-            Expression::Literal(Literal::String(s)) => s.clone(),
-            Expression::Identifier(id) => id.clone(),
-            _ => {
+            | Expression::Literal(Literal::String(s)) => s.clone(),
+            | Expression::Identifier(id) => id.clone(),
+            | _ => {
                 // For complex expressions, convert to string representation
                 Self::expression_to_string_static(&neuromatch.pattern)
-            }
+            },
         };
 
         let threshold = neuromatch.synaptic_weight;
@@ -5159,8 +5171,8 @@ impl QueryExecutor {
                 .select_list
                 .iter()
                 .map(|item| match item {
-                    SelectItem::Wildcard => "*".to_string(),
-                    SelectItem::Expression { expr, alias } => alias
+                    | SelectItem::Wildcard => "*".to_string(),
+                    | SelectItem::Expression { expr, alias } => alias
                         .clone()
                         .unwrap_or_else(|| Self::expression_to_string_static(expr)),
                 })
@@ -5207,26 +5219,26 @@ impl QueryExecutor {
     /// Convert Expression to storage Value (static)
     fn convert_expression_to_value_static(expr: &Expression) -> QSQLResult<Value> {
         match expr {
-            Expression::Literal(lit) => {
+            | Expression::Literal(lit) => {
                 match lit {
-                    Literal::Integer(i) => Ok(Value::Integer(*i)),
-                    Literal::Float(f) => Ok(Value::Float(*f)),
-                    Literal::String(s) => Ok(Value::Text(s.clone())),
-                    Literal::Boolean(b) => Ok(Value::Boolean(*b)),
-                    Literal::Null => Ok(Value::Null),
-                    Literal::DNA(sequence) => Ok(Value::Text(sequence.clone())), // Store DNA as text
-                    Literal::QuantumBit(state, amplitude) => {
+                    | Literal::Integer(i) => Ok(Value::Integer(*i)),
+                    | Literal::Float(f) => Ok(Value::Float(*f)),
+                    | Literal::String(s) => Ok(Value::Text(s.clone())),
+                    | Literal::Boolean(b) => Ok(Value::Boolean(*b)),
+                    | Literal::Null => Ok(Value::Null),
+                    | Literal::DNA(sequence) => Ok(Value::Text(sequence.clone())), // Store DNA as text
+                    | Literal::QuantumBit(state, amplitude) => {
                         // Store quantum bit as binary representation
                         let data = format!("QB:{}:{}", state, amplitude);
                         Ok(Value::Text(data))
-                    }
+                    },
                 }
-            }
-            Expression::Identifier(name) => {
+            },
+            | Expression::Identifier(name) => {
                 // For now, treat identifiers as text (could be enhanced later)
                 Ok(Value::Text(name.clone()))
-            }
-            _ => Err(QSQLError::ExecutionError {
+            },
+            | _ => Err(QSQLError::ExecutionError {
                 message: format!("Unsupported expression type in conversion: {:?}", expr),
             }),
         }
@@ -5245,14 +5257,14 @@ impl QueryExecutor {
         {
             if let Expression::Identifier(field) = left.as_ref() {
                 let op = match operator {
-                    BinaryOperator::Equal => ComparisonOperator::Equal,
-                    BinaryOperator::NotEqual => ComparisonOperator::NotEqual,
-                    BinaryOperator::LessThan => ComparisonOperator::LessThan,
-                    BinaryOperator::LessThanOrEqual => ComparisonOperator::LessThanOrEqual,
-                    BinaryOperator::GreaterThan => ComparisonOperator::GreaterThan,
-                    BinaryOperator::GreaterThanOrEqual => ComparisonOperator::GreaterThanOrEqual,
-                    BinaryOperator::Like => ComparisonOperator::Like,
-                    _ => ComparisonOperator::Equal,
+                    | BinaryOperator::Equal => ComparisonOperator::Equal,
+                    | BinaryOperator::NotEqual => ComparisonOperator::NotEqual,
+                    | BinaryOperator::LessThan => ComparisonOperator::LessThan,
+                    | BinaryOperator::LessThanOrEqual => ComparisonOperator::LessThanOrEqual,
+                    | BinaryOperator::GreaterThan => ComparisonOperator::GreaterThan,
+                    | BinaryOperator::GreaterThanOrEqual => ComparisonOperator::GreaterThanOrEqual,
+                    | BinaryOperator::Like => ComparisonOperator::Like,
+                    | _ => ComparisonOperator::Equal,
                 };
 
                 let value = Self::convert_expression_to_value_static(right)?;
@@ -5357,7 +5369,7 @@ impl QueryExecutor {
 
             for item in &select.select_list {
                 match item {
-                    SelectItem::Wildcard => {
+                    | SelectItem::Wildcard => {
                         // Add all columns from the row
                         for (col_name, value) in &storage_row.fields {
                             let query_value = self.storage_value_to_query_value(value);
@@ -5371,8 +5383,8 @@ impl QueryExecutor {
                                 });
                             }
                         }
-                    }
-                    SelectItem::Expression {
+                    },
+                    | SelectItem::Expression {
                         expr: Expression::ScalarSubquery { subquery },
                         alias,
                     } => {
@@ -5392,11 +5404,11 @@ impl QueryExecutor {
                         let value = self.execute_scalar_subquery(&substituted_subquery).await?;
                         let query_value = self.literal_to_query_value(&value);
                         let data_type = match &value {
-                            Literal::Integer(_) => DataType::BigInt,
-                            Literal::Float(_) => DataType::Double,
-                            Literal::String(_) => DataType::Text,
-                            Literal::Boolean(_) => DataType::Boolean,
-                            _ => DataType::Text,
+                            | Literal::Integer(_) => DataType::BigInt,
+                            | Literal::Float(_) => DataType::Double,
+                            | Literal::String(_) => DataType::Text,
+                            | Literal::Boolean(_) => DataType::Boolean,
+                            | _ => DataType::Text,
                         };
 
                         result_row.insert(result_name.clone(), query_value);
@@ -5408,8 +5420,8 @@ impl QueryExecutor {
                                 nullable: true,
                             });
                         }
-                    }
-                    SelectItem::Expression { expr, alias } => {
+                    },
+                    | SelectItem::Expression { expr, alias } => {
                         // Handle non-subquery expressions
                         let (result_name, query_value, data_type) =
                             self.evaluate_select_expression(expr, alias, &storage_row)?;
@@ -5423,7 +5435,7 @@ impl QueryExecutor {
                                 nullable: true,
                             });
                         }
-                    }
+                    },
                 }
             }
 
@@ -5458,7 +5470,7 @@ impl QueryExecutor {
         if let Expression::FunctionCall { name, args } = expr {
             let upper_name = name.to_uppercase();
             match upper_name.as_str() {
-                "COUNT" | "SUM" | "AVG" | "MIN" | "MAX" => {
+                | "COUNT" | "SUM" | "AVG" | "MIN" | "MAX" => {
                     // Check for COUNT(*)
                     let (column, distinct) = if args.is_empty() {
                         (None, false)
@@ -5466,7 +5478,7 @@ impl QueryExecutor {
                         // Check for DISTINCT
                         let first_arg = &args[0];
                         match first_arg {
-                            Expression::Identifier(col) => {
+                            | Expression::Identifier(col) => {
                                 // Check if it starts with "DISTINCT "
                                 if col.to_uppercase().starts_with("DISTINCT ") {
                                     let actual_col = col[9..].trim().to_string();
@@ -5474,9 +5486,9 @@ impl QueryExecutor {
                                 } else {
                                     (Some(col.clone()), false)
                                 }
-                            }
-                            Expression::Literal(Literal::String(s)) if s == "*" => (None, false),
-                            _ => (Some(Self::expression_to_string_static(first_arg)), false),
+                            },
+                            | Expression::Literal(Literal::String(s)) if s == "*" => (None, false),
+                            | _ => (Some(Self::expression_to_string_static(first_arg)), false),
                         }
                     };
 
@@ -5486,8 +5498,8 @@ impl QueryExecutor {
                         alias,
                         distinct,
                     })
-                }
-                _ => None,
+                },
+                | _ => None,
             }
         } else {
             None
@@ -5528,17 +5540,17 @@ impl QueryExecutor {
 
             // Determine data type based on aggregate function
             let data_type = match agg.name.as_str() {
-                "COUNT" => DataType::BigInt,
-                "AVG" => DataType::Double,
-                "SUM" | "MIN" | "MAX" => {
+                | "COUNT" => DataType::BigInt,
+                | "AVG" => DataType::Double,
+                | "SUM" | "MIN" | "MAX" => {
                     // Infer from the column type or default to Double
                     if let Some(col) = &agg.column {
                         self.infer_column_type_from_rows(storage_rows, col)
                     } else {
                         DataType::BigInt
                     }
-                }
-                _ => DataType::Double,
+                },
+                | _ => DataType::Double,
             };
 
             columns.push(ColumnInfo {
@@ -5568,7 +5580,7 @@ impl QueryExecutor {
 
             for item in select_list {
                 match item {
-                    SelectItem::Wildcard => {
+                    | SelectItem::Wildcard => {
                         // Add all columns from the row
                         for (col_name, value) in &storage_row.fields {
                             let query_value = self.storage_value_to_query_value(value);
@@ -5582,8 +5594,8 @@ impl QueryExecutor {
                                 });
                             }
                         }
-                    }
-                    SelectItem::Expression { expr, alias } => {
+                    },
+                    | SelectItem::Expression { expr, alias } => {
                         let (result_name, query_value, data_type) =
                             self.evaluate_select_expression(expr, alias, storage_row)?;
 
@@ -5596,7 +5608,7 @@ impl QueryExecutor {
                                 nullable: true,
                             });
                         }
-                    }
+                    },
                 }
             }
 
@@ -5625,7 +5637,7 @@ impl QueryExecutor {
 
             for item in select_list {
                 match item {
-                    SelectItem::Wildcard => {
+                    | SelectItem::Wildcard => {
                         // Add all columns from the row
                         for (col_name, value) in &storage_row.fields {
                             let query_value = self.storage_value_to_query_value(value);
@@ -5639,10 +5651,10 @@ impl QueryExecutor {
                                 });
                             }
                         }
-                    }
-                    SelectItem::Expression { expr, alias } => {
+                    },
+                    | SelectItem::Expression { expr, alias } => {
                         match expr {
-                            Expression::WindowFunction {
+                            | Expression::WindowFunction {
                                 function,
                                 args,
                                 over_clause,
@@ -5670,8 +5682,8 @@ impl QueryExecutor {
                                         nullable: true,
                                     });
                                 }
-                            }
-                            _ => {
+                            },
+                            | _ => {
                                 // Handle non-window function expressions
                                 let (result_name, query_value, data_type) =
                                     self.evaluate_select_expression(expr, alias, storage_row)?;
@@ -5685,9 +5697,9 @@ impl QueryExecutor {
                                         nullable: true,
                                     });
                                 }
-                            }
+                            },
                         }
-                    }
+                    },
                 }
             }
 
@@ -5701,21 +5713,21 @@ impl QueryExecutor {
     /// Convert window function to string for default naming
     fn window_function_to_string(function: &WindowFunctionType, args: &[Expression]) -> String {
         let func_name = match function {
-            WindowFunctionType::RowNumber => "ROW_NUMBER",
-            WindowFunctionType::Rank => "RANK",
-            WindowFunctionType::DenseRank => "DENSE_RANK",
-            WindowFunctionType::Lag => "LAG",
-            WindowFunctionType::Lead => "LEAD",
-            WindowFunctionType::Ntile => "NTILE",
-            WindowFunctionType::FirstValue => "FIRST_VALUE",
-            WindowFunctionType::LastValue => "LAST_VALUE",
-            WindowFunctionType::NthValue => "NTH_VALUE",
+            | WindowFunctionType::RowNumber => "ROW_NUMBER",
+            | WindowFunctionType::Rank => "RANK",
+            | WindowFunctionType::DenseRank => "DENSE_RANK",
+            | WindowFunctionType::Lag => "LAG",
+            | WindowFunctionType::Lead => "LEAD",
+            | WindowFunctionType::Ntile => "NTILE",
+            | WindowFunctionType::FirstValue => "FIRST_VALUE",
+            | WindowFunctionType::LastValue => "LAST_VALUE",
+            | WindowFunctionType::NthValue => "NTH_VALUE",
             // Phase 2: Aggregate window functions
-            WindowFunctionType::Sum => "SUM",
-            WindowFunctionType::Avg => "AVG",
-            WindowFunctionType::Count => "COUNT",
-            WindowFunctionType::Min => "MIN",
-            WindowFunctionType::Max => "MAX",
+            | WindowFunctionType::Sum => "SUM",
+            | WindowFunctionType::Avg => "AVG",
+            | WindowFunctionType::Count => "COUNT",
+            | WindowFunctionType::Min => "MIN",
+            | WindowFunctionType::Max => "MAX",
         };
 
         if args.is_empty() {
@@ -5732,20 +5744,20 @@ impl QueryExecutor {
     /// matches the source column. This returns a default for metadata purposes.
     fn infer_window_function_type(&self, function: &WindowFunctionType) -> DataType {
         match function {
-            WindowFunctionType::RowNumber
+            | WindowFunctionType::RowNumber
             | WindowFunctionType::Rank
             | WindowFunctionType::DenseRank
             | WindowFunctionType::Ntile
             | WindowFunctionType::Count => DataType::BigInt,
             // AVG always returns a floating point value
-            WindowFunctionType::Avg => DataType::Double,
+            | WindowFunctionType::Avg => DataType::Double,
             // SUM, MIN, MAX return based on input type - default to numeric
-            WindowFunctionType::Sum | WindowFunctionType::Min | WindowFunctionType::Max => {
+            | WindowFunctionType::Sum | WindowFunctionType::Min | WindowFunctionType::Max => {
                 DataType::Double
-            }
+            },
             // Value functions return the type of their input column
             // Default to Text for metadata; actual values preserve their original type
-            WindowFunctionType::Lag
+            | WindowFunctionType::Lag
             | WindowFunctionType::Lead
             | WindowFunctionType::FirstValue
             | WindowFunctionType::LastValue
@@ -5777,12 +5789,12 @@ impl QueryExecutor {
             .unwrap_or(0);
 
         match function {
-            WindowFunctionType::RowNumber => {
+            | WindowFunctionType::RowNumber => {
                 // ROW_NUMBER() - sequential row number within partition
                 Ok(QueryValue::Integer((position_in_partition + 1) as i64))
-            }
+            },
 
-            WindowFunctionType::Rank => {
+            | WindowFunctionType::Rank => {
                 // RANK() - rank with gaps for ties
                 let rank = self.compute_rank(
                     &sorted_partition,
@@ -5791,9 +5803,9 @@ impl QueryExecutor {
                     false,
                 )?;
                 Ok(QueryValue::Integer(rank))
-            }
+            },
 
-            WindowFunctionType::DenseRank => {
+            | WindowFunctionType::DenseRank => {
                 // DENSE_RANK() - rank without gaps for ties
                 let rank = self.compute_rank(
                     &sorted_partition,
@@ -5802,14 +5814,14 @@ impl QueryExecutor {
                     true,
                 )?;
                 Ok(QueryValue::Integer(rank))
-            }
+            },
 
-            WindowFunctionType::Lag => {
+            | WindowFunctionType::Lag => {
                 // LAG(column, offset, default)
                 let offset = if args.len() > 1 {
                     match self.evaluate_expression_value(&args[1], current_row)? {
-                        QueryValue::Integer(i) => i as usize,
-                        _ => 1,
+                        | QueryValue::Integer(i) => i as usize,
+                        | _ => 1,
                     }
                 } else {
                     1
@@ -5831,14 +5843,14 @@ impl QueryExecutor {
                 } else {
                     Ok(default_value)
                 }
-            }
+            },
 
-            WindowFunctionType::Lead => {
+            | WindowFunctionType::Lead => {
                 // LEAD(column, offset, default)
                 let offset = if args.len() > 1 {
                     match self.evaluate_expression_value(&args[1], current_row)? {
-                        QueryValue::Integer(i) => i as usize,
-                        _ => 1,
+                        | QueryValue::Integer(i) => i as usize,
+                        | _ => 1,
                     }
                 } else {
                     1
@@ -5860,14 +5872,14 @@ impl QueryExecutor {
                 } else {
                     Ok(default_value)
                 }
-            }
+            },
 
-            WindowFunctionType::Ntile => {
+            | WindowFunctionType::Ntile => {
                 // NTILE(n) - distribute rows into n buckets
                 let n = if !args.is_empty() {
                     match self.evaluate_expression_value(&args[0], current_row)? {
-                        QueryValue::Integer(i) => i.max(1) as usize,
-                        _ => 1,
+                        | QueryValue::Integer(i) => i.max(1) as usize,
+                        | _ => 1,
                     }
                 } else {
                     1
@@ -5897,9 +5909,9 @@ impl QueryExecutor {
                     }
                 };
                 Ok(QueryValue::Integer(bucket as i64))
-            }
+            },
 
-            WindowFunctionType::FirstValue => {
+            | WindowFunctionType::FirstValue => {
                 // FIRST_VALUE(column) - first value in the window
                 if let Some(first_row) = sorted_partition.first() {
                     if !args.is_empty() {
@@ -5910,9 +5922,9 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Null)
                 }
-            }
+            },
 
-            WindowFunctionType::LastValue => {
+            | WindowFunctionType::LastValue => {
                 // LAST_VALUE(column) - last value in the window
                 if let Some(last_row) = sorted_partition.last() {
                     if !args.is_empty() {
@@ -5923,14 +5935,14 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Null)
                 }
-            }
+            },
 
-            WindowFunctionType::NthValue => {
+            | WindowFunctionType::NthValue => {
                 // NTH_VALUE(column, n) - nth value in the window
                 let n = if args.len() > 1 {
                     match self.evaluate_expression_value(&args[1], current_row)? {
-                        QueryValue::Integer(i) => (i.max(1) - 1) as usize, // Convert to 0-based index
-                        _ => 0,
+                        | QueryValue::Integer(i) => (i.max(1) - 1) as usize, // Convert to 0-based index
+                        | _ => 0,
                     }
                 } else {
                     0
@@ -5946,10 +5958,10 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Null)
                 }
-            }
+            },
 
             // Phase 2: Aggregate Window Functions
-            WindowFunctionType::Sum => {
+            | WindowFunctionType::Sum => {
                 // SUM(column) OVER (...) - sum of column values in partition
                 if args.is_empty() {
                     return Err(QSQLError::ExecutionError {
@@ -5965,17 +5977,17 @@ impl QueryExecutor {
                 for row in &sorted_partition {
                     let val = self.evaluate_expression_value(&args[0], row)?;
                     match val {
-                        QueryValue::Integer(i) => {
+                        | QueryValue::Integer(i) => {
                             sum_int += i;
                             count += 1;
-                        }
-                        QueryValue::Float(f) => {
+                        },
+                        | QueryValue::Float(f) => {
                             sum_float += f;
                             has_float = true;
                             count += 1;
-                        }
-                        QueryValue::Null => {} // Ignore NULL values
-                        _ => {}                // Ignore non-numeric values
+                        },
+                        | QueryValue::Null => {}, // Ignore NULL values
+                        | _ => {},                // Ignore non-numeric values
                     }
                 }
 
@@ -5986,9 +5998,9 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Integer(sum_int))
                 }
-            }
+            },
 
-            WindowFunctionType::Avg => {
+            | WindowFunctionType::Avg => {
                 // AVG(column) OVER (...) - average of column values in partition
                 if args.is_empty() {
                     return Err(QSQLError::ExecutionError {
@@ -6002,16 +6014,16 @@ impl QueryExecutor {
                 for row in &sorted_partition {
                     let val = self.evaluate_expression_value(&args[0], row)?;
                     match val {
-                        QueryValue::Integer(i) => {
+                        | QueryValue::Integer(i) => {
                             sum += i as f64;
                             count += 1;
-                        }
-                        QueryValue::Float(f) => {
+                        },
+                        | QueryValue::Float(f) => {
                             sum += f;
                             count += 1;
-                        }
-                        QueryValue::Null => {} // Ignore NULL values
-                        _ => {}                // Ignore non-numeric values
+                        },
+                        | QueryValue::Null => {}, // Ignore NULL values
+                        | _ => {},                // Ignore non-numeric values
                     }
                 }
 
@@ -6020,9 +6032,9 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Float(sum / count as f64))
                 }
-            }
+            },
 
-            WindowFunctionType::Count => {
+            | WindowFunctionType::Count => {
                 // COUNT(*|column) OVER (...) - count of rows/values in partition
                 if args.is_empty() {
                     // COUNT(*) - count all rows in partition
@@ -6045,9 +6057,9 @@ impl QueryExecutor {
                     }
                     Ok(QueryValue::Integer(count))
                 }
-            }
+            },
 
-            WindowFunctionType::Min => {
+            | WindowFunctionType::Min => {
                 // MIN(column) OVER (...) - minimum value in partition
                 if args.is_empty() {
                     return Err(QSQLError::ExecutionError {
@@ -6064,15 +6076,15 @@ impl QueryExecutor {
                     }
 
                     min_value = Some(match min_value {
-                        None => val,
-                        Some(existing) => self.min_query_value(existing, val),
+                        | None => val,
+                        | Some(existing) => self.min_query_value(existing, val),
                     });
                 }
 
                 Ok(min_value.unwrap_or(QueryValue::Null))
-            }
+            },
 
-            WindowFunctionType::Max => {
+            | WindowFunctionType::Max => {
                 // MAX(column) OVER (...) - maximum value in partition
                 if args.is_empty() {
                     return Err(QSQLError::ExecutionError {
@@ -6089,13 +6101,13 @@ impl QueryExecutor {
                     }
 
                     max_value = Some(match max_value {
-                        None => val,
-                        Some(existing) => self.max_query_value(existing, val),
+                        | None => val,
+                        | Some(existing) => self.max_query_value(existing, val),
                     });
                 }
 
                 Ok(max_value.unwrap_or(QueryValue::Null))
-            }
+            },
         }
     }
 
@@ -6167,13 +6179,13 @@ impl QueryExecutor {
                 let b_val = b.fields.get(&col_name);
 
                 let cmp = match (a_val, b_val) {
-                    (Some(Value::Integer(av)), Some(Value::Integer(bv))) => av.cmp(bv),
-                    (Some(Value::Float(av)), Some(Value::Float(bv))) => {
+                    | (Some(Value::Integer(av)), Some(Value::Integer(bv))) => av.cmp(bv),
+                    | (Some(Value::Float(av)), Some(Value::Float(bv))) => {
                         av.partial_cmp(bv).unwrap_or(std::cmp::Ordering::Equal)
-                    }
-                    (Some(Value::Text(av)), Some(Value::Text(bv))) => av.cmp(bv),
-                    (Some(Value::Boolean(av)), Some(Value::Boolean(bv))) => av.cmp(bv),
-                    _ => std::cmp::Ordering::Equal,
+                    },
+                    | (Some(Value::Text(av)), Some(Value::Text(bv))) => av.cmp(bv),
+                    | (Some(Value::Boolean(av)), Some(Value::Boolean(bv))) => av.cmp(bv),
+                    | _ => std::cmp::Ordering::Equal,
                 };
 
                 if cmp != std::cmp::Ordering::Equal {
@@ -6276,7 +6288,7 @@ impl QueryExecutor {
         row: &Row,
     ) -> QSQLResult<(String, QueryValue, DataType)> {
         match expr {
-            Expression::Identifier(col_name) => {
+            | Expression::Identifier(col_name) => {
                 let result_name = alias.clone().unwrap_or_else(|| col_name.clone());
                 if let Some(value) = row.fields.get(col_name) {
                     let query_value = self.storage_value_to_query_value(value);
@@ -6285,22 +6297,22 @@ impl QueryExecutor {
                 } else {
                     Ok((result_name, QueryValue::Null, DataType::Text))
                 }
-            }
-            Expression::Literal(lit) => {
+            },
+            | Expression::Literal(lit) => {
                 let result_name = alias
                     .clone()
                     .unwrap_or_else(|| Self::expression_to_string_static(expr));
                 let query_value = self.literal_to_query_value(lit);
                 let data_type = match lit {
-                    Literal::Integer(_) => DataType::BigInt,
-                    Literal::Float(_) => DataType::Double,
-                    Literal::String(_) => DataType::Text,
-                    Literal::Boolean(_) => DataType::Boolean,
-                    _ => DataType::Text,
+                    | Literal::Integer(_) => DataType::BigInt,
+                    | Literal::Float(_) => DataType::Double,
+                    | Literal::String(_) => DataType::Text,
+                    | Literal::Boolean(_) => DataType::Boolean,
+                    | _ => DataType::Text,
                 };
                 Ok((result_name, query_value, data_type))
-            }
-            Expression::FunctionCall { name, args } => {
+            },
+            | Expression::FunctionCall { name, args } => {
                 let upper_name = name.to_uppercase();
                 let result_name = alias
                     .clone()
@@ -6310,8 +6322,8 @@ impl QueryExecutor {
                 let data_type = self.infer_scalar_function_type(&upper_name);
 
                 Ok((result_name, query_value, data_type))
-            }
-            Expression::Case {
+            },
+            | Expression::Case {
                 when_clauses,
                 else_result,
             } => {
@@ -6330,15 +6342,15 @@ impl QueryExecutor {
                 }
                 // No condition matched, return ELSE result or NULL
                 match else_result {
-                    Some(else_expr) => {
+                    | Some(else_expr) => {
                         let query_value = self.evaluate_expression_value(else_expr, row)?;
                         let data_type = self.infer_query_value_type(&query_value);
                         Ok((result_name, query_value, data_type))
-                    }
-                    None => Ok((result_name, QueryValue::Null, DataType::Text)),
+                    },
+                    | None => Ok((result_name, QueryValue::Null, DataType::Text)),
                 }
-            }
-            Expression::Extract { field, source } => {
+            },
+            | Expression::Extract { field, source } => {
                 let result_name = alias
                     .clone()
                     .unwrap_or_else(|| Self::expression_to_string_static(expr));
@@ -6348,14 +6360,14 @@ impl QueryExecutor {
                 let data_type = DataType::BigInt; // EXTRACT always returns an integer
 
                 Ok((result_name, query_value, data_type))
-            }
-            _ => {
+            },
+            | _ => {
                 // For other expressions, try to convert to string
                 let result_name = alias
                     .clone()
                     .unwrap_or_else(|| Self::expression_to_string_static(expr));
                 Ok((result_name, QueryValue::Null, DataType::Text))
-            }
+            },
         }
     }
 
@@ -6379,92 +6391,92 @@ impl QueryExecutor {
         let get_string_arg = |idx: usize| -> QSQLResult<String> {
             let val = get_arg_value(idx)?;
             match val {
-                QueryValue::String(s) => Ok(s),
-                QueryValue::Integer(i) => Ok(i.to_string()),
-                QueryValue::Float(f) => Ok(f.to_string()),
-                QueryValue::Boolean(b) => Ok(b.to_string()),
-                QueryValue::Null => Ok(String::new()),
-                _ => Ok(String::new()),
+                | QueryValue::String(s) => Ok(s),
+                | QueryValue::Integer(i) => Ok(i.to_string()),
+                | QueryValue::Float(f) => Ok(f.to_string()),
+                | QueryValue::Boolean(b) => Ok(b.to_string()),
+                | QueryValue::Null => Ok(String::new()),
+                | _ => Ok(String::new()),
             }
         };
 
         let get_int_arg = |idx: usize| -> QSQLResult<i64> {
             let val = get_arg_value(idx)?;
             match val {
-                QueryValue::Integer(i) => Ok(i),
-                QueryValue::Float(f) => Ok(f as i64),
-                QueryValue::String(s) => s.parse().map_err(|_| QSQLError::ExecutionError {
+                | QueryValue::Integer(i) => Ok(i),
+                | QueryValue::Float(f) => Ok(f as i64),
+                | QueryValue::String(s) => s.parse().map_err(|_| QSQLError::ExecutionError {
                     message: format!("Cannot convert '{}' to integer", s),
                 }),
-                _ => Ok(0),
+                | _ => Ok(0),
             }
         };
 
         match func_name {
             // String functions
-            "UPPER" => {
+            | "UPPER" => {
                 let s = get_string_arg(0)?;
                 Ok(QueryValue::String(s.to_uppercase()))
-            }
-            "LOWER" => {
+            },
+            | "LOWER" => {
                 let s = get_string_arg(0)?;
                 Ok(QueryValue::String(s.to_lowercase()))
-            }
-            "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" => {
+            },
+            | "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" => {
                 let s = get_string_arg(0)?;
                 Ok(QueryValue::Integer(s.len() as i64))
-            }
-            "TRIM" => {
+            },
+            | "TRIM" => {
                 let s = get_string_arg(0)?;
                 Ok(QueryValue::String(s.trim().to_string()))
-            }
-            "LTRIM" => {
+            },
+            | "LTRIM" => {
                 let s = get_string_arg(0)?;
                 Ok(QueryValue::String(s.trim_start().to_string()))
-            }
-            "RTRIM" => {
+            },
+            | "RTRIM" => {
                 let s = get_string_arg(0)?;
                 Ok(QueryValue::String(s.trim_end().to_string()))
-            }
-            "REVERSE" => {
+            },
+            | "REVERSE" => {
                 let s = get_string_arg(0)?;
                 Ok(QueryValue::String(s.chars().rev().collect()))
-            }
-            "INITCAP" => {
+            },
+            | "INITCAP" => {
                 let s = get_string_arg(0)?;
                 let result = s
                     .split_whitespace()
                     .map(|word| {
                         let mut chars = word.chars();
                         match chars.next() {
-                            None => String::new(),
-                            Some(first) => {
+                            | None => String::new(),
+                            | Some(first) => {
                                 first.to_uppercase().to_string() + &chars.as_str().to_lowercase()
-                            }
+                            },
                         }
                     })
                     .collect::<Vec<_>>()
                     .join(" ");
                 Ok(QueryValue::String(result))
-            }
-            "ASCII" => {
+            },
+            | "ASCII" => {
                 let s = get_string_arg(0)?;
                 let ascii = s.chars().next().map(|c| c as i64).unwrap_or(0);
                 Ok(QueryValue::Integer(ascii))
-            }
-            "CHR" => {
+            },
+            | "CHR" => {
                 let code = get_int_arg(0)?;
                 let ch = char::from_u32(code as u32).unwrap_or('\0');
                 Ok(QueryValue::String(ch.to_string()))
-            }
-            "CONCAT" => {
+            },
+            | "CONCAT" => {
                 let mut result = String::new();
                 for (i, _) in args.iter().enumerate() {
                     result.push_str(&get_string_arg(i)?);
                 }
                 Ok(QueryValue::String(result))
-            }
-            "SUBSTRING" | "SUBSTR" => {
+            },
+            | "SUBSTRING" | "SUBSTR" => {
                 let s = get_string_arg(0)?;
                 let start = get_int_arg(1)? as usize;
                 // SQL SUBSTRING is 1-indexed
@@ -6477,31 +6489,31 @@ impl QueryExecutor {
                     s.chars().skip(start_idx).collect()
                 };
                 Ok(QueryValue::String(result))
-            }
-            "LEFT" => {
+            },
+            | "LEFT" => {
                 let s = get_string_arg(0)?;
                 let n = get_int_arg(1)? as usize;
                 Ok(QueryValue::String(s.chars().take(n).collect()))
-            }
-            "RIGHT" => {
+            },
+            | "RIGHT" => {
                 let s = get_string_arg(0)?;
                 let n = get_int_arg(1)? as usize;
                 let len = s.chars().count();
                 let skip = len.saturating_sub(n);
                 Ok(QueryValue::String(s.chars().skip(skip).collect()))
-            }
-            "REPLACE" => {
+            },
+            | "REPLACE" => {
                 let s = get_string_arg(0)?;
                 let from = get_string_arg(1)?;
                 let to = get_string_arg(2)?;
                 Ok(QueryValue::String(s.replace(&from, &to)))
-            }
-            "REPEAT" => {
+            },
+            | "REPEAT" => {
                 let s = get_string_arg(0)?;
                 let n = get_int_arg(1)? as usize;
                 Ok(QueryValue::String(s.repeat(n)))
-            }
-            "LPAD" => {
+            },
+            | "LPAD" => {
                 let s = get_string_arg(0)?;
                 let len = get_int_arg(1)? as usize;
                 let pad = if args.len() >= 3 {
@@ -6517,8 +6529,8 @@ impl QueryExecutor {
                     let pad_chars: String = pad.chars().cycle().take(pad_len).collect();
                     Ok(QueryValue::String(pad_chars + &s))
                 }
-            }
-            "RPAD" => {
+            },
+            | "RPAD" => {
                 let s = get_string_arg(0)?;
                 let len = get_int_arg(1)? as usize;
                 let pad = if args.len() >= 3 {
@@ -6534,17 +6546,17 @@ impl QueryExecutor {
                     let pad_chars: String = pad.chars().cycle().take(pad_len).collect();
                     Ok(QueryValue::String(s + &pad_chars))
                 }
-            }
-            "POSITION" | "INSTR" => {
+            },
+            | "POSITION" | "INSTR" => {
                 let haystack = get_string_arg(0)?;
                 let needle = get_string_arg(1)?;
                 // Returns 1-indexed position, 0 if not found
                 let pos = haystack.find(&needle).map(|i| i as i64 + 1).unwrap_or(0);
                 Ok(QueryValue::Integer(pos))
-            }
+            },
 
             // NULL handling functions
-            "COALESCE" => {
+            | "COALESCE" => {
                 // COALESCE returns the first non-NULL argument
                 for arg in args {
                     let val = self.evaluate_expression_value(arg, row)?;
@@ -6554,8 +6566,8 @@ impl QueryExecutor {
                 }
                 // All arguments are NULL, return NULL
                 Ok(QueryValue::Null)
-            }
-            "NULLIF" => {
+            },
+            | "NULLIF" => {
                 // NULLIF(expr1, expr2) returns NULL if expr1 = expr2, otherwise expr1
                 if args.len() < 2 {
                     return Err(QSQLError::ExecutionError {
@@ -6571,8 +6583,8 @@ impl QueryExecutor {
                 } else {
                     Ok(val1)
                 }
-            }
-            "IFNULL" | "NVL" => {
+            },
+            | "IFNULL" | "NVL" => {
                 // IFNULL(expr1, expr2) returns expr2 if expr1 is NULL, otherwise expr1
                 // NVL is the Oracle equivalent
                 if args.len() < 2 {
@@ -6586,26 +6598,26 @@ impl QueryExecutor {
                 } else {
                     Ok(val1)
                 }
-            }
+            },
 
             // Math functions
-            "ABS" => {
+            | "ABS" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i.abs())),
-                    QueryValue::Float(f) => Ok(QueryValue::Float(f.abs())),
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    | QueryValue::Integer(i) => Ok(QueryValue::Integer(i.abs())),
+                    | QueryValue::Float(f) => Ok(QueryValue::Float(f.abs())),
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "ABS requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "ROUND" => {
+            },
+            | "ROUND" => {
                 let val = get_arg_value(0)?;
                 let decimals = if args.len() >= 2 { get_int_arg(1)? } else { 0 };
                 match val {
-                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
-                    QueryValue::Float(f) => {
+                    | QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    | QueryValue::Float(f) => {
                         let multiplier = 10_f64.powi(decimals as i32);
                         let rounded = (f * multiplier).round() / multiplier;
                         if decimals == 0 {
@@ -6613,36 +6625,36 @@ impl QueryExecutor {
                         } else {
                             Ok(QueryValue::Float(rounded))
                         }
-                    }
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "ROUND requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "CEIL" | "CEILING" => {
+            },
+            | "CEIL" | "CEILING" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
-                    QueryValue::Float(f) => Ok(QueryValue::Integer(f.ceil() as i64)),
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    | QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    | QueryValue::Float(f) => Ok(QueryValue::Integer(f.ceil() as i64)),
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "CEIL requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "FLOOR" => {
+            },
+            | "FLOOR" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
-                    QueryValue::Float(f) => Ok(QueryValue::Integer(f.floor() as i64)),
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    | QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    | QueryValue::Float(f) => Ok(QueryValue::Integer(f.floor() as i64)),
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "FLOOR requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "MOD" => {
+            },
+            | "MOD" => {
                 if args.len() < 2 {
                     return Err(QSQLError::ExecutionError {
                         message: "MOD requires exactly 2 arguments".to_string(),
@@ -6651,41 +6663,41 @@ impl QueryExecutor {
                 let val1 = get_arg_value(0)?;
                 let val2 = get_arg_value(1)?;
                 match (val1, val2) {
-                    (QueryValue::Integer(a), QueryValue::Integer(b)) => {
+                    | (QueryValue::Integer(a), QueryValue::Integer(b)) => {
                         if b == 0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Integer(a % b))
                         }
-                    }
-                    (QueryValue::Float(a), QueryValue::Float(b)) => {
+                    },
+                    | (QueryValue::Float(a), QueryValue::Float(b)) => {
                         if b == 0.0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float(a % b))
                         }
-                    }
-                    (QueryValue::Integer(a), QueryValue::Float(b)) => {
+                    },
+                    | (QueryValue::Integer(a), QueryValue::Float(b)) => {
                         if b == 0.0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float((a as f64) % b))
                         }
-                    }
-                    (QueryValue::Float(a), QueryValue::Integer(b)) => {
+                    },
+                    | (QueryValue::Float(a), QueryValue::Integer(b)) => {
                         if b == 0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float(a % (b as f64)))
                         }
-                    }
-                    (QueryValue::Null, _) | (_, QueryValue::Null) => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | (QueryValue::Null, _) | (_, QueryValue::Null) => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "MOD requires numeric arguments".to_string(),
                     }),
                 }
-            }
-            "POWER" | "POW" => {
+            },
+            | "POWER" | "POW" => {
                 if args.len() < 2 {
                     return Err(QSQLError::ExecutionError {
                         message: "POWER requires exactly 2 arguments".to_string(),
@@ -6694,56 +6706,56 @@ impl QueryExecutor {
                 let val1 = get_arg_value(0)?;
                 let val2 = get_arg_value(1)?;
                 match (val1, val2) {
-                    (QueryValue::Integer(base), QueryValue::Integer(exp)) => {
+                    | (QueryValue::Integer(base), QueryValue::Integer(exp)) => {
                         if exp >= 0 {
                             Ok(QueryValue::Integer((base as f64).powi(exp as i32) as i64))
                         } else {
                             Ok(QueryValue::Float((base as f64).powi(exp as i32)))
                         }
-                    }
-                    (QueryValue::Float(base), QueryValue::Integer(exp)) => {
+                    },
+                    | (QueryValue::Float(base), QueryValue::Integer(exp)) => {
                         Ok(QueryValue::Float(base.powi(exp as i32)))
-                    }
-                    (QueryValue::Integer(base), QueryValue::Float(exp)) => {
+                    },
+                    | (QueryValue::Integer(base), QueryValue::Float(exp)) => {
                         Ok(QueryValue::Float((base as f64).powf(exp)))
-                    }
-                    (QueryValue::Float(base), QueryValue::Float(exp)) => {
+                    },
+                    | (QueryValue::Float(base), QueryValue::Float(exp)) => {
                         Ok(QueryValue::Float(base.powf(exp)))
-                    }
-                    (QueryValue::Null, _) | (_, QueryValue::Null) => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | (QueryValue::Null, _) | (_, QueryValue::Null) => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "POWER requires numeric arguments".to_string(),
                     }),
                 }
-            }
-            "SQRT" => {
+            },
+            | "SQRT" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => {
+                    | QueryValue::Integer(i) => {
                         if i < 0 {
                             Ok(QueryValue::Null) // SQL standard: SQRT of negative is NULL
                         } else {
                             Ok(QueryValue::Float((i as f64).sqrt()))
                         }
-                    }
-                    QueryValue::Float(f) => {
+                    },
+                    | QueryValue::Float(f) => {
                         if f < 0.0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float(f.sqrt()))
                         }
-                    }
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "SQRT requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "SIGN" => {
+            },
+            | "SIGN" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i.signum())),
-                    QueryValue::Float(f) => {
+                    | QueryValue::Integer(i) => Ok(QueryValue::Integer(i.signum())),
+                    | QueryValue::Float(f) => {
                         if f > 0.0 {
                             Ok(QueryValue::Integer(1))
                         } else if f < 0.0 {
@@ -6751,19 +6763,19 @@ impl QueryExecutor {
                         } else {
                             Ok(QueryValue::Integer(0))
                         }
-                    }
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "SIGN requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "TRUNCATE" | "TRUNC" => {
+            },
+            | "TRUNCATE" | "TRUNC" => {
                 let val = get_arg_value(0)?;
                 let decimals = if args.len() >= 2 { get_int_arg(1)? } else { 0 };
                 match val {
-                    QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
-                    QueryValue::Float(f) => {
+                    | QueryValue::Integer(i) => Ok(QueryValue::Integer(i)),
+                    | QueryValue::Float(f) => {
                         let multiplier = 10_f64.powi(decimals as i32);
                         let truncated = (f * multiplier).trunc() / multiplier;
                         if decimals == 0 {
@@ -6771,96 +6783,96 @@ impl QueryExecutor {
                         } else {
                             Ok(QueryValue::Float(truncated))
                         }
-                    }
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "TRUNCATE requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "EXP" => {
+            },
+            | "EXP" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => Ok(QueryValue::Float((i as f64).exp())),
-                    QueryValue::Float(f) => Ok(QueryValue::Float(f.exp())),
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    | QueryValue::Integer(i) => Ok(QueryValue::Float((i as f64).exp())),
+                    | QueryValue::Float(f) => Ok(QueryValue::Float(f.exp())),
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "EXP requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "LN" | "LOG" => {
+            },
+            | "LN" | "LOG" => {
                 // LOG with one argument is natural logarithm (LN)
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => {
+                    | QueryValue::Integer(i) => {
                         if i <= 0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float((i as f64).ln()))
                         }
-                    }
-                    QueryValue::Float(f) => {
+                    },
+                    | QueryValue::Float(f) => {
                         if f <= 0.0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float(f.ln()))
                         }
-                    }
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "LN/LOG requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "LOG10" => {
+            },
+            | "LOG10" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => {
+                    | QueryValue::Integer(i) => {
                         if i <= 0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float((i as f64).log10()))
                         }
-                    }
-                    QueryValue::Float(f) => {
+                    },
+                    | QueryValue::Float(f) => {
                         if f <= 0.0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float(f.log10()))
                         }
-                    }
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "LOG10 requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "LOG2" => {
+            },
+            | "LOG2" => {
                 let val = get_arg_value(0)?;
                 match val {
-                    QueryValue::Integer(i) => {
+                    | QueryValue::Integer(i) => {
                         if i <= 0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float((i as f64).log2()))
                         }
-                    }
-                    QueryValue::Float(f) => {
+                    },
+                    | QueryValue::Float(f) => {
                         if f <= 0.0 {
                             Ok(QueryValue::Null)
                         } else {
                             Ok(QueryValue::Float(f.log2()))
                         }
-                    }
-                    QueryValue::Null => Ok(QueryValue::Null),
-                    _ => Err(QSQLError::ExecutionError {
+                    },
+                    | QueryValue::Null => Ok(QueryValue::Null),
+                    | _ => Err(QSQLError::ExecutionError {
                         message: "LOG2 requires a numeric argument".to_string(),
                     }),
                 }
-            }
-            "PI" => Ok(QueryValue::Float(std::f64::consts::PI)),
-            "RANDOM" | "RAND" => {
+            },
+            | "PI" => Ok(QueryValue::Float(std::f64::consts::PI)),
+            | "RANDOM" | "RAND" => {
                 // Returns a random float between 0 and 1
                 use std::time::{SystemTime, UNIX_EPOCH};
                 let seed = SystemTime::now()
@@ -6870,64 +6882,64 @@ impl QueryExecutor {
                 // Simple pseudo-random using seed
                 let random = ((seed % 10000) as f64) / 10000.0;
                 Ok(QueryValue::Float(random))
-            }
+            },
 
             // Date/Time functions
-            "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" => {
+            | "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" => {
                 // Returns current date and time as ISO 8601 string
                 use chrono::prelude::*;
                 let now: DateTime<Utc> = Utc::now();
                 Ok(QueryValue::String(
                     now.format("%Y-%m-%d %H:%M:%S").to_string(),
                 ))
-            }
-            "CURRENT_DATE" | "CURDATE" | "DATE" => {
+            },
+            | "CURRENT_DATE" | "CURDATE" | "DATE" => {
                 // Returns current date as YYYY-MM-DD
                 use chrono::prelude::*;
                 let today = Utc::now().date_naive();
                 Ok(QueryValue::String(today.format("%Y-%m-%d").to_string()))
-            }
-            "CURRENT_TIME" | "CURTIME" => {
+            },
+            | "CURRENT_TIME" | "CURTIME" => {
                 // Returns current time as HH:MM:SS
                 use chrono::prelude::*;
                 let now = Utc::now();
                 Ok(QueryValue::String(now.format("%H:%M:%S").to_string()))
-            }
-            "LOCALTIME" | "LOCALTIMESTAMP" => {
+            },
+            | "LOCALTIME" | "LOCALTIMESTAMP" => {
                 // Returns local time/timestamp
                 use chrono::prelude::*;
                 let local: DateTime<Local> = Local::now();
                 Ok(QueryValue::String(
                     local.format("%Y-%m-%d %H:%M:%S").to_string(),
                 ))
-            }
-            "UTC_DATE" => {
+            },
+            | "UTC_DATE" => {
                 // Returns UTC date
                 use chrono::prelude::*;
                 let today = Utc::now().date_naive();
                 Ok(QueryValue::String(today.format("%Y-%m-%d").to_string()))
-            }
-            "UTC_TIME" => {
+            },
+            | "UTC_TIME" => {
                 // Returns UTC time
                 use chrono::prelude::*;
                 let now = Utc::now();
                 Ok(QueryValue::String(now.format("%H:%M:%S").to_string()))
-            }
-            "UTC_TIMESTAMP" => {
+            },
+            | "UTC_TIMESTAMP" => {
                 // Returns UTC timestamp
                 use chrono::prelude::*;
                 let now: DateTime<Utc> = Utc::now();
                 Ok(QueryValue::String(
                     now.format("%Y-%m-%d %H:%M:%S").to_string(),
                 ))
-            }
-            "UNIX_TIMESTAMP" | "EPOCH" => {
+            },
+            | "UNIX_TIMESTAMP" | "EPOCH" => {
                 // Returns current Unix timestamp (seconds since 1970-01-01)
                 use chrono::prelude::*;
                 let now: DateTime<Utc> = Utc::now();
                 Ok(QueryValue::Integer(now.timestamp()))
-            }
-            "YEAR" => {
+            },
+            | "YEAR" => {
                 // YEAR(date_string) - extracts year from date
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -6946,8 +6958,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "MONTH" => {
+            },
+            | "MONTH" => {
                 // MONTH(date_string) - extracts month from date
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -6965,8 +6977,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "DAY" | "DAYOFMONTH" => {
+            },
+            | "DAY" | "DAYOFMONTH" => {
                 // DAY(date_string) - extracts day from date
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -6984,8 +6996,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "HOUR" => {
+            },
+            | "HOUR" => {
                 // HOUR(time_string) - extracts hour from time/datetime
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -7003,8 +7015,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "MINUTE" => {
+            },
+            | "MINUTE" => {
                 // MINUTE(time_string) - extracts minute from time/datetime
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -7022,8 +7034,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "SECOND" => {
+            },
+            | "SECOND" => {
                 // SECOND(time_string) - extracts second from time/datetime
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -7041,8 +7053,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "DAYOFWEEK" | "WEEKDAY" => {
+            },
+            | "DAYOFWEEK" | "WEEKDAY" => {
                 // DAYOFWEEK(date_string) - returns day of week (1=Sunday to 7=Saturday for MySQL)
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -7064,8 +7076,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "DAYOFYEAR" => {
+            },
+            | "DAYOFYEAR" => {
                 // DAYOFYEAR(date_string) - returns day of year (1-366)
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -7083,8 +7095,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "WEEK" | "WEEKOFYEAR" => {
+            },
+            | "WEEK" | "WEEKOFYEAR" => {
                 // WEEK(date_string) - returns week of year (0-53)
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -7102,8 +7114,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "QUARTER" => {
+            },
+            | "QUARTER" => {
                 // QUARTER(date_string) - returns quarter (1-4)
                 use chrono::prelude::*;
                 if args.is_empty() {
@@ -7121,8 +7133,8 @@ impl QueryExecutor {
                         Ok(QueryValue::Null)
                     }
                 }
-            }
-            "DATE_FORMAT" | "STRFTIME" => {
+            },
+            | "DATE_FORMAT" | "STRFTIME" => {
                 // DATE_FORMAT(date_string, format_string)
                 use chrono::prelude::*;
                 if args.len() < 2 {
@@ -7140,8 +7152,8 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Null)
                 }
-            }
-            "DATEDIFF" => {
+            },
+            | "DATEDIFF" => {
                 // DATEDIFF(date1, date2) - returns difference in days
                 use chrono::prelude::*;
                 if args.len() < 2 {
@@ -7166,8 +7178,8 @@ impl QueryExecutor {
                 } else {
                     Ok(QueryValue::Null)
                 }
-            }
-            "DATE_ADD" => {
+            },
+            | "DATE_ADD" => {
                 // DATE_ADD(date, INTERVAL expr unit) - adds time interval to date
                 use chrono::prelude::*;
                 if args.len() < 3 {
@@ -7181,17 +7193,17 @@ impl QueryExecutor {
 
                 // Second arg is the interval value
                 let interval_value = match self.evaluate_expression_value(&args[1], row)? {
-                    QueryValue::Integer(i) => i,
-                    QueryValue::Float(f) => f as i64,
-                    QueryValue::String(s) => {
+                    | QueryValue::Integer(i) => i,
+                    | QueryValue::Float(f) => f as i64,
+                    | QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
                             message: format!(
                                 "Invalid interval value: '{}' is not a valid number",
                                 s
                             ),
                         })?
-                    }
-                    _ => return Ok(QueryValue::Null),
+                    },
+                    | _ => return Ok(QueryValue::Null),
                 };
 
                 // Third arg is the unit marker (INTERVAL_UNIT:DAY, etc.)
@@ -7207,7 +7219,7 @@ impl QueryExecutor {
                 {
                     // DateTime input
                     let new_dt = match unit.as_str() {
-                        "YEAR" => {
+                        | "YEAR" => {
                             if interval_value >= 0 {
                                 dt.checked_add_months(chrono::Months::new(
                                     (interval_value * 12) as u32,
@@ -7217,15 +7229,15 @@ impl QueryExecutor {
                                     ((-interval_value) * 12) as u32,
                                 ))
                             }
-                        }
-                        "MONTH" => {
+                        },
+                        | "MONTH" => {
                             if interval_value >= 0 {
                                 dt.checked_add_months(chrono::Months::new(interval_value as u32))
                             } else {
                                 dt.checked_sub_months(chrono::Months::new((-interval_value) as u32))
                             }
-                        }
-                        "WEEK" => {
+                        },
+                        | "WEEK" => {
                             if interval_value >= 0 {
                                 dt.checked_add_days(chrono::Days::new((interval_value * 7) as u64))
                             } else {
@@ -7233,28 +7245,28 @@ impl QueryExecutor {
                                     ((-interval_value) * 7) as u64,
                                 ))
                             }
-                        }
-                        "DAY" => {
+                        },
+                        | "DAY" => {
                             if interval_value >= 0 {
                                 dt.checked_add_days(chrono::Days::new(interval_value as u64))
                             } else {
                                 dt.checked_sub_days(chrono::Days::new((-interval_value) as u64))
                             }
-                        }
-                        "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
-                        "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
-                        "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
-                        _ => {
+                        },
+                        | "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
+                        | "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
+                        | "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
+                        | _ => {
                             return Err(QSQLError::ExecutionError {
                                 message: format!("Unsupported time unit: {}", unit),
-                            })
-                        }
+                            });
+                        },
                     };
                     new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string()))
                 } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
                     // Date only input
                     let new_date = match unit.as_str() {
-                        "YEAR" => {
+                        | "YEAR" => {
                             if interval_value >= 0 {
                                 date.checked_add_months(chrono::Months::new(
                                     (interval_value * 12) as u32,
@@ -7264,8 +7276,8 @@ impl QueryExecutor {
                                     ((-interval_value) * 12) as u32,
                                 ))
                             }
-                        }
-                        "MONTH" => {
+                        },
+                        | "MONTH" => {
                             if interval_value >= 0 {
                                 date.checked_add_months(chrono::Months::new(interval_value as u32))
                             } else {
@@ -7273,8 +7285,8 @@ impl QueryExecutor {
                                     (-interval_value) as u32,
                                 ))
                             }
-                        }
-                        "WEEK" => {
+                        },
+                        | "WEEK" => {
                             if interval_value >= 0 {
                                 date.checked_add_days(chrono::Days::new(
                                     (interval_value * 7) as u64,
@@ -7284,37 +7296,37 @@ impl QueryExecutor {
                                     ((-interval_value) * 7) as u64,
                                 ))
                             }
-                        }
-                        "DAY" => {
+                        },
+                        | "DAY" => {
                             if interval_value >= 0 {
                                 date.checked_add_days(chrono::Days::new(interval_value as u64))
                             } else {
                                 date.checked_sub_days(chrono::Days::new((-interval_value) as u64))
                             }
-                        }
-                        "HOUR" | "MINUTE" | "SECOND" => {
+                        },
+                        | "HOUR" | "MINUTE" | "SECOND" => {
                             // Convert to datetime for time-based operations
                             let dt = match date.and_hms_opt(0, 0, 0) {
-                                Some(dt) => dt,
-                                None => return Ok(QueryValue::Null),
+                                | Some(dt) => dt,
+                                | None => return Ok(QueryValue::Null),
                             };
                             let new_dt = match unit.as_str() {
-                                "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
-                                "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
-                                "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
-                                _ => None,
+                                | "HOUR" => Some(dt + chrono::Duration::hours(interval_value)),
+                                | "MINUTE" => Some(dt + chrono::Duration::minutes(interval_value)),
+                                | "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
+                                | _ => None,
                             };
                             return Ok(new_dt
                                 .map(|d| {
                                     QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
                                 })
                                 .unwrap_or(QueryValue::Null));
-                        }
-                        _ => {
+                        },
+                        | _ => {
                             return Err(QSQLError::ExecutionError {
                                 message: format!("Unsupported time unit: {}", unit),
-                            })
-                        }
+                            });
+                        },
                     };
                     new_date.map(|d| QueryValue::String(d.format("%Y-%m-%d").to_string()))
                 } else {
@@ -7322,8 +7334,8 @@ impl QueryExecutor {
                 };
 
                 Ok(result.unwrap_or(QueryValue::Null))
-            }
-            "DATE_SUB" => {
+            },
+            | "DATE_SUB" => {
                 // DATE_SUB(date, INTERVAL expr unit) - subtracts time interval from date
                 use chrono::prelude::*;
                 if args.len() < 3 {
@@ -7337,17 +7349,17 @@ impl QueryExecutor {
 
                 // Second arg is the interval value
                 let interval_value = match self.evaluate_expression_value(&args[1], row)? {
-                    QueryValue::Integer(i) => i,
-                    QueryValue::Float(f) => f as i64,
-                    QueryValue::String(s) => {
+                    | QueryValue::Integer(i) => i,
+                    | QueryValue::Float(f) => f as i64,
+                    | QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
                             message: format!(
                                 "Invalid interval value: '{}' is not a valid number",
                                 s
                             ),
                         })?
-                    }
-                    _ => return Ok(QueryValue::Null),
+                    },
+                    | _ => return Ok(QueryValue::Null),
                 };
 
                 // Third arg is the unit marker (INTERVAL_UNIT:DAY, etc.)
@@ -7363,7 +7375,7 @@ impl QueryExecutor {
                 {
                     // DateTime input
                     let new_dt = match unit.as_str() {
-                        "YEAR" => {
+                        | "YEAR" => {
                             if interval_value >= 0 {
                                 dt.checked_sub_months(chrono::Months::new(
                                     (interval_value * 12) as u32,
@@ -7373,15 +7385,15 @@ impl QueryExecutor {
                                     ((-interval_value) * 12) as u32,
                                 ))
                             }
-                        }
-                        "MONTH" => {
+                        },
+                        | "MONTH" => {
                             if interval_value >= 0 {
                                 dt.checked_sub_months(chrono::Months::new(interval_value as u32))
                             } else {
                                 dt.checked_add_months(chrono::Months::new((-interval_value) as u32))
                             }
-                        }
-                        "WEEK" => {
+                        },
+                        | "WEEK" => {
                             if interval_value >= 0 {
                                 dt.checked_sub_days(chrono::Days::new((interval_value * 7) as u64))
                             } else {
@@ -7389,28 +7401,28 @@ impl QueryExecutor {
                                     ((-interval_value) * 7) as u64,
                                 ))
                             }
-                        }
-                        "DAY" => {
+                        },
+                        | "DAY" => {
                             if interval_value >= 0 {
                                 dt.checked_sub_days(chrono::Days::new(interval_value as u64))
                             } else {
                                 dt.checked_add_days(chrono::Days::new((-interval_value) as u64))
                             }
-                        }
-                        "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
-                        "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
-                        "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
-                        _ => {
+                        },
+                        | "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
+                        | "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
+                        | "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
+                        | _ => {
                             return Err(QSQLError::ExecutionError {
                                 message: format!("Unsupported time unit: {}", unit),
-                            })
-                        }
+                            });
+                        },
                     };
                     new_dt.map(|d| QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string()))
                 } else if let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
                     // Date only input
                     let new_date = match unit.as_str() {
-                        "YEAR" => {
+                        | "YEAR" => {
                             if interval_value >= 0 {
                                 date.checked_sub_months(chrono::Months::new(
                                     (interval_value * 12) as u32,
@@ -7420,8 +7432,8 @@ impl QueryExecutor {
                                     ((-interval_value) * 12) as u32,
                                 ))
                             }
-                        }
-                        "MONTH" => {
+                        },
+                        | "MONTH" => {
                             if interval_value >= 0 {
                                 date.checked_sub_months(chrono::Months::new(interval_value as u32))
                             } else {
@@ -7429,8 +7441,8 @@ impl QueryExecutor {
                                     (-interval_value) as u32,
                                 ))
                             }
-                        }
-                        "WEEK" => {
+                        },
+                        | "WEEK" => {
                             if interval_value >= 0 {
                                 date.checked_sub_days(chrono::Days::new(
                                     (interval_value * 7) as u64,
@@ -7440,37 +7452,37 @@ impl QueryExecutor {
                                     ((-interval_value) * 7) as u64,
                                 ))
                             }
-                        }
-                        "DAY" => {
+                        },
+                        | "DAY" => {
                             if interval_value >= 0 {
                                 date.checked_sub_days(chrono::Days::new(interval_value as u64))
                             } else {
                                 date.checked_add_days(chrono::Days::new((-interval_value) as u64))
                             }
-                        }
-                        "HOUR" | "MINUTE" | "SECOND" => {
+                        },
+                        | "HOUR" | "MINUTE" | "SECOND" => {
                             // Convert to datetime for time-based operations
                             let dt = match date.and_hms_opt(0, 0, 0) {
-                                Some(dt) => dt,
-                                None => return Ok(QueryValue::Null),
+                                | Some(dt) => dt,
+                                | None => return Ok(QueryValue::Null),
                             };
                             let new_dt = match unit.as_str() {
-                                "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
-                                "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
-                                "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
-                                _ => None,
+                                | "HOUR" => Some(dt - chrono::Duration::hours(interval_value)),
+                                | "MINUTE" => Some(dt - chrono::Duration::minutes(interval_value)),
+                                | "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
+                                | _ => None,
                             };
                             return Ok(new_dt
                                 .map(|d| {
                                     QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
                                 })
                                 .unwrap_or(QueryValue::Null));
-                        }
-                        _ => {
+                        },
+                        | _ => {
                             return Err(QSQLError::ExecutionError {
                                 message: format!("Unsupported time unit: {}", unit),
-                            })
-                        }
+                            });
+                        },
                     };
                     new_date.map(|d| QueryValue::String(d.format("%Y-%m-%d").to_string()))
                 } else {
@@ -7478,7 +7490,7 @@ impl QueryExecutor {
                 };
 
                 Ok(result.unwrap_or(QueryValue::Null))
-            }
+            },
 
             // Neuromorphic function: HEBBIAN_LEARNING
             // Applies Hebbian learning principle to compute synaptic weight adjustments
@@ -7487,7 +7499,7 @@ impl QueryExecutor {
             // - 1 argument: Returns the learning weight for a single value (activity-based)
             // - 2 arguments: Returns the Hebbian correlation weight between two values
             // - 3 arguments: Returns weighted correlation with custom learning rate
-            "HEBBIAN_LEARNING" => {
+            | "HEBBIAN_LEARNING" => {
                 if args.is_empty() || args.len() > 3 {
                     return Err(QSQLError::ExecutionError {
                         message: "HEBBIAN_LEARNING requires 1, 2, or 3 arguments".to_string(),
@@ -7509,9 +7521,9 @@ impl QueryExecutor {
                     // Three arguments: weighted correlation with custom learning rate
                     let val2 = get_arg_value(1)?;
                     let learning_rate = match get_arg_value(2)? {
-                        QueryValue::Float(f) => f as f32,
-                        QueryValue::Integer(i) => i as f32,
-                        _ => 0.01, // Default learning rate
+                        | QueryValue::Float(f) => f as f32,
+                        | QueryValue::Integer(i) => i as f32,
+                        | _ => 0.01, // Default learning rate
                     };
                     // Apply weighted Hebbian rule: Δw = η * x_i * x_j
                     let base_weight = self.calculate_hebbian_weight(&val1, &val2)?;
@@ -7519,14 +7531,14 @@ impl QueryExecutor {
                 };
 
                 Ok(QueryValue::SynapticWeight(weight))
-            }
+            },
 
             // Neuromorphic function: SYNAPTIC_WEIGHT
             // Calculate synaptic weight/activity level using Hebbian learning principles
             // Supports two modes:
             // - 1 argument: Returns the normalized activity level (0.0 to 1.0) for the value
             // - 2 arguments: Returns the Hebbian correlation weight between two values
-            "SYNAPTIC_WEIGHT" => {
+            | "SYNAPTIC_WEIGHT" => {
                 if args.is_empty() || args.len() > 2 {
                     return Err(QSQLError::ExecutionError {
                         message: "SYNAPTIC_WEIGHT requires 1 or 2 arguments".to_string(),
@@ -7547,9 +7559,9 @@ impl QueryExecutor {
                 };
 
                 Ok(QueryValue::SynapticWeight(weight))
-            }
+            },
 
-            _ => Err(QSQLError::ExecutionError {
+            | _ => Err(QSQLError::ExecutionError {
                 message: format!("Unknown scalar function: {}", func_name),
             }),
         }
@@ -7558,19 +7570,19 @@ impl QueryExecutor {
     /// Evaluate an expression to a QueryValue (for scalar function arguments)
     fn evaluate_expression_value(&self, expr: &Expression, row: &Row) -> QSQLResult<QueryValue> {
         match expr {
-            Expression::Identifier(col_name) => {
+            | Expression::Identifier(col_name) => {
                 if let Some(value) = row.fields.get(col_name) {
                     Ok(self.storage_value_to_query_value(value))
                 } else {
                     Ok(QueryValue::Null)
                 }
-            }
-            Expression::Literal(lit) => Ok(self.literal_to_query_value(lit)),
-            Expression::FunctionCall { name, args } => {
+            },
+            | Expression::Literal(lit) => Ok(self.literal_to_query_value(lit)),
+            | Expression::FunctionCall { name, args } => {
                 let upper_name = name.to_uppercase();
                 self.evaluate_scalar_function(&upper_name, args, row)
-            }
-            Expression::Case {
+            },
+            | Expression::Case {
                 when_clauses,
                 else_result,
             } => {
@@ -7584,15 +7596,15 @@ impl QueryExecutor {
                 }
                 // No condition matched, return ELSE result or NULL
                 match else_result {
-                    Some(else_expr) => self.evaluate_expression_value(else_expr, row),
-                    None => Ok(QueryValue::Null),
+                    | Some(else_expr) => self.evaluate_expression_value(else_expr, row),
+                    | None => Ok(QueryValue::Null),
                 }
-            }
-            Expression::Extract { field, source } => {
+            },
+            | Expression::Extract { field, source } => {
                 // Evaluate EXTRACT expression: EXTRACT(field FROM source)
                 self.evaluate_extract_expression(field, source, row)
-            }
-            _ => Ok(QueryValue::Null),
+            },
+            | _ => Ok(QueryValue::Null),
         }
     }
 
@@ -7610,14 +7622,14 @@ impl QueryExecutor {
 
         // Convert the source value to a string
         let date_str = match &source_value {
-            QueryValue::String(s) => s.clone(),
-            QueryValue::Integer(i) => i.to_string(),
-            QueryValue::Null => return Ok(QueryValue::Null),
-            _ => {
+            | QueryValue::String(s) => s.clone(),
+            | QueryValue::Integer(i) => i.to_string(),
+            | QueryValue::Null => return Ok(QueryValue::Null),
+            | _ => {
                 return Err(QSQLError::ExecutionError {
                     message: format!("EXTRACT requires a date/time value, got {:?}", source_value),
                 });
-            }
+            },
         };
 
         // Helper to parse date/time strings
@@ -7638,42 +7650,42 @@ impl QueryExecutor {
             Utc::now().naive_utc()
         } else {
             match parse_datetime(&date_str) {
-                Some(dt) => dt,
-                None => return Ok(QueryValue::Null),
+                | Some(dt) => dt,
+                | None => return Ok(QueryValue::Null),
             }
         };
 
         // Extract the requested field
         match field.to_uppercase().as_str() {
-            "YEAR" => Ok(QueryValue::Integer(datetime.year() as i64)),
-            "MONTH" => Ok(QueryValue::Integer(datetime.month() as i64)),
-            "DAY" => Ok(QueryValue::Integer(datetime.day() as i64)),
-            "HOUR" => Ok(QueryValue::Integer(datetime.hour() as i64)),
-            "MINUTE" => Ok(QueryValue::Integer(datetime.minute() as i64)),
-            "SECOND" => Ok(QueryValue::Integer(datetime.second() as i64)),
-            "DOW" | "DAYOFWEEK" => {
+            | "YEAR" => Ok(QueryValue::Integer(datetime.year() as i64)),
+            | "MONTH" => Ok(QueryValue::Integer(datetime.month() as i64)),
+            | "DAY" => Ok(QueryValue::Integer(datetime.day() as i64)),
+            | "HOUR" => Ok(QueryValue::Integer(datetime.hour() as i64)),
+            | "MINUTE" => Ok(QueryValue::Integer(datetime.minute() as i64)),
+            | "SECOND" => Ok(QueryValue::Integer(datetime.second() as i64)),
+            | "DOW" | "DAYOFWEEK" => {
                 // Day of week (1=Sunday to 7=Saturday, matching MySQL)
                 let dow = datetime.weekday().num_days_from_sunday() + 1;
                 Ok(QueryValue::Integer(dow as i64))
-            }
-            "DOY" | "DAYOFYEAR" => {
+            },
+            | "DOY" | "DAYOFYEAR" => {
                 // Day of year (1-366)
                 Ok(QueryValue::Integer(datetime.ordinal() as i64))
-            }
-            "WEEK" | "WEEKOFYEAR" => {
+            },
+            | "WEEK" | "WEEKOFYEAR" => {
                 // Week of year (ISO week)
                 Ok(QueryValue::Integer(datetime.date().iso_week().week() as i64))
-            }
-            "QUARTER" => {
+            },
+            | "QUARTER" => {
                 // Quarter (1-4)
                 let quarter = (datetime.month() - 1) / 3 + 1;
                 Ok(QueryValue::Integer(quarter as i64))
-            }
-            "EPOCH" => {
+            },
+            | "EPOCH" => {
                 // Unix timestamp
                 Ok(QueryValue::Integer(datetime.and_utc().timestamp()))
-            }
-            _ => Err(QSQLError::ExecutionError {
+            },
+            | _ => Err(QSQLError::ExecutionError {
                 message: format!("Unsupported EXTRACT field: {}", field),
             }),
         }
@@ -7736,25 +7748,25 @@ impl QueryExecutor {
     /// - Strings: hash-based activity level
     fn calculate_synaptic_activity(&self, val: &QueryValue) -> f32 {
         match val {
-            QueryValue::Null => 0.0,
-            QueryValue::Boolean(b) => {
+            | QueryValue::Null => 0.0,
+            | QueryValue::Boolean(b) => {
                 if *b {
                     1.0
                 } else {
                     0.0
                 }
-            }
-            QueryValue::Integer(i) => {
+            },
+            | QueryValue::Integer(i) => {
                 // Normalize to [0, 1] using sigmoid-like function
                 let x = (*i as f32) / 100.0;
                 1.0 / (1.0 + (-x).exp())
-            }
-            QueryValue::Float(f) => {
+            },
+            | QueryValue::Float(f) => {
                 // Normalize to [0, 1] using sigmoid-like function
                 let x = (*f as f32) / 100.0;
                 1.0 / (1.0 + (-x).exp())
-            }
-            QueryValue::String(s) => {
+            },
+            | QueryValue::String(s) => {
                 // Hash string to a consistent activity level
                 use std::collections::hash_map::DefaultHasher;
                 use std::hash::{Hash, Hasher};
@@ -7763,18 +7775,18 @@ impl QueryExecutor {
                 s.hash(&mut hasher);
                 let hash_value = hasher.finish();
                 (hash_value % 1000) as f32 / 1000.0
-            }
-            QueryValue::Blob(b) => {
+            },
+            | QueryValue::Blob(b) => {
                 // Use blob length as a proxy for activity
                 let len = b.len() as f32;
                 (len % 100.0) / 100.0
-            }
-            QueryValue::DNASequence(s) => {
+            },
+            | QueryValue::DNASequence(s) => {
                 // DNA sequence: use length normalized
                 (s.len() as f32 % 100.0) / 100.0
-            }
-            QueryValue::SynapticWeight(w) => *w,
-            QueryValue::QuantumState(_) => 0.5, // Quantum superposition = 0.5
+            },
+            | QueryValue::SynapticWeight(w) => *w,
+            | QueryValue::QuantumState(_) => 0.5, // Quantum superposition = 0.5
         }
     }
 
@@ -7782,44 +7794,44 @@ impl QueryExecutor {
     fn infer_scalar_function_type(&self, func_name: &str) -> DataType {
         match func_name {
             // String functions
-            "UPPER" | "LOWER" | "TRIM" | "LTRIM" | "RTRIM" | "CONCAT" | "SUBSTRING" | "SUBSTR"
-            | "LEFT" | "RIGHT" | "REPLACE" | "REVERSE" | "REPEAT" | "LPAD" | "RPAD" | "INITCAP"
-            | "CHR" => DataType::Text,
-            "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" | "POSITION" | "INSTR"
+            | "UPPER" | "LOWER" | "TRIM" | "LTRIM" | "RTRIM" | "CONCAT" | "SUBSTRING"
+            | "SUBSTR" | "LEFT" | "RIGHT" | "REPLACE" | "REVERSE" | "REPEAT" | "LPAD"
+            | "RPAD" | "INITCAP" | "CHR" => DataType::Text,
+            | "LENGTH" | "LEN" | "CHAR_LENGTH" | "CHARACTER_LENGTH" | "POSITION" | "INSTR"
             | "ASCII" => DataType::BigInt,
             // NULL handling functions return dynamic types based on input
-            "COALESCE" | "NULLIF" | "IFNULL" | "NVL" => DataType::Text,
+            | "COALESCE" | "NULLIF" | "IFNULL" | "NVL" => DataType::Text,
             // Date/Time functions returning timestamps/dates as text
-            "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" | "LOCALTIME"
-            | "LOCALTIMESTAMP" | "UTC_TIMESTAMP" | "CURRENT_DATE" | "CURDATE" | "CURRENT_TIME"
-            | "CURTIME" | "UTC_DATE" | "UTC_TIME" | "DATE_FORMAT" | "STRFTIME" | "DATE_ADD"
-            | "DATE_SUB" => DataType::Text,
+            | "NOW" | "CURRENT_TIMESTAMP" | "GETDATE" | "SYSDATE" | "LOCALTIME"
+            | "LOCALTIMESTAMP" | "UTC_TIMESTAMP" | "CURRENT_DATE" | "CURDATE"
+            | "CURRENT_TIME" | "CURTIME" | "UTC_DATE" | "UTC_TIME" | "DATE_FORMAT"
+            | "STRFTIME" | "DATE_ADD" | "DATE_SUB" => DataType::Text,
             // Date/Time functions returning integers
-            "UNIX_TIMESTAMP" | "EPOCH" | "YEAR" | "MONTH" | "DAY" | "DAYOFMONTH" | "HOUR"
+            | "UNIX_TIMESTAMP" | "EPOCH" | "YEAR" | "MONTH" | "DAY" | "DAYOFMONTH" | "HOUR"
             | "MINUTE" | "SECOND" | "DAYOFWEEK" | "WEEKDAY" | "DAYOFYEAR" | "WEEK"
             | "WEEKOFYEAR" | "QUARTER" | "DATEDIFF" => DataType::BigInt,
             // Math functions
-            "ABS" | "ROUND" | "CEIL" | "CEILING" | "FLOOR" | "MOD" | "POWER" | "POW" | "SQRT"
+            | "ABS" | "ROUND" | "CEIL" | "CEILING" | "FLOOR" | "MOD" | "POWER" | "POW" | "SQRT"
             | "SIGN" | "TRUNCATE" | "TRUNC" | "EXP" | "LN" | "LOG" | "LOG10" | "LOG2" | "PI"
             | "RANDOM" | "RAND" => DataType::Double,
             // Neuromorphic functions
-            "SYNAPTIC_WEIGHT" | "HEBBIAN_LEARNING" => DataType::SynapticWeight,
-            _ => DataType::Text,
+            | "SYNAPTIC_WEIGHT" | "HEBBIAN_LEARNING" => DataType::SynapticWeight,
+            | _ => DataType::Text,
         }
     }
 
     /// Infer the data type from a QueryValue
     fn infer_query_value_type(&self, value: &QueryValue) -> DataType {
         match value {
-            QueryValue::Null => DataType::Text,
-            QueryValue::Boolean(_) => DataType::Boolean,
-            QueryValue::Integer(_) => DataType::BigInt,
-            QueryValue::Float(_) => DataType::Double,
-            QueryValue::String(_) => DataType::Text,
-            QueryValue::Blob(_) => DataType::Blob,
-            QueryValue::DNASequence(_) => DataType::DNASequence,
-            QueryValue::SynapticWeight(_) => DataType::SynapticWeight,
-            QueryValue::QuantumState(_) => DataType::SuperpositionState,
+            | QueryValue::Null => DataType::Text,
+            | QueryValue::Boolean(_) => DataType::Boolean,
+            | QueryValue::Integer(_) => DataType::BigInt,
+            | QueryValue::Float(_) => DataType::Double,
+            | QueryValue::String(_) => DataType::Text,
+            | QueryValue::Blob(_) => DataType::Blob,
+            | QueryValue::DNASequence(_) => DataType::DNASequence,
+            | QueryValue::SynapticWeight(_) => DataType::SynapticWeight,
+            | QueryValue::QuantumState(_) => DataType::SuperpositionState,
         }
     }
 
@@ -7918,16 +7930,16 @@ impl QueryExecutor {
 
                 if !columns_initialized {
                     let data_type = match agg.name.as_str() {
-                        "COUNT" => DataType::BigInt,
-                        "AVG" => DataType::Double,
-                        "SUM" | "MIN" | "MAX" => {
+                        | "COUNT" => DataType::BigInt,
+                        | "AVG" => DataType::Double,
+                        | "SUM" | "MIN" | "MAX" => {
                             if let Some(col) = &agg.column {
                                 self.infer_column_type_from_rows(&group_rows, col)
                             } else {
                                 DataType::BigInt
                             }
-                        }
-                        _ => DataType::Double,
+                        },
+                        | _ => DataType::Double,
                     };
                     columns.push(ColumnInfo {
                         name: result_name.clone(),
@@ -8025,7 +8037,7 @@ impl QueryExecutor {
         row: &HashMap<String, QueryValue>,
     ) -> QSQLResult<bool> {
         match having {
-            Expression::BinaryOp {
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
@@ -8034,46 +8046,46 @@ impl QueryExecutor {
                 let right_val = self.evaluate_having_expr(right, row)?;
 
                 match operator {
-                    BinaryOperator::Equal => {
+                    | BinaryOperator::Equal => {
                         Ok(self.compare_query_values(&left_val, &right_val) == 0)
-                    }
-                    BinaryOperator::NotEqual => {
+                    },
+                    | BinaryOperator::NotEqual => {
                         Ok(self.compare_query_values(&left_val, &right_val) != 0)
-                    }
-                    BinaryOperator::LessThan => {
+                    },
+                    | BinaryOperator::LessThan => {
                         Ok(self.compare_query_values(&left_val, &right_val) < 0)
-                    }
-                    BinaryOperator::LessThanOrEqual => {
+                    },
+                    | BinaryOperator::LessThanOrEqual => {
                         Ok(self.compare_query_values(&left_val, &right_val) <= 0)
-                    }
-                    BinaryOperator::GreaterThan => {
+                    },
+                    | BinaryOperator::GreaterThan => {
                         Ok(self.compare_query_values(&left_val, &right_val) > 0)
-                    }
-                    BinaryOperator::GreaterThanOrEqual => {
+                    },
+                    | BinaryOperator::GreaterThanOrEqual => {
                         Ok(self.compare_query_values(&left_val, &right_val) >= 0)
-                    }
-                    BinaryOperator::And => {
+                    },
+                    | BinaryOperator::And => {
                         let left_bool = self.evaluate_having_condition(left, row)?;
                         let right_bool = self.evaluate_having_condition(right, row)?;
                         Ok(left_bool && right_bool)
-                    }
-                    BinaryOperator::Or => {
+                    },
+                    | BinaryOperator::Or => {
                         let left_bool = self.evaluate_having_condition(left, row)?;
                         let right_bool = self.evaluate_having_condition(right, row)?;
                         Ok(left_bool || right_bool)
-                    }
-                    _ => Ok(true), // Default to true for unsupported operators
+                    },
+                    | _ => Ok(true), // Default to true for unsupported operators
                 }
-            }
-            Expression::UnaryOp {
+            },
+            | Expression::UnaryOp {
                 operator: UnaryOperator::Not,
                 operand,
             } => {
                 let val = self.evaluate_having_condition(operand, row)?;
                 Ok(!val)
-            }
-            Expression::UnaryOp { .. } => Ok(true),
-            _ => Ok(true), // Default to true for unsupported expressions
+            },
+            | Expression::UnaryOp { .. } => Ok(true),
+            | _ => Ok(true), // Default to true for unsupported expressions
         }
     }
 
@@ -8084,16 +8096,16 @@ impl QueryExecutor {
         row: &HashMap<String, QueryValue>,
     ) -> QSQLResult<QueryValue> {
         match expr {
-            Expression::Literal(lit) => Ok(self.literal_to_query_value(lit)),
-            Expression::Identifier(name) => {
+            | Expression::Literal(lit) => Ok(self.literal_to_query_value(lit)),
+            | Expression::Identifier(name) => {
                 // Look up the column value in the result row
                 row.get(name)
                     .cloned()
                     .ok_or_else(|| QSQLError::ExecutionError {
                         message: format!("Column '{}' not found in HAVING clause", name),
                     })
-            }
-            Expression::FunctionCall { name, args } => {
+            },
+            | Expression::FunctionCall { name, args } => {
                 // For aggregate functions in HAVING, look up the computed result
                 // The aggregate is stored with format "NAME(*)" or "NAME(column)"
                 let agg_name = if args.is_empty() {
@@ -8101,9 +8113,9 @@ impl QueryExecutor {
                 } else {
                     // Handle the case where COUNT(*) has "*" as a Literal::String("*")
                     let arg_str = match &args[0] {
-                        Expression::Literal(Literal::String(s)) if s == "*" => "*".to_string(),
-                        Expression::Identifier(col) => col.clone(),
-                        other => Self::expression_to_string_static(other),
+                        | Expression::Literal(Literal::String(s)) if s == "*" => "*".to_string(),
+                        | Expression::Identifier(col) => col.clone(),
+                        | other => Self::expression_to_string_static(other),
                     };
                     format!("{}({})", name.to_uppercase(), arg_str)
                 };
@@ -8113,31 +8125,31 @@ impl QueryExecutor {
                     .ok_or_else(|| QSQLError::ExecutionError {
                         message: format!("Aggregate '{}' not found in HAVING clause", agg_name),
                     })
-            }
-            _ => Ok(QueryValue::Null),
+            },
+            | _ => Ok(QueryValue::Null),
         }
     }
 
     /// Convert literal to QueryValue
     fn literal_to_query_value(&self, lit: &Literal) -> QueryValue {
         match lit {
-            Literal::Integer(i) => QueryValue::Integer(*i),
-            Literal::Float(f) => QueryValue::Float(*f),
-            Literal::String(s) => QueryValue::String(s.clone()),
-            Literal::Boolean(b) => QueryValue::Boolean(*b),
-            Literal::Null => QueryValue::Null,
-            Literal::DNA(s) => QueryValue::DNASequence(s.clone()),
-            Literal::QuantumBit(state, amplitude) => {
+            | Literal::Integer(i) => QueryValue::Integer(*i),
+            | Literal::Float(f) => QueryValue::Float(*f),
+            | Literal::String(s) => QueryValue::String(s.clone()),
+            | Literal::Boolean(b) => QueryValue::Boolean(*b),
+            | Literal::Null => QueryValue::Null,
+            | Literal::DNA(s) => QueryValue::DNASequence(s.clone()),
+            | Literal::QuantumBit(state, amplitude) => {
                 QueryValue::QuantumState(format!("{}:{}", state, amplitude))
-            }
+            },
         }
     }
 
     /// Compare two QueryValues, returns -1, 0, or 1
     fn compare_query_values(&self, a: &QueryValue, b: &QueryValue) -> i32 {
         match (a, b) {
-            (QueryValue::Integer(i1), QueryValue::Integer(i2)) => i1.cmp(i2) as i32,
-            (QueryValue::Float(f1), QueryValue::Float(f2)) => {
+            | (QueryValue::Integer(i1), QueryValue::Integer(i2)) => i1.cmp(i2) as i32,
+            | (QueryValue::Float(f1), QueryValue::Float(f2)) => {
                 if f1 < f2 {
                     -1
                 } else if f1 > f2 {
@@ -8145,8 +8157,8 @@ impl QueryExecutor {
                 } else {
                     0
                 }
-            }
-            (QueryValue::Integer(i), QueryValue::Float(f)) => {
+            },
+            | (QueryValue::Integer(i), QueryValue::Float(f)) => {
                 let i_f = *i as f64;
                 if i_f < *f {
                     -1
@@ -8155,8 +8167,8 @@ impl QueryExecutor {
                 } else {
                     0
                 }
-            }
-            (QueryValue::Float(f), QueryValue::Integer(i)) => {
+            },
+            | (QueryValue::Float(f), QueryValue::Integer(i)) => {
                 let i_f = *i as f64;
                 if *f < i_f {
                     -1
@@ -8165,12 +8177,12 @@ impl QueryExecutor {
                 } else {
                     0
                 }
-            }
-            (QueryValue::String(s1), QueryValue::String(s2)) => s1.cmp(s2) as i32,
-            (QueryValue::Null, QueryValue::Null) => 0,
-            (QueryValue::Null, _) => -1,
-            (_, QueryValue::Null) => 1,
-            _ => 0, // Default for incompatible types
+            },
+            | (QueryValue::String(s1), QueryValue::String(s2)) => s1.cmp(s2) as i32,
+            | (QueryValue::Null, QueryValue::Null) => 0,
+            | (QueryValue::Null, _) => -1,
+            | (_, QueryValue::Null) => 1,
+            | _ => 0, // Default for incompatible types
         }
     }
 
@@ -8181,12 +8193,12 @@ impl QueryExecutor {
         agg: &AggregateFunction,
     ) -> QSQLResult<QueryValue> {
         match agg.name.as_str() {
-            "COUNT" => self.compute_count(storage_rows, &agg.column, agg.distinct),
-            "SUM" => self.compute_sum(storage_rows, &agg.column),
-            "AVG" => self.compute_avg(storage_rows, &agg.column),
-            "MIN" => self.compute_min(storage_rows, &agg.column),
-            "MAX" => self.compute_max(storage_rows, &agg.column),
-            _ => Err(QSQLError::ExecutionError {
+            | "COUNT" => self.compute_count(storage_rows, &agg.column, agg.distinct),
+            | "SUM" => self.compute_sum(storage_rows, &agg.column),
+            | "AVG" => self.compute_avg(storage_rows, &agg.column),
+            | "MIN" => self.compute_min(storage_rows, &agg.column),
+            | "MAX" => self.compute_max(storage_rows, &agg.column),
+            | _ => Err(QSQLError::ExecutionError {
                 message: format!("Unknown aggregate function: {}", agg.name),
             }),
         }
@@ -8200,11 +8212,11 @@ impl QueryExecutor {
         distinct: bool,
     ) -> QSQLResult<QueryValue> {
         match column {
-            None => {
+            | None => {
                 // COUNT(*) - count all rows
                 Ok(QueryValue::Integer(storage_rows.len() as i64))
-            }
-            Some(col) => {
+            },
+            | Some(col) => {
                 if distinct {
                     // COUNT(DISTINCT column) - count unique non-null values
                     let mut unique_values = std::collections::HashSet::new();
@@ -8229,7 +8241,7 @@ impl QueryExecutor {
                         .count();
                     Ok(QueryValue::Integer(count as i64))
                 }
-            }
+            },
         }
     }
 
@@ -8247,17 +8259,17 @@ impl QueryExecutor {
         for row in storage_rows {
             if let Some(value) = row.fields.get(col) {
                 match value {
-                    Value::Integer(i) => {
+                    | Value::Integer(i) => {
                         sum_int += i;
                         count += 1;
-                    }
-                    Value::Float(f) => {
+                    },
+                    | Value::Float(f) => {
                         sum_float += f;
                         has_float = true;
                         count += 1;
-                    }
-                    Value::Null => {} // Ignore NULL values
-                    _ => {}           // Ignore non-numeric values
+                    },
+                    | Value::Null => {}, // Ignore NULL values
+                    | _ => {},           // Ignore non-numeric values
                 }
             }
         }
@@ -8285,16 +8297,16 @@ impl QueryExecutor {
         for row in storage_rows {
             if let Some(value) = row.fields.get(col) {
                 match value {
-                    Value::Integer(i) => {
+                    | Value::Integer(i) => {
                         sum += *i as f64;
                         count += 1;
-                    }
-                    Value::Float(f) => {
+                    },
+                    | Value::Float(f) => {
                         sum += f;
                         count += 1;
-                    }
-                    Value::Null => {} // Ignore NULL values
-                    _ => {}           // Ignore non-numeric values
+                    },
+                    | Value::Null => {}, // Ignore NULL values
+                    | _ => {},           // Ignore non-numeric values
                 }
             }
         }
@@ -8322,8 +8334,8 @@ impl QueryExecutor {
 
                 let current = self.storage_value_to_query_value(value);
                 min_value = Some(match min_value {
-                    None => current,
-                    Some(existing) => self.min_query_value(existing, current),
+                    | None => current,
+                    | Some(existing) => self.min_query_value(existing, current),
                 });
             }
         }
@@ -8347,8 +8359,8 @@ impl QueryExecutor {
 
                 let current = self.storage_value_to_query_value(value);
                 max_value = Some(match max_value {
-                    None => current,
-                    Some(existing) => self.max_query_value(existing, current),
+                    | None => current,
+                    | Some(existing) => self.max_query_value(existing, current),
                 });
             }
         }
@@ -8359,97 +8371,97 @@ impl QueryExecutor {
     /// Compare two QueryValues and return the minimum
     fn min_query_value(&self, a: QueryValue, b: QueryValue) -> QueryValue {
         match (&a, &b) {
-            (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
+            | (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
                 if i1 <= i2 {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::Float(f1), QueryValue::Float(f2)) => {
+            },
+            | (QueryValue::Float(f1), QueryValue::Float(f2)) => {
                 if f1 <= f2 {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::Integer(i), QueryValue::Float(f)) => {
+            },
+            | (QueryValue::Integer(i), QueryValue::Float(f)) => {
                 if (*i as f64) <= *f {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::Float(f), QueryValue::Integer(i)) => {
+            },
+            | (QueryValue::Float(f), QueryValue::Integer(i)) => {
                 if *f <= (*i as f64) {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::String(s1), QueryValue::String(s2)) => {
+            },
+            | (QueryValue::String(s1), QueryValue::String(s2)) => {
                 if s1 <= s2 {
                     a
                 } else {
                     b
                 }
-            }
-            _ => a, // Default to first value for incompatible types
+            },
+            | _ => a, // Default to first value for incompatible types
         }
     }
 
     /// Compare two QueryValues and return the maximum
     fn max_query_value(&self, a: QueryValue, b: QueryValue) -> QueryValue {
         match (&a, &b) {
-            (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
+            | (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
                 if i1 >= i2 {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::Float(f1), QueryValue::Float(f2)) => {
+            },
+            | (QueryValue::Float(f1), QueryValue::Float(f2)) => {
                 if f1 >= f2 {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::Integer(i), QueryValue::Float(f)) => {
+            },
+            | (QueryValue::Integer(i), QueryValue::Float(f)) => {
                 if (*i as f64) >= *f {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::Float(f), QueryValue::Integer(i)) => {
+            },
+            | (QueryValue::Float(f), QueryValue::Integer(i)) => {
                 if *f >= (*i as f64) {
                     a
                 } else {
                     b
                 }
-            }
-            (QueryValue::String(s1), QueryValue::String(s2)) => {
+            },
+            | (QueryValue::String(s1), QueryValue::String(s2)) => {
                 if s1 >= s2 {
                     a
                 } else {
                     b
                 }
-            }
-            _ => a, // Default to first value for incompatible types
+            },
+            | _ => a, // Default to first value for incompatible types
         }
     }
 
     /// Convert Value to string for DISTINCT comparison
     fn value_to_string(&self, value: &Value) -> String {
         match value {
-            Value::Integer(i) => i.to_string(),
-            Value::Float(f) => f.to_string(),
-            Value::Text(s) => s.clone(),
-            Value::Boolean(b) => b.to_string(),
-            Value::Binary(b) => format!("{:?}", b),
-            Value::Null => "NULL".to_string(),
-            Value::Timestamp(ts) => ts.to_rfc3339(),
+            | Value::Integer(i) => i.to_string(),
+            | Value::Float(f) => f.to_string(),
+            | Value::Text(s) => s.clone(),
+            | Value::Boolean(b) => b.to_string(),
+            | Value::Binary(b) => format!("{:?}", b),
+            | Value::Null => "NULL".to_string(),
+            | Value::Timestamp(ts) => ts.to_rfc3339(),
         }
     }
 
@@ -8466,58 +8478,58 @@ impl QueryExecutor {
     /// Convert storage Value to QueryValue
     fn storage_value_to_query_value(&self, value: &Value) -> QueryValue {
         match value {
-            Value::Integer(i) => QueryValue::Integer(*i),
-            Value::Float(f) => QueryValue::Float(*f),
-            Value::Text(s) => QueryValue::String(s.clone()),
-            Value::Boolean(b) => QueryValue::Boolean(*b),
-            Value::Binary(b) => QueryValue::Blob(b.clone()),
-            Value::Null => QueryValue::Null,
-            Value::Timestamp(ts) => QueryValue::String(ts.to_rfc3339()),
+            | Value::Integer(i) => QueryValue::Integer(*i),
+            | Value::Float(f) => QueryValue::Float(*f),
+            | Value::Text(s) => QueryValue::String(s.clone()),
+            | Value::Boolean(b) => QueryValue::Boolean(*b),
+            | Value::Binary(b) => QueryValue::Blob(b.clone()),
+            | Value::Null => QueryValue::Null,
+            | Value::Timestamp(ts) => QueryValue::String(ts.to_rfc3339()),
         }
     }
 
     /// Convert storage Value to DataType
     fn storage_value_to_datatype(&self, value: &Value) -> DataType {
         match value {
-            Value::Integer(_) => DataType::Integer,
-            Value::Float(_) => DataType::Real,
-            Value::Text(_) => DataType::VarChar(Some(255)),
-            Value::Boolean(_) => DataType::Boolean,
-            Value::Binary(_) => DataType::Blob,
-            Value::Null => DataType::VarChar(Some(255)),
-            Value::Timestamp(_) => DataType::Timestamp,
+            | Value::Integer(_) => DataType::Integer,
+            | Value::Float(_) => DataType::Real,
+            | Value::Text(_) => DataType::VarChar(Some(255)),
+            | Value::Boolean(_) => DataType::Boolean,
+            | Value::Binary(_) => DataType::Blob,
+            | Value::Null => DataType::VarChar(Some(255)),
+            | Value::Timestamp(_) => DataType::Timestamp,
         }
     }
 
     /// Compare two QueryValues for equality (used by NULLIF)
     fn query_values_equal(val1: &QueryValue, val2: &QueryValue) -> bool {
         match (val1, val2) {
-            (QueryValue::Null, QueryValue::Null) => true,
-            (QueryValue::Integer(a), QueryValue::Integer(b)) => a == b,
-            (QueryValue::Float(a), QueryValue::Float(b)) => (a - b).abs() < f64::EPSILON,
-            (QueryValue::Integer(a), QueryValue::Float(b))
+            | (QueryValue::Null, QueryValue::Null) => true,
+            | (QueryValue::Integer(a), QueryValue::Integer(b)) => a == b,
+            | (QueryValue::Float(a), QueryValue::Float(b)) => (a - b).abs() < f64::EPSILON,
+            | (QueryValue::Integer(a), QueryValue::Float(b))
             | (QueryValue::Float(b), QueryValue::Integer(a)) => {
                 (*a as f64 - b).abs() < f64::EPSILON
-            }
-            (QueryValue::String(a), QueryValue::String(b)) => a == b,
-            (QueryValue::Boolean(a), QueryValue::Boolean(b)) => a == b,
-            (QueryValue::Blob(a), QueryValue::Blob(b)) => a == b,
-            _ => false,
+            },
+            | (QueryValue::String(a), QueryValue::String(b)) => a == b,
+            | (QueryValue::Boolean(a), QueryValue::Boolean(b)) => a == b,
+            | (QueryValue::Blob(a), QueryValue::Blob(b)) => a == b,
+            | _ => false,
         }
     }
 
     /// Convert expression to string (helper, static)
     fn expression_to_string_static(expr: &Expression) -> String {
         match expr {
-            Expression::Identifier(name) => name.clone(),
-            Expression::Literal(lit) => format!("{:?}", lit),
-            Expression::FunctionCall { name, args } => {
+            | Expression::Identifier(name) => name.clone(),
+            | Expression::Literal(lit) => format!("{:?}", lit),
+            | Expression::FunctionCall { name, args } => {
                 let args_str: Vec<String> =
                     args.iter().map(Self::expression_to_string_static).collect();
                 format!("{}({})", name, args_str.join(", "))
-            }
-            Expression::Case { .. } => "CASE".to_string(),
-            _ => "unknown".to_string(),
+            },
+            | Expression::Case { .. } => "CASE".to_string(),
+            | _ => "unknown".to_string(),
         }
     }
 
@@ -8616,15 +8628,15 @@ impl QueryExecutor {
     /// Check if an expression contains a subquery that needs resolution
     fn contains_subquery_expression(expr: &Expression) -> bool {
         match expr {
-            Expression::InSubquery { .. } => true,
-            Expression::Exists { .. } => true,
-            Expression::ScalarSubquery { .. } => true,
-            Expression::BinaryOp { left, right, .. } => {
+            | Expression::InSubquery { .. } => true,
+            | Expression::Exists { .. } => true,
+            | Expression::ScalarSubquery { .. } => true,
+            | Expression::BinaryOp { left, right, .. } => {
                 Self::contains_subquery_expression(left)
                     || Self::contains_subquery_expression(right)
-            }
-            Expression::UnaryOp { operand, .. } => Self::contains_subquery_expression(operand),
-            _ => false,
+            },
+            | Expression::UnaryOp { operand, .. } => Self::contains_subquery_expression(operand),
+            | _ => false,
         }
     }
 
@@ -8639,7 +8651,7 @@ impl QueryExecutor {
     {
         Box::pin(async move {
             match expr {
-                Expression::InSubquery {
+                | Expression::InSubquery {
                     expr: field_expr,
                     subquery,
                     negated,
@@ -8659,19 +8671,19 @@ impl QueryExecutor {
                         list,
                         negated,
                     })
-                }
-                Expression::Exists { subquery, negated } => {
+                },
+                | Expression::Exists { subquery, negated } => {
                     // Execute the EXISTS subquery - check if it returns any rows
                     let exists = self.execute_exists_subquery(&subquery).await?;
                     let result = if negated { !exists } else { exists };
                     Ok(Expression::Literal(Literal::Boolean(result)))
-                }
-                Expression::ScalarSubquery { subquery } => {
+                },
+                | Expression::ScalarSubquery { subquery } => {
                     // Execute the scalar subquery and return the single value
                     let value = self.execute_scalar_subquery(&subquery).await?;
                     Ok(Expression::Literal(value))
-                }
-                Expression::BinaryOp {
+                },
+                | Expression::BinaryOp {
                     left,
                     operator,
                     right,
@@ -8684,16 +8696,16 @@ impl QueryExecutor {
                         operator,
                         right: Box::new(resolved_right),
                     })
-                }
-                Expression::UnaryOp { operator, operand } => {
+                },
+                | Expression::UnaryOp { operator, operand } => {
                     let resolved_operand = self.resolve_subqueries_in_expression(*operand).await?;
                     Ok(Expression::UnaryOp {
                         operator,
                         operand: Box::new(resolved_operand),
                     })
-                }
+                },
                 // For all other expressions, return as-is
-                other => Ok(other),
+                | other => Ok(other),
             }
         })
     }
@@ -8820,8 +8832,10 @@ impl QueryExecutor {
         // Get the column name from the SELECT list
         let column_name = if !subquery.select_list.is_empty() {
             match &subquery.select_list[0] {
-                SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
-                SelectItem::Wildcard => first_row.fields.keys().next().cloned().unwrap_or_default(),
+                | SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
+                | SelectItem::Wildcard => {
+                    first_row.fields.keys().next().cloned().unwrap_or_default()
+                },
             }
         } else {
             first_row.fields.keys().next().cloned().unwrap_or_default()
@@ -8838,15 +8852,15 @@ impl QueryExecutor {
     /// Convert QueryValue to Literal
     fn query_value_to_literal(value: QueryValue) -> Literal {
         match value {
-            QueryValue::Null => Literal::Null,
-            QueryValue::Boolean(b) => Literal::Boolean(b),
-            QueryValue::Integer(i) => Literal::Integer(i),
-            QueryValue::Float(f) => Literal::Float(f),
-            QueryValue::String(s) => Literal::String(s),
-            QueryValue::Blob(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
-            QueryValue::DNASequence(s) => Literal::DNA(s),
-            QueryValue::SynapticWeight(w) => Literal::Float(w as f64),
-            QueryValue::QuantumState(s) => Literal::String(s),
+            | QueryValue::Null => Literal::Null,
+            | QueryValue::Boolean(b) => Literal::Boolean(b),
+            | QueryValue::Integer(i) => Literal::Integer(i),
+            | QueryValue::Float(f) => Literal::Float(f),
+            | QueryValue::String(s) => Literal::String(s),
+            | QueryValue::Blob(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
+            | QueryValue::DNASequence(s) => Literal::DNA(s),
+            | QueryValue::SynapticWeight(w) => Literal::Float(w as f64),
+            | QueryValue::QuantumState(s) => Literal::String(s),
         }
     }
 
@@ -8901,15 +8915,15 @@ impl QueryExecutor {
         // Extract the first column from each row
         let column_name = if !subquery.select_list.is_empty() {
             match &subquery.select_list[0] {
-                SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
-                SelectItem::Wildcard => {
+                | SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
+                | SelectItem::Wildcard => {
                     // For wildcard, use the first field in the row
                     if let Some(first_row) = rows.first() {
                         first_row.fields.keys().next().cloned().unwrap_or_default()
                     } else {
                         String::new()
                     }
-                }
+                },
             }
         } else {
             return Err(QSQLError::ExecutionError {
@@ -8929,13 +8943,13 @@ impl QueryExecutor {
     /// Convert a Value to a Literal
     fn value_to_literal(value: Value) -> Literal {
         match value {
-            Value::Integer(i) => Literal::Integer(i),
-            Value::Float(f) => Literal::Float(f),
-            Value::Text(s) => Literal::String(s),
-            Value::Boolean(b) => Literal::Boolean(b),
-            Value::Null => Literal::Null,
-            Value::Timestamp(ts) => Literal::String(ts.to_rfc3339()),
-            Value::Binary(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
+            | Value::Integer(i) => Literal::Integer(i),
+            | Value::Float(f) => Literal::Float(f),
+            | Value::Text(s) => Literal::String(s),
+            | Value::Boolean(b) => Literal::Boolean(b),
+            | Value::Null => Literal::Null,
+            | Value::Timestamp(ts) => Literal::String(ts.to_rfc3339()),
+            | Value::Binary(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
         }
     }
 }
@@ -8943,8 +8957,8 @@ impl QueryExecutor {
 impl Default for QueryExecutor {
     fn default() -> Self {
         match Self::new() {
-            Ok(executor) => executor,
-            Err(_) => {
+            | Ok(executor) => executor,
+            | Err(_) => {
                 // Fallback to a minimal executor if creation fails
                 QueryExecutor {
                     config: ExecutorConfig::default(),
@@ -8956,7 +8970,7 @@ impl Default for QueryExecutor {
                     current_transaction: None,
                     savepoints: HashMap::new(),
                 }
-            }
+            },
         }
     }
 }
@@ -9154,10 +9168,10 @@ mod tests {
             assert_eq!(select.select_list.len(), 1);
             if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
                 match expr {
-                    Expression::Extract { field, .. } => {
+                    | Expression::Extract { field, .. } => {
                         assert_eq!(field, "YEAR");
-                    }
-                    _ => panic!("Expected Extract expression"),
+                    },
+                    | _ => panic!("Expected Extract expression"),
                 }
             }
         } else {

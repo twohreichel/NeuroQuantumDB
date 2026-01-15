@@ -299,7 +299,7 @@ impl ReedSolomonCorrector {
 
             // Attempt Reed-Solomon reconstruction
             match decoder.decode() {
-                Ok(result) => {
+                | Ok(result) => {
                     debug!(
                         "Successfully reconstructed data with {} errors/missing shards",
                         total_errors
@@ -329,13 +329,10 @@ impl ReedSolomonCorrector {
                     corrected.truncate(data_block.len());
 
                     Ok((corrected, total_errors))
-                }
-                Err(e) => Err(DNAError::ErrorCorrectionFailed(format!(
+                },
+                | Err(e) => Err(DNAError::ErrorCorrectionFailed(format!(
                     "Reed-Solomon reconstruction failed: {:?}. Too many errors to correct: {} missing, {} corrupted, need at least {} valid shards",
-                    e,
-                    missing_shards,
-                    errors_detected,
-                    self.data_shards
+                    e, missing_shards, errors_detected, self.data_shards
                 ))),
             }
         } else {
@@ -609,10 +606,10 @@ impl ReedSolomonCorrector {
     /// Get an alternate base for error correction
     fn get_alternate_base(&self, base: DNABase) -> DNABase {
         match base {
-            DNABase::Adenine => DNABase::Thymine,
-            DNABase::Thymine => DNABase::Adenine,
-            DNABase::Guanine => DNABase::Cytosine,
-            DNABase::Cytosine => DNABase::Guanine,
+            | DNABase::Adenine => DNABase::Thymine,
+            | DNABase::Thymine => DNABase::Adenine,
+            | DNABase::Guanine => DNABase::Cytosine,
+            | DNABase::Cytosine => DNABase::Guanine,
         }
     }
 

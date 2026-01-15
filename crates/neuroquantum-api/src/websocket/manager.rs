@@ -203,13 +203,13 @@ impl ConnectionManager {
             let connection = entry.value();
 
             match connection.send_text(msg.clone()).await {
-                Ok(_) => {
+                | Ok(_) => {
                     success_count += 1;
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!("Failed to broadcast to connection {}: {:?}", conn_id, e);
                     failed_connections.push(conn_id);
-                }
+                },
             }
         }
 

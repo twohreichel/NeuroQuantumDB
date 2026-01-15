@@ -215,7 +215,7 @@ pub unsafe fn neon_quantum_operation(
     let chunks = len / 4;
 
     match operation {
-        QuantumOperation::Normalize => {
+        | QuantumOperation::Normalize => {
             // Calculate magnitude squared
             let mut norm_sq = vdupq_n_f32(0.0);
 
@@ -267,8 +267,8 @@ pub unsafe fn neon_quantum_operation(
                     imag_parts[i] *= inv_norm_scalar;
                 }
             }
-        }
-        QuantumOperation::PhaseFlip => {
+        },
+        | QuantumOperation::PhaseFlip => {
             let neg_one = vdupq_n_f32(-1.0);
 
             for i in 0..chunks {
@@ -285,8 +285,8 @@ pub unsafe fn neon_quantum_operation(
                 real_parts[i] = -real_parts[i];
                 imag_parts[i] = -imag_parts[i];
             }
-        }
-        QuantumOperation::Hadamard => {
+        },
+        | QuantumOperation::Hadamard => {
             // Hadamard gate: H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
             let inv_sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
             for i in 0..(len / 2) {
@@ -300,7 +300,7 @@ pub unsafe fn neon_quantum_operation(
                 real_parts[i * 2 + 1] = (r0 - r1) * inv_sqrt2;
                 imag_parts[i * 2 + 1] = (i0 - i1) * inv_sqrt2;
             }
-        }
+        },
     }
 
     Ok(())
@@ -420,7 +420,7 @@ fn scalar_quantum_operation(
     operation: QuantumOperation,
 ) -> CoreResult<()> {
     match operation {
-        QuantumOperation::Normalize => {
+        | QuantumOperation::Normalize => {
             let norm_sq: f32 = real_parts
                 .iter()
                 .zip(imag_parts.iter())
@@ -434,14 +434,14 @@ fn scalar_quantum_operation(
                     *i /= norm;
                 }
             }
-        }
-        QuantumOperation::PhaseFlip => {
+        },
+        | QuantumOperation::PhaseFlip => {
             for (r, i) in real_parts.iter_mut().zip(imag_parts.iter_mut()) {
                 *r = -*r;
                 *i = -*i;
             }
-        }
-        QuantumOperation::Hadamard => {
+        },
+        | QuantumOperation::Hadamard => {
             let inv_sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
             for i in 0..(real_parts.len() / 2) {
                 let r0 = real_parts[i * 2];
@@ -454,7 +454,7 @@ fn scalar_quantum_operation(
                 real_parts[i * 2 + 1] = (r0 - r1) * inv_sqrt2;
                 imag_parts[i * 2 + 1] = (i0 - i1) * inv_sqrt2;
             }
-        }
+        },
     }
     Ok(())
 }

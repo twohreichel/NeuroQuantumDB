@@ -351,7 +351,7 @@ impl AnnealingBackend for DWaveTFIMSolver {
 
         // Try to submit to D-Wave API, fall back to simulation if unavailable
         let solution = match self.submit_to_dwave(&bqm).await {
-            Ok(samples) => {
+            | Ok(samples) => {
                 // Find best sample from D-Wave results
                 let (best_spins, best_energy) = samples
                     .into_iter()
@@ -372,8 +372,8 @@ impl AnnealingBackend for DWaveTFIMSolver {
                     tunneling_events: 0, // Quantum tunneling is inherent in annealing
                     computation_time_ms,
                 }
-            }
-            Err(_) => self.simulate_dwave_response(problem).await?,
+            },
+            | Err(_) => self.simulate_dwave_response(problem).await?,
         };
 
         info!(
@@ -528,7 +528,7 @@ impl AnnealingBackend for BraketTFIMSolver {
 
         // Try to submit to Braket, fall back to simulation if unavailable
         let solution = match self.submit_to_braket(&bqm).await {
-            Ok(samples) => {
+            | Ok(samples) => {
                 let (best_spins, best_energy) = samples
                     .into_iter()
                     .min_by(|(_, e1), (_, e2)| {
@@ -548,8 +548,8 @@ impl AnnealingBackend for BraketTFIMSolver {
                     tunneling_events: 0,
                     computation_time_ms,
                 }
-            }
-            Err(_) => self.simulate_braket_response(problem).await?,
+            },
+            | Err(_) => self.simulate_braket_response(problem).await?,
         };
 
         info!(
@@ -636,10 +636,10 @@ impl UnifiedTFIMAnnealingSolver {
     /// Create solver from environment variables
     pub fn from_env() -> Self {
         let preference = match std::env::var("TFIM_BACKEND").as_deref() {
-            Ok("dwave") => TFIMBackendPreference::DWave,
-            Ok("braket") => TFIMBackendPreference::Braket,
-            Ok("classical") => TFIMBackendPreference::Classical,
-            _ => TFIMBackendPreference::Auto,
+            | Ok("dwave") => TFIMBackendPreference::DWave,
+            | Ok("braket") => TFIMBackendPreference::Braket,
+            | Ok("classical") => TFIMBackendPreference::Classical,
+            | _ => TFIMBackendPreference::Auto,
         };
 
         Self::new(UnifiedTFIMAnnealingConfig {
@@ -653,10 +653,10 @@ impl UnifiedTFIMAnnealingSolver {
     /// Solve using the best available backend
     pub async fn solve(&self, problem: &TFIMProblem) -> CoreResult<TFIMSolution> {
         match self.config.preference {
-            TFIMBackendPreference::DWave => self.solve_dwave(problem).await,
-            TFIMBackendPreference::Braket => self.solve_braket(problem).await,
-            TFIMBackendPreference::Classical => self.solve_classical(problem),
-            TFIMBackendPreference::Auto => self.solve_auto(problem).await,
+            | TFIMBackendPreference::DWave => self.solve_dwave(problem).await,
+            | TFIMBackendPreference::Braket => self.solve_braket(problem).await,
+            | TFIMBackendPreference::Classical => self.solve_classical(problem),
+            | TFIMBackendPreference::Auto => self.solve_auto(problem).await,
         }
     }
 

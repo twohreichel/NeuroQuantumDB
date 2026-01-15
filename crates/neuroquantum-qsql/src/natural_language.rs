@@ -74,17 +74,17 @@ impl POSTag {
     /// Convert POS tag to string for display
     pub fn as_str(&self) -> &'static str {
         match self {
-            POSTag::Noun => "NOUN",
-            POSTag::Verb => "VERB",
-            POSTag::Adjective => "ADJ",
-            POSTag::Adverb => "ADV",
-            POSTag::Preposition => "PREP",
-            POSTag::Conjunction => "CONJ",
-            POSTag::Determiner => "DET",
-            POSTag::Pronoun => "PRON",
-            POSTag::Number => "NUM",
-            POSTag::Operator => "OP",
-            POSTag::Unknown => "UNK",
+            | POSTag::Noun => "NOUN",
+            | POSTag::Verb => "VERB",
+            | POSTag::Adjective => "ADJ",
+            | POSTag::Adverb => "ADV",
+            | POSTag::Preposition => "PREP",
+            | POSTag::Conjunction => "CONJ",
+            | POSTag::Determiner => "DET",
+            | POSTag::Pronoun => "PRON",
+            | POSTag::Number => "NUM",
+            | POSTag::Operator => "OP",
+            | POSTag::Unknown => "UNK",
         }
     }
 }
@@ -892,11 +892,11 @@ impl SemanticAnalyzer {
 
         // Infer relation type based on entity types
         let relation_type = match (&entity1.entity_type, &entity2.entity_type) {
-            (EntityType::ColumnName, EntityType::Operator) => Some(RelationType::Comparison),
-            (EntityType::Operator, EntityType::Number) => Some(RelationType::ValueBinding),
-            (EntityType::ColumnName, EntityType::Number) => Some(RelationType::Comparison),
-            (EntityType::TableName, EntityType::ColumnName) => Some(RelationType::Attribute),
-            _ => None,
+            | (EntityType::ColumnName, EntityType::Operator) => Some(RelationType::Comparison),
+            | (EntityType::Operator, EntityType::Number) => Some(RelationType::ValueBinding),
+            | (EntityType::ColumnName, EntityType::Number) => Some(RelationType::Comparison),
+            | (EntityType::TableName, EntityType::ColumnName) => Some(RelationType::Attribute),
+            | _ => None,
         };
 
         relation_type.map(|rt| SemanticRelation {
@@ -1524,22 +1524,22 @@ impl IntentClassifier for SemanticIntentClassifier {
         for (term, domain_term) in &self.semantic_analyzer.domain_terms {
             if normalized.contains(term) {
                 match domain_term.category {
-                    SemanticCategory::Neuromorphic => {
+                    | SemanticCategory::Neuromorphic => {
                         if best_similarity < 0.5 {
                             return Ok(QueryIntent::NeuroMatch);
                         }
-                    }
-                    SemanticCategory::Quantum => {
+                    },
+                    | SemanticCategory::Quantum => {
                         if best_similarity < 0.5 {
                             return Ok(QueryIntent::QuantumSearch);
                         }
-                    }
-                    SemanticCategory::Aggregation => {
+                    },
+                    | SemanticCategory::Aggregation => {
                         if best_similarity < 0.5 {
                             return Ok(QueryIntent::Aggregate);
                         }
-                    }
-                    _ => {}
+                    },
+                    | _ => {},
                 }
             }
         }
@@ -1868,10 +1868,10 @@ impl IntentClassifier for PatternIntentClassifier {
 
     fn confidence(&self, intent: &QueryIntent, _tokens: &[Token]) -> f32 {
         match intent {
-            QueryIntent::Select => 0.9,
-            QueryIntent::NeuroMatch => 0.85,
-            QueryIntent::QuantumSearch => 0.85,
-            _ => 0.7,
+            | QueryIntent::Select => 0.9,
+            | QueryIntent::NeuroMatch => 0.85,
+            | QueryIntent::QuantumSearch => 0.85,
+            | _ => 0.7,
         }
     }
 }
@@ -2064,10 +2064,10 @@ impl QSQLGenerator {
 
     fn normalize_operator(&self, op: &str) -> String {
         match op {
-            "above" | "greater than" => ">".to_string(),
-            "below" | "less than" => "<".to_string(),
-            "equal to" => "=".to_string(),
-            _ => op.to_string(),
+            | "above" | "greater than" => ">".to_string(),
+            | "below" | "less than" => "<".to_string(),
+            | "equal to" => "=".to_string(),
+            | _ => op.to_string(),
         }
     }
 }
@@ -2075,32 +2075,32 @@ impl QSQLGenerator {
 impl QueryGenerator for QSQLGenerator {
     fn generate(&self, intent: &QueryIntent, entities: &[Entity]) -> QSQLResult<String> {
         match intent {
-            QueryIntent::Select | QueryIntent::Filter => self.generate_select_query(entities),
-            QueryIntent::NeuroMatch => {
+            | QueryIntent::Select | QueryIntent::Filter => self.generate_select_query(entities),
+            | QueryIntent::NeuroMatch => {
                 let table = entities
                     .iter()
                     .find(|e| e.entity_type == EntityType::TableName)
                     .map(|e| e.value.clone())
                     .unwrap_or_else(|| "memories".to_string());
                 Ok(format!("NEUROMATCH {}", table))
-            }
-            QueryIntent::QuantumSearch => {
+            },
+            | QueryIntent::QuantumSearch => {
                 let table = entities
                     .iter()
                     .find(|e| e.entity_type == EntityType::TableName)
                     .map(|e| e.value.clone())
                     .unwrap_or_else(|| "data".to_string());
                 Ok(format!("QUANTUM_SEARCH {}", table))
-            }
-            QueryIntent::Aggregate => {
+            },
+            | QueryIntent::Aggregate => {
                 let table = entities
                     .iter()
                     .find(|e| e.entity_type == EntityType::TableName)
                     .map(|e| e.value.clone())
                     .unwrap_or_else(|| "users".to_string());
                 Ok(format!("SELECT COUNT(*) FROM {}", table))
-            }
-            _ => Err(QSQLError::NLPError {
+            },
+            | _ => Err(QSQLError::NLPError {
                 message: format!("Unsupported intent: {:?}", intent),
             }),
         }
@@ -2330,8 +2330,8 @@ impl NaturalLanguageProcessor {
         let entity_confidence: f32 =
             entities.iter().map(|e| e.confidence).sum::<f32>() / entities.len() as f32;
         let intent_bonus = match intent {
-            QueryIntent::Select | QueryIntent::NeuroMatch | QueryIntent::QuantumSearch => 0.9,
-            _ => 0.7,
+            | QueryIntent::Select | QueryIntent::NeuroMatch | QueryIntent::QuantumSearch => 0.9,
+            | _ => 0.7,
         };
 
         (entity_confidence * intent_bonus).min(1.0)
@@ -2349,13 +2349,13 @@ impl NaturalLanguageProcessor {
         entities: &[Entity],
     ) -> QSQLResult<String> {
         match intent {
-            QueryIntent::Select => self.generate_select_query(entities),
-            QueryIntent::NeuroMatch => self.generate_neuromatch_query(entities),
-            QueryIntent::QuantumSearch => self.generate_quantum_search_query(entities),
-            QueryIntent::Filter => self.generate_filter_query(entities),
-            QueryIntent::Aggregate => self.generate_aggregate_query(entities),
-            QueryIntent::Join => self.generate_join_query(entities),
-            _ => Err(NLPError::UnsupportedConstruct {
+            | QueryIntent::Select => self.generate_select_query(entities),
+            | QueryIntent::NeuroMatch => self.generate_neuromatch_query(entities),
+            | QueryIntent::QuantumSearch => self.generate_quantum_search_query(entities),
+            | QueryIntent::Filter => self.generate_filter_query(entities),
+            | QueryIntent::Aggregate => self.generate_aggregate_query(entities),
+            | QueryIntent::Join => self.generate_join_query(entities),
+            | _ => Err(NLPError::UnsupportedConstruct {
                 construct: format!("{:?}", intent),
             }
             .into()),
@@ -2665,8 +2665,8 @@ impl NaturalLanguageProcessor {
 impl Default for NaturalLanguageProcessor {
     fn default() -> Self {
         match Self::new() {
-            Ok(processor) => processor,
-            Err(_) => {
+            | Ok(processor) => processor,
+            | Err(_) => {
                 // Fallback to a minimal processor if creation fails
                 NaturalLanguageProcessor {
                     intent_patterns: HashMap::new(),
@@ -2674,7 +2674,7 @@ impl Default for NaturalLanguageProcessor {
                     table_mappings: HashMap::new(),
                     column_mappings: HashMap::new(),
                 }
-            }
+            },
         }
     }
 }
@@ -2690,15 +2690,15 @@ pub enum NLPError {
 impl From<NLPError> for QSQLError {
     fn from(err: NLPError) -> Self {
         match err {
-            NLPError::IntentRecognitionFailed { text } => QSQLError::ParseError {
+            | NLPError::IntentRecognitionFailed { text } => QSQLError::ParseError {
                 message: format!("Could not recognize intent in: {}", text),
                 position: 0,
             },
-            NLPError::EntityExtractionFailed { text } => QSQLError::ParseError {
+            | NLPError::EntityExtractionFailed { text } => QSQLError::ParseError {
                 message: format!("Could not extract entities from: {}", text),
                 position: 0,
             },
-            NLPError::UnsupportedConstruct { construct } => QSQLError::ParseError {
+            | NLPError::UnsupportedConstruct { construct } => QSQLError::ParseError {
                 message: format!("Unsupported construct: {}", construct),
                 position: 0,
             },

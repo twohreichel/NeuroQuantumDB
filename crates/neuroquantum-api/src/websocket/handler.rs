@@ -247,37 +247,37 @@ impl WebSocketService {
         msg: Message,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match msg {
-            Message::Text(text) => {
+            | Message::Text(text) => {
                 debug!("📨 Received text message from {}: {}", conn_id, text);
                 self.handle_text_message(conn_id, &text).await?;
-            }
-            Message::Binary(data) => {
+            },
+            | Message::Binary(data) => {
                 debug!(
                     "📦 Received binary message from {} ({} bytes)",
                     conn_id,
                     data.len()
                 );
                 // Binary messages could be handled here
-            }
-            Message::Ping(data) => {
+            },
+            | Message::Ping(data) => {
                 debug!("🏓 Received ping from {}", conn_id);
                 if let Some(connection) = self.connection_manager.get_connection(conn_id) {
                     connection.session.write().await.pong(&data).await?;
                 }
-            }
-            Message::Pong(_) => {
+            },
+            | Message::Pong(_) => {
                 debug!("🏓 Received pong from {}", conn_id);
                 self.connection_manager
                     .handle_heartbeat_response(conn_id)
                     .await?;
-            }
-            Message::Close(reason) => {
+            },
+            | Message::Close(reason) => {
                 info!("👋 Connection {} closing: {:?}", conn_id, reason);
                 return Err("Connection closed".into());
-            }
-            _ => {
+            },
+            | _ => {
                 warn!("⚠️  Unsupported message type from {}", conn_id);
-            }
+            },
         }
 
         Ok(())
@@ -293,48 +293,48 @@ impl WebSocketService {
 
         // Record incoming WebSocket message
         let msg_type = match &msg {
-            WsMessage::Subscribe { .. } => "subscribe",
-            WsMessage::Unsubscribe { .. } => "unsubscribe",
-            WsMessage::Publish { .. } => "publish",
-            WsMessage::StreamQuery { .. } => "stream_query",
-            WsMessage::CancelQuery { .. } => "cancel_query",
-            WsMessage::Ping { .. } => "ping",
-            WsMessage::Pong { .. } => "pong",
-            WsMessage::QueryStatus { .. } => "query_status",
-            WsMessage::Message { .. } => "message",
+            | WsMessage::Subscribe { .. } => "subscribe",
+            | WsMessage::Unsubscribe { .. } => "unsubscribe",
+            | WsMessage::Publish { .. } => "publish",
+            | WsMessage::StreamQuery { .. } => "stream_query",
+            | WsMessage::CancelQuery { .. } => "cancel_query",
+            | WsMessage::Ping { .. } => "ping",
+            | WsMessage::Pong { .. } => "pong",
+            | WsMessage::QueryStatus { .. } => "query_status",
+            | WsMessage::Message { .. } => "message",
         };
         crate::metrics::record_websocket_message("received", msg_type);
 
         match msg {
-            WsMessage::Subscribe { channel } => {
+            | WsMessage::Subscribe { channel } => {
                 self.handle_subscribe(conn_id, channel).await?;
-            }
-            WsMessage::Unsubscribe { channel } => {
+            },
+            | WsMessage::Unsubscribe { channel } => {
                 self.handle_unsubscribe(conn_id, channel).await?;
-            }
-            WsMessage::Publish { channel, data } => {
+            },
+            | WsMessage::Publish { channel, data } => {
                 self.handle_publish(conn_id, channel, data).await?;
-            }
-            WsMessage::StreamQuery { query, batch_size } => {
+            },
+            | WsMessage::StreamQuery { query, batch_size } => {
                 self.handle_stream_query(conn_id, query, batch_size).await?;
-            }
-            WsMessage::CancelQuery { stream_id } => {
+            },
+            | WsMessage::CancelQuery { stream_id } => {
                 self.handle_cancel_query(conn_id, stream_id).await?;
-            }
-            WsMessage::Ping { timestamp } => {
+            },
+            | WsMessage::Ping { timestamp } => {
                 self.handle_ping(conn_id, timestamp).await?;
-            }
-            WsMessage::Pong { timestamp: _ } => {
+            },
+            | WsMessage::Pong { timestamp: _ } => {
                 self.connection_manager
                     .handle_heartbeat_response(conn_id)
                     .await?;
-            }
-            WsMessage::QueryStatus { query_id } => {
+            },
+            | WsMessage::QueryStatus { query_id } => {
                 self.handle_query_status(conn_id, query_id).await?;
-            }
-            WsMessage::Message { data } => {
+            },
+            | WsMessage::Message { data } => {
                 debug!("💬 Received generic message from {}: {:?}", conn_id, data);
-            }
+            },
         }
 
         Ok(())
@@ -447,7 +447,7 @@ impl WebSocketService {
         // Execute real query if QSQL engine is available, otherwise use mock data
         let query_results = if let Some(qsql_engine) = &self.qsql_engine {
             match qsql_engine.lock().await.execute_query(&query).await {
-                Ok(result) => {
+                | Ok(result) => {
                     // Convert QueryResult rows to Row format
                     result
                         .rows
@@ -469,15 +469,15 @@ impl WebSocketService {
 
                                 // Convert QueryValue to Value
                                 let converted_value = match value {
-                                    QueryValue::Null => Value::Null,
-                                    QueryValue::Boolean(b) => Value::Boolean(b),
-                                    QueryValue::Integer(i) => Value::Integer(i),
-                                    QueryValue::Float(f) => Value::Float(f),
-                                    QueryValue::String(s) => Value::Text(s),
-                                    QueryValue::Blob(b) => Value::Binary(b),
-                                    QueryValue::DNASequence(s) => Value::Text(s),
-                                    QueryValue::SynapticWeight(w) => Value::Float(w as f64),
-                                    QueryValue::QuantumState(s) => Value::Text(s),
+                                    | QueryValue::Null => Value::Null,
+                                    | QueryValue::Boolean(b) => Value::Boolean(b),
+                                    | QueryValue::Integer(i) => Value::Integer(i),
+                                    | QueryValue::Float(f) => Value::Float(f),
+                                    | QueryValue::String(s) => Value::Text(s),
+                                    | QueryValue::Blob(b) => Value::Binary(b),
+                                    | QueryValue::DNASequence(s) => Value::Text(s),
+                                    | QueryValue::SynapticWeight(w) => Value::Float(w as f64),
+                                    | QueryValue::QuantumState(s) => Value::Text(s),
                                 };
                                 fields.insert(key, converted_value);
                             }
@@ -490,8 +490,8 @@ impl WebSocketService {
                             }
                         })
                         .collect()
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     error!("❌ Query execution failed: {}", e);
                     // Send error to client
                     let error_response = WsResponse::Error {
@@ -501,7 +501,7 @@ impl WebSocketService {
                     self.send_to_connection(conn_id, &error_response).await?;
                     self.streaming_registry.remove_stream(stream_id).await;
                     return Ok(());
-                }
+                },
             }
         } else {
             // Fallback to mock data if no QSQL engine available
@@ -522,7 +522,7 @@ impl WebSocketService {
             // Define send function that writes to WebSocket
             let send_fn = |msg: StreamingMessage| -> Result<(), String> {
                 let response = match msg {
-                    StreamingMessage::Started {
+                    | StreamingMessage::Started {
                         stream_id,
                         query,
                         estimated_rows,
@@ -531,7 +531,7 @@ impl WebSocketService {
                         query,
                         estimated_rows,
                     },
-                    StreamingMessage::Progress {
+                    | StreamingMessage::Progress {
                         stream_id,
                         progress,
                     } => WsResponse::QueryProgress {
@@ -540,7 +540,7 @@ impl WebSocketService {
                         percentage: progress.percentage,
                         throughput: progress.throughput,
                     },
-                    StreamingMessage::Batch {
+                    | StreamingMessage::Batch {
                         stream_id,
                         batch_number,
                         rows,
@@ -558,8 +558,8 @@ impl WebSocketService {
                             rows: json_rows,
                             has_more,
                         }
-                    }
-                    StreamingMessage::Completed {
+                    },
+                    | StreamingMessage::Completed {
                         stream_id,
                         total_rows,
                         execution_time_ms,
@@ -568,13 +568,13 @@ impl WebSocketService {
                         total_rows,
                         execution_time_ms,
                     },
-                    StreamingMessage::Cancelled { stream_id, reason } => {
+                    | StreamingMessage::Cancelled { stream_id, reason } => {
                         WsResponse::QueryCancelled {
                             stream_id: stream_id.to_string(),
                             reason,
                         }
-                    }
-                    StreamingMessage::Error { stream_id, error } => WsResponse::Error {
+                    },
+                    | StreamingMessage::Error { stream_id, error } => WsResponse::Error {
                         code: "STREAM_ERROR".to_string(),
                         message: format!("Stream {}: {}", stream_id, error),
                     },
@@ -597,15 +597,15 @@ impl WebSocketService {
                 .stream_results(stream_id_clone, query_clone, query_results, send_fn)
                 .await
             {
-                Ok(total) => {
+                | Ok(total) => {
                     info!(
                         "✅ Completed streaming query {}: {} rows",
                         stream_id_clone, total
                     );
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     error!("❌ Streaming query {} failed: {}", stream_id_clone, e);
-                }
+                },
             }
 
             // Clean up
@@ -623,20 +623,20 @@ impl WebSocketService {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Parse stream ID
         let stream_id = match uuid::Uuid::parse_str(&stream_id_str) {
-            Ok(uuid) => QueryStreamId::from(uuid),
-            Err(_) => {
+            | Ok(uuid) => QueryStreamId::from(uuid),
+            | Err(_) => {
                 let response = WsResponse::Error {
                     code: "INVALID_STREAM_ID".to_string(),
                     message: format!("Invalid stream ID: {}", stream_id_str),
                 };
                 self.send_to_connection(conn_id, &response).await?;
                 return Ok(());
-            }
+            },
         };
 
         // Cancel the stream
         match self.streaming_registry.cancel_stream(stream_id).await {
-            Ok(_) => {
+            | Ok(_) => {
                 info!(
                     "🛑 Cancelled query stream {} for connection {}",
                     stream_id, conn_id
@@ -646,15 +646,15 @@ impl WebSocketService {
                     reason: "Cancelled by user".to_string(),
                 };
                 self.send_to_connection(conn_id, &response).await?;
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 warn!("Failed to cancel stream {}: {}", stream_id, e);
                 let response = WsResponse::Error {
                     code: "CANCEL_FAILED".to_string(),
                     message: e,
                 };
                 self.send_to_connection(conn_id, &response).await?;
-            }
+            },
         }
 
         Ok(())
@@ -690,17 +690,17 @@ impl WebSocketService {
 
             // Record outgoing WebSocket message
             let msg_type = match response {
-                WsResponse::SubscriptionConfirmed { .. } => "subscription_confirmed",
-                WsResponse::UnsubscriptionConfirmed { .. } => "unsubscription_confirmed",
-                WsResponse::ChannelMessage { .. } => "channel_message",
-                WsResponse::QueryStarted { .. } => "query_started",
-                WsResponse::QueryProgress { .. } => "query_progress",
-                WsResponse::QueryBatch { .. } => "query_batch",
-                WsResponse::QueryCompleted { .. } => "query_completed",
-                WsResponse::QueryCancelled { .. } => "query_cancelled",
-                WsResponse::Pong { .. } => "pong",
-                WsResponse::QueryStatus { .. } => "query_status",
-                WsResponse::Error { .. } => "error",
+                | WsResponse::SubscriptionConfirmed { .. } => "subscription_confirmed",
+                | WsResponse::UnsubscriptionConfirmed { .. } => "unsubscription_confirmed",
+                | WsResponse::ChannelMessage { .. } => "channel_message",
+                | WsResponse::QueryStarted { .. } => "query_started",
+                | WsResponse::QueryProgress { .. } => "query_progress",
+                | WsResponse::QueryBatch { .. } => "query_batch",
+                | WsResponse::QueryCompleted { .. } => "query_completed",
+                | WsResponse::QueryCancelled { .. } => "query_cancelled",
+                | WsResponse::Pong { .. } => "pong",
+                | WsResponse::QueryStatus { .. } => "query_status",
+                | WsResponse::Error { .. } => "error",
             };
             crate::metrics::record_websocket_message("sent", msg_type);
         }

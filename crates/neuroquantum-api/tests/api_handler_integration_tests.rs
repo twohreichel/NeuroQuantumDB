@@ -1442,8 +1442,8 @@ async fn test_integer_boundary_values() {
         let stored_values: Vec<i64> = rows
             .iter()
             .filter_map(|r| match r.fields.get("value") {
-                Some(neuroquantum_core::storage::Value::Integer(v)) => Some(*v),
-                _ => None,
+                | Some(neuroquantum_core::storage::Value::Integer(v)) => Some(*v),
+                | _ => None,
             })
             .collect();
 

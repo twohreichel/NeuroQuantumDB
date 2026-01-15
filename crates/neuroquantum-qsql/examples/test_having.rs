@@ -194,8 +194,8 @@ async fn run_test(
     print!("Test: HAVING {} ... ", description);
 
     match parser.parse(sql) {
-        Ok(statement) => match executor.execute_statement(&statement).await {
-            Ok(result) => {
+        | Ok(statement) => match executor.execute_statement(&statement).await {
+            | Ok(result) => {
                 if result.rows.len() == expected_rows {
                     println!("✓ (got {} rows)", result.rows.len());
                 } else {
@@ -209,15 +209,15 @@ async fn run_test(
                     }
                     std::process::exit(1);
                 }
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 println!("✗ EXECUTION ERROR: {:?}", e);
                 std::process::exit(1);
-            }
+            },
         },
-        Err(e) => {
+        | Err(e) => {
             println!("✗ PARSE ERROR: {:?}", e);
             std::process::exit(1);
-        }
+        },
     }
 }

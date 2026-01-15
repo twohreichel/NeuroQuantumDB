@@ -279,23 +279,23 @@ impl FlowController {
         stats.flow_state = FlowState::Dropping;
 
         match self.config.drop_policy {
-            DropPolicy::DropOldest => {
+            | DropPolicy::DropOldest => {
                 debug!("📉 Buffer full, dropping oldest messages");
                 FlowAction::DropOldest
-            }
-            DropPolicy::DropNewest => {
+            },
+            | DropPolicy::DropNewest => {
                 debug!("📉 Buffer full, dropping newest messages");
                 FlowAction::DropNewest
-            }
-            DropPolicy::Block => {
+            },
+            | DropPolicy::Block => {
                 debug!("⏸️  Buffer full, blocking");
                 stats.pause_events += 1;
                 FlowAction::Block(self.config.pause_duration)
-            }
-            DropPolicy::DropAll => {
+            },
+            | DropPolicy::DropAll => {
                 warn!("🗑️  Buffer full, dropping all messages");
                 FlowAction::DropAll
-            }
+            },
         }
     }
 
@@ -437,30 +437,30 @@ impl<T: Clone> FlowControlledSender<T> {
             let action = self.controller.handle_buffer_full(buffer.len()).await;
 
             match action {
-                FlowAction::DropOldest => {
+                | FlowAction::DropOldest => {
                     if !buffer.is_empty() {
                         buffer.remove(0);
                         self.controller.record_dropped().await;
                     }
-                }
-                FlowAction::DropNewest => {
+                },
+                | FlowAction::DropNewest => {
                     self.controller.record_dropped().await;
                     return Err("Message dropped (buffer full)".to_string());
-                }
-                FlowAction::DropAll => {
+                },
+                | FlowAction::DropAll => {
                     let dropped = buffer.len();
                     buffer.clear();
                     for _ in 0..dropped {
                         self.controller.record_dropped().await;
                     }
-                }
-                FlowAction::Block(duration) => {
+                },
+                | FlowAction::Block(duration) => {
                     drop(buffer); // Release lock while waiting
                     tokio::time::sleep(duration).await;
                     // Retry with Box::pin to avoid infinite recursion
                     return Box::pin(self.send(message)).await;
-                }
-                FlowAction::Continue => {}
+                },
+                | FlowAction::Continue => {},
             }
         }
 

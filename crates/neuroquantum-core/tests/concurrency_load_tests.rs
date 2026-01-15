@@ -222,7 +222,11 @@ impl LoadTestStats {
             successful,
             failed,
             ops_per_sec,
-            if min_latency == u64::MAX { 0 } else { min_latency },
+            if min_latency == u64::MAX {
+                0
+            } else {
+                min_latency
+            },
             avg_latency,
             max_latency
         )
@@ -522,14 +526,14 @@ async fn test_lock_manager_high_contention() {
                 .await;
 
                 match lock_result {
-                    Ok(Ok(())) => {
+                    | Ok(Ok(())) => {
                         // Hold lock briefly
                         tokio::time::sleep(Duration::from_micros(100)).await;
                         stats_clone.record_success(op_start.elapsed());
-                    }
-                    _ => {
+                    },
+                    | _ => {
                         stats_clone.record_failure();
-                    }
+                    },
                 }
             }
 
@@ -646,13 +650,13 @@ async fn test_shared_exclusive_lock_performance() {
                     .await;
 
                     match result {
-                        Ok(Ok(())) => {
+                        | Ok(Ok(())) => {
                             tokio::time::sleep(Duration::from_micros(100)).await;
                             stats_clone.record_success(op_start.elapsed());
-                        }
-                        _ => {
+                        },
+                        | _ => {
                             stats_clone.record_failure();
-                        }
+                        },
                     }
                 }
 
@@ -854,10 +858,10 @@ async fn test_transaction_throughput_concurrent() {
             for i in 0..txs_per_worker {
                 // Alternate isolation levels
                 let level = match i % 4 {
-                    0 => IsolationLevel::ReadUncommitted,
-                    1 => IsolationLevel::ReadCommitted,
-                    2 => IsolationLevel::RepeatableRead,
-                    _ => IsolationLevel::Serializable,
+                    | 0 => IsolationLevel::ReadUncommitted,
+                    | 1 => IsolationLevel::ReadCommitted,
+                    | 2 => IsolationLevel::RepeatableRead,
+                    | _ => IsolationLevel::Serializable,
                 };
 
                 let op_start = Instant::now();
@@ -1022,7 +1026,7 @@ async fn test_sustained_load_stability() {
                 let op_type = rand::random::<u8>() % 10;
 
                 let result = match op_type {
-                    0..=6 => {
+                    | 0..=6 => {
                         // Read (70%)
                         let target_id = (rand::random::<i64>().abs() % 100) as i64;
                         let query = SelectQuery {
@@ -1036,8 +1040,8 @@ async fn test_sustained_load_stability() {
 
                         let storage_guard = storage_clone.read().await;
                         storage_guard.select_rows(&query).await.map(|_| ())
-                    }
-                    7..=8 => {
+                    },
+                    | 7..=8 => {
                         // Insert (20%)
                         local_id += 1;
                         let row = create_load_test_row(
@@ -1052,8 +1056,8 @@ async fn test_sustained_load_stability() {
                             .insert_row("sustained_load", row)
                             .await
                             .map(|_| ())
-                    }
-                    _ => {
+                    },
+                    | _ => {
                         // Delete (10%)
                         let target_id = (rand::random::<i64>().abs() % 100) as i64;
                         let delete_query = DeleteQuery {
@@ -1063,7 +1067,7 @@ async fn test_sustained_load_stability() {
 
                         let mut storage_guard = storage_clone.write().await;
                         storage_guard.delete_rows(&delete_query).await.map(|_| ())
-                    }
+                    },
                 };
 
                 if result.is_ok() {

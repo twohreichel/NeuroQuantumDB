@@ -220,11 +220,11 @@ impl PreparedStatementManager {
     /// Handle a DEALLOCATE statement
     pub fn handle_deallocate(&mut self, deallocate_stmt: &DeallocateStatement) -> QSQLResult<()> {
         match &deallocate_stmt.name {
-            Some(name) => self.deallocate(name),
-            None => {
+            | Some(name) => self.deallocate(name),
+            | None => {
                 self.deallocate_all();
                 Ok(())
-            }
+            },
         }
     }
 
@@ -274,35 +274,35 @@ fn count_parameters(statement: &Statement) -> (usize, Vec<String>) {
         named_params: &mut Vec<String>,
     ) {
         match expr {
-            Expression::Parameter(ParameterRef::Positional(idx)) => {
+            | Expression::Parameter(ParameterRef::Positional(idx)) => {
                 if *idx > *positional_max {
                     *positional_max = *idx;
                 }
-            }
-            Expression::Parameter(ParameterRef::Named(name)) => {
+            },
+            | Expression::Parameter(ParameterRef::Named(name)) => {
                 if !named_params.contains(name) {
                     named_params.push(name.clone());
                 }
-            }
-            Expression::BinaryOp { left, right, .. } => {
+            },
+            | Expression::BinaryOp { left, right, .. } => {
                 visit_expression(left, positional_max, named_params);
                 visit_expression(right, positional_max, named_params);
-            }
-            Expression::UnaryOp { operand, .. } => {
+            },
+            | Expression::UnaryOp { operand, .. } => {
                 visit_expression(operand, positional_max, named_params);
-            }
-            Expression::FunctionCall { args, .. } => {
+            },
+            | Expression::FunctionCall { args, .. } => {
                 for arg in args {
                     visit_expression(arg, positional_max, named_params);
                 }
-            }
-            Expression::InList { expr, list, .. } => {
+            },
+            | Expression::InList { expr, list, .. } => {
                 visit_expression(expr, positional_max, named_params);
                 for item in list {
                     visit_expression(item, positional_max, named_params);
                 }
-            }
-            Expression::Case {
+            },
+            | Expression::Case {
                 when_clauses,
                 else_result,
             } => {
@@ -313,14 +313,14 @@ fn count_parameters(statement: &Statement) -> (usize, Vec<String>) {
                 if let Some(else_expr) = else_result {
                     visit_expression(else_expr, positional_max, named_params);
                 }
-            }
-            _ => {}
+            },
+            | _ => {},
         }
     }
 
     fn visit_statement(stmt: &Statement, positional_max: &mut u32, named_params: &mut Vec<String>) {
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 if let Some(where_clause) = &select.where_clause {
                     visit_expression(where_clause, positional_max, named_params);
                 }
@@ -332,28 +332,28 @@ fn count_parameters(statement: &Statement) -> (usize, Vec<String>) {
                         visit_expression(expr, positional_max, named_params);
                     }
                 }
-            }
-            Statement::Insert(insert) => {
+            },
+            | Statement::Insert(insert) => {
                 for row in &insert.values {
                     for expr in row {
                         visit_expression(expr, positional_max, named_params);
                     }
                 }
-            }
-            Statement::Update(update) => {
+            },
+            | Statement::Update(update) => {
                 for assignment in &update.assignments {
                     visit_expression(&assignment.value, positional_max, named_params);
                 }
                 if let Some(where_clause) = &update.where_clause {
                     visit_expression(where_clause, positional_max, named_params);
                 }
-            }
-            Statement::Delete(delete) => {
+            },
+            | Statement::Delete(delete) => {
                 if let Some(where_clause) = &delete.where_clause {
                     visit_expression(where_clause, positional_max, named_params);
                 }
-            }
-            _ => {}
+            },
+            | _ => {},
         }
     }
 
@@ -373,16 +373,16 @@ fn substitute_parameters(
         params: &HashMap<ParameterRef, Expression>,
     ) -> QSQLResult<Expression> {
         match expr {
-            Expression::Parameter(param_ref) => params.get(param_ref).cloned().ok_or_else(|| {
+            | Expression::Parameter(param_ref) => params.get(param_ref).cloned().ok_or_else(|| {
                 let param_str = match param_ref {
-                    ParameterRef::Positional(idx) => format!("${}", idx),
-                    ParameterRef::Named(name) => format!(":{}", name),
+                    | ParameterRef::Positional(idx) => format!("${}", idx),
+                    | ParameterRef::Named(name) => format!(":{}", name),
                 };
                 QSQLError::PreparedStatementError {
                     message: format!("Missing parameter value for {}", param_str),
                 }
             }),
-            Expression::BinaryOp {
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
@@ -391,11 +391,11 @@ fn substitute_parameters(
                 operator: operator.clone(),
                 right: Box::new(substitute_expression(right, params)?),
             }),
-            Expression::UnaryOp { operator, operand } => Ok(Expression::UnaryOp {
+            | Expression::UnaryOp { operator, operand } => Ok(Expression::UnaryOp {
                 operator: operator.clone(),
                 operand: Box::new(substitute_expression(operand, params)?),
             }),
-            Expression::FunctionCall { name, args } => {
+            | Expression::FunctionCall { name, args } => {
                 let new_args: Result<Vec<_>, _> = args
                     .iter()
                     .map(|arg| substitute_expression(arg, params))
@@ -404,8 +404,8 @@ fn substitute_parameters(
                     name: name.clone(),
                     args: new_args?,
                 })
-            }
-            Expression::InList {
+            },
+            | Expression::InList {
                 expr,
                 list,
                 negated,
@@ -419,8 +419,8 @@ fn substitute_parameters(
                     list: new_list?,
                     negated: *negated,
                 })
-            }
-            Expression::Case {
+            },
+            | Expression::Case {
                 when_clauses,
                 else_result,
             } => {
@@ -440,9 +440,9 @@ fn substitute_parameters(
                     when_clauses: new_when?,
                     else_result: new_else,
                 })
-            }
+            },
             // Other expression types are returned as-is
-            other => Ok(other.clone()),
+            | other => Ok(other.clone()),
         }
     }
 
@@ -451,7 +451,7 @@ fn substitute_parameters(
         params: &HashMap<ParameterRef, Expression>,
     ) -> QSQLResult<Statement> {
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 let mut new_select = select.clone();
                 if let Some(where_clause) = &select.where_clause {
                     new_select.where_clause = Some(substitute_expression(where_clause, params)?);
@@ -464,18 +464,18 @@ fn substitute_parameters(
                     .select_list
                     .iter()
                     .map(|item| match item {
-                        crate::ast::SelectItem::Expression { expr, alias } => {
+                        | crate::ast::SelectItem::Expression { expr, alias } => {
                             Ok(crate::ast::SelectItem::Expression {
                                 expr: substitute_expression(expr, params)?,
                                 alias: alias.clone(),
                             })
-                        }
-                        other => Ok(other.clone()),
+                        },
+                        | other => Ok(other.clone()),
                     })
                     .collect::<QSQLResult<Vec<_>>>()?;
                 Ok(Statement::Select(new_select))
-            }
-            Statement::Insert(insert) => {
+            },
+            | Statement::Insert(insert) => {
                 let mut new_insert = insert.clone();
                 new_insert.values = insert
                     .values
@@ -487,8 +487,8 @@ fn substitute_parameters(
                     })
                     .collect::<QSQLResult<Vec<_>>>()?;
                 Ok(Statement::Insert(new_insert))
-            }
-            Statement::Update(update) => {
+            },
+            | Statement::Update(update) => {
                 let mut new_update = update.clone();
                 new_update.assignments = update
                     .assignments
@@ -504,16 +504,16 @@ fn substitute_parameters(
                     new_update.where_clause = Some(substitute_expression(where_clause, params)?);
                 }
                 Ok(Statement::Update(new_update))
-            }
-            Statement::Delete(delete) => {
+            },
+            | Statement::Delete(delete) => {
                 let mut new_delete = delete.clone();
                 if let Some(where_clause) = &delete.where_clause {
                     new_delete.where_clause = Some(substitute_expression(where_clause, params)?);
                 }
                 Ok(Statement::Delete(new_delete))
-            }
+            },
             // Other statement types are returned as-is
-            other => Ok(other.clone()),
+            | other => Ok(other.clone()),
         }
     }
 

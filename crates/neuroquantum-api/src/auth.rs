@@ -123,8 +123,8 @@ impl AuthService {
         let key_hash = hash(&key, cost).map_err(|e| format!("Failed to hash API key: {}", e))?;
 
         let expires_at = match expiry_hours {
-            Some(hours) => Utc::now() + chrono::Duration::hours(hours as i64),
-            None => Utc::now() + chrono::Duration::days(30), // Default 30 days
+            | Some(hours) => Utc::now() + chrono::Duration::hours(hours as i64),
+            | None => Utc::now() + chrono::Duration::days(30), // Default 30 days
         };
 
         let api_key = ApiKey {
@@ -152,15 +152,15 @@ impl AuthService {
     pub async fn validate_api_key(&self, key: &str) -> Option<ApiKey> {
         // Retrieve from persistent storage
         let (api_key_data, stored_hash) = match self.storage.get_key(key) {
-            Ok(Some(data)) => data,
-            Ok(None) => {
+            | Ok(Some(data)) => data,
+            | Ok(None) => {
                 warn!("API key not found: {}", &key[..8.min(key.len())]);
                 return None;
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 warn!("Failed to retrieve API key: {}", e);
                 return None;
-            }
+            },
         };
 
         // Verify the key hash for additional security
@@ -203,16 +203,16 @@ impl AuthService {
     pub fn check_endpoint_permission(&self, api_key: &ApiKey, path: &str) -> bool {
         // Define permission mappings for different endpoints
         let required_permission = match path {
-            p if p.starts_with("/api/v1/neuromorphic") => "neuromorphic",
-            p if p.starts_with("/api/v1/quantum") => "quantum",
-            p if p.starts_with("/api/v1/dna") => "dna",
-            p if p.starts_with("/api/v1/admin") => "admin",
-            p if p.starts_with("/metrics") => "admin",
-            p if p.contains("/query") || p.contains("/search") => "read",
-            p if p.contains("/train") || p.contains("/optimize") || p.contains("/compress") => {
+            | p if p.starts_with("/api/v1/neuromorphic") => "neuromorphic",
+            | p if p.starts_with("/api/v1/quantum") => "quantum",
+            | p if p.starts_with("/api/v1/dna") => "dna",
+            | p if p.starts_with("/api/v1/admin") => "admin",
+            | p if p.starts_with("/metrics") => "admin",
+            | p if p.contains("/query") || p.contains("/search") => "read",
+            | p if p.contains("/train") || p.contains("/optimize") || p.contains("/compress") => {
                 "write"
-            }
-            _ => "read", // Default to read permission
+            },
+            | _ => "read", // Default to read permission
         };
 
         api_key
@@ -243,16 +243,16 @@ impl AuthService {
         info!("🗑️ Revoking API key: {}", &key[..8.min(key.len())]);
 
         match self.storage.revoke_key(key, revoked_by) {
-            Ok(revoked) => {
+            | Ok(revoked) => {
                 if revoked {
                     self.usage_tracking.remove(key);
                 }
                 revoked
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 warn!("Failed to revoke API key: {}", e);
                 false
-            }
+            },
         }
     }
 

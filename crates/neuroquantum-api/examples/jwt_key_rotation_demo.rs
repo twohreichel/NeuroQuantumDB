@@ -130,13 +130,13 @@ async fn demo_grace_period() -> Result<(), Box<dyn std::error::Error>> {
 
     // Token should still validate (grace period)
     match service.validate_token(&token).await {
-        Ok(claims) => {
+        | Ok(claims) => {
             info!("✅ Old token still valid during grace period");
             info!("User: {}", claims.sub);
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             info!("❌ Token validation failed: {}", e);
-        }
+        },
     }
 
     info!(

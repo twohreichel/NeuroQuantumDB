@@ -329,10 +329,10 @@ impl ReplicationManager {
     /// Calculate required acks for a consistency level.
     fn required_acks(&self, level: ConsistencyLevel) -> usize {
         match level {
-            ConsistencyLevel::One => 1,
-            ConsistencyLevel::Quorum => (self.replication_factor as usize / 2) + 1,
-            ConsistencyLevel::All => self.replication_factor as usize,
-            ConsistencyLevel::LocalQuorum => (self.replication_factor as usize / 2) + 1,
+            | ConsistencyLevel::One => 1,
+            | ConsistencyLevel::Quorum => (self.replication_factor as usize / 2) + 1,
+            | ConsistencyLevel::All => self.replication_factor as usize,
+            | ConsistencyLevel::LocalQuorum => (self.replication_factor as usize / 2) + 1,
         }
     }
 }
@@ -530,14 +530,14 @@ mod tests {
         let result = manager.validate_token(&stale_token).await;
         assert!(result.is_err());
         match result {
-            Err(ClusterError::StaleToken {
+            | Err(ClusterError::StaleToken {
                 current_term,
                 received_term,
             }) => {
                 assert_eq!(current_term, 5);
                 assert_eq!(received_term, 4);
-            }
-            _ => panic!("Expected StaleToken error"),
+            },
+            | _ => panic!("Expected StaleToken error"),
         }
 
         // Stale token from same term but lower sequence should be rejected

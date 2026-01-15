@@ -35,7 +35,7 @@ fn test_parse_create_table_with_defaults() {
 
     let statement = result.unwrap();
     match statement {
-        neuroquantum_qsql::ast::Statement::CreateTable(create) => {
+        | neuroquantum_qsql::ast::Statement::CreateTable(create) => {
             assert_eq!(create.table_name, "users");
             assert_eq!(create.columns.len(), 5);
 
@@ -66,8 +66,8 @@ fn test_parse_create_table_with_defaults() {
                 )
             });
             assert!(has_default, "Expected DEFAULT 0 for age column");
-        }
-        _ => panic!("Expected CREATE TABLE statement"),
+        },
+        | _ => panic!("Expected CREATE TABLE statement"),
     }
 }
 
@@ -87,7 +87,7 @@ fn test_parse_insert_with_default_keyword() {
 
     let statement = result.unwrap();
     match statement {
-        neuroquantum_qsql::ast::Statement::Insert(insert) => {
+        | neuroquantum_qsql::ast::Statement::Insert(insert) => {
             assert_eq!(insert.table_name, "users");
             assert_eq!(insert.columns.as_ref().unwrap().len(), 2);
             assert_eq!(insert.values.len(), 1);
@@ -101,8 +101,8 @@ fn test_parse_insert_with_default_keyword() {
                 ),
                 "Expected DEFAULT expression for second value"
             );
-        }
-        _ => panic!("Expected INSERT statement"),
+        },
+        | _ => panic!("Expected INSERT statement"),
     }
 }
 

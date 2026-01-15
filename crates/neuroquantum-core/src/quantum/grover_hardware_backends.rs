@@ -268,12 +268,12 @@ impl GroverHardwareBackend for IBMGroverSolver {
 
         // Try to submit to IBM Quantum API, fall back to simulation if unavailable
         let mut result = match self.submit_to_ibm(oracle, self.config.num_shots).await {
-            Ok(_counts) => {
+            | Ok(_counts) => {
                 // Process real hardware results
                 // In real implementation, convert measurement counts to GroverResult
                 self.simulate_ibm_response(oracle)?
-            }
-            Err(_) => self.simulate_ibm_response(oracle)?,
+            },
+            | Err(_) => self.simulate_ibm_response(oracle)?,
         };
 
         result.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -474,11 +474,11 @@ impl GroverHardwareBackend for BraketGroverSolver {
 
         // Try to submit to AWS Braket, fall back to simulation if unavailable
         let mut result = match self.submit_to_braket(oracle, self.config.num_shots).await {
-            Ok(_counts) => {
+            | Ok(_counts) => {
                 // Process real hardware results
                 self.simulate_braket_response(oracle)?
-            }
-            Err(_) => self.simulate_braket_response(oracle)?,
+            },
+            | Err(_) => self.simulate_braket_response(oracle)?,
         };
 
         result.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -668,11 +668,11 @@ impl GroverHardwareBackend for IonQGroverSolver {
 
         // Try to submit to IonQ API, fall back to simulation if unavailable
         let mut result = match self.submit_to_ionq(oracle, self.config.num_shots).await {
-            Ok(_counts) => {
+            | Ok(_counts) => {
                 // Process real hardware results
                 self.simulate_ionq_response(oracle)?
-            }
-            Err(_) => self.simulate_ionq_response(oracle)?,
+            },
+            | Err(_) => self.simulate_ionq_response(oracle)?,
         };
 
         result.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -906,31 +906,31 @@ impl UnifiedGroverSolver {
     fn get_available_backend(&self) -> &dyn GroverHardwareBackend {
         for backend_name in &self.backend_priority {
             match backend_name.as_str() {
-                "ibm" => {
+                | "ibm" => {
                     if let Some(ref solver) = self.ibm_solver {
                         if solver.is_available() {
                             return solver;
                         }
                     }
-                }
-                "ionq" => {
+                },
+                | "ionq" => {
                     if let Some(ref solver) = self.ionq_solver {
                         if solver.is_available() {
                             return solver;
                         }
                     }
-                }
-                "braket" => {
+                },
+                | "braket" => {
                     if let Some(ref solver) = self.braket_solver {
                         if solver.is_available() {
                             return solver;
                         }
                     }
-                }
-                "simulator" => {
+                },
+                | "simulator" => {
                     return &self.simulator_solver;
-                }
-                _ => {}
+                },
+                | _ => {},
             }
         }
 
@@ -987,30 +987,30 @@ impl UnifiedGroverSolver {
         backend_name: &str,
     ) -> CoreResult<QuantumGroverResult> {
         match backend_name.to_lowercase().as_str() {
-            "ibm" => {
+            | "ibm" => {
                 if let Some(ref solver) = self.ibm_solver {
                     return solver.search(oracle, num_shots).await;
                 }
                 Err(CoreError::invalid_operation(
                     "IBM Quantum backend not configured",
                 ))
-            }
-            "ionq" => {
+            },
+            | "ionq" => {
                 if let Some(ref solver) = self.ionq_solver {
                     return solver.search(oracle, num_shots).await;
                 }
                 Err(CoreError::invalid_operation("IonQ backend not configured"))
-            }
-            "braket" => {
+            },
+            | "braket" => {
                 if let Some(ref solver) = self.braket_solver {
                     return solver.search(oracle, num_shots).await;
                 }
                 Err(CoreError::invalid_operation(
                     "AWS Braket backend not configured",
                 ))
-            }
-            "simulator" => self.simulator_solver.search(oracle, num_shots).await,
-            _ => Err(CoreError::invalid_operation(&format!(
+            },
+            | "simulator" => self.simulator_solver.search(oracle, num_shots).await,
+            | _ => Err(CoreError::invalid_operation(&format!(
                 "Unknown backend: {}. Available: ibm, ionq, braket, simulator",
                 backend_name
             ))),

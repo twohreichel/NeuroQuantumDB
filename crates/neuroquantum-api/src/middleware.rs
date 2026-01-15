@@ -51,17 +51,17 @@ where
                             req.app_data::<actix_web::web::Data<JwtService>>()
                         {
                             match jwt_service.validate_token(token).await {
-                                Ok(claims) => {
+                                | Ok(claims) => {
                                     debug!(
                                         "✅ JWT authentication successful for user: {}",
                                         claims.sub
                                     );
                                     req.extensions_mut().insert(claims);
                                     return service.call(req).await;
-                                }
-                                Err(e) => {
+                                },
+                                | Err(e) => {
                                     warn!("❌ JWT validation failed: {:?}", e);
-                                }
+                                },
                             }
                         }
                     }
@@ -383,7 +383,7 @@ impl CircuitBreaker {
         };
 
         match current_state {
-            CircuitBreakerState::Open => {
+            | CircuitBreakerState::Open => {
                 // Check if we should transition to half-open
                 let should_try = {
                     let last_failure = self.last_failure_time.lock().unwrap_or_else(|poisoned| {
@@ -414,33 +414,33 @@ impl CircuitBreaker {
                         service: service_name.to_string(),
                     });
                 }
-            }
-            CircuitBreakerState::HalfOpen => {
+            },
+            | CircuitBreakerState::HalfOpen => {
                 // Allow limited requests through
                 info!(
                     "🟡 Circuit breaker half-open, allowing request for service: {}",
                     service_name
                 );
-            }
-            CircuitBreakerState::Closed => {
+            },
+            | CircuitBreakerState::Closed => {
                 // Normal operation
                 debug!(
                     "🟢 Circuit breaker closed, allowing request for service: {}",
                     service_name
                 );
-            }
+            },
         }
 
         // Execute the service call
         match f() {
-            Ok(result) => {
+            | Ok(result) => {
                 self.on_success();
                 Ok(result)
-            }
-            Err(error) => {
+            },
+            | Err(error) => {
                 self.on_failure();
                 Err(error)
-            }
+            },
         }
     }
 

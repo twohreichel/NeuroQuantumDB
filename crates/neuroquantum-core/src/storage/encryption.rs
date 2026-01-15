@@ -185,10 +185,10 @@ impl EncryptionManager {
         }
 
         let (master_key, actual_strategy) = match config.strategy {
-            KeyStorageStrategy::OsKeychain => {
+            | KeyStorageStrategy::OsKeychain => {
                 match Self::load_or_create_keychain_key(&instance_id, &key_path).await {
-                    Ok(key) => (key, KeyStorageStrategy::OsKeychain),
-                    Err(e) if config.forbid_file_fallback => {
+                    | Ok(key) => (key, KeyStorageStrategy::OsKeychain),
+                    | Err(e) if config.forbid_file_fallback => {
                         tracing::error!(
                             "🚨 SECURITY: OS keychain unavailable and file fallback is forbidden: {}",
                             e
@@ -201,18 +201,18 @@ impl EncryptionManager {
                             3. Check system logs for keychain-related errors",
                             e
                         ));
-                    }
-                    Err(e) => {
+                    },
+                    | Err(e) => {
                         tracing::warn!(
                             "⚠️ OS keychain unavailable ({}), falling back to file-based storage",
                             e
                         );
                         let key = Self::load_or_create_file_key(&key_path).await?;
                         (key, KeyStorageStrategy::FileBased)
-                    }
+                    },
                 }
-            }
-            KeyStorageStrategy::FileBased => {
+            },
+            | KeyStorageStrategy::FileBased => {
                 if config.forbid_file_fallback && config.production_mode {
                     // This case is already handled above, but double-check
                     return Err(anyhow!(
@@ -226,8 +226,8 @@ impl EncryptionManager {
                 }
                 let key = Self::load_or_create_file_key(&key_path).await?;
                 (key, KeyStorageStrategy::FileBased)
-            }
-            KeyStorageStrategy::KeychainWithFileFallback => {
+            },
+            | KeyStorageStrategy::KeychainWithFileFallback => {
                 // IMPORTANT: First check if a file-based key exists.
                 // This ensures backward compatibility with existing encrypted data.
                 // If data was encrypted with a file-based key, we must use that key,
@@ -256,14 +256,14 @@ impl EncryptionManager {
                 } else {
                     // No existing file key, try keychain first
                     match Self::load_or_create_keychain_key(&instance_id, &key_path).await {
-                        Ok(key) => {
+                        | Ok(key) => {
                             tracing::info!(
                                 "🔐 Master key loaded from OS keychain for instance: {}",
                                 instance_id
                             );
                             (key, KeyStorageStrategy::OsKeychain)
-                        }
-                        Err(e) if config.forbid_file_fallback => {
+                        },
+                        | Err(e) if config.forbid_file_fallback => {
                             tracing::error!(
                                 "🚨 SECURITY: OS keychain unavailable and file fallback is forbidden: {}",
                                 e
@@ -276,24 +276,24 @@ impl EncryptionManager {
                                 3. Check system logs for keychain-related errors",
                                 e
                             ));
-                        }
-                        Err(e) => {
+                        },
+                        | Err(e) => {
                             tracing::warn!(
                                 "⚠️ OS keychain unavailable ({}), falling back to file-based storage",
                                 e
                             );
                             let key = Self::load_or_create_file_key(&key_path).await?;
                             (key, KeyStorageStrategy::FileBased)
-                        }
+                        },
                     }
                 }
-            }
+            },
         };
 
         let strategy_name = match actual_strategy {
-            KeyStorageStrategy::OsKeychain => "OS Keychain",
-            KeyStorageStrategy::FileBased => "File-based (not recommended for production)",
-            KeyStorageStrategy::KeychainWithFileFallback => "Keychain with fallback",
+            | KeyStorageStrategy::OsKeychain => "OS Keychain",
+            | KeyStorageStrategy::FileBased => "File-based (not recommended for production)",
+            | KeyStorageStrategy::KeychainWithFileFallback => "Keychain with fallback",
         };
 
         tracing::info!(
@@ -325,7 +325,7 @@ impl EncryptionManager {
 
         // Try to load existing key
         match entry.get_password() {
-            Ok(encoded_key) => {
+            | Ok(encoded_key) => {
                 let key = Self::decode_key(&encoded_key)?;
                 tracing::debug!("🔑 Loaded existing master key from OS keychain");
 
@@ -339,8 +339,8 @@ impl EncryptionManager {
                 }
 
                 Ok(key)
-            }
-            Err(keyring::Error::NoEntry) => {
+            },
+            | Err(keyring::Error::NoEntry) => {
                 // No existing key, generate a new one
                 let key = Self::generate_master_key();
                 let encoded = Self::encode_key(&key);
@@ -358,8 +358,8 @@ impl EncryptionManager {
 
                 tracing::info!("🔑 Generated and stored new master key in OS keychain");
                 Ok(key)
-            }
-            Err(e) => Err(anyhow!("Keychain error: {}", e)),
+            },
+            | Err(e) => Err(anyhow!("Keychain error: {}", e)),
         }
     }
 
@@ -497,7 +497,7 @@ impl EncryptionManager {
 
         // Store new key
         match self.storage_strategy {
-            KeyStorageStrategy::OsKeychain | KeyStorageStrategy::KeychainWithFileFallback => {
+            | KeyStorageStrategy::OsKeychain | KeyStorageStrategy::KeychainWithFileFallback => {
                 let entry = Entry::new(KEYRING_SERVICE, &self.instance_id)
                     .map_err(|e| anyhow!("Failed to access keychain: {}", e))?;
 
@@ -505,10 +505,10 @@ impl EncryptionManager {
                 entry
                     .set_password(&encoded)
                     .map_err(|e| anyhow!("Failed to store rotated key in keychain: {}", e))?;
-            }
-            KeyStorageStrategy::FileBased => {
+            },
+            | KeyStorageStrategy::FileBased => {
                 Self::save_master_key_to_file(&self.key_path, &new_key).await?;
-            }
+            },
         }
 
         // Update in-memory key
@@ -561,15 +561,15 @@ impl EncryptionManager {
         let test_entry = Entry::new(KEYRING_SERVICE, "status-check");
 
         match test_entry {
-            Ok(_) => {
+            | Ok(_) => {
                 let backend = Self::detect_keychain_backend();
                 KeychainStatus {
                     available: true,
                     backend,
                     warnings: vec![],
                 }
-            }
-            Err(e) => KeychainStatus {
+            },
+            | Err(e) => KeychainStatus {
                 available: false,
                 backend: "None".to_string(),
                 warnings: vec![format!("Keychain not available: {}", e)],

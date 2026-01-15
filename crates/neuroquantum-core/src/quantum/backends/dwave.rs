@@ -503,9 +503,9 @@ pub enum DWaveTopology {
 impl std::fmt::Display for DWaveTopology {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DWaveTopology::Chimera => write!(f, "Chimera"),
-            DWaveTopology::Pegasus => write!(f, "Pegasus"),
-            DWaveTopology::Zephyr => write!(f, "Zephyr"),
+            | DWaveTopology::Chimera => write!(f, "Chimera"),
+            | DWaveTopology::Pegasus => write!(f, "Pegasus"),
+            | DWaveTopology::Zephyr => write!(f, "Zephyr"),
         }
     }
 }

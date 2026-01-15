@@ -236,21 +236,21 @@ impl BraketBackend {
 
         for gate in gates {
             match gate {
-                BraketGate::H(q) => qasm.push_str(&format!("h q[{}];\n", q)),
-                BraketGate::X(q) => qasm.push_str(&format!("x q[{}];\n", q)),
-                BraketGate::Y(q) => qasm.push_str(&format!("y q[{}];\n", q)),
-                BraketGate::Z(q) => qasm.push_str(&format!("z q[{}];\n", q)),
-                BraketGate::Rx(q, angle) => qasm.push_str(&format!("rx({}) q[{}];\n", angle, q)),
-                BraketGate::Ry(q, angle) => qasm.push_str(&format!("ry({}) q[{}];\n", angle, q)),
-                BraketGate::Rz(q, angle) => qasm.push_str(&format!("rz({}) q[{}];\n", angle, q)),
-                BraketGate::CX(c, t) => qasm.push_str(&format!("cx q[{}], q[{}];\n", c, t)),
-                BraketGate::CZ(c, t) => qasm.push_str(&format!("cz q[{}], q[{}];\n", c, t)),
-                BraketGate::RZZ(q1, q2, angle) => {
+                | BraketGate::H(q) => qasm.push_str(&format!("h q[{}];\n", q)),
+                | BraketGate::X(q) => qasm.push_str(&format!("x q[{}];\n", q)),
+                | BraketGate::Y(q) => qasm.push_str(&format!("y q[{}];\n", q)),
+                | BraketGate::Z(q) => qasm.push_str(&format!("z q[{}];\n", q)),
+                | BraketGate::Rx(q, angle) => qasm.push_str(&format!("rx({}) q[{}];\n", angle, q)),
+                | BraketGate::Ry(q, angle) => qasm.push_str(&format!("ry({}) q[{}];\n", angle, q)),
+                | BraketGate::Rz(q, angle) => qasm.push_str(&format!("rz({}) q[{}];\n", angle, q)),
+                | BraketGate::CX(c, t) => qasm.push_str(&format!("cx q[{}], q[{}];\n", c, t)),
+                | BraketGate::CZ(c, t) => qasm.push_str(&format!("cz q[{}], q[{}];\n", c, t)),
+                | BraketGate::RZZ(q1, q2, angle) => {
                     qasm.push_str(&format!("rzz({}) q[{}], q[{}];\n", angle, q1, q2))
-                }
-                BraketGate::Measure(q, c) => {
+                },
+                | BraketGate::Measure(q, c) => {
                     qasm.push_str(&format!("c[{}] = measure q[{}];\n", c, q))
-                }
+                },
             }
         }
 
@@ -390,12 +390,12 @@ pub enum BraketDeviceType {
 impl std::fmt::Display for BraketDeviceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BraketDeviceType::IonQ => write!(f, "IonQ"),
-            BraketDeviceType::Rigetti => write!(f, "Rigetti"),
-            BraketDeviceType::OQC => write!(f, "OQC"),
-            BraketDeviceType::DWave => write!(f, "D-Wave"),
-            BraketDeviceType::Simulator => write!(f, "Simulator"),
-            BraketDeviceType::Unknown => write!(f, "Unknown"),
+            | BraketDeviceType::IonQ => write!(f, "IonQ"),
+            | BraketDeviceType::Rigetti => write!(f, "Rigetti"),
+            | BraketDeviceType::OQC => write!(f, "OQC"),
+            | BraketDeviceType::DWave => write!(f, "D-Wave"),
+            | BraketDeviceType::Simulator => write!(f, "Simulator"),
+            | BraketDeviceType::Unknown => write!(f, "Unknown"),
         }
     }
 }

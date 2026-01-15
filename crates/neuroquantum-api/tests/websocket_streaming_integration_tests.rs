@@ -77,14 +77,14 @@ async fn test_concurrent_query_streams() {
                 .stream_results(stream_id, query, mock_rows, |msg| {
                     messages_clone.fetch_add(1, Ordering::SeqCst);
                     match msg {
-                        StreamingMessage::Batch { rows, .. } => {
+                        | StreamingMessage::Batch { rows, .. } => {
                             batch_count += 1;
                             row_count_received += rows.len() as u64;
-                        }
-                        StreamingMessage::Completed { total_rows, .. } => {
+                        },
+                        | StreamingMessage::Completed { total_rows, .. } => {
                             assert!(total_rows > 0, "Should have rows in completion");
-                        }
-                        _ => {}
+                        },
+                        | _ => {},
                     }
                     Ok(())
                 })
@@ -274,19 +274,19 @@ async fn test_streaming_large_batch_throughput() {
     let result = streamer
         .stream_results(stream_id, query, mock_rows, |msg| {
             match msg {
-                StreamingMessage::Batch { rows, .. } => {
+                | StreamingMessage::Batch { rows, .. } => {
                     total_batches += 1;
                     total_rows += rows.len() as u64;
-                }
-                StreamingMessage::Completed {
+                },
+                | StreamingMessage::Completed {
                     total_rows: final_rows,
                     execution_time_ms,
                     ..
                 } => {
                     assert_eq!(final_rows, 5000, "Should stream all rows");
                     assert!(execution_time_ms > 0, "Should have execution time");
-                }
-                _ => {}
+                },
+                | _ => {},
             }
             Ok(())
         })

@@ -450,28 +450,28 @@ pub async fn create_table(
             .map(|c| {
                 // Convert default value with proper error handling
                 let default_value = match &c.default_value {
-                    Some(v) => Some(json_to_storage_value(v, &c.name).map_err(|e| {
+                    | Some(v) => Some(json_to_storage_value(v, &c.name).map_err(|e| {
                         ApiError::ValidationError {
                             field: format!("columns.{}.default_value", c.name),
                             message: e,
                         }
                     })?),
-                    None => None,
+                    | None => None,
                 };
 
                 Ok(neuroquantum_core::storage::ColumnDefinition {
                     name: c.name.clone(),
                     data_type: match c.data_type {
-                        DataType::Integer => neuroquantum_core::storage::DataType::Integer,
-                        DataType::Float => neuroquantum_core::storage::DataType::Float,
-                        DataType::Text | DataType::Json | DataType::DnaSequence => {
+                        | DataType::Integer => neuroquantum_core::storage::DataType::Integer,
+                        | DataType::Float => neuroquantum_core::storage::DataType::Float,
+                        | DataType::Text | DataType::Json | DataType::DnaSequence => {
                             neuroquantum_core::storage::DataType::Text
-                        }
-                        DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
-                        DataType::DateTime => neuroquantum_core::storage::DataType::Timestamp,
-                        DataType::Binary | DataType::NeuralVector | DataType::QuantumState => {
+                        },
+                        | DataType::Boolean => neuroquantum_core::storage::DataType::Boolean,
+                        | DataType::DateTime => neuroquantum_core::storage::DataType::Timestamp,
+                        | DataType::Binary | DataType::NeuralVector | DataType::QuantumState => {
                             neuroquantum_core::storage::DataType::Binary
-                        }
+                        },
                     },
                     nullable: c.nullable.unwrap_or(true),
                     default_value,
@@ -602,13 +602,13 @@ pub async fn insert_data(
         let mut conversion_error = None;
         for (key, value) in record.iter() {
             match json_to_storage_value(value, key) {
-                Ok(storage_value) => {
+                | Ok(storage_value) => {
                     fields.insert(key.clone(), storage_value);
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     conversion_error = Some(format!("Record {}: {}", idx, e));
                     break;
-                }
+                },
             }
         }
 
@@ -632,13 +632,13 @@ pub async fn insert_data(
             .insert_row(&table_name, row)
             .await
         {
-            Ok(row_id) => {
+            | Ok(row_id) => {
                 inserted_ids.push(row_id.to_string());
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 failed_count += 1;
                 errors.push(format!("Record {}: {}", idx, e));
-            }
+            },
         }
     }
 
@@ -1198,14 +1198,14 @@ pub async fn quantum_search(
     // Execute query on storage engine to get candidate records
     // If table doesn't exist or query fails, fall back to simulated results
     let rows = match storage.select_rows(&select_query).await {
-        Ok(rows) => rows,
-        Err(e) => {
+        | Ok(rows) => rows,
+        | Err(e) => {
             info!(
                 "⚛️ Table '{}' not found or query failed ({}), using simulated quantum search",
                 search_req.table_name, e
             );
             Vec::new()
-        }
+        },
     };
 
     // Perform quantum-inspired similarity search on the results
@@ -1374,7 +1374,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
 
     // Build the quantum TFIM configuration
     let quantum_config = match tfim_config.method.to_lowercase().as_str() {
-        "vqe" => QuantumTFIMConfig {
+        | "vqe" => QuantumTFIMConfig {
             method: SolutionMethod::VQE {
                 ansatz: VQEAnsatz::HardwareEfficient {
                     depth: tfim_config.vqe_depth as usize,
@@ -1389,7 +1389,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             evolution_time: tfim_config.evolution_time,
             seed: None,
         },
-        "qaoa" => QuantumTFIMConfig {
+        | "qaoa" => QuantumTFIMConfig {
             method: SolutionMethod::QAOA {
                 num_layers: tfim_config.qaoa_layers as usize,
                 optimizer: "COBYLA".to_string(),
@@ -1401,7 +1401,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             evolution_time: tfim_config.evolution_time,
             seed: None,
         },
-        _ => QuantumTFIMConfig {
+        | _ => QuantumTFIMConfig {
             method: SolutionMethod::TrotterSuzuki { order: 2 },
             num_shots: tfim_config.num_shots as usize,
             hardware_mapping: None,
@@ -1474,9 +1474,9 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
         };
 
     let method_used = match tfim_config.method.to_lowercase().as_str() {
-        "vqe" => "VQE (Variational Quantum Eigensolver)",
-        "qaoa" => "QAOA (Quantum Approximate Optimization Algorithm)",
-        _ => "Trotter-Suzuki Time Evolution",
+        | "vqe" => "VQE (Variational Quantum Eigensolver)",
+        | "qaoa" => "QAOA (Quantum Approximate Optimization Algorithm)",
+        | _ => "Trotter-Suzuki Time Evolution",
     };
 
     Ok(TFIMResults {
@@ -1525,11 +1525,11 @@ fn execute_qubo_computation(search_req: &QuantumSearchRequest) -> Result<QUBORes
 
     // Select backend based on configuration
     let backend = match qubo_config.backend.to_lowercase().as_str() {
-        "vqe" => QuboQuantumBackend::VQE,
-        "qaoa" => QuboQuantumBackend::QAOA,
-        "sqa" => QuboQuantumBackend::SimulatedQuantumAnnealing,
-        "annealing" => QuboQuantumBackend::QuantumAnnealing,
-        _ => QuboQuantumBackend::ClassicalFallback,
+        | "vqe" => QuboQuantumBackend::VQE,
+        | "qaoa" => QuboQuantumBackend::QAOA,
+        | "sqa" => QuboQuantumBackend::SimulatedQuantumAnnealing,
+        | "annealing" => QuboQuantumBackend::QuantumAnnealing,
+        | _ => QuboQuantumBackend::ClassicalFallback,
     };
 
     let config = QuantumQuboConfig {
@@ -1609,10 +1609,10 @@ fn execute_parallel_tempering(
 
     // Select backend based on configuration
     let backend = match pt_config.backend.to_lowercase().as_str() {
-        "pimc" => QuantumBackend::PathIntegralMonteCarlo,
-        "qmc" => QuantumBackend::QuantumMonteCarlo,
-        "annealing" => QuantumBackend::QuantumAnnealing,
-        _ => QuantumBackend::Hybrid,
+        | "pimc" => QuantumBackend::PathIntegralMonteCarlo,
+        | "qmc" => QuantumBackend::QuantumMonteCarlo,
+        | "annealing" => QuantumBackend::QuantumAnnealing,
+        | _ => QuantumBackend::Hybrid,
     };
 
     let config = QuantumParallelTemperingConfig {
@@ -1748,7 +1748,7 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
         let num_shots = grover_config.num_shots as usize;
 
         let result = match backend_name.as_str() {
-            "ibm" => {
+            | "ibm" => {
                 let config = IBMGroverConfig {
                     num_shots,
                     error_mitigation: grover_config.error_mitigation,
@@ -1759,8 +1759,8 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
                 tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(solver.search(&oracle, num_shots))
                 })
-            }
-            "braket" => {
+            },
+            | "braket" => {
                 let config = BraketGroverConfig {
                     num_shots,
                     ..Default::default()
@@ -1769,8 +1769,8 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
                 tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(solver.search(&oracle, num_shots))
                 })
-            }
-            "ionq" => {
+            },
+            | "ionq" => {
                 let config = IonQGroverConfig {
                     num_shots,
                     ..Default::default()
@@ -1779,8 +1779,8 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
                 tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(solver.search(&oracle, num_shots))
                 })
-            }
-            _ => unreachable!(),
+            },
+            | _ => unreachable!(),
         };
 
         let result = result.map_err(|e| ApiError::QuantumOperationFailed {
@@ -1807,11 +1807,11 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
 
     // Select simulation backend based on configuration
     let backend = match backend_name.as_str() {
-        "superconducting" => GroverQuantumBackend::Superconducting,
-        "trapped_ion" | "trappedion" => GroverQuantumBackend::TrappedIon,
-        "neutral_atom" | "neutralatom" => GroverQuantumBackend::NeutralAtom,
-        "classical" => GroverQuantumBackend::ClassicalFallback,
-        _ => GroverQuantumBackend::Simulator,
+        | "superconducting" => GroverQuantumBackend::Superconducting,
+        | "trapped_ion" | "trappedion" => GroverQuantumBackend::TrappedIon,
+        | "neutral_atom" | "neutralatom" => GroverQuantumBackend::NeutralAtom,
+        | "classical" => GroverQuantumBackend::ClassicalFallback,
+        | _ => GroverQuantumBackend::Simulator,
     };
 
     let config = QuantumGroverConfig {
@@ -2074,11 +2074,11 @@ pub async fn decompress_dna(
             for bit_offset in (0..8).step_by(2) {
                 let bits = (byte >> bit_offset) & 0b11;
                 let base_char = match bits {
-                    0b00 => 'A', // Adenine
-                    0b01 => 'T', // Thymine
-                    0b10 => 'G', // Guanine
-                    0b11 => 'C', // Cytosine
-                    _ => unreachable!(),
+                    | 0b00 => 'A', // Adenine
+                    | 0b01 => 'T', // Thymine
+                    | 0b10 => 'G', // Guanine
+                    | 0b11 => 'C', // Cytosine
+                    | _ => unreachable!(),
                 };
                 decompressed_string.push(base_char);
             }
@@ -2752,19 +2752,19 @@ pub async fn biometric_enroll(
     // Update signature with additional samples for improved template
     for sample in body.eeg_samples.iter().skip(1) {
         match eeg_service.update_signature(&body.user_id, sample) {
-            Ok(()) => {
+            | Ok(()) => {
                 successful_samples += 1;
                 // Re-fetch signature to get updated quality
                 if let Some(sig) = eeg_service.get_signature(&body.user_id) {
                     total_quality += sig.feature_template.signal_quality;
                 }
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 warn!(
                     "Failed to process additional sample for {}: {}",
                     body.user_id, e
                 );
-            }
+            },
         }
     }
 
@@ -2997,26 +2997,26 @@ pub async fn execute_sql_query(
                         row.into_iter()
                             .map(|(k, v)| {
                                 let json_value = match v {
-                                    QueryValue::Null => serde_json::Value::Null,
-                                    QueryValue::Boolean(b) => serde_json::Value::Bool(b),
-                                    QueryValue::Integer(i) => serde_json::Value::Number(i.into()),
-                                    QueryValue::Float(f) => serde_json::Number::from_f64(f)
+                                    | QueryValue::Null => serde_json::Value::Null,
+                                    | QueryValue::Boolean(b) => serde_json::Value::Bool(b),
+                                    | QueryValue::Integer(i) => serde_json::Value::Number(i.into()),
+                                    | QueryValue::Float(f) => serde_json::Number::from_f64(f)
                                         .map(serde_json::Value::Number)
                                         .unwrap_or(serde_json::Value::Null),
-                                    QueryValue::String(s) => serde_json::Value::String(s),
-                                    QueryValue::Blob(b) => {
+                                    | QueryValue::String(s) => serde_json::Value::String(s),
+                                    | QueryValue::Blob(b) => {
                                         use base64::Engine;
                                         serde_json::Value::String(
                                             base64::engine::general_purpose::STANDARD.encode(b),
                                         )
-                                    }
-                                    QueryValue::DNASequence(s) => serde_json::Value::String(s),
-                                    QueryValue::SynapticWeight(w) => {
+                                    },
+                                    | QueryValue::DNASequence(s) => serde_json::Value::String(s),
+                                    | QueryValue::SynapticWeight(w) => {
                                         serde_json::Number::from_f64(w as f64)
                                             .map(serde_json::Value::Number)
                                             .unwrap_or(serde_json::Value::Null)
-                                    }
-                                    QueryValue::QuantumState(s) => serde_json::Value::String(s),
+                                    },
+                                    | QueryValue::QuantumState(s) => serde_json::Value::String(s),
                                 };
                                 (k, json_value)
                             })
@@ -3245,7 +3245,7 @@ fn json_to_storage_value(
 ) -> Result<neuroquantum_core::storage::Value, String> {
     use neuroquantum_core::storage::Value;
     match value {
-        serde_json::Value::Number(n) => {
+        | serde_json::Value::Number(n) => {
             if n.is_i64() {
                 n.as_i64()
                     .map(Value::Integer)
@@ -3255,13 +3255,13 @@ fn json_to_storage_value(
                     format!("Field '{}': float value cannot be represented", field_name)
                 })
             }
-        }
-        serde_json::Value::String(s) => Ok(Value::Text(s.clone())),
-        serde_json::Value::Bool(b) => Ok(Value::Boolean(*b)),
-        serde_json::Value::Null => Ok(Value::Null),
-        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+        },
+        | serde_json::Value::String(s) => Ok(Value::Text(s.clone())),
+        | serde_json::Value::Bool(b) => Ok(Value::Boolean(*b)),
+        | serde_json::Value::Null => Ok(Value::Null),
+        | serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
             Ok(Value::Text(value.to_string()))
-        }
+        },
     }
 }
 
@@ -3269,18 +3269,18 @@ fn json_to_storage_value(
 fn storage_value_to_json(value: &neuroquantum_core::storage::Value) -> serde_json::Value {
     use neuroquantum_core::storage::Value;
     match value {
-        Value::Integer(i) => serde_json::Value::Number((*i).into()),
-        Value::Float(f) => serde_json::Number::from_f64(*f)
+        | Value::Integer(i) => serde_json::Value::Number((*i).into()),
+        | Value::Float(f) => serde_json::Number::from_f64(*f)
             .map(serde_json::Value::Number)
             .unwrap_or(serde_json::Value::Null),
-        Value::Text(s) => serde_json::Value::String(s.clone()),
-        Value::Boolean(b) => serde_json::Value::Bool(*b),
-        Value::Timestamp(ts) => serde_json::Value::String(ts.to_rfc3339()),
-        Value::Binary(b) => {
+        | Value::Text(s) => serde_json::Value::String(s.clone()),
+        | Value::Boolean(b) => serde_json::Value::Bool(*b),
+        | Value::Timestamp(ts) => serde_json::Value::String(ts.to_rfc3339()),
+        | Value::Binary(b) => {
             use base64::Engine;
             serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
-        }
-        Value::Null => serde_json::Value::Null,
+        },
+        | Value::Null => serde_json::Value::Null,
     }
 }
 
@@ -3295,8 +3295,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Integer(i) => assert_eq!(i, 42),
-            _ => panic!("Expected Integer value"),
+            | Value::Integer(i) => assert_eq!(i, 42),
+            | _ => panic!("Expected Integer value"),
         }
     }
 
@@ -3306,8 +3306,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Integer(i) => assert_eq!(i, -100),
-            _ => panic!("Expected Integer value"),
+            | Value::Integer(i) => assert_eq!(i, -100),
+            | _ => panic!("Expected Integer value"),
         }
     }
 
@@ -3317,8 +3317,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Float(f) => assert!((f - 42.5).abs() < 0.001),
-            _ => panic!("Expected Float value"),
+            | Value::Float(f) => assert!((f - 42.5).abs() < 0.001),
+            | _ => panic!("Expected Float value"),
         }
     }
 
@@ -3328,8 +3328,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Text(s) => assert_eq!(s, "hello world"),
-            _ => panic!("Expected Text value"),
+            | Value::Text(s) => assert_eq!(s, "hello world"),
+            | _ => panic!("Expected Text value"),
         }
     }
 
@@ -3339,8 +3339,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Boolean(b) => assert!(b),
-            _ => panic!("Expected Boolean value"),
+            | Value::Boolean(b) => assert!(b),
+            | _ => panic!("Expected Boolean value"),
         }
     }
 
@@ -3350,8 +3350,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Boolean(b) => assert!(!b),
-            _ => panic!("Expected Boolean value"),
+            | Value::Boolean(b) => assert!(!b),
+            | _ => panic!("Expected Boolean value"),
         }
     }
 
@@ -3361,8 +3361,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Null => {}
-            _ => panic!("Expected Null value"),
+            | Value::Null => {},
+            | _ => panic!("Expected Null value"),
         }
     }
 
@@ -3372,8 +3372,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Text(s) => assert!(s.contains("[1,2,3]")),
-            _ => panic!("Expected Text value for array"),
+            | Value::Text(s) => assert!(s.contains("[1,2,3]")),
+            | _ => panic!("Expected Text value for array"),
         }
     }
 
@@ -3383,8 +3383,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Text(s) => assert!(s.contains("key") && s.contains("value")),
-            _ => panic!("Expected Text value for object"),
+            | Value::Text(s) => assert!(s.contains("key") && s.contains("value")),
+            | _ => panic!("Expected Text value for object"),
         }
     }
 
@@ -3395,8 +3395,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Integer(i) => assert_eq!(i, i64::MAX),
-            _ => panic!("Expected Integer value"),
+            | Value::Integer(i) => assert_eq!(i, i64::MAX),
+            | _ => panic!("Expected Integer value"),
         }
     }
 
@@ -3406,8 +3406,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Integer(i) => assert_eq!(i, 0),
-            _ => panic!("Expected Integer value"),
+            | Value::Integer(i) => assert_eq!(i, 0),
+            | _ => panic!("Expected Integer value"),
         }
     }
 
@@ -3417,8 +3417,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Float(f) => assert!((f - 0.0).abs() < f64::EPSILON),
-            _ => panic!("Expected Float value"),
+            | Value::Float(f) => assert!((f - 0.0).abs() < f64::EPSILON),
+            | _ => panic!("Expected Float value"),
         }
     }
 
@@ -3428,8 +3428,8 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            Value::Text(s) => assert!(s.is_empty()),
-            _ => panic!("Expected Text value"),
+            | Value::Text(s) => assert!(s.is_empty()),
+            | _ => panic!("Expected Text value"),
         }
     }
 }

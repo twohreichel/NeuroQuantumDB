@@ -114,15 +114,15 @@ impl RateLimitService {
     pub async fn new(config: RateLimitConfig) -> Result<Self, ApiError> {
         let redis_client = if let Some(redis_url) = &config.redis_url {
             match RedisClient::open(redis_url.as_str()) {
-                Ok(client) => {
+                | Ok(client) => {
                     // Test connection
                     match client.get_multiplexed_async_connection().await {
-                        Ok(mut conn) => {
+                        | Ok(mut conn) => {
                             // Use cmd for ping command
                             let _: Result<String, _> = cmd("PING").query_async(&mut conn).await;
                             Some(client)
-                        }
-                        Err(e) => {
+                        },
+                        | Err(e) => {
                             warn!(
                                 "Failed to connect to Redis: {}. Falling back to memory store.",
                                 e
@@ -133,10 +133,10 @@ impl RateLimitService {
                                 });
                             }
                             None
-                        }
+                        },
                     }
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!("Invalid Redis URL: {}. Falling back to memory store.", e);
                     if !config.fallback_to_memory {
                         return Err(ApiError::ConnectionPoolError {
@@ -144,7 +144,7 @@ impl RateLimitService {
                         });
                     }
                     None
-                }
+                },
             }
         } else {
             None
@@ -469,7 +469,7 @@ where
 
         Box::pin(async move {
             match rate_limit_service.check_rate_limit(&key).await {
-                Ok(result) => {
+                | Ok(result) => {
                     if result.allowed {
                         // Add rate limit headers to successful response
                         let mut response = service.call(req).await?;
@@ -507,12 +507,12 @@ where
                         };
                         Err(Error::from(rate_limit_error))
                     }
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!("Rate limiting error: {:?}", e);
                     // In case of rate limiting service error, allow the request through
                     service.call(req).await
-                }
+                },
             }
         })
     }

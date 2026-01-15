@@ -88,8 +88,8 @@ impl BackgroundFlusher {
                     // Get frame
                     let frames_guard = frames.read().await;
                     let frame = match frames_guard.get(&frame_id) {
-                        Some(f) => f,
-                        None => continue,
+                        | Some(f) => f,
+                        | None => continue,
                     };
 
                     if !frame.is_dirty() {
@@ -104,12 +104,12 @@ impl BackgroundFlusher {
                     }
 
                     let page = match frame.page().await {
-                        Ok(p) => p,
-                        Err(e) => {
+                        | Ok(p) => p,
+                        | Err(e) => {
                             warn!("Cannot flush frame {:?}: {}", frame_id, e);
                             drop(frames_guard);
                             continue;
-                        }
+                        },
                     };
                     drop(frames_guard);
 
@@ -124,8 +124,8 @@ impl BackgroundFlusher {
                     )
                     .await
                     {
-                        Ok(_) => flushed += 1,
-                        Err(e) => warn!("Failed to flush page {:?}: {}", page_id, e),
+                        | Ok(_) => flushed += 1,
+                        | Err(e) => warn!("Failed to flush page {:?}: {}", page_id, e),
                     }
                 }
 

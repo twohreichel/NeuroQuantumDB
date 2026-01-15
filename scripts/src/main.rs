@@ -63,11 +63,11 @@ fn main() {
         println!("📄 Converting {} to HTML...", input);
 
         let markdown = match fs::read_to_string(input) {
-            Ok(content) => content,
-            Err(e) => {
+            | Ok(content) => content,
+            | Err(e) => {
                 eprintln!("❌ Failed to read {}: {}", input, e);
                 continue;
-            }
+            },
         };
 
         // Parse markdown with extensions
@@ -113,21 +113,21 @@ fn main() {
         );
 
         match fs::write(output, full_html) {
-            Ok(_) => {
+            | Ok(_) => {
                 println!("✅ Generated {}", output);
                 success_count += 1;
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 eprintln!("❌ Failed to write {}: {}", output, e);
-            }
+            },
         }
     }
 
     // Copy CSS file
     if Path::new("docs/docs-style.css").exists() {
         match fs::copy("docs/docs-style.css", "target/doc/guides/docs-style.css") {
-            Ok(_) => println!("✅ Copied docs-style.css"),
-            Err(e) => eprintln!("⚠️  Failed to copy CSS: {}", e),
+            | Ok(_) => println!("✅ Copied docs-style.css"),
+            | Err(e) => eprintln!("⚠️  Failed to copy CSS: {}", e),
         }
     }
 

@@ -392,9 +392,9 @@ fn generate_test_data(size: usize) -> Vec<u8> {
 
     for i in 0..size {
         let byte = match i % 42 {
-            n if n < 14 => pattern1[n % pattern1.len()],
-            n if n < 29 => pattern2[(n - 14) % pattern2.len()],
-            n => pattern3[(n - 29) % pattern3.len()],
+            | n if n < 14 => pattern1[n % pattern1.len()],
+            | n if n < 29 => pattern2[(n - 14) % pattern2.len()],
+            | n => pattern3[(n - 29) % pattern3.len()],
         };
         data.push(byte);
     }

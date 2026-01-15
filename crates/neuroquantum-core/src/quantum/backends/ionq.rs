@@ -115,9 +115,9 @@ pub enum IonQTarget {
 impl std::fmt::Display for IonQTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IonQTarget::Aria => write!(f, "qpu.aria-1"),
-            IonQTarget::Forte => write!(f, "qpu.forte-1"),
-            IonQTarget::Simulator => write!(f, "simulator"),
+            | IonQTarget::Aria => write!(f, "qpu.aria-1"),
+            | IonQTarget::Forte => write!(f, "qpu.forte-1"),
+            | IonQTarget::Simulator => write!(f, "simulator"),
         }
     }
 }
@@ -126,9 +126,9 @@ impl IonQTarget {
     /// Get max qubits for this target
     pub fn max_qubits(&self) -> usize {
         match self {
-            IonQTarget::Aria => 25,
-            IonQTarget::Forte => 36,
-            IonQTarget::Simulator => 29,
+            | IonQTarget::Aria => 25,
+            | IonQTarget::Forte => 36,
+            | IonQTarget::Simulator => 29,
         }
     }
 }
@@ -178,9 +178,9 @@ impl IonQBackend {
         let target = std::env::var("IONQ_TARGET")
             .ok()
             .map(|t| match t.to_lowercase().as_str() {
-                "aria" | "qpu.aria-1" => IonQTarget::Aria,
-                "forte" | "qpu.forte-1" => IonQTarget::Forte,
-                _ => IonQTarget::Simulator,
+                | "aria" | "qpu.aria-1" => IonQTarget::Aria,
+                | "forte" | "qpu.forte-1" => IonQTarget::Forte,
+                | _ => IonQTarget::Simulator,
             })
             .unwrap_or(IonQTarget::Simulator);
 
@@ -302,26 +302,26 @@ impl IonQBackend {
 
         for gate in &circuit.circuit {
             match gate {
-                IonQGate::H { target } => {
+                | IonQGate::H { target } => {
                     // H = GPi2(0) * GPi(pi/2) = Y^0.5 * Z^0.5
                     native.push(IonQGate::GPi2 {
                         target: *target,
                         phase: 0.0,
                     });
-                }
-                IonQGate::X { target } => {
+                },
+                | IonQGate::X { target } => {
                     native.push(IonQGate::GPi {
                         target: *target,
                         phase: 0.0,
                     });
-                }
-                IonQGate::Y { target } => {
+                },
+                | IonQGate::Y { target } => {
                     native.push(IonQGate::GPi {
                         target: *target,
                         phase: std::f64::consts::FRAC_PI_2,
                     });
-                }
-                IonQGate::Z { target } => {
+                },
+                | IonQGate::Z { target } => {
                     // Z = GPi2(0) * GPi2(0)
                     native.push(IonQGate::GPi2 {
                         target: *target,
@@ -331,17 +331,17 @@ impl IonQBackend {
                         target: *target,
                         phase: 0.0,
                     });
-                }
-                IonQGate::CZ { control, target } => {
+                },
+                | IonQGate::CZ { control, target } => {
                     // CZ via MS gate
                     native.push(IonQGate::MS {
                         targets: vec![*control, *target],
                         phases: vec![0.0, 0.0],
                         angle: std::f64::consts::FRAC_PI_4,
                     });
-                }
+                },
                 // Native gates pass through
-                _ => native.push(gate.clone()),
+                | _ => native.push(gate.clone()),
             }
         }
 

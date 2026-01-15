@@ -109,15 +109,15 @@ impl IncrementalBackup {
         for record in records {
             // Extract page ID from update records
             match &record.record_type {
-                crate::storage::wal::WALRecordType::Update { page_id, .. } => {
+                | crate::storage::wal::WALRecordType::Update { page_id, .. } => {
                     modified_pages.insert(*page_id);
-                }
-                crate::storage::wal::WALRecordType::CLR { page_id, .. } => {
+                },
+                | crate::storage::wal::WALRecordType::CLR { page_id, .. } => {
                     modified_pages.insert(*page_id);
-                }
-                _ => {
+                },
+                | _ => {
                     // Ignore other record types
-                }
+                },
             }
         }
 
@@ -153,7 +153,7 @@ impl IncrementalBackup {
 
                 // Parse WAL records to check LSN range
                 match self.parse_wal_segment(&wal_data, since_lsn).await {
-                    Ok(parsed_data) => {
+                    | Ok(parsed_data) => {
                         if !parsed_data.is_empty() {
                             // This segment contains records after since_lsn
                             let filename = path.file_name().ok_or_else(|| {
@@ -186,8 +186,8 @@ impl IncrementalBackup {
                                 since_lsn
                             );
                         }
-                    }
-                    Err(e) => {
+                    },
+                    | Err(e) => {
                         warn!(
                             "Failed to parse WAL segment {:?}: {}. Backing up entire segment.",
                             path.file_name(),
@@ -208,7 +208,7 @@ impl IncrementalBackup {
                         stats.bytes_written += wal_data.len() as u64;
                         stats.wal_segments_backed_up += 1;
                         stats.files_backed_up += 1;
-                    }
+                    },
                 }
 
                 processed_segments += 1;
@@ -234,7 +234,7 @@ impl IncrementalBackup {
         while offset < data.len() {
             // Try to deserialize a WAL record
             match bincode::deserialize::<WALRecord>(&data[offset..]) {
-                Ok(record) => {
+                | Ok(record) => {
                     // Check if this record is after since_lsn
                     if record.lsn > since_lsn {
                         // Serialize and add to filtered records
@@ -249,11 +249,11 @@ impl IncrementalBackup {
                     } else {
                         break;
                     }
-                }
-                Err(_) => {
+                },
+                | Err(_) => {
                     // End of valid records or corrupted data
                     break;
-                }
+                },
             }
         }
 
@@ -270,15 +270,15 @@ impl IncrementalBackup {
 
         while offset < data.len() {
             match bincode::deserialize::<WALRecord>(&data[offset..]) {
-                Ok(record) => {
+                | Ok(record) => {
                     count += 1;
                     if let Ok(serialized) = bincode::serialize(&record) {
                         offset += serialized.len();
                     } else {
                         break;
                     }
-                }
-                Err(_) => break,
+                },
+                | Err(_) => break,
             }
         }
 

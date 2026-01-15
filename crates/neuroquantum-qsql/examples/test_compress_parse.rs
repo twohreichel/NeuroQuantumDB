@@ -5,11 +5,11 @@ fn main() {
     let sql = "COMPRESS TABLE logs USING DNA";
 
     match parser.parse(sql) {
-        Ok(statement) => {
+        | Ok(statement) => {
             println!("Success! Parsed statement: {:?}", statement);
-        }
-        Err(e) => {
+        },
+        | Err(e) => {
             eprintln!("Error parsing: {:?}", e);
-        }
+        },
     }
 }

@@ -259,11 +259,11 @@ pub enum LockType {
 impl std::fmt::Display for LockType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LockType::Shared => write!(f, "Shared"),
-            LockType::Exclusive => write!(f, "Exclusive"),
-            LockType::RowLevel => write!(f, "RowLevel"),
-            LockType::TableLevel => write!(f, "TableLevel"),
-            LockType::IndexLevel => write!(f, "IndexLevel"),
+            | LockType::Shared => write!(f, "Shared"),
+            | LockType::Exclusive => write!(f, "Exclusive"),
+            | LockType::RowLevel => write!(f, "RowLevel"),
+            | LockType::TableLevel => write!(f, "TableLevel"),
+            | LockType::IndexLevel => write!(f, "IndexLevel"),
         }
     }
 }

@@ -48,11 +48,11 @@ impl ChannelId {
 
     fn matches_recursive(channel: &[&str], pattern: &[&str]) -> bool {
         match (channel.first(), pattern.first()) {
-            (None, None) => true,
-            (Some(_), None) => false,
-            (None, Some(&"**")) if pattern.len() == 1 => true,
-            (None, Some(_)) => false,
-            (Some(_ch), Some(&"**")) => {
+            | (None, None) => true,
+            | (Some(_), None) => false,
+            | (None, Some(&"**")) if pattern.len() == 1 => true,
+            | (None, Some(_)) => false,
+            | (Some(_ch), Some(&"**")) => {
                 // "**" can match zero or more segments
                 if pattern.len() == 1 {
                     return true; // Match rest
@@ -61,16 +61,16 @@ impl ChannelId {
                 Self::matches_recursive(&channel[1..], pattern)
                     || Self::matches_recursive(channel, &pattern[1..])
                     || Self::matches_recursive(&channel[1..], &pattern[1..])
-            }
-            (Some(_ch), Some(&"*")) => {
+            },
+            | (Some(_ch), Some(&"*")) => {
                 // "*" matches exactly one segment
                 Self::matches_recursive(&channel[1..], &pattern[1..])
-            }
-            (Some(ch), Some(pat)) if ch == pat => {
+            },
+            | (Some(ch), Some(pat)) if ch == pat => {
                 // Exact match
                 Self::matches_recursive(&channel[1..], &pattern[1..])
-            }
-            _ => false,
+            },
+            | _ => false,
         }
     }
 }

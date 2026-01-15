@@ -195,16 +195,16 @@ impl BackupManager {
     ) -> Result<Self> {
         // Create storage backend based on configuration
         let storage_backend: Arc<dyn BackupStorageBackend> = match config.storage_backend {
-            BackupStorageType::Local => {
+            | BackupStorageType::Local => {
                 Arc::new(LocalBackend::new(config.output_path.clone()).await?)
-            }
-            BackupStorageType::S3 => {
+            },
+            | BackupStorageType::S3 => {
                 let s3_config = config
                     .s3_config
                     .as_ref()
                     .ok_or_else(|| anyhow!("S3 configuration required"))?;
                 Arc::new(S3Backend::new(s3_config.clone()).await?)
-            }
+            },
         };
 
         Ok(Self {
@@ -259,14 +259,14 @@ impl BackupManager {
 
         // Perform backup based on type
         let result = match self.config.backup_type {
-            BackupType::Full => self.perform_full_backup(&mut metadata).await,
-            BackupType::Incremental => self.perform_incremental_backup(&mut metadata).await,
-            BackupType::Differential => self.perform_differential_backup(&mut metadata).await,
+            | BackupType::Full => self.perform_full_backup(&mut metadata).await,
+            | BackupType::Incremental => self.perform_incremental_backup(&mut metadata).await,
+            | BackupType::Differential => self.perform_differential_backup(&mut metadata).await,
         };
 
         // Update metadata based on result
         let success = match &result {
-            Ok(stats) => {
+            | Ok(stats) => {
                 metadata.status = BackupStatus::Completed;
                 metadata.end_time = Some(Utc::now());
                 metadata.end_lsn = Some(self.wal_manager.read().await.current_lsn());
@@ -279,13 +279,13 @@ impl BackupManager {
                     backup_id, stats.bytes_written, stats.duration_ms
                 );
                 true
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 metadata.status = BackupStatus::Failed;
                 metadata.end_time = Some(Utc::now());
                 warn!("Backup failed: id={}, error={}", backup_id, e);
                 false
-            }
+            },
         };
 
         // Save metadata

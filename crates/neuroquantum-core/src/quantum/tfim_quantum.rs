@@ -254,17 +254,17 @@ impl QuantumTFIMSolver {
 
         // Build quantum circuit based on method
         let circuit = match &self.config.method {
-            SolutionMethod::TrotterSuzuki { order } => {
+            | SolutionMethod::TrotterSuzuki { order } => {
                 self.build_trotter_circuit(problem, *order)?
-            }
-            SolutionMethod::VQE {
+            },
+            | SolutionMethod::VQE {
                 ansatz,
                 max_iterations,
                 convergence_threshold,
             } => {
                 self.build_vqe_circuit(problem, ansatz, *max_iterations, *convergence_threshold)?
-            }
-            SolutionMethod::QAOA {
+            },
+            | SolutionMethod::QAOA {
                 num_layers,
                 optimizer,
             } => self.build_qaoa_circuit(problem, *num_layers, optimizer)?,
@@ -392,7 +392,7 @@ impl QuantumTFIMSolver {
 
         // Build ansatz based on type
         match ansatz {
-            VQEAnsatz::HardwareEfficient { depth } => {
+            | VQEAnsatz::HardwareEfficient { depth } => {
                 // Hardware-efficient ansatz: layers of single-qubit rotations + entanglers
                 for layer in 0..*depth {
                     // Single-qubit rotations (RY gates)
@@ -422,8 +422,8 @@ impl QuantumTFIMSolver {
                         });
                     }
                 }
-            }
-            VQEAnsatz::UnitaryCoupledCluster => {
+            },
+            | VQEAnsatz::UnitaryCoupledCluster => {
                 // UCC ansatz for chemistry-inspired problems
                 // Simplified version for TFIM
                 for i in 0..(n - 1) {
@@ -440,8 +440,8 @@ impl QuantumTFIMSolver {
                         target: i + 1,
                     });
                 }
-            }
-            VQEAnsatz::Custom { num_parameters } => {
+            },
+            | VQEAnsatz::Custom { num_parameters } => {
                 // Custom parameterized circuit
                 let params_per_qubit = num_parameters / n;
                 for i in 0..n {
@@ -450,7 +450,7 @@ impl QuantumTFIMSolver {
                         gates.push(QuantumGate::RY { qubit: i, angle });
                     }
                 }
-            }
+            },
         }
 
         let depth = self.calculate_circuit_depth(&gates);
@@ -569,7 +569,7 @@ impl QuantumTFIMSolver {
         let mut new_state = vec![Complex::new(0.0, 0.0); dim];
 
         match gate {
-            QuantumGate::H { qubit } => {
+            | QuantumGate::H { qubit } => {
                 // Hadamard gate
                 let sqrt2_inv = 1.0 / 2.0_f64.sqrt();
                 for (i, ns) in new_state.iter_mut().enumerate() {
@@ -584,22 +584,22 @@ impl QuantumTFIMSolver {
                         *ns -= state[i] * sqrt2_inv;
                     }
                 }
-            }
-            QuantumGate::X { qubit } => {
+            },
+            | QuantumGate::X { qubit } => {
                 // Pauli X (bit flip)
                 for (i, ns) in new_state.iter_mut().enumerate() {
                     let i_flipped = i ^ (1 << qubit);
                     *ns = state[i_flipped];
                 }
-            }
-            QuantumGate::Z { qubit } => {
+            },
+            | QuantumGate::Z { qubit } => {
                 // Pauli Z (phase flip)
                 for i in 0..dim {
                     let bit = (i >> qubit) & 1;
                     new_state[i] = if bit == 0 { state[i] } else { -state[i] };
                 }
-            }
-            QuantumGate::RX { qubit, angle } => {
+            },
+            | QuantumGate::RX { qubit, angle } => {
                 // Rotation around X axis
                 let cos_half = (angle / 2.0).cos();
                 let sin_half = (angle / 2.0).sin();
@@ -609,8 +609,8 @@ impl QuantumTFIMSolver {
                     new_state[i] =
                         state[i] * cos_half - Complex::new(0.0, sin_half) * state[i_flipped];
                 }
-            }
-            QuantumGate::RY { qubit, angle } => {
+            },
+            | QuantumGate::RY { qubit, angle } => {
                 // Rotation around Y axis
                 let cos_half = (angle / 2.0).cos();
                 let sin_half = (angle / 2.0).sin();
@@ -625,8 +625,8 @@ impl QuantumTFIMSolver {
                         new_state[i] = state[i] * cos_half + state[i_flipped] * sin_half;
                     }
                 }
-            }
-            QuantumGate::RZ { qubit, angle } => {
+            },
+            | QuantumGate::RZ { qubit, angle } => {
                 // Rotation around Z axis
                 let phase_0 = Complex::new(0.0, -angle / 2.0).exp();
                 let phase_1 = Complex::new(0.0, angle / 2.0).exp();
@@ -639,8 +639,8 @@ impl QuantumTFIMSolver {
                         state[i] * phase_1
                     };
                 }
-            }
-            QuantumGate::CNOT { control, target } => {
+            },
+            | QuantumGate::CNOT { control, target } => {
                 // Controlled-NOT gate
                 for i in 0..dim {
                     let control_bit = (i >> control) & 1;
@@ -651,8 +651,8 @@ impl QuantumTFIMSolver {
                         new_state[i] = state[i];
                     }
                 }
-            }
-            QuantumGate::CZ { control, target } => {
+            },
+            | QuantumGate::CZ { control, target } => {
                 // Controlled-Z gate
                 for i in 0..dim {
                     let control_bit = (i >> control) & 1;
@@ -663,10 +663,10 @@ impl QuantumTFIMSolver {
                         state[i]
                     };
                 }
-            }
-            _ => {
+            },
+            | _ => {
                 return Err(CoreError::invalid_operation("Unsupported gate type"));
-            }
+            },
         }
 
         Ok(new_state)
@@ -683,14 +683,14 @@ impl QuantumTFIMSolver {
         let probabilities: Vec<f64> = state.iter().map(|c| c.norm_sqr()).collect();
 
         let measurements = match self.config.seed {
-            Some(seed) => {
+            | Some(seed) => {
                 let mut rng = StdRng::seed_from_u64(seed);
                 Self::sample_measurements(&mut rng, &probabilities, num_qubits, num_shots)
-            }
-            None => {
+            },
+            | None => {
                 let mut rng = rand::thread_rng();
                 Self::sample_measurements(&mut rng, &probabilities, num_qubits, num_shots)
-            }
+            },
         };
 
         Ok(measurements)

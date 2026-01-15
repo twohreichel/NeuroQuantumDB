@@ -247,13 +247,13 @@ pub enum Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Integer(i) => write!(f, "{}", i),
-            Value::Float(fl) => write!(f, "{}", fl),
-            Value::Text(s) => write!(f, "{}", s),
-            Value::Boolean(b) => write!(f, "{}", b),
-            Value::Timestamp(ts) => write!(f, "{}", ts.to_rfc3339()),
-            Value::Binary(b) => write!(f, "Binary[{} bytes]", b.len()),
-            Value::Null => write!(f, "NULL"),
+            | Value::Integer(i) => write!(f, "{}", i),
+            | Value::Float(fl) => write!(f, "{}", fl),
+            | Value::Text(s) => write!(f, "{}", s),
+            | Value::Boolean(b) => write!(f, "{}", b),
+            | Value::Timestamp(ts) => write!(f, "{}", ts.to_rfc3339()),
+            | Value::Binary(b) => write!(f, "Binary[{} bytes]", b.len()),
+            | Value::Null => write!(f, "NULL"),
         }
     }
 }
@@ -730,8 +730,8 @@ impl StorageEngine {
 
         // Check if table exists
         let schema = match self.metadata.tables.get(table_name) {
-            Some(schema) => schema.clone(),
-            None => {
+            | Some(schema) => schema.clone(),
+            | None => {
                 if if_exists {
                     debug!(
                         "Table '{}' does not exist, but IF EXISTS specified",
@@ -740,17 +740,20 @@ impl StorageEngine {
                     return Ok(());
                 }
                 return Err(anyhow!("Table '{}' does not exist", table_name));
-            }
+            },
         };
 
         // Get all row IDs from this table before removing
         // We need to load the table rows to know which compressed blocks to remove
         let table_rows = match self.load_table_rows(table_name).await {
-            Ok(rows) => rows,
-            Err(e) => {
-                debug!("Warning: Could not load table rows for cleanup during DROP TABLE: {}. Proceeding with schema removal.", e);
+            | Ok(rows) => rows,
+            | Err(e) => {
+                debug!(
+                    "Warning: Could not load table rows for cleanup during DROP TABLE: {}. Proceeding with schema removal.",
+                    e
+                );
                 Vec::new()
-            }
+            },
         };
         let row_ids: Vec<RowId> = table_rows.iter().map(|r| r.id).collect();
 
@@ -874,7 +877,7 @@ impl StorageEngine {
         let mut new_schema = old_schema.clone();
 
         match &operation {
-            AlterTableOp::AddColumn { column } => {
+            | AlterTableOp::AddColumn { column } => {
                 // Check if column already exists
                 if new_schema.columns.iter().any(|c| c.name == column.name) {
                     return Err(anyhow!("Column '{}' already exists", column.name));
@@ -919,8 +922,8 @@ impl StorageEngine {
                         }
                     }
                 }
-            }
-            AlterTableOp::DropColumn { column_name } => {
+            },
+            | AlterTableOp::DropColumn { column_name } => {
                 // Check if column exists
                 let column_index = new_schema
                     .columns
@@ -960,8 +963,8 @@ impl StorageEngine {
                         }
                     }
                 }
-            }
-            AlterTableOp::RenameColumn { old_name, new_name } => {
+            },
+            | AlterTableOp::RenameColumn { old_name, new_name } => {
                 // Check if old column exists
                 let column_index = new_schema
                     .columns
@@ -1014,8 +1017,8 @@ impl StorageEngine {
                         }
                     }
                 }
-            }
-            AlterTableOp::ModifyColumn {
+            },
+            | AlterTableOp::ModifyColumn {
                 column_name,
                 new_data_type,
             } => {
@@ -1056,7 +1059,7 @@ impl StorageEngine {
                         }
                     }
                 }
-            }
+            },
         }
 
         // Update schema version
@@ -1149,32 +1152,32 @@ impl StorageEngine {
     ) -> Result<Value> {
         match (value, new_type) {
             // NULL remains NULL for any type
-            (Value::Null, _) => Ok(Value::Null),
+            | (Value::Null, _) => Ok(Value::Null),
 
             // Integer conversions
-            (Value::Integer(i), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+            | (Value::Integer(i), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(*i))
-            }
-            (Value::Integer(i), DataType::Float) => Ok(Value::Float(*i as f64)),
-            (Value::Integer(i), DataType::Text) => Ok(Value::Text(i.to_string())),
-            (Value::Integer(i), DataType::Boolean) => Ok(Value::Boolean(*i != 0)),
+            },
+            | (Value::Integer(i), DataType::Float) => Ok(Value::Float(*i as f64)),
+            | (Value::Integer(i), DataType::Text) => Ok(Value::Text(i.to_string())),
+            | (Value::Integer(i), DataType::Boolean) => Ok(Value::Boolean(*i != 0)),
 
             // Float conversions
-            (Value::Float(f), DataType::Float) => Ok(Value::Float(*f)),
-            (Value::Float(f), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+            | (Value::Float(f), DataType::Float) => Ok(Value::Float(*f)),
+            | (Value::Float(f), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(*f as i64))
-            }
-            (Value::Float(f), DataType::Text) => Ok(Value::Text(f.to_string())),
+            },
+            | (Value::Float(f), DataType::Text) => Ok(Value::Text(f.to_string())),
 
             // Text conversions
-            (Value::Text(s), DataType::Text) => Ok(Value::Text(s.clone())),
-            (Value::Text(s), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+            | (Value::Text(s), DataType::Text) => Ok(Value::Text(s.clone())),
+            | (Value::Text(s), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 let parsed = s
                     .parse::<i64>()
                     .map_err(|e| anyhow!("Cannot convert '{}' to Integer: {}", s, e))?;
                 // Validate integer bounds based on type
                 match new_type {
-                    DataType::Integer | DataType::Serial => {
+                    | DataType::Integer | DataType::Serial => {
                         if parsed < i32::MIN as i64 || parsed > i32::MAX as i64 {
                             return Err(anyhow!(
                                 "Value {} is out of range for Integer (must be between {} and {})",
@@ -1183,43 +1186,43 @@ impl StorageEngine {
                                 i32::MAX
                             ));
                         }
-                    }
-                    DataType::BigSerial => {
+                    },
+                    | DataType::BigSerial => {
                         // BigSerial uses i64, no additional bounds check needed
-                    }
-                    _ => {}
+                    },
+                    | _ => {},
                 }
                 Ok(Value::Integer(parsed))
-            }
-            (Value::Text(s), DataType::Float) => s
+            },
+            | (Value::Text(s), DataType::Float) => s
                 .parse::<f64>()
                 .map(Value::Float)
                 .map_err(|e| anyhow!("Cannot convert '{}' to Float: {}", s, e)),
-            (Value::Text(s), DataType::Boolean) => match s.to_lowercase().as_str() {
-                "true" | "t" | "yes" | "y" | "1" => Ok(Value::Boolean(true)),
-                "false" | "f" | "no" | "n" | "0" => Ok(Value::Boolean(false)),
-                _ => Err(anyhow!("Cannot convert '{}' to Boolean", s)),
+            | (Value::Text(s), DataType::Boolean) => match s.to_lowercase().as_str() {
+                | "true" | "t" | "yes" | "y" | "1" => Ok(Value::Boolean(true)),
+                | "false" | "f" | "no" | "n" | "0" => Ok(Value::Boolean(false)),
+                | _ => Err(anyhow!("Cannot convert '{}' to Boolean", s)),
             },
 
             // Boolean conversions
-            (Value::Boolean(b), DataType::Boolean) => Ok(Value::Boolean(*b)),
-            (Value::Boolean(b), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
+            | (Value::Boolean(b), DataType::Boolean) => Ok(Value::Boolean(*b)),
+            | (Value::Boolean(b), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(if *b { 1 } else { 0 }))
-            }
-            (Value::Boolean(b), DataType::Text) => Ok(Value::Text(b.to_string())),
+            },
+            | (Value::Boolean(b), DataType::Text) => Ok(Value::Text(b.to_string())),
 
             // Timestamp conversions
-            (Value::Timestamp(ts), DataType::Timestamp) => Ok(Value::Timestamp(*ts)),
-            (Value::Timestamp(ts), DataType::Text) => Ok(Value::Text(ts.to_rfc3339())),
+            | (Value::Timestamp(ts), DataType::Timestamp) => Ok(Value::Timestamp(*ts)),
+            | (Value::Timestamp(ts), DataType::Text) => Ok(Value::Text(ts.to_rfc3339())),
 
             // Binary conversions
-            (Value::Binary(b), DataType::Binary) => Ok(Value::Binary(b.clone())),
-            (Value::Binary(b), DataType::Text) => {
+            | (Value::Binary(b), DataType::Binary) => Ok(Value::Binary(b.clone())),
+            | (Value::Binary(b), DataType::Text) => {
                 Ok(Value::Text(format!("Binary[{} bytes]", b.len())))
-            }
+            },
 
             // Catch-all for unsupported conversions
-            _ => Err(anyhow!("Cannot convert {:?} to {:?}", value, new_type)),
+            | _ => Err(anyhow!("Cannot convert {:?} to {:?}", value, new_type)),
         }
     }
 
@@ -1759,17 +1762,17 @@ impl StorageEngine {
             if let Some(value) = row.fields.get(&column.name) {
                 // Type validation
                 let valid_type = match (&column.data_type, value) {
-                    (DataType::Integer, Value::Integer(_)) => true,
-                    (DataType::Float, Value::Float(_)) => true,
-                    (DataType::Text, Value::Text(_)) => true,
-                    (DataType::Boolean, Value::Boolean(_)) => true,
-                    (DataType::Timestamp, Value::Timestamp(_)) => true,
-                    (DataType::Binary, Value::Binary(_)) => true,
+                    | (DataType::Integer, Value::Integer(_)) => true,
+                    | (DataType::Float, Value::Float(_)) => true,
+                    | (DataType::Text, Value::Text(_)) => true,
+                    | (DataType::Boolean, Value::Boolean(_)) => true,
+                    | (DataType::Timestamp, Value::Timestamp(_)) => true,
+                    | (DataType::Binary, Value::Binary(_)) => true,
                     // Serial types store as Integer values
-                    (DataType::BigSerial, Value::Integer(_)) => true,
-                    (DataType::Serial, Value::Integer(_)) => true,
-                    (_, Value::Null) => column.nullable,
-                    _ => false,
+                    | (DataType::BigSerial, Value::Integer(_)) => true,
+                    | (DataType::Serial, Value::Integer(_)) => true,
+                    | (_, Value::Null) => column.nullable,
+                    | _ => false,
                 };
 
                 if !valid_type {
@@ -1854,16 +1857,16 @@ impl StorageEngine {
     /// Convert value to string for indexing
     fn value_to_string(&self, value: &Value) -> String {
         match value {
-            Value::Integer(i) => i.to_string(),
-            Value::Float(f) => f.to_string(),
-            Value::Text(s) => s.clone(),
-            Value::Boolean(b) => b.to_string(),
-            Value::Timestamp(ts) => ts.to_rfc3339(),
-            Value::Binary(b) => {
+            | Value::Integer(i) => i.to_string(),
+            | Value::Float(f) => f.to_string(),
+            | Value::Text(s) => s.clone(),
+            | Value::Boolean(b) => b.to_string(),
+            | Value::Timestamp(ts) => ts.to_rfc3339(),
+            | Value::Binary(b) => {
                 use base64::{engine::general_purpose, Engine as _};
                 general_purpose::STANDARD.encode(b)
-            }
-            Value::Null => "NULL".to_string(),
+            },
+            | Value::Null => "NULL".to_string(),
         }
     }
 
@@ -1919,21 +1922,21 @@ impl StorageEngine {
         condition_value: &Value,
     ) -> Result<bool> {
         match operator {
-            ComparisonOperator::Equal => Ok(field_value == condition_value),
-            ComparisonOperator::NotEqual => Ok(field_value != condition_value),
-            ComparisonOperator::LessThan => self
+            | ComparisonOperator::Equal => Ok(field_value == condition_value),
+            | ComparisonOperator::NotEqual => Ok(field_value != condition_value),
+            | ComparisonOperator::LessThan => self
                 .compare_values(field_value, condition_value)
                 .map(|ord| ord.is_lt()),
-            ComparisonOperator::LessThanOrEqual => self
+            | ComparisonOperator::LessThanOrEqual => self
                 .compare_values(field_value, condition_value)
                 .map(|ord| ord.is_le()),
-            ComparisonOperator::GreaterThan => self
+            | ComparisonOperator::GreaterThan => self
                 .compare_values(field_value, condition_value)
                 .map(|ord| ord.is_gt()),
-            ComparisonOperator::GreaterThanOrEqual => self
+            | ComparisonOperator::GreaterThanOrEqual => self
                 .compare_values(field_value, condition_value)
                 .map(|ord| ord.is_ge()),
-            ComparisonOperator::Like => {
+            | ComparisonOperator::Like => {
                 if let (Value::Text(field_text), Value::Text(pattern)) =
                     (field_value, condition_value)
                 {
@@ -1941,11 +1944,11 @@ impl StorageEngine {
                 } else {
                     Ok(false)
                 }
-            }
-            ComparisonOperator::In => {
+            },
+            | ComparisonOperator::In => {
                 // For simplicity, treating this as equality for now
                 Ok(field_value == condition_value)
-            }
+            },
         }
     }
 
@@ -1954,12 +1957,12 @@ impl StorageEngine {
         use std::cmp::Ordering;
 
         match (a, b) {
-            (Value::Integer(a), Value::Integer(b)) => Ok(a.cmp(b)),
-            (Value::Float(a), Value::Float(b)) => Ok(a.partial_cmp(b).unwrap_or(Ordering::Equal)),
-            (Value::Text(a), Value::Text(b)) => Ok(a.cmp(b)),
-            (Value::Boolean(a), Value::Boolean(b)) => Ok(a.cmp(b)),
-            (Value::Timestamp(a), Value::Timestamp(b)) => Ok(a.cmp(b)),
-            _ => Err(anyhow!("Cannot compare values of different types")),
+            | (Value::Integer(a), Value::Integer(b)) => Ok(a.cmp(b)),
+            | (Value::Float(a), Value::Float(b)) => Ok(a.partial_cmp(b).unwrap_or(Ordering::Equal)),
+            | (Value::Text(a), Value::Text(b)) => Ok(a.cmp(b)),
+            | (Value::Boolean(a), Value::Boolean(b)) => Ok(a.cmp(b)),
+            | (Value::Timestamp(a), Value::Timestamp(b)) => Ok(a.cmp(b)),
+            | _ => Err(anyhow!("Cannot compare values of different types")),
         }
     }
 
@@ -1970,18 +1973,18 @@ impl StorageEngine {
             let b_value = b.fields.get(&order_by.field);
 
             match (a_value, b_value) {
-                (Some(a_val), Some(b_val)) => {
+                | (Some(a_val), Some(b_val)) => {
                     let cmp = self
                         .compare_values(a_val, b_val)
                         .unwrap_or(std::cmp::Ordering::Equal);
                     match order_by.direction {
-                        SortDirection::Ascending => cmp,
-                        SortDirection::Descending => cmp.reverse(),
+                        | SortDirection::Ascending => cmp,
+                        | SortDirection::Descending => cmp.reverse(),
                     }
-                }
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => std::cmp::Ordering::Equal,
+                },
+                | (Some(_), None) => std::cmp::Ordering::Less,
+                | (None, Some(_)) => std::cmp::Ordering::Greater,
+                | (None, None) => std::cmp::Ordering::Equal,
             }
         });
 
@@ -2050,7 +2053,7 @@ impl StorageEngine {
             offset += entry_len;
 
             match bincode::deserialize::<CompressedRowEntry>(entry_bytes) {
-                Ok(entry) => {
+                | Ok(entry) => {
                     // Get the compressed data (decrypt first if encrypted)
                     let compressed_data = if let Some(ref encrypted_wrapper) =
                         entry.encrypted_wrapper
@@ -2058,20 +2061,20 @@ impl StorageEngine {
                         // Data is encrypted, decrypt it first
                         if let Some(ref encryption_manager) = self.encryption_manager {
                             match encryption_manager.decrypt(encrypted_wrapper) {
-                                Ok(decrypted_bytes) => {
+                                | Ok(decrypted_bytes) => {
                                     // Deserialize the decrypted compressed data
                                     match bincode::deserialize::<EncodedData>(&decrypted_bytes) {
-                                        Ok(data) => data,
-                                        Err(e) => {
+                                        | Ok(data) => data,
+                                        | Err(e) => {
                                             debug!("Failed to deserialize decrypted data: {}", e);
                                             continue;
-                                        }
+                                        },
                                     }
-                                }
-                                Err(e) => {
+                                },
+                                | Err(e) => {
                                     debug!("Failed to decrypt row: {}", e);
                                     continue;
-                                }
+                                },
                             }
                         } else {
                             debug!("Encrypted data found but no encryption manager available");
@@ -2084,19 +2087,19 @@ impl StorageEngine {
 
                     // Decompress the row data using the async decompress_row method
                     match self.decompress_row(&compressed_data).await {
-                        Ok(row) => {
+                        | Ok(row) => {
                             rows.push(row);
-                        }
-                        Err(e) => {
+                        },
+                        | Err(e) => {
                             debug!("Failed to decompress row: {}", e);
                             continue;
-                        }
+                        },
                     }
-                }
-                Err(_) => {
+                },
+                | Err(_) => {
                     // Might be legacy JSON format, try to read as text
                     break;
-                }
+                },
             }
         }
 
@@ -2362,21 +2365,21 @@ impl StorageEngine {
 
         // Try to push transaction - if serialization fails, log warning but don't fail operation
         match bincode::serialize(&transaction) {
-            Ok(_) => {
+            | Ok(_) => {
                 self.transaction_log.push(transaction);
 
                 // Keep transaction log size manageable
                 if self.transaction_log.len() > 10000 {
                     self.transaction_log.drain(0..5000);
                 }
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 // Log warning but don't fail the operation
                 debug!(
                     "⚠️  Warning: Failed to serialize transaction for logging: {}",
                     e
                 );
-            }
+            },
         }
 
         Ok(())
@@ -2977,16 +2980,16 @@ impl StorageEngine {
         let result = f(self, tx_id).await;
 
         match result {
-            Ok(value) => {
+            | Ok(value) => {
                 // Commit on success
                 self.commit_transaction(tx_id).await?;
                 Ok(value)
-            }
-            Err(e) => {
+            },
+            | Err(e) => {
                 // Rollback on error
                 let _ = self.rollback_transaction(tx_id).await; // Ignore rollback errors
                 Err(e)
-            }
+            },
         }
     }
 
@@ -3106,7 +3109,7 @@ impl StorageEngine {
         use crate::transaction::LogRecordType;
 
         match &record.record_type {
-            LogRecordType::Update {
+            | LogRecordType::Update {
                 table,
                 key,
                 before_image,
@@ -3119,11 +3122,11 @@ impl StorageEngine {
                     self.apply_before_image(table, key, before_image.as_deref())
                         .await?;
                 }
-            }
-            _ => {
+            },
+            | _ => {
                 // Other log record types don't need storage application
                 debug!("Skipping non-update log record type");
-            }
+            },
         }
 
         Ok(())
@@ -3160,17 +3163,17 @@ impl StorageEngine {
 
         for record in &log_records {
             match &record.record_type {
-                LogRecordType::Begin { tx_id, .. } => {
+                | LogRecordType::Begin { tx_id, .. } => {
                     active_txs.insert(*tx_id);
-                }
-                LogRecordType::Commit { tx_id } => {
+                },
+                | LogRecordType::Commit { tx_id } => {
                     active_txs.remove(tx_id);
                     committed_txs.insert(*tx_id);
-                }
-                LogRecordType::Abort { tx_id } => {
+                },
+                | LogRecordType::Abort { tx_id } => {
                     active_txs.remove(tx_id);
-                }
-                _ => {}
+                },
+                | _ => {},
             }
         }
 

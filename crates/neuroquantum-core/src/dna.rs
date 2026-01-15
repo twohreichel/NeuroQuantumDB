@@ -46,11 +46,11 @@ impl DNABase {
     /// Create DNABase from 2-bit value
     pub fn from_bits(bits: u8) -> Result<Self, DNAError> {
         match bits & 0b11 {
-            0b00 => Ok(Self::Adenine),
-            0b01 => Ok(Self::Thymine),
-            0b10 => Ok(Self::Guanine),
-            0b11 => Ok(Self::Cytosine),
-            _ => unreachable!("Masked to 2 bits, impossible case"),
+            | 0b00 => Ok(Self::Adenine),
+            | 0b01 => Ok(Self::Thymine),
+            | 0b10 => Ok(Self::Guanine),
+            | 0b11 => Ok(Self::Cytosine),
+            | _ => unreachable!("Masked to 2 bits, impossible case"),
         }
     }
 
@@ -62,21 +62,21 @@ impl DNABase {
     /// Get the ASCII character representation
     pub fn to_char(self) -> char {
         match self {
-            Self::Adenine => 'A',
-            Self::Thymine => 'T',
-            Self::Guanine => 'G',
-            Self::Cytosine => 'C',
+            | Self::Adenine => 'A',
+            | Self::Thymine => 'T',
+            | Self::Guanine => 'G',
+            | Self::Cytosine => 'C',
         }
     }
 
     /// Create DNABase from ASCII character
     pub fn from_char(c: char) -> Result<Self, DNAError> {
         match c.to_ascii_uppercase() {
-            'A' => Ok(Self::Adenine),
-            'T' => Ok(Self::Thymine),
-            'G' => Ok(Self::Guanine),
-            'C' => Ok(Self::Cytosine),
-            _ => Err(DNAError::InvalidBase(c as u8)),
+            | 'A' => Ok(Self::Adenine),
+            | 'T' => Ok(Self::Thymine),
+            | 'G' => Ok(Self::Guanine),
+            | 'C' => Ok(Self::Cytosine),
+            | _ => Err(DNAError::InvalidBase(c as u8)),
         }
     }
 }
