@@ -150,7 +150,7 @@ check: lint ## Static analysis and linting (comprehensive)
 
 security: ## Security audit and vulnerability assessment
 	@echo "🔒 Running security audit..."
-	cargo audit --ignore RUSTSEC-2020-0168 --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2024-0436 --ignore RUSTSEC-2026-0001
+	cargo audit --deny warnings --ignore RUSTSEC-2020-0168 --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2024-0436 --ignore RUSTSEC-2026-0001
 	cargo deny check licenses
 	cargo deny check advisories
 	cargo deny check bans
@@ -158,7 +158,7 @@ security: ## Security audit and vulnerability assessment
 	@echo "🛡️ Checking for unsafe code blocks..."
 	@! grep -r "unsafe" crates/ --include="*.rs" || (echo "❌ Unsafe code detected! Remove all unsafe blocks." && exit 1)
 	@echo "🔐 Checking for potential security issues..."
-	cargo clippy --workspace --all-targets --all-features -- -W clippy::unwrap_used -W clippy::expect_used -W clippy::panic -W clippy::unimplemented -W clippy::todo
+	cargo clippy --workspace --all-targets --all-features -- -W clippy::unwrap_used -W clippy::expect_used -W clippy::panic -W clippy::unimplemented -W clippy::todo -W clippy::arithmetic_side_effects -W clippy::undocumented_unsafe_blocks -W clippy::multiple_unsafe_ops_per_block
 
 # Pre-commit hook simulation
 pre-commit: ## Run all checks that should pass before committing
