@@ -7,15 +7,15 @@
 //! ## Supported Providers
 //!
 //! - **IBM Quantum**: Gate-based superconducting quantum computers via Qiskit Runtime
-//! - **AWS Braket**: Multi-vendor access to IonQ, Rigetti, D-Wave, and simulators
+//! - **AWS Braket**: Multi-vendor access to `IonQ`, Rigetti, D-Wave, and simulators
 //! - **D-Wave**: Native quantum annealing for optimization problems
-//! - **IonQ**: High-fidelity trapped-ion quantum computers
+//! - **`IonQ`**: High-fidelity trapped-ion quantum computers
 //!
 //! ## Architecture
 //!
 //! Each provider module implements the common backend traits for various quantum algorithms:
 //!
-//! | Algorithm | IBM Quantum | AWS Braket | D-Wave | IonQ |
+//! | Algorithm | IBM Quantum | AWS Braket | D-Wave | `IonQ` |
 //! |-----------|-------------|------------|--------|------|
 //! | Grover's Search | ✓ | ✓ | ✗ | ✓ |
 //! | QUBO/QAOA | ✓ | ✓ | ✓ | ✗ |
@@ -36,7 +36,7 @@
 //! | IBM Quantum | `IBM_QUANTUM_API_KEY`, `IBM_QUANTUM_BACKEND` |
 //! | AWS Braket | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_BRAKET_DEVICE_ARN` |
 //! | D-Wave | `DWAVE_API_TOKEN`, `DWAVE_SOLVER` |
-//! | IonQ | `IONQ_API_KEY` |
+//! | `IonQ` | `IONQ_API_KEY` |
 //!
 //! ## Usage Example
 //!
@@ -102,7 +102,7 @@ pub enum QuantumProvider {
     AWSBraket,
     /// D-Wave - Quantum annealing
     DWave,
-    /// IonQ - Trapped-ion gate-based
+    /// `IonQ` - Trapped-ion gate-based
     IonQ,
     /// Local simulator (classical fallback)
     LocalSimulator,
@@ -111,11 +111,11 @@ pub enum QuantumProvider {
 impl std::fmt::Display for QuantumProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            | QuantumProvider::IBMQuantum => write!(f, "IBM Quantum"),
-            | QuantumProvider::AWSBraket => write!(f, "AWS Braket"),
-            | QuantumProvider::DWave => write!(f, "D-Wave"),
-            | QuantumProvider::IonQ => write!(f, "IonQ"),
-            | QuantumProvider::LocalSimulator => write!(f, "Local Simulator"),
+            | Self::IBMQuantum => write!(f, "IBM Quantum"),
+            | Self::AWSBraket => write!(f, "AWS Braket"),
+            | Self::DWave => write!(f, "D-Wave"),
+            | Self::IonQ => write!(f, "IonQ"),
+            | Self::LocalSimulator => write!(f, "Local Simulator"),
         }
     }
 }
@@ -183,6 +183,7 @@ pub struct QuantumBackendFactory;
 
 impl QuantumBackendFactory {
     /// Check which quantum backends are available based on environment configuration
+    #[must_use] 
     pub fn available_providers() -> Vec<QuantumProvider> {
         let mut providers = vec![QuantumProvider::LocalSimulator];
 
@@ -201,7 +202,7 @@ impl QuantumBackendFactory {
             || std::env::var("AWS_PROFILE").is_ok()
             || std::path::Path::new(
                 &std::env::var("HOME")
-                    .map(|h| format!("{}/.aws/credentials", h))
+                    .map(|h| format!("{h}/.aws/credentials"))
                     .unwrap_or_default(),
             )
             .exists()
@@ -218,6 +219,7 @@ impl QuantumBackendFactory {
     }
 
     /// Get the best available provider for a specific algorithm
+    #[must_use] 
     pub fn best_provider_for_algorithm(algorithm: &str) -> QuantumProvider {
         let available = Self::available_providers();
 

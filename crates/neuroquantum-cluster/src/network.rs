@@ -120,7 +120,7 @@ pub struct AppendEntriesRequest {
     pub leader_id: NodeId,
     /// Index of log entry immediately preceding new ones
     pub prev_log_index: u64,
-    /// Term of prev_log_index entry
+    /// Term of `prev_log_index` entry
     pub prev_log_term: u64,
     /// Log entries to store (empty for heartbeat)
     pub entries: Vec<LogEntryCompact>,
@@ -142,7 +142,7 @@ pub struct LogEntryCompact {
 pub struct AppendEntriesResponse {
     /// Current term, for leader to update itself
     pub term: u64,
-    /// True if follower contained entry matching prev_log_index and prev_log_term
+    /// True if follower contained entry matching `prev_log_index` and `prev_log_term`
     pub success: bool,
     /// Hint for the next index to try (optimization)
     pub match_index: Option<u64>,
@@ -161,7 +161,7 @@ pub struct InstallSnapshotRequest {
     pub leader_id: NodeId,
     /// The snapshot replaces all entries up through and including this index
     pub last_included_index: u64,
-    /// Term of last_included_index
+    /// Term of `last_included_index`
     pub last_included_term: u64,
     /// Byte offset where chunk is positioned in the snapshot file
     pub offset: u64,
@@ -232,7 +232,7 @@ pub struct NetworkTransport {
     running: RwLock<bool>,
     /// Server shutdown signal
     server_shutdown: RwLock<Option<tokio::sync::oneshot::Sender<()>>>,
-    /// Handler for RequestVote RPCs
+    /// Handler for `RequestVote` RPCs
     request_vote_handler: RwLock<Option<RequestVoteHandler>>,
 }
 
@@ -261,7 +261,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
         let remote_addr: SocketAddr = req
             .address
             .parse()
-            .map_err(|e| tonic::Status::invalid_argument(format!("Invalid address: {}", e)))?;
+            .map_err(|e| tonic::Status::invalid_argument(format!("Invalid address: {e}")))?;
 
         // Get our protocol version
         let our_protocol_version = self.transport.config.manager.upgrades.protocol_version;
@@ -303,7 +303,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
             return Ok(tonic::Response::new(proto::HandshakeResponse {
                 node_id: self.node_id,
                 success: false,
-                error: format!("Failed to add peer: {}", e),
+                error: format!("Failed to add peer: {e}"),
                 protocol_version: our_protocol_version,
             }));
         }
@@ -379,8 +379,7 @@ impl ClusterNodeService for ClusterNodeServiceImpl {
                         "Failed to process vote request"
                     );
                     return Err(tonic::Status::internal(format!(
-                        "Failed to process vote request: {}",
-                        e
+                        "Failed to process vote request: {e}"
                     )));
                 },
             }
@@ -457,7 +456,7 @@ impl NetworkTransport {
         })
     }
 
-    /// Register a handler for RequestVote RPCs.
+    /// Register a handler for `RequestVote` RPCs.
     pub async fn register_request_vote_handler<F>(&self, handler: F)
     where
         F: Fn(
@@ -587,7 +586,7 @@ impl NetworkTransport {
                     client.heartbeat(req).await.map_err(|e| {
                         ClusterError::ConnectionFailed(
                             peer.addr,
-                            format!("gRPC call failed: {}", e),
+                            format!("gRPC call failed: {e}"),
                         )
                     })?;
                 },
@@ -603,7 +602,7 @@ impl NetworkTransport {
                     client.request_vote(req).await.map_err(|e| {
                         ClusterError::ConnectionFailed(
                             peer.addr,
-                            format!("gRPC call failed: {}", e),
+                            format!("gRPC call failed: {e}"),
                         )
                     })?;
                 },
@@ -631,7 +630,7 @@ impl NetworkTransport {
                     client.append_entries(req).await.map_err(|e| {
                         ClusterError::ConnectionFailed(
                             peer.addr,
-                            format!("gRPC call failed: {}", e),
+                            format!("gRPC call failed: {e}"),
                         )
                     })?;
                 },
@@ -651,7 +650,7 @@ impl NetworkTransport {
         Ok(())
     }
 
-    /// Send RequestVote RPC and return the response.
+    /// Send `RequestVote` RPC and return the response.
     pub async fn send_request_vote_rpc(
         &self,
         target: NodeId,
@@ -691,7 +690,7 @@ impl NetworkTransport {
                 .request_vote(req)
                 .await
                 .map_err(|e| {
-                    ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {}", e))
+                    ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {e}"))
                 })?
                 .into_inner();
 
@@ -746,7 +745,7 @@ impl NetworkTransport {
             );
 
             // Establish gRPC connection
-            let endpoint = format!("http://{}", peer_addr);
+            let endpoint = format!("http://{peer_addr}");
             match ClusterNodeClient::connect(endpoint.clone()).await {
                 | Ok(mut client) => {
                     info!(
@@ -988,7 +987,7 @@ mod tests {
 
         let config = ClusterConfig {
             node_id: 1,
-            bind_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+            bind_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8080),
             advertise_addr: None,
             peers: vec![],
             data_dir: std::path::PathBuf::from("/tmp/test"),

@@ -19,7 +19,7 @@ pub enum MigrationDirection {
 /// A parsed migration with up and down SQL
 #[derive(Debug, Clone)]
 pub struct Migration {
-    /// Unique identifier (e.g., "001_add_status_column")
+    /// Unique identifier (e.g., "`001_add_status_column`")
     pub id: String,
     /// Description from filename
     pub description: String,
@@ -35,6 +35,7 @@ pub struct Migration {
 
 impl Migration {
     /// Get SQL for the specified direction
+    #[must_use] 
     pub fn get_sql(&self, direction: MigrationDirection) -> &str {
         match direction {
             | MigrationDirection::Up => &self.up_sql,
@@ -50,7 +51,8 @@ pub struct MigrationParser {
 
 impl MigrationParser {
     /// Create a new migration parser
-    pub fn new(migrations_dir: PathBuf) -> Self {
+    #[must_use] 
+    pub const fn new(migrations_dir: PathBuf) -> Self {
         Self { migrations_dir }
     }
 
@@ -90,8 +92,8 @@ impl MigrationParser {
 
     /// Load a specific migration by its base name
     fn load_migration(&self, base_name: &str) -> Result<Option<Migration>> {
-        let up_file = self.migrations_dir.join(format!("{}.up.sql", base_name));
-        let down_file = self.migrations_dir.join(format!("{}.down.sql", base_name));
+        let up_file = self.migrations_dir.join(format!("{base_name}.up.sql"));
+        let down_file = self.migrations_dir.join(format!("{base_name}.down.sql"));
 
         if !up_file.exists() {
             return Ok(None);
@@ -146,13 +148,12 @@ impl MigrationParser {
             .iter()
             .filter_map(|m| m.id.parse::<u32>().ok())
             .max()
-            .map(|n| n + 1)
-            .unwrap_or(1);
+            .map_or(1, |n| n + 1);
 
         // Create filename with zero-padded number
         let filename = format!("{:03}_{}", next_num, name.replace(' ', "_"));
-        let up_file = self.migrations_dir.join(format!("{}.up.sql", filename));
-        let down_file = self.migrations_dir.join(format!("{}.down.sql", filename));
+        let up_file = self.migrations_dir.join(format!("{filename}.up.sql"));
+        let down_file = self.migrations_dir.join(format!("{filename}.down.sql"));
 
         // Create template files
         let up_template = format!(

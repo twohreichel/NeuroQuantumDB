@@ -1,4 +1,4 @@
-//! Backup and Restore System for NeuroQuantumDB
+//! Backup and Restore System for `NeuroQuantumDB`
 //!
 //! Provides comprehensive backup and restore capabilities:
 //! - Hot backups (no downtime required)
@@ -413,7 +413,7 @@ impl BackupManager {
             let chunk_end = (chunk_start + chunk_size as u64).min(total_pages);
 
             let chunk_file =
-                data_dir.join(format!("pages_{:08x}_{:08x}.dat", chunk_start, chunk_end));
+                data_dir.join(format!("pages_{chunk_start:08x}_{chunk_end:08x}.dat"));
             let mut chunk_data = Vec::new();
 
             for page_id in chunk_start..chunk_end {
@@ -514,7 +514,7 @@ impl BackupManager {
     fn get_backup_directory(&self, backup_id: &BackupId) -> PathBuf {
         self.config
             .output_path
-            .join(format!("backup_{}", backup_id))
+            .join(format!("backup_{backup_id}"))
     }
 
     /// Save backup metadata
@@ -571,7 +571,7 @@ impl BackupManager {
         }
 
         let result = hasher.finalize();
-        Ok(format!("{:x}", result))
+        Ok(format!("{result:x}"))
     }
 
     /// Find last backup of a specific type

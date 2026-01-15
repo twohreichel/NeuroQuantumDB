@@ -98,8 +98,7 @@ async fn test_alter_table_add_column() {
     let result = executor.execute_statement(&statement).await;
     assert!(
         result.is_ok(),
-        "ALTER TABLE ADD COLUMN failed: {:?}",
-        result
+        "ALTER TABLE ADD COLUMN failed: {result:?}"
     );
 
     // Verify the column was added to schema by checking storage directly
@@ -149,8 +148,7 @@ async fn test_alter_table_add_column_nullable() {
     let result = executor.execute_statement(&statement).await;
     assert!(
         result.is_ok(),
-        "ALTER TABLE ADD COLUMN failed: {:?}",
-        result
+        "ALTER TABLE ADD COLUMN failed: {result:?}"
     );
 
     // Verify existing rows have NULL for the new column
@@ -172,8 +170,7 @@ async fn test_alter_table_drop_column() {
     let result = executor.execute_statement(&statement).await;
     assert!(
         result.is_ok(),
-        "ALTER TABLE DROP COLUMN failed: {:?}",
-        result
+        "ALTER TABLE DROP COLUMN failed: {result:?}"
     );
 
     // Verify the column was removed from schema
@@ -219,8 +216,7 @@ async fn test_alter_table_rename_column() {
     let result = executor.execute_statement(&statement).await;
     assert!(
         result.is_ok(),
-        "ALTER TABLE RENAME COLUMN failed: {:?}",
-        result
+        "ALTER TABLE RENAME COLUMN failed: {result:?}"
     );
 
     // Verify the column was renamed
@@ -263,8 +259,7 @@ async fn test_alter_table_modify_column_int_to_text() {
     let result = executor.execute_statement(&statement).await;
     assert!(
         result.is_ok(),
-        "ALTER TABLE MODIFY COLUMN failed: {:?}",
-        result
+        "ALTER TABLE MODIFY COLUMN failed: {result:?}"
     );
 
     // Verify the data was converted
@@ -291,8 +286,7 @@ async fn test_alter_table_modify_column_text_to_int() {
     let result = executor.execute_statement(&statement).await;
     assert!(
         result.is_ok(),
-        "ALTER TABLE MODIFY COLUMN failed: {:?}",
-        result
+        "ALTER TABLE MODIFY COLUMN failed: {result:?}"
     );
 }
 
@@ -313,7 +307,7 @@ async fn test_alter_table_multiple_operations() {
     for sql in operations {
         let statement = parser.parse(sql).unwrap();
         let result = executor.execute_statement(&statement).await;
-        assert!(result.is_ok(), "ALTER TABLE operation failed for: {}", sql);
+        assert!(result.is_ok(), "ALTER TABLE operation failed for: {sql}");
     }
 
     // Verify final schema by selecting

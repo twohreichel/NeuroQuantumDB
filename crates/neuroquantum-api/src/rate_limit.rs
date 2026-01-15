@@ -65,7 +65,7 @@ impl RateLimitBucket {
         let now = current_unix_timestamp();
 
         // Reset window if needed
-        if now >= self.window_start + config.window_size_seconds as u64 {
+        if now >= self.window_start + u64::from(config.window_size_seconds) {
             self.window_start = now;
             self.request_count = 0;
             self.tokens = config.requests_per_window;
@@ -74,8 +74,8 @@ impl RateLimitBucket {
         // Refill tokens based on time elapsed
         let time_elapsed = now - self.last_refill;
         if time_elapsed > 0 {
-            let tokens_to_add = (time_elapsed * config.requests_per_window as u64
-                / config.window_size_seconds as u64) as u32;
+            let tokens_to_add = (time_elapsed * u64::from(config.requests_per_window)
+                / u64::from(config.window_size_seconds)) as u32;
 
             self.tokens = (self.tokens + tokens_to_add).min(config.requests_per_window);
             self.last_refill = now;
@@ -91,14 +91,14 @@ impl RateLimitBucket {
         }
     }
 
-    fn remaining_tokens(&self) -> u32 {
+    const fn remaining_tokens(&self) -> u32 {
         self.tokens
     }
 
     fn time_until_reset(&self, config: &RateLimitConfig) -> u64 {
         let now = current_unix_timestamp();
 
-        (self.window_start + config.window_size_seconds as u64).saturating_sub(now)
+        (self.window_start + u64::from(config.window_size_seconds)).saturating_sub(now)
     }
 }
 
@@ -129,7 +129,7 @@ impl RateLimitService {
                             );
                             if !config.fallback_to_memory {
                                 return Err(ApiError::ConnectionPoolError {
-                                    details: format!("Redis connection failed: {}", e),
+                                    details: format!("Redis connection failed: {e}"),
                                 });
                             }
                             None
@@ -140,7 +140,7 @@ impl RateLimitService {
                     warn!("Invalid Redis URL: {}. Falling back to memory store.", e);
                     if !config.fallback_to_memory {
                         return Err(ApiError::ConnectionPoolError {
-                            details: format!("Invalid Redis URL: {}", e),
+                            details: format!("Invalid Redis URL: {e}"),
                         });
                     }
                     None
@@ -175,18 +175,18 @@ impl RateLimitService {
             .get_multiplexed_async_connection()
             .await
             .map_err(|e| ApiError::ConnectionPoolError {
-                details: format!("Redis connection failed: {}", e),
+                details: format!("Redis connection failed: {e}"),
             })?;
 
-        let redis_key = format!("rate_limit:{}", key);
-        let bucket_key = format!("{}:bucket", redis_key);
+        let redis_key = format!("rate_limit:{key}");
+        let bucket_key = format!("{redis_key}:bucket");
 
         // Get or create bucket
         let bucket_data: Option<String> =
             conn.get(&bucket_key)
                 .await
                 .map_err(|e| ApiError::InternalServerError {
-                    message: format!("Redis GET failed: {}", e),
+                    message: format!("Redis GET failed: {e}"),
                 })?;
 
         let mut bucket = if let Some(ref data) = bucket_data {
@@ -201,18 +201,18 @@ impl RateLimitService {
         // Store updated bucket
         let bucket_json =
             serde_json::to_string(&bucket).map_err(|e| ApiError::InternalServerError {
-                message: format!("Bucket serialization failed: {}", e),
+                message: format!("Bucket serialization failed: {e}"),
             })?;
 
         let _: () = conn
             .set_ex(
                 &bucket_key,
                 bucket_json,
-                self.config.window_size_seconds as u64,
+                u64::from(self.config.window_size_seconds),
             )
             .await
             .map_err(|e| ApiError::InternalServerError {
-                message: format!("Redis SET failed: {}", e),
+                message: format!("Redis SET failed: {e}"),
             })?;
 
         Ok(RateLimitResult {
@@ -258,15 +258,15 @@ impl RateLimitService {
             .get_multiplexed_async_connection()
             .await
             .map_err(|e| ApiError::ConnectionPoolError {
-                details: format!("Redis connection failed: {}", e),
+                details: format!("Redis connection failed: {e}"),
             })?;
 
-        let redis_key = format!("rate_limit:{}:bucket", key);
+        let redis_key = format!("rate_limit:{key}:bucket");
         let bucket_data: Option<String> =
             conn.get(&redis_key)
                 .await
                 .map_err(|e| ApiError::InternalServerError {
-                    message: format!("Redis GET failed: {}", e),
+                    message: format!("Redis GET failed: {e}"),
                 })?;
 
         let bucket = if let Some(ref data) = bucket_data {
@@ -298,7 +298,7 @@ impl RateLimitService {
             Ok(RateLimitResult {
                 allowed: true,
                 remaining: self.config.requests_per_window,
-                reset_time: self.config.window_size_seconds as u64,
+                reset_time: u64::from(self.config.window_size_seconds),
                 limit: self.config.requests_per_window,
             })
         }
@@ -311,15 +311,15 @@ impl RateLimitService {
                 .get_multiplexed_async_connection()
                 .await
                 .map_err(|e| ApiError::ConnectionPoolError {
-                    details: format!("Redis connection failed: {}", e),
+                    details: format!("Redis connection failed: {e}"),
                 })?;
 
-            let redis_key = format!("rate_limit:{}:bucket", key);
+            let redis_key = format!("rate_limit:{key}:bucket");
             let _: () = conn
                 .del(&redis_key)
                 .await
                 .map_err(|e| ApiError::InternalServerError {
-                    message: format!("Redis DEL failed: {}", e),
+                    message: format!("Redis DEL failed: {e}"),
                 })?;
         } else {
             let mut store = self.memory_store.write().await;
@@ -336,7 +336,7 @@ impl RateLimitService {
             let now = current_unix_timestamp();
 
             store.retain(|_, bucket| {
-                bucket.window_start + self.config.window_size_seconds as u64 > now
+                bucket.window_start + u64::from(self.config.window_size_seconds) > now
             });
 
             debug!(
@@ -371,6 +371,7 @@ impl RateLimitMiddleware {
     }
 
     /// Create middleware that uses IP address as the rate limiting key
+    #[must_use] 
     pub fn by_ip(service: RateLimitService) -> Self {
         Self::new(service, |req| {
             req.connection_info()
@@ -381,6 +382,7 @@ impl RateLimitMiddleware {
     }
 
     /// Create middleware that uses user ID from JWT token as the rate limiting key
+    #[must_use] 
     pub fn by_user(service: RateLimitService) -> Self {
         Self::new(service, |req| {
             if let Some(auth_token) = req.extensions().get::<crate::error::AuthToken>() {
@@ -395,6 +397,7 @@ impl RateLimitMiddleware {
     }
 
     /// Create middleware that uses API key as the rate limiting key
+    #[must_use] 
     pub fn by_api_key(service: RateLimitService) -> Self {
         Self::new(service, |req| {
             if let Some(api_key) = req.extensions().get::<crate::auth::ApiKey>() {

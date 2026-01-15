@@ -7,8 +7,8 @@
 // These expects occur in contexts where the engine should be available.
 #![allow(clippy::expect_used)]
 
-use crate::ast::*;
-use crate::error::*;
+use crate::ast::{SelectStatement, WithClause, DataType, Statement, SelectItem, Expression, TableReference, Literal, BinaryOperator, JoinType, OrderByItem, InsertStatement, UpdateStatement, DeleteStatement, NeuroMatchStatement, QuantumSearchStatement, SuperpositionQueryStatement, LearnPatternStatement, AdaptWeightsStatement, QuantumJoinStatement, ExplainStatement, ExplainFormat, AnalyzeStatement, CreateTableStatement, ColumnConstraint, TableConstraint, DropTableStatement, AlterTableStatement, AlterTableOperation, CreateIndexStatement, DropIndexStatement, TruncateTableStatement, CompressTableStatement, BeginTransactionStatement, SavepointStatement, RollbackToSavepointStatement, ReleaseSavepointStatement, UnaryOperator, NeuroMatchClause, WindowFunctionType, WindowSpec};
+use crate::error::{QSQLResult, QSQLError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -43,7 +43,7 @@ pub struct CTEContext {
     /// Map of CTE name to its cached rows (once executed)
     /// Uses Arc to avoid expensive clones when reusing CTE results
     cached_results: HashMap<String, Arc<Vec<Row>>>,
-    /// Map of CTE name to its definition (SelectStatement)
+    /// Map of CTE name to its definition (`SelectStatement`)
     definitions: HashMap<String, SelectStatement>,
     /// Whether the WITH clause is RECURSIVE
     recursive: bool,
@@ -51,6 +51,7 @@ pub struct CTEContext {
 
 impl CTEContext {
     /// Create a new CTE context from a WITH clause
+    #[must_use] 
     pub fn from_with_clause(with_clause: &WithClause) -> Self {
         let mut definitions = HashMap::new();
         for cte in &with_clause.ctes {
@@ -64,16 +65,19 @@ impl CTEContext {
     }
 
     /// Check if a table name is a CTE reference
+    #[must_use] 
     pub fn is_cte(&self, name: &str) -> bool {
         self.definitions.contains_key(name)
     }
 
     /// Get the CTE definition for a given name
+    #[must_use] 
     pub fn get_definition(&self, name: &str) -> Option<&SelectStatement> {
         self.definitions.get(name)
     }
 
     /// Get cached result for a CTE (if already executed)
+    #[must_use] 
     pub fn get_cached(&self, name: &str) -> Option<&Arc<Vec<Row>>> {
         self.cached_results.get(name)
     }
@@ -84,7 +88,8 @@ impl CTEContext {
     }
 
     /// Check if this is a recursive CTE
-    pub fn is_recursive(&self) -> bool {
+    #[must_use] 
+    pub const fn is_recursive(&self) -> bool {
         self.recursive
     }
 }
@@ -117,7 +122,7 @@ pub struct ExecutorConfig {
     /// use hash join instead of nested loop for better performance.
     pub hash_join_threshold: usize,
     /// Maximum recursion depth for recursive CTEs (WITH RECURSIVE).
-    /// Default is RECURSIVE_CTE_LIMIT (1000).
+    /// Default is `RECURSIVE_CTE_LIMIT` (1000).
     /// Set this to prevent infinite loops in recursive queries.
     pub max_recursive_cte_depth: usize,
 }
@@ -148,6 +153,7 @@ impl ExecutorConfig {
     ///
     /// Note: This is equivalent to `Default::default()` as the default
     /// configuration is production-safe.
+    #[must_use] 
     pub fn production() -> Self {
         Self::default()
     }
@@ -297,7 +303,7 @@ impl QueryExecutor {
         let learning_engine = if config.enable_neuromorphic_learning {
             Some(
                 HebbianLearningEngine::new(0.01).map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to initialize learning engine: {}", e),
+                    message: format!("Failed to initialize learning engine: {e}"),
                 })?,
             )
         } else {
@@ -308,7 +314,7 @@ impl QueryExecutor {
         let synaptic_network = if config.enable_synaptic_optimization {
             Some(
                 SynapticNetwork::new(1000, 0.5).map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to initialize synaptic network: {}", e),
+                    message: format!("Failed to initialize synaptic network: {e}"),
                 })?,
             )
         } else {
@@ -335,7 +341,7 @@ impl QueryExecutor {
     }
 
     /// Check if storage engine is available
-    pub fn has_storage_engine(&self) -> bool {
+    pub const fn has_storage_engine(&self) -> bool {
         self.storage_engine.is_some()
     }
 
@@ -352,7 +358,7 @@ impl QueryExecutor {
 
     /// Check if legacy mode is allowed (always false in production builds)
     #[cfg(not(test))]
-    pub fn is_legacy_mode_allowed(&self) -> bool {
+    pub const fn is_legacy_mode_allowed(&self) -> bool {
         false
     }
 
@@ -376,7 +382,7 @@ impl QueryExecutor {
     }
 
     /// Execute a Statement directly (convenience method)
-    /// Creates a simple QueryPlan internally
+    /// Creates a simple `QueryPlan` internally
     pub async fn execute_statement(&mut self, statement: &Statement) -> QSQLResult<QueryResult> {
         // Create a basic QueryPlan from the statement
         let plan = QueryPlan {
@@ -457,9 +463,9 @@ impl QueryExecutor {
         self.execution_stats.queries_executed += 1;
         self.execution_stats.total_execution_time += start_time.elapsed();
         self.execution_stats.synaptic_optimizations +=
-            plan.optimization_metadata.synaptic_adaptations as u64;
+            u64::from(plan.optimization_metadata.synaptic_adaptations);
         self.execution_stats.quantum_operations +=
-            plan.optimization_metadata.quantum_optimizations_applied as u64;
+            u64::from(plan.optimization_metadata.quantum_optimizations_applied);
 
         Ok(result)
     }
@@ -487,11 +493,10 @@ impl QueryExecutor {
                 select
                     .from
                     .as_ref()
-                    .map(|f| {
+                    .is_some_and(|f| {
                         f.relations.iter().any(|r| ctx.is_cte(&r.name))
                             || f.joins.iter().any(|j| ctx.is_cte(&j.relation.name))
                     })
-                    .unwrap_or(false)
             } else {
                 false
             };
@@ -512,11 +517,10 @@ impl QueryExecutor {
             let has_derived_tables = select
                 .from
                 .as_ref()
-                .map(|f| {
+                .is_some_and(|f| {
                     f.relations.iter().any(|r| r.subquery.is_some())
                         || f.joins.iter().any(|j| j.relation.subquery.is_some())
-                })
-                .unwrap_or(false);
+                });
 
             if has_derived_tables {
                 // Execute with derived table logic
@@ -529,8 +533,7 @@ impl QueryExecutor {
             let has_joins = select
                 .from
                 .as_ref()
-                .map(|f| !f.joins.is_empty())
-                .unwrap_or(false);
+                .is_some_and(|f| !f.joins.is_empty());
 
             if has_joins {
                 // Execute with JOIN logic
@@ -543,8 +546,7 @@ impl QueryExecutor {
             let has_where_subqueries = select
                 .where_clause
                 .as_ref()
-                .map(Self::contains_subquery_expression)
-                .unwrap_or(false);
+                .is_some_and(Self::contains_subquery_expression);
 
             // Check if we have scalar subqueries in the SELECT list
             let has_select_subqueries = Self::has_scalar_subqueries(&select.select_list);
@@ -561,14 +563,14 @@ impl QueryExecutor {
             let resolved_where_clause = if has_where_subqueries {
                 if let Some(where_expr) = &select.where_clause {
                     // Only resolve non-correlated subqueries upfront
-                    if !Self::expression_references_outer_aliases(where_expr, &outer_aliases) {
+                    if Self::expression_references_outer_aliases(where_expr, &outer_aliases) {
+                        // Keep correlated WHERE subqueries for per-row evaluation
+                        Some(where_expr.clone())
+                    } else {
                         Some(
                             self.resolve_subqueries_in_expression(where_expr.clone())
                                 .await?,
                         )
-                    } else {
-                        // Keep correlated WHERE subqueries for per-row evaluation
-                        Some(where_expr.clone())
                     }
                 } else {
                     None
@@ -635,8 +637,7 @@ impl QueryExecutor {
             let needs_post_filter = resolved_select
                 .where_clause
                 .as_ref()
-                .map(Self::contains_in_list_expression)
-                .unwrap_or(false);
+                .is_some_and(Self::contains_in_list_expression);
 
             // Convert SQL SELECT to storage query (no borrow of self.storage_engine)
             let storage_query = self.convert_select_to_storage_query(&resolved_select)?;
@@ -653,7 +654,7 @@ impl QueryExecutor {
                 .select_rows(&storage_query)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Storage select failed: {}", e),
+                    message: format!("Storage select failed: {e}"),
                 })?;
             drop(storage_guard); // Release lock early
 
@@ -720,11 +721,7 @@ impl QueryExecutor {
                 optimization_applied: resolved_select.synaptic_weight.is_some()
                     || !plan.synaptic_pathways.is_empty(),
                 synaptic_pathways_used: plan.synaptic_pathways.len() as u32,
-                quantum_operations: if resolved_select.quantum_parallel {
-                    1
-                } else {
-                    0
-                },
+                quantum_operations: u32::from(resolved_select.quantum_parallel),
             })
         } else {
             // Fallback: Simulate data (legacy mode) - only available in test builds
@@ -821,7 +818,7 @@ impl QueryExecutor {
             .await;
         let base_rows = storage_guard.select_rows(&base_query).await.map_err(|e| {
             QSQLError::ExecutionError {
-                message: format!("Failed to fetch base table: {}", e),
+                message: format!("Failed to fetch base table: {e}"),
             }
         })?;
 
@@ -852,7 +849,7 @@ impl QueryExecutor {
 
             let join_rows = storage_guard.select_rows(&join_query).await.map_err(|e| {
                 QSQLError::ExecutionError {
-                    message: format!("Failed to fetch join table: {}", e),
+                    message: format!("Failed to fetch join table: {e}"),
                 }
             })?;
 
@@ -877,10 +874,10 @@ impl QueryExecutor {
         };
 
         // Apply ORDER BY
-        let ordered_rows = if !select.order_by.is_empty() {
-            Self::apply_order_by(filtered_rows, &select.order_by)?
-        } else {
+        let ordered_rows = if select.order_by.is_empty() {
             filtered_rows
+        } else {
+            Self::apply_order_by(filtered_rows, &select.order_by)?
         };
 
         // Apply LIMIT and OFFSET
@@ -981,10 +978,10 @@ impl QueryExecutor {
         };
 
         // Apply ORDER BY
-        let ordered_rows = if !select.order_by.is_empty() {
-            Self::apply_order_by(processed_rows, &select.order_by)?
-        } else {
+        let ordered_rows = if select.order_by.is_empty() {
             processed_rows
+        } else {
+            Self::apply_order_by(processed_rows, &select.order_by)?
         };
 
         // Apply LIMIT and OFFSET
@@ -1094,10 +1091,10 @@ impl QueryExecutor {
         };
 
         // Apply ORDER BY
-        let ordered_rows = if !select.order_by.is_empty() {
-            Self::apply_order_by(processed_rows, &select.order_by)?
-        } else {
+        let ordered_rows = if select.order_by.is_empty() {
             processed_rows
+        } else {
+            Self::apply_order_by(processed_rows, &select.order_by)?
         };
 
         // Apply LIMIT and OFFSET
@@ -1193,7 +1190,7 @@ impl QueryExecutor {
                         .get_definition(table_name)
                         .cloned()
                         .ok_or_else(|| QSQLError::ExecutionError {
-                            message: format!("CTE '{}' not found", table_name),
+                            message: format!("CTE '{table_name}' not found"),
                         })?;
 
                 // Check if this is a recursive CTE (has UNION clause and context is recursive)
@@ -1255,7 +1252,7 @@ impl QueryExecutor {
                 .select_rows(&storage_query)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to fetch table {}: {}", table_name, e),
+                    message: format!("Failed to fetch table {table_name}: {e}"),
                 })?;
             drop(storage_guard);
 
@@ -1311,7 +1308,7 @@ impl QueryExecutor {
                 .union_clause
                 .as_ref()
                 .ok_or_else(|| QSQLError::ExecutionError {
-                    message: format!("Recursive CTE '{}' must have a UNION clause", cte_name),
+                    message: format!("Recursive CTE '{cte_name}' must have a UNION clause"),
                 })?;
 
         // The anchor query is the main select (without the union clause)
@@ -1352,7 +1349,7 @@ impl QueryExecutor {
         let anchor_result = self.execute(&anchor_plan).await?;
         let mut all_rows = self.query_result_to_storage_rows(&anchor_result.rows)?;
         // Clone the rows to create a working set
-        let mut working_rows: Vec<Row> = all_rows.to_vec();
+        let mut working_rows: Vec<Row> = all_rows.clone();
 
         // Get the recursive query
         let recursive_query = &union_clause.select;
@@ -1402,8 +1399,7 @@ impl QueryExecutor {
             if iteration == max_depth - 1 {
                 return Err(QSQLError::ExecutionError {
                     message: format!(
-                        "Recursive CTE '{}' exceeded maximum recursion limit of {} iterations",
-                        cte_name, max_depth
+                        "Recursive CTE '{cte_name}' exceeded maximum recursion limit of {max_depth} iterations"
                     ),
                 });
             }
@@ -1471,7 +1467,7 @@ impl QueryExecutor {
                 .select_rows(&storage_query)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to fetch base table: {}", e),
+                    message: format!("Failed to fetch base table: {e}"),
                 })?;
             drop(storage_guard);
 
@@ -1528,8 +1524,7 @@ impl QueryExecutor {
         } else {
             Err(QSQLError::ExecutionError {
                 message: format!(
-                    "Recursive CTE '{}' must reference itself in the FROM clause",
-                    cte_name
+                    "Recursive CTE '{cte_name}' must reference itself in the FROM clause"
                 ),
             })
         }
@@ -1611,7 +1606,7 @@ impl QueryExecutor {
                 }
                 // Try with aliases (qualified names like table.column)
                 for (col, val) in &row.fields {
-                    if col.ends_with(&format!(".{}", name)) || col == name {
+                    if col.ends_with(&format!(".{name}")) || col == name {
                         return Ok(val.clone());
                     }
                 }
@@ -1653,7 +1648,7 @@ impl QueryExecutor {
                             },
                             // String concatenation with || (treated as Add when both are strings)
                             | (Value::Text(a), Value::Text(b)) => {
-                                Ok(Value::Text(format!("{}{}", a, b)))
+                                Ok(Value::Text(format!("{a}{b}")))
                             },
                             | _ => Ok(Value::Null),
                         }
@@ -1800,7 +1795,7 @@ impl QueryExecutor {
                     .select_rows(&storage_query)
                     .await
                     .map_err(|e| QSQLError::ExecutionError {
-                        message: format!("Failed to fetch table {}: {}", table_name, e),
+                        message: format!("Failed to fetch table {table_name}: {e}"),
                     })?;
                 drop(storage_guard);
 
@@ -1831,7 +1826,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Convert QueryResult rows to storage Row format
+    /// Convert `QueryResult` rows to storage Row format
     fn query_result_to_storage_rows(
         &self,
         rows: &[HashMap<String, QueryValue>],
@@ -1850,7 +1845,7 @@ impl QueryExecutor {
                     | QueryValue::String(s) => Value::Text(s.clone()),
                     | QueryValue::Blob(b) => Value::Binary(b.clone()),
                     | QueryValue::DNASequence(s) => Value::Text(s.clone()),
-                    | QueryValue::SynapticWeight(w) => Value::Float(*w as f64),
+                    | QueryValue::SynapticWeight(w) => Value::Float(f64::from(*w)),
                     | QueryValue::QuantumState(s) => Value::Text(s.clone()),
                 };
                 fields.insert(col.clone(), value);
@@ -2097,7 +2092,7 @@ impl QueryExecutor {
             },
             | _ => {
                 return Err(QSQLError::ExecutionError {
-                    message: format!("Unsupported join type: {:?}", join_type),
+                    message: format!("Unsupported join type: {join_type:?}"),
                 });
             },
         }
@@ -2231,7 +2226,7 @@ impl QueryExecutor {
     }
 
     /// Extract join keys from the join condition
-    /// Returns a list of (left_column, right_column) pairs
+    /// Returns a list of (`left_column`, `right_column`) pairs
     fn extract_join_keys(
         condition: Option<&Expression>,
         left_alias: &str,
@@ -2270,26 +2265,26 @@ impl QueryExecutor {
                     (left.as_ref(), right.as_ref())
                 {
                     // Determine which column belongs to which table
-                    let (left_key, right_key) = if left_col.starts_with(&format!("{}.", left_alias))
+                    let (left_key, right_key) = if left_col.starts_with(&format!("{left_alias}."))
                     {
                         (
                             left_col
-                                .strip_prefix(&format!("{}.", left_alias))
+                                .strip_prefix(&format!("{left_alias}."))
                                 .expect("prefix was just checked")
                                 .to_string(),
                             right_col
-                                .strip_prefix(&format!("{}.", right_alias))
+                                .strip_prefix(&format!("{right_alias}."))
                                 .unwrap_or(right_col)
                                 .to_string(),
                         )
-                    } else if left_col.starts_with(&format!("{}.", right_alias)) {
+                    } else if left_col.starts_with(&format!("{right_alias}.")) {
                         (
                             right_col
-                                .strip_prefix(&format!("{}.", left_alias))
+                                .strip_prefix(&format!("{left_alias}."))
                                 .unwrap_or(right_col)
                                 .to_string(),
                             left_col
-                                .strip_prefix(&format!("{}.", right_alias))
+                                .strip_prefix(&format!("{right_alias}."))
                                 .expect("prefix was just checked")
                                 .to_string(),
                         )
@@ -2332,11 +2327,10 @@ impl QueryExecutor {
             let value = row
                 .fields
                 .get(col_name)
-                .or_else(|| row.fields.get(&format!("{}.{}", alias, col_name)))
+                .or_else(|| row.fields.get(&format!("{alias}.{col_name}")))
                 .ok_or_else(|| QSQLError::ExecutionError {
                     message: format!(
-                        "Join key column '{}' not found in table '{}'",
-                        col_name, alias
+                        "Join key column '{col_name}' not found in table '{alias}'"
                     ),
                 })?;
 
@@ -2357,11 +2351,11 @@ impl QueryExecutor {
             | Value::Boolean(b) => b.to_string(),
             | Value::Null => "NULL".to_string(),
             | Value::Timestamp(ts) => ts.to_rfc3339(),
-            | Value::Binary(b) => format!("{:?}", b),
+            | Value::Binary(b) => format!("{b:?}"),
         }
     }
 
-    /// Evaluate JOIN condition (e.g., ON u.id = o.user_id)
+    /// Evaluate JOIN condition (e.g., ON u.id = `o.user_id`)
     fn evaluate_join_condition(
         left_row: &Row,
         left_alias: &str,
@@ -2453,13 +2447,13 @@ impl QueryExecutor {
                     if table == left_alias {
                         return left_row.fields.get(col).cloned().ok_or_else(|| {
                             QSQLError::ExecutionError {
-                                message: format!("Column {} not found in left table", col),
+                                message: format!("Column {col} not found in left table"),
                             }
                         });
                     } else if table == right_alias {
                         return right_row.fields.get(col).cloned().ok_or_else(|| {
                             QSQLError::ExecutionError {
-                                message: format!("Column {} not found in right table", col),
+                                message: format!("Column {col} not found in right table"),
                             }
                         });
                     }
@@ -2472,7 +2466,7 @@ impl QueryExecutor {
                     return Ok(val.clone());
                 }
                 Err(QSQLError::ExecutionError {
-                    message: format!("Column {} not found in any table", name),
+                    message: format!("Column {name} not found in any table"),
                 })
             },
             | Expression::Literal(lit) => {
@@ -2493,13 +2487,13 @@ impl QueryExecutor {
             // Insert unaliased version first
             merged_fields.insert(col.clone(), val.clone());
             // Then add aliased version
-            merged_fields.insert(format!("{}.{}", left_alias, col), val.clone());
+            merged_fields.insert(format!("{left_alias}.{col}"), val.clone());
         }
 
         // Add right row fields with alias prefix
         for (col, val) in &right_row.fields {
             // Add aliased version
-            merged_fields.insert(format!("{}.{}", right_alias, col), val.clone());
+            merged_fields.insert(format!("{right_alias}.{col}"), val.clone());
             // Add without prefix if not already present (left takes precedence)
             if !merged_fields.contains_key(col) {
                 merged_fields.insert(col.clone(), val.clone());
@@ -2535,21 +2529,21 @@ impl QueryExecutor {
             // Row is from left table
             for (col, val) in &row.fields {
                 merged_fields.insert(col.clone(), val.clone());
-                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
+                merged_fields.insert(format!("{row_alias}.{col}"), val.clone());
             }
             // Add NULLs for right fields
             for col in &other_field_names {
-                merged_fields.insert(format!("{}.{}", other_alias, col), Value::Null);
+                merged_fields.insert(format!("{other_alias}.{col}"), Value::Null);
             }
         } else {
             // Row is from right table - add NULLs for left fields first
             for col in &other_field_names {
-                merged_fields.insert(format!("{}.{}", other_alias, col), Value::Null);
+                merged_fields.insert(format!("{other_alias}.{col}"), Value::Null);
             }
             // Add right row fields
             for (col, val) in &row.fields {
                 merged_fields.insert(col.clone(), val.clone());
-                merged_fields.insert(format!("{}.{}", row_alias, col), val.clone());
+                merged_fields.insert(format!("{row_alias}.{col}"), val.clone());
             }
         }
 
@@ -2642,14 +2636,14 @@ impl QueryExecutor {
                         .insert_row_transactional(tx_id, &insert.table_name, row)
                         .await
                         .map_err(|e| QSQLError::ExecutionError {
-                            message: format!("Transactional storage insert failed: {}", e),
+                            message: format!("Transactional storage insert failed: {e}"),
                         })?
                 } else {
                     storage_guard
                         .insert_row(&insert.table_name, row)
                         .await
                         .map_err(|e| QSQLError::ExecutionError {
-                            message: format!("Storage insert failed: {}", e),
+                            message: format!("Storage insert failed: {e}"),
                         })?
                 };
                 drop(storage_guard); // Release lock early
@@ -2750,14 +2744,14 @@ impl QueryExecutor {
                     .update_rows_transactional(tx_id, &storage_query)
                     .await
                     .map_err(|e| QSQLError::ExecutionError {
-                        message: format!("Transactional storage update failed: {}", e),
+                        message: format!("Transactional storage update failed: {e}"),
                     })?
             } else {
                 storage_guard
                     .update_rows(&storage_query)
                     .await
                     .map_err(|e| QSQLError::ExecutionError {
-                        message: format!("Storage update failed: {}", e),
+                        message: format!("Storage update failed: {e}"),
                     })?
             };
             drop(storage_guard); // Release lock early
@@ -2843,14 +2837,14 @@ impl QueryExecutor {
                     .delete_rows_transactional(tx_id, &storage_query)
                     .await
                     .map_err(|e| QSQLError::ExecutionError {
-                        message: format!("Transactional storage delete failed: {}", e),
+                        message: format!("Transactional storage delete failed: {e}"),
                     })?
             } else {
                 storage_guard
                     .delete_rows(&storage_query)
                     .await
                     .map_err(|e| QSQLError::ExecutionError {
-                        message: format!("Storage delete failed: {}", e),
+                        message: format!("Storage delete failed: {e}"),
                     })?
             };
             drop(storage_guard); // Release lock early
@@ -2920,7 +2914,7 @@ impl QueryExecutor {
         // Simulate neuromorphic pattern matching
         for i in 1..=3 {
             let mut row = HashMap::new();
-            let synaptic_score = neuromatch.synaptic_weight * (1.0 - (i as f32 * 0.1));
+            let synaptic_score = neuromatch.synaptic_weight * (i as f32).mul_add(-0.1, 1.0);
             row.insert(
                 "match_score".to_string(),
                 QueryValue::SynapticWeight(synaptic_score),
@@ -2940,7 +2934,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Execute QUANTUM_SEARCH with Grover's algorithm simulation
+    /// Execute `QUANTUM_SEARCH` with Grover's algorithm simulation
     async fn execute_quantum_search(
         &mut self,
         quantum: &QuantumSearchStatement,
@@ -2997,7 +2991,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Execute SUPERPOSITION_QUERY with parallel quantum processing
+    /// Execute `SUPERPOSITION_QUERY` with parallel quantum processing
     async fn execute_superposition_query(
         &mut self,
         superpos: &SuperpositionQueryStatement,
@@ -3023,11 +3017,11 @@ impl QueryExecutor {
             let mut row = HashMap::new();
             row.insert(
                 "superposition_state".to_string(),
-                QueryValue::QuantumState(format!("State_{}", i)),
+                QueryValue::QuantumState(format!("State_{i}")),
             );
             row.insert(
                 "coherence_level".to_string(),
-                QueryValue::Float(0.9 - (i as f64 * 0.1)),
+                QueryValue::Float((i as f64).mul_add(-0.1, 0.9)),
             );
             rows.push(row);
         }
@@ -3036,7 +3030,7 @@ impl QueryExecutor {
         let base_time = Duration::from_micros(1000);
         let parallel_speedup = superpos.parallel_queries.len() as u32;
         let execution_time =
-            Duration::from_nanos(base_time.as_nanos() as u64 / parallel_speedup as u64);
+            Duration::from_nanos(base_time.as_nanos() as u64 / u64::from(parallel_speedup));
 
         Ok(QueryResult {
             rows,
@@ -3049,7 +3043,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Execute LEARN_PATTERN statement
+    /// Execute `LEARN_PATTERN` statement
     async fn execute_learn_pattern(
         &mut self,
         _learn: &LearnPatternStatement,
@@ -3074,7 +3068,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Execute ADAPT_WEIGHTS statement
+    /// Execute `ADAPT_WEIGHTS` statement
     async fn execute_adapt_weights(
         &mut self,
         _adapt: &AdaptWeightsStatement,
@@ -3096,7 +3090,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Execute QUANTUM_JOIN with quantum-enhanced join processing
+    /// Execute `QUANTUM_JOIN` with quantum-enhanced join processing
     async fn execute_quantum_join(
         &mut self,
         _qjoin: &QuantumJoinStatement,
@@ -3123,7 +3117,7 @@ impl QueryExecutor {
             row.insert("joined_id".to_string(), QueryValue::Integer(i));
             row.insert(
                 "user_name".to_string(),
-                QueryValue::String(format!("User {}", i)),
+                QueryValue::String(format!("User {i}")),
             );
             rows.push(row);
         }
@@ -3287,15 +3281,15 @@ impl QueryExecutor {
         );
         row.insert(
             "avg_row_size".to_string(),
-            QueryValue::Integer(stats.avg_row_size as i64),
+            QueryValue::Integer(i64::from(stats.avg_row_size)),
         );
         row.insert(
             "synaptic_density".to_string(),
-            QueryValue::Float(stats.synaptic_density as f64),
+            QueryValue::Float(f64::from(stats.synaptic_density)),
         );
         row.insert(
             "plasticity_index".to_string(),
-            QueryValue::Float(stats.plasticity_index as f64),
+            QueryValue::Float(f64::from(stats.plasticity_index)),
         );
 
         Ok(QueryResult {
@@ -3450,7 +3444,7 @@ impl QueryExecutor {
                     })
                 } else {
                     Err(QSQLError::ExecutionError {
-                        message: format!("Failed to create table: {}", e),
+                        message: format!("Failed to create table: {e}"),
                     })
                 }
             },
@@ -3489,7 +3483,7 @@ impl QueryExecutor {
                 // If the table doesn't exist and IF EXISTS was specified,
                 // the storage engine will return Ok(()) - so this is a real error
                 Err(QSQLError::ExecutionError {
-                    message: format!("Failed to drop table: {}", e),
+                    message: format!("Failed to drop table: {e}"),
                 })
             },
         }
@@ -3567,7 +3561,7 @@ impl QueryExecutor {
             .alter_table(&alter.table_name, storage_op)
             .await
             .map_err(|e| QSQLError::ExecutionError {
-                message: format!("ALTER TABLE failed: {}", e),
+                message: format!("ALTER TABLE failed: {e}"),
             })?;
 
         Ok(QueryResult {
@@ -3581,8 +3575,8 @@ impl QueryExecutor {
         })
     }
 
-    /// Convert AST DataType to storage DataType
-    fn convert_data_type(ast_type: &DataType) -> neuroquantum_core::storage::DataType {
+    /// Convert AST `DataType` to storage `DataType`
+    const fn convert_data_type(ast_type: &DataType) -> neuroquantum_core::storage::DataType {
         match ast_type {
             | DataType::Integer | DataType::BigInt | DataType::SmallInt => {
                 neuroquantum_core::storage::DataType::Integer
@@ -3627,10 +3621,10 @@ impl QueryExecutor {
                 | Literal::Boolean(b) => Value::Boolean(*b),
                 | Literal::Null => Value::Null,
                 // For complex types, use Text representation
-                | _ => Value::Text(format!("{:?}", lit)),
+                | _ => Value::Text(format!("{lit:?}")),
             },
             // For non-literal expressions, use Text representation as fallback
-            | _ => Value::Text(format!("{:?}", expr)),
+            | _ => Value::Text(format!("{expr:?}")),
         }
     }
 
@@ -3950,7 +3944,7 @@ impl QueryExecutor {
             | None => IsolationLevel::ReadCommitted,
             | Some(level) => {
                 return Err(QSQLError::ExecutionError {
-                    message: format!("Unknown isolation level: {}", level),
+                    message: format!("Unknown isolation level: {level}"),
                 });
             },
         };
@@ -3962,7 +3956,7 @@ impl QueryExecutor {
                 .begin_transaction_with_isolation(isolation_level)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to begin transaction via storage: {}", e),
+                    message: format!("Failed to begin transaction via storage: {e}"),
                 })?
         } else if let Some(tx_manager) = &self.transaction_manager {
             // Fallback to executor's transaction manager
@@ -3970,7 +3964,7 @@ impl QueryExecutor {
                 .begin_transaction(isolation_level)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to begin transaction: {}", e),
+                    message: format!("Failed to begin transaction: {e}"),
                 })?
         } else {
             return Err(QSQLError::ExecutionError {
@@ -4005,7 +3999,7 @@ impl QueryExecutor {
             let mut storage_guard = storage_engine.write().await;
             storage_guard.commit_transaction(tx_id).await.map_err(|e| {
                 QSQLError::ExecutionError {
-                    message: format!("Failed to commit transaction via storage: {}", e),
+                    message: format!("Failed to commit transaction via storage: {e}"),
                 }
             })?;
         } else if let Some(tx_manager) = &self.transaction_manager {
@@ -4014,7 +4008,7 @@ impl QueryExecutor {
                 .commit(tx_id)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to commit transaction: {}", e),
+                    message: format!("Failed to commit transaction: {e}"),
                 })?;
         } else {
             return Err(QSQLError::ExecutionError {
@@ -4051,7 +4045,7 @@ impl QueryExecutor {
                 .rollback_transaction(tx_id)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to rollback transaction via storage: {}", e),
+                    message: format!("Failed to rollback transaction via storage: {e}"),
                 })?;
         } else if let Some(tx_manager) = &self.transaction_manager {
             // Fallback to executor's transaction manager
@@ -4059,7 +4053,7 @@ impl QueryExecutor {
                 .rollback(tx_id)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to rollback transaction: {}", e),
+                    message: format!("Failed to rollback transaction: {e}"),
                 })?;
         } else {
             return Err(QSQLError::ExecutionError {
@@ -4101,14 +4095,14 @@ impl QueryExecutor {
             let storage_guard = storage_engine.read().await;
             // Access the transaction manager through storage engine
             if let Some(undo_log) = storage_guard.get_undo_log(tx_id).await {
-                undo_log.last().map(|record| record.lsn).unwrap_or(0)
+                undo_log.last().map_or(0, |record| record.lsn)
             } else {
                 0
             }
         } else if let Some(tx_manager) = &self.transaction_manager {
             // Get the undo log to determine the current LSN
             if let Some(undo_log) = tx_manager.get_undo_log(tx_id).await {
-                undo_log.last().map(|record| record.lsn).unwrap_or(0)
+                undo_log.last().map_or(0, |record| record.lsn)
             } else {
                 0 // Transaction exists but has no operations yet
             }
@@ -4179,7 +4173,7 @@ impl QueryExecutor {
                 .rollback_to_savepoint(tx_id, savepoint_info.lsn)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to rollback to savepoint: {}", e),
+                    message: format!("Failed to rollback to savepoint: {e}"),
                 })?
         } else if let Some(tx_manager) = &self.transaction_manager {
             // Count records that will be undone (before rollback)
@@ -4194,7 +4188,7 @@ impl QueryExecutor {
                 .rollback_to_savepoint(tx_id, savepoint_info.lsn)
                 .await
                 .map_err(|e| QSQLError::ExecutionError {
-                    message: format!("Failed to rollback to savepoint: {}", e),
+                    message: format!("Failed to rollback to savepoint: {e}"),
                 })?;
 
             count as u64
@@ -4274,7 +4268,7 @@ impl QueryExecutor {
             cols.clone()
         } else {
             // Generate default column names
-            (0..values.len()).map(|i| format!("col_{}", i)).collect()
+            (0..values.len()).map(|i| format!("col_{i}")).collect()
         };
 
         // Convert each value
@@ -4300,7 +4294,7 @@ impl QueryExecutor {
     /// This function handles:
     /// 1. Explicit DEFAULT keyword in VALUES (e.g., INSERT INTO t VALUES (1, DEFAULT))
     /// 2. Missing columns that have default values in the schema
-    /// 3. CURRENT_TIMESTAMP and other special default expressions
+    /// 3. `CURRENT_TIMESTAMP` and other special default expressions
     fn convert_insert_to_row_with_defaults(
         insert: &InsertStatement,
         values: &[Expression],
@@ -4318,7 +4312,7 @@ impl QueryExecutor {
             s.columns.iter().map(|c| c.name.clone()).collect()
         } else {
             // Fallback: Generate default column names
-            (0..values.len()).map(|i| format!("col_{}", i)).collect()
+            (0..values.len()).map(|i| format!("col_{i}")).collect()
         };
 
         // Convert each provided value
@@ -4374,7 +4368,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Convert SQL UPDATE to storage UpdateQuery (static)
+    /// Convert SQL UPDATE to storage `UpdateQuery` (static)
     fn convert_update_to_storage_query_static(update: &UpdateStatement) -> QSQLResult<UpdateQuery> {
         let mut set_values = HashMap::new();
 
@@ -4398,7 +4392,7 @@ impl QueryExecutor {
         })
     }
 
-    /// Convert SQL DELETE to storage DeleteQuery (static)
+    /// Convert SQL DELETE to storage `DeleteQuery` (static)
     fn convert_delete_to_storage_query_static(delete: &DeleteStatement) -> QSQLResult<DeleteQuery> {
         let where_clause = if let Some(expr) = &delete.where_clause {
             Some(Self::convert_expression_to_where_clause_static(expr)?)
@@ -4604,7 +4598,7 @@ impl QueryExecutor {
             | Expression::Identifier(name) => {
                 // Check if identifier is qualified with an outer alias (e.g., "u.id")
                 for alias in outer_aliases {
-                    if name.starts_with(&format!("{}.", alias)) {
+                    if name.starts_with(&format!("{alias}.")) {
                         return true;
                     }
                 }
@@ -4686,7 +4680,7 @@ impl QueryExecutor {
             | Expression::Identifier(name) => {
                 // Check if this is a qualified identifier referencing an outer alias
                 for alias in outer_aliases {
-                    if name.starts_with(&format!("{}.", alias)) {
+                    if name.starts_with(&format!("{alias}.")) {
                         // Extract the column name after the alias
                         let column_name = &name[alias.len() + 1..];
                         // Try to find the value in the outer row
@@ -4783,7 +4777,7 @@ impl QueryExecutor {
         }
     }
 
-    /// Check if an expression contains an InList or InSubquery that needs post-filtering
+    /// Check if an expression contains an `InList` or `InSubquery` that needs post-filtering
     fn contains_in_list_expression(expr: &Expression) -> bool {
         match expr {
             | Expression::InList { .. } => true,
@@ -4895,16 +4889,16 @@ impl QueryExecutor {
             | BinaryOperator::Equal => Ok(Self::values_equal(field_val, compare_val)),
             | BinaryOperator::NotEqual => Ok(!Self::values_equal(field_val, compare_val)),
             | BinaryOperator::LessThan => {
-                Self::compare_values_order(field_val, compare_val, |o| o.is_lt())
+                Self::compare_values_order(field_val, compare_val, std::cmp::Ordering::is_lt)
             },
             | BinaryOperator::LessThanOrEqual => {
-                Self::compare_values_order(field_val, compare_val, |o| o.is_le())
+                Self::compare_values_order(field_val, compare_val, std::cmp::Ordering::is_le)
             },
             | BinaryOperator::GreaterThan => {
-                Self::compare_values_order(field_val, compare_val, |o| o.is_gt())
+                Self::compare_values_order(field_val, compare_val, std::cmp::Ordering::is_gt)
             },
             | BinaryOperator::GreaterThanOrEqual => {
-                Self::compare_values_order(field_val, compare_val, |o| o.is_ge())
+                Self::compare_values_order(field_val, compare_val, std::cmp::Ordering::is_ge)
             },
             | BinaryOperator::Like => {
                 if let (Value::Text(field_text), Value::Text(pattern)) = (field_val, compare_val) {
@@ -4949,7 +4943,7 @@ impl QueryExecutor {
         Ok(pred(ordering))
     }
 
-    /// Apply post-filtering for complex WHERE expressions (including InList)
+    /// Apply post-filtering for complex WHERE expressions (including `InList`)
     fn apply_post_filter(rows: Vec<Row>, where_expr: &Expression) -> QSQLResult<Vec<Row>> {
         let mut filtered = Vec::new();
         for row in rows {
@@ -5121,11 +5115,7 @@ impl QueryExecutor {
         // Fill in the rest of the matrix
         for i in 1..=len1 {
             for j in 1..=len2 {
-                let cost = if s1_chars[i - 1] == s2_chars[j - 1] {
-                    0
-                } else {
-                    1
-                };
+                let cost = usize::from(s1_chars[i - 1] != s2_chars[j - 1]);
                 matrix[i][j] = (matrix[i - 1][j] + 1)
                     .min(matrix[i][j - 1] + 1)
                     .min(matrix[i - 1][j - 1] + cost);
@@ -5135,17 +5125,16 @@ impl QueryExecutor {
         matrix[len1][len2]
     }
 
-    /// Convert SQL SELECT to storage SelectQuery
+    /// Convert SQL SELECT to storage `SelectQuery`
     fn convert_select_to_storage_query(&self, select: &SelectStatement) -> QSQLResult<SelectQuery> {
         // Extract table name from FROM clause
         let table = if let Some(from) = &select.from {
-            if !from.relations.is_empty() {
-                from.relations[0].name.clone()
-            } else {
+            if from.relations.is_empty() {
                 return Err(QSQLError::ExecutionError {
                     message: "No table specified in FROM clause".to_string(),
                 });
             }
+            from.relations[0].name.clone()
         } else {
             return Err(QSQLError::ExecutionError {
                 message: "Missing FROM clause".to_string(),
@@ -5156,8 +5145,7 @@ impl QueryExecutor {
         let needs_post_filter = select
             .where_clause
             .as_ref()
-            .map(Self::contains_in_list_expression)
-            .unwrap_or(false);
+            .is_some_and(Self::contains_in_list_expression);
 
         let has_scalar_funcs = Self::has_scalar_functions(&select.select_list);
 
@@ -5192,10 +5180,10 @@ impl QueryExecutor {
         };
 
         // Convert ORDER BY
-        let order_by = if !select.order_by.is_empty() {
-            Some(Self::convert_order_by_static(&select.order_by[0])?)
-        } else {
+        let order_by = if select.order_by.is_empty() {
             None
+        } else {
+            Some(Self::convert_order_by_static(&select.order_by[0])?)
         };
 
         // Note: When we have InList, we don't pass limit/offset to storage
@@ -5229,7 +5217,7 @@ impl QueryExecutor {
                     | Literal::DNA(sequence) => Ok(Value::Text(sequence.clone())), // Store DNA as text
                     | Literal::QuantumBit(state, amplitude) => {
                         // Store quantum bit as binary representation
-                        let data = format!("QB:{}:{}", state, amplitude);
+                        let data = format!("QB:{state}:{amplitude}");
                         Ok(Value::Text(data))
                     },
                 }
@@ -5239,7 +5227,7 @@ impl QueryExecutor {
                 Ok(Value::Text(name.clone()))
             },
             | _ => Err(QSQLError::ExecutionError {
-                message: format!("Unsupported expression type in conversion: {:?}", expr),
+                message: format!("Unsupported expression type in conversion: {expr:?}"),
             }),
         }
     }
@@ -5280,7 +5268,7 @@ impl QueryExecutor {
         Ok(WhereClause { conditions })
     }
 
-    /// Convert OrderBy item to storage OrderBy (static)
+    /// Convert `OrderBy` item to storage `OrderBy` (static)
     fn convert_order_by_static(order: &OrderByItem) -> QSQLResult<OrderBy> {
         let field = Self::expression_to_string_static(&order.expression);
         let direction = if order.ascending {
@@ -5292,7 +5280,7 @@ impl QueryExecutor {
         Ok(OrderBy { field, direction })
     }
 
-    /// Convert storage Rows to QueryResult format
+    /// Convert storage Rows to `QueryResult` format
     fn convert_storage_rows_to_result(
         &self,
         storage_rows: Vec<Row>,
@@ -5731,7 +5719,7 @@ impl QueryExecutor {
         };
 
         if args.is_empty() {
-            format!("{}()", func_name)
+            format!("{func_name}()")
         } else {
             let args_str: Vec<String> =
                 args.iter().map(Self::expression_to_string_static).collect();
@@ -5742,7 +5730,7 @@ impl QueryExecutor {
     /// Infer the data type of a window function
     /// Note: For value functions (LAG, LEAD, etc.), the actual runtime type
     /// matches the source column. This returns a default for metadata purposes.
-    fn infer_window_function_type(&self, function: &WindowFunctionType) -> DataType {
+    const fn infer_window_function_type(&self, function: &WindowFunctionType) -> DataType {
         match function {
             | WindowFunctionType::RowNumber
             | WindowFunctionType::Rank
@@ -5835,10 +5823,10 @@ impl QueryExecutor {
 
                 if position_in_partition >= offset {
                     let target_row = sorted_partition[position_in_partition - offset];
-                    if !args.is_empty() {
-                        self.evaluate_expression_value(&args[0], target_row)
-                    } else {
+                    if args.is_empty() {
                         Ok(QueryValue::Null)
+                    } else {
+                        self.evaluate_expression_value(&args[0], target_row)
                     }
                 } else {
                     Ok(default_value)
@@ -5864,10 +5852,10 @@ impl QueryExecutor {
 
                 if position_in_partition + offset < sorted_partition.len() {
                     let target_row = sorted_partition[position_in_partition + offset];
-                    if !args.is_empty() {
-                        self.evaluate_expression_value(&args[0], target_row)
-                    } else {
+                    if args.is_empty() {
                         Ok(QueryValue::Null)
+                    } else {
+                        self.evaluate_expression_value(&args[0], target_row)
                     }
                 } else {
                     Ok(default_value)
@@ -5876,13 +5864,13 @@ impl QueryExecutor {
 
             | WindowFunctionType::Ntile => {
                 // NTILE(n) - distribute rows into n buckets
-                let n = if !args.is_empty() {
+                let n = if args.is_empty() {
+                    1
+                } else {
                     match self.evaluate_expression_value(&args[0], current_row)? {
                         | QueryValue::Integer(i) => i.max(1) as usize,
                         | _ => 1,
                     }
-                } else {
-                    1
                 };
 
                 let total_rows = sorted_partition.len();
@@ -5914,10 +5902,10 @@ impl QueryExecutor {
             | WindowFunctionType::FirstValue => {
                 // FIRST_VALUE(column) - first value in the window
                 if let Some(first_row) = sorted_partition.first() {
-                    if !args.is_empty() {
-                        self.evaluate_expression_value(&args[0], first_row)
-                    } else {
+                    if args.is_empty() {
                         Ok(QueryValue::Null)
+                    } else {
+                        self.evaluate_expression_value(&args[0], first_row)
                     }
                 } else {
                     Ok(QueryValue::Null)
@@ -5927,10 +5915,10 @@ impl QueryExecutor {
             | WindowFunctionType::LastValue => {
                 // LAST_VALUE(column) - last value in the window
                 if let Some(last_row) = sorted_partition.last() {
-                    if !args.is_empty() {
-                        self.evaluate_expression_value(&args[0], last_row)
-                    } else {
+                    if args.is_empty() {
                         Ok(QueryValue::Null)
+                    } else {
+                        self.evaluate_expression_value(&args[0], last_row)
                     }
                 } else {
                     Ok(QueryValue::Null)
@@ -5950,10 +5938,10 @@ impl QueryExecutor {
 
                 if n < sorted_partition.len() {
                     let target_row = sorted_partition[n];
-                    if !args.is_empty() {
-                        self.evaluate_expression_value(&args[0], target_row)
-                    } else {
+                    if args.is_empty() {
                         Ok(QueryValue::Null)
+                    } else {
+                        self.evaluate_expression_value(&args[0], target_row)
                     }
                 } else {
                     Ok(QueryValue::Null)
@@ -6132,9 +6120,7 @@ impl QueryExecutor {
                 let col_name = Self::expression_to_string_static(expr);
                 current_row
                     .fields
-                    .get(&col_name)
-                    .map(|v| self.value_to_string(v))
-                    .unwrap_or_else(|| "NULL".to_string())
+                    .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
             })
             .collect();
 
@@ -6147,9 +6133,7 @@ impl QueryExecutor {
                     .map(|expr| {
                         let col_name = Self::expression_to_string_static(expr);
                         row.fields
-                            .get(&col_name)
-                            .map(|v| self.value_to_string(v))
-                            .unwrap_or_else(|| "NULL".to_string())
+                            .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
                     })
                     .collect();
                 row_key == current_key
@@ -6222,9 +6206,7 @@ impl QueryExecutor {
                 let col_name = Self::expression_to_string_static(&ob.expression);
                 current_row
                     .fields
-                    .get(&col_name)
-                    .map(|v| self.value_to_string(v))
-                    .unwrap_or_else(|| "NULL".to_string())
+                    .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
             })
             .collect();
 
@@ -6239,9 +6221,7 @@ impl QueryExecutor {
                     .map(|ob| {
                         let col_name = Self::expression_to_string_static(&ob.expression);
                         row.fields
-                            .get(&col_name)
-                            .map(|v| self.value_to_string(v))
-                            .unwrap_or_else(|| "NULL".to_string())
+                            .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
                     })
                     .collect();
 
@@ -6265,9 +6245,7 @@ impl QueryExecutor {
                     .map(|ob| {
                         let col_name = Self::expression_to_string_static(&ob.expression);
                         row.fields
-                            .get(&col_name)
-                            .map(|v| self.value_to_string(v))
-                            .unwrap_or_else(|| "NULL".to_string())
+                            .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
                     })
                     .collect();
 
@@ -6382,7 +6360,7 @@ impl QueryExecutor {
         let get_arg_value = |idx: usize| -> QSQLResult<QueryValue> {
             if idx >= args.len() {
                 return Err(QSQLError::ExecutionError {
-                    message: format!("Function {} requires more arguments", func_name),
+                    message: format!("Function {func_name} requires more arguments"),
                 });
             }
             self.evaluate_expression_value(&args[idx], row)
@@ -6406,7 +6384,7 @@ impl QueryExecutor {
                 | QueryValue::Integer(i) => Ok(i),
                 | QueryValue::Float(f) => Ok(f as i64),
                 | QueryValue::String(s) => s.parse().map_err(|_| QSQLError::ExecutionError {
-                    message: format!("Cannot convert '{}' to integer", s),
+                    message: format!("Cannot convert '{s}' to integer"),
                 }),
                 | _ => Ok(0),
             }
@@ -6461,7 +6439,7 @@ impl QueryExecutor {
             },
             | "ASCII" => {
                 let s = get_string_arg(0)?;
-                let ascii = s.chars().next().map(|c| c as i64).unwrap_or(0);
+                let ascii = s.chars().next().map_or(0, |c| c as i64);
                 Ok(QueryValue::Integer(ascii))
             },
             | "CHR" => {
@@ -6551,7 +6529,7 @@ impl QueryExecutor {
                 let haystack = get_string_arg(0)?;
                 let needle = get_string_arg(1)?;
                 // Returns 1-indexed position, 0 if not found
-                let pos = haystack.find(&needle).map(|i| i as i64 + 1).unwrap_or(0);
+                let pos = haystack.find(&needle).map_or(0, |i| i as i64 + 1);
                 Ok(QueryValue::Integer(pos))
             },
 
@@ -6945,15 +6923,15 @@ impl QueryExecutor {
                 if args.is_empty() {
                     // No argument - return current year
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.year() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.year())))
                 } else {
                     let date_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-                        Ok(QueryValue::Integer(parsed.year() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.year())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.year() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.year())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -6964,15 +6942,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.month() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.month())))
                 } else {
                     let date_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-                        Ok(QueryValue::Integer(parsed.month() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.month())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.month() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.month())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -6983,15 +6961,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.day() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.day())))
                 } else {
                     let date_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-                        Ok(QueryValue::Integer(parsed.day() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.day())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.day() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.day())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7002,15 +6980,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.hour() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.hour())))
                 } else {
                     let time_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
-                        Ok(QueryValue::Integer(parsed.hour() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.hour())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&time_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.hour() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.hour())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7021,15 +6999,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.minute() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.minute())))
                 } else {
                     let time_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
-                        Ok(QueryValue::Integer(parsed.minute() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.minute())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&time_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.minute() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.minute())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7040,15 +7018,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.second() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.second())))
                 } else {
                     let time_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
-                        Ok(QueryValue::Integer(parsed.second() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.second())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&time_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.second() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.second())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7061,17 +7039,17 @@ impl QueryExecutor {
                     let now = Utc::now();
                     // Chrono uses Mon=0 to Sun=6, MySQL uses Sun=1 to Sat=7
                     let dow = now.weekday().num_days_from_sunday() + 1;
-                    Ok(QueryValue::Integer(dow as i64))
+                    Ok(QueryValue::Integer(i64::from(dow)))
                 } else {
                     let date_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
                         let dow = parsed.weekday().num_days_from_sunday() + 1;
-                        Ok(QueryValue::Integer(dow as i64))
+                        Ok(QueryValue::Integer(i64::from(dow)))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
                         let dow = parsed.weekday().num_days_from_sunday() + 1;
-                        Ok(QueryValue::Integer(dow as i64))
+                        Ok(QueryValue::Integer(i64::from(dow)))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7082,15 +7060,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.ordinal() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.ordinal())))
                 } else {
                     let date_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-                        Ok(QueryValue::Integer(parsed.ordinal() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.ordinal())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.ordinal() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.ordinal())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7101,15 +7079,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(now.iso_week().week() as i64))
+                    Ok(QueryValue::Integer(i64::from(now.iso_week().week())))
                 } else {
                     let date_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-                        Ok(QueryValue::Integer(parsed.iso_week().week() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.iso_week().week())))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(parsed.date().iso_week().week() as i64))
+                        Ok(QueryValue::Integer(i64::from(parsed.date().iso_week().week())))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7120,15 +7098,15 @@ impl QueryExecutor {
                 use chrono::prelude::*;
                 if args.is_empty() {
                     let now = Utc::now();
-                    Ok(QueryValue::Integer(((now.month() - 1) / 3 + 1) as i64))
+                    Ok(QueryValue::Integer(i64::from((now.month() - 1) / 3 + 1)))
                 } else {
                     let date_str = get_string_arg(0)?;
                     if let Ok(parsed) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-                        Ok(QueryValue::Integer(((parsed.month() - 1) / 3 + 1) as i64))
+                        Ok(QueryValue::Integer(i64::from((parsed.month() - 1) / 3 + 1)))
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(((parsed.month() - 1) / 3 + 1) as i64))
+                        Ok(QueryValue::Integer(i64::from((parsed.month() - 1) / 3 + 1)))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7198,8 +7176,7 @@ impl QueryExecutor {
                     | QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
                             message: format!(
-                                "Invalid interval value: '{}' is not a valid number",
-                                s
+                                "Invalid interval value: '{s}' is not a valid number"
                             ),
                         })?
                     },
@@ -7258,7 +7235,7 @@ impl QueryExecutor {
                         | "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
                         | _ => {
                             return Err(QSQLError::ExecutionError {
-                                message: format!("Unsupported time unit: {}", unit),
+                                message: format!("Unsupported time unit: {unit}"),
                             });
                         },
                     };
@@ -7317,14 +7294,13 @@ impl QueryExecutor {
                                 | _ => None,
                             };
                             return Ok(new_dt
-                                .map(|d| {
+                                .map_or(QueryValue::Null, |d| {
                                     QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
-                                })
-                                .unwrap_or(QueryValue::Null));
+                                }));
                         },
                         | _ => {
                             return Err(QSQLError::ExecutionError {
-                                message: format!("Unsupported time unit: {}", unit),
+                                message: format!("Unsupported time unit: {unit}"),
                             });
                         },
                     };
@@ -7354,8 +7330,7 @@ impl QueryExecutor {
                     | QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
                             message: format!(
-                                "Invalid interval value: '{}' is not a valid number",
-                                s
+                                "Invalid interval value: '{s}' is not a valid number"
                             ),
                         })?
                     },
@@ -7414,7 +7389,7 @@ impl QueryExecutor {
                         | "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
                         | _ => {
                             return Err(QSQLError::ExecutionError {
-                                message: format!("Unsupported time unit: {}", unit),
+                                message: format!("Unsupported time unit: {unit}"),
                             });
                         },
                     };
@@ -7473,14 +7448,13 @@ impl QueryExecutor {
                                 | _ => None,
                             };
                             return Ok(new_dt
-                                .map(|d| {
+                                .map_or(QueryValue::Null, |d| {
                                     QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
-                                })
-                                .unwrap_or(QueryValue::Null));
+                                }));
                         },
                         | _ => {
                             return Err(QSQLError::ExecutionError {
-                                message: format!("Unsupported time unit: {}", unit),
+                                message: format!("Unsupported time unit: {unit}"),
                             });
                         },
                     };
@@ -7562,12 +7536,12 @@ impl QueryExecutor {
             },
 
             | _ => Err(QSQLError::ExecutionError {
-                message: format!("Unknown scalar function: {}", func_name),
+                message: format!("Unknown scalar function: {func_name}"),
             }),
         }
     }
 
-    /// Evaluate an expression to a QueryValue (for scalar function arguments)
+    /// Evaluate an expression to a `QueryValue` (for scalar function arguments)
     fn evaluate_expression_value(&self, expr: &Expression, row: &Row) -> QSQLResult<QueryValue> {
         match expr {
             | Expression::Identifier(col_name) => {
@@ -7627,7 +7601,7 @@ impl QueryExecutor {
             | QueryValue::Null => return Ok(QueryValue::Null),
             | _ => {
                 return Err(QSQLError::ExecutionError {
-                    message: format!("EXTRACT requires a date/time value, got {:?}", source_value),
+                    message: format!("EXTRACT requires a date/time value, got {source_value:?}"),
                 });
             },
         };
@@ -7657,36 +7631,36 @@ impl QueryExecutor {
 
         // Extract the requested field
         match field.to_uppercase().as_str() {
-            | "YEAR" => Ok(QueryValue::Integer(datetime.year() as i64)),
-            | "MONTH" => Ok(QueryValue::Integer(datetime.month() as i64)),
-            | "DAY" => Ok(QueryValue::Integer(datetime.day() as i64)),
-            | "HOUR" => Ok(QueryValue::Integer(datetime.hour() as i64)),
-            | "MINUTE" => Ok(QueryValue::Integer(datetime.minute() as i64)),
-            | "SECOND" => Ok(QueryValue::Integer(datetime.second() as i64)),
+            | "YEAR" => Ok(QueryValue::Integer(i64::from(datetime.year()))),
+            | "MONTH" => Ok(QueryValue::Integer(i64::from(datetime.month()))),
+            | "DAY" => Ok(QueryValue::Integer(i64::from(datetime.day()))),
+            | "HOUR" => Ok(QueryValue::Integer(i64::from(datetime.hour()))),
+            | "MINUTE" => Ok(QueryValue::Integer(i64::from(datetime.minute()))),
+            | "SECOND" => Ok(QueryValue::Integer(i64::from(datetime.second()))),
             | "DOW" | "DAYOFWEEK" => {
                 // Day of week (1=Sunday to 7=Saturday, matching MySQL)
                 let dow = datetime.weekday().num_days_from_sunday() + 1;
-                Ok(QueryValue::Integer(dow as i64))
+                Ok(QueryValue::Integer(i64::from(dow)))
             },
             | "DOY" | "DAYOFYEAR" => {
                 // Day of year (1-366)
-                Ok(QueryValue::Integer(datetime.ordinal() as i64))
+                Ok(QueryValue::Integer(i64::from(datetime.ordinal())))
             },
             | "WEEK" | "WEEKOFYEAR" => {
                 // Week of year (ISO week)
-                Ok(QueryValue::Integer(datetime.date().iso_week().week() as i64))
+                Ok(QueryValue::Integer(i64::from(datetime.date().iso_week().week())))
             },
             | "QUARTER" => {
                 // Quarter (1-4)
                 let quarter = (datetime.month() - 1) / 3 + 1;
-                Ok(QueryValue::Integer(quarter as i64))
+                Ok(QueryValue::Integer(i64::from(quarter)))
             },
             | "EPOCH" => {
                 // Unix timestamp
                 Ok(QueryValue::Integer(datetime.and_utc().timestamp()))
             },
             | _ => Err(QSQLError::ExecutionError {
-                message: format!("Unsupported EXTRACT field: {}", field),
+                message: format!("Unsupported EXTRACT field: {field}"),
             }),
         }
     }
@@ -7820,8 +7794,8 @@ impl QueryExecutor {
         }
     }
 
-    /// Infer the data type from a QueryValue
-    fn infer_query_value_type(&self, value: &QueryValue) -> DataType {
+    /// Infer the data type from a `QueryValue`
+    const fn infer_query_value_type(&self, value: &QueryValue) -> DataType {
         match value {
             | QueryValue::Null => DataType::Text,
             | QueryValue::Boolean(_) => DataType::Boolean,
@@ -7870,12 +7844,10 @@ impl QueryExecutor {
 
                     if !columns_initialized {
                         // Try to infer data type from first group
-                        let data_type = if !group_rows.is_empty() {
-                            if let Some(val) = group_rows[0].fields.get(col_name) {
-                                self.storage_value_to_datatype(val)
-                            } else {
-                                DataType::Text
-                            }
+                        let data_type = if group_rows.is_empty() {
+                            DataType::Text
+                        } else if let Some(val) = group_rows[0].fields.get(col_name) {
+                            self.storage_value_to_datatype(val)
                         } else {
                             DataType::Text
                         };
@@ -7981,9 +7953,7 @@ impl QueryExecutor {
             for col in group_by_columns {
                 let value_str = row
                     .fields
-                    .get(col)
-                    .map(|v| self.value_to_string(v))
-                    .unwrap_or_else(|| "NULL".to_string());
+                    .get(col).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v));
                 key.push(value_str);
             }
             groups.entry(key).or_default().push(row.clone());
@@ -7992,7 +7962,7 @@ impl QueryExecutor {
         groups.into_iter().collect()
     }
 
-    /// Parse group key value back to QueryValue
+    /// Parse group key value back to `QueryValue`
     fn parse_group_key_value(&self, key: &str) -> QueryValue {
         if key == "NULL" {
             return QueryValue::Null;
@@ -8102,7 +8072,7 @@ impl QueryExecutor {
                 row.get(name)
                     .cloned()
                     .ok_or_else(|| QSQLError::ExecutionError {
-                        message: format!("Column '{}' not found in HAVING clause", name),
+                        message: format!("Column '{name}' not found in HAVING clause"),
                     })
             },
             | Expression::FunctionCall { name, args } => {
@@ -8123,14 +8093,14 @@ impl QueryExecutor {
                 row.get(&agg_name)
                     .cloned()
                     .ok_or_else(|| QSQLError::ExecutionError {
-                        message: format!("Aggregate '{}' not found in HAVING clause", agg_name),
+                        message: format!("Aggregate '{agg_name}' not found in HAVING clause"),
                     })
             },
             | _ => Ok(QueryValue::Null),
         }
     }
 
-    /// Convert literal to QueryValue
+    /// Convert literal to `QueryValue`
     fn literal_to_query_value(&self, lit: &Literal) -> QueryValue {
         match lit {
             | Literal::Integer(i) => QueryValue::Integer(*i),
@@ -8140,43 +8110,31 @@ impl QueryExecutor {
             | Literal::Null => QueryValue::Null,
             | Literal::DNA(s) => QueryValue::DNASequence(s.clone()),
             | Literal::QuantumBit(state, amplitude) => {
-                QueryValue::QuantumState(format!("{}:{}", state, amplitude))
+                QueryValue::QuantumState(format!("{state}:{amplitude}"))
             },
         }
     }
 
-    /// Compare two QueryValues, returns -1, 0, or 1
+    /// Compare two `QueryValues`, returns -1, 0, or 1
     fn compare_query_values(&self, a: &QueryValue, b: &QueryValue) -> i32 {
         match (a, b) {
             | (QueryValue::Integer(i1), QueryValue::Integer(i2)) => i1.cmp(i2) as i32,
             | (QueryValue::Float(f1), QueryValue::Float(f2)) => {
                 if f1 < f2 {
                     -1
-                } else if f1 > f2 {
-                    1
-                } else {
-                    0
-                }
+                } else { i32::from(f1 > f2) }
             },
             | (QueryValue::Integer(i), QueryValue::Float(f)) => {
                 let i_f = *i as f64;
                 if i_f < *f {
                     -1
-                } else if i_f > *f {
-                    1
-                } else {
-                    0
-                }
+                } else { i32::from(i_f > *f) }
             },
             | (QueryValue::Float(f), QueryValue::Integer(i)) => {
                 let i_f = *i as f64;
                 if *f < i_f {
                     -1
-                } else if *f > i_f {
-                    1
-                } else {
-                    0
-                }
+                } else { i32::from(*f > i_f) }
             },
             | (QueryValue::String(s1), QueryValue::String(s2)) => s1.cmp(s2) as i32,
             | (QueryValue::Null, QueryValue::Null) => 0,
@@ -8235,8 +8193,7 @@ impl QueryExecutor {
                         .filter(|row| {
                             row.fields
                                 .get(col)
-                                .map(|v| !matches!(v, Value::Null))
-                                .unwrap_or(false)
+                                .is_some_and(|v| !matches!(v, Value::Null))
                         })
                         .count();
                     Ok(QueryValue::Integer(count as i64))
@@ -8368,7 +8325,7 @@ impl QueryExecutor {
         Ok(max_value.unwrap_or(QueryValue::Null))
     }
 
-    /// Compare two QueryValues and return the minimum
+    /// Compare two `QueryValues` and return the minimum
     fn min_query_value(&self, a: QueryValue, b: QueryValue) -> QueryValue {
         match (&a, &b) {
             | (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
@@ -8410,7 +8367,7 @@ impl QueryExecutor {
         }
     }
 
-    /// Compare two QueryValues and return the maximum
+    /// Compare two `QueryValues` and return the maximum
     fn max_query_value(&self, a: QueryValue, b: QueryValue) -> QueryValue {
         match (&a, &b) {
             | (QueryValue::Integer(i1), QueryValue::Integer(i2)) => {
@@ -8459,7 +8416,7 @@ impl QueryExecutor {
             | Value::Float(f) => f.to_string(),
             | Value::Text(s) => s.clone(),
             | Value::Boolean(b) => b.to_string(),
-            | Value::Binary(b) => format!("{:?}", b),
+            | Value::Binary(b) => format!("{b:?}"),
             | Value::Null => "NULL".to_string(),
             | Value::Timestamp(ts) => ts.to_rfc3339(),
         }
@@ -8475,7 +8432,7 @@ impl QueryExecutor {
         DataType::Double // Default
     }
 
-    /// Convert storage Value to QueryValue
+    /// Convert storage Value to `QueryValue`
     fn storage_value_to_query_value(&self, value: &Value) -> QueryValue {
         match value {
             | Value::Integer(i) => QueryValue::Integer(*i),
@@ -8488,8 +8445,8 @@ impl QueryExecutor {
         }
     }
 
-    /// Convert storage Value to DataType
-    fn storage_value_to_datatype(&self, value: &Value) -> DataType {
+    /// Convert storage Value to `DataType`
+    const fn storage_value_to_datatype(&self, value: &Value) -> DataType {
         match value {
             | Value::Integer(_) => DataType::Integer,
             | Value::Float(_) => DataType::Real,
@@ -8501,7 +8458,7 @@ impl QueryExecutor {
         }
     }
 
-    /// Compare two QueryValues for equality (used by NULLIF)
+    /// Compare two `QueryValues` for equality (used by NULLIF)
     fn query_values_equal(val1: &QueryValue, val2: &QueryValue) -> bool {
         match (val1, val2) {
             | (QueryValue::Null, QueryValue::Null) => true,
@@ -8522,7 +8479,7 @@ impl QueryExecutor {
     fn expression_to_string_static(expr: &Expression) -> String {
         match expr {
             | Expression::Identifier(name) => name.clone(),
-            | Expression::Literal(lit) => format!("{:?}", lit),
+            | Expression::Literal(lit) => format!("{lit:?}"),
             | Expression::FunctionCall { name, args } => {
                 let args_str: Vec<String> =
                     args.iter().map(Self::expression_to_string_static).collect();
@@ -8552,7 +8509,7 @@ impl QueryExecutor {
                 learning_engine
                     .strengthen_connection(synaptic_network, pattern_hash, row_id, 0.8)
                     .map_err(|e| QSQLError::ExecutionError {
-                        message: format!("Learning failed: {}", e),
+                        message: format!("Learning failed: {e}"),
                     })?;
             }
         }
@@ -8616,7 +8573,7 @@ impl QueryExecutor {
     }
 
     /// Get execution statistics
-    pub fn get_stats(&self) -> &ExecutionStats {
+    pub const fn get_stats(&self) -> &ExecutionStats {
         &self.execution_stats
     }
 
@@ -8641,9 +8598,9 @@ impl QueryExecutor {
     }
 
     /// Resolve all subquery expressions in a WHERE clause by executing them
-    /// - InSubquery -> InList
+    /// - `InSubquery` -> `InList`
     /// - Exists -> Boolean literal
-    /// - ScalarSubquery -> Literal value
+    /// - `ScalarSubquery` -> Literal value
     fn resolve_subqueries_in_expression<'a>(
         &'a mut self,
         expr: Expression,
@@ -8714,13 +8671,12 @@ impl QueryExecutor {
     async fn execute_exists_subquery(&mut self, subquery: &SelectStatement) -> QSQLResult<bool> {
         // Get the table name from the subquery
         let table_name = if let Some(from) = &subquery.from {
-            if !from.relations.is_empty() {
-                from.relations[0].name.clone()
-            } else {
+            if from.relations.is_empty() {
                 return Err(QSQLError::ExecutionError {
                     message: "EXISTS subquery has no table in FROM clause".to_string(),
                 });
             }
+            from.relations[0].name.clone()
         } else {
             return Err(QSQLError::ExecutionError {
                 message: "EXISTS subquery missing FROM clause".to_string(),
@@ -8751,7 +8707,7 @@ impl QueryExecutor {
             .select_rows(&storage_query)
             .await
             .map_err(|e| QSQLError::ExecutionError {
-                message: format!("EXISTS subquery execution failed: {}", e),
+                message: format!("EXISTS subquery execution failed: {e}"),
             })?;
         drop(storage_guard);
 
@@ -8763,13 +8719,12 @@ impl QueryExecutor {
     async fn execute_scalar_subquery(&mut self, subquery: &SelectStatement) -> QSQLResult<Literal> {
         // Get the table name from the subquery
         let table_name = if let Some(from) = &subquery.from {
-            if !from.relations.is_empty() {
-                from.relations[0].name.clone()
-            } else {
+            if from.relations.is_empty() {
                 return Err(QSQLError::ExecutionError {
                     message: "Scalar subquery has no table in FROM clause".to_string(),
                 });
             }
+            from.relations[0].name.clone()
         } else {
             return Err(QSQLError::ExecutionError {
                 message: "Scalar subquery missing FROM clause".to_string(),
@@ -8809,7 +8764,7 @@ impl QueryExecutor {
             .select_rows(&storage_query)
             .await
             .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Scalar subquery execution failed: {}", e),
+                message: format!("Scalar subquery execution failed: {e}"),
             })?;
         drop(storage_guard);
 
@@ -8830,15 +8785,15 @@ impl QueryExecutor {
         let first_row = &rows[0];
 
         // Get the column name from the SELECT list
-        let column_name = if !subquery.select_list.is_empty() {
+        let column_name = if subquery.select_list.is_empty() {
+            first_row.fields.keys().next().cloned().unwrap_or_default()
+        } else {
             match &subquery.select_list[0] {
                 | SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
                 | SelectItem::Wildcard => {
                     first_row.fields.keys().next().cloned().unwrap_or_default()
                 },
             }
-        } else {
-            first_row.fields.keys().next().cloned().unwrap_or_default()
         };
 
         // Get the value from the first row
@@ -8849,7 +8804,7 @@ impl QueryExecutor {
         }
     }
 
-    /// Convert QueryValue to Literal
+    /// Convert `QueryValue` to Literal
     fn query_value_to_literal(value: QueryValue) -> Literal {
         match value {
             | QueryValue::Null => Literal::Null,
@@ -8859,7 +8814,7 @@ impl QueryExecutor {
             | QueryValue::String(s) => Literal::String(s),
             | QueryValue::Blob(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
             | QueryValue::DNASequence(s) => Literal::DNA(s),
-            | QueryValue::SynapticWeight(w) => Literal::Float(w as f64),
+            | QueryValue::SynapticWeight(w) => Literal::Float(f64::from(w)),
             | QueryValue::QuantumState(s) => Literal::String(s),
         }
     }
@@ -8871,13 +8826,12 @@ impl QueryExecutor {
     ) -> QSQLResult<Vec<Value>> {
         // Get the table name from the subquery
         let table_name = if let Some(from) = &subquery.from {
-            if !from.relations.is_empty() {
-                from.relations[0].name.clone()
-            } else {
+            if from.relations.is_empty() {
                 return Err(QSQLError::ExecutionError {
                     message: "Subquery has no table in FROM clause".to_string(),
                 });
             }
+            from.relations[0].name.clone()
         } else {
             return Err(QSQLError::ExecutionError {
                 message: "Subquery missing FROM clause".to_string(),
@@ -8908,12 +8862,16 @@ impl QueryExecutor {
             .select_rows(&storage_query)
             .await
             .map_err(|e| QSQLError::ExecutionError {
-                message: format!("Subquery execution failed: {}", e),
+                message: format!("Subquery execution failed: {e}"),
             })?;
         drop(storage_guard);
 
         // Extract the first column from each row
-        let column_name = if !subquery.select_list.is_empty() {
+        let column_name = if subquery.select_list.is_empty() {
+            return Err(QSQLError::ExecutionError {
+                message: "Subquery has no columns in SELECT list".to_string(),
+            });
+        } else {
             match &subquery.select_list[0] {
                 | SelectItem::Expression { expr, .. } => Self::expression_to_string_static(expr),
                 | SelectItem::Wildcard => {
@@ -8925,10 +8883,6 @@ impl QueryExecutor {
                     }
                 },
             }
-        } else {
-            return Err(QSQLError::ExecutionError {
-                message: "Subquery has no columns in SELECT list".to_string(),
-            });
         };
 
         // Collect values from the first column
@@ -8960,7 +8914,7 @@ impl Default for QueryExecutor {
             | Ok(executor) => executor,
             | Err(_) => {
                 // Fallback to a minimal executor if creation fails
-                QueryExecutor {
+                Self {
                     config: ExecutorConfig::default(),
                     execution_stats: ExecutionStats::default(),
                     storage_engine: None,

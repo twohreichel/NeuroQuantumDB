@@ -20,13 +20,13 @@
 //!   - **IBM Quantum**: QITE (Quantum Imaginary Time Evolution) for thermal state preparation
 //!   - **AWS Braket**: Multi-vendor access for thermal sampling
 //!   - **D-Wave**: Native quantum annealing with reverse annealing for temperature control
-//!   - **IonQ**: High-fidelity trapped-ion thermal state preparation
+//!   - **`IonQ`**: High-fidelity trapped-ion thermal state preparation
 //!   - **Local Simulator**: Classical fallback (always available)
 //!
 //! - **Grover's Search**: Now with **real quantum hardware integration** supporting:
 //!   - **IBM Quantum**: Execute on IBM gate-based quantum computers via Qiskit Runtime
-//!   - **AWS Braket**: Execute on IonQ, Rigetti, and OQC devices via AWS Braket
-//!   - **IonQ Direct**: Direct API access to IonQ trapped-ion quantum computers
+//!   - **AWS Braket**: Execute on `IonQ`, Rigetti, and OQC devices via AWS Braket
+//!   - **`IonQ` Direct**: Direct API access to `IonQ` trapped-ion quantum computers
 //!   - **Local Simulator**: State vector simulation for development and testing
 //!   
 //!   The `UnifiedGroverSolver` provides automatic backend selection with fallback
@@ -80,8 +80,8 @@
 //! The `grover_hardware_backends` module provides real quantum hardware integration:
 //!
 //! - **IBM Quantum**: Gate-based superconducting qubits via IBM Quantum Experience
-//! - **AWS Braket**: Multi-vendor access (IonQ, Rigetti, OQC) via AWS
-//! - **IonQ Direct**: Native trapped-ion quantum computing API
+//! - **AWS Braket**: Multi-vendor access (`IonQ`, Rigetti, OQC) via AWS
+//! - **`IonQ` Direct**: Native trapped-ion quantum computing API
 //! - **Local Simulator**: State vector simulation (always available)
 //!
 //! ### Configuration Example
@@ -111,7 +111,7 @@
 //!   - Reverse annealing for thermal state preparation
 //!   - Multi-temperature annealing schedules
 //! - **AWS Braket**: Multi-vendor quantum access including D-Wave annealers
-//! - **IonQ**: High-fidelity trapped-ion thermal state preparation
+//! - **`IonQ`**: High-fidelity trapped-ion thermal state preparation
 //! - **Local Simulator**: Classical PIMC/QMC fallback (always available)
 //!
 //! ### Parallel Tempering Configuration Example

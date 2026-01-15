@@ -1,7 +1,7 @@
-//! Security Penetration Tests for NeuroQuantumDB API
+//! Security Penetration Tests for `NeuroQuantumDB` API
 //!
 //! This module provides comprehensive security penetration tests to identify
-//! vulnerabilities in the NeuroQuantumDB API. These tests simulate various attack
+//! vulnerabilities in the `NeuroQuantumDB` API. These tests simulate various attack
 //! vectors that a malicious actor might use.
 //!
 //! ## Test Categories
@@ -59,8 +59,7 @@ mod sql_injection_tests {
             // but it should never crash
             assert!(
                 result.is_ok() || result.is_err(),
-                "Parser panicked on injection payload: {}",
-                payload
+                "Parser panicked on injection payload: {payload}"
             );
         }
     }
@@ -83,8 +82,7 @@ mod sql_injection_tests {
             // access to unauthorized tables without proper permissions
             assert!(
                 result.is_ok() || result.is_err(),
-                "Parser panicked on UNION payload: {}",
-                payload
+                "Parser panicked on UNION payload: {payload}"
             );
         }
     }
@@ -105,8 +103,7 @@ mod sql_injection_tests {
             let result = parser.parse(payload);
             assert!(
                 result.is_ok() || result.is_err(),
-                "Parser panicked on time-based payload: {}",
-                payload
+                "Parser panicked on time-based payload: {payload}"
             );
         }
     }
@@ -128,8 +125,7 @@ mod sql_injection_tests {
             // Stacked queries should be rejected or handled safely
             assert!(
                 result.is_ok() || result.is_err(),
-                "Parser panicked on stacked query: {}",
-                payload
+                "Parser panicked on stacked query: {payload}"
             );
         }
     }
@@ -150,8 +146,7 @@ mod sql_injection_tests {
             let result = parser.parse(payload);
             assert!(
                 result.is_ok() || result.is_err(),
-                "Parser panicked on comment payload: {}",
-                payload
+                "Parser panicked on comment payload: {payload}"
             );
         }
     }
@@ -172,8 +167,7 @@ mod sql_injection_tests {
             let result = parser.parse(payload);
             assert!(
                 result.is_ok() || result.is_err(),
-                "Parser panicked on encoding payload: {}",
-                payload
+                "Parser panicked on encoding payload: {payload}"
             );
         }
     }
@@ -194,8 +188,7 @@ mod sql_injection_tests {
             let result = parser.parse(payload);
             assert!(
                 result.is_ok() || result.is_err(),
-                "Parser panicked on neuromorphic payload: {}",
-                payload
+                "Parser panicked on neuromorphic payload: {payload}"
             );
         }
     }
@@ -207,7 +200,7 @@ mod sql_injection_tests {
 
         // Generate extremely long string
         let long_string = "A".repeat(100_000);
-        let payload = format!("SELECT * FROM users WHERE name = '{}'", long_string);
+        let payload = format!("SELECT * FROM users WHERE name = '{long_string}'");
 
         let start = Instant::now();
         let result = parser.parse(&payload);
@@ -342,13 +335,12 @@ mod authentication_bypass_tests {
             // Validate key format
             let is_valid_format = key.starts_with("nqdb_")
                 && key.len() >= 37
-                && key[5..].chars().all(|c| c.is_alphanumeric());
+                && key[5..].chars().all(char::is_alphanumeric);
 
             // Keys with invalid format should be rejected immediately
             assert!(
                 !is_valid_format || key.len() >= 37,
-                "Invalid API key format should be rejected: {}",
-                key
+                "Invalid API key format should be rejected: {key}"
             );
         }
     }
@@ -714,7 +706,7 @@ mod input_validation_tests {
 
         // Test with very large table name
         let large_name = "a".repeat(10_000);
-        let query = format!("SELECT * FROM {}", large_name);
+        let query = format!("SELECT * FROM {large_name}");
 
         let start = Instant::now();
         let result = parser.parse(&query);
@@ -738,8 +730,7 @@ mod input_validation_tests {
         let nested_parens_open = "(".repeat(depth);
         let nested_parens_close = ")".repeat(depth);
         let query = format!(
-            "SELECT * FROM t WHERE {}1=1{}",
-            nested_parens_open, nested_parens_close
+            "SELECT * FROM t WHERE {nested_parens_open}1=1{nested_parens_close}"
         );
 
         let start = Instant::now();
@@ -900,12 +891,12 @@ mod header_injection_tests {
 
         for host in valid_hosts {
             let is_allowed = allowed_hosts.contains(&host);
-            assert!(is_allowed, "Valid host should be allowed: {}", host);
+            assert!(is_allowed, "Valid host should be allowed: {host}");
         }
 
         for host in invalid_hosts {
             let is_allowed = allowed_hosts.contains(&host);
-            assert!(!is_allowed, "Invalid host should be rejected: {}", host);
+            assert!(!is_allowed, "Invalid host should be rejected: {host}");
         }
     }
 
@@ -958,8 +949,7 @@ mod header_injection_tests {
             let is_form = ct.starts_with("application/x-www-form-urlencoded");
             assert!(
                 is_json || is_form,
-                "Valid content type should be accepted: {}",
-                ct
+                "Valid content type should be accepted: {ct}"
             );
         }
 
@@ -968,8 +958,7 @@ mod header_injection_tests {
             let is_form = ct.starts_with("application/x-www-form-urlencoded");
             assert!(
                 !is_json && !is_form,
-                "Invalid content type should be rejected: {}",
-                ct
+                "Invalid content type should be rejected: {ct}"
             );
         }
     }
@@ -1041,15 +1030,14 @@ mod timing_attack_tests {
         // This test verifies the comparison function is constant-time in principle.
         assert!(
             ratio < 50.0,
-            "Timing variance too high: {:.2}x - investigate if consistent across runs",
-            ratio
+            "Timing variance too high: {ratio:.2}x - investigate if consistent across runs"
         );
 
         // Additionally verify the function returns correct results
         assert!(constant_time_compare(secret.as_bytes(), secret.as_bytes()));
         assert!(!constant_time_compare(
             secret.as_bytes(),
-            "wrong".as_bytes()
+            b"wrong"
         ));
     }
 
@@ -1099,8 +1087,7 @@ mod timing_attack_tests {
         // Some variance is expected, but large differences indicate data-dependent timing
         assert!(
             diff_percent < 50.0,
-            "Query timing variance: {:.1}% (may indicate existence oracle)",
-            diff_percent
+            "Query timing variance: {diff_percent:.1}% (may indicate existence oracle)"
         );
     }
 
@@ -1143,13 +1130,11 @@ mod path_traversal_tests {
             let sanitized = sanitize_path(path);
             assert!(
                 !sanitized.contains(".."),
-                "Path traversal should be blocked: {}",
-                path
+                "Path traversal should be blocked: {path}"
             );
             assert!(
                 !sanitized.starts_with('/') || sanitized == "/",
-                "Absolute paths should be rejected: {}",
-                path
+                "Absolute paths should be rejected: {path}"
             );
         }
     }
@@ -1168,8 +1153,7 @@ mod path_traversal_tests {
             let sanitized = path.replace('\x00', "");
             assert!(
                 !sanitized.contains('\x00'),
-                "Null bytes should be removed: {:?}",
-                path
+                "Null bytes should be removed: {path:?}"
             );
         }
     }
@@ -1184,7 +1168,7 @@ mod path_traversal_tests {
         // is OS-dependent and tested in integration tests
         let base_dir = "/var/data/storage";
         let user_file = "userfile.txt";
-        let combined = format!("{}/{}", base_dir, user_file);
+        let combined = format!("{base_dir}/{user_file}");
 
         // After resolution, path should still be under base_dir
         assert!(
@@ -1259,8 +1243,7 @@ mod cryptographic_tests {
             let bytes_at_pos: HashSet<_> = values.iter().map(|v| v[pos]).collect();
             assert!(
                 bytes_at_pos.len() > 10,
-                "RNG should produce varied values at position {}",
-                pos
+                "RNG should produce varied values at position {pos}"
             );
         }
     }
@@ -1356,7 +1339,7 @@ mod denial_of_service_tests {
     use std::collections::HashMap;
     use std::time::{Duration, Instant};
 
-    /// Test regex denial of service (ReDoS)
+    /// Test regex denial of service (`ReDoS`)
     #[test]
     fn test_regex_dos() {
         // Evil regex patterns that cause catastrophic backtracking
@@ -1368,7 +1351,7 @@ mod denial_of_service_tests {
         let parser = create_test_parser();
 
         // Query with potentially evil pattern
-        let query = format!("SELECT * FROM t WHERE name LIKE '{}'", evil_input);
+        let query = format!("SELECT * FROM t WHERE name LIKE '{evil_input}'");
         let _ = parser.parse(&query);
 
         let elapsed = start.elapsed();
@@ -1380,7 +1363,7 @@ mod denial_of_service_tests {
         );
     }
 
-    /// Test hash collision DoS
+    /// Test hash collision `DoS`
     #[test]
     fn test_hash_collision_dos() {
         // HashMap with many colliding keys can cause O(n^2) behavior
@@ -1391,7 +1374,7 @@ mod denial_of_service_tests {
 
         let start = Instant::now();
         for i in 0..num_keys {
-            map.insert(format!("key_{}", i), i);
+            map.insert(format!("key_{i}"), i);
         }
         let elapsed = start.elapsed();
 
@@ -1411,10 +1394,10 @@ mod denial_of_service_tests {
 
         // Try to create very large AST
         let many_columns = (0..1000)
-            .map(|i| format!("col{}", i))
+            .map(|i| format!("col{i}"))
             .collect::<Vec<_>>()
             .join(", ");
-        let query = format!("SELECT {} FROM table", many_columns);
+        let query = format!("SELECT {many_columns} FROM table");
 
         let result = parser.parse(&query);
 
@@ -1511,8 +1494,7 @@ mod integration_security_tests {
 
             assert!(
                 is_wildcard || is_null || is_http,
-                "These origins should be disallowed: {}",
-                origin
+                "These origins should be disallowed: {origin}"
             );
         }
     }
@@ -1544,9 +1526,7 @@ mod integration_security_tests {
             for pattern in dangerous_patterns {
                 assert!(
                     !msg_lower.contains(&pattern.to_lowercase()),
-                    "Error message should not contain '{}': {}",
-                    pattern,
-                    msg
+                    "Error message should not contain '{pattern}': {msg}"
                 );
             }
         }
@@ -1594,8 +1574,7 @@ mod integration_security_tests {
             // Verify event names are reasonable
             assert!(
                 !event.is_empty() && event.len() < 50,
-                "Event name should be reasonable length: {}",
-                event
+                "Event name should be reasonable length: {event}"
             );
         }
     }

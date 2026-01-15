@@ -1,4 +1,4 @@
-//! Restore Manager for NeuroQuantumDB
+//! Restore Manager for `NeuroQuantumDB`
 //!
 //! Provides database restoration from backups:
 //! - Point-in-Time Recovery (PITR)
@@ -249,7 +249,7 @@ impl RestoreManager {
             parent_options.verify_before_restore = false;
             parent_options.verify_after_restore = false;
 
-            let parent_manager = RestoreManager::new(self.storage_backend.clone(), parent_options);
+            let parent_manager = Self::new(self.storage_backend.clone(), parent_options);
 
             // Use Box::pin to avoid infinite recursion
             let parent_stats = Box::pin(parent_manager.restore()).await?;
@@ -500,7 +500,7 @@ impl RestoreManager {
         }
 
         let result = hasher.finalize();
-        Ok(format!("{:x}", result))
+        Ok(format!("{result:x}"))
     }
 
     /// Decompress gzip data

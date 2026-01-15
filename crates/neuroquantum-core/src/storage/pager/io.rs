@@ -14,7 +14,7 @@ use super::{PagerConfig, SyncMode};
 
 /// Page I/O handler
 pub struct PageIO {
-    /// Database file handle (wrapped in RwLock for interior mutability)
+    /// Database file handle (wrapped in `RwLock` for interior mutability)
     file: Arc<RwLock<File>>,
     /// Configuration
     config: PagerConfig,
@@ -39,7 +39,7 @@ impl PageIO {
     }
 
     /// Calculate file offset for a page
-    fn page_offset(page_id: PageId) -> u64 {
+    const fn page_offset(page_id: PageId) -> u64 {
         page_id.0 * PAGE_SIZE as u64
     }
 
@@ -54,16 +54,16 @@ impl PageIO {
         // Seek to page position
         file.seek(std::io::SeekFrom::Start(offset))
             .await
-            .context(format!("Failed to seek to page {:?}", page_id))?;
+            .context(format!("Failed to seek to page {page_id:?}"))?;
 
         // Read page data
         let mut buf = vec![0u8; PAGE_SIZE];
         file.read_exact(&mut buf)
             .await
-            .context(format!("Failed to read page {:?}", page_id))?;
+            .context(format!("Failed to read page {page_id:?}"))?;
 
         // Deserialize page
-        Page::from_bytes(&buf).context(format!("Failed to deserialize page {:?}", page_id))
+        Page::from_bytes(&buf).context(format!("Failed to deserialize page {page_id:?}"))
     }
 
     /// Write a page to disk
@@ -76,19 +76,19 @@ impl PageIO {
         // Serialize page
         let buf = page
             .to_bytes()
-            .context(format!("Failed to serialize page {:?}", page_id))?;
+            .context(format!("Failed to serialize page {page_id:?}"))?;
 
         let mut file = self.file.write().await;
 
         // Seek to page position
         file.seek(std::io::SeekFrom::Start(offset))
             .await
-            .context(format!("Failed to seek to page {:?}", page_id))?;
+            .context(format!("Failed to seek to page {page_id:?}"))?;
 
         // Write page data
         file.write_all(&buf)
             .await
-            .context(format!("Failed to write page {:?}", page_id))?;
+            .context(format!("Failed to write page {page_id:?}"))?;
 
         Ok(())
     }

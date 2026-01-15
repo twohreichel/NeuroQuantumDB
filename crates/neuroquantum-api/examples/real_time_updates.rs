@@ -96,10 +96,10 @@ async fn demo_basic_pubsub() -> Result<(), Box<dyn std::error::Error>> {
     let conn1 = ConnectionId::new();
     let channel = ChannelId::new("notifications.alerts");
 
-    println!("  ✓ Connection {} created", conn1);
+    println!("  ✓ Connection {conn1} created");
 
     manager.subscribe(conn1, channel.as_str()).await?;
-    println!("  ✓ Subscribed to channel: {}", channel);
+    println!("  ✓ Subscribed to channel: {channel}");
 
     // Publish a message
     let message = json!({
@@ -119,7 +119,7 @@ async fn demo_basic_pubsub() -> Result<(), Box<dyn std::error::Error>> {
     // Verify subscriber
     assert_eq!(subscribers.len(), 1);
     assert_eq!(subscribers[0], conn1);
-    println!("  ✓ Message delivered to Connection {}", conn1);
+    println!("  ✓ Message delivered to Connection {conn1}");
 
     // Unsubscribe
     manager.unsubscribe(conn1, channel.as_str()).await?;
@@ -186,7 +186,7 @@ async fn demo_wildcard_subscriptions() -> Result<(), Box<dyn std::error::Error>>
 
     // Show connection subscriptions
     let subs = manager.get_connection_subscriptions(conn);
-    println!("\n  📋 Connection {} subscriptions: {:?}", conn, subs);
+    println!("\n  📋 Connection {conn} subscriptions: {subs:?}");
 
     Ok(())
 }
@@ -204,16 +204,15 @@ async fn demo_database_notifications() -> Result<(), Box<dyn std::error::Error>>
 
     // Subscribe to specific tables
     manager.subscribe(client1, "db.users.changes").await?;
-    println!("  ✓ Client {} watching: db.users.changes", client1);
+    println!("  ✓ Client {client1} watching: db.users.changes");
 
     manager.subscribe(client2, "db.orders.changes").await?;
-    println!("  ✓ Client {} watching: db.orders.changes", client2);
+    println!("  ✓ Client {client2} watching: db.orders.changes");
 
     // Client 3 watches all database changes
     manager.subscribe(client3, "db.**.changes").await?;
     println!(
-        "  ✓ Client {} watching: db.**.changes (all tables)\n",
-        client3
+        "  ✓ Client {client3} watching: db.**.changes (all tables)\n"
     );
 
     // Simulate database operations
@@ -259,16 +258,13 @@ async fn demo_database_notifications() -> Result<(), Box<dyn std::error::Error>>
 
     println!("\n  📊 Notification Summary:");
     println!(
-        "    • Client {} received notifications for: users table",
-        client1
+        "    • Client {client1} received notifications for: users table"
     );
     println!(
-        "    • Client {} received notifications for: orders table",
-        client2
+        "    • Client {client2} received notifications for: orders table"
     );
     println!(
-        "    • Client {} received notifications for: all tables",
-        client3
+        "    • Client {client3} received notifications for: all tables"
     );
 
     Ok(())
@@ -284,7 +280,7 @@ async fn demo_multiple_subscribers() -> Result<(), Box<dyn std::error::Error>> {
     // Create 5 subscribers
     let subscribers: Vec<ConnectionId> = (0..5).map(|_| ConnectionId::new()).collect();
 
-    println!("  📡 Creating 5 subscribers to channel: {}\n", channel);
+    println!("  📡 Creating 5 subscribers to channel: {channel}\n");
     for (i, conn) in subscribers.iter().enumerate() {
         manager.subscribe(*conn, channel.as_str()).await?;
         println!("    ✓ Subscriber {} connected (ID: {})", i + 1, conn);
@@ -343,8 +339,7 @@ async fn demo_channel_statistics() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!(
-            "    • {} → {} subscriber(s)",
-            channel_name, subscriber_count
+            "    • {channel_name} → {subscriber_count} subscriber(s)"
         );
     }
 
@@ -360,7 +355,7 @@ async fn demo_channel_statistics() -> Result<(), Box<dyn std::error::Error>> {
             let message = json!({"reading": i, "value": rand::random::<f64>() * 100.0});
             manager.publish(&channel, &message).await;
         }
-        println!("    • {} → {} message(s) sent", channel_name, msg_count);
+        println!("    • {channel_name} → {msg_count} message(s) sent");
     }
 
     // Get overall statistics
@@ -376,7 +371,7 @@ async fn demo_channel_statistics() -> Result<(), Box<dyn std::error::Error>> {
     for (channel_name, _) in &channels {
         let channel = ChannelId::new(*channel_name);
         if let Some(channel_stats) = manager.get_channel_stats(&channel).await {
-            println!("    • {}:", channel_name);
+            println!("    • {channel_name}:");
             println!("      - Subscribers: {}", channel_stats.subscriber_count);
             println!("      - Messages: {}", channel_stats.message_count);
             println!(
@@ -418,18 +413,16 @@ async fn demo_pattern_matching() -> Result<(), Box<dyn std::error::Error>> {
     ];
 
     for (pattern, should_match, should_not_match) in test_cases {
-        println!("  🔍 Testing pattern: {}", pattern);
+        println!("  🔍 Testing pattern: {pattern}");
 
         println!("    ✓ Should match:");
         for channel_name in &should_match {
             let channel = ChannelId::new(*channel_name);
             assert!(
                 channel.matches(pattern),
-                "{} should match {}",
-                channel_name,
-                pattern
+                "{channel_name} should match {pattern}"
             );
-            println!("      • {} ✓", channel_name);
+            println!("      • {channel_name} ✓");
         }
 
         println!("    ✗ Should NOT match:");
@@ -437,11 +430,9 @@ async fn demo_pattern_matching() -> Result<(), Box<dyn std::error::Error>> {
             let channel = ChannelId::new(*channel_name);
             assert!(
                 !channel.matches(pattern),
-                "{} should NOT match {}",
-                channel_name,
-                pattern
+                "{channel_name} should NOT match {pattern}"
             );
-            println!("      • {} ✓", channel_name);
+            println!("      • {channel_name} ✓");
         }
 
         println!();

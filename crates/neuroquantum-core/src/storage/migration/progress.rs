@@ -32,6 +32,7 @@ pub struct MigrationProgress {
 
 impl MigrationProgress {
     /// Create new progress tracker for a migration
+    #[must_use] 
     pub fn new(migration_id: MigrationId, total_items: u64) -> Self {
         Self {
             migration_id,
@@ -69,6 +70,7 @@ pub struct ProgressTracker {
 
 impl ProgressTracker {
     /// Create a new progress tracker
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             progress: Arc::new(RwLock::new(None)),
@@ -115,11 +117,13 @@ impl ProgressTracker {
     }
 
     /// Check if paused
+    #[must_use] 
     pub fn is_paused(&self) -> bool {
         self.pause_flag.load(Ordering::SeqCst)
     }
 
     /// Check if cancelled
+    #[must_use] 
     pub fn is_cancelled(&self) -> bool {
         self.cancel_flag.load(Ordering::SeqCst)
     }

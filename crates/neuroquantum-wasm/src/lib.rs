@@ -1,6 +1,6 @@
-//! # NeuroQuantumDB WebAssembly Bindings
+//! # `NeuroQuantumDB` WebAssembly Bindings
 //!
-//! This crate provides WebAssembly bindings for NeuroQuantumDB, enabling
+//! This crate provides WebAssembly bindings for `NeuroQuantumDB`, enabling
 //! the neuromorphic database to run directly in web browsers.
 //!
 //! ## Features
@@ -51,6 +51,7 @@ pub struct WasmError {
 impl WasmError {
     /// Get the error message
     #[wasm_bindgen(getter)]
+    #[must_use] 
     pub fn message(&self) -> String {
         self.message.clone()
     }
@@ -62,7 +63,7 @@ pub struct QueryResultRow {
     pub values: HashMap<String, serde_json::Value>,
 }
 
-/// Main NeuroQuantumDB WebAssembly interface
+/// Main `NeuroQuantumDB` WebAssembly interface
 #[wasm_bindgen]
 pub struct NeuroQuantumDB {
     // In-memory tables for browser usage
@@ -71,12 +72,12 @@ pub struct NeuroQuantumDB {
 
 #[wasm_bindgen]
 impl NeuroQuantumDB {
-    /// Create a new NeuroQuantumDB instance
+    /// Create a new `NeuroQuantumDB` instance
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Result<NeuroQuantumDB, JsValue> {
+    pub fn new() -> Result<Self, JsValue> {
         console_log("🧠 Initializing NeuroQuantumDB WASM...");
 
-        Ok(NeuroQuantumDB {
+        Ok(Self {
             tables: HashMap::new(),
         })
     }
@@ -85,19 +86,19 @@ impl NeuroQuantumDB {
     /// Returns the number of affected rows
     #[wasm_bindgen]
     pub async fn execute(&mut self, sql: &str) -> Result<u32, JsValue> {
-        console_log(&format!("Executing SQL: {}", sql));
+        console_log(&format!("Executing SQL: {sql}"));
 
         // Parse and execute SQL
         match self.execute_internal(sql) {
             | Ok(rows_affected) => Ok(rows_affected),
-            | Err(e) => Err(JsValue::from_str(&format!("SQL execution error: {}", e))),
+            | Err(e) => Err(JsValue::from_str(&format!("SQL execution error: {e}"))),
         }
     }
 
     /// Execute a SQL query (SELECT) and return results as JSON
     #[wasm_bindgen]
     pub async fn query(&self, sql: &str) -> Result<JsValue, JsValue> {
-        console_log(&format!("Querying SQL: {}", sql));
+        console_log(&format!("Querying SQL: {sql}"));
 
         match self.query_internal(sql) {
             | Ok(results) => {
@@ -107,7 +108,7 @@ impl NeuroQuantumDB {
                     let obj = Object::new();
                     for (key, value) in row {
                         let js_val = serde_wasm_bindgen::to_value(&value).map_err(|e| {
-                            JsValue::from_str(&format!("Serialization error: {}", e))
+                            JsValue::from_str(&format!("Serialization error: {e}"))
                         })?;
                         Reflect::set(&obj, &JsValue::from_str(&key), &js_val)?;
                     }
@@ -115,14 +116,14 @@ impl NeuroQuantumDB {
                 }
                 Ok(array.into())
             },
-            | Err(e) => Err(JsValue::from_str(&format!("Query error: {}", e))),
+            | Err(e) => Err(JsValue::from_str(&format!("Query error: {e}"))),
         }
     }
 
     /// Compress a DNA sequence
     ///
     /// Note: This is a placeholder implementation for demonstration.
-    /// For production use, integrate with the full NeuroQuantumDB DNA compressor.
+    /// For production use, integrate with the full `NeuroQuantumDB` DNA compressor.
     #[wasm_bindgen(js_name = compressDna)]
     pub fn compress_dna(&self, sequence: &str) -> Result<Vec<u8>, JsValue> {
         console_log(&format!(
@@ -138,7 +139,7 @@ impl NeuroQuantumDB {
     /// Decompress a DNA sequence
     ///
     /// Note: This is a placeholder implementation for demonstration.
-    /// For production use, integrate with the full NeuroQuantumDB DNA compressor.
+    /// For production use, integrate with the full `NeuroQuantumDB` DNA compressor.
     #[wasm_bindgen(js_name = decompressDna)]
     pub fn decompress_dna(&self, compressed: Vec<u8>) -> Result<String, JsValue> {
         console_log(&format!(
@@ -147,7 +148,7 @@ impl NeuroQuantumDB {
         ));
 
         String::from_utf8(compressed)
-            .map_err(|e| JsValue::from_str(&format!("Decompression error: {}", e)))
+            .map_err(|e| JsValue::from_str(&format!("Decompression error: {e}")))
     }
 
     /// Get statistics about the database
@@ -159,14 +160,14 @@ impl NeuroQuantumDB {
             serde_json::Value::Number(self.tables.len().into()),
         );
 
-        let total_rows: usize = self.tables.values().map(|t| t.len()).sum();
+        let total_rows: usize = self.tables.values().map(std::vec::Vec::len).sum();
         stats.insert(
             "total_rows".to_string(),
             serde_json::Value::Number(total_rows.into()),
         );
 
         serde_wasm_bindgen::to_value(&stats)
-            .map_err(|e| JsValue::from_str(&format!("Stats serialization error: {}", e)))
+            .map_err(|e| JsValue::from_str(&format!("Stats serialization error: {e}")))
     }
 
     /// Clear all data from the database
@@ -205,7 +206,7 @@ impl NeuroQuantumDB {
             return self.execute_delete(sql);
         }
 
-        Err(format!("Unsupported SQL statement: {}", sql))
+        Err(format!("Unsupported SQL statement: {sql}"))
     }
 
     /// Internal query logic
@@ -228,7 +229,7 @@ impl NeuroQuantumDB {
             let table = self
                 .tables
                 .get(&table_name)
-                .ok_or(format!("Table '{}' not found", table_name))?;
+                .ok_or(format!("Table '{table_name}' not found"))?;
 
             return Ok(table.clone());
         }
@@ -295,7 +296,7 @@ impl NeuroQuantumDB {
                 // Handle floating point values carefully
                 match serde_json::Number::from_f64(num) {
                     | Some(n) => serde_json::Value::Number(n),
-                    | None => return Err(format!("Invalid floating point value: {}", val)),
+                    | None => return Err(format!("Invalid floating point value: {val}")),
                 }
             } else {
                 serde_json::Value::String(val.clone())
@@ -307,7 +308,7 @@ impl NeuroQuantumDB {
         let table = self
             .tables
             .get_mut(&table_name)
-            .ok_or(format!("Table '{}' not found", table_name))?;
+            .ok_or(format!("Table '{table_name}' not found"))?;
         table.push(row);
 
         Ok(1)
@@ -325,7 +326,7 @@ impl NeuroQuantumDB {
 }
 
 impl Default for NeuroQuantumDB {
-    /// Creates a default instance of NeuroQuantumDB.
+    /// Creates a default instance of `NeuroQuantumDB`.
     ///
     /// # Panics
     ///

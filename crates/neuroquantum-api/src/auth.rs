@@ -36,22 +36,22 @@ pub struct AuthService {
 }
 
 impl AuthService {
-    /// Create a new AuthService with persistent storage
-    /// Storage path defaults to .neuroquantum/api_keys.db
+    /// Create a new `AuthService` with persistent storage
+    /// Storage path defaults to .`neuroquantum/api_keys.db`
     pub fn new() -> Result<Self, String> {
         Self::new_with_path(".neuroquantum/api_keys.db")
     }
 
-    /// Create a new AuthService with custom storage path
+    /// Create a new `AuthService` with custom storage path
     pub fn new_with_path(db_path: &str) -> Result<Self, String> {
         // Ensure directory exists
         if let Some(parent) = std::path::Path::new(db_path).parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create storage directory: {}", e))?;
+                .map_err(|e| format!("Failed to create storage directory: {e}"))?;
         }
 
         let storage = ApiKeyStorage::new(db_path)
-            .map_err(|e| format!("Failed to initialize API key storage: {}", e))?;
+            .map_err(|e| format!("Failed to initialize API key storage: {e}"))?;
 
         // Cleanup expired keys on startup
         if let Err(e) = storage.cleanup_expired_keys() {
@@ -76,6 +76,7 @@ impl AuthService {
     }
 
     /// Check if any admin keys exist
+    #[must_use] 
     pub fn has_admin_keys(&self) -> bool {
         self.storage.has_admin_keys().unwrap_or(false)
     }
@@ -120,10 +121,10 @@ impl AuthService {
         #[cfg(not(test))]
         let cost = DEFAULT_COST;
 
-        let key_hash = hash(&key, cost).map_err(|e| format!("Failed to hash API key: {}", e))?;
+        let key_hash = hash(&key, cost).map_err(|e| format!("Failed to hash API key: {e}"))?;
 
         let expires_at = match expiry_hours {
-            | Some(hours) => Utc::now() + chrono::Duration::hours(hours as i64),
+            | Some(hours) => Utc::now() + chrono::Duration::hours(i64::from(hours)),
             | None => Utc::now() + chrono::Duration::days(30), // Default 30 days
         };
 
@@ -141,7 +142,7 @@ impl AuthService {
         // Store in persistent database
         self.storage
             .store_key(&api_key, &key_hash)
-            .map_err(|e| format!("Failed to store API key: {}", e))?;
+            .map_err(|e| format!("Failed to store API key: {e}"))?;
 
         self.usage_tracking.insert(key.clone(), Vec::new());
 
@@ -196,10 +197,12 @@ impl AuthService {
         Some(updated_key)
     }
 
+    #[must_use] 
     pub fn is_key_expired(&self, api_key: &ApiKey) -> bool {
         Utc::now() > api_key.expires_at
     }
 
+    #[must_use] 
     pub fn check_endpoint_permission(&self, api_key: &ApiKey, path: &str) -> bool {
         // Define permission mappings for different endpoints
         let required_permission = match path {
@@ -256,10 +259,12 @@ impl AuthService {
         }
     }
 
+    #[must_use] 
     pub fn list_api_keys(&self) -> Vec<ApiKeyInfo> {
         self.storage.list_keys().unwrap_or_default()
     }
 
+    #[must_use] 
     pub fn get_storage_stats(&self) -> StorageStats {
         self.storage.get_stats().unwrap_or(StorageStats {
             total_active_keys: 0,
@@ -286,8 +291,7 @@ impl AuthService {
                     ip_address, recent_generations, MAX_GENERATIONS_PER_HOUR
                 );
                 return Err(format!(
-                    "Rate limit exceeded: Maximum {} key generations per hour. Try again later.",
-                    MAX_GENERATIONS_PER_HOUR
+                    "Rate limit exceeded: Maximum {MAX_GENERATIONS_PER_HOUR} key generations per hour. Try again later."
                 ));
             }
         }
@@ -307,6 +311,7 @@ impl AuthService {
         entry.retain(|&time| time > cutoff);
     }
 
+    #[must_use] 
     pub fn get_api_key_stats(&self, key: &str) -> Option<ApiKeyStats> {
         if let Ok(Some((api_key, _hash))) = self.storage.get_key(key) {
             let usage_times = self.usage_tracking.get(key)?;

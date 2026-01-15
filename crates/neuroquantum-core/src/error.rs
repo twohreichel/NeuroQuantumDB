@@ -1,11 +1,11 @@
-//! Error types for NeuroQuantumDB
+//! Error types for `NeuroQuantumDB`
 //!
-//! This module defines comprehensive error handling for the NeuroQuantumDB system,
+//! This module defines comprehensive error handling for the `NeuroQuantumDB` system,
 //! including DNA compression errors, storage errors, and system-level errors.
 
 use thiserror::Error;
 
-/// Main error type for NeuroQuantumDB operations
+/// Main error type for `NeuroQuantumDB` operations
 #[derive(Debug, Error)]
 pub enum NeuroQuantumError {
     #[error("Core system error: {0}")]
@@ -84,6 +84,7 @@ pub type CoreResult<T> = Result<T, NeuroQuantumError>;
 
 impl NeuroQuantumError {
     /// Create an invalid operation error
+    #[must_use] 
     pub fn invalid_operation(msg: &str) -> Self {
         Self::InvalidOperation(msg.to_string())
     }
@@ -92,6 +93,6 @@ impl NeuroQuantumError {
 // Convert DNA errors to NeuroQuantumError
 impl From<crate::dna::DNAError> for NeuroQuantumError {
     fn from(error: crate::dna::DNAError) -> Self {
-        NeuroQuantumError::CompressionError(error.to_string())
+        Self::CompressionError(error.to_string())
     }
 }

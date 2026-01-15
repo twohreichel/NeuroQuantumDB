@@ -19,6 +19,7 @@ pub struct DNACompressionEngine {
 
 impl DNACompressionEngine {
     /// Create a new compression engine
+    #[must_use] 
     pub fn new(config: &DNACompressionConfig) -> Self {
         Self {
             config: config.clone(),
@@ -492,6 +493,7 @@ impl HuffmanTree {
     /// - Loop invariants ensure heap has sufficient elements
     /// - Index values 0-3 always map to valid DNA bases
     #[allow(clippy::expect_used)] // Loop invariants and valid indices guarantee success
+    #[must_use] 
     pub fn build(frequencies: &[u64; 4]) -> Self {
         let mut heap = BinaryHeap::new();
 
@@ -525,7 +527,7 @@ impl HuffmanTree {
             .pop()
             .expect("heap should have exactly one root node")
             .node;
-        let mut tree = HuffmanTree {
+        let mut tree = Self {
             root,
             codes: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
         };
@@ -557,6 +559,7 @@ impl HuffmanTree {
     }
 
     /// Get Huffman code for a base
+    #[must_use] 
     pub fn get_code(&self, base: DNABase) -> &[bool] {
         &self.codes[base as usize]
     }
@@ -592,7 +595,7 @@ pub struct BitStream<'a> {
 }
 
 impl<'a> BitStream<'a> {
-    fn new(data: &'a [u8]) -> Self {
+    const fn new(data: &'a [u8]) -> Self {
         Self {
             data,
             byte_pos: 0,

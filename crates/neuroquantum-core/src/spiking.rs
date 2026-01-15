@@ -70,7 +70,7 @@ pub enum IzhikevichNeuronType {
     /// Bursts at 25-70 Hz with 2-5 spikes per burst.
     Chattering,
 
-    /// Fast Spiking (FS) - GABAergic interneurons (basket cells, chandelier cells).
+    /// Fast Spiking (FS) - `GABAergic` interneurons (basket cells, chandelier cells).
     /// High-frequency firing without adaptation.
     /// Critical for cortical inhibition and gamma rhythms.
     FastSpiking,
@@ -96,45 +96,46 @@ impl IzhikevichNeuronType {
     ///
     /// These parameters shape the neuron's firing dynamics and are derived
     /// from Izhikevich's original publications and subsequent refinements.
-    pub fn parameters(&self) -> IzhikevichParameters {
+    #[must_use] 
+    pub const fn parameters(&self) -> IzhikevichParameters {
         match self {
-            | IzhikevichNeuronType::RegularSpiking => IzhikevichParameters {
+            | Self::RegularSpiking => IzhikevichParameters {
                 a: 0.02,
                 b: 0.2,
                 c: -65.0,
                 d: 8.0,
             },
-            | IzhikevichNeuronType::IntrinsicallyBursting => IzhikevichParameters {
+            | Self::IntrinsicallyBursting => IzhikevichParameters {
                 a: 0.02,
                 b: 0.2,
                 c: -55.0,
                 d: 4.0,
             },
-            | IzhikevichNeuronType::Chattering => IzhikevichParameters {
+            | Self::Chattering => IzhikevichParameters {
                 a: 0.02,
                 b: 0.2,
                 c: -50.0,
                 d: 2.0,
             },
-            | IzhikevichNeuronType::FastSpiking => IzhikevichParameters {
+            | Self::FastSpiking => IzhikevichParameters {
                 a: 0.1,
                 b: 0.2,
                 c: -65.0,
                 d: 2.0,
             },
-            | IzhikevichNeuronType::Thalamocortical => IzhikevichParameters {
+            | Self::Thalamocortical => IzhikevichParameters {
                 a: 0.02,
                 b: 0.25,
                 c: -65.0,
                 d: 0.05,
             },
-            | IzhikevichNeuronType::Resonator => IzhikevichParameters {
+            | Self::Resonator => IzhikevichParameters {
                 a: 0.1,
                 b: 0.26,
                 c: -65.0,
                 d: 2.0,
             },
-            | IzhikevichNeuronType::LowThresholdSpiking => IzhikevichParameters {
+            | Self::LowThresholdSpiking => IzhikevichParameters {
                 a: 0.02,
                 b: 0.25,
                 c: -65.0,
@@ -144,21 +145,23 @@ impl IzhikevichNeuronType {
     }
 
     /// Check if this neuron type is excitatory.
-    pub fn is_excitatory(&self) -> bool {
+    #[must_use] 
+    pub const fn is_excitatory(&self) -> bool {
         matches!(
             self,
-            IzhikevichNeuronType::RegularSpiking
-                | IzhikevichNeuronType::IntrinsicallyBursting
-                | IzhikevichNeuronType::Chattering
-                | IzhikevichNeuronType::Thalamocortical
+            Self::RegularSpiking
+                | Self::IntrinsicallyBursting
+                | Self::Chattering
+                | Self::Thalamocortical
         )
     }
 
     /// Check if this neuron type is inhibitory.
-    pub fn is_inhibitory(&self) -> bool {
+    #[must_use] 
+    pub const fn is_inhibitory(&self) -> bool {
         matches!(
             self,
-            IzhikevichNeuronType::FastSpiking | IzhikevichNeuronType::LowThresholdSpiking
+            Self::FastSpiking | Self::LowThresholdSpiking
         )
     }
 }
@@ -259,6 +262,7 @@ impl IzhikevichNeuron {
     /// assert_eq!(neuron.id, 1);
     /// assert!(neuron.neuron_type.is_excitatory());
     /// ```
+    #[must_use] 
     pub fn new(id: u64, neuron_type: IzhikevichNeuronType) -> Self {
         let params = neuron_type.parameters();
         Self {
@@ -280,6 +284,7 @@ impl IzhikevichNeuron {
     /// Create a neuron with custom parameters.
     ///
     /// Use this when you need fine-grained control over neuron dynamics.
+    #[must_use] 
     pub fn with_custom_params(id: u64, params: IzhikevichParameters) -> Self {
         Self {
             id,
@@ -310,7 +315,7 @@ impl IzhikevichNeuron {
     ///
     /// This represents experimental current clamp or tonic input.
     #[inline]
-    pub fn set_current(&mut self, current: f64) {
+    pub const fn set_current(&mut self, current: f64) {
         self.current_input = current;
     }
 
@@ -339,9 +344,9 @@ impl IzhikevichNeuron {
 
         // Two half-steps for numerical stability (Euler method with dt=0.5ms)
         for _ in 0..2 {
-            self.v += 0.5 * (0.04 * self.v * self.v + 5.0 * self.v + 140.0 - self.u + total_input);
+            self.v += 0.5 * ((0.04 * self.v).mul_add(self.v, 5.0 * self.v) + 140.0 - self.u + total_input);
         }
-        self.u += a * (b * self.v - self.u);
+        self.u += a * b.mul_add(self.v, -self.u);
 
         // Check for spike
         if self.v >= self.spike_threshold {
@@ -369,6 +374,7 @@ impl IzhikevichNeuron {
     /// Get the instantaneous firing rate (Hz) based on recent spike history.
     ///
     /// Calculated from the inter-spike interval of the last two spikes.
+    #[must_use] 
     pub fn firing_rate(&self) -> Option<f64> {
         if self.spike_history.len() < 2 {
             return None;
@@ -386,6 +392,7 @@ impl IzhikevichNeuron {
     }
 
     /// Get the average firing rate over the entire spike history.
+    #[must_use] 
     pub fn average_firing_rate(&self, simulation_duration_ms: u64) -> f64 {
         if simulation_duration_ms == 0 {
             return 0.0;
@@ -405,6 +412,7 @@ impl IzhikevichNeuron {
     }
 
     /// Get the spike history.
+    #[must_use] 
     pub fn spike_times(&self) -> &[u64] {
         &self.spike_history
     }
@@ -412,7 +420,8 @@ impl IzhikevichNeuron {
     /// Check if the neuron is in a refractory state.
     ///
     /// Refractory period is approximately 2 ms after a spike.
-    pub fn is_refractory(&self, current_time: u64, refractory_period_ms: u64) -> bool {
+    #[must_use] 
+    pub const fn is_refractory(&self, current_time: u64, refractory_period_ms: u64) -> bool {
         if let Some(last_spike) = self.last_spike_time {
             current_time.saturating_sub(last_spike) < refractory_period_ms
         } else {
@@ -456,7 +465,8 @@ pub struct SpikingSynapse {
 
 impl SpikingSynapse {
     /// Create a new excitatory synapse (AMPA-like).
-    pub fn excitatory(pre_id: u64, post_id: u64, weight: f64) -> Self {
+    #[must_use] 
+    pub const fn excitatory(pre_id: u64, post_id: u64, weight: f64) -> Self {
         Self {
             pre_id,
             post_id,
@@ -470,7 +480,8 @@ impl SpikingSynapse {
     }
 
     /// Create a new inhibitory synapse (GABA-A-like).
-    pub fn inhibitory(pre_id: u64, post_id: u64, weight: f64) -> Self {
+    #[must_use] 
+    pub const fn inhibitory(pre_id: u64, post_id: u64, weight: f64) -> Self {
         Self {
             pre_id,
             post_id,
@@ -484,7 +495,8 @@ impl SpikingSynapse {
     }
 
     /// Create a synapse with custom parameters.
-    pub fn with_params(
+    #[must_use] 
+    pub const fn with_params(
         pre_id: u64,
         post_id: u64,
         weight: f64,
@@ -582,12 +594,13 @@ impl STDPRule {
     ///
     /// # Arguments
     ///
-    /// * `delta_t` - Time difference (t_post - t_pre) in ms
+    /// * `delta_t` - Time difference (`t_post` - `t_pre`) in ms
     /// * `current_weight` - Current synaptic weight
     ///
     /// # Returns
     ///
     /// The new weight after applying STDP
+    #[must_use] 
     pub fn apply(&self, delta_t: f64, current_weight: f64) -> f64 {
         let dw = if delta_t > 0.0 {
             // Pre before post: LTP
@@ -629,6 +642,7 @@ pub struct SpikingNeuralNetwork {
 
 impl SpikingNeuralNetwork {
     /// Create a new spiking neural network.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             neurons: RwLock::new(HashMap::new()),
@@ -643,7 +657,7 @@ impl SpikingNeuralNetwork {
     /// Add a neuron to the network.
     pub fn add_neuron(&self, neuron: IzhikevichNeuron) -> CoreResult<()> {
         let mut neurons = self.neurons.write().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire neurons write lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire neurons write lock: {e}"))
         })?;
 
         if neurons.contains_key(&neuron.id) {
@@ -665,7 +679,7 @@ impl SpikingNeuralNetwork {
         neuron_type: IzhikevichNeuronType,
     ) -> CoreResult<Vec<u64>> {
         let mut neurons = self.neurons.write().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire neurons write lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire neurons write lock: {e}"))
         })?;
 
         let mut ids = Vec::with_capacity(count as usize);
@@ -673,8 +687,7 @@ impl SpikingNeuralNetwork {
             let id = start_id + i;
             if neurons.contains_key(&id) {
                 return Err(CoreError::InvalidOperation(format!(
-                    "Neuron with ID {} already exists",
-                    id
+                    "Neuron with ID {id} already exists"
                 )));
             }
             neurons.insert(id, IzhikevichNeuron::new(id, neuron_type));
@@ -695,18 +708,16 @@ impl SpikingNeuralNetwork {
         // Verify neurons exist
         {
             let neurons = self.neurons.read().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire neurons read lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire neurons read lock: {e}"))
             })?;
             if !neurons.contains_key(&pre_id) {
                 return Err(CoreError::NotFound(format!(
-                    "Presynaptic neuron {} not found",
-                    pre_id
+                    "Presynaptic neuron {pre_id} not found"
                 )));
             }
             if !neurons.contains_key(&post_id) {
                 return Err(CoreError::NotFound(format!(
-                    "Postsynaptic neuron {} not found",
-                    post_id
+                    "Postsynaptic neuron {post_id} not found"
                 )));
             }
         }
@@ -718,7 +729,7 @@ impl SpikingNeuralNetwork {
         };
 
         let mut synapses = self.synapses.write().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire synapses write lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire synapses write lock: {e}"))
         })?;
 
         synapses.entry(post_id).or_default().push(synapse);
@@ -728,12 +739,12 @@ impl SpikingNeuralNetwork {
     /// Inject current into a specific neuron.
     pub fn inject_current(&self, neuron_id: u64, current: f64) -> CoreResult<()> {
         let mut neurons = self.neurons.write().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire neurons write lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire neurons write lock: {e}"))
         })?;
 
         let neuron = neurons
             .get_mut(&neuron_id)
-            .ok_or_else(|| CoreError::NotFound(format!("Neuron {} not found", neuron_id)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Neuron {neuron_id} not found")))?;
 
         neuron.set_current(current);
         Ok(())
@@ -746,7 +757,7 @@ impl SpikingNeuralNetwork {
     pub fn step(&self) -> CoreResult<Vec<u64>> {
         let current_time = {
             let mut time = self.current_time.write().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire time write lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire time write lock: {e}"))
             })?;
             *time += 1;
             *time
@@ -758,10 +769,10 @@ impl SpikingNeuralNetwork {
         let mut synaptic_currents: HashMap<u64, f64> = HashMap::new();
         {
             let neurons = self.neurons.read().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire neurons read lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire neurons read lock: {e}"))
             })?;
             let mut synapses = self.synapses.write().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire synapses write lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire synapses write lock: {e}"))
             })?;
 
             for (post_id, synapse_list) in synapses.iter_mut() {
@@ -778,7 +789,7 @@ impl SpikingNeuralNetwork {
         // Phase 2: Apply synaptic currents and step neurons
         {
             let mut neurons = self.neurons.write().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire neurons write lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire neurons write lock: {e}"))
             })?;
 
             for (id, neuron) in neurons.iter_mut() {
@@ -794,7 +805,7 @@ impl SpikingNeuralNetwork {
         // Phase 3: Propagate spikes through synapses
         {
             let mut synapses = self.synapses.write().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire synapses write lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire synapses write lock: {e}"))
             })?;
 
             for &pre_id in &fired_neurons {
@@ -817,7 +828,7 @@ impl SpikingNeuralNetwork {
         // Update statistics
         {
             let mut total = self.total_spikes.write().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire total_spikes write lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire total_spikes write lock: {e}"))
             })?;
             *total += fired_neurons.len() as u64;
         }
@@ -828,10 +839,10 @@ impl SpikingNeuralNetwork {
     /// Apply STDP learning rule based on spike timing.
     fn apply_stdp(&self, fired_neurons: &[u64], current_time: u64) -> CoreResult<()> {
         let neurons = self.neurons.read().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire neurons read lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire neurons read lock: {e}"))
         })?;
         let mut synapses = self.synapses.write().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire synapses write lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire synapses write lock: {e}"))
         })?;
 
         for &post_id in fired_neurons {
@@ -870,7 +881,7 @@ impl SpikingNeuralNetwork {
         for _ in 0..duration_ms {
             let fired = self.step()?;
             let time = *self.current_time.read().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire time read lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire time read lock: {e}"))
             })?;
 
             for id in fired {
@@ -884,19 +895,19 @@ impl SpikingNeuralNetwork {
     /// Get network statistics.
     pub fn statistics(&self) -> CoreResult<NetworkStatistics> {
         let neurons = self.neurons.read().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire neurons read lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire neurons read lock: {e}"))
         })?;
         let synapses = self.synapses.read().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire synapses read lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire synapses read lock: {e}"))
         })?;
         let total_spikes = *self.total_spikes.read().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire total_spikes read lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire total_spikes read lock: {e}"))
         })?;
         let current_time = *self.current_time.read().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire time read lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire time read lock: {e}"))
         })?;
 
-        let total_synapses: usize = synapses.values().map(|v| v.len()).sum();
+        let total_synapses: usize = synapses.values().map(std::vec::Vec::len).sum();
         let avg_weight: f64 = if total_synapses > 0 {
             synapses
                 .values()
@@ -920,7 +931,7 @@ impl SpikingNeuralNetwork {
     /// Get the current simulation time.
     pub fn current_time(&self) -> CoreResult<u64> {
         Ok(*self.current_time.read().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire time read lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire time read lock: {e}"))
         })?)
     }
 
@@ -928,7 +939,7 @@ impl SpikingNeuralNetwork {
     pub fn reset(&self) -> CoreResult<()> {
         {
             let mut neurons = self.neurons.write().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire neurons write lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire neurons write lock: {e}"))
             })?;
             for neuron in neurons.values_mut() {
                 neuron.reset();
@@ -936,7 +947,7 @@ impl SpikingNeuralNetwork {
         }
         {
             let mut synapses = self.synapses.write().map_err(|e| {
-                CoreError::LockError(format!("Failed to acquire synapses write lock: {}", e))
+                CoreError::LockError(format!("Failed to acquire synapses write lock: {e}"))
             })?;
             for synapse_list in synapses.values_mut() {
                 for synapse in synapse_list.iter_mut() {
@@ -946,10 +957,10 @@ impl SpikingNeuralNetwork {
             }
         }
         *self.current_time.write().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire time write lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire time write lock: {e}"))
         })? = 0;
         *self.total_spikes.write().map_err(|e| {
-            CoreError::LockError(format!("Failed to acquire total_spikes write lock: {}", e))
+            CoreError::LockError(format!("Failed to acquire total_spikes write lock: {e}"))
         })? = 0;
 
         Ok(())

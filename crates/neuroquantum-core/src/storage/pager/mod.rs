@@ -1,4 +1,4 @@
-//! Page Storage Manager for NeuroQuantumDB
+//! Page Storage Manager for `NeuroQuantumDB`
 //!
 //! Provides low-level disk I/O management with:
 //! - 4KB page-based storage
@@ -240,7 +240,7 @@ impl PageStorageManager {
 
         // Validate checksum if enabled
         if self.config.enable_checksums && !page.verify_checksum() {
-            return Err(anyhow!("Checksum validation failed for page {:?}", page_id));
+            return Err(anyhow!("Checksum validation failed for page {page_id:?}"));
         }
 
         // Add to cache
@@ -345,7 +345,8 @@ impl PageStorageManager {
     }
 
     /// Get storage statistics (synchronous version for backup)
-    pub fn get_stats(&self) -> StorageStats {
+    #[must_use] 
+    pub const fn get_stats(&self) -> StorageStats {
         // This is a simplified version that doesn't require async
         // In production, you might want to use a cached version
         StorageStats {

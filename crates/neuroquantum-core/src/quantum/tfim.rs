@@ -10,9 +10,9 @@
 //!
 //! The Transverse Field Ising Model (TFIM) describes a quantum system with:
 //!
-//! - Ising interactions (J_ij) between spins
+//! - Ising interactions (`J_ij`) between spins
 //! - A transverse magnetic field (Γ) inducing quantum fluctuations
-//! - External longitudinal fields (h_i) biasing individual spins
+//! - External longitudinal fields (`h_i`) biasing individual spins
 //!
 //! This classical simulation approximates the quantum dynamics by:
 //!
@@ -41,11 +41,11 @@ use tracing::{debug, info, instrument};
 /// Field schedule for transverse field annealing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FieldSchedule {
-    /// Linear schedule: Γ(t) = Γ_0 * (1 - t/T)
+    /// Linear schedule: Γ(t) = `Γ_0` * (1 - t/T)
     Linear,
-    /// Exponential schedule: Γ(t) = Γ_0 * exp(-λt)
+    /// Exponential schedule: Γ(t) = `Γ_0` * exp(-λt)
     Exponential { decay_rate: f64 },
-    /// Polynomial schedule: Γ(t) = Γ_0 * (1 - t/T)^p
+    /// Polynomial schedule: Γ(t) = `Γ_0` * (1 - t/T)^p
     Polynomial { power: f64 },
     /// Custom schedule with explicit values
     Custom { values: Vec<f64> },
@@ -86,9 +86,9 @@ impl Default for TransverseFieldConfig {
 pub struct TFIMProblem {
     /// Number of spins
     pub num_spins: usize,
-    /// Coupling matrix J_ij (interaction strengths)
+    /// Coupling matrix `J_ij` (interaction strengths)
     pub couplings: DMatrix<f64>,
-    /// External field h_i for each spin
+    /// External field `h_i` for each spin
     pub external_fields: Vec<f64>,
     /// Problem name
     pub name: String,
@@ -118,6 +118,7 @@ pub struct TFIMSolver {
 
 impl TFIMSolver {
     /// Create a new TFIM solver with default configuration
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             config: TransverseFieldConfig::default(),
@@ -125,7 +126,8 @@ impl TFIMSolver {
     }
 
     /// Create a new TFIM solver with custom configuration
-    pub fn with_config(config: TransverseFieldConfig) -> Self {
+    #[must_use] 
+    pub const fn with_config(config: TransverseFieldConfig) -> Self {
         Self { config }
     }
 
@@ -268,7 +270,7 @@ impl TFIMSolver {
         })
     }
 
-    /// Calculate Ising Hamiltonian energy: H = -Σ J_ij s_i s_j - Σ h_i s_i
+    /// Calculate Ising Hamiltonian energy: H = -Σ `J_ij` `s_i` `s_j` - Σ `h_i` `s_i`
     fn calculate_energy(&self, problem: &TFIMProblem, spins: &[i8]) -> f64 {
         let mut energy = 0.0;
 
@@ -276,13 +278,13 @@ impl TFIMSolver {
         for i in 0..problem.num_spins {
             for j in (i + 1)..problem.num_spins {
                 let coupling = problem.couplings[(i, j)];
-                energy -= coupling * spins[i] as f64 * spins[j] as f64;
+                energy -= coupling * f64::from(spins[i]) * f64::from(spins[j]);
             }
         }
 
         // External field terms
         for (i, &spin) in spins.iter().enumerate().take(problem.num_spins) {
-            energy -= problem.external_fields[i] * spin as f64;
+            energy -= problem.external_fields[i] * f64::from(spin);
         }
 
         energy
@@ -292,13 +294,13 @@ impl TFIMSolver {
     fn get_field_strength(&self, progress: f64) -> f64 {
         match &self.config.field_schedule {
             | FieldSchedule::Linear => {
-                self.config.initial_field * (1.0 - progress) + self.config.final_field * progress
+                self.config.initial_field.mul_add(1.0 - progress, self.config.final_field * progress)
             },
             | FieldSchedule::Exponential { decay_rate } => {
-                self.config.initial_field * (-decay_rate * progress).exp() + self.config.final_field
+                self.config.initial_field.mul_add((-decay_rate * progress).exp(), self.config.final_field)
             },
             | FieldSchedule::Polynomial { power } => {
-                self.config.initial_field * (1.0 - progress).powf(*power) + self.config.final_field
+                self.config.initial_field.mul_add((1.0 - progress).powf(*power), self.config.final_field)
             },
             | FieldSchedule::Custom { values } => {
                 let idx = (progress * (values.len() - 1) as f64) as usize;

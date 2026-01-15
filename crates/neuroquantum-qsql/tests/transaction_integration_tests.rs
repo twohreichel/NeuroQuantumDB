@@ -188,7 +188,7 @@ async fn test_transaction_isolation_levels() {
     for (i, sql) in isolation_levels.iter().enumerate() {
         let begin_stmt = parser.parse(sql).unwrap();
         let result = executor.execute_statement(&begin_stmt).await;
-        assert!(result.is_ok(), "Failed to parse isolation level: {}", sql);
+        assert!(result.is_ok(), "Failed to parse isolation level: {sql}");
 
         // Insert some data
         let insert_sql = format!(
@@ -281,7 +281,7 @@ async fn test_savepoint_basic() {
     let savepoint_stmt = parser.parse("SAVEPOINT sp1").unwrap();
     let result = executor.execute_statement(&savepoint_stmt).await;
     if let Err(ref e) = result {
-        eprintln!("SAVEPOINT error: {:?}", e);
+        eprintln!("SAVEPOINT error: {e:?}");
     }
     assert!(result.is_ok(), "SAVEPOINT should succeed");
 

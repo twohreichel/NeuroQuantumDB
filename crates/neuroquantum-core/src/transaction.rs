@@ -146,6 +146,7 @@ pub struct Transaction {
 
 impl Transaction {
     /// Create a new transaction
+    #[must_use] 
     pub fn new(isolation_level: IsolationLevel, timeout_seconds: u64) -> Self {
         let now = chrono::Utc::now();
         Self {
@@ -166,6 +167,7 @@ impl Transaction {
     }
 
     /// Check if transaction has timed out
+    #[must_use] 
     pub fn is_timed_out(&self) -> bool {
         let elapsed = chrono::Utc::now()
             .signed_duration_since(self.last_active)
@@ -191,6 +193,7 @@ pub struct LockManager {
 
 impl LockManager {
     /// Create a new lock manager
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             locks: Arc::new(RwLock::new(HashMap::new())),
@@ -241,7 +244,7 @@ impl LockManager {
         let locks = self
             .locks
             .read()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
 
         if let Some(existing_locks) = locks.get(resource_id) {
             // Check compatibility with existing locks
@@ -254,9 +257,8 @@ impl LockManager {
                 // Check lock compatibility
                 let compatible = matches!(
                     (lock.lock_type, lock_type),
-                    (LockType::Shared, LockType::Shared)
-                        | (LockType::IntentionShared, LockType::Shared)
-                        | (LockType::IntentionShared, LockType::IntentionShared)
+                    (LockType::Shared | LockType::IntentionShared, LockType::Shared) |
+(LockType::IntentionShared, LockType::IntentionShared)
                 );
 
                 if !compatible {
@@ -278,7 +280,7 @@ impl LockManager {
         let mut locks = self
             .locks
             .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
 
         let lock = Lock {
             transaction_id: tx_id,
@@ -296,7 +298,7 @@ impl LockManager {
         let mut waiting = self
             .waiting
             .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
         waiting.remove(&tx_id);
 
         debug!(
@@ -315,12 +317,12 @@ impl LockManager {
         let locks = self
             .locks
             .read()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
 
         // Build wait-for relationships
         if let Some(existing_locks) = locks.get(resource_id) {
             let mut wait_for = self.wait_for.write().map_err(|e| {
-                NeuroQuantumError::TransactionError(format!("Lock poisoned: {}", e))
+                NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}"))
             })?;
 
             let waiting_for: HashSet<TransactionId> = existing_locks
@@ -335,8 +337,7 @@ impl LockManager {
             if self.has_cycle(&wait_for, tx_id)? {
                 error!("Deadlock detected involving transaction {:?}", tx_id);
                 return Err(NeuroQuantumError::DeadlockDetected(format!(
-                    "Deadlock detected for transaction {:?}",
-                    tx_id
+                    "Deadlock detected for transaction {tx_id:?}"
                 )));
             }
         }
@@ -390,7 +391,7 @@ impl LockManager {
         let mut locks = self
             .locks
             .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
 
         let resources_to_remove: Vec<ResourceId> = locks.keys().cloned().collect();
 
@@ -407,7 +408,7 @@ impl LockManager {
         let mut wait_for = self
             .wait_for
             .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
         wait_for.remove(tx_id);
 
         debug!("Released all locks for transaction {:?}", tx_id);
@@ -436,7 +437,7 @@ impl LogManager {
     /// Create a new log manager
     pub async fn new(log_dir: &Path) -> Result<Self, NeuroQuantumError> {
         tokio::fs::create_dir_all(log_dir).await.map_err(|e| {
-            NeuroQuantumError::StorageError(format!("Failed to create log directory: {}", e))
+            NeuroQuantumError::StorageError(format!("Failed to create log directory: {e}"))
         })?;
 
         let log_path = log_dir.join("wal.log");
@@ -447,7 +448,7 @@ impl LogManager {
             .open(&log_path)
             .await
             .map_err(|e| {
-                NeuroQuantumError::StorageError(format!("Failed to open WAL file: {}", e))
+                NeuroQuantumError::StorageError(format!("Failed to open WAL file: {e}"))
             })?;
 
         info!("📝 WAL initialized at: {}", log_path.display());
@@ -471,6 +472,7 @@ impl LogManager {
     /// Panics if /dev/null cannot be opened, which would indicate a severely broken system.
     #[doc(hidden)]
     #[allow(clippy::expect_used)] // Placeholder for internal use - /dev/null should always exist
+    #[must_use] 
     pub fn new_placeholder() -> Self {
         Self {
             log_file: Arc::new(Mutex::new(File::from_std(
@@ -528,20 +530,19 @@ impl LogManager {
         while let Some(record) = buffer.pop_front() {
             let serialized = serde_json::to_vec(&record).map_err(|e| {
                 NeuroQuantumError::SerializationError(format!(
-                    "Failed to serialize log record: {}",
-                    e
+                    "Failed to serialize log record: {e}"
                 ))
             })?;
 
             // Write length prefix
             let len = serialized.len() as u32;
             log_file.write_all(&len.to_le_bytes()).await.map_err(|e| {
-                NeuroQuantumError::StorageError(format!("Failed to write log length: {}", e))
+                NeuroQuantumError::StorageError(format!("Failed to write log length: {e}"))
             })?;
 
             // Write record
             log_file.write_all(&serialized).await.map_err(|e| {
-                NeuroQuantumError::StorageError(format!("Failed to write log record: {}", e))
+                NeuroQuantumError::StorageError(format!("Failed to write log record: {e}"))
             })?;
         }
 
@@ -549,7 +550,7 @@ impl LogManager {
         log_file
             .sync_all()
             .await
-            .map_err(|e| NeuroQuantumError::StorageError(format!("Failed to sync WAL: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::StorageError(format!("Failed to sync WAL: {e}")))?;
 
         Ok(())
     }
@@ -562,7 +563,7 @@ impl LogManager {
         log_file
             .sync_all()
             .await
-            .map_err(|e| NeuroQuantumError::StorageError(format!("Failed to force log: {}", e)))?;
+            .map_err(|e| NeuroQuantumError::StorageError(format!("Failed to force log: {e}")))?;
 
         debug!("Forced log up to LSN {}", _lsn);
         Ok(())
@@ -572,7 +573,7 @@ impl LogManager {
     pub async fn read_log(&self) -> Result<Vec<LogRecord>, NeuroQuantumError> {
         let mut log_file = self.log_file.lock().await;
         log_file.seek(SeekFrom::Start(0)).await.map_err(|e| {
-            NeuroQuantumError::StorageError(format!("Failed to seek log file: {}", e))
+            NeuroQuantumError::StorageError(format!("Failed to seek log file: {e}"))
         })?;
 
         let mut records = Vec::new();
@@ -585,8 +586,7 @@ impl LogManager {
                 | Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
                 | Err(e) => {
                     return Err(NeuroQuantumError::StorageError(format!(
-                        "Failed to read log length: {}",
-                        e
+                        "Failed to read log length: {e}"
                     )));
                 },
             }
@@ -596,13 +596,12 @@ impl LogManager {
             // Read record
             let mut record_buf = vec![0u8; len];
             log_file.read_exact(&mut record_buf).await.map_err(|e| {
-                NeuroQuantumError::StorageError(format!("Failed to read log record: {}", e))
+                NeuroQuantumError::StorageError(format!("Failed to read log record: {e}"))
             })?;
 
             let record: LogRecord = serde_json::from_slice(&record_buf).map_err(|e| {
                 NeuroQuantumError::SerializationError(format!(
-                    "Failed to deserialize log record: {}",
-                    e
+                    "Failed to deserialize log record: {e}"
                 ))
             })?;
 
@@ -633,6 +632,7 @@ impl LogManager {
     }
 
     /// Get the path to the WAL log file
+    #[must_use] 
     pub fn get_log_path(&self) -> &Path {
         &self.log_path
     }
@@ -646,7 +646,7 @@ impl LogManager {
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         let archive_path = self
             .log_path
-            .with_extension(format!("log.{}.archive", timestamp));
+            .with_extension(format!("log.{timestamp}.archive"));
 
         tokio::fs::copy(&self.log_path, &archive_path)
             .await
@@ -689,15 +689,14 @@ impl LogManager {
             .open(&truncated_path)
             .await
             .map_err(|e| {
-                NeuroQuantumError::StorageError(format!("Failed to create truncated log: {}", e))
+                NeuroQuantumError::StorageError(format!("Failed to create truncated log: {e}"))
             })?;
 
         // Write kept records to truncated file
         for record in &records_to_keep {
             let serialized = serde_json::to_vec(record).map_err(|e| {
                 NeuroQuantumError::SerializationError(format!(
-                    "Failed to serialize log record: {}",
-                    e
+                    "Failed to serialize log record: {e}"
                 ))
             })?;
 
@@ -706,15 +705,15 @@ impl LogManager {
                 .write_all(&len.to_le_bytes())
                 .await
                 .map_err(|e| {
-                    NeuroQuantumError::StorageError(format!("Failed to write log length: {}", e))
+                    NeuroQuantumError::StorageError(format!("Failed to write log length: {e}"))
                 })?;
             truncated_file.write_all(&serialized).await.map_err(|e| {
-                NeuroQuantumError::StorageError(format!("Failed to write log record: {}", e))
+                NeuroQuantumError::StorageError(format!("Failed to write log record: {e}"))
             })?;
         }
 
         truncated_file.sync_all().await.map_err(|e| {
-            NeuroQuantumError::StorageError(format!("Failed to sync truncated log: {}", e))
+            NeuroQuantumError::StorageError(format!("Failed to sync truncated log: {e}"))
         })?;
         drop(truncated_file);
 
@@ -723,8 +722,7 @@ impl LogManager {
             .await
             .map_err(|e| {
                 NeuroQuantumError::StorageError(format!(
-                    "Failed to replace log with truncated: {}",
-                    e
+                    "Failed to replace log with truncated: {e}"
                 ))
             })?;
 
@@ -741,7 +739,7 @@ impl LogManager {
     /// Get statistics about the WAL log file
     pub async fn get_log_stats(&self) -> Result<WALLogStats, NeuroQuantumError> {
         let metadata = tokio::fs::metadata(&self.log_path).await.map_err(|e| {
-            NeuroQuantumError::StorageError(format!("Failed to get WAL metadata: {}", e))
+            NeuroQuantumError::StorageError(format!("Failed to get WAL metadata: {e}"))
         })?;
 
         let records = self.read_log().await?;
@@ -770,7 +768,7 @@ pub struct WALLogStats {
 }
 
 /// Callback trait for storage operations during recovery
-/// This allows the RecoveryManager to integrate with the StorageEngine
+/// This allows the `RecoveryManager` to integrate with the `StorageEngine`
 #[async_trait::async_trait]
 pub trait RecoveryStorageCallback: Send + Sync {
     /// Apply an after-image (REDO operation)
@@ -808,7 +806,8 @@ pub struct RecoveryManager {
 
 impl RecoveryManager {
     /// Create a new recovery manager
-    pub fn new(log_manager: Arc<LogManager>) -> Self {
+    #[must_use] 
+    pub const fn new(log_manager: Arc<LogManager>) -> Self {
         Self { log_manager }
     }
 
@@ -817,6 +816,7 @@ impl RecoveryManager {
     /// **Important:** This uses a placeholder LogManager and should NOT be used in production.
     /// Only for internal use during synchronous construction.
     #[doc(hidden)]
+    #[must_use] 
     pub fn new_placeholder() -> Self {
         Self {
             log_manager: Arc::new(LogManager::new_placeholder()),
@@ -1069,7 +1069,8 @@ impl Default for TransactionManager {
 
 impl TransactionManager {
     /// Create a placeholder transaction manager for synchronous construction
-    /// This should be followed by proper async initialization with new_async()
+    /// This should be followed by proper async initialization with `new_async()`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             active_transactions: Arc::new(TokioRwLock::new(HashMap::new())),
@@ -1144,7 +1145,7 @@ impl TransactionManager {
         let mut active = self.active_transactions.write().await;
 
         let tx = active.get_mut(&tx_id).ok_or_else(|| {
-            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+            NeuroQuantumError::TransactionError(format!("Transaction {tx_id:?} not found"))
         })?;
 
         // Check if transaction is still active
@@ -1206,7 +1207,7 @@ impl TransactionManager {
         let mut active = self.active_transactions.write().await;
 
         let tx = active.get_mut(&tx_id).ok_or_else(|| {
-            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+            NeuroQuantumError::TransactionError(format!("Transaction {tx_id:?} not found"))
         })?;
 
         tx.status = TransactionStatus::Aborting;
@@ -1301,7 +1302,7 @@ impl TransactionManager {
         let last_lsn = {
             let active = self.active_transactions.read().await;
             let tx = active.get(&tx_id).ok_or_else(|| {
-                NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+                NeuroQuantumError::TransactionError(format!("Transaction {tx_id:?} not found"))
             })?;
             tx.last_lsn
         };
@@ -1339,7 +1340,7 @@ impl TransactionManager {
         let mut active = self.active_transactions.write().await;
 
         let tx = active.get_mut(&tx_id).ok_or_else(|| {
-            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+            NeuroQuantumError::TransactionError(format!("Transaction {tx_id:?} not found"))
         })?;
 
         tx.touch();
@@ -1366,7 +1367,7 @@ impl TransactionManager {
         let mut active = self.active_transactions.write().await;
 
         let tx = active.get_mut(&tx_id).ok_or_else(|| {
-            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+            NeuroQuantumError::TransactionError(format!("Transaction {tx_id:?} not found"))
         })?;
 
         tx.touch();
@@ -1416,7 +1417,7 @@ impl TransactionManager {
         let active = self.active_transactions.read().await;
 
         let _tx = active.get(&tx_id).ok_or_else(|| {
-            NeuroQuantumError::TransactionError(format!("Transaction {:?} not found", tx_id))
+            NeuroQuantumError::TransactionError(format!("Transaction {tx_id:?} not found"))
         })?;
 
         debug!("🗑️  Savepoint released for transaction {:?}", tx_id);
@@ -1464,8 +1465,8 @@ impl TransactionManager {
 
     /// Perform full ARIES crash recovery with storage integration
     ///
-    /// This delegates to the RecoveryManager's `recover_with_storage()` method,
-    /// providing a convenient entry point from the TransactionManager.
+    /// This delegates to the `RecoveryManager`'s `recover_with_storage()` method,
+    /// providing a convenient entry point from the `TransactionManager`.
     ///
     /// # Arguments
     /// * `storage_callback` - Implementation of `RecoveryStorageCallback` that applies
@@ -1483,12 +1484,14 @@ impl TransactionManager {
     }
 
     /// Get the log manager for direct access (e.g., for archiving)
-    pub fn log_manager(&self) -> &Arc<LogManager> {
+    #[must_use] 
+    pub const fn log_manager(&self) -> &Arc<LogManager> {
         &self.log_manager
     }
 
     /// Get the recovery manager for direct access
-    pub fn recovery_manager(&self) -> &Arc<RecoveryManager> {
+    #[must_use] 
+    pub const fn recovery_manager(&self) -> &Arc<RecoveryManager> {
         &self.recovery_manager
     }
 

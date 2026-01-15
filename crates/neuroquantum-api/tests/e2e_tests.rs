@@ -1,4 +1,4 @@
-//! End-to-End Integration Tests for NeuroQuantumDB API
+//! End-to-End Integration Tests for `NeuroQuantumDB` API
 //!
 //! These tests verify complete workflows including table creation,
 //! data insertion with DNA compression, and querying with statistics.
@@ -95,11 +95,11 @@ async fn test_complete_workflow_with_query_statistics() {
             );
             fields.insert(
                 "username".to_string(),
-                neuroquantum_core::storage::Value::Text(username.to_string()),
+                neuroquantum_core::storage::Value::Text((*username).to_string()),
             );
             fields.insert(
                 "email".to_string(),
-                neuroquantum_core::storage::Value::Text(email.to_string()),
+                neuroquantum_core::storage::Value::Text((*email).to_string()),
             );
             fields.insert(
                 "active".to_string(),
@@ -249,7 +249,7 @@ async fn test_concurrent_operations() {
             };
 
             let result = storage.select_rows(&query).await;
-            assert!(result.is_ok(), "Concurrent read {} should succeed", i);
+            assert!(result.is_ok(), "Concurrent read {i} should succeed");
         });
         handles.push(handle);
     }
@@ -307,7 +307,7 @@ async fn test_query_statistics_accuracy() {
             );
             fields.insert(
                 "data".to_string(),
-                neuroquantum_core::storage::Value::Text(format!("data_{}", i)),
+                neuroquantum_core::storage::Value::Text(format!("data_{i}")),
             );
 
             let row = neuroquantum_core::storage::Row {

@@ -54,7 +54,7 @@ fn create_large_problem(size: usize) -> QUBOProblem {
     QUBOProblem {
         q_matrix,
         num_vars: size,
-        name: format!("Large Problem ({})", size),
+        name: format!("Large Problem ({size})"),
     }
 }
 
@@ -73,7 +73,7 @@ fn create_maxcut_cycle(n: usize) -> QUBOProblem {
     QUBOProblem {
         q_matrix,
         num_vars: n,
-        name: format!("Max-Cut Cycle Graph ({})", n),
+        name: format!("Max-Cut Cycle Graph ({n})"),
     }
 }
 

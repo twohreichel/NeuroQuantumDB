@@ -1,4 +1,4 @@
-//! Write-Ahead Logging (WAL) System for NeuroQuantumDB
+//! Write-Ahead Logging (WAL) System for `NeuroQuantumDB`
 //!
 //! Implements ARIES-style recovery with:
 //! - Write-ahead logging with force-at-commit
@@ -103,6 +103,7 @@ pub struct WALRecord {
 
 impl WALRecord {
     /// Create a new WAL record
+    #[must_use] 
     pub fn new(
         lsn: LSN,
         prev_lsn: Option<LSN>,
@@ -137,6 +138,7 @@ impl WALRecord {
     }
 
     /// Verify checksum
+    #[must_use] 
     pub fn verify_checksum(&self) -> bool {
         let expected = self.compute_checksum();
         self.checksum == expected
@@ -144,12 +146,12 @@ impl WALRecord {
 
     /// Serialize to bytes
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| anyhow!("Failed to serialize WAL record: {}", e))
+        bincode::serialize(self).map_err(|e| anyhow!("Failed to serialize WAL record: {e}"))
     }
 
     /// Deserialize from bytes
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
-        bincode::deserialize(data).map_err(|e| anyhow!("Failed to deserialize WAL record: {}", e))
+        bincode::deserialize(data).map_err(|e| anyhow!("Failed to deserialize WAL record: {e}"))
     }
 }
 
@@ -188,7 +190,7 @@ impl Default for WALConfig {
 /// This structure maintains comprehensive transaction state information
 /// required for proper crash recovery, including:
 /// - Transaction boundaries (first/last LSN)
-/// - Undo chain navigation (undo_next_lsn)
+/// - Undo chain navigation (`undo_next_lsn`)
 /// - Current transaction status for recovery decisions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionState {
@@ -214,6 +216,7 @@ pub struct TransactionState {
 
 impl TransactionState {
     /// Create a new transaction state
+    #[must_use] 
     pub fn new(tx_id: TransactionId, first_lsn: LSN) -> Self {
         Self {
             tx_id,
@@ -229,7 +232,8 @@ impl TransactionState {
     }
 
     /// Check if transaction is in a terminal state
-    pub fn is_terminal(&self) -> bool {
+    #[must_use] 
+    pub const fn is_terminal(&self) -> bool {
         matches!(
             self.status,
             TransactionStatus::Committed | TransactionStatus::Aborted
@@ -237,7 +241,8 @@ impl TransactionState {
     }
 
     /// Check if transaction needs undo during recovery
-    pub fn needs_undo(&self) -> bool {
+    #[must_use] 
+    pub const fn needs_undo(&self) -> bool {
         matches!(
             self.status,
             TransactionStatus::Active | TransactionStatus::Aborting
@@ -245,7 +250,8 @@ impl TransactionState {
     }
 
     /// Check if transaction needs redo during recovery
-    pub fn needs_redo(&self) -> bool {
+    #[must_use] 
+    pub const fn needs_redo(&self) -> bool {
         matches!(
             self.status,
             TransactionStatus::Committed | TransactionStatus::Committing
@@ -294,11 +300,13 @@ impl TransactionState {
     }
 
     /// Get transaction duration
+    #[must_use] 
     pub fn duration(&self) -> chrono::Duration {
         chrono::Utc::now() - self.start_time
     }
 
     /// Get transaction summary for monitoring
+    #[must_use] 
     pub fn summary(&self) -> TransactionSummary {
         TransactionSummary {
             tx_id: self.tx_id,
@@ -334,17 +342,20 @@ pub enum TransactionStatus {
 
 impl TransactionStatus {
     /// Check if this status indicates an active transaction
-    pub fn is_active(&self) -> bool {
+    #[must_use] 
+    pub const fn is_active(&self) -> bool {
         matches!(self, Self::Active | Self::Committing | Self::Aborting)
     }
 
     /// Check if this status indicates a completed transaction
-    pub fn is_complete(&self) -> bool {
+    #[must_use] 
+    pub const fn is_complete(&self) -> bool {
         matches!(self, Self::Committed | Self::Aborted)
     }
 
     /// Get human-readable status string
-    pub fn as_str(&self) -> &'static str {
+    #[must_use] 
+    pub const fn as_str(&self) -> &'static str {
         match self {
             | Self::Active => "ACTIVE",
             | Self::Committing => "COMMITTING",
@@ -391,9 +402,9 @@ pub struct WALManager {
     log_writer: Arc<RwLock<LogWriter>>,
     /// Active transactions
     active_txns: Arc<RwLock<HashMap<TransactionId, TransactionState>>>,
-    /// Transaction table: tx_id -> last_lsn
+    /// Transaction table: `tx_id` -> `last_lsn`
     transaction_table: Arc<RwLock<HashMap<TransactionId, LSN>>>,
-    /// Dirty page table: page_id -> recovery_lsn
+    /// Dirty page table: `page_id` -> `recovery_lsn`
     dirty_page_table: Arc<RwLock<HashMap<PageId, LSN>>>,
     /// Checkpoint manager
     _checkpoint_manager: Arc<CheckpointManager>,
@@ -648,12 +659,12 @@ impl WALManager {
             let active_txns = self.active_txns.read().await;
             let tx_state = active_txns
                 .get(&tx_id)
-                .ok_or_else(|| anyhow!("Transaction {} not found", tx_id))?;
+                .ok_or_else(|| anyhow!("Transaction {tx_id} not found"))?;
 
             *tx_state
                 .savepoints
                 .get(&name)
-                .ok_or_else(|| anyhow!("Savepoint '{}' not found", name))?
+                .ok_or_else(|| anyhow!("Savepoint '{name}' not found"))?
         };
 
         let lsn = self.allocate_lsn();
@@ -706,10 +717,10 @@ impl WALManager {
             let active_txns = self.active_txns.read().await;
             let tx_state = active_txns
                 .get(&tx_id)
-                .ok_or_else(|| anyhow!("Transaction {} not found", tx_id))?;
+                .ok_or_else(|| anyhow!("Transaction {tx_id} not found"))?;
 
             if !tx_state.savepoints.contains_key(&name) {
-                return Err(anyhow!("Savepoint '{}' not found", name));
+                return Err(anyhow!("Savepoint '{name}' not found"));
             }
         }
 
@@ -798,6 +809,7 @@ impl WALManager {
     }
 
     /// Get current LSN
+    #[must_use] 
     pub fn get_current_lsn(&self) -> LSN {
         self.next_lsn.load(Ordering::SeqCst)
     }
@@ -845,11 +857,13 @@ impl WALManager {
     }
 
     /// Get current LSN (alias for compatibility)
+    #[must_use] 
     pub fn current_lsn(&self) -> LSN {
         self.get_current_lsn()
     }
 
     /// Get WAL directory path
+    #[must_use] 
     pub fn get_wal_directory(&self) -> PathBuf {
         self._config.wal_dir.clone()
     }
@@ -870,7 +884,7 @@ impl WALManager {
             .read()
             .await
             .values()
-            .map(|state| state.summary())
+            .map(TransactionState::summary)
             .collect()
     }
 
@@ -900,8 +914,7 @@ impl WALManager {
             .read()
             .await
             .get(&tx_id)
-            .map(|state| !state.is_terminal())
-            .unwrap_or(false)
+            .is_some_and(|state| !state.is_terminal())
     }
 
     /// Get transactions that need undo during recovery

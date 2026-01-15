@@ -26,11 +26,13 @@ impl ChannelId {
     }
 
     /// Get the channel name
+    #[must_use] 
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Check if this channel matches a pattern (supports wildcards)
+    #[must_use] 
     pub fn matches(&self, pattern: &str) -> bool {
         // Simple wildcard matching:
         // "*" matches single segment
@@ -161,10 +163,10 @@ impl Channel {
 ///
 /// Manages channels and subscriptions for topic-based message routing.
 pub struct PubSubManager {
-    /// All channels indexed by ChannelId
+    /// All channels indexed by `ChannelId`
     channels: Arc<DashMap<ChannelId, Arc<Channel>>>,
 
-    /// Connection subscriptions (conn_id -> set of patterns)
+    /// Connection subscriptions (`conn_id` -> set of patterns)
     subscriptions: Arc<DashMap<ConnectionId, HashSet<String>>>,
 
     /// Total number of messages published
@@ -294,7 +296,7 @@ impl PubSubManager {
             let conn_id = *entry.key();
             let patterns = entry.value();
 
-            for pattern in patterns.iter() {
+            for pattern in patterns {
                 if pattern.contains('*') && channel_id.matches(pattern) {
                     result.insert(conn_id);
                 }
@@ -338,6 +340,7 @@ impl PubSubManager {
     }
 
     /// Get subscriptions for a specific connection
+    #[must_use] 
     pub fn get_connection_subscriptions(&self, conn_id: ConnectionId) -> Vec<String> {
         self.subscriptions
             .get(&conn_id)
@@ -346,6 +349,7 @@ impl PubSubManager {
     }
 
     /// Get all active channels
+    #[must_use] 
     pub fn get_all_channels(&self) -> Vec<ChannelId> {
         self.channels.iter().map(|e| e.key().clone()).collect()
     }
@@ -455,7 +459,7 @@ mod tests {
     #[test]
     fn test_channel_id_display() {
         let channel = ChannelId::new("test.channel");
-        assert_eq!(format!("{}", channel), "test.channel");
+        assert_eq!(format!("{channel}"), "test.channel");
     }
 
     #[tokio::test]

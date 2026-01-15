@@ -17,7 +17,7 @@ pub struct ClusterConfig {
     /// Address to bind for cluster communication
     pub bind_addr: SocketAddr,
 
-    /// Address advertised to other nodes (if different from bind_addr)
+    /// Address advertised to other nodes (if different from `bind_addr`)
     pub advertise_addr: Option<SocketAddr>,
 
     /// List of peer addresses to connect to on startup
@@ -224,7 +224,7 @@ pub struct DnsConfig {
 /// Consul service discovery configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsulConfig {
-    /// Consul address (e.g., "http://localhost:8500")
+    /// Consul address (e.g., "<http://localhost:8500>")
     pub address: String,
 
     /// Service name to query
@@ -395,21 +395,21 @@ impl ClusterConfig {
 impl ClusterConfigBuilder {
     /// Set the node ID.
     #[must_use]
-    pub fn node_id(mut self, id: u64) -> Self {
+    pub const fn node_id(mut self, id: u64) -> Self {
         self.config.node_id = id;
         self
     }
 
     /// Set the bind address.
     #[must_use]
-    pub fn bind_addr(mut self, addr: SocketAddr) -> Self {
+    pub const fn bind_addr(mut self, addr: SocketAddr) -> Self {
         self.config.bind_addr = addr;
         self
     }
 
     /// Set the advertise address.
     #[must_use]
-    pub fn advertise_addr(mut self, addr: SocketAddr) -> Self {
+    pub const fn advertise_addr(mut self, addr: SocketAddr) -> Self {
         self.config.advertise_addr = Some(addr);
         self
     }
@@ -430,7 +430,7 @@ impl ClusterConfigBuilder {
 
     /// Set the Raft configuration.
     #[must_use]
-    pub fn raft(mut self, raft: RaftConfig) -> Self {
+    pub const fn raft(mut self, raft: RaftConfig) -> Self {
         self.config.raft = raft;
         self
     }
@@ -444,7 +444,7 @@ impl ClusterConfigBuilder {
 
     /// Set the sharding configuration.
     #[must_use]
-    pub fn sharding(mut self, sharding: ShardingConfig) -> Self {
+    pub const fn sharding(mut self, sharding: ShardingConfig) -> Self {
         self.config.sharding = sharding;
         self
     }
@@ -458,21 +458,21 @@ impl ClusterConfigBuilder {
 
     /// Set the cluster manager configuration.
     #[must_use]
-    pub fn manager(mut self, manager: ClusterManagerConfig) -> Self {
+    pub const fn manager(mut self, manager: ClusterManagerConfig) -> Self {
         self.config.manager = manager;
         self
     }
 
     /// Set the heartbeat interval.
     #[must_use]
-    pub fn heartbeat_interval(mut self, interval: Duration) -> Self {
+    pub const fn heartbeat_interval(mut self, interval: Duration) -> Self {
         self.config.raft.heartbeat_interval = interval;
         self
     }
 
     /// Set the election timeout range.
     #[must_use]
-    pub fn election_timeout(mut self, min: Duration, max: Duration) -> Self {
+    pub const fn election_timeout(mut self, min: Duration, max: Duration) -> Self {
         self.config.raft.election_timeout_min = min;
         self.config.raft.election_timeout_max = max;
         self
@@ -480,7 +480,7 @@ impl ClusterConfigBuilder {
 
     /// Set the replication factor.
     #[must_use]
-    pub fn replication_factor(mut self, factor: u32) -> Self {
+    pub const fn replication_factor(mut self, factor: u32) -> Self {
         self.config.sharding.replication_factor = factor;
         self
     }

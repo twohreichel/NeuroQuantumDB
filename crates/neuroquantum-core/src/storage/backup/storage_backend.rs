@@ -154,7 +154,7 @@ impl BackupStorageBackend for S3Backend {
             .body(aws_sdk_s3::primitives::ByteStream::from(data.to_vec()))
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("S3 write failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("S3 write failed: {e}"))?;
 
         tracing::info!(
             "✅ S3 write: bucket={}, key={}, size={} bytes",
@@ -176,13 +176,13 @@ impl BackupStorageBackend for S3Backend {
             .key(&key)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("S3 read failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("S3 read failed: {e}"))?;
 
         let data = resp
             .body
             .collect()
             .await
-            .map_err(|e| anyhow::anyhow!("S3 body read failed: {}", e))?
+            .map_err(|e| anyhow::anyhow!("S3 body read failed: {e}"))?
             .into_bytes()
             .to_vec();
 
@@ -205,7 +205,7 @@ impl BackupStorageBackend for S3Backend {
             .key(&key)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("S3 delete failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("S3 delete failed: {e}"))?;
 
         tracing::info!("✅ S3 delete: bucket={}, key={}", self.config.bucket, key);
 
@@ -234,7 +234,7 @@ impl BackupStorageBackend for S3Backend {
             .prefix(&prefix)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("S3 list failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("S3 list failed: {e}"))?;
 
         let files: Vec<PathBuf> = resp
             .contents()

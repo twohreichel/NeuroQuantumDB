@@ -108,14 +108,14 @@ async fn demo_simple_transaction(
 
     // Begin transaction
     let tx_id = wal.begin_transaction().await?;
-    println!("   Transaction started: {}", tx_id);
+    println!("   Transaction started: {tx_id}");
 
     // Log updates
     let before = vec![0; 256];
     let after = vec![42; 256];
 
     let lsn = wal.log_update(tx_id, page_id, 0, before, after).await?;
-    println!("   Update logged at LSN: {}", lsn);
+    println!("   Update logged at LSN: {lsn}");
 
     // Commit
     wal.commit_transaction(tx_id).await?;
@@ -189,7 +189,7 @@ async fn demo_transaction_abort(
     let page_id = pager.allocate_page(PageType::Data).await?;
     let tx_id = wal.begin_transaction().await?;
 
-    println!("   Transaction started: {}", tx_id);
+    println!("   Transaction started: {tx_id}");
 
     // Log some updates
     for i in 0..3 {
@@ -216,7 +216,7 @@ async fn demo_checkpoint(wal: &WALManager) -> anyhow::Result<()> {
     println!("   Active transactions before: {}", tx_table_before.len());
 
     let checkpoint_lsn = wal.checkpoint().await?;
-    println!("   ✅ Checkpoint completed at LSN: {}", checkpoint_lsn);
+    println!("   ✅ Checkpoint completed at LSN: {checkpoint_lsn}");
 
     let dirty_pages = wal.get_dirty_page_table().await;
     println!("   Dirty pages after checkpoint: {}", dirty_pages.len());
@@ -239,13 +239,13 @@ async fn demo_crash_recovery(
     wal.log_update(tx1, page_id, 0, vec![0; 100], vec![1; 100])
         .await?;
     wal.commit_transaction(tx1).await?;
-    println!("   Simulated committed transaction: {}", tx1);
+    println!("   Simulated committed transaction: {tx1}");
 
     // Uncommitted transaction (simulates crash)
     let tx2 = wal.begin_transaction().await?;
     wal.log_update(tx2, page_id, 100, vec![0; 100], vec![2; 100])
         .await?;
-    println!("   Simulated uncommitted transaction: {} (crash!)", tx2);
+    println!("   Simulated uncommitted transaction: {tx2} (crash!)");
 
     // Perform recovery
     println!("   Starting ARIES recovery...");

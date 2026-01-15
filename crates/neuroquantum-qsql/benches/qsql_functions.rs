@@ -2,10 +2,10 @@
 //!
 //! This module benchmarks QSQL-specific functions including:
 //! - NEUROMATCH for neuromorphic pattern matching
-//! - QUANTUM_SEARCH for quantum-inspired search
+//! - `QUANTUM_SEARCH` for quantum-inspired search
 //! - Comparison with traditional SQL LIKE queries
 //!
-//! Run with: cargo bench --features benchmarks --bench qsql_functions
+//! Run with: cargo bench --features benchmarks --bench `qsql_functions`
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::storage::Value;
@@ -52,7 +52,7 @@ fn generate_test_rows(count: usize) -> Vec<BenchmarkRow> {
             fields.insert("email".to_string(), Value::Text(email));
             fields.insert(
                 "age".to_string(),
-                Value::Integer(rng.gen_range(18..80) as i64),
+                Value::Integer(i64::from(rng.gen_range(18..80))),
             );
             fields.insert("score".to_string(), Value::Float(rng.gen_range(0.0..100.0)));
 
@@ -97,7 +97,7 @@ fn neuromatch_score(text: &str, pattern: &str) -> f32 {
     }
 }
 
-/// Simulate QUANTUM_SEARCH function - quantum-inspired parallel search
+/// Simulate `QUANTUM_SEARCH` function - quantum-inspired parallel search
 fn quantum_search<'a>(
     rows: &'a [BenchmarkRow],
     column: &str,
@@ -136,7 +136,7 @@ fn bench_neuromatch(c: &mut Criterion) {
     let mut group = c.benchmark_group("neuromatch");
     group.measurement_time(Duration::from_secs(10));
 
-    for row_count in [100, 1_000, 10_000].iter() {
+    for row_count in &[100, 1_000, 10_000] {
         group.throughput(Throughput::Elements(*row_count as u64));
 
         let rows = generate_test_rows(*row_count);
@@ -166,7 +166,7 @@ fn bench_neuromatch_vs_like(c: &mut Criterion) {
     let mut group = c.benchmark_group("neuromatch_vs_like");
     group.measurement_time(Duration::from_secs(10));
 
-    for row_count in [1_000, 5_000, 10_000].iter() {
+    for row_count in &[1_000, 5_000, 10_000] {
         group.throughput(Throughput::Elements(*row_count as u64));
 
         let rows = generate_test_rows(*row_count);
@@ -213,12 +213,12 @@ fn bench_neuromatch_vs_like(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark QUANTUM_SEARCH function
+/// Benchmark `QUANTUM_SEARCH` function
 fn bench_quantum_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("quantum_search");
     group.measurement_time(Duration::from_secs(10));
 
-    for row_count in [100, 1_000, 10_000].iter() {
+    for row_count in &[100, 1_000, 10_000] {
         group.throughput(Throughput::Elements(*row_count as u64));
 
         let rows = generate_test_rows(*row_count);
@@ -234,12 +234,12 @@ fn bench_quantum_search(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark QUANTUM_SEARCH vs traditional linear search
+/// Benchmark `QUANTUM_SEARCH` vs traditional linear search
 fn bench_quantum_search_vs_linear(c: &mut Criterion) {
     let mut group = c.benchmark_group("quantum_vs_linear_search");
     group.measurement_time(Duration::from_secs(10));
 
-    for row_count in [1_000, 5_000, 10_000].iter() {
+    for row_count in &[1_000, 5_000, 10_000] {
         group.throughput(Throughput::Elements(*row_count as u64));
 
         let rows = generate_test_rows(*row_count);
@@ -299,7 +299,7 @@ fn bench_sql_parsing(c: &mut Criterion) {
         ),
     ];
 
-    for (name, query) in queries.iter() {
+    for (name, query) in &queries {
         group.bench_with_input(BenchmarkId::new("parse", *name), query, |b, query| {
             b.iter(|| {
                 // Use the Parser from neuroquantum_qsql
@@ -317,7 +317,7 @@ fn bench_function_composition(c: &mut Criterion) {
     let mut group = c.benchmark_group("function_composition");
     group.measurement_time(Duration::from_secs(10));
 
-    for row_count in [1_000, 5_000].iter() {
+    for row_count in &[1_000, 5_000] {
         group.throughput(Throughput::Elements(*row_count as u64));
 
         let rows = generate_test_rows(*row_count);
@@ -348,26 +348,24 @@ fn bench_function_composition(c: &mut Criterion) {
                         let name_match = row
                             .fields
                             .get("name")
-                            .map(|v| {
+                            .is_some_and(|v| {
                                 if let Value::Text(t) = v {
                                     neuromatch_score(t, "John") > 0.5
                                 } else {
                                     false
                                 }
-                            })
-                            .unwrap_or(false);
+                            });
 
                         let email_match = row
                             .fields
                             .get("email")
-                            .map(|v| {
+                            .is_some_and(|v| {
                                 if let Value::Text(t) = v {
                                     neuromatch_score(t, "example") > 0.3
                                 } else {
                                     false
                                 }
-                            })
-                            .unwrap_or(false);
+                            });
 
                         name_match || email_match
                     })
@@ -385,38 +383,35 @@ fn bench_function_composition(c: &mut Criterion) {
                         let name_match = row
                             .fields
                             .get("name")
-                            .map(|v| {
+                            .is_some_and(|v| {
                                 if let Value::Text(t) = v {
                                     neuromatch_score(t, "John") > 0.3
                                 } else {
                                     false
                                 }
-                            })
-                            .unwrap_or(false);
+                            });
 
                         let email_match = row
                             .fields
                             .get("email")
-                            .map(|v| {
+                            .is_some_and(|v| {
                                 if let Value::Text(t) = v {
                                     neuromatch_score(t, "example") > 0.3
                                 } else {
                                     false
                                 }
-                            })
-                            .unwrap_or(false);
+                            });
 
                         let age_check = row
                             .fields
                             .get("age")
-                            .map(|v| {
+                            .is_some_and(|v| {
                                 if let Value::Integer(a) = v {
                                     *a > 25
                                 } else {
                                     false
                                 }
-                            })
-                            .unwrap_or(false);
+                            });
 
                         name_match && email_match && age_check
                     })
@@ -427,13 +422,11 @@ fn bench_function_composition(c: &mut Criterion) {
                     let score_a = a
                         .fields
                         .get("score")
-                        .map(|v| if let Value::Float(f) = v { *f } else { 0.0 })
-                        .unwrap_or(0.0);
+                        .map_or(0.0, |v| if let Value::Float(f) = v { *f } else { 0.0 });
                     let score_b = b
                         .fields
                         .get("score")
-                        .map(|v| if let Value::Float(f) = v { *f } else { 0.0 })
-                        .unwrap_or(0.0);
+                        .map_or(0.0, |v| if let Value::Float(f) = v { *f } else { 0.0 });
                     score_b.partial_cmp(&score_a).unwrap()
                 });
 
@@ -452,7 +445,7 @@ fn bench_neuromatch_thresholds(c: &mut Criterion) {
 
     let rows = generate_test_rows(5_000);
 
-    for threshold in [0.3, 0.5, 0.7, 0.9].iter() {
+    for threshold in &[0.3, 0.5, 0.7, 0.9] {
         group.bench_with_input(
             BenchmarkId::from_parameter(threshold),
             threshold,
@@ -491,7 +484,7 @@ fn bench_pattern_complexity(c: &mut Criterion) {
         ("very_long", "Jonathan Alexander Smith Junior"),
     ];
 
-    for (name, pattern) in patterns.iter() {
+    for (name, pattern) in &patterns {
         group.bench_with_input(
             BenchmarkId::new("neuromatch", *name),
             pattern,

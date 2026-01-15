@@ -98,13 +98,13 @@ pub trait QUBOSolverBackend: Send + Sync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DWaveConfig {
     /// D-Wave API token (from Leap account)
-    /// If None, will attempt to read from DWAVE_API_TOKEN environment variable
+    /// If None, will attempt to read from `DWAVE_API_TOKEN` environment variable
     pub api_token: Option<String>,
 
     /// D-Wave API endpoint URL
     pub api_endpoint: String,
 
-    /// Solver name (e.g., "Advantage_system4.1", "DW_2000Q_6")
+    /// Solver name (e.g., "`Advantage_system4.1`", "`DW_2000Q_6`")
     pub solver_name: Option<String>,
 
     /// Number of reads (samples) to take
@@ -180,11 +180,13 @@ pub struct DWaveQUBOSolver {
 
 impl DWaveQUBOSolver {
     /// Create a new D-Wave QUBO solver with the given configuration
-    pub fn new(config: DWaveConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: DWaveConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use] 
     pub fn from_env() -> Self {
         let config = DWaveConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -289,7 +291,7 @@ impl DWaveQUBOSolver {
             num_shots: self.config.num_reads,
             max_iterations: 500,
             trotter_slices: 32,
-            annealing_time: self.config.annealing_time_us as f64,
+            annealing_time: f64::from(self.config.annealing_time_us),
             ..Default::default()
         };
 
@@ -353,7 +355,7 @@ impl QUBOSolverBackend for DWaveQUBOSolver {
         5000
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "D-Wave Quantum Annealer"
     }
 
@@ -370,13 +372,13 @@ impl QUBOSolverBackend for DWaveQUBOSolver {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IBMConfig {
     /// IBM Quantum API token
-    /// If None, will attempt to read from IBM_QUANTUM_TOKEN environment variable
+    /// If None, will attempt to read from `IBM_QUANTUM_TOKEN` environment variable
     pub api_token: Option<String>,
 
     /// IBM Quantum API endpoint URL
     pub api_endpoint: String,
 
-    /// Backend name (e.g., "ibm_brisbane", "ibm_kyoto", "ibmq_qasm_simulator")
+    /// Backend name (e.g., "`ibm_brisbane`", "`ibm_kyoto`", "`ibmq_qasm_simulator`")
     pub backend_name: String,
 
     /// QAOA circuit depth (number of layers)
@@ -448,11 +450,13 @@ pub struct IBMQUBOSolver {
 
 impl IBMQUBOSolver {
     /// Create a new IBM Quantum QAOA solver with the given configuration
-    pub fn new(config: IBMConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: IBMConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use] 
     pub fn from_env() -> Self {
         let config = IBMConfig {
             api_token: std::env::var("IBM_QUANTUM_TOKEN").ok(),
@@ -638,7 +642,7 @@ impl QUBOSolverBackend for IBMQUBOSolver {
         self.config.max_qubits.unwrap_or(100)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "IBM Quantum QAOA"
     }
 
@@ -686,7 +690,7 @@ pub struct HybridSolverConfig {
     /// D-Wave API endpoint URL
     pub api_endpoint: String,
 
-    /// Solver name (e.g., "hybrid_binary_quadratic_model_version2")
+    /// Solver name (e.g., "`hybrid_binary_quadratic_model_version2`")
     pub solver_name: String,
 
     /// Time limit for solving in seconds
@@ -727,11 +731,13 @@ pub struct HybridQUBOSolver {
 
 impl HybridQUBOSolver {
     /// Create a new Hybrid solver with the given configuration
-    pub fn new(config: HybridSolverConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: HybridSolverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables
+    #[must_use] 
     pub fn from_env() -> Self {
         let config = HybridSolverConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -799,7 +805,7 @@ impl QUBOSolverBackend for HybridQUBOSolver {
         1_000_000
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "D-Wave Leap Hybrid"
     }
 
@@ -853,7 +859,8 @@ pub struct SimulatedAnnealingQUBOSolver {
 
 impl SimulatedAnnealingQUBOSolver {
     /// Create a new simulated annealing solver
-    pub fn new(config: SimulatedAnnealingConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: SimulatedAnnealingConfig) -> Self {
         Self { config }
     }
 }
@@ -893,7 +900,7 @@ impl QUBOSolverBackend for SimulatedAnnealingQUBOSolver {
         100_000
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Simulated Annealing (Classical)"
     }
 
@@ -952,11 +959,13 @@ pub struct UnifiedQUBOSolver {
 
 impl UnifiedQUBOSolver {
     /// Create a new unified solver with the given configuration
-    pub fn new(config: UnifiedQUBOConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: UnifiedQUBOConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver that auto-configures from environment variables
+    #[must_use] 
     pub fn from_env() -> Self {
         let dwave = if std::env::var("DWAVE_API_TOKEN").is_ok() {
             Some(DWaveConfig {

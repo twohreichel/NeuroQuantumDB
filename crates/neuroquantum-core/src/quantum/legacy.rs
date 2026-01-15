@@ -1,4 +1,4 @@
-//! # Quantum-Inspired Algorithms for NeuroQuantumDB
+//! # Quantum-Inspired Algorithms for `NeuroQuantumDB`
 //!
 //! # ⚠️ Classical Simulation Notice
 //!
@@ -22,7 +22,7 @@
 //! ## Hardware Optimization
 //!
 //! While these are classical simulations, they are optimized for ARM64/NEON
-//! and x86_64/AVX2 hardware acceleration to maximize performance.
+//! and `x86_64/AVX2` hardware acceleration to maximize performance.
 
 use crate::error::{CoreError, CoreResult};
 use crate::query::{Query, QueryResult};
@@ -140,7 +140,7 @@ pub struct GroverSearch {
 }
 
 impl GroverSearch {
-    pub fn new(config: QuantumConfig, network: Arc<SynapticNetwork>) -> Self {
+    pub const fn new(config: QuantumConfig, network: Arc<SynapticNetwork>) -> Self {
         #[cfg(feature = "neon-optimizations")]
         let neon_enabled = config.neon_optimizations;
 
@@ -219,7 +219,7 @@ impl GroverSearch {
             // Diffusion operator: inversion about average
             let average = amplitudes.iter().sum::<f64>() / n as f64;
             for amplitude in &mut amplitudes {
-                *amplitude = 2.0 * average - *amplitude;
+                *amplitude = 2.0f64.mul_add(average, -*amplitude);
             }
 
             // NEON-SIMD optimization for amplitude calculations
@@ -263,7 +263,7 @@ impl GroverSearch {
         Ok(QuantumSearchResult {
             indices: found_indices,
             amplitudes: results.iter().map(|(_, prob)| *prob).collect(),
-            probability: results.first().map(|(_, prob)| *prob).unwrap_or(0.0),
+            probability: results.first().map_or(0.0, |(_, prob)| *prob),
             iterations: clamped_iterations,
             quantum_advantage,
         })
@@ -273,11 +273,11 @@ impl GroverSearch {
     ///
     /// This implementation uses Rust's portable SIMD intrinsics which LLVM
     /// automatically compiles to NEON instructions on ARM64 architectures.
-    /// The abs() operation normalizes amplitudes to ensure quantum state validity.
+    /// The `abs()` operation normalizes amplitudes to ensure quantum state validity.
     ///
     /// # Performance
     /// - ARM64: Uses NEON FABS instruction for vectorized absolute values
-    /// - x86_64: Uses AVX/SSE for similar performance
+    /// - `x86_64`: Uses AVX/SSE for similar performance
     /// - Expected speedup: 2-4x over scalar implementation
     #[cfg(feature = "neon-optimizations")]
     fn neon_optimize_amplitudes(&self, amplitudes: &mut [f64]) {
@@ -525,11 +525,11 @@ impl GroverSearch {
         for i in 0..state.len() {
             for j in i + 1..state.len() {
                 let coupling = if i + 1 == j {
-                    data[i.min(data.len() - 1)] as f64
+                    f64::from(data[i.min(data.len() - 1)])
                 } else {
                     0.1
                 };
-                energy += coupling * state[i] as f64 * state[j] as f64;
+                energy += coupling * f64::from(state[i]) * f64::from(state[j]);
             }
         }
 
@@ -605,7 +605,7 @@ impl GroverSearch {
 }
 
 /// Main quantum processor that integrates all quantum algorithms
-/// This struct wraps the GroverSearch and provides a unified interface
+/// This struct wraps the `GroverSearch` and provides a unified interface
 pub struct QuantumProcessor {
     grover_search: GroverSearch,
     config: QuantumConfig,
@@ -619,6 +619,7 @@ impl Default for QuantumProcessor {
 
 impl QuantumProcessor {
     /// Create a new quantum processor with the given synaptic network
+    #[must_use] 
     pub fn new() -> Self {
         // Create a minimal synaptic network for now
         // SAFETY: Parameters (1000 neurons, 0.5 connectivity) are valid
@@ -680,12 +681,14 @@ impl QuantumProcessor {
     }
 
     /// Get quantum processor configuration
-    pub fn config(&self) -> &QuantumConfig {
+    #[must_use] 
+    pub const fn config(&self) -> &QuantumConfig {
         &self.config
     }
 
     /// Get quantum processor statistics
-    pub fn get_statistics(&self) -> QuantumStatistics {
+    #[must_use] 
+    pub const fn get_statistics(&self) -> QuantumStatistics {
         QuantumStatistics {
             total_searches: 0,
             successful_searches: 0,
@@ -695,7 +698,7 @@ impl QuantumProcessor {
     }
 
     /// Update quantum processor configuration
-    pub fn update_config(&mut self, config: QuantumConfig) {
+    pub const fn update_config(&mut self, config: QuantumConfig) {
         self.config = config;
     }
 }

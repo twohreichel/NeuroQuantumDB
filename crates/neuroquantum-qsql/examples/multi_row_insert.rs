@@ -1,4 +1,4 @@
-//! Example: Multi-Row INSERT (Bulk Insert) in NeuroQuantumDB
+//! Example: Multi-Row INSERT (Bulk Insert) in `NeuroQuantumDB`
 //!
 //! This example demonstrates how to use multi-row INSERT statements to efficiently
 //! insert multiple rows in a single query, reducing network roundtrips and improving
@@ -113,8 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let single_duration = start.elapsed();
     println!(
-        "⏱️  Time taken for 3 single-row INSERTs: {:?}\n",
-        single_duration
+        "⏱️  Time taken for 3 single-row INSERTs: {single_duration:?}\n"
     );
 
     // Clear the table for next example
@@ -131,12 +130,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
 
     // Insert multiple rows in a single statement
-    let multi_sql = r#"
+    let multi_sql = r"
         INSERT INTO users (name, email, age) VALUES 
             ('Alice', 'alice@example.com', 25),
             ('Bob', 'bob@example.com', 30),
             ('Charlie', 'charlie@example.com', 35)
-    "#;
+    ";
 
     let multi_stmt = parser.parse(multi_sql)?;
     let multi_result = executor.execute_statement(&multi_stmt).await?;
@@ -147,11 +146,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "✅ Inserted {} rows in a single statement",
         multi_result.rows_affected
     );
-    println!("⏱️  Time taken: {:?}", multi_duration);
+    println!("⏱️  Time taken: {multi_duration:?}");
 
     if multi_duration < single_duration {
         let speedup = single_duration.as_micros() as f64 / multi_duration.as_micros() as f64;
-        println!("🚀 Multi-row INSERT was {:.2}x faster!", speedup);
+        println!("🚀 Multi-row INSERT was {speedup:.2}x faster!");
     }
     println!();
 
@@ -182,7 +181,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let large_duration = start.elapsed();
 
     println!("✅ Inserted {} rows", large_result.rows_affected);
-    println!("⏱️  Time taken: {:?}", large_duration);
+    println!("⏱️  Time taken: {large_duration:?}");
     println!("📈 Average per row: {:?}\n", large_duration / 50);
 
     // ========================================
@@ -199,17 +198,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for row in select_result.rows.iter().take(5) {
         let name = row
             .get("name")
-            .map(|v| format!("{:?}", v))
+            .map(|v| format!("{v:?}"))
             .unwrap_or_default();
         let email = row
             .get("email")
-            .map(|v| format!("{:?}", v))
+            .map(|v| format!("{v:?}"))
             .unwrap_or_default();
         let age = row
             .get("age")
-            .map(|v| format!("{:?}", v))
+            .map(|v| format!("{v:?}"))
             .unwrap_or_default();
-        println!("  - {} ({}) - Age: {}", name, email, age);
+        println!("  - {name} ({email}) - Age: {age}");
     }
     println!();
 
@@ -226,12 +225,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔒 Transaction started");
 
     // Multi-row INSERT within transaction
-    let tx_sql = r#"
+    let tx_sql = r"
         INSERT INTO users (name, email, age) VALUES 
             ('David', 'david@example.com', 28),
             ('Eve', 'eve@example.com', 32),
             ('Frank', 'frank@example.com', 45)
-    "#;
+    ";
 
     let tx_stmt = parser.parse(tx_sql)?;
     let tx_result = executor.execute_statement(&tx_stmt).await?;

@@ -1,4 +1,4 @@
-//! Property-based tests for the NeuroQuantum API
+//! Property-based tests for the `NeuroQuantum` API
 //!
 //! This module provides comprehensive property-based testing for API components
 //! including request validation, error handling, and configuration.
@@ -20,12 +20,12 @@ use crate::{
     rate_limit::RateLimitConfig,
 };
 
-/// Get configurable PropTest configuration from environment
+/// Get configurable `PropTest` configuration from environment
 ///
-/// Use PROPTEST_CASES environment variable to control test thoroughness:
-/// - Fast (default): PROPTEST_CASES=32 (development)
-/// - Standard: PROPTEST_CASES=64 (CI)
-/// - Thorough: PROPTEST_CASES=256 (pre-release)
+/// Use `PROPTEST_CASES` environment variable to control test thoroughness:
+/// - Fast (default): `PROPTEST_CASES=32` (development)
+/// - Standard: `PROPTEST_CASES=64` (CI)
+/// - Thorough: `PROPTEST_CASES=256` (pre-release)
 fn get_proptest_config() -> ProptestConfig {
     let cases = std::env::var("PROPTEST_CASES")
         .ok()
@@ -104,7 +104,7 @@ fn sql_query() -> impl Strategy<Value = String> {
 /// Generate IP address strings
 fn ip_address() -> impl Strategy<Value = String> {
     (0u8..255, 0u8..255, 0u8..255, 0u8..255)
-        .prop_map(|(a, b, c, d)| format!("{}.{}.{}.{}", a, b, c, d))
+        .prop_map(|(a, b, c, d)| format!("{a}.{b}.{c}.{d}"))
 }
 
 // ============================================================================
@@ -150,12 +150,12 @@ proptest! {
         use actix_web::ResponseError;
 
         let error = ApiError::InternalServerError {
-            message: message.clone(),
+            message: message,
         };
 
         // Should not panic when formatting
-        let _ = format!("{}", error);
-        let _ = format!("{:?}", error);
+        let _ = format!("{error}");
+        let _ = format!("{error:?}");
 
         // Should produce valid HTTP response
         let response = error.error_response();
@@ -197,7 +197,7 @@ proptest! {
     #[test]
     fn sql_query_request_handles_arbitrary_sql(query in arbitrary_string()) {
         let request = SqlQueryRequest {
-            query: query.clone(),
+            query: query,
         };
 
         // Should serialize without panic
@@ -252,10 +252,9 @@ proptest! {
             r#"
             [server]
             host = "127.0.0.1"
-            port = {}
+            port = {port}
             workers = 4
-            "#,
-            port
+            "#
         );
 
         // Should parse as valid TOML at minimum
@@ -363,7 +362,7 @@ mod edge_case_tests {
             };
 
             let json = serde_json::to_string(&request);
-            assert!(json.is_ok(), "Failed to serialize unicode query: {}", query);
+            assert!(json.is_ok(), "Failed to serialize unicode query: {query}");
         }
     }
 
@@ -381,7 +380,7 @@ mod edge_case_tests {
     #[test]
     fn test_empty_query() {
         let request = SqlQueryRequest {
-            query: "".to_string(),
+            query: String::new(),
         };
 
         let json = serde_json::to_string(&request);
@@ -413,8 +412,8 @@ mod edge_case_tests {
 
         for error in errors {
             // Should format without panic
-            let _ = format!("{}", error);
-            let _ = format!("{:?}", error);
+            let _ = format!("{error}");
+            let _ = format!("{error:?}");
 
             // Should produce valid HTTP response
             let response = error.error_response();

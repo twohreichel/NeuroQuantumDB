@@ -21,7 +21,7 @@ use tokio::time::sleep;
 #[cfg(test)]
 fn create_mock_metadata(user_id: Option<&str>) -> ConnectionMetadata {
     let mut metadata = ConnectionMetadata::new("127.0.0.1:8080".to_string());
-    metadata.user_id = user_id.map(|s| s.to_string());
+    metadata.user_id = user_id.map(std::string::ToString::to_string);
     metadata.user_agent = Some("Test/1.0".to_string());
     metadata
 }
@@ -29,7 +29,7 @@ fn create_mock_metadata(user_id: Option<&str>) -> ConnectionMetadata {
 #[tokio::test]
 async fn test_connection_manager_creation() {
     let config = ConnectionConfig::default();
-    let manager = ConnectionManager::new(config.clone());
+    let manager = ConnectionManager::new(config);
 
     assert_eq!(manager.connection_count(), 0);
 
@@ -186,7 +186,7 @@ async fn test_connection_id_display() {
     use crate::websocket::types::ConnectionId;
 
     let id = ConnectionId::new();
-    let display_str = format!("{}", id);
+    let display_str = format!("{id}");
 
     // Should be a valid UUID string
     assert_eq!(display_str.len(), 36); // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -258,7 +258,7 @@ async fn test_connection_error_types() {
 
     // Test that all errors can be displayed
     for error in errors {
-        let error_msg = format!("{}", error);
+        let error_msg = format!("{error}");
         assert!(!error_msg.is_empty());
     }
 }

@@ -5,7 +5,7 @@
 //!
 //! ## Supported Devices
 //!
-//! - **IonQ**: Trapped-ion quantum computers (Aria, Forte)
+//! - **`IonQ`**: Trapped-ion quantum computers (Aria, Forte)
 //! - **Rigetti**: Superconducting processors (Aspen-M)
 //! - **OQC**: Oxford Quantum Circuits (Lucy)
 //! - **D-Wave**: Quantum annealers via Braket (Advantage)
@@ -13,7 +13,7 @@
 //!
 //! ## Supported Algorithms
 //!
-//! - **Grover's Search**: On gate-based devices (IonQ, Rigetti, OQC)
+//! - **Grover's Search**: On gate-based devices (`IonQ`, Rigetti, OQC)
 //! - **QUBO/QAOA**: On gate-based devices and D-Wave annealers
 //! - **TFIM**: On D-Wave annealers
 //! - **Parallel Tempering**: On D-Wave and gate-based devices
@@ -63,10 +63,10 @@ pub struct BraketConfig {
 
     /// Device ARN (Amazon Resource Name)
     /// Examples:
-    /// - IonQ Aria: "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1"
-    /// - Rigetti: "arn:aws:braket:us-west-1::device/qpu/rigetti/Aspen-M-3"
+    /// - `IonQ` Aria: "`arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1`"
+    /// - Rigetti: "`arn:aws:braket:us-west-1::device/qpu/rigetti/Aspen-M-3`"
     /// - D-Wave: "arn:aws:braket:::device/qpu/d-wave/Advantage_system6"
-    /// - Simulator: "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+    /// - Simulator: "`arn:aws:braket:::device/quantum-simulator/amazon/sv1`"
     pub device_arn: String,
 
     /// Number of shots for measurement
@@ -121,7 +121,7 @@ impl Default for BraketConfig {
 ///
 /// | Vendor | Technology | Max Qubits | Connectivity |
 /// |--------|------------|------------|--------------|
-/// | IonQ | Trapped-ion | 25 | All-to-all |
+/// | `IonQ` | Trapped-ion | 25 | All-to-all |
 /// | Rigetti | Superconducting | 80 | Limited |
 /// | OQC | Superconducting | 8 | Limited |
 /// | D-Wave | Annealing | 5000+ | Pegasus/Zephyr |
@@ -142,16 +142,18 @@ pub struct BraketBackend {
 
 impl BraketBackend {
     /// Create a new AWS Braket backend with the given configuration
-    pub fn new(config: BraketConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: BraketConfig) -> Self {
         Self { config }
     }
 
     /// Create a backend using environment variables for configuration
     ///
     /// Uses AWS default credential chain:
-    /// 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+    /// 1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
     /// 2. Shared credentials file (~/.aws/credentials)
     /// 3. IAM role for EC2/ECS/Lambda
+    #[must_use] 
     pub fn from_env() -> Self {
         let config = BraketConfig {
             region: std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
@@ -169,6 +171,7 @@ impl BraketBackend {
     }
 
     /// Check if AWS credentials are available
+    #[must_use] 
     pub fn has_credentials(&self) -> bool {
         // Check for AWS credentials via environment variables or default credential chain
         std::env::var("AWS_ACCESS_KEY_ID").is_ok()
@@ -176,23 +179,25 @@ impl BraketBackend {
             || std::env::var("AWS_PROFILE").is_ok()
             || std::path::Path::new(
                 &std::env::var("HOME")
-                    .map(|h| format!("{}/.aws/credentials", h))
+                    .map(|h| format!("{h}/.aws/credentials"))
                     .unwrap_or_default(),
             )
             .exists()
     }
 
     /// Get the current configuration
-    pub fn config(&self) -> &BraketConfig {
+    #[must_use] 
+    pub const fn config(&self) -> &BraketConfig {
         &self.config
     }
 
     /// Get mutable reference to configuration
-    pub fn config_mut(&mut self) -> &mut BraketConfig {
+    pub const fn config_mut(&mut self) -> &mut BraketConfig {
         &mut self.config
     }
 
     /// Get the device type from the ARN
+    #[must_use] 
     pub fn device_type(&self) -> BraketDeviceType {
         let arn = &self.config.device_arn;
         if arn.contains("ionq") {
@@ -211,11 +216,13 @@ impl BraketBackend {
     }
 
     /// Check if this is an annealing device
+    #[must_use] 
     pub fn is_annealer(&self) -> bool {
         matches!(self.device_type(), BraketDeviceType::DWave)
     }
 
     /// Check if this is a gate-based device
+    #[must_use] 
     pub fn is_gate_based(&self) -> bool {
         matches!(
             self.device_type(),
@@ -226,30 +233,31 @@ impl BraketBackend {
         )
     }
 
-    /// Build OpenQASM 3.0 circuit for Braket
+    /// Build `OpenQASM` 3.0 circuit for Braket
+    #[must_use] 
     pub fn build_qasm_circuit(&self, num_qubits: usize, gates: &[BraketGate]) -> String {
         let mut qasm = String::new();
         qasm.push_str("OPENQASM 3.0;\n");
         qasm.push_str("include \"stdgates.inc\";\n\n");
-        qasm.push_str(&format!("qubit[{}] q;\n", num_qubits));
-        qasm.push_str(&format!("bit[{}] c;\n\n", num_qubits));
+        qasm.push_str(&format!("qubit[{num_qubits}] q;\n"));
+        qasm.push_str(&format!("bit[{num_qubits}] c;\n\n"));
 
         for gate in gates {
             match gate {
-                | BraketGate::H(q) => qasm.push_str(&format!("h q[{}];\n", q)),
-                | BraketGate::X(q) => qasm.push_str(&format!("x q[{}];\n", q)),
-                | BraketGate::Y(q) => qasm.push_str(&format!("y q[{}];\n", q)),
-                | BraketGate::Z(q) => qasm.push_str(&format!("z q[{}];\n", q)),
-                | BraketGate::Rx(q, angle) => qasm.push_str(&format!("rx({}) q[{}];\n", angle, q)),
-                | BraketGate::Ry(q, angle) => qasm.push_str(&format!("ry({}) q[{}];\n", angle, q)),
-                | BraketGate::Rz(q, angle) => qasm.push_str(&format!("rz({}) q[{}];\n", angle, q)),
-                | BraketGate::CX(c, t) => qasm.push_str(&format!("cx q[{}], q[{}];\n", c, t)),
-                | BraketGate::CZ(c, t) => qasm.push_str(&format!("cz q[{}], q[{}];\n", c, t)),
+                | BraketGate::H(q) => qasm.push_str(&format!("h q[{q}];\n")),
+                | BraketGate::X(q) => qasm.push_str(&format!("x q[{q}];\n")),
+                | BraketGate::Y(q) => qasm.push_str(&format!("y q[{q}];\n")),
+                | BraketGate::Z(q) => qasm.push_str(&format!("z q[{q}];\n")),
+                | BraketGate::Rx(q, angle) => qasm.push_str(&format!("rx({angle}) q[{q}];\n")),
+                | BraketGate::Ry(q, angle) => qasm.push_str(&format!("ry({angle}) q[{q}];\n")),
+                | BraketGate::Rz(q, angle) => qasm.push_str(&format!("rz({angle}) q[{q}];\n")),
+                | BraketGate::CX(c, t) => qasm.push_str(&format!("cx q[{c}], q[{t}];\n")),
+                | BraketGate::CZ(c, t) => qasm.push_str(&format!("cz q[{c}], q[{t}];\n")),
                 | BraketGate::RZZ(q1, q2, angle) => {
-                    qasm.push_str(&format!("rzz({}) q[{}], q[{}];\n", angle, q1, q2))
+                    qasm.push_str(&format!("rzz({angle}) q[{q1}], q[{q2}];\n"));
                 },
                 | BraketGate::Measure(q, c) => {
-                    qasm.push_str(&format!("c[{}] = measure q[{}];\n", c, q))
+                    qasm.push_str(&format!("c[{c}] = measure q[{q}];\n"));
                 },
             }
         }
@@ -258,6 +266,7 @@ impl BraketBackend {
     }
 
     /// Build annealing problem for D-Wave via Braket
+    #[must_use] 
     pub fn build_annealing_problem(
         &self,
         linear: &std::collections::HashMap<usize, f64>,
@@ -357,7 +366,7 @@ impl QuantumBackendInfo for BraketBackend {
         self.config.max_qubits
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "AWS Braket"
     }
 
@@ -373,7 +382,7 @@ impl QuantumBackendInfo for BraketBackend {
 /// AWS Braket device types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BraketDeviceType {
-    /// IonQ trapped-ion
+    /// `IonQ` trapped-ion
     IonQ,
     /// Rigetti superconducting
     Rigetti,
@@ -390,12 +399,12 @@ pub enum BraketDeviceType {
 impl std::fmt::Display for BraketDeviceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            | BraketDeviceType::IonQ => write!(f, "IonQ"),
-            | BraketDeviceType::Rigetti => write!(f, "Rigetti"),
-            | BraketDeviceType::OQC => write!(f, "OQC"),
-            | BraketDeviceType::DWave => write!(f, "D-Wave"),
-            | BraketDeviceType::Simulator => write!(f, "Simulator"),
-            | BraketDeviceType::Unknown => write!(f, "Unknown"),
+            | Self::IonQ => write!(f, "IonQ"),
+            | Self::Rigetti => write!(f, "Rigetti"),
+            | Self::OQC => write!(f, "OQC"),
+            | Self::DWave => write!(f, "D-Wave"),
+            | Self::Simulator => write!(f, "Simulator"),
+            | Self::Unknown => write!(f, "Unknown"),
         }
     }
 }

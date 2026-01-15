@@ -43,12 +43,14 @@ pub struct QueryStreamId(Uuid);
 
 impl QueryStreamId {
     /// Create a new unique query stream ID
+    #[must_use] 
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
 
     /// Get the inner UUID
-    pub fn as_uuid(&self) -> Uuid {
+    #[must_use] 
+    pub const fn as_uuid(&self) -> Uuid {
         self.0
     }
 }
@@ -103,7 +105,7 @@ impl Default for StreamingConfig {
 }
 
 /// Status of a streaming query
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryStreamStatus {
     /// Query is initializing
@@ -290,7 +292,7 @@ impl StreamingRegistry {
             info!("🛑 Cancelled stream {}", stream_id);
             Ok(())
         } else {
-            Err(format!("Stream {} not found", stream_id))
+            Err(format!("Stream {stream_id} not found"))
         }
     }
 
@@ -425,7 +427,7 @@ impl QueryStreamer {
             query: query.clone(),
             estimated_rows: Some(total_rows),
         })
-        .map_err(|e| format!("Failed to send start message: {}", e))?;
+        .map_err(|e| format!("Failed to send start message: {e}"))?;
 
         let mut rows_sent = 0u64;
         let mut batches_sent = 0u64;
@@ -443,7 +445,7 @@ impl QueryStreamer {
                 rows: batch_rows.clone(),
                 has_more,
             })
-            .map_err(|e| format!("Failed to send batch: {}", e))?;
+            .map_err(|e| format!("Failed to send batch: {e}"))?;
 
             rows_sent += batch_rows.len() as u64;
             batches_sent += 1;
@@ -480,7 +482,7 @@ impl QueryStreamer {
                         estimated_remaining_ms,
                     },
                 })
-                .map_err(|e| format!("Failed to send progress: {}", e))?;
+                .map_err(|e| format!("Failed to send progress: {e}"))?;
 
                 last_progress = Instant::now();
             }
@@ -501,7 +503,7 @@ impl QueryStreamer {
             total_rows: rows_sent,
             execution_time_ms,
         })
-        .map_err(|e| format!("Failed to send completion: {}", e))?;
+        .map_err(|e| format!("Failed to send completion: {e}"))?;
 
         info!(
             "✅ Stream {} completed: {} rows in {} batches ({} ms)",
@@ -512,6 +514,7 @@ impl QueryStreamer {
     }
 
     /// Create a mock result set for testing
+    #[must_use] 
     pub fn create_mock_results(&self, count: usize) -> Vec<Row> {
         (0..count)
             .map(|i| Row {
@@ -519,7 +522,7 @@ impl QueryStreamer {
                 fields: {
                     let mut fields = HashMap::new();
                     fields.insert("id".to_string(), Value::Integer(i as i64));
-                    fields.insert("name".to_string(), Value::Text(format!("Row {}", i)));
+                    fields.insert("name".to_string(), Value::Text(format!("Row {i}")));
                     fields.insert("value".to_string(), Value::Float(i as f64 * 1.5));
                     fields
                 },

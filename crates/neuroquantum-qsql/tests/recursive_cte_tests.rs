@@ -92,7 +92,7 @@ async fn test_recursive_cte_employee_hierarchy() {
     // IC 1 (id=6, manager_id=4)
     // IC 2 (id=7, manager_id=5)
 
-    let insert_sql = r#"
+    let insert_sql = r"
         INSERT INTO employees (id, name, manager_id) VALUES 
         (1, 'CEO', NULL),
         (2, 'Director Engineering', 1),
@@ -101,14 +101,14 @@ async fn test_recursive_cte_employee_hierarchy() {
         (5, 'Manager Frontend', 2),
         (6, 'Engineer Alice', 4),
         (7, 'Engineer Bob', 5)
-    "#;
+    ";
 
     let statement = parser.parse(insert_sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
     assert_eq!(result.rows_affected, 7);
 
     // Test recursive query to find all subordinates
-    let recursive_sql = r#"
+    let recursive_sql = r"
         WITH RECURSIVE subordinates AS (
             SELECT id, name, manager_id, 1 as level
             FROM employees
@@ -121,7 +121,7 @@ async fn test_recursive_cte_employee_hierarchy() {
             INNER JOIN subordinates s ON e.manager_id = s.id
         )
         SELECT id, name, level FROM subordinates ORDER BY level, id
-    "#;
+    ";
 
     let statement = parser.parse(recursive_sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
@@ -186,21 +186,21 @@ async fn test_recursive_cte_union_semantics() {
     executor.execute_statement(&statement).await.unwrap();
 
     // Test with UNION ALL (should work and return all nodes)
-    let recursive_sql = r#"
+    let recursive_sql = r"
         WITH RECURSIVE tree AS (
             SELECT id, parent_id FROM nodes WHERE parent_id IS NULL
             UNION ALL
             SELECT n.id, n.parent_id FROM nodes n INNER JOIN tree t ON n.parent_id = t.id
         )
         SELECT id FROM tree ORDER BY id
-    "#;
+    ";
 
     let statement = parser.parse(recursive_sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
     assert_eq!(result.rows.len(), 3);
 }
 
-/// Test recursive CTE for series generation (similar to generate_series)
+/// Test recursive CTE for series generation (similar to `generate_series`)
 #[tokio::test]
 #[ignore = "Recursive CTE (WITH RECURSIVE) not yet supported in parser"]
 async fn test_recursive_cte_generate_series() {
@@ -211,14 +211,14 @@ async fn test_recursive_cte_generate_series() {
     // This is a simplified version that would work with a numbers table.
 
     // For now, we'll test that the parser accepts the syntax
-    let recursive_sql = r#"
+    let recursive_sql = r"
         WITH RECURSIVE series AS (
             SELECT 1 as n
             UNION ALL
             SELECT n + 1 FROM series WHERE n < 10
         )
         SELECT n FROM series
-    "#;
+    ";
 
     let statement = parser.parse(recursive_sql);
     assert!(
@@ -271,15 +271,14 @@ async fn test_recursive_cte_depth_limit() {
     for i in 1..=100 {
         let next_id = if i < 100 { i + 1 } else { 1 }; // Closes the loop
         let insert_sql = format!(
-            "INSERT INTO circular (id, next_id) VALUES ({}, {})",
-            i, next_id
+            "INSERT INTO circular (id, next_id) VALUES ({i}, {next_id})"
         );
         let statement = parser.parse(&insert_sql).unwrap();
         executor.execute_statement(&statement).await.unwrap();
     }
 
     // Try a recursive query that follows the chain
-    let recursive_sql = r#"
+    let recursive_sql = r"
         WITH RECURSIVE chain AS (
             SELECT id, next_id, 1 as depth FROM circular WHERE id = 1
             UNION ALL
@@ -289,7 +288,7 @@ async fn test_recursive_cte_depth_limit() {
             WHERE ch.depth < 50
         )
         SELECT COUNT(*) as count FROM chain
-    "#;
+    ";
 
     let statement = parser.parse(recursive_sql).unwrap();
     let result = executor.execute_statement(&statement).await;
@@ -344,19 +343,19 @@ async fn test_recursive_cte_with_multiple_ctes() {
     }
 
     // Insert category hierarchy
-    let insert_sql = r#"
+    let insert_sql = r"
         INSERT INTO categories (id, name, parent_id) VALUES 
         (1, 'Electronics', NULL),
         (2, 'Computers', 1),
         (3, 'Laptops', 2),
         (4, 'Desktops', 2)
-    "#;
+    ";
 
     let statement = parser.parse(insert_sql).unwrap();
     executor.execute_statement(&statement).await.unwrap();
 
     // Test WITH RECURSIVE with category tree
-    let recursive_sql = r#"
+    let recursive_sql = r"
         WITH RECURSIVE category_tree AS (
             SELECT id, name, parent_id, 0 as depth
             FROM categories
@@ -369,7 +368,7 @@ async fn test_recursive_cte_with_multiple_ctes() {
             INNER JOIN category_tree ct ON c.parent_id = ct.id
         )
         SELECT name, depth FROM category_tree ORDER BY depth, id
-    "#;
+    ";
 
     let statement = parser.parse(recursive_sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
@@ -416,26 +415,26 @@ async fn test_recursive_cte_graph_traversal() {
     }
 
     // Create a simple directed graph: 1->2, 2->3, 1->4, 4->5
-    let insert_sql = r#"
+    let insert_sql = r"
         INSERT INTO edges (from_node, to_node) VALUES 
         (1, 2),
         (2, 3),
         (1, 4),
         (4, 5)
-    "#;
+    ";
 
     let statement = parser.parse(insert_sql).unwrap();
     executor.execute_statement(&statement).await.unwrap();
 
     // Find all reachable nodes from node 1
-    let recursive_sql = r#"
+    let recursive_sql = r"
         WITH RECURSIVE reachable AS (
             SELECT to_node as node FROM edges WHERE from_node = 1
             UNION ALL
             SELECT e.to_node FROM edges e INNER JOIN reachable r ON e.from_node = r.node
         )
         SELECT DISTINCT node FROM reachable ORDER BY node
-    "#;
+    ";
 
     let statement = parser.parse(recursive_sql).unwrap();
     let result = executor.execute_statement(&statement).await;
@@ -451,14 +450,14 @@ fn test_parser_recursive_flag() {
     let parser = Parser::new();
 
     // Test WITH RECURSIVE
-    let sql = r#"
+    let sql = r"
         WITH RECURSIVE cte AS (
             SELECT id FROM table1 WHERE id = 1
             UNION ALL
             SELECT t.id FROM table1 t JOIN cte ON t.parent_id = cte.id
         )
         SELECT * FROM cte
-    "#;
+    ";
 
     let statement = parser.parse(sql).unwrap();
 
@@ -479,12 +478,12 @@ fn test_parser_non_recursive_cte() {
     let parser = Parser::new();
 
     // Test WITH (non-recursive)
-    let sql = r#"
+    let sql = r"
         WITH cte AS (
             SELECT id FROM table1 WHERE id = 1
         )
         SELECT * FROM cte
-    "#;
+    ";
 
     let statement = parser.parse(sql).unwrap();
 
@@ -508,14 +507,14 @@ fn test_parser_non_recursive_cte() {
 async fn test_recursive_cte_with_column_list() {
     let (_temp_dir, _storage_arc, _executor, parser) = setup_test_env().await;
 
-    let sql = r#"
+    let sql = r"
         WITH RECURSIVE numbered (n, squared) AS (
             SELECT 1, 1
             UNION ALL
             SELECT n + 1, (n + 1) * (n + 1) FROM numbered WHERE n < 10
         )
         SELECT n, squared FROM numbered
-    "#;
+    ";
 
     let statement = parser.parse(sql);
     assert!(

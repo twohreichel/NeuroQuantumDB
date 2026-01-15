@@ -1,7 +1,7 @@
 //! # ARM64/NEON Optimization
 //!
 //! SIMD optimizations for ARM64 architecture using NEON instructions
-//! to accelerate neuromorphic computations in NeuroQuantumDB.
+//! to accelerate neuromorphic computations in `NeuroQuantumDB`.
 //!
 //! This module provides hardware-accelerated implementations for:
 //! - DNA compression and decompression
@@ -159,8 +159,7 @@ impl NeonOptimizer {
         // Handle remaining connections
         let remaining_start = num_chunks * chunk_size;
         for connection in node.connections.iter_mut().skip(remaining_start) {
-            connection.weight = (connection.weight * node.decay_factor
-                + connection.usage_count as f32 * 0.01 * node.learning_rate)
+            connection.weight = connection.weight.mul_add(node.decay_factor, connection.usage_count as f32 * 0.01 * node.learning_rate)
                 .clamp(-1.0, 1.0);
         }
 
@@ -322,12 +321,14 @@ impl NeonOptimizer {
     }
 
     /// Get optimization statistics
-    pub fn get_stats(&self) -> &OptimizationStats {
+    #[must_use] 
+    pub const fn get_stats(&self) -> &OptimizationStats {
         &self.optimization_stats
     }
 
     /// Check if NEON optimizations are enabled
-    pub fn is_enabled(&self) -> bool {
+    #[must_use] 
+    pub const fn is_enabled(&self) -> bool {
         self.enabled
     }
 

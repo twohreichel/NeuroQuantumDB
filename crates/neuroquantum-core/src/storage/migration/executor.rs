@@ -34,6 +34,7 @@ pub struct MigrationExecutor {
 
 impl MigrationExecutor {
     /// Create a new migration executor
+    #[must_use] 
     pub fn new(config: MigrationExecutorConfig) -> Self {
         let parser = MigrationParser::new(config.config.migrations_dir.clone());
         let history = MigrationHistory::new();
@@ -122,7 +123,7 @@ impl MigrationExecutor {
             let migration = migrations
                 .iter()
                 .find(|m| m.id == migration_id)
-                .ok_or_else(|| anyhow!("Migration {} not found", migration_id))?;
+                .ok_or_else(|| anyhow!("Migration {migration_id} not found"))?;
 
             let result = self
                 .execute_migration(migration, MigrationDirection::Up)
@@ -271,7 +272,7 @@ impl MigrationExecutor {
     }
 
     /// Get progress tracker
-    pub fn progress(&self) -> &ProgressTracker {
+    pub const fn progress(&self) -> &ProgressTracker {
         &self.progress
     }
 }

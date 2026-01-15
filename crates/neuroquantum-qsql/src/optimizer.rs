@@ -4,8 +4,8 @@
 //! including synaptic pathway optimization, Hebbian learning for query patterns,
 //! and adaptive plasticity for performance tuning.
 
-use crate::ast::*;
-use crate::error::*;
+use crate::ast::{Statement, SelectItem};
+use crate::error::{QSQLResult, QSQLError};
 use neuroquantum_core::learning::HebbianLearningEngine;
 use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::synaptic::SynapticNetwork;
@@ -67,7 +67,7 @@ pub struct QueryPattern {
     pub optimal_plan: Option<QueryPlan>,
 }
 
-/// Custom serialization for SystemTime
+/// Custom serialization for `SystemTime`
 mod unix_timestamp {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -200,7 +200,7 @@ impl NeuromorphicOptimizer {
             Some(
                 SynapticNetwork::new(1000, config.activation_threshold).map_err(|e| {
                     QSQLError::NeuromorphicError {
-                        message: format!("Failed to create synaptic network: {}", e),
+                        message: format!("Failed to create synaptic network: {e}"),
                     }
                 })?,
             )
@@ -212,7 +212,7 @@ impl NeuromorphicOptimizer {
             Some(
                 PlasticityMatrix::new(100, config.learning_rate).map_err(|e| {
                     QSQLError::NeuromorphicError {
-                        message: format!("Failed to create plasticity matrix: {}", e),
+                        message: format!("Failed to create plasticity matrix: {e}"),
                     }
                 })?,
             )
@@ -224,7 +224,7 @@ impl NeuromorphicOptimizer {
             Some(
                 HebbianLearningEngine::new(config.learning_rate).map_err(|e| {
                     QSQLError::NeuromorphicError {
-                        message: format!("Failed to create Hebbian learner: {}", e),
+                        message: format!("Failed to create Hebbian learner: {e}"),
                     }
                 })?,
             )
@@ -336,7 +336,7 @@ impl NeuromorphicOptimizer {
                         if connection.weight > 0.7 {
                             let pathway = SynapticPathway {
                                 pathway_id: format!("pathway_{}_{}", node_id, connection.target_id),
-                                source_node: format!("node_{}", node_id),
+                                source_node: format!("node_{node_id}"),
                                 target_node: format!("node_{}", connection.target_id),
                                 strength: connection.weight,
                                 access_pattern: self.determine_access_pattern(&plan.statement),
@@ -364,7 +364,7 @@ impl NeuromorphicOptimizer {
         }
 
         plan.optimization_metadata.synaptic_adaptations = synaptic_adaptations;
-        self.optimization_stats.synaptic_strengthening_events += synaptic_adaptations as u64;
+        self.optimization_stats.synaptic_strengthening_events += u64::from(synaptic_adaptations);
         self.optimization_stats.neural_operation_count += 1;
 
         Ok(plan)
@@ -404,7 +404,7 @@ impl NeuromorphicOptimizer {
     }
 
     /// Determine access pattern from statement type
-    fn determine_access_pattern(&self, statement: &Statement) -> AccessPattern {
+    const fn determine_access_pattern(&self, statement: &Statement) -> AccessPattern {
         match statement {
             | Statement::Select(_) => AccessPattern::Sequential,
             | Statement::NeuroMatch(_) => AccessPattern::Clustered,
@@ -477,10 +477,10 @@ impl NeuromorphicOptimizer {
         match statement {
             | Statement::Select(select) => {
                 let table = if let Some(from) = &select.from {
-                    if !from.relations.is_empty() {
-                        from.relations[0].name.clone()
-                    } else {
+                    if from.relations.is_empty() {
                         "unknown".to_string()
+                    } else {
+                        from.relations[0].name.clone()
                     }
                 } else {
                     "unknown".to_string()
@@ -491,7 +491,7 @@ impl NeuromorphicOptimizer {
                     .iter()
                     .filter_map(|item| match item {
                         | SelectItem::Expression { expr, alias } => {
-                            Some(alias.clone().unwrap_or_else(|| format!("{:?}", expr)))
+                            Some(alias.clone().unwrap_or_else(|| format!("{expr:?}")))
                         },
                         | _ => None,
                     })
@@ -559,7 +559,7 @@ impl NeuromorphicOptimizer {
             }
 
             // Update estimated cost based on adaptations
-            plan.estimated_cost *= 1.0 - adaptation_factor as f64 * 0.5;
+            plan.estimated_cost *= f64::from(adaptation_factor).mul_add(-0.5, 1.0);
         }
 
         self.optimization_stats.plasticity_adaptations += 1;
@@ -651,7 +651,7 @@ impl NeuromorphicOptimizer {
         }
     }
 
-    fn determine_execution_strategy(&self, statement: &Statement) -> ExecutionStrategy {
+    const fn determine_execution_strategy(&self, statement: &Statement) -> ExecutionStrategy {
         match statement {
             | Statement::Select(_) => ExecutionStrategy::Sequential,
             | Statement::NeuroMatch(_) => ExecutionStrategy::SynapticPipeline,
@@ -661,7 +661,7 @@ impl NeuromorphicOptimizer {
         }
     }
 
-    fn estimate_initial_cost(&self, statement: &Statement) -> f64 {
+    const fn estimate_initial_cost(&self, statement: &Statement) -> f64 {
         match statement {
             | Statement::Select(_) => 100.0,
             | Statement::NeuroMatch(_) => 150.0,
@@ -671,7 +671,7 @@ impl NeuromorphicOptimizer {
     }
 
     /// Get optimization statistics
-    pub fn get_stats(&self) -> &OptimizationStats {
+    pub const fn get_stats(&self) -> &OptimizationStats {
         &self.optimization_stats
     }
 
@@ -737,7 +737,7 @@ impl NeuromorphicOptimizer {
                 let mut params = HashMap::new();
                 params.insert(
                     "iterations".to_string(),
-                    quantum_search.max_iterations.unwrap_or(10) as f64,
+                    f64::from(quantum_search.max_iterations.unwrap_or(10)),
                 );
                 params.insert(
                     "amplitude_boost".to_string(),
@@ -816,7 +816,7 @@ impl Default for NeuromorphicOptimizer {
                 let hebbian_learner = HebbianLearningEngine::new(0.01).ok();
                 let plasticity_matrix = PlasticityMatrix::new(50, 0.01).ok();
 
-                NeuromorphicOptimizer {
+                Self {
                     synaptic_network,
                     hebbian_learner,
                     plasticity_matrix,

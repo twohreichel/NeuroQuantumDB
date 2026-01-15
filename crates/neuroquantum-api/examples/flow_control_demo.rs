@@ -153,10 +153,10 @@ async fn demo_pause() -> Result<(), Box<dyn std::error::Error>> {
     // Simulate critically full buffer
     let buffer_size = 95;
 
-    println!("Buffer: {}% full", buffer_size);
+    println!("Buffer: {buffer_size}% full");
 
     let can_send = controller.can_send(buffer_size).await;
-    println!("Can send: {} (paused!)", can_send);
+    println!("Can send: {can_send} (paused!)");
 
     if !can_send {
         println!("⏸️  Waiting for buffer to drain...");
@@ -190,25 +190,25 @@ async fn demo_drop_oldest() -> Result<(), Box<dyn std::error::Error>> {
     // Fill buffer
     println!("Sending 10 messages (buffer capacity: 10):");
     for i in 0..10 {
-        sender.send(format!("Message {}", i)).await?;
-        println!("  Sent: Message {}", i);
+        sender.send(format!("Message {i}")).await?;
+        println!("  Sent: Message {i}");
     }
 
     println!("\nBuffer full! Sending 3 more messages:");
 
     // Overflow - should drop oldest
     for i in 10..13 {
-        let result = sender.send(format!("Message {}", i)).await;
-        println!("  Sent: Message {} (oldest dropped)", i);
+        let result = sender.send(format!("Message {i}")).await;
+        println!("  Sent: Message {i} (oldest dropped)");
         if let Err(e) = result {
-            println!("    Error: {}", e);
+            println!("    Error: {e}");
         }
     }
 
     let messages = sender.drain(15).await;
     println!("\nDrained messages ({} total):", messages.len());
     for (i, msg) in messages.iter().enumerate() {
-        println!("  [{}] {}", i, msg);
+        println!("  [{i}] {msg}");
     }
 
     let stats = sender.stats().await;
@@ -248,7 +248,7 @@ async fn demo_health_monitoring() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("  Messages sent: {}", stats.messages_sent);
     println!("  Messages dropped: {}", stats.messages_dropped);
-    println!("  Healthy: {} ✅\n", healthy);
+    println!("  Healthy: {healthy} ✅\n");
 
     // Unhealthy scenario
     println!("Scenario 2: Unhealthy connection (high drop rate)");

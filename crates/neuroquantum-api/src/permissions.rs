@@ -1,4 +1,4 @@
-//! Permission constants and utilities for NeuroQuantumDB API
+//! Permission constants and utilities for `NeuroQuantumDB` API
 //!
 //! This module provides static string constants for permissions to avoid
 //! repeated heap allocations when using permission strings throughout the codebase.
@@ -48,6 +48,7 @@ impl Permission {
     /// This allocates strings but is intended for cases where `Vec<String>` is required
     /// (e.g., serialization, API boundaries).
     #[inline]
+    #[must_use] 
     pub fn admin_permissions() -> Vec<String> {
         vec![
             ADMIN.to_string(),
@@ -61,36 +62,42 @@ impl Permission {
 
     /// Returns read-only permission as owned String vec.
     #[inline]
+    #[must_use] 
     pub fn read_only() -> Vec<String> {
         vec![READ.to_string()]
     }
 
     /// Returns read-write permissions as owned String vec.
     #[inline]
+    #[must_use] 
     pub fn read_write() -> Vec<String> {
         vec![READ.to_string(), WRITE.to_string()]
     }
 
     /// Returns neuromorphic read permissions as owned String vec.
     #[inline]
+    #[must_use] 
     pub fn neuromorphic_read() -> Vec<String> {
         vec![NEUROMORPHIC.to_string(), READ.to_string()]
     }
 
     /// Returns quantum read permissions as owned String vec.
     #[inline]
+    #[must_use] 
     pub fn quantum_read() -> Vec<String> {
         vec![QUANTUM.to_string(), READ.to_string()]
     }
 
     /// Returns DNA read-write permissions as owned String vec.
     #[inline]
+    #[must_use] 
     pub fn dna_read_write() -> Vec<String> {
         vec![DNA.to_string(), READ.to_string(), WRITE.to_string()]
     }
 
     /// Returns quantum authenticated permission as owned String vec.
     #[inline]
+    #[must_use] 
     pub fn quantum_authenticated() -> Vec<String> {
         vec![QUANTUM_AUTHENTICATED.to_string()]
     }
@@ -99,30 +106,35 @@ impl Permission {
     ///
     /// Useful when you have a list of permission constants and need `Vec<String>`.
     #[inline]
+    #[must_use] 
     pub fn to_owned(permissions: &[&str]) -> Vec<String> {
         permissions.iter().map(|s| (*s).to_string()).collect()
     }
 
     /// Check if a permission string matches a known permission constant.
     #[inline]
+    #[must_use] 
     pub fn is_valid(permission: &str) -> bool {
         ALL_PERMISSIONS.contains(&permission)
     }
 
     /// Check if the given permissions include admin.
     #[inline]
+    #[must_use] 
     pub fn has_admin(permissions: &[String]) -> bool {
         permissions.iter().any(|p| p == ADMIN)
     }
 
     /// Check if the given permissions include read.
     #[inline]
+    #[must_use] 
     pub fn has_read(permissions: &[String]) -> bool {
         permissions.iter().any(|p| p == READ)
     }
 
     /// Check if the given permissions include write.
     #[inline]
+    #[must_use] 
     pub fn has_write(permissions: &[String]) -> bool {
         permissions.iter().any(|p| p == WRITE)
     }

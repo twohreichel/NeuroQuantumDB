@@ -55,6 +55,7 @@ impl JwtKeyRotation {
     }
 
     /// Create with custom grace period
+    #[must_use] 
     pub fn with_grace_period(
         initial_secret: &[u8],
         rotation_schedule: Duration,
@@ -93,7 +94,7 @@ impl JwtKeyRotation {
 
         // Generate new cryptographically secure random secret (48 bytes = 384 bits)
         let new_secret = Self::generate_secure_secret().map_err(|e| ApiError::EncryptionError {
-            details: format!("Failed to generate new secret: {}", e),
+            details: format!("Failed to generate new secret: {e}"),
         })?;
 
         // Move current to previous
@@ -144,7 +145,7 @@ impl JwtKeyRotation {
         let mut secret = vec![0u8; 48]; // 384 bits
         rand::thread_rng()
             .try_fill_bytes(&mut secret)
-            .map_err(|e| format!("RNG failure: {}", e))?;
+            .map_err(|e| format!("RNG failure: {e}"))?;
         Ok(secret)
     }
 
@@ -164,7 +165,7 @@ impl JwtKeyRotation {
 
         // Generate new cryptographically secure random secret (48 bytes = 384 bits)
         let new_secret = Self::generate_secure_secret().map_err(|e| ApiError::EncryptionError {
-            details: format!("Failed to generate new secret: {}", e),
+            details: format!("Failed to generate new secret: {e}"),
         })?;
 
         // Acquire locks
@@ -197,7 +198,7 @@ impl JwtKeyRotation {
         let last_rotation = self.last_rotation.read().await;
         let elapsed = SystemTime::now()
             .duration_since(*last_rotation)
-            .map_err(|e| format!("Clock error: {}", e))?;
+            .map_err(|e| format!("Clock error: {e}"))?;
 
         Ok(self.rotation_schedule.saturating_sub(elapsed))
     }
@@ -277,7 +278,8 @@ impl JwtService {
     }
 
     /// Get the key rotation manager
-    pub fn rotation_manager(&self) -> Option<&Arc<JwtKeyRotation>> {
+    #[must_use] 
+    pub const fn rotation_manager(&self) -> Option<&Arc<JwtKeyRotation>> {
         self.key_rotation.as_ref()
     }
 
@@ -303,7 +305,7 @@ impl JwtService {
         encode(&Header::default(), &claims, &self.encoding_key).map_err(|e| {
             error!("Failed to generate JWT token: {}", e);
             ApiError::EncryptionError {
-                details: format!("Token generation failed: {}", e),
+                details: format!("Token generation failed: {e}"),
             }
         })
     }
@@ -340,8 +342,7 @@ impl JwtService {
                 // No rotation or previous key unavailable
                 warn!("JWT validation failed: {}", current_err);
                 Err(ApiError::Unauthorized(format!(
-                    "Invalid token: {}",
-                    current_err
+                    "Invalid token: {current_err}"
                 )))
             },
         }
@@ -363,7 +364,7 @@ impl JwtService {
             .pq_crypto
             .generate_quantum_claims(user_id, session_id)
             .map_err(|e| ApiError::EncryptionError {
-                details: format!("Post-quantum claim generation failed: {}", e),
+                details: format!("Post-quantum claim generation failed: {e}"),
             })?;
 
         info!("✅ Generated post-quantum signatures for user: {}", user_id);
@@ -392,7 +393,7 @@ impl JwtService {
         encode(&Header::default(), &claims, &self.encoding_key).map_err(|e| {
             error!("Failed to generate quantum JWT token: {}", e);
             ApiError::EncryptionError {
-                details: format!("Quantum token generation failed: {}", e),
+                details: format!("Quantum token generation failed: {e}"),
             }
         })
     }
@@ -403,11 +404,12 @@ impl JwtService {
         claims: &neuroquantum_core::pqcrypto::QuantumTokenClaims,
     ) -> Result<(), ApiError> {
         self.pq_crypto.verify_quantum_claims(claims).map_err(|e| {
-            ApiError::Unauthorized(format!("Quantum claim verification failed: {}", e))
+            ApiError::Unauthorized(format!("Quantum claim verification failed: {e}"))
         })
     }
 
     /// Get the post-quantum crypto manager for advanced operations
+    #[must_use] 
     pub fn pq_crypto(&self) -> &PQCryptoManager {
         &self.pq_crypto
     }
@@ -434,7 +436,8 @@ pub struct JwtAuth {
 }
 
 impl JwtAuth {
-    pub fn new(service: JwtService) -> Self {
+    #[must_use] 
+    pub const fn new(service: JwtService) -> Self {
         Self { service }
     }
 }
@@ -564,7 +567,8 @@ impl Default for JwtConfig {
 }
 
 impl JwtConfig {
-    /// Create JwtService from config
+    /// Create `JwtService` from config
+    #[must_use] 
     pub fn into_service(self) -> JwtService {
         let secret = self.secret.as_bytes();
 

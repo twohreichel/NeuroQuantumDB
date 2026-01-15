@@ -13,7 +13,7 @@ mod replication_tests {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
         ClusterConfig {
             node_id,
-            bind_addr: format!("127.0.0.1:{}", port).parse().unwrap(),
+            bind_addr: format!("127.0.0.1:{port}").parse().unwrap(),
             ..Default::default()
         }
     }

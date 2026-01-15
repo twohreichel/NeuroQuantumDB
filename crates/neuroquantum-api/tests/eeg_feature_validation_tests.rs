@@ -110,8 +110,8 @@ fn add_noise(signal: &[f32], noise_amplitude: f32) -> Vec<f32> {
             let mut hasher = DefaultHasher::new();
             i.hash(&mut hasher);
             let hash = hasher.finish();
-            let rand_val = ((hash % 10000) as f32 / 10000.0) * 2.0 - 1.0;
-            x + noise_amplitude * rand_val
+            let rand_val = ((hash % 10000) as f32 / 10000.0).mul_add(2.0, -1.0);
+            noise_amplitude.mul_add(rand_val, x)
         })
         .collect()
 }
@@ -148,10 +148,7 @@ fn test_fft_single_frequency_detection() {
     let bin_diff = (peak_bin as i32 - expected_bin as i32).abs();
     assert!(
         bin_diff <= 1,
-        "FFT peak at bin {} but expected bin {} (frequency resolution: {:.2} Hz)",
-        peak_bin,
-        expected_bin,
-        freq_resolution
+        "FFT peak at bin {peak_bin} but expected bin {expected_bin} (frequency resolution: {freq_resolution:.2} Hz)"
     );
 }
 
@@ -185,8 +182,7 @@ fn test_fft_multiple_frequency_detection() {
 
         assert!(
             *peak_value > 0.01,
-            "No significant peak found near {:.1} Hz",
-            expected_freq
+            "No significant peak found near {expected_freq:.1} Hz"
         );
     }
 }
@@ -295,9 +291,7 @@ fn test_band_power_beta_dominant_active() {
 
     assert!(
         high_freq_power > low_freq_power * 0.5,
-        "High frequency power ({:.4}) should be significant compared to low frequency ({:.4}) in active state",
-        high_freq_power,
-        low_freq_power
+        "High frequency power ({high_freq_power:.4}) should be significant compared to low frequency ({low_freq_power:.4}) in active state"
     );
 }
 
@@ -343,28 +337,23 @@ fn test_all_band_powers_non_negative() {
 
         assert!(
             features.delta_power >= 0.0,
-            "Delta power negative for {:?}",
-            state
+            "Delta power negative for {state:?}"
         );
         assert!(
             features.theta_power >= 0.0,
-            "Theta power negative for {:?}",
-            state
+            "Theta power negative for {state:?}"
         );
         assert!(
             features.alpha_power >= 0.0,
-            "Alpha power negative for {:?}",
-            state
+            "Alpha power negative for {state:?}"
         );
         assert!(
             features.beta_power >= 0.0,
-            "Beta power negative for {:?}",
-            state
+            "Beta power negative for {state:?}"
         );
         assert!(
             features.gamma_power >= 0.0,
-            "Gamma power negative for {:?}",
-            state
+            "Gamma power negative for {state:?}"
         );
     }
 }
@@ -399,9 +388,7 @@ fn test_lowpass_filter_attenuation() {
     // Filtered signal should have less power (high freq attenuated)
     assert!(
         filtered_power < original_power,
-        "Lowpass filter should reduce total power (original: {:.4}, filtered: {:.4})",
-        original_power,
-        filtered_power
+        "Lowpass filter should reduce total power (original: {original_power:.4}, filtered: {filtered_power:.4})"
     );
 }
 
@@ -515,9 +502,7 @@ fn test_notch_filter_50hz_rejection() {
 
     assert!(
         power_after < power_before * 0.5,
-        "Notch filter should reduce 50 Hz power (before: {:.4}, after: {:.4})",
-        power_before,
-        power_after
+        "Notch filter should reduce 50 Hz power (before: {power_before:.4}, after: {power_after:.4})"
     );
 }
 
@@ -676,8 +661,7 @@ fn test_feature_stability_similar_signals() {
     let similarity = features1.similarity(&features2);
     assert!(
         similarity > 0.95,
-        "Similar signals should have similarity > 0.95, got {:.3}",
-        similarity
+        "Similar signals should have similarity > 0.95, got {similarity:.3}"
     );
 }
 
@@ -697,8 +681,7 @@ fn test_feature_differentiation_different_states() {
     let ratio_diff = (relaxed_features.alpha_beta_ratio - active_features.alpha_beta_ratio).abs();
     assert!(
         ratio_diff > 0.1,
-        "Different EEG states should have different alpha/beta ratios (diff: {:.3})",
-        ratio_diff
+        "Different EEG states should have different alpha/beta ratios (diff: {ratio_diff:.3})"
     );
 }
 
@@ -1064,8 +1047,7 @@ fn test_different_sampling_rates_produce_consistent_features() {
     for (rate, power) in &alpha_powers {
         assert!(
             *power > 0.0,
-            "Should detect alpha power at {} Hz sampling rate",
-            rate
+            "Should detect alpha power at {rate} Hz sampling rate"
         );
     }
 }

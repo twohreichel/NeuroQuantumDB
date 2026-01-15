@@ -282,29 +282,29 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum LockLevel {
-    /// Level 1: Database layer (NeuroQuantumDB)
+    /// Level 1: Database layer (`NeuroQuantumDB`)
     Database = 1,
-    /// Level 2: Query engine layer (QSQLEngine)
+    /// Level 2: Query engine layer (`QSQLEngine`)
     QueryEngine = 2,
-    /// Level 3: Storage layer (StorageEngine)
+    /// Level 3: Storage layer (`StorageEngine`)
     Storage = 3,
-    /// Level 4: Storage subsystems (WAL, BTree, BufferPool)
+    /// Level 4: Storage subsystems (WAL, `BTree`, `BufferPool`)
     StorageSubsystem = 4,
-    /// Level 5: Monitoring layer (QueryMetrics)
+    /// Level 5: Monitoring layer (`QueryMetrics`)
     Monitoring = 5,
-    /// Level 6: Utility layer (CircuitBreaker, stats)
+    /// Level 6: Utility layer (`CircuitBreaker`, stats)
     Utility = 6,
 }
 
 impl fmt::Display for LockLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            | LockLevel::Database => write!(f, "Level 1 (Database)"),
-            | LockLevel::QueryEngine => write!(f, "Level 2 (QueryEngine)"),
-            | LockLevel::Storage => write!(f, "Level 3 (Storage)"),
-            | LockLevel::StorageSubsystem => write!(f, "Level 4 (StorageSubsystem)"),
-            | LockLevel::Monitoring => write!(f, "Level 5 (Monitoring)"),
-            | LockLevel::Utility => write!(f, "Level 6 (Utility)"),
+            | Self::Database => write!(f, "Level 1 (Database)"),
+            | Self::QueryEngine => write!(f, "Level 2 (QueryEngine)"),
+            | Self::Storage => write!(f, "Level 3 (Storage)"),
+            | Self::StorageSubsystem => write!(f, "Level 4 (StorageSubsystem)"),
+            | Self::Monitoring => write!(f, "Level 5 (Monitoring)"),
+            | Self::Utility => write!(f, "Level 6 (Utility)"),
         }
     }
 }
@@ -326,10 +326,10 @@ pub enum WebSocketLockLevel {
 impl fmt::Display for WebSocketLockLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            | WebSocketLockLevel::Connections => write!(f, "WS Level 1 (Connections)"),
-            | WebSocketLockLevel::PubSub => write!(f, "WS Level 2 (PubSub)"),
-            | WebSocketLockLevel::FlowControl => write!(f, "WS Level 3 (FlowControl)"),
-            | WebSocketLockLevel::Shutdown => write!(f, "WS Level 4 (Shutdown)"),
+            | Self::Connections => write!(f, "WS Level 1 (Connections)"),
+            | Self::PubSub => write!(f, "WS Level 2 (PubSub)"),
+            | Self::FlowControl => write!(f, "WS Level 3 (FlowControl)"),
+            | Self::Shutdown => write!(f, "WS Level 4 (Shutdown)"),
         }
     }
 }

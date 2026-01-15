@@ -291,17 +291,17 @@ impl BTree {
     }
 
     /// Get the number of keys in the tree
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.num_keys
     }
 
     /// Check if the tree is empty
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.num_keys == 0
     }
 
     /// Get the height of the tree
-    pub fn height(&self) -> usize {
+    pub const fn height(&self) -> usize {
         self.height
     }
 
@@ -313,12 +313,12 @@ impl BTree {
     // === PRIVATE RECURSIVE OPERATIONS ===
 
     /// Recursive insert helper
-    fn insert_recursive<'a>(
-        &'a mut self,
+    fn insert_recursive(
+        &mut self,
         page_id: PageId,
         key: Key,
         value: Value,
-    ) -> InsertFuture<'a> {
+    ) -> InsertFuture<'_> {
         Box::pin(async move {
             // Try to read as internal node first
             if let Ok(mut internal_node) = self.page_manager.read_internal_node(page_id).await {
@@ -346,11 +346,10 @@ impl BTree {
                             .await?;
 
                         return Ok(Some((split_key, new_page_id)));
-                    } else {
-                        self.page_manager
-                            .write_internal_node(page_id, &internal_node)
-                            .await?;
                     }
+                    self.page_manager
+                        .write_internal_node(page_id, &internal_node)
+                        .await?;
                 }
 
                 Ok(None)
@@ -390,12 +389,12 @@ impl BTree {
 
     /// Recursive upsert helper
     /// Returns: (optional split info, whether key was new)
-    fn upsert_recursive<'a>(
-        &'a mut self,
+    fn upsert_recursive(
+        &mut self,
         page_id: PageId,
         key: Key,
         value: Value,
-    ) -> UpsertFuture<'a> {
+    ) -> UpsertFuture<'_> {
         Box::pin(async move {
             // Try to read as internal node first
             if let Ok(mut internal_node) = self.page_manager.read_internal_node(page_id).await {
@@ -424,11 +423,10 @@ impl BTree {
                             .await?;
 
                         return Ok((Some((split_key, new_page_id)), is_new_key));
-                    } else {
-                        self.page_manager
-                            .write_internal_node(page_id, &internal_node)
-                            .await?;
                     }
+                    self.page_manager
+                        .write_internal_node(page_id, &internal_node)
+                        .await?;
                 }
 
                 Ok((None, is_new_key))

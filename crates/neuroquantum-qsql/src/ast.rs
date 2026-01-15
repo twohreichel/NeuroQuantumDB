@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 /// Learning algorithms for pattern learning
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LearningAlgorithm {
     HebbianLearning,
     STDP, // Spike-Timing Dependent Plasticity
@@ -18,7 +18,7 @@ pub enum LearningAlgorithm {
 }
 
 /// Learning rules for weight adaptation
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LearningRule {
     Hebbian,
     AntiHebbian,
@@ -54,7 +54,7 @@ pub enum NeuroExtension {
 }
 
 /// Root AST node representing a complete QSQL query
-/// Note: SelectStatement is intentionally not boxed to avoid indirection overhead
+/// Note: `SelectStatement` is intentionally not boxed to avoid indirection overhead
 /// for the most common query type. The size trade-off is acceptable for performance.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
@@ -126,7 +126,7 @@ pub struct SelectStatement {
     // WITH clause for CTEs
     pub with_clause: Option<WithClause>,
     /// UNION clause for compound queries (UNION / UNION ALL)
-    /// Used in recursive CTEs: anchor_query UNION ALL recursive_query
+    /// Used in recursive CTEs: `anchor_query` UNION ALL `recursive_query`
     pub union_clause: Option<UnionClause>,
 }
 
@@ -141,7 +141,7 @@ pub struct UnionClause {
 }
 
 /// Type of UNION operation
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UnionType {
     /// UNION - removes duplicate rows
     Union,
@@ -207,7 +207,7 @@ pub struct SynapticOptimizeStatement {
     pub learning_parameters: HashMap<String, f32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SynapticOptimizationType {
     HebbianLearning,
     SynapticPlasticity,
@@ -254,7 +254,7 @@ pub struct CreateTableStatement {
     pub plasticity_config: Option<PlasticityConfig>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DropTableStatement {
     pub table_name: String,
     pub if_exists: bool,
@@ -292,7 +292,7 @@ pub enum AlterTableOperation {
 }
 
 /// CREATE INDEX statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateIndexStatement {
     pub index_name: String,
     pub table_name: String,
@@ -304,7 +304,7 @@ pub struct CreateIndexStatement {
 }
 
 /// DROP INDEX statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DropIndexStatement {
     pub index_name: String,
     pub if_exists: bool,
@@ -313,7 +313,7 @@ pub struct DropIndexStatement {
 }
 
 /// CASCADE/RESTRICT behavior for TRUNCATE TABLE
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum TruncateBehavior {
     /// Default behavior - error if foreign key constraints exist
     #[default]
@@ -324,8 +324,8 @@ pub enum TruncateBehavior {
 
 /// TRUNCATE TABLE statement
 /// Quickly removes all rows from a table without logging individual row deletions.
-/// Syntax: TRUNCATE TABLE table_name [CASCADE | RESTRICT]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Syntax: TRUNCATE TABLE `table_name` [CASCADE | RESTRICT]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TruncateTableStatement {
     /// The name of the table to truncate
     pub table_name: String,
@@ -336,7 +336,7 @@ pub struct TruncateTableStatement {
 }
 
 /// Compression algorithm for COMPRESS TABLE statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompressionAlgorithm {
     /// DNA-based compression using genetic encoding
     DNA,
@@ -344,8 +344,8 @@ pub enum CompressionAlgorithm {
 
 /// COMPRESS TABLE statement
 /// Applies compression algorithm to table data
-/// Syntax: COMPRESS TABLE table_name USING compression_algorithm
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Syntax: COMPRESS TABLE `table_name` USING `compression_algorithm`
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompressTableStatement {
     /// The name of the table to compress
     pub table_name: String,
@@ -370,7 +370,7 @@ pub struct JoinClause {
     pub superposition_join: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JoinType {
     Inner,
     Left,
@@ -398,7 +398,7 @@ pub struct TableReference {
     pub subquery: Option<Box<SelectStatement>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum QuantumState {
     Superposition,
     Entangled(String), // Entangled with another table
@@ -518,7 +518,7 @@ pub enum Expression {
     // Window function expression
     // e.g., ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2)
     WindowFunction {
-        /// The window function (ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, etc.)
+        /// The window function (`ROW_NUMBER`, RANK, `DENSE_RANK`, LAG, LEAD, etc.)
         function: WindowFunctionType,
         /// Arguments for the function (e.g., column name for LAG/LEAD)
         args: Vec<Expression>,
@@ -548,13 +548,13 @@ pub enum Literal {
 }
 
 /// Window function types for SQL window functions
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WindowFunctionType {
-    /// ROW_NUMBER() - assigns sequential row numbers
+    /// `ROW_NUMBER()` - assigns sequential row numbers
     RowNumber,
-    /// RANK() - assigns rank with gaps for ties
+    /// `RANK()` - assigns rank with gaps for ties
     Rank,
-    /// DENSE_RANK() - assigns rank without gaps for ties
+    /// `DENSE_RANK()` - assigns rank without gaps for ties
     DenseRank,
     /// LAG(column, offset, default) - accesses previous row's value
     Lag,
@@ -562,11 +562,11 @@ pub enum WindowFunctionType {
     Lead,
     /// NTILE(n) - distributes rows into n buckets
     Ntile,
-    /// FIRST_VALUE(column) - returns first value in the window
+    /// `FIRST_VALUE(column)` - returns first value in the window
     FirstValue,
-    /// LAST_VALUE(column) - returns last value in the window
+    /// `LAST_VALUE(column)` - returns last value in the window
     LastValue,
-    /// NTH_VALUE(column, n) - returns nth value in the window
+    /// `NTH_VALUE(column`, n) - returns nth value in the window
     NthValue,
     // --- Phase 2: Aggregate Window Functions ---
     /// SUM(column) OVER () - running/partition sum
@@ -591,7 +591,7 @@ pub struct WindowSpec {
     pub order_by: Vec<OrderByItem>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BinaryOperator {
     // Arithmetic
     Add,
@@ -631,7 +631,7 @@ pub enum BinaryOperator {
     AmplitudeInterference,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UnaryOperator {
     Not,
     Minus,
@@ -674,7 +674,7 @@ pub struct ColumnDefinition {
     pub synaptic_properties: Option<SynapticProperties>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataType {
     // Standard SQL types
     Integer,
@@ -725,7 +725,7 @@ pub enum ColumnConstraint {
     },
     Check(Expression),
     Default(Expression),
-    /// AUTO_INCREMENT constraint (MySQL-style)
+    /// `AUTO_INCREMENT` constraint (MySQL-style)
     /// Automatically generates sequential unique values for the column
     AutoIncrement,
     /// GENERATED AS IDENTITY (SQL:2003 standard)
@@ -802,7 +802,7 @@ pub struct LearnPatternStatement {
     pub algorithm: Option<String>,
 }
 
-/// ADAPT SYNAPTIC_WEIGHTS statement
+/// ADAPT `SYNAPTIC_WEIGHTS` statement
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AdaptWeightsStatement {
     pub target_table: String,
@@ -811,7 +811,7 @@ pub struct AdaptWeightsStatement {
     pub hebbian_strengthening: bool,
 }
 
-/// QUANTUM_JOIN statement for entangled table operations
+/// `QUANTUM_JOIN` statement for entangled table operations
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct QuantumJoinStatement {
     pub left_table: String,
@@ -830,7 +830,7 @@ pub struct ExplainStatement {
     pub format: ExplainFormat, // Output format
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExplainFormat {
     Text,
     Json,
@@ -839,7 +839,7 @@ pub enum ExplainFormat {
 }
 
 /// ANALYZE statement for collecting table statistics
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnalyzeStatement {
     pub table_name: String,
     pub columns: Option<Vec<String>>, // Specific columns to analyze, None = all
@@ -847,41 +847,41 @@ pub struct AnalyzeStatement {
 }
 
 /// BEGIN or START TRANSACTION statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BeginTransactionStatement {
     /// Optional isolation level (if not specified, use default)
     pub isolation_level: Option<String>,
 }
 
 /// COMMIT statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitStatement {}
 
 /// ROLLBACK statement (without savepoint)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RollbackStatement {}
 
 /// SAVEPOINT statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SavepointStatement {
     pub name: String,
 }
 
 /// ROLLBACK TO SAVEPOINT statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RollbackToSavepointStatement {
     pub name: String,
 }
 
 /// RELEASE SAVEPOINT statement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReleaseSavepointStatement {
     pub name: String,
 }
 
 /// PREPARE statement for creating prepared statements
 /// Syntax: PREPARE name AS query
-/// Example: PREPARE get_user AS SELECT * FROM users WHERE id = $1
+/// Example: PREPARE `get_user` AS SELECT * FROM users WHERE id = $1
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PrepareStatement {
     /// Name of the prepared statement
@@ -895,8 +895,8 @@ pub struct PrepareStatement {
 
 /// EXECUTE statement for running prepared statements
 /// Syntax: EXECUTE name [(param1, param2, ...)]
-/// Example: EXECUTE get_user(42)
-/// Named parameters: EXECUTE find_users(age := 25, pattern := 'John%')
+/// Example: EXECUTE `get_user(42)`
+/// Named parameters: EXECUTE `find_users(age` := 25, pattern := 'John%')
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExecuteStatement {
     /// Name of the prepared statement to execute
@@ -909,8 +909,8 @@ pub struct ExecuteStatement {
 
 /// DEALLOCATE statement for removing prepared statements
 /// Syntax: DEALLOCATE name | DEALLOCATE ALL
-/// Example: DEALLOCATE get_user
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Example: DEALLOCATE `get_user`
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeallocateStatement {
     /// Name of the prepared statement to deallocate (None for ALL)
     pub name: Option<String>,
@@ -930,32 +930,32 @@ pub enum ParameterRef {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            | Statement::Select(_s) => write!(f, "SELECT"),
-            | Statement::CreateTable(ct) => write!(f, "CREATE TABLE {}", ct.table_name),
-            | Statement::DropTable(dt) => write!(f, "DROP TABLE {}", dt.table_name),
-            | Statement::AlterTable(at) => write!(f, "ALTER TABLE {}", at.table_name),
-            | Statement::CreateIndex(ci) => write!(f, "CREATE INDEX {}", ci.index_name),
-            | Statement::DropIndex(di) => write!(f, "DROP INDEX {}", di.index_name),
-            | Statement::TruncateTable(tt) => write!(f, "TRUNCATE TABLE {}", tt.table_name),
-            | Statement::NeuroMatch(n) => write!(f, "NEUROMATCH {}", n.target_table),
-            | Statement::QuantumSearch(q) => write!(f, "QUANTUM_SEARCH {}", q.target_table),
-            | Statement::Explain(e) => {
+            | Self::Select(_s) => write!(f, "SELECT"),
+            | Self::CreateTable(ct) => write!(f, "CREATE TABLE {}", ct.table_name),
+            | Self::DropTable(dt) => write!(f, "DROP TABLE {}", dt.table_name),
+            | Self::AlterTable(at) => write!(f, "ALTER TABLE {}", at.table_name),
+            | Self::CreateIndex(ci) => write!(f, "CREATE INDEX {}", ci.index_name),
+            | Self::DropIndex(di) => write!(f, "DROP INDEX {}", di.index_name),
+            | Self::TruncateTable(tt) => write!(f, "TRUNCATE TABLE {}", tt.table_name),
+            | Self::NeuroMatch(n) => write!(f, "NEUROMATCH {}", n.target_table),
+            | Self::QuantumSearch(q) => write!(f, "QUANTUM_SEARCH {}", q.target_table),
+            | Self::Explain(e) => {
                 write!(f, "EXPLAIN {}", if e.analyze { "ANALYZE" } else { "" })
             },
-            | Statement::Analyze(a) => write!(f, "ANALYZE {}", a.table_name),
-            | Statement::BeginTransaction(_) => write!(f, "BEGIN TRANSACTION"),
-            | Statement::Commit(_) => write!(f, "COMMIT"),
-            | Statement::Rollback(_) => write!(f, "ROLLBACK"),
-            | Statement::Savepoint(s) => write!(f, "SAVEPOINT {}", s.name),
-            | Statement::RollbackToSavepoint(s) => write!(f, "ROLLBACK TO SAVEPOINT {}", s.name),
-            | Statement::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
-            | Statement::Prepare(p) => write!(f, "PREPARE {}", p.name),
-            | Statement::Execute(e) => write!(f, "EXECUTE {}", e.name),
-            | Statement::Deallocate(d) => match &d.name {
-                | Some(name) => write!(f, "DEALLOCATE {}", name),
+            | Self::Analyze(a) => write!(f, "ANALYZE {}", a.table_name),
+            | Self::BeginTransaction(_) => write!(f, "BEGIN TRANSACTION"),
+            | Self::Commit(_) => write!(f, "COMMIT"),
+            | Self::Rollback(_) => write!(f, "ROLLBACK"),
+            | Self::Savepoint(s) => write!(f, "SAVEPOINT {}", s.name),
+            | Self::RollbackToSavepoint(s) => write!(f, "ROLLBACK TO SAVEPOINT {}", s.name),
+            | Self::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
+            | Self::Prepare(p) => write!(f, "PREPARE {}", p.name),
+            | Self::Execute(e) => write!(f, "EXECUTE {}", e.name),
+            | Self::Deallocate(d) => match &d.name {
+                | Some(name) => write!(f, "DEALLOCATE {name}"),
                 | None => write!(f, "DEALLOCATE ALL"),
             },
-            | _ => write!(f, "{:?}", self),
+            | _ => write!(f, "{self:?}"),
         }
     }
 }
@@ -963,24 +963,24 @@ impl fmt::Display for Statement {
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            | Expression::Literal(lit) => write!(f, "{:?}", lit),
-            | Expression::Identifier(id) => write!(f, "{}", id),
-            | Expression::BinaryOp {
+            | Self::Literal(lit) => write!(f, "{lit:?}"),
+            | Self::Identifier(id) => write!(f, "{id}"),
+            | Self::BinaryOp {
                 left,
                 operator,
                 right,
             } => {
-                write!(f, "({} {:?} {})", left, operator, right)
+                write!(f, "({left} {operator:?} {right})")
             },
-            | Expression::SynapticMatch {
+            | Self::SynapticMatch {
                 pattern, weight, ..
             } => {
-                write!(f, "SYNAPTIC_MATCH({}, {})", pattern, weight)
+                write!(f, "SYNAPTIC_MATCH({pattern}, {weight})")
             },
-            | Expression::QuantumSuperposition { states } => {
+            | Self::QuantumSuperposition { states } => {
                 write!(f, "QUANTUM_SUPERPOSITION({})", states.len())
             },
-            | _ => write!(f, "{:?}", self),
+            | _ => write!(f, "{self:?}"),
         }
     }
 }

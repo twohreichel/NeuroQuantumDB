@@ -1,4 +1,4 @@
-//! NeuroQuantumDB Storage Engine
+//! `NeuroQuantumDB` Storage Engine
 //! Provides persistent file-based storage with DNA compression, B+ tree indexes,
 //! and ACID transaction support for production deployment
 
@@ -126,7 +126,7 @@ pub struct AutoIncrementConfig {
     pub increment_by: i64,
     /// Minimum value (default: 1)
     pub min_value: i64,
-    /// Maximum value (default: i64::MAX)
+    /// Maximum value (default: `i64::MAX`)
     pub max_value: i64,
     /// Whether to cycle when max is reached
     pub cycle: bool,
@@ -155,13 +155,15 @@ impl AutoIncrementConfig {
     }
 
     /// Set the starting value
-    pub fn start_with(mut self, start: i64) -> Self {
+    #[must_use] 
+    pub const fn start_with(mut self, start: i64) -> Self {
         self.next_value = start;
         self
     }
 
     /// Set the increment step
-    pub fn increment_by(mut self, step: i64) -> Self {
+    #[must_use] 
+    pub const fn increment_by(mut self, step: i64) -> Self {
         self.increment_by = step;
         self
     }
@@ -197,7 +199,7 @@ pub struct TableSchema {
     pub primary_key: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub version: u32,
-    /// Auto-increment configurations for columns (column_name -> config)
+    /// Auto-increment configurations for columns (`column_name` -> config)
     #[serde(default)]
     pub auto_increment_columns: HashMap<String, AutoIncrementConfig>,
     /// ID generation strategy for internal row IDs
@@ -218,7 +220,7 @@ pub struct ColumnDefinition {
 }
 
 /// Supported data types
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataType {
     Integer,
     Float,
@@ -226,9 +228,9 @@ pub enum DataType {
     Boolean,
     Timestamp,
     Binary,
-    /// Auto-incrementing integer (SERIAL in PostgreSQL)
+    /// Auto-incrementing integer (SERIAL in `PostgreSQL`)
     Serial,
-    /// Auto-incrementing big integer (BIGSERIAL in PostgreSQL)
+    /// Auto-incrementing big integer (BIGSERIAL in `PostgreSQL`)
     BigSerial,
 }
 
@@ -247,13 +249,13 @@ pub enum Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            | Value::Integer(i) => write!(f, "{}", i),
-            | Value::Float(fl) => write!(f, "{}", fl),
-            | Value::Text(s) => write!(f, "{}", s),
-            | Value::Boolean(b) => write!(f, "{}", b),
-            | Value::Timestamp(ts) => write!(f, "{}", ts.to_rfc3339()),
-            | Value::Binary(b) => write!(f, "Binary[{} bytes]", b.len()),
-            | Value::Null => write!(f, "NULL"),
+            | Self::Integer(i) => write!(f, "{i}"),
+            | Self::Float(fl) => write!(f, "{fl}"),
+            | Self::Text(s) => write!(f, "{s}"),
+            | Self::Boolean(b) => write!(f, "{b}"),
+            | Self::Timestamp(ts) => write!(f, "{}", ts.to_rfc3339()),
+            | Self::Binary(b) => write!(f, "Binary[{} bytes]", b.len()),
+            | Self::Null => write!(f, "NULL"),
         }
     }
 }
@@ -417,6 +419,7 @@ pub struct QueryExecutionStats {
 }
 
 impl QueryExecutionStats {
+    #[must_use] 
     pub fn cache_hit_rate(&self) -> Option<f32> {
         let total = self.cache_hits + self.cache_misses;
         if total > 0 {
@@ -440,7 +443,7 @@ pub struct DatabaseMetadata {
 
 /// Main storage engine providing persistent file-based storage
 ///
-/// Note: StorageEngine is intentionally not Clone. Use `Arc<RwLock<StorageEngine>>`
+/// Note: `StorageEngine` is intentionally not Clone. Use `Arc<RwLock<StorageEngine>>`
 /// for shared access across multiple tasks/threads. This prevents accidental
 /// cloning of large internal data structures and ensures consistent cache state.
 pub struct StorageEngine {
@@ -504,6 +507,7 @@ impl StorageEngine {
     /// # }
     /// ```
     #[doc(hidden)] // Hide from public API docs
+    #[must_use] 
     pub fn new_placeholder(data_dir: &std::path::Path) -> Self {
         let metadata = DatabaseMetadata {
             version: "1.0.0".to_string(),
@@ -551,12 +555,12 @@ impl StorageEngine {
         let log_dir = data_dir.join("logs");
         let transaction_manager = crate::transaction::TransactionManager::new_async(&log_dir)
             .await
-            .map_err(|e| anyhow!("Failed to initialize transaction manager: {}", e))?;
+            .map_err(|e| anyhow!("Failed to initialize transaction manager: {e}"))?;
 
         // Initialize encryption manager for data-at-rest encryption
         let encryption_manager = EncryptionManager::new(&data_dir)
             .await
-            .map_err(|e| anyhow!("Failed to initialize encryption manager: {}", e))?;
+            .map_err(|e| anyhow!("Failed to initialize encryption manager: {e}"))?;
 
         info!(
             "🔐 Encryption-at-rest enabled with key fingerprint: {}",
@@ -597,7 +601,9 @@ impl StorageEngine {
         ];
 
         for dir in &dirs {
-            if !dir.exists() {
+            if dir.exists() {
+                debug!("📁 Directory already exists: {}", dir.display());
+            } else {
                 fs::create_dir_all(dir).await.map_err(|e| {
                     anyhow!(
                         "Failed to create directory '{}': {} (Error code: {})",
@@ -607,8 +613,6 @@ impl StorageEngine {
                     )
                 })?;
                 info!("📁 Created directory: {}", dir.display());
-            } else {
-                debug!("📁 Directory already exists: {}", dir.display());
             }
         }
 
@@ -739,7 +743,7 @@ impl StorageEngine {
                     );
                     return Ok(());
                 }
-                return Err(anyhow!("Table '{}' does not exist", table_name));
+                return Err(anyhow!("Table '{table_name}' does not exist"));
             },
         };
 
@@ -767,7 +771,7 @@ impl StorageEngine {
         let index_keys_to_remove: Vec<String> = self
             .indexes
             .keys()
-            .filter(|key| key.starts_with(&format!("{}_", table_name)))
+            .filter(|key| key.starts_with(&format!("{table_name}_")))
             .cloned()
             .collect();
 
@@ -779,7 +783,7 @@ impl StorageEngine {
         let table_path = self
             .data_dir
             .join("tables")
-            .join(format!("{}.nqdb", table_name));
+            .join(format!("{table_name}.nqdb"));
         if table_path.exists() {
             fs::remove_file(&table_path).await.map_err(|e| {
                 anyhow!(
@@ -794,7 +798,7 @@ impl StorageEngine {
         // Delete index files
         let indexes_dir = self.data_dir.join("indexes");
         for index_key in &index_keys_to_remove {
-            let index_path = indexes_dir.join(format!("{}.idx", index_key));
+            let index_path = indexes_dir.join(format!("{index_key}.idx"));
             if index_path.exists() {
                 fs::remove_file(&index_path).await.map_err(|e| {
                     anyhow!(
@@ -870,7 +874,7 @@ impl StorageEngine {
             .metadata
             .tables
             .get(table_name)
-            .ok_or_else(|| anyhow!("Table '{}' does not exist", table_name))?
+            .ok_or_else(|| anyhow!("Table '{table_name}' does not exist"))?
             .clone();
 
         // Create new schema based on operation
@@ -899,7 +903,7 @@ impl StorageEngine {
                 let default_value = column.default_value.clone().unwrap_or(Value::Null);
 
                 // Collect row IDs to update (avoid borrow issues)
-                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().copied().collect();
 
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
@@ -929,11 +933,11 @@ impl StorageEngine {
                     .columns
                     .iter()
                     .position(|c| c.name == *column_name)
-                    .ok_or_else(|| anyhow!("Column '{}' does not exist", column_name))?;
+                    .ok_or_else(|| anyhow!("Column '{column_name}' does not exist"))?;
 
                 // Prevent dropping primary key
                 if *column_name == new_schema.primary_key {
-                    return Err(anyhow!("Cannot drop primary key column '{}'", column_name));
+                    return Err(anyhow!("Cannot drop primary key column '{column_name}'"));
                 }
 
                 // Remove the column from schema
@@ -943,7 +947,7 @@ impl StorageEngine {
                 new_schema.auto_increment_columns.remove(column_name);
 
                 // Remove column data from all existing rows
-                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().copied().collect();
 
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
@@ -970,11 +974,11 @@ impl StorageEngine {
                     .columns
                     .iter()
                     .position(|c| c.name == *old_name)
-                    .ok_or_else(|| anyhow!("Column '{}' does not exist", old_name))?;
+                    .ok_or_else(|| anyhow!("Column '{old_name}' does not exist"))?;
 
                 // Check if new name is not already used
                 if new_schema.columns.iter().any(|c| c.name == *new_name) {
-                    return Err(anyhow!("Column '{}' already exists", new_name));
+                    return Err(anyhow!("Column '{new_name}' already exists"));
                 }
 
                 // Update schema
@@ -995,7 +999,7 @@ impl StorageEngine {
                 }
 
                 // Rename column in all existing rows
-                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().copied().collect();
 
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
@@ -1027,7 +1031,7 @@ impl StorageEngine {
                     .columns
                     .iter()
                     .position(|c| c.name == *column_name)
-                    .ok_or_else(|| anyhow!("Column '{}' does not exist", column_name))?;
+                    .ok_or_else(|| anyhow!("Column '{column_name}' does not exist"))?;
 
                 let old_data_type = new_schema.columns[column_index].data_type.clone();
 
@@ -1035,7 +1039,7 @@ impl StorageEngine {
                 new_schema.columns[column_index].data_type = new_data_type.clone();
 
                 // Convert data in all existing rows
-                let row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
+                let row_ids: Vec<RowId> = self.compressed_blocks.keys().copied().collect();
 
                 for row_id in row_ids {
                     if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
@@ -1088,12 +1092,12 @@ impl StorageEngine {
         Ok(())
     }
 
-    /// Rewrite the entire table file with current data from compressed_blocks
+    /// Rewrite the entire table file with current data from `compressed_blocks`
     async fn rewrite_table_file(&mut self, table_name: &str) -> Result<()> {
         let table_path = self
             .data_dir
             .join("tables")
-            .join(format!("{}.nqdb", table_name));
+            .join(format!("{table_name}.nqdb"));
 
         // Delete existing file and create new one
         if table_path.exists() {
@@ -1109,8 +1113,8 @@ impl StorageEngine {
             .await?;
 
         // Get all rows for this table (sorted by ID for consistency)
-        let mut row_ids: Vec<RowId> = self.compressed_blocks.keys().cloned().collect();
-        row_ids.sort();
+        let mut row_ids: Vec<RowId> = self.compressed_blocks.keys().copied().collect();
+        row_ids.sort_unstable();
 
         for row_id in row_ids {
             if let Some(encoded_data) = self.compressed_blocks.get(&row_id) {
@@ -1174,11 +1178,11 @@ impl StorageEngine {
             | (Value::Text(s), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 let parsed = s
                     .parse::<i64>()
-                    .map_err(|e| anyhow!("Cannot convert '{}' to Integer: {}", s, e))?;
+                    .map_err(|e| anyhow!("Cannot convert '{s}' to Integer: {e}"))?;
                 // Validate integer bounds based on type
                 match new_type {
                     | DataType::Integer | DataType::Serial => {
-                        if parsed < i32::MIN as i64 || parsed > i32::MAX as i64 {
+                        if parsed < i64::from(i32::MIN) || parsed > i64::from(i32::MAX) {
                             return Err(anyhow!(
                                 "Value {} is out of range for Integer (must be between {} and {})",
                                 parsed,
@@ -1197,17 +1201,17 @@ impl StorageEngine {
             | (Value::Text(s), DataType::Float) => s
                 .parse::<f64>()
                 .map(Value::Float)
-                .map_err(|e| anyhow!("Cannot convert '{}' to Float: {}", s, e)),
+                .map_err(|e| anyhow!("Cannot convert '{s}' to Float: {e}")),
             | (Value::Text(s), DataType::Boolean) => match s.to_lowercase().as_str() {
                 | "true" | "t" | "yes" | "y" | "1" => Ok(Value::Boolean(true)),
                 | "false" | "f" | "no" | "n" | "0" => Ok(Value::Boolean(false)),
-                | _ => Err(anyhow!("Cannot convert '{}' to Boolean", s)),
+                | _ => Err(anyhow!("Cannot convert '{s}' to Boolean")),
             },
 
             // Boolean conversions
             | (Value::Boolean(b), DataType::Boolean) => Ok(Value::Boolean(*b)),
             | (Value::Boolean(b), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
-                Ok(Value::Integer(if *b { 1 } else { 0 }))
+                Ok(Value::Integer(i64::from(*b)))
             },
             | (Value::Boolean(b), DataType::Text) => Ok(Value::Text(b.to_string())),
 
@@ -1222,7 +1226,7 @@ impl StorageEngine {
             },
 
             // Catch-all for unsupported conversions
-            | _ => Err(anyhow!("Cannot convert {:?} to {:?}", value, new_type)),
+            | _ => Err(anyhow!("Cannot convert {value:?} to {new_type:?}")),
         }
     }
 
@@ -1230,9 +1234,9 @@ impl StorageEngine {
     ///
     /// Automatically handles:
     /// - Row ID assignment (internal, always auto-increment)
-    /// - AUTO_INCREMENT columns (user-defined)
+    /// - `AUTO_INCREMENT` columns (user-defined)
     /// - SERIAL/BIGSERIAL columns (PostgreSQL-style)
-    /// - Timestamp fields (created_at, updated_at)
+    /// - Timestamp fields (`created_at`, `updated_at`)
     ///
     /// # Example
     /// ```rust,ignore
@@ -1251,7 +1255,7 @@ impl StorageEngine {
             .metadata
             .tables
             .get(table)
-            .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+            .ok_or_else(|| anyhow!("Table '{table}' does not exist"))?
             .clone();
 
         // Assign internal row ID (always auto-increment for B+ tree efficiency)
@@ -1298,7 +1302,7 @@ impl StorageEngine {
     /// Populate auto-increment columns with generated values
     ///
     /// This handles columns marked as:
-    /// - AUTO_INCREMENT (MySQL-style)
+    /// - `AUTO_INCREMENT` (MySQL-style)
     /// - SERIAL/BIGSERIAL (PostgreSQL-style)
     /// - GENERATED AS IDENTITY (SQL standard)
     fn populate_auto_increment_columns(
@@ -1455,16 +1459,19 @@ impl StorageEngine {
     }
 
     /// Get the last query execution statistics
-    pub fn get_last_query_stats(&self) -> &QueryExecutionStats {
+    #[must_use] 
+    pub const fn get_last_query_stats(&self) -> &QueryExecutionStats {
         &self.last_query_stats
     }
 
     /// Get a reference to the transaction manager
-    pub fn get_transaction_manager(&self) -> &TransactionManager {
+    #[must_use] 
+    pub const fn get_transaction_manager(&self) -> &TransactionManager {
         &self.transaction_manager
     }
 
     /// Get the number of tables in the database
+    #[must_use] 
     pub fn get_table_count(&self) -> usize {
         self.metadata.tables.len()
     }
@@ -1473,6 +1480,7 @@ impl StorageEngine {
     ///
     /// Returns the table schema if it exists, or None if the table doesn't exist.
     /// This is useful for checking column definitions and default values during INSERT.
+    #[must_use] 
     pub fn get_table_schema(&self, table_name: &str) -> Option<&TableSchema> {
         self.metadata.tables.get(table_name)
     }
@@ -1799,7 +1807,7 @@ impl StorageEngine {
     async fn compress_row(&mut self, row: &Row) -> Result<EncodedData> {
         // Use bincode for efficient binary serialization (more compatible with HashMap)
         let serialized =
-            bincode::serialize(row).map_err(|e| anyhow!("Failed to serialize row: {}", e))?;
+            bincode::serialize(row).map_err(|e| anyhow!("Failed to serialize row: {e}"))?;
         let compressed = self.dna_compressor.compress(&serialized).await?;
         Ok(compressed)
     }
@@ -1820,8 +1828,7 @@ impl StorageEngine {
         // Fall back to JSON for legacy compatibility
         serde_json::from_slice::<Row>(&decompressed).map_err(|e| {
             anyhow!(
-                "Failed to deserialize row with both bincode and JSON: {}",
-                e
+                "Failed to deserialize row with both bincode and JSON: {e}"
             )
         })
     }
@@ -1926,16 +1933,16 @@ impl StorageEngine {
             | ComparisonOperator::NotEqual => Ok(field_value != condition_value),
             | ComparisonOperator::LessThan => self
                 .compare_values(field_value, condition_value)
-                .map(|ord| ord.is_lt()),
+                .map(std::cmp::Ordering::is_lt),
             | ComparisonOperator::LessThanOrEqual => self
                 .compare_values(field_value, condition_value)
-                .map(|ord| ord.is_le()),
+                .map(std::cmp::Ordering::is_le),
             | ComparisonOperator::GreaterThan => self
                 .compare_values(field_value, condition_value)
-                .map(|ord| ord.is_gt()),
+                .map(std::cmp::Ordering::is_gt),
             | ComparisonOperator::GreaterThanOrEqual => self
                 .compare_values(field_value, condition_value)
-                .map(|ord| ord.is_ge()),
+                .map(std::cmp::Ordering::is_ge),
             | ComparisonOperator::Like => {
                 if let (Value::Text(field_text), Value::Text(pattern)) =
                     (field_value, condition_value)
@@ -2013,7 +2020,7 @@ impl StorageEngine {
 
     /// Load all rows for a table with DNA decompression
     async fn load_table_rows(&self, table: &str) -> Result<Vec<Row>> {
-        let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
+        let table_path = self.data_dir.join("tables").join(format!("{table}.nqdb"));
 
         if !table_path.exists() {
             return Ok(Vec::new());
@@ -2122,7 +2129,7 @@ impl StorageEngine {
 
     /// Append row to table file with DNA compression and encryption
     async fn append_row_to_file(&mut self, table: &str, row: &Row) -> Result<()> {
-        let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
+        let table_path = self.data_dir.join("tables").join(format!("{table}.nqdb"));
 
         // Get or create compressed data for this row
         let compressed_data = if let Some(data) = self.compressed_blocks.get(&row.id) {
@@ -2139,7 +2146,7 @@ impl StorageEngine {
         let encrypted_wrapper = if let Some(ref encryption_manager) = self.encryption_manager {
             // Serialize the compressed data
             let compressed_bytes = bincode::serialize(&compressed_data)
-                .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+                .map_err(|e| anyhow!("Failed to serialize compressed data: {e}"))?;
 
             // Encrypt the serialized compressed data
             let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
@@ -2160,7 +2167,7 @@ impl StorageEngine {
 
         // Serialize and write the entry
         let entry_bytes = bincode::serialize(&storage_entry)
-            .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+            .map_err(|e| anyhow!("Failed to serialize storage entry: {e}"))?;
 
         let mut file = fs::OpenOptions::new()
             .create(true)
@@ -2197,7 +2204,7 @@ impl StorageEngine {
         table: &str,
         updated_rows: &[Row],
     ) -> Result<()> {
-        let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
+        let table_path = self.data_dir.join("tables").join(format!("{table}.nqdb"));
 
         // Create a HashMap of updated rows for quick lookup
         let updated_map: HashMap<RowId, &Row> = updated_rows.iter().map(|r| (r.id, r)).collect();
@@ -2234,7 +2241,7 @@ impl StorageEngine {
             let encrypted_wrapper = if let Some(ref encryption_manager) = self.encryption_manager {
                 // Serialize the compressed data
                 let compressed_bytes = bincode::serialize(&compressed_data)
-                    .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to serialize compressed data: {e}"))?;
 
                 // Encrypt the serialized compressed data
                 let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
@@ -2255,7 +2262,7 @@ impl StorageEngine {
 
             // Serialize and write the entry using the same format as append_row_to_file
             let entry_bytes = bincode::serialize(&storage_entry)
-                .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+                .map_err(|e| anyhow!("Failed to serialize storage entry: {e}"))?;
 
             // Write length prefix (4 bytes) followed by entry data
             let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
@@ -2280,7 +2287,7 @@ impl StorageEngine {
         table: &str,
         deleted_row_ids: &[RowId],
     ) -> Result<()> {
-        let table_path = self.data_dir.join("tables").join(format!("{}.nqdb", table));
+        let table_path = self.data_dir.join("tables").join(format!("{table}.nqdb"));
 
         // Create a temporary file
         let temp_path = table_path.with_extension("tmp");
@@ -2309,7 +2316,7 @@ impl StorageEngine {
                     if let Some(ref encryption_manager) = self.encryption_manager {
                         // Serialize the compressed data
                         let compressed_bytes = bincode::serialize(&compressed_data)
-                            .map_err(|e| anyhow!("Failed to serialize compressed data: {}", e))?;
+                            .map_err(|e| anyhow!("Failed to serialize compressed data: {e}"))?;
 
                         // Encrypt the serialized compressed data
                         let encrypted = encryption_manager.encrypt(&compressed_bytes)?;
@@ -2330,7 +2337,7 @@ impl StorageEngine {
 
                 // Serialize and write the entry using the same format as append_row_to_file
                 let entry_bytes = bincode::serialize(&storage_entry)
-                    .map_err(|e| anyhow!("Failed to serialize storage entry: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to serialize storage entry: {e}"))?;
 
                 // Write length prefix (4 bytes) followed by entry data
                 let len_bytes = (entry_bytes.len() as u32).to_le_bytes();
@@ -2426,7 +2433,7 @@ impl StorageEngine {
             let index_path = self
                 .data_dir
                 .join("indexes")
-                .join(format!("{}.idx", index_name));
+                .join(format!("{index_name}.idx"));
             let content = serde_json::to_string_pretty(index_data)?;
             fs::write(&index_path, content).await?;
         }
@@ -2470,7 +2477,7 @@ impl StorageEngine {
         // Use bincode instead of JSON because CompressedDNA contains HashMap with Vec<u8> keys
         // which cannot be serialized to JSON (JSON only supports string keys)
         let content = bincode::serialize(&self.compressed_blocks)
-            .map_err(|e| anyhow!("Failed to serialize compressed blocks: {}", e))?;
+            .map_err(|e| anyhow!("Failed to serialize compressed blocks: {e}"))?;
         fs::write(&blocks_path, content).await?;
 
         Ok(())
@@ -2488,7 +2495,7 @@ impl StorageEngine {
             if !content.is_empty() {
                 // Use bincode to deserialize (consistent with save_compressed_blocks)
                 self.compressed_blocks = bincode::deserialize(&content)
-                    .map_err(|e| anyhow!("Failed to deserialize compressed blocks: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to deserialize compressed blocks: {e}"))?;
             }
         }
 
@@ -2500,7 +2507,7 @@ impl StorageEngine {
         let log_dir = self.data_dir.join("logs");
         self.transaction_manager = crate::transaction::TransactionManager::new_async(&log_dir)
             .await
-            .map_err(|e| anyhow!("Failed to initialize transaction manager: {}", e))?;
+            .map_err(|e| anyhow!("Failed to initialize transaction manager: {e}"))?;
 
         info!("✅ Transaction manager initialized with ACID support");
         Ok(())
@@ -2512,7 +2519,7 @@ impl StorageEngine {
         self.transaction_manager
             .begin_transaction(IsolationLevel::ReadCommitted)
             .await
-            .map_err(|e| anyhow!("Failed to begin transaction: {}", e))
+            .map_err(|e| anyhow!("Failed to begin transaction: {e}"))
     }
 
     /// Begin a transaction with specific isolation level
@@ -2524,7 +2531,7 @@ impl StorageEngine {
         self.transaction_manager
             .begin_transaction(isolation_level)
             .await
-            .map_err(|e| anyhow!("Failed to begin transaction: {}", e))
+            .map_err(|e| anyhow!("Failed to begin transaction: {e}"))
     }
 
     /// Commit a transaction and persist pending writes to disk
@@ -2566,7 +2573,7 @@ impl StorageEngine {
         self.transaction_manager
             .commit(tx_id)
             .await
-            .map_err(|e| anyhow!("Failed to commit transaction: {}", e))
+            .map_err(|e| anyhow!("Failed to commit transaction: {e}"))
     }
 
     /// Rollback a transaction and undo all changes
@@ -2617,7 +2624,7 @@ impl StorageEngine {
         self.transaction_manager
             .rollback(tx_id)
             .await
-            .map_err(|e| anyhow!("Failed to rollback transaction: {}", e))
+            .map_err(|e| anyhow!("Failed to rollback transaction: {e}"))
     }
 
     /// Rollback transaction to a savepoint
@@ -2679,7 +2686,7 @@ impl StorageEngine {
         self.transaction_manager
             .rollback_to_savepoint(tx_id, savepoint_lsn)
             .await
-            .map_err(|e| anyhow!("Failed to rollback to savepoint: {}", e))?;
+            .map_err(|e| anyhow!("Failed to rollback to savepoint: {e}"))?;
 
         Ok(operations_undone)
     }
@@ -2704,18 +2711,18 @@ impl StorageEngine {
         debug!("➕ Transactional insert into table: {}", table);
 
         // Acquire exclusive lock on table
-        let resource_id = format!("table:{}", table);
+        let resource_id = format!("table:{table}");
         self.transaction_manager
             .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
             .await
-            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+            .map_err(|e| anyhow!("Failed to acquire lock: {e}"))?;
 
         // Get table schema
         let schema = self
             .metadata
             .tables
             .get(table)
-            .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+            .ok_or_else(|| anyhow!("Table '{table}' does not exist"))?
             .clone();
 
         // Assign row ID
@@ -2739,7 +2746,7 @@ impl StorageEngine {
                 after_image,
             )
             .await
-            .map_err(|e| anyhow!("Failed to log update: {}", e))?;
+            .map_err(|e| anyhow!("Failed to log update: {e}"))?;
 
         // Apply changes to memory only (disk write happens at commit time)
         self.compressed_blocks.insert(row.id, compressed_data);
@@ -2780,7 +2787,7 @@ impl StorageEngine {
         self.transaction_manager
             .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
             .await
-            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+            .map_err(|e| anyhow!("Failed to acquire lock: {e}"))?;
 
         // Get existing rows that match the condition
         let select_query = SelectQuery {
@@ -2827,7 +2834,7 @@ impl StorageEngine {
                     after_image,
                 )
                 .await
-                .map_err(|e| anyhow!("Failed to log update: {}", e))?;
+                .map_err(|e| anyhow!("Failed to log update: {e}"))?;
 
             // Apply changes
             let compressed_data = self.compress_row(&row).await?;
@@ -2872,7 +2879,7 @@ impl StorageEngine {
         self.transaction_manager
             .acquire_lock(tx_id, resource_id.clone(), LockType::Exclusive)
             .await
-            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+            .map_err(|e| anyhow!("Failed to acquire lock: {e}"))?;
 
         // Get existing rows that match the condition
         let select_query = SelectQuery {
@@ -2902,7 +2909,7 @@ impl StorageEngine {
                     vec![], // Empty after-image indicates DELETE
                 )
                 .await
-                .map_err(|e| anyhow!("Failed to log delete: {}", e))?;
+                .map_err(|e| anyhow!("Failed to log delete: {e}"))?;
 
             // Keep track of deleted row IDs
             deleted_row_ids.push(row.id);
@@ -2958,7 +2965,7 @@ impl StorageEngine {
         self.transaction_manager
             .acquire_lock(tx_id, resource_id.clone(), LockType::Shared)
             .await
-            .map_err(|e| anyhow!("Failed to acquire lock: {}", e))?;
+            .map_err(|e| anyhow!("Failed to acquire lock: {e}"))?;
 
         // Perform the select (now protected by lock)
         self.select_rows(query).await
@@ -3003,7 +3010,7 @@ impl StorageEngine {
         self.transaction_manager
             .checkpoint()
             .await
-            .map_err(|e| anyhow!("Failed to write checkpoint: {}", e))
+            .map_err(|e| anyhow!("Failed to write checkpoint: {e}"))
     }
 
     /// Cleanup timed out transactions
@@ -3011,7 +3018,7 @@ impl StorageEngine {
         self.transaction_manager
             .cleanup_timed_out_transactions()
             .await
-            .map_err(|e| anyhow!("Failed to cleanup transactions: {}", e))
+            .map_err(|e| anyhow!("Failed to cleanup transactions: {e}"))
     }
 
     // === RECOVERY OPERATIONS ===
@@ -3027,14 +3034,14 @@ impl StorageEngine {
 
         // Deserialize the row from after-image
         let row: Row = serde_json::from_slice(after_image)
-            .map_err(|e| anyhow!("Failed to deserialize after-image: {}", e))?;
+            .map_err(|e| anyhow!("Failed to deserialize after-image: {e}"))?;
 
         // Check if table exists
         let schema = self
             .metadata
             .tables
             .get(table)
-            .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+            .ok_or_else(|| anyhow!("Table '{table}' does not exist"))?
             .clone();
 
         // Apply the row to storage
@@ -3063,14 +3070,14 @@ impl StorageEngine {
         if let Some(before_data) = before_image {
             // Deserialize the old row from before-image
             let old_row: Row = serde_json::from_slice(before_data)
-                .map_err(|e| anyhow!("Failed to deserialize before-image: {}", e))?;
+                .map_err(|e| anyhow!("Failed to deserialize before-image: {e}"))?;
 
             // Check if table exists
             let schema = self
                 .metadata
                 .tables
                 .get(table)
-                .ok_or_else(|| anyhow!("Table '{}' does not exist", table))?
+                .ok_or_else(|| anyhow!("Table '{table}' does not exist"))?
                 .clone();
 
             // Restore the old row to storage
@@ -3133,7 +3140,7 @@ impl StorageEngine {
     }
 
     /// Perform crash recovery by replaying WAL logs
-    /// This integrates the TransactionManager's recovery with storage operations
+    /// This integrates the `TransactionManager`'s recovery with storage operations
     pub async fn perform_recovery(&mut self) -> Result<()> {
         use crate::transaction::{LogRecordType, TransactionId};
         use std::collections::HashSet;
@@ -3145,12 +3152,12 @@ impl StorageEngine {
         let log_dir = self.data_dir.join("logs");
         let log_manager = crate::transaction::LogManager::new(&log_dir)
             .await
-            .map_err(|e| anyhow!("Failed to initialize log manager: {}", e))?;
+            .map_err(|e| anyhow!("Failed to initialize log manager: {e}"))?;
 
         let log_records = log_manager
             .read_log()
             .await
-            .map_err(|e| anyhow!("Failed to read log: {}", e))?;
+            .map_err(|e| anyhow!("Failed to read log: {e}"))?;
 
         if log_records.is_empty() {
             info!("No log records to recover");
@@ -3213,6 +3220,7 @@ impl StorageEngine {
 // === HELPER FUNCTIONS ===
 
 /// Create a basic table schema for testing
+#[must_use] 
 pub fn create_test_schema(name: &str) -> TableSchema {
     TableSchema {
         name: name.to_string(),
@@ -3247,7 +3255,7 @@ pub fn create_test_schema(name: &str) -> TableSchema {
     }
 }
 
-/// Builder for creating ColumnDefinition with sensible defaults
+/// Builder for creating `ColumnDefinition` with sensible defaults
 impl ColumnDefinition {
     /// Create a new column definition with minimal required fields
     ///
@@ -3272,25 +3280,28 @@ impl ColumnDefinition {
     }
 
     /// Set the column as nullable
-    pub fn nullable(mut self) -> Self {
+    #[must_use] 
+    pub const fn nullable(mut self) -> Self {
         self.nullable = true;
         self
     }
 
     /// Set a default value for the column
+    #[must_use] 
     pub fn with_default(mut self, value: Value) -> Self {
         self.default_value = Some(value);
         self
     }
 
     /// Explicitly set auto-increment behavior
-    pub fn auto_increment(mut self) -> Self {
+    #[must_use] 
+    pub const fn auto_increment(mut self) -> Self {
         self.auto_increment = true;
         self
     }
 }
 
-/// Builder for creating TableSchema with sensible defaults
+/// Builder for creating `TableSchema` with sensible defaults
 impl TableSchema {
     /// Create a new table schema with minimal required fields
     ///
@@ -3320,13 +3331,15 @@ impl TableSchema {
     }
 
     /// Set a custom ID generation strategy
-    pub fn with_id_strategy(mut self, strategy: IdGenerationStrategy) -> Self {
+    #[must_use] 
+    pub const fn with_id_strategy(mut self, strategy: IdGenerationStrategy) -> Self {
         self.id_strategy = strategy;
         self
     }
 }
 
 /// Create a test row
+#[must_use] 
 pub fn create_test_row(id: i64, name: &str) -> Row {
     let mut fields = HashMap::new();
     fields.insert("id".to_string(), Value::Integer(id));

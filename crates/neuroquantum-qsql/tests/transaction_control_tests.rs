@@ -12,7 +12,7 @@ fn test_parse_transaction_statements() {
     assert!(result.is_ok(), "Failed to parse BEGIN");
     match result.unwrap() {
         | Statement::BeginTransaction(_) => {},
-        | other => panic!("Expected BeginTransaction, got {:?}", other),
+        | other => panic!("Expected BeginTransaction, got {other:?}"),
     }
 
     // Test START TRANSACTION
@@ -37,7 +37,7 @@ fn test_parse_transaction_statements() {
         | Statement::Savepoint(sp) => {
             assert_eq!(sp.name, "sp1", "Savepoint name mismatch");
         },
-        | other => panic!("Expected Savepoint, got {:?}", other),
+        | other => panic!("Expected Savepoint, got {other:?}"),
     }
 
     // Test ROLLBACK TO SAVEPOINT
@@ -47,7 +47,7 @@ fn test_parse_transaction_statements() {
         | Statement::RollbackToSavepoint(rts) => {
             assert_eq!(rts.name, "sp1", "Savepoint name mismatch");
         },
-        | other => panic!("Expected RollbackToSavepoint, got {:?}", other),
+        | other => panic!("Expected RollbackToSavepoint, got {other:?}"),
     }
 
     // Test RELEASE SAVEPOINT
@@ -57,7 +57,7 @@ fn test_parse_transaction_statements() {
         | Statement::ReleaseSavepoint(rs) => {
             assert_eq!(rs.name, "sp1", "Savepoint name mismatch");
         },
-        | other => panic!("Expected ReleaseSavepoint, got {:?}", other),
+        | other => panic!("Expected ReleaseSavepoint, got {other:?}"),
     }
 }
 
@@ -81,7 +81,7 @@ fn test_transaction_case_insensitivity() {
 
     for sql in test_cases {
         let result = parser.parse(sql);
-        assert!(result.is_ok(), "Failed to parse: {}", sql);
+        assert!(result.is_ok(), "Failed to parse: {sql}");
     }
 }
 
@@ -93,15 +93,15 @@ fn test_multiple_savepoints() {
     let savepoint_names = vec!["sp1", "sp2", "nested_sp", "checkpoint_1"];
 
     for name in savepoint_names {
-        let sql = format!("SAVEPOINT {}", name);
+        let sql = format!("SAVEPOINT {name}");
         let result = parser.parse(&sql);
-        assert!(result.is_ok(), "Failed to parse: {}", sql);
+        assert!(result.is_ok(), "Failed to parse: {sql}");
 
         match result.unwrap() {
             | Statement::Savepoint(sp) => {
                 assert_eq!(sp.name, name, "Savepoint name mismatch");
             },
-            | other => panic!("Expected Savepoint, got {:?}", other),
+            | other => panic!("Expected Savepoint, got {other:?}"),
         }
     }
 }
@@ -122,6 +122,6 @@ fn test_transaction_workflow() {
 
     for sql in workflow {
         let result = parser.parse(sql);
-        assert!(result.is_ok(), "Failed to parse workflow step: {}", sql);
+        assert!(result.is_ok(), "Failed to parse workflow step: {sql}");
     }
 }

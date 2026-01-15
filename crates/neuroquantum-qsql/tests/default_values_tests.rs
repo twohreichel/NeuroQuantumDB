@@ -300,8 +300,7 @@ async fn test_execute_insert_with_explicit_default() {
     if let Some(Value::Float(price)) = row.fields.get("price") {
         assert!(
             (*price - 9.99).abs() < 0.001,
-            "Expected default price 9.99, got {}",
-            price
+            "Expected default price 9.99, got {price}"
         );
     } else {
         panic!("Expected price column with default value");

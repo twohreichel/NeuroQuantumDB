@@ -1,5 +1,5 @@
 use crate::auth::{ApiKey, AuthService};
-use crate::error::*;
+use crate::error::{SqlQueryRequest, SqlQueryResponse, CreateTableRequest, CreateTableResponse, InsertDataRequest, InsertDataResponse, QueryDataRequest, QueryDataResponse, UpdateDataRequest, UpdateDataResponse, DeleteDataRequest, DeleteDataResponse, TrainNeuralNetworkRequest, TrainNeuralNetworkResponse, QuantumSearchRequest, QuantumSearchResponse, QuantumSearchResult, QuantumStats, TFIMRequestConfig, TFIMResults, QUBORequestConfig, QUBOResults, ParallelTemperingRequestConfig, ParallelTemperingResults, GroverRequestConfig, GroverResults, CompressDnaRequest, CompressDnaResponse, CompressedSequence, CompressionStats, DecompressDnaRequest, DecompressDnaResponse, DecompressedSequence, DecompressionStats, PerformanceStats, SystemMetrics, DatabaseMetrics, NeuralMetrics, QuantumMetrics, TableSchema, ColumnDefinition, DataType, ApiError, ApiResponse, ResponseMetadata, ConstraintType, QueryStats, TrainingStatus};
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
 use neuroquantum_core::{DNACompressor, NeuroQuantumDB};
 use neuroquantum_qsql::query_plan::QueryValue;
@@ -11,7 +11,7 @@ use tracing::{info, warn};
 use utoipa::{OpenApi, ToSchema};
 use validator::Validate;
 
-/// OpenAPI documentation
+/// `OpenAPI` documentation
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -184,7 +184,7 @@ pub struct RevokeKeyRequest {
 
 /// User login with JWT token generation - DISABLED FOR SECURITY
 ///
-/// This endpoint has been disabled. NeuroQuantumDB now uses API-Key-Only authentication.
+/// This endpoint has been disabled. `NeuroQuantumDB` now uses API-Key-Only authentication.
 /// To obtain an API key:
 /// 1. Run: `neuroquantum-api init` to create your first admin key
 /// 2. Use the X-API-Key header for authentication
@@ -279,8 +279,7 @@ pub async fn generate_api_key(
         if !valid_permissions.contains(&permission.as_str()) {
             crate::metrics::record_auth_request("failed");
             return Err(ApiError::BadRequest(format!(
-                "Invalid permission: {}. Valid permissions are: {:?}",
-                permission, valid_permissions
+                "Invalid permission: {permission}. Valid permissions are: {valid_permissions:?}"
             )));
         }
     }
@@ -296,7 +295,7 @@ pub async fn generate_api_key(
         .map_err(|e| {
             crate::metrics::record_auth_request("failed");
             ApiError::InternalServerError {
-                message: format!("Failed to generate API key: {}", e),
+                message: format!("Failed to generate API key: {e}"),
             }
         })?;
 
@@ -500,7 +499,7 @@ pub async fn create_table(
         .create_table(storage_schema.clone())
         .await
         .map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to create table: {}", e),
+            message: format!("Failed to create table: {e}"),
         })?;
 
     let table_id = uuid::Uuid::new_v4().to_string();
@@ -517,7 +516,7 @@ pub async fn create_table(
         response,
         ResponseMetadata::new(
             start.elapsed(),
-            &format!("Table '{}' created successfully", table_name),
+            &format!("Table '{table_name}' created successfully"),
         ),
     )))
 }
@@ -593,20 +592,20 @@ pub async fn insert_data(
     for (idx, record) in insert_req.records.iter().enumerate() {
         if record.is_empty() {
             failed_count += 1;
-            errors.push(format!("Record {} is empty", idx));
+            errors.push(format!("Record {idx} is empty"));
             continue;
         }
 
         // Convert HashMap to Row with proper error handling
         let mut fields = std::collections::HashMap::new();
         let mut conversion_error = None;
-        for (key, value) in record.iter() {
+        for (key, value) in record {
             match json_to_storage_value(value, key) {
                 | Ok(storage_value) => {
                     fields.insert(key.clone(), storage_value);
                 },
                 | Err(e) => {
-                    conversion_error = Some(format!("Record {}: {}", idx, e));
+                    conversion_error = Some(format!("Record {idx}: {e}"));
                     break;
                 },
             }
@@ -637,7 +636,7 @@ pub async fn insert_data(
             },
             | Err(e) => {
                 failed_count += 1;
-                errors.push(format!("Record {}: {}", idx, e));
+                errors.push(format!("Record {idx}: {e}"));
             },
         }
     }
@@ -653,10 +652,10 @@ pub async fn insert_data(
         inserted_count,
         failed_count,
         inserted_ids,
-        errors: if !errors.is_empty() {
-            Some(errors)
-        } else {
+        errors: if errors.is_empty() {
             None
+        } else {
+            Some(errors)
         },
     };
 
@@ -664,7 +663,7 @@ pub async fn insert_data(
         response,
         ResponseMetadata::new(
             start.elapsed(),
-            &format!("Inserted {} records into '{}'", inserted_count, table_name),
+            &format!("Inserted {inserted_count} records into '{table_name}'"),
         ),
     )))
 }
@@ -736,8 +735,8 @@ pub async fn query_data(
         columns: vec!["*".to_string()],
         where_clause: None,
         order_by: None,
-        limit: Some(limit as u64),
-        offset: Some(offset as u64),
+        limit: Some(u64::from(limit)),
+        offset: Some(u64::from(offset)),
     };
 
     // Execute query on storage engine
@@ -745,7 +744,7 @@ pub async fn query_data(
         .select_rows_with_stats(&select_query)
         .await
         .map_err(|e| ApiError::InternalServerError {
-            message: format!("Query execution failed: {}", e),
+            message: format!("Query execution failed: {e}"),
         })?;
 
     // Convert rows to JSON records
@@ -783,7 +782,7 @@ pub async fn query_data(
         response,
         ResponseMetadata::new(
             start.elapsed(),
-            &format!("Query executed on table '{}'", table_name),
+            &format!("Query executed on table '{table_name}'"),
         ),
     )))
 }
@@ -859,8 +858,7 @@ pub async fn update_data(
         ResponseMetadata::new(
             start.elapsed(),
             &format!(
-                "Updated {} records in table '{}'",
-                updated_count, table_name
+                "Updated {updated_count} records in table '{table_name}'"
             ),
         ),
     )))
@@ -938,8 +936,7 @@ pub async fn delete_data(
         ResponseMetadata::new(
             start.elapsed(),
             &format!(
-                "Deleted {} records from table '{}'",
-                deleted_count, table_name
+                "Deleted {deleted_count} records from table '{table_name}'"
             ),
         ),
     )))
@@ -1043,7 +1040,7 @@ pub async fn get_training_status(
 
     // Simulate status retrieval
     let response = TrainNeuralNetworkResponse {
-        network_id: network_id.clone(),
+        network_id,
         training_status: TrainingStatus::Running,
         initial_loss: Some(0.85),
         training_started_at: chrono::Utc::now().to_rfc3339(),
@@ -1229,11 +1226,11 @@ pub async fn quantum_search(
 
     // Helper closure to compute quantum scores for a given index
     let compute_quantum_scores = |idx: usize| -> (f32, f32, f32) {
-        let base_score = BASE_SIMILARITY - (idx as f32 * SIMILARITY_DECAY);
+        let base_score = (idx as f32).mul_add(-SIMILARITY_DECAY, BASE_SIMILARITY);
         let similarity_score = (base_score * entanglement_boost).min(1.0);
-        let quantum_probability = (BASE_PROBABILITY - (idx as f32 * PROBABILITY_DECAY)).max(0.0);
+        let quantum_probability = (idx as f32).mul_add(-PROBABILITY_DECAY, BASE_PROBABILITY).max(0.0);
         let entanglement_strength =
-            (BASE_ENTANGLEMENT - (idx as f32 * ENTANGLEMENT_DECAY)).max(0.0);
+            (idx as f32).mul_add(-ENTANGLEMENT_DECAY, BASE_ENTANGLEMENT).max(0.0);
         (similarity_score, quantum_probability, entanglement_strength)
     };
 
@@ -1278,7 +1275,7 @@ pub async fn quantum_search(
                 );
                 record.insert(
                     "quantum_data".to_string(),
-                    serde_json::Value::String(format!("Quantum result {}", i)),
+                    serde_json::Value::String(format!("Quantum result {i}")),
                 );
 
                 results.push(QuantumSearchResult {
@@ -1312,7 +1309,7 @@ pub async fn quantum_search(
     };
 
     let quantum_stats = QuantumStats {
-        coherence_time_used_ms: start.elapsed().as_secs_f32() * 1000.0 + QUANTUM_OVERHEAD_MS,
+        coherence_time_used_ms: start.elapsed().as_secs_f32().mul_add(1000.0, QUANTUM_OVERHEAD_MS),
         superposition_states: search_req.query_vector.len() as u32,
         measurement_collapses: results.len() as u32,
         entanglement_operations: (results.len() * 2) as u32,
@@ -1363,7 +1360,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             // Adjacent spins: use query vector value as coupling
             let idx = i.min(j);
             if idx < search_req.query_vector.len() {
-                search_req.query_vector[idx] as f64
+                f64::from(search_req.query_vector[idx])
             } else {
                 1.0
             }
@@ -1415,9 +1412,9 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
     // Create classical TFIM problem (for unified solver)
     let classical_problem = TFIMProblem {
         num_spins: num_qubits,
-        couplings: couplings.clone(),
+        couplings,
         external_fields: vec![0.0; num_qubits],
-        name: format!("API_TFIM_{}", num_qubits),
+        name: format!("API_TFIM_{num_qubits}"),
     };
 
     // Use unified solver with quantum preference
@@ -1444,7 +1441,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
                 .observables
                 .correlations
                 .iter()
-                .cloned()
+                .copied()
                 .collect();
             (
                 quantum_sol.energy,
@@ -1456,7 +1453,7 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             )
         } else if let Some(ref classical_sol) = result.classical_solution {
             // Classical solution: generate approximate observables
-            let magnetization: Vec<f64> = classical_sol.spins.iter().map(|&s| s as f64).collect();
+            let magnetization: Vec<f64> = classical_sol.spins.iter().map(|&s| f64::from(s)).collect();
             let order_param = magnetization.iter().sum::<f64>() / num_qubits as f64;
             (
                 classical_sol.energy,
@@ -1514,10 +1511,10 @@ fn execute_qubo_computation(search_req: &QuantumSearchRequest) -> Result<QUBORes
     // Diagonal terms from query vector, off-diagonal from adjacent elements
     let mut q_matrix = DMatrix::zeros(n, n);
     for i in 0..n {
-        q_matrix[(i, i)] = search_req.query_vector[i] as f64;
+        q_matrix[(i, i)] = f64::from(search_req.query_vector[i]);
         if i + 1 < n {
             let coupling =
-                (search_req.query_vector[i] + search_req.query_vector[i + 1]) as f64 * 0.1;
+                f64::from(search_req.query_vector[i] + search_req.query_vector[i + 1]) * 0.1;
             q_matrix[(i, i + 1)] = coupling;
             q_matrix[(i + 1, i)] = coupling;
         }
@@ -1594,14 +1591,14 @@ fn execute_parallel_tempering(
     // Create Ising Hamiltonian with coupling matrix and external fields
     let mut couplings = DMatrix::zeros(n, n);
     for i in 0..n - 1 {
-        let coupling = (search_req.query_vector[i] + search_req.query_vector[i + 1]) as f64 * 0.5;
+        let coupling = f64::from(search_req.query_vector[i] + search_req.query_vector[i + 1]) * 0.5;
         couplings[(i, i + 1)] = coupling;
         couplings[(i + 1, i)] = coupling;
     }
 
     let external_fields: Vec<f64> = search_req.query_vector[..n]
         .iter()
-        .map(|&x| x as f64)
+        .map(|&x| f64::from(x))
         .collect();
 
     let hamiltonian =
@@ -1621,7 +1618,7 @@ fn execute_parallel_tempering(
         max_temperature: pt_config.max_temperature,
         trotter_slices: pt_config.trotter_slices as usize,
         transverse_field: pt_config.transverse_field,
-        backend: backend.clone(),
+        backend,
         num_exchanges: pt_config.num_exchanges as usize,
         ..Default::default()
     };
@@ -1644,7 +1641,7 @@ fn execute_parallel_tempering(
     let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
     Ok(ParallelTemperingResults {
-        best_configuration: solution.best_configuration.to_vec(),
+        best_configuration: solution.best_configuration.clone(),
         best_energy: solution.best_energy,
         best_replica_id: solution.best_replica_id as u32,
         total_exchanges: solution.total_exchanges as u32,
@@ -1718,7 +1715,7 @@ fn execute_grover_search(search_req: &QuantumSearchRequest) -> Result<GroverResu
         let max_val = search_req
             .query_vector
             .iter()
-            .cloned()
+            .copied()
             .fold(f32::NEG_INFINITY, f32::max);
         search_req
             .query_vector
@@ -1922,8 +1919,7 @@ pub async fn compress_dna(
         {
             return Err(ApiError::CompressionError {
                 reason: format!(
-                    "Invalid DNA sequence at index {}: contains non-ATGC characters",
-                    i
+                    "Invalid DNA sequence at index {i}: contains non-ATGC characters"
                 ),
             });
         }
@@ -1939,7 +1935,7 @@ pub async fn compress_dna(
             .compress(sequence_bytes)
             .await
             .map_err(|e| ApiError::CompressionError {
-                reason: format!("Compression failed for sequence {}: {}", i, e),
+                reason: format!("Compression failed for sequence {i}: {e}"),
             })?;
 
         // Convert DNA bases to packed bytes (4 bases per byte, 2 bits each)
@@ -1982,7 +1978,7 @@ pub async fn compress_dna(
     // Record DNA compression metrics
     crate::metrics::record_dna_compression(
         "success",
-        compression_stats.average_compression_ratio as f64,
+        f64::from(compression_stats.average_compression_ratio),
     );
 
     let response = CompressDnaResponse {
@@ -2062,7 +2058,7 @@ pub async fn decompress_dna(
         let compressed_bytes =
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD, compressed_data)
                 .map_err(|e| ApiError::CompressionError {
-                    reason: format!("Invalid base64 encoding at index {}: {}", i, e),
+                    reason: format!("Invalid base64 encoding at index {i}: {e}"),
                 })?;
 
         total_compressed_size += compressed_bytes.len();
@@ -2089,8 +2085,8 @@ pub async fn decompress_dna(
         // Calculate a simple checksum for the decompressed data
         let checksum: u32 = decompressed_string
             .bytes()
-            .fold(0u32, |acc, b| acc.wrapping_add(b as u32));
-        let checksum_hex = format!("{:x}", checksum);
+            .fold(0u32, |acc, b| acc.wrapping_add(u32::from(b)));
+        let checksum_hex = format!("{checksum:x}");
 
         decompressed_sequences.push(DecompressedSequence {
             decompressed_data: decompressed_string,
@@ -2328,7 +2324,7 @@ pub async fn get_performance_stats(
             training_jobs,
             inference_operations_per_second: queries_per_second * NEURAL_OPS_RATIO,
             average_accuracy: 0.94, // This would need to be tracked per-network
-            synaptic_updates_per_second: queries_per_second as f64 * SYNAPTIC_UPDATES_PER_QUERY,
+            synaptic_updates_per_second: f64::from(queries_per_second) * SYNAPTIC_UPDATES_PER_QUERY,
         },
         quantum_metrics: QuantumMetrics {
             coherence_time_ms: 250.5, // Simulated quantum metrics (would need quantum hardware)
@@ -2421,20 +2417,20 @@ pub async fn eeg_enroll(
     // Validate request
     body.validate().map_err(|e| ApiError::ValidationError {
         field: "enrollment_request".to_string(),
-        message: format!("Invalid enrollment request: {}", e),
+        message: format!("Invalid enrollment request: {e}"),
     })?;
 
     // Create EEG auth service
     use crate::biometric_auth::EEGAuthService;
     let mut eeg_service =
         EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {}", e),
+            message: format!("Failed to initialize EEG service: {e}"),
         })?;
 
     // Enroll user
     let signature = eeg_service
         .enroll_user(body.user_id.clone(), &body.raw_eeg_data)
-        .map_err(|e| ApiError::BadRequest(format!("EEG enrollment failed: {}", e)))?;
+        .map_err(|e| ApiError::BadRequest(format!("EEG enrollment failed: {e}")))?;
 
     info!("🧠 EEG enrollment successful for user: {}", body.user_id);
 
@@ -2479,20 +2475,20 @@ pub async fn eeg_authenticate(
     // Validate request
     body.validate().map_err(|e| ApiError::ValidationError {
         field: "auth_request".to_string(),
-        message: format!("Invalid auth request: {}", e),
+        message: format!("Invalid auth request: {e}"),
     })?;
 
     // Create EEG auth service (in production, this would be shared state)
     use crate::biometric_auth::EEGAuthService;
     let eeg_service =
         EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {}", e),
+            message: format!("Failed to initialize EEG service: {e}"),
         })?;
 
     // Authenticate user
     let auth_result = eeg_service
         .authenticate(&body.user_id, &body.raw_eeg_data)
-        .map_err(|e| ApiError::Unauthorized(format!("EEG authentication failed: {}", e)))?;
+        .map_err(|e| ApiError::Unauthorized(format!("EEG authentication failed: {e}")))?;
 
     let response = EEGAuthResponse {
         authenticated: auth_result.authenticated,
@@ -2553,20 +2549,20 @@ pub async fn eeg_update_signature(
     // Validate request
     body.validate().map_err(|e| ApiError::ValidationError {
         field: "update_request".to_string(),
-        message: format!("Invalid update request: {}", e),
+        message: format!("Invalid update request: {e}"),
     })?;
 
     // Create EEG auth service
     use crate::biometric_auth::EEGAuthService;
     let mut eeg_service =
         EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {}", e),
+            message: format!("Failed to initialize EEG service: {e}"),
         })?;
 
     // Update signature
     eeg_service
         .update_signature(&body.user_id, &body.raw_eeg_data)
-        .map_err(|e| ApiError::BadRequest(format!("Failed to update signature: {}", e)))?;
+        .map_err(|e| ApiError::BadRequest(format!("Failed to update signature: {e}")))?;
 
     info!("🔄 EEG signature updated for user: {}", body.user_id);
 
@@ -2604,7 +2600,7 @@ pub async fn eeg_list_users(req: HttpRequest) -> ActixResult<HttpResponse, ApiEr
     // Create EEG auth service
     use crate::biometric_auth::EEGAuthService;
     let eeg_service = EEGAuthService::new(256.0).map_err(|e| ApiError::InternalServerError {
-        message: format!("Failed to initialize EEG service: {}", e),
+        message: format!("Failed to initialize EEG service: {e}"),
     })?;
 
     let users = eeg_service.list_users();
@@ -2635,7 +2631,7 @@ pub struct BiometricEnrollRequest {
     pub channels: Option<Vec<String>>,
 }
 
-fn default_sampling_rate() -> f32 {
+const fn default_sampling_rate() -> f32 {
     256.0
 }
 
@@ -2719,7 +2715,7 @@ pub async fn biometric_enroll(
     // Validate request
     body.validate().map_err(|e| ApiError::ValidationError {
         field: "enrollment_request".to_string(),
-        message: format!("Invalid enrollment request: {}", e),
+        message: format!("Invalid enrollment request: {e}"),
     })?;
 
     // Validate that we have at least one EEG sample
@@ -2733,7 +2729,7 @@ pub async fn biometric_enroll(
     use crate::biometric_auth::EEGAuthService;
     let mut eeg_service =
         EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {}", e),
+            message: format!("Failed to initialize EEG service: {e}"),
         })?;
 
     // Process each sample and build enrollment template
@@ -2744,7 +2740,7 @@ pub async fn biometric_enroll(
     let first_sample = &body.eeg_samples[0];
     let signature = eeg_service
         .enroll_user(body.user_id.clone(), first_sample)
-        .map_err(|e| ApiError::BadRequest(format!("EEG enrollment failed: {}", e)))?;
+        .map_err(|e| ApiError::BadRequest(format!("EEG enrollment failed: {e}")))?;
 
     total_quality += signature.feature_template.signal_quality;
     successful_samples += 1;
@@ -2781,8 +2777,7 @@ pub async fn biometric_enroll(
         enrollment_status: "completed".to_string(),
         template_quality: avg_quality / 100.0, // Convert to 0-1 scale
         message: format!(
-            "EEG-Muster erfolgreich registriert ({} samples)",
-            successful_samples
+            "EEG-Muster erfolgreich registriert ({successful_samples} samples)"
         ),
     };
 
@@ -2819,7 +2814,7 @@ pub async fn biometric_verify(
     // Validate request
     body.validate().map_err(|e| ApiError::ValidationError {
         field: "verify_request".to_string(),
-        message: format!("Invalid verification request: {}", e),
+        message: format!("Invalid verification request: {e}"),
     })?;
 
     // Validate EEG sample
@@ -2835,13 +2830,13 @@ pub async fn biometric_verify(
     use crate::biometric_auth::EEGAuthService;
     let eeg_service =
         EEGAuthService::new(sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {}", e),
+            message: format!("Failed to initialize EEG service: {e}"),
         })?;
 
     // Authenticate user
     let auth_result = eeg_service
         .authenticate(&body.user_id, &body.eeg_sample)
-        .map_err(|e| ApiError::Unauthorized(format!("Biometric verification failed: {}", e)))?;
+        .map_err(|e| ApiError::Unauthorized(format!("Biometric verification failed: {e}")))?;
 
     // Generate session token if verified
     let session_token = if auth_result.authenticated {
@@ -2854,7 +2849,7 @@ pub async fn biometric_verify(
             "exp": (auth_result.timestamp + chrono::Duration::hours(1)).timestamp()
         });
         let token = base64::engine::general_purpose::STANDARD.encode(payload.to_string());
-        Some(format!("eyJhbGciOiJIUzI1NiIs{}", token))
+        Some(format!("eyJhbGciOiJIUzI1NiIs{token}"))
     } else {
         None
     };
@@ -2956,8 +2951,7 @@ pub async fn execute_sql_query(
 
     if !has_permission {
         return Err(ApiError::Forbidden(format!(
-            "{} permission required for this query",
-            required_permission
+            "{required_permission} permission required for this query"
         )));
     }
 
@@ -2975,7 +2969,7 @@ pub async fn execute_sql_query(
         .map_err(|e| {
             crate::metrics::record_db_operation("query", "failed", start.elapsed().as_secs_f64());
             ApiError::InvalidQuery {
-                details: format!("Query execution failed: {}", e),
+                details: format!("Query execution failed: {e}"),
             }
         })?;
 
@@ -2988,7 +2982,9 @@ pub async fn execute_sql_query(
     let response = SqlQueryResponse {
         success: true,
         rows_affected: Some(query_result.rows_affected as usize),
-        rows: if !query_result.rows.is_empty() {
+        rows: if query_result.rows.is_empty() {
+            None
+        } else {
             Some(
                 query_result
                     .rows
@@ -3001,8 +2997,7 @@ pub async fn execute_sql_query(
                                     | QueryValue::Boolean(b) => serde_json::Value::Bool(b),
                                     | QueryValue::Integer(i) => serde_json::Value::Number(i.into()),
                                     | QueryValue::Float(f) => serde_json::Number::from_f64(f)
-                                        .map(serde_json::Value::Number)
-                                        .unwrap_or(serde_json::Value::Null),
+                                        .map_or(serde_json::Value::Null, serde_json::Value::Number),
                                     | QueryValue::String(s) => serde_json::Value::String(s),
                                     | QueryValue::Blob(b) => {
                                         use base64::Engine;
@@ -3012,9 +3007,8 @@ pub async fn execute_sql_query(
                                     },
                                     | QueryValue::DNASequence(s) => serde_json::Value::String(s),
                                     | QueryValue::SynapticWeight(w) => {
-                                        serde_json::Number::from_f64(w as f64)
-                                            .map(serde_json::Value::Number)
-                                            .unwrap_or(serde_json::Value::Null)
+                                        serde_json::Number::from_f64(f64::from(w))
+                                            .map_or(serde_json::Value::Null, serde_json::Value::Number)
                                     },
                                     | QueryValue::QuantumState(s) => serde_json::Value::String(s),
                                 };
@@ -3024,10 +3018,10 @@ pub async fn execute_sql_query(
                     })
                     .collect(),
             )
-        } else {
-            None
         },
-        columns: if !query_result.columns.is_empty() {
+        columns: if query_result.columns.is_empty() {
+            None
+        } else {
             Some(
                 query_result
                     .columns
@@ -3035,8 +3029,6 @@ pub async fn execute_sql_query(
                     .map(|col| col.name)
                     .collect(),
             )
-        } else {
-            None
         },
         error: None,
         execution_time_ms,
@@ -3235,7 +3227,7 @@ pub async fn clear_index_advisor_statistics(
 
 // Helper functions for type conversions
 
-/// Convert serde_json::Value to storage::Value with proper error handling
+/// Convert `serde_json::Value` to `storage::Value` with proper error handling
 ///
 /// Returns Ok(Value) on successful conversion, or Err(String) with a descriptive
 /// error message if the conversion fails.
@@ -3249,10 +3241,10 @@ fn json_to_storage_value(
             if n.is_i64() {
                 n.as_i64()
                     .map(Value::Integer)
-                    .ok_or_else(|| format!("Field '{}': integer value out of range", field_name))
+                    .ok_or_else(|| format!("Field '{field_name}': integer value out of range"))
             } else {
                 n.as_f64().map(Value::Float).ok_or_else(|| {
-                    format!("Field '{}': float value cannot be represented", field_name)
+                    format!("Field '{field_name}': float value cannot be represented")
                 })
             }
         },
@@ -3265,14 +3257,13 @@ fn json_to_storage_value(
     }
 }
 
-/// Convert storage::Value to serde_json::Value
+/// Convert `storage::Value` to `serde_json::Value`
 fn storage_value_to_json(value: &neuroquantum_core::storage::Value) -> serde_json::Value {
     use neuroquantum_core::storage::Value;
     match value {
         | Value::Integer(i) => serde_json::Value::Number((*i).into()),
         | Value::Float(f) => serde_json::Number::from_f64(*f)
-            .map(serde_json::Value::Number)
-            .unwrap_or(serde_json::Value::Null),
+            .map_or(serde_json::Value::Null, serde_json::Value::Number),
         | Value::Text(s) => serde_json::Value::String(s.clone()),
         | Value::Boolean(b) => serde_json::Value::Bool(*b),
         | Value::Timestamp(ts) => serde_json::Value::String(ts.to_rfc3339()),

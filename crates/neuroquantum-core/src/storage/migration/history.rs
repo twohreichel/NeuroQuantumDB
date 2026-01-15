@@ -57,6 +57,7 @@ pub struct MigrationHistory {
 
 impl MigrationHistory {
     /// Create a new migration history tracker
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             records: RwLock::new(HashMap::new()),
@@ -152,8 +153,7 @@ impl MigrationHistory {
         let records = self.records.read().await;
         Ok(records
             .get(migration_id)
-            .map(|r| r.status == MigrationStatus::Completed)
-            .unwrap_or(false))
+            .is_some_and(|r| r.status == MigrationStatus::Completed))
     }
 
     /// Get pending migrations from a list
@@ -164,8 +164,7 @@ impl MigrationHistory {
             .filter(|id| {
                 !records
                     .get(id)
-                    .map(|r| r.status == MigrationStatus::Completed)
-                    .unwrap_or(false)
+                    .is_some_and(|r| r.status == MigrationStatus::Completed)
             })
             .collect())
     }

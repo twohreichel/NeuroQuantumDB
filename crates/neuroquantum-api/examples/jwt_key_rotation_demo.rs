@@ -1,7 +1,7 @@
 //! JWT Key Rotation Demo
 //!
 //! This example demonstrates the JWT secret key rotation feature.
-//! Run with: cargo run --example jwt_key_rotation_demo
+//! Run with: cargo run --example `jwt_key_rotation_demo`
 
 use neuroquantum_api::jwt::{JwtKeyRotation, JwtService};
 use neuroquantum_api::permissions::Permission;

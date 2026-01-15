@@ -1,4 +1,4 @@
-//! Incremental Backup System for NeuroQuantumDB
+//! Incremental Backup System for `NeuroQuantumDB`
 //!
 //! Provides efficient incremental backups by only backing up changes since last backup
 
@@ -154,7 +154,13 @@ impl IncrementalBackup {
                 // Parse WAL records to check LSN range
                 match self.parse_wal_segment(&wal_data, since_lsn).await {
                     | Ok(parsed_data) => {
-                        if !parsed_data.is_empty() {
+                        if parsed_data.is_empty() {
+                            debug!(
+                                "Skipped WAL segment {:?} - no records after LSN {}",
+                                path.file_name(),
+                                since_lsn
+                            );
+                        } else {
                             // This segment contains records after since_lsn
                             let filename = path.file_name().ok_or_else(|| {
                                 anyhow!("WAL file path has no filename: {}", path.display())
@@ -178,12 +184,6 @@ impl IncrementalBackup {
                                 self.count_records_in_segment(&parsed_data)
                                     .await
                                     .unwrap_or(0)
-                            );
-                        } else {
-                            debug!(
-                                "Skipped WAL segment {:?} - no records after LSN {}",
-                                path.file_name(),
-                                since_lsn
                             );
                         }
                     },
@@ -296,7 +296,8 @@ pub struct IncrementalBackupManager {
 
 impl IncrementalBackupManager {
     /// Create a new incremental backup manager
-    pub fn new(last_full_backup_lsn: u64) -> Self {
+    #[must_use] 
+    pub const fn new(last_full_backup_lsn: u64) -> Self {
         Self {
             last_full_backup_lsn,
             last_incremental_backup_lsn: None,
@@ -304,18 +305,19 @@ impl IncrementalBackupManager {
     }
 
     /// Get LSN to backup from
+    #[must_use] 
     pub fn get_backup_since_lsn(&self) -> u64 {
         self.last_incremental_backup_lsn
             .unwrap_or(self.last_full_backup_lsn)
     }
 
     /// Update last incremental backup LSN
-    pub fn update_last_backup_lsn(&mut self, lsn: u64) {
+    pub const fn update_last_backup_lsn(&mut self, lsn: u64) {
         self.last_incremental_backup_lsn = Some(lsn);
     }
 
     /// Reset to full backup
-    pub fn reset(&mut self, full_backup_lsn: u64) {
+    pub const fn reset(&mut self, full_backup_lsn: u64) {
         self.last_full_backup_lsn = full_backup_lsn;
         self.last_incremental_backup_lsn = None;
     }

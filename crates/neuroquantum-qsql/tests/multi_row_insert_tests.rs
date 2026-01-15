@@ -390,7 +390,7 @@ async fn test_large_batch_insert() {
     // Build a multi-row INSERT with 10 rows
     let mut values_parts = Vec::new();
     for i in 1..=10 {
-        values_parts.push(format!("('Log message {}')", i));
+        values_parts.push(format!("('Log message {i}')"));
     }
     let sql = format!(
         "INSERT INTO logs (message) VALUES {}",

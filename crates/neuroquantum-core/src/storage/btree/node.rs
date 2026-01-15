@@ -22,6 +22,7 @@ pub struct InternalNode {
 
 impl InternalNode {
     /// Create a new internal node
+    #[must_use] 
     pub fn new(order: usize) -> Self {
         Self {
             keys: Vec::with_capacity(order),
@@ -31,11 +32,13 @@ impl InternalNode {
     }
 
     /// Check if the node is full
-    pub fn is_full(&self) -> bool {
+    #[must_use] 
+    pub const fn is_full(&self) -> bool {
         self.keys.len() >= self.max_keys
     }
 
     /// Find the index of the child to follow for a given key
+    #[must_use] 
     pub fn find_child_index(&self, key: &Key) -> usize {
         for (i, k) in self.keys.iter().enumerate() {
             if key < k {
@@ -63,15 +66,15 @@ impl InternalNode {
 
     /// Split the internal node when it becomes full
     ///
-    /// Returns: (promoted_key, new_right_node)
-    pub fn split(&mut self) -> (Key, InternalNode) {
+    /// Returns: (`promoted_key`, `new_right_node`)
+    pub fn split(&mut self) -> (Key, Self) {
         let mid = self.keys.len() / 2;
 
         // Key to promote to parent
         let promoted_key = self.keys[mid].clone();
 
         // Create new right node with upper half
-        let mut right_node = InternalNode::new(self.max_keys + 1);
+        let mut right_node = Self::new(self.max_keys + 1);
         right_node.keys = self.keys.split_off(mid + 1);
         right_node.children = self.children.split_off(mid + 1);
 
@@ -97,6 +100,7 @@ pub struct LeafNode {
 
 impl LeafNode {
     /// Create a new leaf node
+    #[must_use] 
     pub fn new(order: usize) -> Self {
         Self {
             entries: Vec::with_capacity(order),
@@ -106,7 +110,8 @@ impl LeafNode {
     }
 
     /// Check if the node is full
-    pub fn is_full(&self) -> bool {
+    #[must_use] 
+    pub const fn is_full(&self) -> bool {
         self.entries.len() >= self.max_entries
     }
 
@@ -147,6 +152,7 @@ impl LeafNode {
     }
 
     /// Search for a value by key
+    #[must_use] 
     pub fn search(&self, key: &Key) -> Option<Value> {
         self.entries
             .binary_search_by(|(k, _)| k.cmp(key))
@@ -166,12 +172,12 @@ impl LeafNode {
 
     /// Split the leaf node when it becomes full
     ///
-    /// Returns: (promoted_key, new_right_leaf)
-    pub fn split(&mut self) -> (Key, LeafNode) {
+    /// Returns: (`promoted_key`, `new_right_leaf`)
+    pub fn split(&mut self) -> (Key, Self) {
         let mid = self.entries.len() / 2;
 
         // Create new right leaf with upper half
-        let mut right_leaf = LeafNode::new(self.max_entries + 1);
+        let mut right_leaf = Self::new(self.max_entries + 1);
         right_leaf.entries = self.entries.split_off(mid);
 
         // Key to promote (smallest key in right leaf)
@@ -181,11 +187,13 @@ impl LeafNode {
     }
 
     /// Get the minimum key in this leaf
+    #[must_use] 
     pub fn min_key(&self) -> Option<&Key> {
         self.entries.first().map(|(k, _)| k)
     }
 
     /// Get the maximum key in this leaf
+    #[must_use] 
     pub fn max_key(&self) -> Option<&Key> {
         self.entries.last().map(|(k, _)| k)
     }
@@ -200,13 +208,15 @@ pub enum BTreeNode {
 
 impl BTreeNode {
     /// Check if this is an internal node
-    pub fn is_internal(&self) -> bool {
-        matches!(self, BTreeNode::Internal(_))
+    #[must_use] 
+    pub const fn is_internal(&self) -> bool {
+        matches!(self, Self::Internal(_))
     }
 
     /// Check if this is a leaf node
-    pub fn is_leaf(&self) -> bool {
-        matches!(self, BTreeNode::Leaf(_))
+    #[must_use] 
+    pub const fn is_leaf(&self) -> bool {
+        matches!(self, Self::Leaf(_))
     }
 
     /// Get as internal node (panics if not internal)
@@ -222,7 +232,8 @@ impl BTreeNode {
         note = "Use try_as_internal() or as_internal_checked() for proper error handling"
     )]
     #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
-    pub fn as_internal(&self) -> &InternalNode {
+    #[must_use] 
+    pub const fn as_internal(&self) -> &InternalNode {
         self.try_as_internal()
             .expect("BTreeNode::as_internal called on a leaf node")
     }
@@ -240,7 +251,7 @@ impl BTreeNode {
         note = "Use try_as_internal_mut() or as_internal_mut_checked() for proper error handling"
     )]
     #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
-    pub fn as_internal_mut(&mut self) -> &mut InternalNode {
+    pub const fn as_internal_mut(&mut self) -> &mut InternalNode {
         self.try_as_internal_mut()
             .expect("BTreeNode::as_internal_mut called on a leaf node")
     }
@@ -258,7 +269,8 @@ impl BTreeNode {
         note = "Use try_as_leaf() or as_leaf_checked() for proper error handling"
     )]
     #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
-    pub fn as_leaf(&self) -> &LeafNode {
+    #[must_use] 
+    pub const fn as_leaf(&self) -> &LeafNode {
         self.try_as_leaf()
             .expect("BTreeNode::as_leaf called on an internal node")
     }
@@ -276,7 +288,7 @@ impl BTreeNode {
         note = "Use try_as_leaf_mut() or as_leaf_mut_checked() for proper error handling"
     )]
     #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
-    pub fn as_leaf_mut(&mut self) -> &mut LeafNode {
+    pub const fn as_leaf_mut(&mut self) -> &mut LeafNode {
         self.try_as_leaf_mut()
             .expect("BTreeNode::as_leaf_mut called on an internal node")
     }
@@ -333,10 +345,10 @@ impl BTreeNode {
     ///
     /// This is the safe alternative to `as_internal()` that doesn't panic.
     #[must_use]
-    pub fn try_as_internal(&self) -> Option<&InternalNode> {
+    pub const fn try_as_internal(&self) -> Option<&InternalNode> {
         match self {
-            | BTreeNode::Internal(node) => Some(node),
-            | BTreeNode::Leaf(_) => None,
+            | Self::Internal(node) => Some(node),
+            | Self::Leaf(_) => None,
         }
     }
 
@@ -344,10 +356,10 @@ impl BTreeNode {
     ///
     /// This is the safe alternative to `as_internal_mut()` that doesn't panic.
     #[must_use]
-    pub fn try_as_internal_mut(&mut self) -> Option<&mut InternalNode> {
+    pub const fn try_as_internal_mut(&mut self) -> Option<&mut InternalNode> {
         match self {
-            | BTreeNode::Internal(node) => Some(node),
-            | BTreeNode::Leaf(_) => None,
+            | Self::Internal(node) => Some(node),
+            | Self::Leaf(_) => None,
         }
     }
 
@@ -355,10 +367,10 @@ impl BTreeNode {
     ///
     /// This is the safe alternative to `as_leaf()` that doesn't panic.
     #[must_use]
-    pub fn try_as_leaf(&self) -> Option<&LeafNode> {
+    pub const fn try_as_leaf(&self) -> Option<&LeafNode> {
         match self {
-            | BTreeNode::Leaf(node) => Some(node),
-            | BTreeNode::Internal(_) => None,
+            | Self::Leaf(node) => Some(node),
+            | Self::Internal(_) => None,
         }
     }
 
@@ -366,10 +378,10 @@ impl BTreeNode {
     ///
     /// This is the safe alternative to `as_leaf_mut()` that doesn't panic.
     #[must_use]
-    pub fn try_as_leaf_mut(&mut self) -> Option<&mut LeafNode> {
+    pub const fn try_as_leaf_mut(&mut self) -> Option<&mut LeafNode> {
         match self {
-            | BTreeNode::Leaf(node) => Some(node),
-            | BTreeNode::Internal(_) => None,
+            | Self::Leaf(node) => Some(node),
+            | Self::Internal(_) => None,
         }
     }
 }

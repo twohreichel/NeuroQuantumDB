@@ -20,9 +20,9 @@ pub struct CheckpointRecord {
     pub checkpoint_lsn: LSN,
     /// Active transactions at checkpoint time
     pub active_transactions: Vec<TransactionId>,
-    /// Transaction table: tx_id -> last_lsn
+    /// Transaction table: `tx_id` -> `last_lsn`
     pub transaction_table: HashMap<TransactionId, LSN>,
-    /// Dirty page table: page_id -> recovery_lsn
+    /// Dirty page table: `page_id` -> `recovery_lsn`
     pub dirty_page_table: HashMap<PageId, LSN>,
     /// Timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
@@ -41,7 +41,8 @@ pub struct CheckpointManager {
 
 impl CheckpointManager {
     /// Create a new checkpoint manager
-    pub fn new(config: WALConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: WALConfig) -> Self {
         Self {
             config,
             last_checkpoint_lsn: None,
@@ -50,6 +51,7 @@ impl CheckpointManager {
     }
 
     /// Check if a checkpoint is needed based on time interval
+    #[must_use] 
     pub fn should_checkpoint(&self) -> bool {
         match self.last_checkpoint_time {
             | None => true, // Never checkpointed
@@ -70,11 +72,13 @@ impl CheckpointManager {
     }
 
     /// Get the last checkpoint LSN
-    pub fn get_last_checkpoint_lsn(&self) -> Option<LSN> {
+    #[must_use] 
+    pub const fn get_last_checkpoint_lsn(&self) -> Option<LSN> {
         self.last_checkpoint_lsn
     }
 
     /// Create a checkpoint record
+    #[must_use] 
     pub fn create_checkpoint_record(
         checkpoint_lsn: LSN,
         active_transactions: Vec<TransactionId>,

@@ -1,4 +1,4 @@
-//! Prometheus Metrics Exporter for NeuroQuantumDB
+//! Prometheus Metrics Exporter for `NeuroQuantumDB`
 //!
 //! Provides Prometheus-compatible metrics endpoint for monitoring including
 //! comprehensive neuromorphic metrics for synaptic learning, plasticity,
@@ -770,10 +770,11 @@ impl MetricsExporter {
         let mut buffer = Vec::new();
         encoder.encode(&metric_families, &mut buffer)?;
         String::from_utf8(buffer)
-            .map_err(|e| prometheus::Error::Msg(format!("Invalid UTF-8 in metrics: {}", e)))
+            .map_err(|e| prometheus::Error::Msg(format!("Invalid UTF-8 in metrics: {e}")))
     }
 
     /// Get the registry
+    #[must_use] 
     pub fn registry(&self) -> &Registry {
         &self.registry
     }

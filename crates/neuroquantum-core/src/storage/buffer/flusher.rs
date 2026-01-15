@@ -124,7 +124,7 @@ impl BackgroundFlusher {
                     )
                     .await
                     {
-                        | Ok(_) => flushed += 1,
+                        | Ok(()) => flushed += 1,
                         | Err(e) => warn!("Failed to flush page {:?}: {}", page_id, e),
                     }
                 }
@@ -177,6 +177,7 @@ impl BackgroundFlusher {
     }
 
     /// Check if flusher is running
+    #[must_use] 
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
     }

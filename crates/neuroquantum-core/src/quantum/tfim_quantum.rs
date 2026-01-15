@@ -23,7 +23,7 @@
 //! Where:
 //! - J: Coupling strength between adjacent spins
 //! - h: Transverse magnetic field strength
-//! - σ_z, σ_x: Pauli Z and X operators
+//! - `σ_z`, `σ_x`: Pauli Z and X operators
 
 use crate::error::{CoreError, CoreResult};
 use nalgebra::{Complex, DMatrix};
@@ -43,9 +43,9 @@ pub enum QuantumBackend {
     Simulator,
     /// Superconducting qubits (IBM, Google, Rigetti)
     Superconducting,
-    /// Trapped ion qubits (IonQ, Honeywell)
+    /// Trapped ion qubits (`IonQ`, Honeywell)
     TrappedIon,
-    /// Neutral atom arrays (Pasqal, QuEra)
+    /// Neutral atom arrays (Pasqal, `QuEra`)
     NeutralAtom,
 }
 
@@ -109,9 +109,9 @@ pub enum QuantumGate {
 pub struct QuantumTFIMProblem {
     /// Number of spins/qubits
     pub num_qubits: usize,
-    /// Coupling strengths J_ij
+    /// Coupling strengths `J_ij`
     pub couplings: DMatrix<f64>,
-    /// Transverse field strengths h_i
+    /// Transverse field strengths `h_i`
     pub transverse_fields: Vec<f64>,
     /// Longitudinal field strengths
     pub longitudinal_fields: Vec<f64>,
@@ -143,9 +143,9 @@ pub struct QuantumTFIMSolution {
 /// Observable measurements
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuantumObservables {
-    /// Magnetization ⟨σ_z⟩ for each qubit
+    /// Magnetization ⟨`σ_z`⟩ for each qubit
     pub magnetization: Vec<f64>,
-    /// Two-point correlation functions ⟨σ_z^i σ_z^j⟩
+    /// Two-point correlation functions ⟨`σ_z^i` `σ_z^j`⟩
     pub correlations: DMatrix<f64>,
     /// Entanglement entropy (von Neumann entropy)
     pub entanglement_entropy: Option<f64>,
@@ -231,6 +231,7 @@ pub struct QuantumTFIMSolver {
 
 impl QuantumTFIMSolver {
     /// Create new quantum TFIM solver
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             config: QuantumTFIMConfig::default(),
@@ -238,7 +239,8 @@ impl QuantumTFIMSolver {
     }
 
     /// Create solver with custom configuration
-    pub fn with_config(config: QuantumTFIMConfig) -> Self {
+    #[must_use] 
+    pub const fn with_config(config: QuantumTFIMConfig) -> Self {
         Self { config }
     }
 
@@ -680,7 +682,7 @@ impl QuantumTFIMSolver {
         num_shots: usize,
     ) -> CoreResult<Vec<Vec<bool>>> {
         // Calculate probabilities
-        let probabilities: Vec<f64> = state.iter().map(|c| c.norm_sqr()).collect();
+        let probabilities: Vec<f64> = state.iter().map(nalgebra::Complex::norm_sqr).collect();
 
         let measurements = match self.config.seed {
             | Some(seed) => {
@@ -841,7 +843,7 @@ impl QuantumTFIMSolver {
     }
 
     /// Calculate circuit depth
-    fn calculate_circuit_depth(&self, gates: &[QuantumGate]) -> usize {
+    const fn calculate_circuit_depth(&self, gates: &[QuantumGate]) -> usize {
         // Simplified depth calculation
         // In reality, this depends on gate parallelization
         gates.len() / 2 + 1

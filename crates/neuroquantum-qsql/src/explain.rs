@@ -3,9 +3,9 @@
 //! This module provides EXPLAIN and ANALYZE functionality for visualizing
 //! query execution plans, cost estimation, and runtime statistics.
 
-use crate::ast::*;
-use crate::error::*;
-use crate::query_plan::*;
+use crate::ast::{ExplainFormat, Statement, SelectStatement, NeuroMatchStatement, QuantumSearchStatement, QuantumJoinStatement};
+use crate::error::{QSQLResult, QSQLError};
+use crate::query_plan::QueryPlan;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -77,7 +77,7 @@ pub struct PlanNode {
 }
 
 /// Type of execution plan node
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeType {
     SeqScan,
     IndexScan,
@@ -116,23 +116,23 @@ pub enum NodeType {
 impl fmt::Display for NodeType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            | NodeType::SeqScan => write!(f, "Seq Scan"),
-            | NodeType::IndexScan => write!(f, "Index Scan"),
-            | NodeType::IndexOnlyScan => write!(f, "Index Only Scan"),
-            | NodeType::BitmapIndexScan => write!(f, "Bitmap Index Scan"),
-            | NodeType::BitmapHeapScan => write!(f, "Bitmap Heap Scan"),
-            | NodeType::NestedLoop => write!(f, "Nested Loop"),
-            | NodeType::MergeJoin => write!(f, "Merge Join"),
-            | NodeType::HashJoin => write!(f, "Hash Join"),
-            | NodeType::Sort => write!(f, "Sort"),
-            | NodeType::Aggregate => write!(f, "Aggregate"),
-            | NodeType::Limit => write!(f, "Limit"),
-            | NodeType::NeuromorphicScan => write!(f, "Neuromorphic Scan"),
-            | NodeType::SynapticFilter => write!(f, "Synaptic Filter"),
-            | NodeType::QuantumScan => write!(f, "Quantum Scan"),
-            | NodeType::GroverSearch => write!(f, "Grover Search"),
-            | NodeType::SuperpositionJoin => write!(f, "Superposition Join"),
-            | _ => write!(f, "{:?}", self),
+            | Self::SeqScan => write!(f, "Seq Scan"),
+            | Self::IndexScan => write!(f, "Index Scan"),
+            | Self::IndexOnlyScan => write!(f, "Index Only Scan"),
+            | Self::BitmapIndexScan => write!(f, "Bitmap Index Scan"),
+            | Self::BitmapHeapScan => write!(f, "Bitmap Heap Scan"),
+            | Self::NestedLoop => write!(f, "Nested Loop"),
+            | Self::MergeJoin => write!(f, "Merge Join"),
+            | Self::HashJoin => write!(f, "Hash Join"),
+            | Self::Sort => write!(f, "Sort"),
+            | Self::Aggregate => write!(f, "Aggregate"),
+            | Self::Limit => write!(f, "Limit"),
+            | Self::NeuromorphicScan => write!(f, "Neuromorphic Scan"),
+            | Self::SynapticFilter => write!(f, "Synaptic Filter"),
+            | Self::QuantumScan => write!(f, "Quantum Scan"),
+            | Self::GroverSearch => write!(f, "Grover Search"),
+            | Self::SuperpositionJoin => write!(f, "Superposition Join"),
+            | _ => write!(f, "{self:?}"),
         }
     }
 }
@@ -144,7 +144,8 @@ pub struct ExplainGenerator {
 
 impl ExplainGenerator {
     /// Create a new explain generator
-    pub fn new(config: ExplainConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: ExplainConfig) -> Self {
         Self { config }
     }
 
@@ -260,10 +261,10 @@ impl ExplainGenerator {
                 .iter()
                 .map(|q| format!("{:?}", q.optimization_type))
                 .collect(),
-            quantum_advantage: if !query_plan.quantum_optimizations.is_empty() {
-                Some(query_plan.quantum_optimizations[0].speedup_factor)
-            } else {
+            quantum_advantage: if query_plan.quantum_optimizations.is_empty() {
                 None
+            } else {
+                Some(query_plan.quantum_optimizations[0].speedup_factor)
             },
         };
 
@@ -334,7 +335,7 @@ impl ExplainGenerator {
         })
     }
 
-    /// Build QUANTUM_SEARCH node
+    /// Build `QUANTUM_SEARCH` node
     fn build_quantum_search_node(
         &self,
         quantum: &QuantumSearchStatement,
@@ -376,7 +377,7 @@ impl ExplainGenerator {
         })
     }
 
-    /// Build QUANTUM_JOIN node
+    /// Build `QUANTUM_JOIN` node
     fn build_quantum_join_node(
         &self,
         qjoin: &QuantumJoinStatement,
@@ -454,7 +455,7 @@ impl ExplainGenerator {
     }
 
     /// Estimate total rows
-    fn estimate_total_rows(&self, _query_plan: &QueryPlan) -> u64 {
+    const fn estimate_total_rows(&self, _query_plan: &QueryPlan) -> u64 {
         1000 // Default estimate
     }
 
@@ -530,6 +531,7 @@ impl ExplainGenerator {
     }
 
     /// Format explain plan as text
+    #[must_use] 
     pub fn format_text(&self, explain_plan: &ExplainPlan) -> String {
         let mut output = String::new();
 
@@ -576,14 +578,14 @@ impl ExplainGenerator {
         if !explain_plan.warnings.is_empty() {
             output.push_str("\nWarnings:\n");
             for warning in &explain_plan.warnings {
-                output.push_str(&format!("  ⚠️  {}\n", warning));
+                output.push_str(&format!("  ⚠️  {warning}\n"));
             }
         }
 
         if !explain_plan.suggestions.is_empty() {
             output.push_str("\nSuggestions:\n");
             for suggestion in &explain_plan.suggestions {
-                output.push_str(&format!("  💡 {}\n", suggestion));
+                output.push_str(&format!("  💡 {suggestion}\n"));
             }
         }
 
@@ -597,7 +599,7 @@ impl ExplainGenerator {
         output.push_str(&format!("{}{}", indent_str, node.node_type));
 
         if let Some(ref relation) = node.relation_name {
-            output.push_str(&format!(" on {}", relation));
+            output.push_str(&format!(" on {relation}"));
         }
 
         if self.config.show_costs {
@@ -614,11 +616,11 @@ impl ExplainGenerator {
         output.push('\n');
 
         if let Some(ref filter) = node.filter {
-            output.push_str(&format!("{}  Filter: {}\n", indent_str, filter));
+            output.push_str(&format!("{indent_str}  Filter: {filter}\n"));
         }
 
         if let Some(ref index) = node.index_name {
-            output.push_str(&format!("{}  Index: {}\n", indent_str, index));
+            output.push_str(&format!("{indent_str}  Index: {index}\n"));
         }
 
         if self.config.show_synaptic_pathways && !node.synaptic_pathways.is_empty() {
@@ -628,20 +630,19 @@ impl ExplainGenerator {
                 node.synaptic_pathways.len()
             ));
             for pathway in &node.synaptic_pathways {
-                output.push_str(&format!("{}    • {}\n", indent_str, pathway));
+                output.push_str(&format!("{indent_str}    • {pathway}\n"));
             }
         }
 
         if self.config.show_quantum_ops && !node.quantum_operations.is_empty() {
-            output.push_str(&format!("{}  Quantum Operations:\n", indent_str));
+            output.push_str(&format!("{indent_str}  Quantum Operations:\n"));
             for op in &node.quantum_operations {
-                output.push_str(&format!("{}    • {}\n", indent_str, op));
+                output.push_str(&format!("{indent_str}    • {op}\n"));
             }
 
             if let Some(advantage) = node.quantum_advantage {
                 output.push_str(&format!(
-                    "{}  Quantum Speedup: {:.2}x\n",
-                    indent_str, advantage
+                    "{indent_str}  Quantum Speedup: {advantage:.2}x\n"
                 ));
             }
         }
@@ -654,14 +655,14 @@ impl ExplainGenerator {
     /// Format explain plan as JSON
     pub fn format_json(&self, explain_plan: &ExplainPlan) -> QSQLResult<String> {
         serde_json::to_string_pretty(explain_plan).map_err(|e| QSQLError::ExecutionError {
-            message: format!("Failed to serialize to JSON: {}", e),
+            message: format!("Failed to serialize to JSON: {e}"),
         })
     }
 
     /// Format explain plan as YAML
     pub fn format_yaml(&self, explain_plan: &ExplainPlan) -> QSQLResult<String> {
         serde_yaml_ng::to_string(explain_plan).map_err(|e| QSQLError::ExecutionError {
-            message: format!("Failed to serialize to YAML: {}", e),
+            message: format!("Failed to serialize to YAML: {e}"),
         })
     }
 }

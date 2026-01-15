@@ -101,7 +101,7 @@ async fn test_hash_join_selection_for_large_tables() {
 
     // Insert test data - enough rows to exceed threshold (11 x 11 = 121 > 100)
     for i in 1..=11 {
-        let insert_user = format!("INSERT INTO users (id, name) VALUES ({}, 'User {}')", i, i);
+        let insert_user = format!("INSERT INTO users (id, name) VALUES ({i}, 'User {i}')");
         let statement = parser.parse(&insert_user).unwrap();
         executor.execute_statement(&statement).await.unwrap();
 

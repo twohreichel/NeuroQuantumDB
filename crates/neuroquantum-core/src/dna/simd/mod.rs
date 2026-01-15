@@ -1,7 +1,7 @@
 //! SIMD optimizations for DNA compression
 //!
 //! This module provides SIMD-optimized implementations for DNA compression operations
-//! targeting ARM64 NEON and x86_64 AVX2 instruction sets.
+//! targeting ARM64 NEON and `x86_64` AVX2 instruction sets.
 
 use crate::dna::{DNABase, DNAError};
 
@@ -168,6 +168,7 @@ pub struct NeonCapabilities {
 
 /// Detect NEON capabilities (delegates to platform-specific implementation)
 #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+#[must_use] 
 pub fn detect_neon_capabilities() -> NeonCapabilities {
     arm64_neon::detect_neon_capabilities()
 }
@@ -195,6 +196,7 @@ pub struct SimdCapabilities {
 
 impl SimdCapabilities {
     /// Detect available SIMD capabilities on the current CPU
+    #[must_use] 
     pub fn detect() -> Self {
         let mut caps = Self {
             has_neon: false,
@@ -227,7 +229,8 @@ impl SimdCapabilities {
     }
 
     /// Get the optimal chunk size for SIMD operations
-    pub fn optimal_chunk_size(&self) -> usize {
+    #[must_use] 
+    pub const fn optimal_chunk_size(&self) -> usize {
         self.vector_width * 4 // Process multiple vectors per chunk
     }
 }
@@ -239,6 +242,7 @@ pub struct SimdEncoder {
 
 impl SimdEncoder {
     /// Create a new SIMD encoder
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             capabilities: SimdCapabilities::detect(),
@@ -317,6 +321,7 @@ pub struct SimdDecoder {
 
 impl SimdDecoder {
     /// Create a new SIMD decoder
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             capabilities: SimdCapabilities::detect(),
@@ -403,6 +408,7 @@ pub struct SimdPatternMatcher {
 
 impl SimdPatternMatcher {
     /// Create a new SIMD pattern matcher
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             capabilities: SimdCapabilities::detect(),
@@ -410,6 +416,7 @@ impl SimdPatternMatcher {
     }
 
     /// Find pattern occurrences using SIMD string matching
+    #[must_use] 
     pub fn find_pattern_occurrences(&self, haystack: &[u8], needle: &[u8]) -> Vec<usize> {
         if needle.is_empty() || haystack.len() < needle.len() {
             return Vec::new();
@@ -448,9 +455,10 @@ impl SimdPatternMatcher {
 
 /// SIMD utilities and helper functions
 pub mod utils {
-    use super::*;
+    use super::{DNABase, DNAError, SimdCapabilities, arm64_neon};
 
     /// Convert DNA bases to packed binary representation for SIMD processing
+    #[must_use] 
     pub fn pack_bases(bases: &[DNABase]) -> Vec<u64> {
         let mut packed = Vec::new();
 
@@ -458,7 +466,7 @@ pub mod utils {
             // 32 bases = 64 bits
             let mut value = 0u64;
             for (i, &base) in chunk.iter().enumerate() {
-                value |= (base.to_bits() as u64) << (62 - i * 2);
+                value |= u64::from(base.to_bits()) << (62 - i * 2);
             }
             packed.push(value);
         }
@@ -467,6 +475,7 @@ pub mod utils {
     }
 
     /// Unpack binary representation back to DNA bases
+    #[must_use] 
     pub fn unpack_bases(packed: &[u64], expected_count: usize) -> Vec<DNABase> {
         let mut bases = Vec::with_capacity(expected_count);
 
@@ -492,6 +501,7 @@ pub mod utils {
     /// Converts Array-of-Structures to Structure-of-Arrays layout
     /// for better SIMD vectorization. For example, converts:
     /// \[ABCD\]\[EFGH\]\[IJKL\] to \[AEI\]\[BFJ\]\[CGK\]\[DHL\]
+    #[must_use] 
     pub fn transpose_bytes(input: &[u8]) -> Vec<u8> {
         if input.is_empty() {
             return Vec::new();

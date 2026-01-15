@@ -31,7 +31,7 @@
 //! println!("Generated QSQL: {}", qsql);
 //! ```
 
-use crate::error::*;
+use crate::error::{QSQLResult, QSQLError};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, info, instrument};
@@ -72,19 +72,20 @@ pub enum POSTag {
 
 impl POSTag {
     /// Convert POS tag to string for display
-    pub fn as_str(&self) -> &'static str {
+    #[must_use] 
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            | POSTag::Noun => "NOUN",
-            | POSTag::Verb => "VERB",
-            | POSTag::Adjective => "ADJ",
-            | POSTag::Adverb => "ADV",
-            | POSTag::Preposition => "PREP",
-            | POSTag::Conjunction => "CONJ",
-            | POSTag::Determiner => "DET",
-            | POSTag::Pronoun => "PRON",
-            | POSTag::Number => "NUM",
-            | POSTag::Operator => "OP",
-            | POSTag::Unknown => "UNK",
+            | Self::Noun => "NOUN",
+            | Self::Verb => "VERB",
+            | Self::Adjective => "ADJ",
+            | Self::Adverb => "ADV",
+            | Self::Preposition => "PREP",
+            | Self::Conjunction => "CONJ",
+            | Self::Determiner => "DET",
+            | Self::Pronoun => "PRON",
+            | Self::Number => "NUM",
+            | Self::Operator => "OP",
+            | Self::Unknown => "UNK",
         }
     }
 }
@@ -457,7 +458,7 @@ impl SemanticAnalyzer {
             "show", "find", "get", "select", "list", "display", "retrieve",
         ] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "SELECT".to_string(),
                     category: SemanticCategory::Action,
@@ -470,7 +471,7 @@ impl SemanticAnalyzer {
         // Entity terms
         for word in &["users", "people", "customers", "persons"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "users".to_string(),
                     category: SemanticCategory::Entity,
@@ -481,7 +482,7 @@ impl SemanticAnalyzer {
         }
         for word in &["sensors", "devices", "instruments"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "sensors".to_string(),
                     category: SemanticCategory::Entity,
@@ -494,7 +495,7 @@ impl SemanticAnalyzer {
         // Neuromorphic terms
         for word in &["similar", "pattern", "neural", "neuromatch", "match"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "NEUROMATCH".to_string(),
                     category: SemanticCategory::Neuromorphic,
@@ -507,7 +508,7 @@ impl SemanticAnalyzer {
         // Quantum terms
         for word in &["quantum", "superposition", "entangle", "qubit"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "QUANTUM_SEARCH".to_string(),
                     category: SemanticCategory::Quantum,
@@ -520,7 +521,7 @@ impl SemanticAnalyzer {
         // Aggregation terms
         for word in &["count", "total", "number"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "COUNT".to_string(),
                     category: SemanticCategory::Aggregation,
@@ -531,7 +532,7 @@ impl SemanticAnalyzer {
         }
         for word in &["sum", "add", "total"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "SUM".to_string(),
                     category: SemanticCategory::Aggregation,
@@ -542,7 +543,7 @@ impl SemanticAnalyzer {
         }
         for word in &["average", "mean", "avg"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "AVG".to_string(),
                     category: SemanticCategory::Aggregation,
@@ -555,7 +556,7 @@ impl SemanticAnalyzer {
         // Comparison terms
         for word in &["above", "greater", "more", "higher", "exceeds", "over"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: ">".to_string(),
                     category: SemanticCategory::Comparison,
@@ -566,7 +567,7 @@ impl SemanticAnalyzer {
         }
         for word in &["below", "less", "fewer", "lower", "under"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "<".to_string(),
                     category: SemanticCategory::Comparison,
@@ -577,7 +578,7 @@ impl SemanticAnalyzer {
         }
         for word in &["equal", "equals", "same", "exactly"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "=".to_string(),
                     category: SemanticCategory::Comparison,
@@ -590,7 +591,7 @@ impl SemanticAnalyzer {
         // Spatial terms
         for word in &["in", "at", "from", "near", "around"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "location".to_string(),
                     category: SemanticCategory::Spatial,
@@ -603,7 +604,7 @@ impl SemanticAnalyzer {
         // Temporal terms
         for word in &["recent", "latest", "new", "old", "yesterday", "today"] {
             self.domain_terms.insert(
-                word.to_string(),
+                (*word).to_string(),
                 DomainTerm {
                     canonical: "created_at".to_string(),
                     category: SemanticCategory::Temporal,
@@ -722,6 +723,7 @@ impl SemanticAnalyzer {
     }
 
     /// Compute cosine similarity between two word vectors
+    #[must_use] 
     pub fn cosine_similarity(&self, word1: &str, word2: &str) -> f32 {
         let w1 = word1.to_lowercase();
         let w2 = word2.to_lowercase();
@@ -765,7 +767,7 @@ impl SemanticAnalyzer {
 
         for (i, c1) in s1.chars().enumerate() {
             for (j, c2) in s2.chars().enumerate() {
-                let cost = if c1 == c2 { 0 } else { 1 };
+                let cost = usize::from(c1 != c2);
                 matrix[i + 1][j + 1] = (matrix[i][j + 1] + 1)
                     .min(matrix[i + 1][j] + 1)
                     .min(matrix[i][j] + cost);
@@ -778,6 +780,7 @@ impl SemanticAnalyzer {
     }
 
     /// Get the most similar word from vocabulary
+    #[must_use] 
     pub fn find_most_similar(&self, word: &str) -> Option<(String, f32)> {
         let w = word.to_lowercase();
         let mut best_match: Option<(String, f32)> = None;
@@ -797,6 +800,7 @@ impl SemanticAnalyzer {
     }
 
     /// Expand a query using synonyms and semantic similarity
+    #[must_use] 
     pub fn expand_query(&self, tokens: &[String]) -> Vec<String> {
         let mut expanded = tokens.to_vec();
         let mut expansions = HashSet::new();
@@ -827,11 +831,13 @@ impl SemanticAnalyzer {
     }
 
     /// Get the domain term mapping for a word
+    #[must_use] 
     pub fn get_domain_term(&self, word: &str) -> Option<&DomainTerm> {
         self.domain_terms.get(&word.to_lowercase())
     }
 
     /// Get the POS tag for a word
+    #[must_use] 
     pub fn get_pos_tag(&self, word: &str) -> POSTag {
         if let Some(emb) = self.embeddings.get(&word.to_lowercase()) {
             emb.pos_tag
@@ -839,7 +845,7 @@ impl SemanticAnalyzer {
             // Heuristic POS tagging for unknown words
             if word.parse::<f64>().is_ok() {
                 POSTag::Number
-            } else if word.len() <= 2 && !word.chars().all(|c| c.is_alphabetic()) {
+            } else if word.len() <= 2 && !word.chars().all(char::is_alphabetic) {
                 POSTag::Operator
             } else {
                 POSTag::Unknown
@@ -848,6 +854,7 @@ impl SemanticAnalyzer {
     }
 
     /// Check for N-gram pattern matches and return confidence boosts
+    #[must_use] 
     pub fn check_ngram_patterns(&self, text: &str) -> Vec<(QueryIntent, f32)> {
         let normalized = text.to_lowercase();
         let mut matches = Vec::new();
@@ -862,6 +869,7 @@ impl SemanticAnalyzer {
     }
 
     /// Analyze semantic relationships between entities
+    #[must_use] 
     pub fn analyze_relationships(&self, entities: &[Entity]) -> Vec<SemanticRelation> {
         let mut relations = Vec::new();
 
@@ -995,6 +1003,7 @@ pub struct DependencyParser {
 }
 
 impl DependencyParser {
+    #[must_use] 
     pub fn new() -> Self {
         let mut parser = Self {
             verb_patterns: HashSet::new(),
@@ -1011,7 +1020,7 @@ impl DependencyParser {
                 "show", "find", "get", "select", "list", "display", "retrieve", "count", "search",
             ]
             .iter()
-            .map(|s| s.to_string()),
+            .map(|s| (*s).to_string()),
         );
 
         // Common prepositions
@@ -1021,11 +1030,12 @@ impl DependencyParser {
                 "above", "below", "near", "around",
             ]
             .iter()
-            .map(|s| s.to_string()),
+            .map(|s| (*s).to_string()),
         );
     }
 
     /// Parse dependencies from tokens
+    #[must_use] 
     pub fn parse(&self, tokens: &[Token]) -> Vec<DependencyRelation> {
         let mut relations = Vec::new();
         let mut root_idx = None;
@@ -1088,6 +1098,7 @@ impl DependencyParser {
     }
 
     /// Extract the main action from dependencies
+    #[must_use] 
     pub fn extract_main_action(&self, tokens: &[Token]) -> Option<String> {
         for token in tokens {
             if token.token_type == TokenType::Word
@@ -1100,6 +1111,7 @@ impl DependencyParser {
     }
 
     /// Extract direct objects from dependencies
+    #[must_use] 
     pub fn extract_objects(
         &self,
         tokens: &[Token],
@@ -1121,7 +1133,7 @@ impl Default for DependencyParser {
 }
 
 /// Token representing a piece of natural language text
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub text: String,
     pub token_type: TokenType,
@@ -1130,7 +1142,7 @@ pub struct Token {
 }
 
 /// Types of tokens in natural language
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenType {
     Word,
     Number,
@@ -1267,11 +1279,13 @@ impl NLQueryEngine {
     }
 
     /// Get semantic similarity between two words
+    #[must_use] 
     pub fn word_similarity(&self, word1: &str, word2: &str) -> f32 {
         self.semantic_analyzer.cosine_similarity(word1, word2)
     }
 
     /// Find most similar word in vocabulary
+    #[must_use] 
     pub fn find_similar_word(&self, word: &str) -> Option<(String, f32)> {
         self.semantic_analyzer.find_most_similar(word)
     }
@@ -1313,15 +1327,15 @@ impl RegexTokenizer {
         Ok(Self {
             word_pattern: Regex::new(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile word pattern: {}", e),
+                    message: format!("Failed to compile word pattern: {e}"),
                 }
             })?,
             number_pattern: Regex::new(r"\b\d+\.?\d*\b").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile number pattern: {}", e),
+                message: format!("Failed to compile number pattern: {e}"),
             })?,
             operator_pattern: Regex::new(r"[><=!]+|>=|<=|!=").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile operator pattern: {}", e),
+                    message: format!("Failed to compile operator pattern: {e}"),
                 }
             })?,
         })
@@ -1438,7 +1452,7 @@ impl SemanticIntentClassifier {
         }
 
         if count > 0 {
-            for v in composite.iter_mut() {
+            for v in &mut composite {
                 *v /= count as f32;
             }
         }
@@ -1463,7 +1477,7 @@ impl SemanticIntentClassifier {
         }
 
         if count > 0 {
-            for v in query_vec.iter_mut() {
+            for v in &mut query_vec {
                 *v /= count as f32;
             }
         }
@@ -1596,11 +1610,11 @@ impl SemanticEntityExtractor {
                 r"\b(in|at|from|near)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b",
             )
             .map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile location pattern: {}", e),
+                message: format!("Failed to compile location pattern: {e}"),
             })?,
             quoted_pattern: Regex::new(r#"["']([^"']+)["']"#).map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile quoted pattern: {}", e),
+                    message: format!("Failed to compile quoted pattern: {e}"),
                 }
             })?,
         };
@@ -1794,11 +1808,11 @@ impl PatternIntentClassifier {
         let select_patterns = vec![
             Regex::new(r"show|find|get|select|list|display|retrieve").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 }
             })?,
             Regex::new(r"all|users|records|data|sensors").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
         ];
         self.intent_patterns
@@ -1807,7 +1821,7 @@ impl PatternIntentClassifier {
         // NeuroMatch patterns
         let neuromatch_patterns = vec![Regex::new(r"similar|match|pattern|neuromatch|neural")
             .map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?];
         self.intent_patterns
             .insert(QueryIntent::NeuroMatch, neuromatch_patterns);
@@ -1815,7 +1829,7 @@ impl PatternIntentClassifier {
         // QuantumSearch patterns
         let quantum_patterns = vec![Regex::new(r"quantum|search|superposition").map_err(|e| {
             QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             }
         })?];
         self.intent_patterns
@@ -1826,7 +1840,7 @@ impl PatternIntentClassifier {
             vec![
                 Regex::new(r"count|sum|average|total|top\s+\d+").map_err(|e| {
                     QSQLError::ConfigError {
-                        message: format!("Failed to compile regex: {}", e),
+                        message: format!("Failed to compile regex: {e}"),
                     }
                 })?,
             ];
@@ -1861,7 +1875,7 @@ impl IntentClassifier for PatternIntentClassifier {
             Ok(best_match.0)
         } else {
             Err(QSQLError::NLPError {
-                message: format!("Could not classify intent for: {}", text),
+                message: format!("Could not classify intent for: {text}"),
             })
         }
     }
@@ -1901,7 +1915,7 @@ impl RegexEntityExtractor {
             EntityType::TableName,
             Regex::new(r"\b(users|sensors|posts|articles|memories|data|table|devices|locations)\b")
                 .map_err(|e| QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 })?,
         );
 
@@ -1909,21 +1923,21 @@ impl RegexEntityExtractor {
             EntityType::ColumnName,
             Regex::new(r"\b(id|name|age|email|title|content|created_at|updated_at|temperature|humidity|location|status)\b")
             .map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
         );
 
         self.entity_extractors.insert(
             EntityType::Number,
             Regex::new(r"\b\d+\.?\d*\b").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
         );
 
         self.entity_extractors.insert(
             EntityType::Value,
             Regex::new(r#""[^"]+"|'[^']+'"#).map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
         );
 
@@ -1933,7 +1947,7 @@ impl RegexEntityExtractor {
                 r"(>|<|=|>=|<=|!=|\babove\b|\bbelow\b|\bgreater than\b|\bless than\b|\bequal to\b)",
             )
             .map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
         );
 
@@ -2014,9 +2028,7 @@ impl QSQLGenerator {
 
         let table = entities
             .iter()
-            .find(|e| e.entity_type == EntityType::TableName)
-            .map(|e| e.value.clone())
-            .unwrap_or_else(|| "sensors".to_string());
+            .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "sensors".to_string(), |e| e.value.clone());
 
         query.push_str(&table);
 
@@ -2034,9 +2046,7 @@ impl QSQLGenerator {
                     .iter()
                     .skip(i)
                     .take(3)
-                    .find(|e| e.entity_type == EntityType::Operator)
-                    .map(|e| self.normalize_operator(&e.value))
-                    .unwrap_or_else(|| ">".to_string());
+                    .find(|e| e.entity_type == EntityType::Operator).map_or_else(|| ">".to_string(), |e| self.normalize_operator(&e.value));
 
                 let value = entities
                     .iter()
@@ -2048,7 +2058,7 @@ impl QSQLGenerator {
                     .map(|e| e.value.clone());
 
                 if let Some(val) = value {
-                    where_parts.push(format!("{} {} {}", column, operator, val));
+                    where_parts.push(format!("{column} {operator} {val}"));
                 }
             }
             i += 1;
@@ -2079,29 +2089,23 @@ impl QueryGenerator for QSQLGenerator {
             | QueryIntent::NeuroMatch => {
                 let table = entities
                     .iter()
-                    .find(|e| e.entity_type == EntityType::TableName)
-                    .map(|e| e.value.clone())
-                    .unwrap_or_else(|| "memories".to_string());
-                Ok(format!("NEUROMATCH {}", table))
+                    .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "memories".to_string(), |e| e.value.clone());
+                Ok(format!("NEUROMATCH {table}"))
             },
             | QueryIntent::QuantumSearch => {
                 let table = entities
                     .iter()
-                    .find(|e| e.entity_type == EntityType::TableName)
-                    .map(|e| e.value.clone())
-                    .unwrap_or_else(|| "data".to_string());
-                Ok(format!("QUANTUM_SEARCH {}", table))
+                    .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "data".to_string(), |e| e.value.clone());
+                Ok(format!("QUANTUM_SEARCH {table}"))
             },
             | QueryIntent::Aggregate => {
                 let table = entities
                     .iter()
-                    .find(|e| e.entity_type == EntityType::TableName)
-                    .map(|e| e.value.clone())
-                    .unwrap_or_else(|| "users".to_string());
-                Ok(format!("SELECT COUNT(*) FROM {}", table))
+                    .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "users".to_string(), |e| e.value.clone());
+                Ok(format!("SELECT COUNT(*) FROM {table}"))
             },
             | _ => Err(QSQLError::NLPError {
-                message: format!("Unsupported intent: {:?}", intent),
+                message: format!("Unsupported intent: {intent:?}"),
             }),
         }
     }
@@ -2356,7 +2360,7 @@ impl NaturalLanguageProcessor {
             | QueryIntent::Aggregate => self.generate_aggregate_query(entities),
             | QueryIntent::Join => self.generate_join_query(entities),
             | _ => Err(NLPError::UnsupportedConstruct {
-                construct: format!("{:?}", intent),
+                construct: format!("{intent:?}"),
             }
             .into()),
         }
@@ -2398,10 +2402,7 @@ impl NaturalLanguageProcessor {
 
         // Add WHERE conditions
         let conditions = self.extract_conditions(entities)?;
-        if !conditions.is_empty() {
-            query.push_str(" WHERE ");
-            query.push_str(&conditions.join(" AND "));
-        } else {
+        if conditions.is_empty() {
             // Look for age comparisons in the query
             let numbers: Vec<&Entity> = entities
                 .iter()
@@ -2410,8 +2411,11 @@ impl NaturalLanguageProcessor {
 
             if !numbers.is_empty() {
                 let age_number = numbers[0].value.clone();
-                query.push_str(&format!(" WHERE age > {}", age_number));
+                query.push_str(&format!(" WHERE age > {age_number}"));
             }
+        } else {
+            query.push_str(" WHERE ");
+            query.push_str(&conditions.join(" AND "));
         }
 
         Ok(query)
@@ -2436,7 +2440,7 @@ impl NaturalLanguageProcessor {
         Ok(query)
     }
 
-    /// Generate QUANTUM_SEARCH query
+    /// Generate `QUANTUM_SEARCH` query
     fn generate_quantum_search_query(&self, entities: &[Entity]) -> QSQLResult<String> {
         let mut query = String::from("QUANTUM_SEARCH ");
 
@@ -2485,8 +2489,7 @@ impl NaturalLanguageProcessor {
         if !numbers.is_empty() {
             let limit_number = numbers[0].value.clone();
             query = format!(
-                "SELECT * FROM users ORDER BY post_count DESC LIMIT {}",
-                limit_number
+                "SELECT * FROM users ORDER BY post_count DESC LIMIT {limit_number}"
             );
         }
 
@@ -2515,7 +2518,7 @@ impl NaturalLanguageProcessor {
                     let operator = &entities[i + 1].value;
                     let value = &entities[i + 2].value;
 
-                    let condition = format!("{} {} {}", column, operator, value);
+                    let condition = format!("{column} {operator} {value}");
                     conditions.push(condition);
                     i += 3;
                 } else {
@@ -2551,15 +2554,15 @@ impl NaturalLanguageProcessor {
         let select_patterns = vec![
             Regex::new(r"show|find|get|select|list|display").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 }
             })?,
             Regex::new(r"all|users|records|data").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
             Regex::new(r"older than|greater than|more than|above").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 }
             })?,
         ];
@@ -2570,11 +2573,11 @@ impl NaturalLanguageProcessor {
         let neuromatch_patterns = vec![
             Regex::new(r"similar|match|pattern|neuromatch").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 }
             })?,
             Regex::new(r"memory|remember|neural").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
         ];
         self.intent_patterns
@@ -2583,7 +2586,7 @@ impl NaturalLanguageProcessor {
         // QuantumSearch patterns
         let quantum_patterns = vec![Regex::new(r"quantum|search|superposition").map_err(|e| {
             QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             }
         })?];
         self.intent_patterns
@@ -2593,7 +2596,7 @@ impl NaturalLanguageProcessor {
         let aggregate_patterns =
             vec![Regex::new(r"count|sum|average|total|top \d+").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 }
             })?];
         self.intent_patterns
@@ -2609,7 +2612,7 @@ impl NaturalLanguageProcessor {
             EntityType::TableName,
             Regex::new(r"\b(users|posts|articles|memories|data|table)\b").map_err(|e| {
                 QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 }
             })?,
         );
@@ -2619,7 +2622,7 @@ impl NaturalLanguageProcessor {
             EntityType::ColumnName,
             Regex::new(r"\b(id|name|age|email|title|content|created_at|updated_at)\b").map_err(
                 |e| QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 },
             )?,
         );
@@ -2628,7 +2631,7 @@ impl NaturalLanguageProcessor {
         self.entity_extractors.insert(
             EntityType::Number,
             Regex::new(r"\b\d+\b").map_err(|e| QSQLError::ConfigError {
-                message: format!("Failed to compile regex: {}", e),
+                message: format!("Failed to compile regex: {e}"),
             })?,
         );
 
@@ -2637,7 +2640,7 @@ impl NaturalLanguageProcessor {
             EntityType::Operator,
             Regex::new(r"(>|<|=|>=|<=|!=|older than|greater than|less than|equal to)").map_err(
                 |e| QSQLError::ConfigError {
-                    message: format!("Failed to compile regex: {}", e),
+                    message: format!("Failed to compile regex: {e}"),
                 },
             )?,
         );
@@ -2668,7 +2671,7 @@ impl Default for NaturalLanguageProcessor {
             | Ok(processor) => processor,
             | Err(_) => {
                 // Fallback to a minimal processor if creation fails
-                NaturalLanguageProcessor {
+                Self {
                     intent_patterns: HashMap::new(),
                     entity_extractors: HashMap::new(),
                     table_mappings: HashMap::new(),
@@ -2690,16 +2693,16 @@ pub enum NLPError {
 impl From<NLPError> for QSQLError {
     fn from(err: NLPError) -> Self {
         match err {
-            | NLPError::IntentRecognitionFailed { text } => QSQLError::ParseError {
-                message: format!("Could not recognize intent in: {}", text),
+            | NLPError::IntentRecognitionFailed { text } => Self::ParseError {
+                message: format!("Could not recognize intent in: {text}"),
                 position: 0,
             },
-            | NLPError::EntityExtractionFailed { text } => QSQLError::ParseError {
-                message: format!("Could not extract entities from: {}", text),
+            | NLPError::EntityExtractionFailed { text } => Self::ParseError {
+                message: format!("Could not extract entities from: {text}"),
                 position: 0,
             },
-            | NLPError::UnsupportedConstruct { construct } => QSQLError::ParseError {
-                message: format!("Unsupported construct: {}", construct),
+            | NLPError::UnsupportedConstruct { construct } => Self::ParseError {
+                message: format!("Unsupported construct: {construct}"),
                 position: 0,
             },
         }

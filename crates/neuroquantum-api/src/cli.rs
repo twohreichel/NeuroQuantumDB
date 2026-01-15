@@ -21,7 +21,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Initialize NeuroQuantumDB with first admin key
+    /// Initialize `NeuroQuantumDB` with first admin key
     Init {
         /// Name for the admin key
         #[arg(short, long, default_value = "admin")]
@@ -82,7 +82,7 @@ pub enum KeyAction {
         #[arg(short, long)]
         name: String,
 
-        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        /// Admin API key for authentication (or set `NEUROQUANTUM_ADMIN_KEY` env var)
         #[arg(long)]
         admin_key: Option<String>,
 
@@ -105,14 +105,14 @@ pub enum KeyAction {
 
     /// List all API keys
     List {
-        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        /// Admin API key for authentication (or set `NEUROQUANTUM_ADMIN_KEY` env var)
         #[arg(long)]
         admin_key: Option<String>,
     },
 
     /// Revoke an API key
     Revoke {
-        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        /// Admin API key for authentication (or set `NEUROQUANTUM_ADMIN_KEY` env var)
         #[arg(long)]
         admin_key: Option<String>,
 
@@ -123,7 +123,7 @@ pub enum KeyAction {
 
     /// Show statistics about API keys
     Stats {
-        /// Admin API key for authentication (or set NEUROQUANTUM_ADMIN_KEY env var)
+        /// Admin API key for authentication (or set `NEUROQUANTUM_ADMIN_KEY` env var)
         #[arg(long)]
         admin_key: Option<String>,
     },
@@ -184,6 +184,7 @@ pub enum MigrateAction {
 }
 
 impl Cli {
+    #[must_use] 
     pub fn parse_args() -> Self {
         Self::parse()
     }
@@ -245,7 +246,7 @@ async fn init_database(
     }
 
     println!("📋 Configuration:");
-    println!("  Admin Key Name: {}", name);
+    println!("  Admin Key Name: {name}");
     println!(
         "  Expiry: {} hours ({} days)",
         expiry_hours,
@@ -266,13 +267,13 @@ async fn init_database(
 
     // Create auth service
     let mut auth_service = AuthService::new()
-        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {e}"))?;
 
     // Generate admin key
     println!("\n🔑 Generating admin API key...");
     let admin_key = auth_service
         .create_initial_admin_key(name.clone(), Some(expiry_hours))
-        .map_err(|e| anyhow::anyhow!("Failed to create admin key: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create admin key: {e}"))?;
 
     // Display and save the key
     println!("\n✅ Admin API key created successfully!");
@@ -352,12 +353,12 @@ fn generate_jwt_secret(output: Option<PathBuf>) -> Result<()> {
 
     println!("✅ JWT Secret generated successfully!");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("{}", secret);
+    println!("{secret}");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
     warn!("⚠️  Add this to your config/prod.toml:");
     println!("   [auth]");
-    println!("   jwt_secret = \"{}\"", secret);
+    println!("   jwt_secret = \"{secret}\"");
 
     if let Some(output_path) = output {
         let content = format!(
@@ -427,7 +428,7 @@ async fn create_api_key(
         .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
 
     let mut auth_service = AuthService::new()
-        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {e}"))?;
 
     let admin_api_key = auth_service
         .validate_api_key(&admin_key)
@@ -442,9 +443,7 @@ async fn create_api_key(
     for permission in &permissions {
         if !valid_permissions.contains(&permission.as_str()) {
             anyhow::bail!(
-                "Invalid permission: {}. Valid permissions are: {:?}",
-                permission,
-                valid_permissions
+                "Invalid permission: {permission}. Valid permissions are: {valid_permissions:?}"
             );
         }
     }
@@ -456,7 +455,7 @@ async fn create_api_key(
             Some(expiry_hours),
             rate_limit,
         )
-        .map_err(|e| anyhow::anyhow!("Failed to generate API key: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to generate API key: {e}"))?;
 
     println!("✅ API key created successfully!");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -467,7 +466,7 @@ async fn create_api_key(
     println!("⏳ Expires: {}", new_key.expires_at);
     println!("🎫 Permissions: {}", new_key.permissions.join(", "));
     if let Some(limit) = new_key.rate_limit_per_hour {
-        println!("⚡ Rate Limit: {} requests/hour", limit);
+        println!("⚡ Rate Limit: {limit} requests/hour");
     }
     println!();
 
@@ -513,7 +512,7 @@ async fn list_api_keys(admin_key: Option<String>) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
 
     let auth_service = AuthService::new()
-        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {e}"))?;
 
     let admin_api_key = auth_service
         .validate_api_key(&admin_key)
@@ -574,7 +573,7 @@ async fn revoke_api_key(admin_key: Option<String>, key_to_revoke: String) -> Res
         .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
 
     let mut auth_service = AuthService::new()
-        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {e}"))?;
 
     let admin_api_key = auth_service
         .validate_api_key(&admin_key)
@@ -609,7 +608,7 @@ async fn show_stats(admin_key: Option<String>) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Admin key required. Provide --admin-key or set NEUROQUANTUM_ADMIN_KEY environment variable"))?;
 
     let auth_service = AuthService::new()
-        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {e}"))?;
 
     let admin_api_key = auth_service
         .validate_api_key(&admin_key)
@@ -657,7 +656,7 @@ async fn health_check(url: String, timeout_secs: u64) -> Result<()> {
             }
         },
         | Err(e) => {
-            eprintln!("Health check failed: {}", e);
+            eprintln!("Health check failed: {e}");
             std::process::exit(1);
         },
     }
@@ -712,7 +711,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
             dry_run,
             verbose,
         } => {
-            println!("⏪ Rolling back {} migration(s)...\n", count);
+            println!("⏪ Rolling back {count} migration(s)...\n");
 
             let config = MigrationExecutorConfig {
                 config: MigrationConfig {
@@ -782,7 +781,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
             }
         },
         | MigrateAction::Create { name, dir } => {
-            println!("📝 Creating new migration: {}\n", name);
+            println!("📝 Creating new migration: {name}\n");
 
             let config = MigrationExecutorConfig {
                 config: MigrationConfig {

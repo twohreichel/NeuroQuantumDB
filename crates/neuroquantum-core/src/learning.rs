@@ -1,7 +1,7 @@
 //! # Hebbian Learning Engine
 //!
 //! Implementation of Hebbian learning algorithms for synaptic pathway strengthening
-//! and adaptive neural network optimization in NeuroQuantumDB.
+//! and adaptive neural network optimization in `NeuroQuantumDB`.
 
 use crate::error::{CoreError, CoreResult};
 use crate::synaptic::SynapticNetwork;
@@ -78,6 +78,7 @@ impl AntiHebbianLearning {
     /// # Arguments
     /// * `decay_rate` - Rate of synaptic decay (0.0-1.0), higher = faster decay
     /// * `pruning_threshold` - Weight threshold for connection pruning
+    #[must_use] 
     pub fn new(decay_rate: f32, pruning_threshold: f32) -> Self {
         Self {
             decay_rate: decay_rate.clamp(0.0, 1.0),
@@ -92,6 +93,7 @@ impl AntiHebbianLearning {
     }
 
     /// Create with full configuration
+    #[must_use] 
     pub fn with_config(
         decay_rate: f32,
         pruning_threshold: f32,
@@ -134,7 +136,7 @@ impl AntiHebbianLearning {
     /// over time. This is essential for maintaining network sparsity and
     /// preventing saturation.
     ///
-    /// Decay formula: weight_new = weight_old * (1.0 - decay_rate)
+    /// Decay formula: `weight_new` = `weight_old` * (1.0 - `decay_rate`)
     pub fn apply_synaptic_decay(&mut self, network: &SynapticNetwork) -> CoreResult<u64> {
         let mut decay_count = 0u64;
         let mut total_decay = 0.0f32;
@@ -159,10 +161,10 @@ impl AntiHebbianLearning {
                     // Also decay the plasticity factor towards baseline (1.0)
                     if connection.plasticity_factor > 1.0 {
                         connection.plasticity_factor =
-                            1.0 + (connection.plasticity_factor - 1.0) * decay_multiplier;
+                            (connection.plasticity_factor - 1.0).mul_add(decay_multiplier, 1.0);
                     } else if connection.plasticity_factor < 1.0 {
                         connection.plasticity_factor =
-                            1.0 - (1.0 - connection.plasticity_factor) * decay_multiplier;
+                            (1.0 - connection.plasticity_factor).mul_add(-decay_multiplier, 1.0);
                     }
                 }
             });
@@ -172,7 +174,7 @@ impl AntiHebbianLearning {
         self.stats.decay_operations += 1;
         if decay_count > 0 {
             self.stats.average_decay_applied =
-                (self.stats.average_decay_applied + total_decay / decay_count as f32) / 2.0;
+                f32::midpoint(self.stats.average_decay_applied, total_decay / decay_count as f32);
         }
 
         info!(
@@ -250,8 +252,7 @@ impl AntiHebbianLearning {
             .map(|(id, activation)| {
                 let connection_strength = network
                     .get_node(*id)
-                    .map(|n| n.connections.iter().map(|c| c.weight).sum::<f32>())
-                    .unwrap_or(0.0);
+                    .map_or(0.0, |n| n.connections.iter().map(|c| c.weight).sum::<f32>());
                 WinnerInfo {
                     neuron_id: *id,
                     activation_level: *activation,
@@ -291,8 +292,7 @@ impl AntiHebbianLearning {
         // Get the active neuron's strength for proportional inhibition
         let active_strength = network
             .get_node(active_neuron_id)
-            .map(|n| n.strength)
-            .unwrap_or(0.5);
+            .map_or(0.5, |n| n.strength);
 
         for (distance, &neighbor_id) in neighbor_ids
             .iter()
@@ -439,7 +439,8 @@ impl AntiHebbianLearning {
     }
 
     /// Get current statistics
-    pub fn get_stats(&self) -> &AntiHebbianStats {
+    #[must_use] 
+    pub const fn get_stats(&self) -> &AntiHebbianStats {
         &self.stats
     }
 
@@ -449,32 +450,35 @@ impl AntiHebbianLearning {
     }
 
     /// Set the decay rate
-    pub fn set_decay_rate(&mut self, rate: f32) {
+    pub const fn set_decay_rate(&mut self, rate: f32) {
         self.decay_rate = rate.clamp(0.0, 1.0);
     }
 
     /// Set the competition factor
-    pub fn set_competition_factor(&mut self, factor: f32) {
+    pub const fn set_competition_factor(&mut self, factor: f32) {
         self.competition_factor = factor.clamp(0.0, 1.0);
     }
 
     /// Set the pruning threshold
-    pub fn set_pruning_threshold(&mut self, threshold: f32) {
+    pub const fn set_pruning_threshold(&mut self, threshold: f32) {
         self.pruning_threshold = threshold.max(0.0);
     }
 
     /// Get the decay rate
-    pub fn decay_rate(&self) -> f32 {
+    #[must_use] 
+    pub const fn decay_rate(&self) -> f32 {
         self.decay_rate
     }
 
     /// Get the competition factor
-    pub fn competition_factor(&self) -> f32 {
+    #[must_use] 
+    pub const fn competition_factor(&self) -> f32 {
         self.competition_factor
     }
 
     /// Get the pruning threshold
-    pub fn pruning_threshold(&self) -> f32 {
+    #[must_use] 
+    pub const fn pruning_threshold(&self) -> f32 {
         self.pruning_threshold
     }
 }
@@ -564,7 +568,7 @@ impl HebbianLearningEngine {
 
                         // Update plasticity factor based on recent activity
                         connection.plasticity_factor =
-                            (connection.plasticity_factor * 0.95 + 0.05).clamp(0.1, 2.0);
+                            connection.plasticity_factor.mul_add(0.95, 0.05).clamp(0.1, 2.0);
                         connection.last_strengthened = Instant::now();
                         connection.usage_count += 1;
 
@@ -618,7 +622,7 @@ impl HebbianLearningEngine {
             }
 
             // Calculate variance in recent weight changes
-            let recent: Vec<f32> = history.iter().rev().take(10).cloned().collect();
+            let recent: Vec<f32> = history.iter().rev().take(10).copied().collect();
             let mean = recent.iter().sum::<f32>() / recent.len() as f32;
             let variance =
                 recent.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / recent.len() as f32;
@@ -761,12 +765,13 @@ impl HebbianLearningEngine {
             }
 
             // Update momentum based on performance stability
-            self.momentum = 0.9 + 0.1 * network_performance;
+            self.momentum = 0.1f32.mul_add(network_performance, 0.9);
         }
     }
 
     /// Get current learning statistics
-    pub fn get_stats(&self) -> &LearningStats {
+    #[must_use] 
+    pub const fn get_stats(&self) -> &LearningStats {
         &self.stats
     }
 
@@ -788,7 +793,7 @@ impl HebbianLearningEngine {
     }
 
     /// Enable or disable adaptive learning rate
-    pub fn set_adaptive_rate(&mut self, enabled: bool) {
+    pub const fn set_adaptive_rate(&mut self, enabled: bool) {
         self.adaptive_rate_enabled = enabled;
     }
 
@@ -824,6 +829,7 @@ impl HebbianLearningEngine {
     }
 
     /// Get most frequent query patterns for optimization
+    #[must_use] 
     pub fn get_frequent_patterns(&self, top_n: usize) -> Vec<(QueryPattern, u64)> {
         let mut patterns: Vec<_> = self
             .query_patterns
@@ -897,13 +903,14 @@ impl HebbianLearningEngine {
     }
 
     /// Get total number of tracked patterns
+    #[must_use] 
     pub fn get_pattern_count(&self) -> usize {
         self.query_patterns.len()
     }
 
     /// Apply anti-Hebbian decay to the network
     ///
-    /// This combines both natural decay (based on decay_factor) and
+    /// This combines both natural decay (based on `decay_factor`) and
     /// competitive learning mechanisms to maintain network health.
     pub fn apply_anti_hebbian_decay(&mut self, network: &SynapticNetwork) -> CoreResult<u64> {
         // Set the decay rate from our decay_factor
@@ -1009,7 +1016,8 @@ impl HebbianLearningEngine {
     }
 
     /// Get the decay factor
-    pub fn decay_factor(&self) -> f32 {
+    #[must_use] 
+    pub const fn decay_factor(&self) -> f32 {
         self.decay_factor
     }
 
@@ -1025,12 +1033,13 @@ impl HebbianLearningEngine {
     }
 
     /// Get a reference to the anti-Hebbian learning engine
-    pub fn anti_hebbian(&self) -> &AntiHebbianLearning {
+    #[must_use] 
+    pub const fn anti_hebbian(&self) -> &AntiHebbianLearning {
         &self.anti_hebbian
     }
 
     /// Get a mutable reference to the anti-Hebbian learning engine
-    pub fn anti_hebbian_mut(&mut self) -> &mut AntiHebbianLearning {
+    pub const fn anti_hebbian_mut(&mut self) -> &mut AntiHebbianLearning {
         &mut self.anti_hebbian
     }
 }
