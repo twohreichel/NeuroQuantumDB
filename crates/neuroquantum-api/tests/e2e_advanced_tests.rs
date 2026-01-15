@@ -553,7 +553,7 @@ async fn test_websocket_concurrent_message_handling() {
         let handle = tokio::spawn(async move {
             // Simulate message processing
             for _ in 0..10 {
-                manager_clone.get_metrics();
+                let _ = manager_clone.get_metrics();
                 tokio::time::sleep(Duration::from_millis(1)).await;
             }
         });
