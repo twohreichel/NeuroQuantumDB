@@ -8,6 +8,9 @@
 //!
 //! - **Query Pattern Tracking**: Tracks WHERE clauses, JOIN conditions, and ORDER BY columns
 //! - **Frequency Analysis**: Identifies frequently accessed columns
+
+// Index advisor uses expect for mutex locks which should not fail in normal operation.
+#![allow(clippy::expect_used)]
 //! - **Recommendation Engine**: Generates single-column and composite index recommendations
 //! - **Impact Estimation**: Estimates performance improvement from recommended indexes
 

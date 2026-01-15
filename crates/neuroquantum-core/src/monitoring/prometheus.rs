@@ -769,7 +769,8 @@ impl MetricsExporter {
         let metric_families = self.registry.gather();
         let mut buffer = Vec::new();
         encoder.encode(&metric_families, &mut buffer)?;
-        Ok(String::from_utf8(buffer).expect("Prometheus metrics should be valid UTF-8"))
+        String::from_utf8(buffer)
+            .map_err(|e| prometheus::Error::Msg(format!("Invalid UTF-8 in metrics: {}", e)))
     }
 
     /// Get the registry
@@ -779,6 +780,13 @@ impl MetricsExporter {
 }
 
 impl Default for MetricsExporter {
+    /// Creates a default metrics exporter.
+    ///
+    /// # Panics
+    ///
+    /// Panics if metrics registry initialization fails. This is acceptable for
+    /// Default implementations used during application startup.
+    #[allow(clippy::expect_used)] // Acceptable for Default impl at startup
     fn default() -> Self {
         Self::new().expect("Failed to create metrics exporter")
     }

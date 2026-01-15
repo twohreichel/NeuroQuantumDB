@@ -808,10 +808,8 @@ impl RaftConsensus {
         if response.success {
             // Update next_index and match_index for follower
             let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
-            let new_match_index = if response.match_index.is_some() {
-                response
-                    .match_index
-                    .expect("match_index is Some as checked above")
+            let new_match_index = if let Some(match_index) = response.match_index {
+                match_index
             } else {
                 // Calculate based on what we sent
                 let entries_sent = if next_idx <= state.log.len() as u64 {

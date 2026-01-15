@@ -2,7 +2,7 @@
 //!
 //! Provides efficient incremental backups by only backing up changes since last backup
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -156,8 +156,9 @@ impl IncrementalBackup {
                     Ok(parsed_data) => {
                         if !parsed_data.is_empty() {
                             // This segment contains records after since_lsn
-                            let filename =
-                                path.file_name().expect("WAL file should have a filename");
+                            let filename = path.file_name().ok_or_else(|| {
+                                anyhow!("WAL file path has no filename: {}", path.display())
+                            })?;
                             let dest_path = wal_dir.join(filename);
 
                             // Write only the relevant records
@@ -194,7 +195,9 @@ impl IncrementalBackup {
                         );
 
                         // Fallback: backup entire segment if parsing fails
-                        let filename = path.file_name().expect("WAL file should have a filename");
+                        let filename = path.file_name().ok_or_else(|| {
+                            anyhow!("WAL file path has no filename: {}", path.display())
+                        })?;
                         let dest_path = wal_dir.join(filename);
 
                         self.storage_backend

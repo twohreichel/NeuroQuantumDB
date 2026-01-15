@@ -221,6 +221,7 @@ impl BTreeNode {
         since = "0.2.0",
         note = "Use try_as_internal() or as_internal_checked() for proper error handling"
     )]
+    #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
     pub fn as_internal(&self) -> &InternalNode {
         self.try_as_internal()
             .expect("BTreeNode::as_internal called on a leaf node")
@@ -238,6 +239,7 @@ impl BTreeNode {
         since = "0.2.0",
         note = "Use try_as_internal_mut() or as_internal_mut_checked() for proper error handling"
     )]
+    #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
     pub fn as_internal_mut(&mut self) -> &mut InternalNode {
         self.try_as_internal_mut()
             .expect("BTreeNode::as_internal_mut called on a leaf node")
@@ -255,6 +257,7 @@ impl BTreeNode {
         since = "0.2.0",
         note = "Use try_as_leaf() or as_leaf_checked() for proper error handling"
     )]
+    #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
     pub fn as_leaf(&self) -> &LeafNode {
         self.try_as_leaf()
             .expect("BTreeNode::as_leaf called on an internal node")
@@ -272,6 +275,7 @@ impl BTreeNode {
         since = "0.2.0",
         note = "Use try_as_leaf_mut() or as_leaf_mut_checked() for proper error handling"
     )]
+    #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
     pub fn as_leaf_mut(&mut self) -> &mut LeafNode {
         self.try_as_leaf_mut()
             .expect("BTreeNode::as_leaf_mut called on an internal node")

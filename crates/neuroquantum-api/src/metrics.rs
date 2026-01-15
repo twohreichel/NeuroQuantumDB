@@ -3,6 +3,15 @@
 //!
 //! This module provides comprehensive metrics for monitoring API performance,
 //! database operations, and system health.
+//!
+//! # Metric Registration
+//!
+//! All metrics are registered at startup using static initialization.
+//! If metric registration fails, the application should fail fast during startup
+//! rather than continue with incomplete monitoring. This is an acceptable use
+//! of `.expect()` as it occurs before the application serves any requests.
+
+#![allow(clippy::expect_used)] // Startup-only metric registration - fail-fast is acceptable
 
 use once_cell::sync::Lazy;
 use prometheus::{

@@ -121,6 +121,8 @@ impl PageStorageManager {
             free_list: Arc::new(RwLock::new(free_list)),
             total_pages: Arc::new(RwLock::new(total_pages)),
             page_cache: Arc::new(RwLock::new(LruCache::new(
+                // SAFETY: 1000 is a non-zero constant
+                #[allow(clippy::expect_used)]
                 std::num::NonZeroUsize::new(1000).expect("1000 is non-zero"),
             ))),
         };

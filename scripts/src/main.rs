@@ -3,6 +3,9 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+// This is a build-time documentation generator script.
+// Panicking on errors is acceptable as it will fail the build early.
+#[allow(clippy::expect_used)]
 fn main() {
     // Change to project root if we're in scripts directory
     let current_dir = env::current_dir().expect("Failed to get current directory");

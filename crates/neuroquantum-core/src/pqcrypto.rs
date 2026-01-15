@@ -138,6 +138,12 @@ impl PQCryptoManager {
     /// The ciphertext can be transmitted to the key holder who can then
     /// decapsulate it using their decapsulation key to obtain the same shared secret.
     /// For ML-KEM-768, ciphertext is 1088 bytes and shared secret is 32 bytes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if ML-KEM encapsulation fails with a valid key, which should never happen
+    /// according to the algorithm specification. This is a catastrophic cryptographic failure.
+    #[allow(clippy::expect_used)] // Encapsulation with valid key should never fail per spec
     pub fn encapsulate(&self) -> (Vec<u8>, Vec<u8>) {
         let mut rng = rand::thread_rng();
 

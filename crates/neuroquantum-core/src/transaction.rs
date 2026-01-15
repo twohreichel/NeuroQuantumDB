@@ -465,7 +465,12 @@ impl LogManager {
     ///
     /// **Important:** This uses /dev/null and should NOT be used in production.
     /// Only for internal use during TransactionManager construction.
+    ///
+    /// # Panics
+    ///
+    /// Panics if /dev/null cannot be opened, which would indicate a severely broken system.
     #[doc(hidden)]
+    #[allow(clippy::expect_used)] // Placeholder for internal use - /dev/null should always exist
     pub fn new_placeholder() -> Self {
         Self {
             log_file: Arc::new(Mutex::new(File::from_std(

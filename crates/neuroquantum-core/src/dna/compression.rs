@@ -238,6 +238,13 @@ impl DNACompressionEngine {
     }
 
     /// Apply dictionary compression to DNA sequence
+    ///
+    /// # Note on `.expect()` usage
+    ///
+    /// This function uses `.expect()` for `DNABase::from_bits()` calls where the input
+    /// is masked to 2 bits (& 0b11), making failure mathematically impossible.
+    /// All 2-bit values (0-3) map to valid DNA bases.
+    #[allow(clippy::expect_used)] // Bitwise-masked values are provably valid
     async fn apply_dictionary_compression(
         &mut self,
         bases: &[DNABase],
@@ -478,6 +485,13 @@ impl PartialOrd for HuffmanNodeFreq {
 
 impl HuffmanTree {
     /// Build Huffman tree from base frequencies
+    ///
+    /// # Note on `.expect()` usage
+    ///
+    /// Uses `.expect()` in contexts where failure is impossible:
+    /// - Loop invariants ensure heap has sufficient elements
+    /// - Index values 0-3 always map to valid DNA bases
+    #[allow(clippy::expect_used)] // Loop invariants and valid indices guarantee success
     pub fn build(frequencies: &[u64; 4]) -> Self {
         let mut heap = BinaryHeap::new();
 

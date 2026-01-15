@@ -308,17 +308,14 @@ impl RestoreManager {
                 };
 
                 // Write to output directory
-                let output_file = self.options.output_path.join("data").join(
-                    chunk_file
-                        .file_name()
-                        .expect("chunk file should have a filename"),
-                );
-                tokio::fs::create_dir_all(
-                    output_file
-                        .parent()
-                        .expect("output file should have parent dir"),
-                )
-                .await?;
+                let chunk_filename = chunk_file.file_name().ok_or_else(|| {
+                    anyhow!("Chunk file path has no filename: {}", chunk_file.display())
+                })?;
+                let output_file = self.options.output_path.join("data").join(chunk_filename);
+                let output_parent = output_file.parent().ok_or_else(|| {
+                    anyhow!("Output file path has no parent: {}", output_file.display())
+                })?;
+                tokio::fs::create_dir_all(output_parent).await?;
                 tokio::fs::write(&output_file, &decompressed).await?;
 
                 stats.bytes_written += decompressed.len() as u64;
@@ -357,11 +354,10 @@ impl RestoreManager {
                     wal_data
                 };
 
-                let output_file = output_wal_dir.join(
-                    wal_file
-                        .file_name()
-                        .expect("WAL file should have a filename"),
-                );
+                let wal_filename = wal_file.file_name().ok_or_else(|| {
+                    anyhow!("WAL file path has no filename: {}", wal_file.display())
+                })?;
+                let output_file = output_wal_dir.join(wal_filename);
                 tokio::fs::write(&output_file, &decompressed).await?;
 
                 stats.bytes_written += decompressed.len() as u64;

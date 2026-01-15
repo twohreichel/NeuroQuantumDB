@@ -6,7 +6,7 @@
 //! - ACID-compliant operations
 //! - Concurrent access support
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::fmt;
 use std::path::Path;
 use tokio::fs;
@@ -144,7 +144,7 @@ impl BTree {
         // Insert into existing tree
         let root_page_id = self
             .root_page_id
-            .expect("root_page_id should be set when tree is not empty");
+            .ok_or_else(|| anyhow!("Tree has entries but no root page (invariant violation)"))?;
         let split_result = self.insert_recursive(root_page_id, key, value).await?;
 
         // Handle root split
@@ -199,7 +199,7 @@ impl BTree {
         // Upsert into existing tree
         let root_page_id = self
             .root_page_id
-            .expect("root_page_id should be set when tree is not empty");
+            .ok_or_else(|| anyhow!("Tree has entries but no root page (invariant violation)"))?;
         let (split_result, is_new_key) = self.upsert_recursive(root_page_id, key, value).await?;
 
         // Handle root split
@@ -241,7 +241,7 @@ impl BTree {
 
         let root_page_id = self
             .root_page_id
-            .expect("root_page_id should be set when tree is not empty");
+            .ok_or_else(|| anyhow!("Tree has entries but no root page (invariant violation)"))?;
         self.search_recursive(root_page_id, key).await
     }
 
@@ -260,7 +260,7 @@ impl BTree {
 
         let root_page_id = self
             .root_page_id
-            .expect("root_page_id should be set when tree is not empty");
+            .ok_or_else(|| anyhow!("Tree has entries but no root page (invariant violation)"))?;
         self.range_scan_recursive(root_page_id, start_key, end_key)
             .await
     }
@@ -280,7 +280,7 @@ impl BTree {
 
         let root_page_id = self
             .root_page_id
-            .expect("root_page_id should be set when tree is not empty");
+            .ok_or_else(|| anyhow!("Tree has entries but no root page (invariant violation)"))?;
         let deleted = self.delete_recursive(root_page_id, key).await?;
 
         if deleted {

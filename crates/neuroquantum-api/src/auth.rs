@@ -338,8 +338,6 @@ pub struct ApiKeyStats {
     pub is_expired: bool,
 }
 
-impl Default for AuthService {
-    fn default() -> Self {
-        Self::new().expect("Failed to initialize AuthService with default storage")
-    }
-}
+// Note: No Default implementation provided intentionally.
+// AuthService::new() returns Result and requires proper error handling.
+// Use AuthService::new() or AuthService::new_with_path() explicitly.

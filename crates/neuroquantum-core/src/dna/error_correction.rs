@@ -66,12 +66,18 @@ impl ReedSolomonCorrector {
 
     /// Get error correction statistics
     pub fn get_stats(&self) -> ErrorCorrectionStats {
-        self.stats.lock().expect("stats mutex poisoned").clone()
+        self.stats
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 
     /// Reset error correction statistics
     pub fn reset_stats(&self) {
-        *self.stats.lock().expect("stats mutex poisoned") = ErrorCorrectionStats::default();
+        *self
+            .stats
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = ErrorCorrectionStats::default();
     }
 
     /// Generate Reed-Solomon parity data for the given input
@@ -228,7 +234,10 @@ impl ReedSolomonCorrector {
 
         // Update statistics
         {
-            let mut stats = self.stats.lock().expect("stats mutex poisoned");
+            let mut stats = self
+                .stats
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             stats.blocks_processed += 1;
             stats.errors_detected += total_errors;
         }
@@ -241,7 +250,10 @@ impl ReedSolomonCorrector {
 
             // Update reconstruction attempt counter
             {
-                let mut stats = self.stats.lock().expect("stats mutex poisoned");
+                let mut stats = self
+                    .stats
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
                 stats.reconstructions_attempted += 1;
             }
 
@@ -295,7 +307,10 @@ impl ReedSolomonCorrector {
 
                     // Update successful reconstruction counter
                     {
-                        let mut stats = self.stats.lock().expect("stats mutex poisoned");
+                        let mut stats = self
+                            .stats
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
                         stats.reconstructions_successful += 1;
                         stats.errors_corrected += total_errors;
                     }

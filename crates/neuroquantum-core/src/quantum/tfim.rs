@@ -170,8 +170,11 @@ impl TFIMSolver {
             }
         }
 
-        let mut final_solution =
-            best_solution.expect("at least one solution should exist after retries");
+        let mut final_solution = best_solution.ok_or_else(|| {
+            CoreError::invalid_operation(
+                "TFIM solving failed: no valid solution found after all retries",
+            )
+        })?;
         final_solution.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
         info!(

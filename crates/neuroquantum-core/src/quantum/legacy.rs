@@ -349,6 +349,9 @@ impl QuantumSearch for GroverSearch {
         let mut iterations = 0;
 
         let mut rng = rand::thread_rng();
+        // SAFETY: Normal::new(0.0, 1.0) uses standard normal distribution parameters
+        // which are always valid (mean=0, stddev=1 > 0)
+        #[allow(clippy::expect_used)]
         let normal = Normal::new(0.0, 1.0).expect("valid normal distribution parameters");
 
         debug!(
@@ -618,6 +621,8 @@ impl QuantumProcessor {
     /// Create a new quantum processor with the given synaptic network
     pub fn new() -> Self {
         // Create a minimal synaptic network for now
+        // SAFETY: Parameters (1000 neurons, 0.5 connectivity) are valid
+        #[allow(clippy::expect_used)]
         let synaptic_network =
             Arc::new(SynapticNetwork::new(1000, 0.5).expect("valid synaptic network parameters"));
         let config = QuantumConfig::default();
