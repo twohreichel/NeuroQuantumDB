@@ -80,21 +80,46 @@ pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
 
-# Performance lints
+# ============================================================================
+# RESTRICTION LINTS - Maximale Code-Sicherheit (Issue #312)
+# ============================================================================
+# Debug-Code in Production verhindern
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+
+# Gefährliche Exit-Operationen
+exit = "deny"
+
+# Error Handling - explizite Behandlung erzwingen
+unwrap_used = "warn"       # In Produktionscode prüfen
+expect_used = "warn"       # In Produktionscode prüfen
+
+# Sicherheitskritische Operationen
+indexing_slicing = "warn"           # Bounds-checking erzwingen
+arithmetic_side_effects = "warn"    # Overflow-Prüfung
+
+# ============================================================================
+# PERFORMANCE LINTS - Deny Level
+# ============================================================================
 needless_collect = "deny"
 single_char_lifetime_names = "deny"
 string_to_string = "deny"
 string_slice_to_string = "deny"
 clone_on_ref_ptr = "deny"
 
-# Correctness lints
+# ============================================================================
+# CORRECTNESS LINTS - Deny Level
+# ============================================================================
 float_cmp = "deny"
 mem_forget = "deny"
 todo = "deny"
 unimplemented = "deny"
 unreachable = "deny"
 
-# Style lints for better readability
+# ============================================================================
+# STYLE LINTS - Deny Level für bessere Lesbarkeit
+# ============================================================================
 explicit_iter_loop = "deny"
 manual_let_else = "deny"
 needless_bool = "deny"
@@ -102,35 +127,51 @@ redundant_closure_for_method_calls = "deny"
 semicolon_if_nothing_returned = "deny"
 single_match_else = "deny"
 
-# Complexity lints
+# ============================================================================
+# COMPLEXITY LINTS - Warn Level
+# ============================================================================
 cognitive_complexity = "warn"
 too_many_arguments = "warn"
 type_complexity = "warn"
 
-# Allow some pedantic lints that might be too strict
+# ============================================================================
+# ALLOWED LINTS - Zu strikt für dieses Projekt
+# ============================================================================
 module_name_repetitions = "allow"
 similar_names = "allow"
 struct_excessive_bools = "allow"
 fn_params_excessive_bools = "allow"
 
-# Pedantic lints for high code quality
-cast_lossless = "warn"
-cast_possible_truncation = "warn"
-cast_possible_wrap = "warn"
-cast_precision_loss = "warn"
-cast_sign_loss = "warn"
-checked_conversions = "warn"
+# ============================================================================
+# PEDANTIC LINTS - Hochgestuft auf Deny (Issue #312)
+# ============================================================================
+# Cast-Sicherheit - DENY für sichere Typkonvertierungen
+cast_lossless = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+checked_conversions = "deny"
+
+# Klon-Effizienz - DENY für Performance
+implicit_clone = "deny"
+inefficient_to_string = "deny"
+
+# Pass-by-Value Optimierung - DENY
+large_types_passed_by_value = "deny"
+needless_pass_by_value = "deny"
+
+# ============================================================================
+# PEDANTIC LINTS - Warn Level (hohe Code-Qualität)
+# ============================================================================
 copy_iterator = "warn"
 default_trait_access = "warn"
 explicit_deref_methods = "warn"
 explicit_into_iter_loop = "warn"
 filter_map_next = "warn"
 flat_map_option = "warn"
-implicit_clone = "warn"
-inefficient_to_string = "warn"
 items_after_statements = "warn"
 large_stack_arrays = "warn"
-large_types_passed_by_value = "warn"
 manual_ok_or = "warn"
 map_flatten = "warn"
 map_unwrap_or = "warn"
@@ -141,7 +182,6 @@ must_use_candidate = "warn"
 needless_bitwise_bool = "warn"
 needless_continue = "warn"
 needless_for_each = "warn"
-needless_pass_by_value = "warn"
 no_effect_underscore_binding = "warn"
 option_option = "warn"
 range_minus_one = "warn"
@@ -156,7 +196,9 @@ unnecessary_wraps = "warn"
 unused_self = "warn"
 used_underscore_binding = "warn"
 
-# Nursery lints (experimental but useful)
+# ============================================================================
+# NURSERY LINTS - Experimentell aber nützlich
+# ============================================================================
 empty_line_after_outer_attr = "warn"
 equatable_if_let = "warn"
 mutex_integer = "warn"
