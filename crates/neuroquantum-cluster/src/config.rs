@@ -198,10 +198,6 @@ pub struct DiscoveryConfig {
     /// Refresh interval for DNS discovery
     pub refresh_interval: Duration,
 
-    /// DNS name for cluster discovery
-    #[deprecated(since = "0.1.0", note = "Use dns.name instead")]
-    pub dns_name: Option<String>,
-
     /// Static list of nodes (used when method is Static)
     pub static_nodes: Vec<String>,
 
@@ -332,8 +328,6 @@ impl Default for DiscoveryConfig {
         Self {
             method: DiscoveryMethod::Static,
             refresh_interval: Duration::from_secs(30),
-            #[allow(deprecated)]
-            dns_name: None,
             static_nodes: Vec::new(),
             dns: None,
             consul: None,
