@@ -903,14 +903,12 @@ mod tests {
         let (buffer_pool, _temp_dir) = create_test_buffer_pool().await;
 
         // Fill buffer pool
-        let mut page_ids = Vec::new();
         for _ in 0..10 {
             let page_id = buffer_pool
                 .pager
                 .allocate_page(PageType::Data)
                 .await
                 .unwrap();
-            page_ids.push(page_id);
 
             let page = buffer_pool.fetch_page(page_id).await.unwrap();
             drop(page);

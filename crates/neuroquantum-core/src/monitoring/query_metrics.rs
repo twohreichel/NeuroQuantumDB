@@ -438,8 +438,8 @@ impl QueryHistogram {
 
         let len = sorted.len();
         self.p50_time_ms = sorted[len / 2];
-        self.p95_time_ms = sorted[(len as f64 * 0.95) as usize];
-        self.p99_time_ms = sorted[(len as f64 * 0.99) as usize];
+        self.p95_time_ms = sorted[len.saturating_mul(95) / 100];
+        self.p99_time_ms = sorted[len.saturating_mul(99) / 100];
     }
 }
 

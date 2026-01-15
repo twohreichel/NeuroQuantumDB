@@ -599,8 +599,12 @@ impl NeuroQuantumDBCore {
     }
 
     /// For testing: initialize with predefined parameters
+    ///
+    /// # Errors
+    ///
+    /// This function is infallible but returns `Result` for API consistency.
     #[cfg(test)]
-    pub async fn new_test() -> Result<Self> {
+    pub fn new_test() -> Result<Self> {
         Ok(Self {
             active_connections: 1,
             quantum_ops_rate: 100.0,
@@ -1013,7 +1017,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_quantum_search() {
-        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+        let db_core = NeuroQuantumDBCore::new_test().unwrap();
 
         let request = QueryRequest {
             query: "quantum search test".to_string(),
@@ -1031,7 +1035,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_qsql() {
-        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+        let db_core = NeuroQuantumDBCore::new_test().unwrap();
 
         let query_plan = vec![
             "SCAN users",
@@ -1048,7 +1052,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_schema_info() {
-        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+        let db_core = NeuroQuantumDBCore::new_test().unwrap();
 
         let schema_info = db_core.get_schema_info().await.unwrap();
         assert!(schema_info.tables.is_empty());
