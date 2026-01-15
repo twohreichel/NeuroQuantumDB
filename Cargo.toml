@@ -157,17 +157,31 @@ semicolon_if_nothing_returned = "deny"
 single_match_else = "deny"
 
 # ============================================================================
-# COMPLEXITY LINTS - Warn Level
+# COMPLEXITY LINTS - Strict Limits (Issue #319)
 # ============================================================================
-cognitive_complexity = "warn"
-too_many_arguments = "warn"
-type_complexity = "warn"
+# Kognitive Komplexität begrenzen
+cognitive_complexity = { level = "deny", priority = 1 }
+
+# Funktionsparameter begrenzen (Miller's Law: 7±2)
+too_many_arguments = { level = "deny", priority = 1 }
+
+# Funktionslänge begrenzen
+too_many_lines = { level = "warn", priority = 1 }
+
+# Type-Komplexität begrenzen
+type_complexity = { level = "deny", priority = 1 }
+
+# Verschachtelungstiefe begrenzen
+excessive_nesting = "deny"
+
+# Code-Lesbarkeit verbessern
+many_single_char_names = "deny"
+similar_names = "deny"  # Von allow auf deny geändert (Issue #319)
 
 # ============================================================================
 # ALLOWED LINTS - Zu strikt für dieses Projekt
 # ============================================================================
 module_name_repetitions = "allow"
-similar_names = "allow"
 struct_excessive_bools = "allow"
 fn_params_excessive_bools = "allow"
 
