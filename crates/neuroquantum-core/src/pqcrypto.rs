@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 /// Post-Quantum Cryptography utilities for `NeuroQuantumDB`
 ///
 /// Implements NIST post-quantum standards:
@@ -10,7 +12,6 @@ use ml_kem::{
 use pqcrypto_mldsa::mldsa65;
 use pqcrypto_traits::sign::{PublicKey as SignPublicKey, SecretKey as SignSecretKey};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use thiserror::Error;
 
 /// Type aliases for ML-KEM-768 (NIST Security Level 3)

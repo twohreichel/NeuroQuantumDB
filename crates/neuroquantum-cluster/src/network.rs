@@ -33,7 +33,10 @@
 //! ```
 
 use std::collections::HashMap;
+// Forward declare RaftConsensus to avoid circular dependency
+use std::future::Future;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -44,10 +47,6 @@ use tracing::{debug, error, info, warn};
 use crate::config::ClusterConfig;
 use crate::error::{ClusterError, ClusterResult};
 use crate::node::NodeId;
-
-// Forward declare RaftConsensus to avoid circular dependency
-use std::future::Future;
-use std::pin::Pin;
 
 // Type alias for consensus handler callbacks
 type RequestVoteHandler = Arc<

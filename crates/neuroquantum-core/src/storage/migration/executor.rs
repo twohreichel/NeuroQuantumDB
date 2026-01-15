@@ -2,18 +2,17 @@
 //!
 //! Executes migrations with safety checks and rollback support.
 
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Instant;
+
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use super::{
-    history::MigrationHistory,
-    parser::{Migration, MigrationDirection, MigrationParser},
-    progress::ProgressTracker,
-    MigrationConfig, MigrationResult, SafetyCheck, ValidationResult,
-};
+use super::history::MigrationHistory;
+use super::parser::{Migration, MigrationDirection, MigrationParser};
+use super::progress::ProgressTracker;
+use super::{MigrationConfig, MigrationResult, SafetyCheck, ValidationResult};
 
 /// Configuration for migration executor
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -279,8 +278,9 @@ impl MigrationExecutor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_executor_initialization() {

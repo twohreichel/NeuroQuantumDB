@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use actix_web::{HttpResponse, ResponseError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use thiserror::Error;
 use utoipa::ToSchema;
 use validator::Validate;

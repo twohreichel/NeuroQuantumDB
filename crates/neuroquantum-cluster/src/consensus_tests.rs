@@ -2,9 +2,10 @@
 
 #[cfg(test)]
 mod replication_tests {
-    use super::super::*;
     use std::sync::atomic::{AtomicU16, Ordering};
     use std::sync::Arc;
+
+    use super::super::*;
 
     // Port counter for tests
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(20000);

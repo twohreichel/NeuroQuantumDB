@@ -4,16 +4,18 @@
 //! including synaptic pathway optimization, Hebbian learning for query patterns,
 //! and adaptive plasticity for performance tuning.
 
-use crate::ast::{SelectItem, Statement};
-use crate::error::{QSQLError, QSQLResult};
+use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::time::{Duration, SystemTime};
+
 use neuroquantum_core::learning::HebbianLearningEngine;
 use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::synaptic::SynapticNetwork;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::time::{Duration, SystemTime};
 use tracing::{debug, info, instrument};
+
+use crate::ast::{SelectItem, Statement};
+use crate::error::{QSQLError, QSQLResult};
 
 /// Neuromorphic query optimizer with synaptic learning
 pub struct NeuromorphicOptimizer {
@@ -69,8 +71,9 @@ pub struct QueryPattern {
 
 /// Custom serialization for `SystemTime`
 mod unix_timestamp {
-    use serde::{Deserialize, Deserializer, Serializer};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
     where

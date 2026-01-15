@@ -3,16 +3,18 @@
 //! This module provides EXPLAIN and ANALYZE functionality for visualizing
 //! query execution plans, cost estimation, and runtime statistics.
 
+use std::collections::HashMap;
+use std::fmt;
+use std::time::Duration;
+
+use serde::{Deserialize, Serialize};
+
 use crate::ast::{
     ExplainFormat, NeuroMatchStatement, QuantumJoinStatement, QuantumSearchStatement,
     SelectStatement, Statement,
 };
 use crate::error::{QSQLError, QSQLResult};
 use crate::query_plan::QueryPlan;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt;
-use std::time::Duration;
 
 /// Configuration for EXPLAIN output
 #[derive(Debug, Clone, Serialize, Deserialize)]

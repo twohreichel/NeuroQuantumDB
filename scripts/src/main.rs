@@ -1,7 +1,7 @@
-use pulldown_cmark::{html, Options, Parser};
-use std::env;
-use std::fs;
 use std::path::Path;
+use std::{env, fs};
+
+use pulldown_cmark::{html, Options, Parser};
 
 // This is a build-time documentation generator script.
 // Panicking on errors is acceptable as it will fail the build early.

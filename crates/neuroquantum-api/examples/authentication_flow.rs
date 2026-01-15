@@ -11,8 +11,11 @@
 //!
 //! Run with: cargo run --example `authentication_flow`
 
-use neuroquantum_api::{auth::AuthService, jwt::JwtService, permissions::Permission};
 use std::time::Duration;
+
+use neuroquantum_api::auth::AuthService;
+use neuroquantum_api::jwt::JwtService;
+use neuroquantum_api::permissions::Permission;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 

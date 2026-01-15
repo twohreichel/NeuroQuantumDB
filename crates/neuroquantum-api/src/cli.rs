@@ -1,11 +1,13 @@
-use crate::auth::AuthService;
-use anyhow::{Context, Result};
-use base64::Engine;
-use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
+
+use anyhow::{Context, Result};
+use base64::Engine;
+use clap::{Parser, Subcommand};
 use tracing::warn;
+
+use crate::auth::AuthService;
 
 #[derive(Parser)]
 #[command(name = "neuroquantum-api")]

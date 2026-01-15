@@ -3,10 +3,12 @@
 //! This module implements the encoding phase of DNA compression, converting binary data
 //! to quaternary DNA base sequences with optional dictionary compression for patterns.
 
-use crate::dna::{DNABase, DNACompressionConfig, DNAError};
-use rayon::prelude::*;
 use std::collections::HashMap;
+
+use rayon::prelude::*;
 use tracing::{debug, instrument};
+
+use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 
 /// Quaternary encoder that converts binary data to DNA bases
 #[derive(Debug)]

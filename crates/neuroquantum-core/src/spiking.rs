@@ -44,11 +44,13 @@
 //! - Izhikevich, E.M. (2004). Which model to use for cortical spiking neurons?
 //!   IEEE Transactions on Neural Networks, 15(5):1063-1070.
 
-use crate::error::{CoreError, CoreResult};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument};
+
+use crate::error::{CoreError, CoreResult};
 
 /// Cortical neuron types based on the Izhikevich model.
 ///
@@ -1069,8 +1071,8 @@ mod tests {
         }
 
         // FS neurons should have high firing rate
-        let rate = (spike_count as f64 / 500.0) * 1000.0;
-        assert!(rate > 50.0, "FS neuron expected high rate, got {} Hz", rate);
+        let rate = (f64::from(spike_count) / 500.0) * 1000.0;
+        assert!(rate > 50.0, "FS neuron expected high rate, got {rate} Hz");
     }
 
     #[test]

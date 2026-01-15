@@ -1,9 +1,12 @@
-use anyhow::Result;
-use neuroquantum_api::{cli::Cli, start_server, ApiConfig};
 use std::env;
+
+use anyhow::Result;
+use neuroquantum_api::cli::Cli;
+use neuroquantum_api::{start_server, ApiConfig};
 use tokio::signal;
 use tracing::{error, info, warn};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() -> Result<()> {

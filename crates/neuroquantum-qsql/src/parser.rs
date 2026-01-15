@@ -3,6 +3,11 @@
 //! This module provides a comprehensive parser for QSQL language that extends
 //! standard SQL with neuromorphic computing and quantum-inspired features.
 
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+use tracing::{debug, instrument, warn};
+
 use crate::ast::{
     AdaptWeightsStatement, AlterTableOperation, AlterTableStatement, Assignment, BinaryOperator,
     ColumnConstraint, ColumnDefinition, CommonTableExpression, CompressTableStatement,
@@ -15,9 +20,6 @@ use crate::ast::{
     UpdateStatement, WindowFunctionType, WindowSpec, WithClause,
 };
 use crate::error::{QSQLError, QSQLResult};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::{debug, instrument, warn};
 
 /// Operator precedence levels for Pratt parsing
 /// Higher values = higher precedence (binds tighter)

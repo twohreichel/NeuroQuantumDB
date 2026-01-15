@@ -7,10 +7,11 @@
 //! - Checksum validation
 //! - Async file operations
 
-use anyhow::{anyhow, Context, Result};
-use lru::LruCache;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use anyhow::{anyhow, Context, Result};
+use lru::LruCache;
 use tokio::fs::OpenOptions;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
@@ -373,8 +374,9 @@ pub struct StorageStats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_create_page_storage_manager() {
@@ -493,7 +495,7 @@ mod tests {
                 page_ids.push(page_id);
                 let mut page = manager.read_page(page_id).await.unwrap();
 
-                let data = format!("Page {}", i).into_bytes();
+                let data = format!("Page {i}").into_bytes();
                 page.write_data(0, &data).unwrap();
 
                 manager.write_page(&page).await.unwrap();
@@ -513,7 +515,7 @@ mod tests {
 
             for (i, &page_id) in page_ids.iter().enumerate() {
                 let page = manager.read_page(page_id).await.unwrap();
-                let expected = format!("Page {}", i).into_bytes();
+                let expected = format!("Page {i}").into_bytes();
                 let actual = &page.data()[..expected.len()];
                 assert_eq!(actual, expected.as_slice());
             }

@@ -6,10 +6,11 @@
 //! - Lock contention tracking and analysis
 //! - Query execution plans and performance profiling
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 /// Comprehensive query metrics for production monitoring

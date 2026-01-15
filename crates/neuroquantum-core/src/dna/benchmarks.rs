@@ -4,8 +4,6 @@
 //! standard algorithms and measuring performance across different data patterns.
 
 #[cfg(feature = "benchmarks")]
-use crate::dna::{DNACompressor, QuantumDNACompressor};
-#[cfg(feature = "benchmarks")]
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 #[cfg(feature = "benchmarks")]
 use rand::prelude::*;
@@ -13,15 +11,19 @@ use rand::prelude::*;
 // Only compile benchmarks when the feature is enabled
 #[cfg(feature = "benchmarks")]
 pub use self::benchmark_functions::*;
+#[cfg(feature = "benchmarks")]
+use crate::dna::{DNACompressor, QuantumDNACompressor};
 
 #[cfg(feature = "benchmarks")]
 mod benchmark_functions {
+    use std::hint::black_box;
+
+    use futures::future::join_all;
+
     use super::{
         criterion_group, criterion_main, BenchmarkId, Criterion, DNACompressor, Distribution,
         QuantumDNACompressor, Rng, SeedableRng, StdRng, Throughput,
     };
-    use futures::future::join_all;
-    use std::hint::black_box;
 
     /// Benchmark data generator for different biological patterns
     pub struct BenchmarkDataGenerator {
@@ -253,9 +255,10 @@ mod benchmark_functions {
             // Standard compression algorithms for comparison
             #[cfg(feature = "benchmarks")]
             {
+                use std::io::Write;
+
                 use flate2::write::GzEncoder;
                 use flate2::Compression;
-                use std::io::Write;
 
                 // GZIP compression
                 group.bench_with_input(BenchmarkId::new("gzip", name), &data, |b, data| {

@@ -35,13 +35,15 @@
 //!
 //! Mapping: `x_i` = (1 + `s_i`) / 2
 
-use crate::error::{CoreError, CoreResult};
+use std::f64::consts::PI;
+
 use nalgebra::{DMatrix, DVector};
 use num_complex::Complex64;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::f64::consts::PI;
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 type Complex = Complex64;
 

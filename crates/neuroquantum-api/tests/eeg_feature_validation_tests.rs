@@ -13,10 +13,11 @@
 //! - Edge cases and boundary conditions
 //! - Physiologically realistic signal scenarios
 
+use std::f32::consts::PI;
+
 use neuroquantum_api::biometric_auth::{
     ButterworthDesign, EEGAuthService, EEGProcessor, FFTAnalyzer, FrequencyBand,
 };
-use std::f32::consts::PI;
 
 // =============================================================================
 // Helper Functions for Test Signal Generation

@@ -2,10 +2,11 @@
 //!
 //! Defines core types for connection management, metadata, and status tracking.
 
-use actix_ws::Session;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use actix_ws::Session;
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 

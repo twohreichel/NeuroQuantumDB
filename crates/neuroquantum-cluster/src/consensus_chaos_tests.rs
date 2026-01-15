@@ -2,10 +2,11 @@
 
 #[cfg(test)]
 mod chaos_tests {
-    use super::super::*;
     use std::sync::atomic::{AtomicU16, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
+
+    use super::super::*;
 
     // Port counter for tests
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(30000);

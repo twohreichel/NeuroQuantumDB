@@ -7,6 +7,21 @@
 // These expects occur in contexts where the engine should be available.
 #![allow(clippy::expect_used)]
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+
+// Import storage engine and related types
+use neuroquantum_core::learning::HebbianLearningEngine;
+use neuroquantum_core::storage::{
+    ComparisonOperator, Condition, DeleteQuery, OrderBy, Row, RowId, SelectQuery, SortDirection,
+    StorageEngine, UpdateQuery, Value, WhereClause, LSN,
+};
+use neuroquantum_core::synaptic::SynapticNetwork;
+use neuroquantum_core::transaction::{IsolationLevel, TransactionId, TransactionManager};
+use serde::{Deserialize, Serialize};
+use tracing::{instrument, warn};
+
 use crate::ast::{
     AdaptWeightsStatement, AlterTableOperation, AlterTableStatement, AnalyzeStatement,
     BeginTransactionStatement, BinaryOperator, ColumnConstraint, CompressTableStatement,
@@ -19,20 +34,6 @@ use crate::ast::{
     UnaryOperator, UpdateStatement, WindowFunctionType, WindowSpec, WithClause,
 };
 use crate::error::{QSQLError, QSQLResult};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-use tracing::{instrument, warn};
-
-// Import storage engine and related types
-use neuroquantum_core::learning::HebbianLearningEngine;
-use neuroquantum_core::storage::{
-    ComparisonOperator, Condition, DeleteQuery, OrderBy, Row, RowId, SelectQuery, SortDirection,
-    StorageEngine, UpdateQuery, Value, WhereClause, LSN,
-};
-use neuroquantum_core::synaptic::SynapticNetwork;
-use neuroquantum_core::transaction::{IsolationLevel, TransactionId, TransactionManager};
 
 /// Type alias for async table row results to reduce type complexity
 type TableRowFuture<'a> = std::pin::Pin<

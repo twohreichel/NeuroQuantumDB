@@ -7,13 +7,15 @@
 //! - Message publishing to channels
 //! - Channel statistics and monitoring
 
-use crate::websocket::types::ConnectionId;
-use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
+
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
+
+use crate::websocket::types::ConnectionId;
 
 /// A channel identifier (topic name)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

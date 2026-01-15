@@ -1,10 +1,8 @@
 // Integration tests for NeuroQuantumDB Core
 // Tests end-to-end functionality across multiple components
 
-use neuroquantum_core::{
-    storage::btree::BTree,
-    transaction::{IsolationLevel, TransactionManager},
-};
+use neuroquantum_core::storage::btree::BTree;
+use neuroquantum_core::transaction::{IsolationLevel, TransactionManager};
 use tempfile::TempDir;
 
 /// Test full CRUD operations with BTree

@@ -2,10 +2,11 @@
 //!
 //! Provides efficient incremental backups by only backing up changes since last backup
 
-use anyhow::{anyhow, Result};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use anyhow::{anyhow, Result};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
@@ -225,8 +226,9 @@ impl IncrementalBackup {
 
     /// Parse WAL segment and filter records by LSN
     async fn parse_wal_segment(&self, data: &[u8], since_lsn: u64) -> Result<Vec<u8>> {
-        use crate::storage::wal::WALRecord;
         use bincode;
+
+        use crate::storage::wal::WALRecord;
 
         let mut filtered_records = Vec::new();
         let mut offset = 0;
@@ -262,8 +264,9 @@ impl IncrementalBackup {
 
     /// Count the number of records in a WAL segment
     async fn count_records_in_segment(&self, data: &[u8]) -> Result<usize> {
-        use crate::storage::wal::WALRecord;
         use bincode;
+
+        use crate::storage::wal::WALRecord;
 
         let mut count = 0;
         let mut offset = 0;

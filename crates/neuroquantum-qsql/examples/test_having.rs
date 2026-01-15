@@ -5,10 +5,11 @@
 //! - Aggregate functions: `COUNT()`, `SUM()`, `AVG()`
 //! - Logical operators: `AND`, `OR`
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 
 #[tokio::main]
 async fn main() {

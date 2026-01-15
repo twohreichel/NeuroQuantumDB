@@ -7,10 +7,11 @@
 //! - UNION vs UNION ALL semantics
 //! - Recursion depth limits
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 /// Helper function to setup test environment with storage

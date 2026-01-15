@@ -8,10 +8,11 @@
 //! - NOT EXISTS subqueries: `WHERE NOT EXISTS (SELECT 1 FROM ...)`
 //! - Derived tables: `SELECT * FROM (SELECT * FROM users WHERE age > 25) AS adults`
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 /// Helper function to set up test tables
@@ -237,8 +238,9 @@ async fn create_test_executor() -> (
 // =============================================================================
 
 mod parser_tests {
-    use super::*;
     use neuroquantum_qsql::*;
+
+    use super::*;
 
     #[test]
     fn test_parse_scalar_subquery_in_select_list() {

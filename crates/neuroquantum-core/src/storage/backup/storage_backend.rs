@@ -4,10 +4,12 @@
 //! - Local filesystem
 //! - Amazon S3
 
-use super::S3Config;
+use std::path::{Path, PathBuf};
+
 use anyhow::Result;
 use async_trait::async_trait;
-use std::path::{Path, PathBuf};
+
+use super::S3Config;
 
 /// Trait for backup storage backends
 #[async_trait]

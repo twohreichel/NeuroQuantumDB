@@ -3,10 +3,12 @@
 //! This test suite verifies that the hash join algorithm works correctly
 //! and provides performance improvements over nested loop joins for large tables.
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
-use neuroquantum_qsql::{query_plan::QueryValue, ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
+use neuroquantum_qsql::query_plan::QueryValue;
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 /// Helper function to create a test storage engine with two tables

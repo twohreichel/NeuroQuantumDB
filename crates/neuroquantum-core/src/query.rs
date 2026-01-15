@@ -3,14 +3,16 @@
 //! Spiking neural network implementation for intelligent query processing
 //! using brain-inspired algorithms in `NeuroQuantumDB`.
 
-use crate::error::{CoreError, CoreResult};
-use crate::learning::HebbianLearningEngine;
-use crate::synaptic::SynapticNetwork;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument};
+
+use crate::error::{CoreError, CoreResult};
+use crate::learning::HebbianLearningEngine;
+use crate::synaptic::SynapticNetwork;
 
 /// Query types supported by the neuromorphic processor
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -982,10 +984,11 @@ impl NeuromorphicQueryProcessor {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, RwLock};
+
     use super::*;
     use crate::learning::HebbianLearningEngine;
     use crate::synaptic::SynapticNetwork;
-    use std::sync::{Arc, RwLock};
 
     #[test]
     fn test_query_processor_creation() {

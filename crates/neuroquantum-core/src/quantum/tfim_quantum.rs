@@ -25,13 +25,15 @@
 //! - h: Transverse magnetic field strength
 //! - `σ_z`, `σ_x`: Pauli Z and X operators
 
-use crate::error::{CoreError, CoreResult};
+use std::f64::consts::PI;
+
 use nalgebra::{Complex, DMatrix};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::f64::consts::PI;
 use tracing::{debug, info, instrument};
+
+use crate::error::{CoreError, CoreResult};
 
 /// Result type for quantum circuit execution: (optional state vector, measurement outcomes)
 type CircuitExecutionResult = (Option<Vec<Complex<f64>>>, Vec<Vec<bool>>);
@@ -880,7 +882,7 @@ mod tests {
     fn test_quantum_tfim_trotter() {
         let problem = QuantumTFIMProblem {
             num_qubits: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             transverse_fields: vec![0.5, 0.5, 0.5],
             longitudinal_fields: vec![0.0, 0.0, 0.0],
             name: "Test_Trotter".to_string(),
@@ -908,7 +910,7 @@ mod tests {
     fn test_quantum_tfim_vqe() {
         let problem = QuantumTFIMProblem {
             num_qubits: 2,
-            couplings: DMatrix::from_fn(2, 2, |i, j| if i != j { -1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(2, 2, |i, j| if i == j { 0.0 } else { -1.0 }),
             transverse_fields: vec![0.5, 0.5],
             longitudinal_fields: vec![0.0, 0.0],
             name: "Test_VQE".to_string(),
@@ -939,7 +941,7 @@ mod tests {
     fn test_quantum_tfim_qaoa() {
         let problem = QuantumTFIMProblem {
             num_qubits: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             transverse_fields: vec![0.5, 0.5, 0.5],
             longitudinal_fields: vec![0.0, 0.0, 0.0],
             name: "Test_QAOA".to_string(),

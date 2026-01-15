@@ -13,11 +13,9 @@
 
 use proptest::prelude::*;
 
-use crate::{
-    ast::*,
-    optimizer::NeuromorphicOptimizer,
-    parser::{ParserConfig, QSQLParser},
-};
+use crate::ast::*;
+use crate::optimizer::NeuromorphicOptimizer;
+use crate::parser::{ParserConfig, QSQLParser};
 
 /// Get configurable PropTest configuration from environment
 ///

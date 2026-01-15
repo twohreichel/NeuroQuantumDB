@@ -5,6 +5,10 @@
 //!
 //! Run with: cargo bench --features benchmarks --bench `neuromorphic_index`
 
+use std::collections::HashMap;
+use std::hint::black_box;
+use std::time::Duration;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::learning::AntiHebbianLearning;
 use neuroquantum_core::storage::btree::BTree;
@@ -12,9 +16,6 @@ use neuroquantum_core::synaptic::{
     ActivationFunction, ConnectionType, SynapticNetwork, SynapticNode,
 };
 use rand::prelude::*;
-use std::collections::HashMap;
-use std::hint::black_box;
-use std::time::Duration;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 

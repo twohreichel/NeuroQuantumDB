@@ -50,16 +50,17 @@
 //! let result = solver.search(&oracle).await?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
+use std::time::Instant;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 use tracing::{debug, info, warn};
 
 use super::grover_quantum::{
     GroverQuantumBackend, QuantumGroverConfig, QuantumGroverResult, QuantumGroverSolver,
     QuantumOracle,
 };
+use crate::error::{CoreError, CoreResult};
 
 // =============================================================================
 // Grover Hardware Backend Trait

@@ -45,8 +45,9 @@
 //! - `IONQ_API_KEY`: Your `IonQ` API key
 //! - `IONQ_TARGET`: Target device (aria, forte, simulator)
 
-use serde::{Deserialize, Serialize};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use super::{QuantumBackendConfig, QuantumBackendInfo, QuantumProvider};

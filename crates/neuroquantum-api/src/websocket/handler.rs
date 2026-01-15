@@ -3,19 +3,19 @@
 //! Combines `ConnectionManager` and `PubSubManager` for a complete
 //! real-time communication solution with query streaming support.
 
-use crate::websocket::{
-    manager::{ConnectionError, ConnectionManager},
-    pubsub::{ChannelId, PubSubManager},
-    streaming::{
-        QueryStreamId, QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
-    },
-    types::{ConnectionId, ConnectionMetadata},
-};
+use std::sync::Arc;
+
 use actix_ws::{Message, Session};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tracing::{debug, error, info, warn};
+
+use crate::websocket::manager::{ConnectionError, ConnectionManager};
+use crate::websocket::pubsub::{ChannelId, PubSubManager};
+use crate::websocket::streaming::{
+    QueryStreamId, QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
+};
+use crate::websocket::types::{ConnectionId, ConnectionMetadata};
 
 /// WebSocket message types
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -26,11 +26,12 @@
 //! cargo run --example real_time_updates
 //! ```
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use neuroquantum_api::websocket::pubsub::{ChannelId, PubSubManager};
 use neuroquantum_api::websocket::types::ConnectionId;
 use serde_json::json;
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::time::sleep;
 use tracing::Level;
 

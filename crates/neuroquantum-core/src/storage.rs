@@ -10,18 +10,11 @@ pub mod migration;
 pub mod pager;
 pub mod wal;
 
-use crate::error::CoreError;
-use anyhow::{anyhow, Result};
-use lru::LruCache;
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
-use tracing::{debug, info, instrument};
-use uuid::Uuid;
 
+use anyhow::{anyhow, Result};
 pub use backup::{
     BackupConfig, BackupManager, BackupMetadata, BackupStats, BackupStorageBackend,
     BackupStorageType, BackupType, IncrementalBackup, LocalBackend, RestoreManager, RestoreOptions,
@@ -30,15 +23,22 @@ pub use backup::{
 pub use btree::{BTree, BTreeConfig};
 pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionPolicyType};
 pub use encryption::{EncryptedData, EncryptionManager};
+use lru::LruCache;
 pub use migration::{
     Migration, MigrationConfig, MigrationDirection, MigrationExecutor, MigrationExecutorConfig,
     MigrationHistory, MigrationParser, MigrationProgress, MigrationRecord, MigrationResult,
     MigrationStatus, ProgressTracker, SafetyCheck, ValidationResult,
 };
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
+use serde::{Deserialize, Serialize};
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
+use tracing::{debug, info, instrument};
+use uuid::Uuid;
 pub use wal::{RecoveryStats, WALConfig, WALManager};
 
 use crate::dna::{DNACompressor, EncodedData, QuantumDNACompressor};
+use crate::error::CoreError;
 use crate::transaction::{IsolationLevel, TransactionManager};
 
 /// Unique identifier for database rows
@@ -1867,7 +1867,8 @@ impl StorageEngine {
             | Value::Boolean(b) => b.to_string(),
             | Value::Timestamp(ts) => ts.to_rfc3339(),
             | Value::Binary(b) => {
-                use base64::{engine::general_purpose, Engine as _};
+                use base64::engine::general_purpose;
+                use base64::Engine as _;
                 general_purpose::STANDARD.encode(b)
             },
             | Value::Null => "NULL".to_string(),
@@ -3139,8 +3140,9 @@ impl StorageEngine {
     /// Perform crash recovery by replaying WAL logs
     /// This integrates the `TransactionManager`'s recovery with storage operations
     pub async fn perform_recovery(&mut self) -> Result<()> {
-        use crate::transaction::{LogRecordType, TransactionId};
         use std::collections::HashSet;
+
+        use crate::transaction::{LogRecordType, TransactionId};
 
         info!("🔄 Starting storage-level crash recovery...");
 

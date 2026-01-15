@@ -5,10 +5,11 @@
 
 #![cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 
-use crate::dna::{DNABase, DNAError};
 use std::arch::aarch64::{
     __crc32b, __crc32d, vceqq_u8, vdupq_n_u8, veorq_u8, vgetq_lane_u8, vld1q_u8,
 };
+
+use crate::dna::{DNABase, DNAError};
 
 /// NEON-optimized encoding of bytes to DNA bases
 ///

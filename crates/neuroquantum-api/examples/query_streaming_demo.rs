@@ -17,11 +17,12 @@
 //! cargo run --example query_streaming_demo
 //! ```
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use neuroquantum_api::websocket::{
     QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
 };
-use std::sync::Arc;
-use std::time::Duration;
 use tracing::Level;
 
 #[tokio::main]

@@ -2,9 +2,10 @@
 //!
 //! Parses SQL migration files with up/down migrations.
 
-use anyhow::{anyhow, Result};
 use std::fs;
 use std::path::PathBuf;
+
+use anyhow::{anyhow, Result};
 
 /// Timestamp format for migration files
 const TIMESTAMP_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
@@ -177,9 +178,9 @@ impl MigrationParser {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn test_load_migration() {
@@ -207,7 +208,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let migrations_dir = temp_dir.path().to_path_buf();
 
-        let parser = MigrationParser::new(migrations_dir.clone());
+        let parser = MigrationParser::new(migrations_dir);
         let (up_file, down_file) = parser.create_migration("add status column").unwrap();
 
         assert!(up_file.exists());

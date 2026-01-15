@@ -30,14 +30,15 @@
 //! cargo test --package neuroquantum-core --test chaos_engineering_tests -- --include-ignored --nocapture
 //! ```
 
-use neuroquantum_core::storage::{
-    ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
-    Value,
-};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use neuroquantum_core::storage::{
+    ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
+    Value,
+};
 use tempfile::TempDir;
 use tokio::fs;
 use tokio::io::AsyncReadExt;
@@ -102,7 +103,7 @@ fn create_chaos_test_schema(name: &str) -> TableSchema {
 /// Create a test row with given parameters and computed checksum
 fn create_chaos_test_row(id: i64, value: &str) -> Row {
     // Simple checksum: sum of bytes in value modulo i64::MAX
-    let checksum = value.bytes().map(|b| i64::from(b)).sum::<i64>();
+    let checksum = value.bytes().map(i64::from).sum::<i64>();
 
     Row {
         id: id as u64,
@@ -121,7 +122,7 @@ fn verify_row_checksum(row: &Row) -> bool {
     if let (Some(Value::Text(value)), Some(Value::Integer(stored_checksum))) =
         (row.fields.get("value"), row.fields.get("checksum"))
     {
-        let computed_checksum: i64 = value.bytes().map(|b| i64::from(b)).sum();
+        let computed_checksum: i64 = value.bytes().map(i64::from).sum();
         computed_checksum == *stored_checksum
     } else {
         false

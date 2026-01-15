@@ -6,11 +6,12 @@
 
 #![cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 
-use crate::error::CoreResult;
 use std::arch::aarch64::{
     uint8x16_t, vaddq_f32, vandq_u8, vceqq_u8, vdupq_n_f32, vdupq_n_u8, vfmaq_f32, vgetq_lane_f32,
     vld1q_f32, vld1q_u8, vmulq_f32, vorrq_u8, vshlq_n_u8, vshrq_n_u8, vst1q_f32, vst1q_u8,
 };
+
+use crate::error::CoreResult;
 
 /// NEON-optimized DNA compression using quaternary encoding
 ///

@@ -8,11 +8,12 @@
 //! - Backup verification and validation
 //! - Compression and encryption
 
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -499,9 +500,10 @@ impl BackupManager {
 
     /// Compress data using gzip
     fn compress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
+        use std::io::Write;
+
         use flate2::write::GzEncoder;
         use flate2::Compression;
-        use std::io::Write;
 
         let mut encoder =
             GzEncoder::new(Vec::new(), Compression::new(self.config.compression_level));

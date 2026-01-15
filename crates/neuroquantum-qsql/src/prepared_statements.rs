@@ -3,15 +3,17 @@
 //! This module provides session-scoped prepared statement storage and execution
 //! with query plan caching for improved performance.
 
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
+
 use crate::ast::{
     DeallocateStatement, ExecuteStatement, Expression, ParameterRef, PrepareStatement, Statement,
 };
 use crate::error::{QSQLError, QSQLResult};
 use crate::query_plan::QueryPlan;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
-use tracing::{debug, info};
 
 /// A prepared statement with its cached query plan
 #[derive(Debug, Clone)]

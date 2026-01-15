@@ -6,8 +6,9 @@
 //! - Fsync control for durability
 //! - Log file rotation
 
-use anyhow::{anyhow, Result};
 use std::path::PathBuf;
+
+use anyhow::{anyhow, Result};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tracing::{debug, info, warn};
@@ -313,10 +314,11 @@ impl LogWriter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::storage::wal::WALRecordType;
     use tempfile::TempDir;
     use uuid::Uuid;
+
+    use super::*;
+    use crate::storage::wal::WALRecordType;
 
     #[tokio::test]
     async fn test_log_writer_creation() {

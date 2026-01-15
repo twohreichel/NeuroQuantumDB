@@ -133,19 +133,19 @@ lint: ## Run all linting checks
 
 lint-fix: ## Fix ALL automatically fixable linting issues
 	@echo "🔧 Phase 1: Code-Formatierung..."
-	cargo fmt --all
+	@cargo fmt --all
 	
 	@echo "🔧 Phase 2: Clippy Auto-Fixes..."
-	cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged -- \
+	@cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged -- \
 		-W clippy::all \
 		-W clippy::pedantic \
-		-W clippy::nursery
+		-W clippy::nursery || true
 	
 	@echo "🔧 Phase 3: Unused Dependencies entfernen..."
-	cargo machete --fix 2>/dev/null || true
+	@cargo machete --fix 2>/dev/null || true
 	
 	@echo "🔧 Phase 4: Import-Optimierung..."
-	cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate 2>/dev/null || cargo fmt --all
+	@cargo +nightly fmt -- --config imports_granularity=Module,group_imports=StdExternalCrate 2>/dev/null || cargo fmt --all
 	
 	@echo "🔧 Phase 5: Dokumentations-Fixes..."
 	@$(MAKE) docs-fix 2>/dev/null || true
@@ -162,9 +162,9 @@ lint-fix-aggressive: ## Apply ALL possible fixes including experimental
 	@echo "⚠️  Aggressive Fix-Modus - Review Changes Carefully!"
 	@$(MAKE) lint-fix
 	@echo "🔧 Phase 6: Experimentelle Fixes..."
-	cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged -- \
+	@cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged -- \
 		-W clippy::restriction \
-		-A clippy::blanket_clippy_restriction_lints
+		-A clippy::blanket_clippy_restriction_lints || true
 	@echo "✅ Aggressive Fixes angewendet!"
 
 lint-check-ci: ## CI-optimierte Lint-Prüfung

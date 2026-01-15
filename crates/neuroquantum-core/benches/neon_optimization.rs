@@ -3,9 +3,10 @@
 //! This benchmark suite measures the performance gains from NEON SIMD
 //! optimizations compared to scalar implementations.
 
+use std::hint::black_box;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use neuroquantum_core::neon_optimization::{NeonOptimizer, QuantumOperation};
-use std::hint::black_box;
 
 /// Benchmark DNA compression with varying data sizes
 fn bench_dna_compression(c: &mut Criterion) {

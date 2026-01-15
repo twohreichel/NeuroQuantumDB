@@ -7,13 +7,14 @@
 //!
 //! Status: Addresses AUDIT.md open points (Lines 978-980, 1203-1205)
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use neuroquantum_core::storage::{
     ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, IdGenerationStrategy,
     Row, SelectQuery, TableSchema, UpdateQuery, Value, WhereClause,
 };
 use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
-use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Default test data size for E2E tests (configurable via `E2E_DATA_SIZE` env var)
@@ -530,8 +531,9 @@ async fn test_transaction_like_workflow() {
 
 #[tokio::test]
 async fn test_websocket_concurrent_message_handling() {
-    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
     use std::time::Duration;
+
+    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
 
     let config = ConnectionConfig {
         max_connections: 1000,
@@ -571,8 +573,9 @@ async fn test_websocket_concurrent_message_handling() {
 
 #[tokio::test]
 async fn test_websocket_connection_limit() {
-    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
     use std::time::Duration;
+
+    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
 
     let config = ConnectionConfig {
         max_connections: 10, // Low limit for testing
@@ -595,8 +598,9 @@ async fn test_websocket_connection_limit() {
 
 #[tokio::test]
 async fn test_websocket_high_throughput_broadcasting() {
-    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
     use std::time::Duration;
+
+    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
 
     let config = ConnectionConfig::default();
     let manager = Arc::new(ConnectionManager::new(config));

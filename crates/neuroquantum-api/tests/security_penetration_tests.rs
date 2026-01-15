@@ -18,8 +18,9 @@
 //!
 //! Status: Addresses AUDIT.md "Security Penetration Tests" (Section 7.3)
 
-use neuroquantum_qsql::parser::QSQLParser;
 use std::time::{Duration, Instant};
+
+use neuroquantum_qsql::parser::QSQLParser;
 
 // =============================================================================
 // Test Infrastructure
@@ -430,7 +431,8 @@ mod authentication_bypass_tests {
 
     /// Helper function for base64 decoding
     fn base64_decode_permissive(input: &str) -> Result<Vec<u8>, ()> {
-        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use base64::Engine;
         URL_SAFE_NO_PAD.decode(input).map_err(|_| ())
     }
 }
@@ -1330,9 +1332,10 @@ mod cryptographic_tests {
 // =============================================================================
 
 mod denial_of_service_tests {
-    use super::*;
     use std::collections::HashMap;
     use std::time::{Duration, Instant};
+
+    use super::*;
 
     /// Test regex denial of service (`ReDoS`)
     #[test]

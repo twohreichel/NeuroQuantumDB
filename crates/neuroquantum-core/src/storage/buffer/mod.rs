@@ -7,9 +7,10 @@
 //! - Background flushing
 //! - Memory limit enforcement
 
-use anyhow::{anyhow, Result};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
+
+use anyhow::{anyhow, Result};
 use tokio::sync::{RwLock, Semaphore};
 use tokio::time::Duration;
 use tracing::{debug, info};
@@ -663,9 +664,10 @@ pub struct BufferPoolStats {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::storage::pager::{PageType, PagerConfig};
-    use tempfile::TempDir;
 
     async fn create_test_buffer_pool() -> (BufferPoolManager, TempDir) {
         let temp_dir = TempDir::new().unwrap();

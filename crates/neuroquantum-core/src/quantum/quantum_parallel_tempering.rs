@@ -35,14 +35,16 @@
 //! - Uses quantum-aware exchange probability calculations
 //! - Provides true quantum tunneling through transverse field dynamics
 
-use crate::error::{CoreError, CoreResult};
+use std::sync::Arc;
+
 use nalgebra::{DMatrix, DVector};
 use num_complex::Complex64;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 /// Type alias for complex numbers
 type Complex = Complex64;
@@ -1223,7 +1225,7 @@ mod tests {
         let mut qpt = QuantumParallelTempering::with_config(config);
 
         // Simple ferromagnetic Ising model
-        let couplings = DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 });
+        let couplings = DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 });
         let external_fields = vec![0.0; 4];
         let hamiltonian = IsingHamiltonian::new(4, couplings, external_fields, 1.0);
 
@@ -1254,7 +1256,7 @@ mod tests {
         let mut qpt = QuantumParallelTempering::with_config(config);
 
         // Small system for state vector representation
-        let couplings = DMatrix::from_fn(3, 3, |i, j| if i != j { 0.5 } else { 0.0 });
+        let couplings = DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 0.5 });
         let external_fields = vec![0.1, 0.0, -0.1];
         let hamiltonian = IsingHamiltonian::new(3, couplings, external_fields, 0.5);
 
@@ -1299,7 +1301,7 @@ mod tests {
 
     #[test]
     fn test_ising_hamiltonian_energy() {
-        let couplings = DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 });
+        let couplings = DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 });
         let external_fields = vec![0.0; 3];
         let hamiltonian = IsingHamiltonian::new(3, couplings, external_fields, 0.0);
 
@@ -1372,7 +1374,7 @@ mod tests {
 
         let mut qpt = QuantumParallelTempering::with_config(config);
 
-        let couplings = DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 });
+        let couplings = DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 });
         let hamiltonian = IsingHamiltonian::new(3, couplings, vec![0.0; 3], 0.5);
 
         let _ = qpt.optimize(hamiltonian, vec![1, 1, 1]).await.unwrap();
@@ -1396,7 +1398,7 @@ mod tests {
 
         let mut qpt = QuantumParallelTempering::with_config(config);
 
-        let couplings = DMatrix::from_fn(4, 4, |i, j| if i != j { 0.5 } else { 0.0 });
+        let couplings = DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 0.5 });
         let hamiltonian = IsingHamiltonian::new(4, couplings, vec![0.0; 4], 1.0);
 
         let solution = qpt.optimize(hamiltonian, vec![1, -1, 1, -1]).await.unwrap();

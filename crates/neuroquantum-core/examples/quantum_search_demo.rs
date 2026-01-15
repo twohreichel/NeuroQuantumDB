@@ -8,11 +8,12 @@
 //! - Multiple search scenarios
 //! - Performance comparisons with classical search
 
+use std::sync::Arc;
+use std::time::Instant;
+
 use neuroquantum_core::quantum_processor::{
     create_byte_search_processor, DatabaseOracle, QuantumProcessorConfig, QuantumStateProcessor,
 };
-use std::sync::Arc;
-use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

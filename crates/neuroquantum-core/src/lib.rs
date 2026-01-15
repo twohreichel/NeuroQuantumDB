@@ -23,9 +23,7 @@ pub mod query;
 mod simd; // SIMD optimizations - internal only
 
 // Quantum extensions submodules
-pub use quantum::quantum_parallel_tempering;
-pub use quantum::qubo_quantum;
-pub use quantum::tfim;
+pub use quantum::{quantum_parallel_tempering, qubo_quantum, tfim};
 pub mod security;
 pub mod spiking; // Biologically accurate spiking neural networks (Izhikevich model)
 pub mod storage;
@@ -37,27 +35,22 @@ pub use dna::{
     CompressedDNA, CompressionMetadata, CompressionMetrics, DNABase, DNACompressionConfig,
     DNACompressor, DNAError, DNASequence, QuantumDNACompressor,
 };
-
-// Re-export nalgebra for API use
-pub use nalgebra;
-
 // Re-export other core types
 pub use error::NeuroQuantumError;
-pub use storage::StorageEngine;
-
+// Re-export nalgebra for API use
+pub use nalgebra;
 // Re-export NEON optimization types
 pub use neon_optimization::{NeonOptimizer, OptimizationStats, QuantumOperation};
-
-// Re-export transaction management types
-pub use transaction::{
-    IsolationLevel, LockManager, LockType, LogManager, RecoveryManager, Transaction, TransactionId,
-    TransactionManager, TransactionStatistics, TransactionStatus, LSN,
-};
-
 // Re-export spiking neural network types (Izhikevich model)
 pub use spiking::{
     IzhikevichNeuron, IzhikevichNeuronType, IzhikevichParameters, NetworkStatistics, STDPRule,
     SpikingNeuralNetwork, SpikingSynapse,
+};
+pub use storage::StorageEngine;
+// Re-export transaction management types
+pub use transaction::{
+    IsolationLevel, LockManager, LockType, LogManager, RecoveryManager, Transaction, TransactionId,
+    TransactionManager, TransactionStatistics, TransactionStatus, LSN,
 };
 
 // Quantum search constants

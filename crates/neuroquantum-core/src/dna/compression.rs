@@ -3,10 +3,12 @@
 //! This module implements additional compression layers including dictionary compression,
 //! Huffman coding, and biological pattern-specific optimizations.
 
-use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
+
 use tracing::{debug, instrument};
+
+use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 
 /// Advanced compression engine for DNA sequences
 #[derive(Debug)]

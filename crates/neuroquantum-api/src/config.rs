@@ -1,6 +1,7 @@
+use std::path::Path;
+
 use anyhow;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 // Create a simple database config wrapper that's compatible
 #[derive(Debug, Clone, Serialize, Deserialize)]

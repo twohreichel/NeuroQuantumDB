@@ -1,9 +1,10 @@
 //! Simple test to isolate the serialization error
 
+use std::collections::HashMap;
+
 use neuroquantum_core::storage::{
     ColumnDefinition, DataType, IdGenerationStrategy, Row, StorageEngine, TableSchema,
 };
-use std::collections::HashMap;
 use tempfile::TempDir;
 
 #[tokio::test]

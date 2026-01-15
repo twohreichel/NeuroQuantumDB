@@ -2,11 +2,12 @@
 //! This test validates that data is properly compressed with DNA encoding
 //! and encrypted with AES-256-GCM before being written to disk
 
+use std::collections::HashMap;
+
 use neuroquantum_core::storage::{
     ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
     Value,
 };
-use std::collections::HashMap;
 use tempfile::TempDir;
 
 #[tokio::test]

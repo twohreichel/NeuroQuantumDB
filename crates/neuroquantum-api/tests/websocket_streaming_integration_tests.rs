@@ -5,15 +5,16 @@
 //!
 //! Status: Addresses AUDIT.md Section 7.2 - Expanded integration tests for WebSocket
 
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
 use neuroquantum_api::websocket::{
     ChannelId, ConnectionConfig, ConnectionManager, PubSubManager, QueryProgress, QueryStreamId,
     QueryStreamStatus, QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
 };
 use neuroquantum_core::storage::{Row, Value};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 
 /// Helper to create mock rows for testing

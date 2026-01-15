@@ -10,9 +10,11 @@
 //! - Search operations
 //! - Synaptic weight updates
 
-use crate::error::{CoreError, CoreResult};
 use std::collections::HashMap;
+
 use tracing::{debug, info, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 /// NEON optimizer for ARM64 SIMD operations
 #[derive(Debug)]
@@ -644,7 +646,7 @@ mod tests {
         let b = vec![2.0, 3.0, 4.0, 5.0];
 
         let result = optimizer.dot_product(&a, &b).unwrap();
-        let expected = 1.0 * 2.0 + 2.0 * 3.0 + 3.0 * 4.0 + 4.0 * 5.0;
+        let expected = 4.0f32.mul_add(5.0, 3.0f32.mul_add(4.0, 1.0f32.mul_add(2.0, 2.0 * 3.0)));
         assert!((result - expected).abs() < 1e-6);
     }
 

@@ -18,13 +18,14 @@
 //! These tests verify correctness against known analytical solutions and constraint
 //! satisfaction for NP-hard combinatorial problems.
 
+use std::collections::HashSet;
+
 use nalgebra::DMatrix;
 use neuroquantum_core::quantum::qubo_quantum::{
     graph_coloring_problem, max_cut_problem, tsp_problem, QUBOConfig, QUBOProblem, QUBOSolver,
     QuboQuantumBackend,
 };
 use neuroquantum_core::quantum::tfim::TFIMSolver;
-use std::collections::HashSet;
 
 /// Create a solver configured for reliable correctness testing
 /// Uses `ClassicalFallback` backend for deterministic behavior

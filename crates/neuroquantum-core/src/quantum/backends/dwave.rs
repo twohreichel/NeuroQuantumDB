@@ -40,12 +40,12 @@
 //! - `DWAVE_SOLVER`: Solver name (optional)
 //! - `DWAVE_ENDPOINT`: API endpoint (optional)
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
-use tracing::{debug, info};
 
 use nalgebra::DMatrix;
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 
 use super::{QuantumBackendConfig, QuantumBackendInfo, QuantumProvider};
 use crate::error::{CoreError, CoreResult};

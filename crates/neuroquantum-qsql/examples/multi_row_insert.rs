@@ -11,11 +11,12 @@
 //! - Performance benefits of bulk operations
 //! - Error handling for batch inserts
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 #[tokio::main]

@@ -2,9 +2,10 @@
 //!
 //! Tracks progress of long-running migrations.
 
-use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::storage::migration::MigrationId;

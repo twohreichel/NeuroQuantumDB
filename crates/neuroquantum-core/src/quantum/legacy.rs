@@ -24,18 +24,20 @@
 //! While these are classical simulations, they are optimized for ARM64/NEON
 //! and `x86_64/AVX2` hardware acceleration to maximize performance.
 
-use crate::error::{CoreError, CoreResult};
-use crate::query::{Query, QueryResult};
-use crate::synaptic::SynapticNetwork;
-use async_trait::async_trait;
-use rand::Rng;
-use rand_distr::{Distribution, Normal};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use async_trait::async_trait;
+use rand::Rng;
+use rand_distr::{Distribution, Normal};
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
+use crate::query::{Query, QueryResult};
+use crate::synaptic::SynapticNetwork;
 
 /// Quantum error types for quantum algorithm operations
 #[derive(Debug, thiserror::Error)]

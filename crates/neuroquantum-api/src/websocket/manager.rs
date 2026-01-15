@@ -7,16 +7,18 @@
 //! - Connection statistics and metrics
 //! - Graceful shutdown
 
-use crate::websocket::metrics::ConnectionMetrics;
-use crate::websocket::types::{Connection, ConnectionId, ConnectionMetadata};
+use std::sync::Arc;
+use std::time::Duration;
+
 use actix_ws::Session;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time;
 use tracing::{debug, error, info, warn};
+
+use crate::websocket::metrics::ConnectionMetrics;
+use crate::websocket::types::{Connection, ConnectionId, ConnectionMetadata};
 
 /// Configuration for the connection manager
 #[derive(Debug, Clone, Serialize, Deserialize)]

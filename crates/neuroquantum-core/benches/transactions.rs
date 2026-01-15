@@ -5,13 +5,14 @@
 //!
 //! Run with: cargo bench --features benchmarks --bench transactions
 
+use std::hint::black_box;
+use std::sync::Arc;
+use std::time::Duration;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::transaction::{
     IsolationLevel, LockManager, LockType, Transaction, TransactionManager, LSN,
 };
-use std::hint::black_box;
-use std::sync::Arc;
-use std::time::Duration;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use uuid::Uuid;

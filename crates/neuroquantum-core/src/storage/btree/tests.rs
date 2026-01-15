@@ -7,9 +7,11 @@
 //! - Persistence (save/load from disk)
 //! - Concurrent access
 
-use super::*;
 use std::time::Instant;
+
 use tempfile::TempDir;
+
+use super::*;
 
 #[tokio::test]
 async fn test_empty_tree() {
@@ -40,7 +42,7 @@ async fn test_multiple_inserts_ordered() {
 
     // Insert in order
     for i in 0..100 {
-        let key = format!("key{:05}", i).into_bytes();
+        let key = format!("key{i:05}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
@@ -48,7 +50,7 @@ async fn test_multiple_inserts_ordered() {
 
     // Verify all keys
     for i in 0..100 {
-        let key = format!("key{:05}", i).into_bytes();
+        let key = format!("key{i:05}").into_bytes();
         assert_eq!(btree.search(&key).await.unwrap(), Some(i as u64));
     }
 }
@@ -60,7 +62,7 @@ async fn test_multiple_inserts_reverse_order() {
 
     // Insert in reverse order
     for i in (0..100).rev() {
-        let key = format!("key{:05}", i).into_bytes();
+        let key = format!("key{i:05}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
@@ -68,7 +70,7 @@ async fn test_multiple_inserts_reverse_order() {
 
     // Verify all keys
     for i in 0..100 {
-        let key = format!("key{:05}", i).into_bytes();
+        let key = format!("key{i:05}").into_bytes();
         assert_eq!(btree.search(&key).await.unwrap(), Some(i as u64));
     }
 }
@@ -81,7 +83,7 @@ async fn test_multiple_inserts_random_order() {
     let keys: Vec<u64> = vec![50, 25, 75, 10, 30, 60, 80, 5, 15, 22, 28, 55, 65, 78, 85];
 
     for &key in &keys {
-        let key_bytes = format!("key{:05}", key).into_bytes();
+        let key_bytes = format!("key{key:05}").into_bytes();
         btree.insert(key_bytes, key).await.unwrap();
     }
 
@@ -89,7 +91,7 @@ async fn test_multiple_inserts_random_order() {
 
     // Verify all keys
     for &key in &keys {
-        let key_bytes = format!("key{:05}", key).into_bytes();
+        let key_bytes = format!("key{key:05}").into_bytes();
         assert_eq!(btree.search(&key_bytes).await.unwrap(), Some(key));
     }
 }
@@ -101,7 +103,7 @@ async fn test_delete_operations() {
 
     // Insert keys
     for i in 0..10 {
-        let key = format!("key{}", i).into_bytes();
+        let key = format!("key{i}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
@@ -119,7 +121,7 @@ async fn test_delete_operations() {
     // Verify remaining keys
     for i in 0..10 {
         if i != 5 {
-            let key = format!("key{}", i).into_bytes();
+            let key = format!("key{i}").into_bytes();
             assert_eq!(btree.search(&key).await.unwrap(), Some(i as u64));
         }
     }
@@ -132,7 +134,7 @@ async fn test_range_scan_basic() {
 
     // Insert keys
     for i in 0..20 {
-        let key = format!("key{:03}", i).into_bytes();
+        let key = format!("key{i:03}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
@@ -160,7 +162,7 @@ async fn test_range_scan_edge_cases() {
 
     // Insert keys
     for i in 0..10 {
-        let key = format!("key{}", i).into_bytes();
+        let key = format!("key{i}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
@@ -189,7 +191,7 @@ async fn test_persistence() {
         let mut btree = BTree::new(&data_path).await.unwrap();
 
         for i in 0..50 {
-            let key = format!("persist_key{}", i).into_bytes();
+            let key = format!("persist_key{i}").into_bytes();
             btree.insert(key, i as u64).await.unwrap();
         }
 
@@ -245,35 +247,35 @@ async fn benchmark_1m_inserts() {
     let num_keys = 1_000_000;
     let start = Instant::now();
 
-    println!("🚀 Starting benchmark: inserting {} keys", num_keys);
+    println!("🚀 Starting benchmark: inserting {num_keys} keys");
 
     for i in 0..num_keys {
         // Use shorter keys to avoid page size issues
-        let key = format!("{:08}", i).into_bytes();
+        let key = format!("{i:08}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
 
         if i > 0 && i % 100_000 == 0 {
             let elapsed = start.elapsed();
-            let rate = i as f64 / elapsed.as_secs_f64();
+            let rate = f64::from(i) / elapsed.as_secs_f64();
             println!(
                 "  Progress: {}/{} ({:.1}%) - {:.0} inserts/sec",
                 i,
                 num_keys,
-                (i as f64 / num_keys as f64) * 100.0,
+                (f64::from(i) / f64::from(num_keys)) * 100.0,
                 rate
             );
         }
     }
 
     let elapsed = start.elapsed();
-    let rate = num_keys as f64 / elapsed.as_secs_f64();
+    let rate = f64::from(num_keys) / elapsed.as_secs_f64();
 
     println!(
         "✅ Completed {} inserts in {:.2}s",
         num_keys,
         elapsed.as_secs_f64()
     );
-    println!("📊 Average rate: {:.0} inserts/second", rate);
+    println!("📊 Average rate: {rate:.0} inserts/second");
     println!("📊 Tree height: {}", btree.height());
 
     // Acceptance criteria: < 30 seconds
@@ -293,19 +295,19 @@ async fn benchmark_point_lookup() {
 
     // Insert 100k keys
     let num_keys = 100_000;
-    println!("🚀 Preparing benchmark: inserting {} keys", num_keys);
+    println!("🚀 Preparing benchmark: inserting {num_keys} keys");
 
     for i in 0..num_keys {
-        let key = format!("{:08}", i).into_bytes();
+        let key = format!("{i:08}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
     // Perform lookups and measure latency
-    println!("🔍 Performing {} lookups", num_keys);
+    println!("🔍 Performing {num_keys} lookups");
     let mut latencies = Vec::with_capacity(num_keys);
 
     for i in 0..num_keys {
-        let key = format!("{:08}", i).into_bytes();
+        let key = format!("{i:08}").into_bytes();
         let start = Instant::now();
         let result = btree.search(&key).await.unwrap();
         let elapsed = start.elapsed();
@@ -315,23 +317,22 @@ async fn benchmark_point_lookup() {
     }
 
     // Calculate statistics
-    latencies.sort();
+    latencies.sort_unstable();
     let p50 = latencies[num_keys / 2];
     let p95 = latencies[(num_keys * 95) / 100];
     let p99 = latencies[(num_keys * 99) / 100];
     let avg: u128 = latencies.iter().sum::<u128>() / num_keys as u128;
 
     println!("📊 Lookup latency statistics:");
-    println!("  Average: {}µs", avg);
-    println!("  P50: {}µs", p50);
-    println!("  P95: {}µs", p95);
-    println!("  P99: {}µs", p99);
+    println!("  Average: {avg}µs");
+    println!("  P50: {p50}µs");
+    println!("  P95: {p95}µs");
+    println!("  P99: {p99}µs");
 
     // Acceptance criteria: p99 < 1ms (1000µs)
     assert!(
         p99 < 1000,
-        "P99 latency too high: {}µs (target: <1000µs)",
-        p99
+        "P99 latency too high: {p99}µs (target: <1000µs)"
     );
 }
 
@@ -344,10 +345,10 @@ async fn benchmark_range_scan() {
 
     // Insert 100k keys
     let num_keys = 100_000;
-    println!("🚀 Preparing benchmark: inserting {} keys", num_keys);
+    println!("🚀 Preparing benchmark: inserting {num_keys} keys");
 
     for i in 0..num_keys {
-        let key = format!("{:08}", i).into_bytes();
+        let key = format!("{i:08}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
@@ -389,7 +390,7 @@ async fn test_tree_structure_properties() {
 
     // Insert keys to build a tree (reduced to avoid page size issues)
     for i in 0..500 {
-        let key = format!("key{:04}", i).into_bytes();
+        let key = format!("key{i:04}").into_bytes();
         btree.insert(key, i as u64).await.unwrap();
     }
 
@@ -403,12 +404,11 @@ async fn test_tree_structure_properties() {
 
     // Verify all keys are still accessible
     for i in 0..500 {
-        let key = format!("key{:04}", i).into_bytes();
+        let key = format!("key{i:04}").into_bytes();
         assert_eq!(
             btree.search(&key).await.unwrap(),
             Some(i as u64),
-            "Key {} not found after tree growth",
-            i
+            "Key {i} not found after tree growth"
         );
     }
 }
@@ -429,12 +429,12 @@ async fn test_concurrent_inserts() {
     for batch in 0..4 {
         let path = data_path.clone();
         let handle = task::spawn(async move {
-            let mut btree = BTree::new(&path.join(format!("batch_{}", batch)))
+            let mut btree = BTree::new(&path.join(format!("batch_{batch}")))
                 .await
                 .unwrap();
 
             for i in 0..100 {
-                let key = format!("concurrent_{}_{}", batch, i).into_bytes();
+                let key = format!("concurrent_{batch}_{i}").into_bytes();
                 btree.insert(key, (batch * 100 + i) as u64).await.unwrap();
             }
 

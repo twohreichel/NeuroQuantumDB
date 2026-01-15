@@ -50,13 +50,14 @@
 //! let solution = solver.solve(&problem).await?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
 use super::qubo_quantum::{IsingModel, QUBOProblem, QuantumQuboSolution, QuboQuantumBackend};
+use crate::error::{CoreError, CoreResult};
 
 // =============================================================================
 // QUBO Solver Backend Trait
@@ -1076,8 +1077,9 @@ impl UnifiedQUBOSolver {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::DMatrix;
+
+    use super::*;
 
     fn create_test_problem() -> QUBOProblem {
         let mut q_matrix = DMatrix::zeros(3, 3);

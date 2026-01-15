@@ -2,10 +2,11 @@
 //!
 //! Tracks applied migrations in a special table.
 
+use std::collections::HashMap;
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use crate::storage::migration::MigrationId;

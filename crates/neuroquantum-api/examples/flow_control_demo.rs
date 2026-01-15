@@ -16,10 +16,11 @@
 //! cargo run --package neuroquantum-api --example flow_control_demo
 //! ```
 
+use std::time::Duration;
+
 use neuroquantum_api::websocket::{
     DropPolicy, FlowControlConfig, FlowControlledSender, FlowController,
 };
-use std::time::Duration;
 use tracing::Level;
 
 #[tokio::main]

@@ -7,12 +7,13 @@
 //!
 //! Run with: cargo bench --features benchmarks --bench `qsql_functions`
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use neuroquantum_core::storage::Value;
-use rand::prelude::*;
 use std::collections::HashMap;
 use std::hint::black_box;
 use std::time::Duration;
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use neuroquantum_core::storage::Value;
+use rand::prelude::*;
 
 /// Simple row structure for benchmarks (independent of actual storage Row)
 /// Fields are used for benchmark data generation but not directly accessed

@@ -3,13 +3,15 @@
 //! Core synaptic data structures implementing neuromorphic computing principles
 //! for self-optimizing data organization and intelligent indexing.
 
-use crate::error::{CoreError, CoreResult};
-use crate::neon_optimization::NeonOptimizer;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
+use crate::neon_optimization::NeonOptimizer;
 
 /// Helper function for serde default with Instant
 fn instant_now() -> Instant {

@@ -2,10 +2,11 @@
 //!
 //! Run with: cargo bench --features benchmarks --bench `btree_benchmark`
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use neuroquantum_core::storage::btree::BTree;
 use std::hint::black_box;
 use std::time::Duration;
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use neuroquantum_core::storage::btree::BTree;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 

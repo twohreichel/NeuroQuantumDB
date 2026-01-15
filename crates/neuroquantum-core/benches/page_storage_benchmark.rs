@@ -1,6 +1,7 @@
+use std::hint::black_box;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::storage::pager::{PageStorageManager, PageType, PagerConfig, SyncMode};
-use std::hint::black_box;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 

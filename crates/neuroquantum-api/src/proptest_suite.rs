@@ -14,11 +14,9 @@ use std::time::Duration;
 
 use proptest::prelude::*;
 
-use crate::{
-    error::{ApiError, ApiResponse, ResponseMetadata, SqlQueryRequest},
-    permissions::Permission,
-    rate_limit::RateLimitConfig,
-};
+use crate::error::{ApiError, ApiResponse, ResponseMetadata, SqlQueryRequest};
+use crate::permissions::Permission;
+use crate::rate_limit::RateLimitConfig;
 
 /// Get configurable `PropTest` configuration from environment
 ///

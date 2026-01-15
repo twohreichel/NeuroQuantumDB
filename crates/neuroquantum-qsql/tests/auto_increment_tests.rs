@@ -3,9 +3,10 @@
 //! This test suite validates the `AUTO_INCREMENT` syntax support as documented
 //! in the `NeuroQuantumDB` Features Guide.
 
+use std::sync::Arc;
+
 use neuroquantum_core::storage::{DataType, StorageEngine};
 use neuroquantum_qsql::{Parser, QueryExecutor};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Test basic `AUTO_INCREMENT` syntax in CREATE TABLE

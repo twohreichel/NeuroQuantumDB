@@ -14,13 +14,15 @@
 //! - **Recommendation Engine**: Generates single-column and composite index recommendations
 //! - **Impact Estimation**: Estimates performance improvement from recommended indexes
 
-use crate::ast::{Expression, FromClause, JoinClause, OrderByItem, SelectStatement, Statement};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
+
+use crate::ast::{Expression, FromClause, JoinClause, OrderByItem, SelectStatement, Statement};
 
 /// Statistics for a column access pattern
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

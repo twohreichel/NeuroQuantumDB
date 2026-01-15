@@ -5,10 +5,11 @@
 //! 2. Redo: Replay all changes from the log to restore the database state
 //! 3. Undo: Roll back incomplete transactions
 
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use super::{TransactionId, TransactionState, WALConfig, WALRecord, WALRecordType, LSN};
@@ -466,10 +467,11 @@ impl AnalysisResult {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::storage::pager::{PageType, PagerConfig, SyncMode};
     use crate::storage::wal::WALManager;
-    use tempfile::TempDir;
 
     async fn setup_test_recovery() -> (TempDir, Arc<PageStorageManager>, WALManager) {
         let temp_dir = TempDir::new().unwrap();

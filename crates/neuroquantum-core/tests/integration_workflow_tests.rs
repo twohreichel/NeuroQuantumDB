@@ -3,14 +3,13 @@
 //! Tests complete workflows including CRUD operations, transactions,
 //! backup/restore, and system recovery.
 
-use neuroquantum_core::{
-    storage::{
-        ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
-        TableSchema, UpdateQuery, Value, WhereClause,
-    },
-    NeuroQuantumDBBuilder,
-};
 use std::collections::HashMap;
+
+use neuroquantum_core::storage::{
+    ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
+    TableSchema, UpdateQuery, Value, WhereClause,
+};
+use neuroquantum_core::NeuroQuantumDBBuilder;
 use tempfile::TempDir;
 
 /// Test 1: Complete CRUD Workflow

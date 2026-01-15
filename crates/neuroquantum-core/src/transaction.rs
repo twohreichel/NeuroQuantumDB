@@ -7,17 +7,19 @@
 //! - Deadlock Detection
 //! - Crash Recovery
 
-use crate::error::NeuroQuantumError;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
+
+use serde::{Deserialize, Serialize};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
 use tokio::sync::{Mutex, RwLock as TokioRwLock};
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
+
+use crate::error::NeuroQuantumError;
 
 /// Transaction identifier
 pub type TransactionId = Uuid;
@@ -1531,8 +1533,9 @@ pub struct TransactionStatistics {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_transaction_lifecycle() {
@@ -1746,7 +1749,7 @@ mod tests {
                 .log_update(
                     tx,
                     "test".to_string(),
-                    format!("{}", i),
+                    format!("{i}"),
                     None,
                     b"data".to_vec(),
                 )

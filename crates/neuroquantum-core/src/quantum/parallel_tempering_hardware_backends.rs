@@ -53,16 +53,17 @@
 //! let result = solver.solve(&hamiltonian, &initial_config).await?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
+use std::time::Instant;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 use tracing::{debug, info};
 
 use super::quantum_parallel_tempering::{
     IsingHamiltonian, QuantumBackend, QuantumParallelTemperingConfig,
     QuantumParallelTemperingSolution,
 };
+use crate::error::{CoreError, CoreResult};
 
 // =============================================================================
 // Parallel Tempering Hardware Backend Trait
@@ -1571,8 +1572,9 @@ pub struct PTMeasurementResult {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::DMatrix;
+
+    use super::*;
 
     fn create_test_hamiltonian(num_spins: usize) -> IsingHamiltonian {
         let couplings = DMatrix::from_fn(num_spins, num_spins, |i, j| {

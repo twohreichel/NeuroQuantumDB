@@ -5,9 +5,10 @@
 //! - Tracks active transactions
 //! - Coordinates with buffer pool for dirty page flushing
 
+use std::collections::HashMap;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::info;
 
 use super::{TransactionId, WALConfig, LSN};
@@ -107,9 +108,11 @@ impl CheckpointManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
     use uuid::Uuid;
+
+    use super::*;
 
     #[test]
     fn test_should_checkpoint() {

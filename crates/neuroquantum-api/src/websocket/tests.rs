@@ -10,12 +10,13 @@
 //! - Graceful shutdown
 
 #[cfg(test)]
-use crate::websocket::{ConnectionConfig, ConnectionManager, ConnectionMetadata};
+use std::time::Duration;
 
 #[cfg(test)]
-use std::time::Duration;
-#[cfg(test)]
 use tokio::time::sleep;
+
+#[cfg(test)]
+use crate::websocket::{ConnectionConfig, ConnectionManager, ConnectionMetadata};
 
 /// Helper function to create a mock metadata for testing
 #[cfg(test)]

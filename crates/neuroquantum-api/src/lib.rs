@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use actix_cors::Cors;
 use actix_web::body::MessageBody;
 use actix_web::middleware::{Compress, Logger};
@@ -5,7 +7,6 @@ use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as Actix
 use actix_web_prom::PrometheusMetricsBuilder;
 use anyhow::Result;
 use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
-use std::time::Instant;
 use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -25,13 +26,14 @@ pub mod storage;
 pub mod tracing_setup;
 pub mod websocket;
 
+use std::sync::Arc;
+
 use auth::AuthService;
 pub use config::ApiConfig;
 pub use error::{ApiError, ApiResponse, ResponseMetadata};
 use handlers::ApiDoc;
 use jwt::JwtService;
 use rate_limit::{RateLimitConfig, RateLimitService};
-use std::sync::Arc;
 use websocket::{ConnectionConfig, ConnectionManager, PubSubManager, WebSocketService};
 
 /// Application state shared across handlers
@@ -411,8 +413,9 @@ mod proptest_suite;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use actix_web::{test, web, App};
+
+    use super::*;
 
     #[actix_web::test]
     async fn test_health_check() {

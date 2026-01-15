@@ -3,9 +3,10 @@
 //! These tests verify complete workflows including table creation,
 //! data insertion with DNA compression, and querying with statistics.
 
-use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
 use tokio::sync::RwLock;
 
 /// Helper to create test database instance

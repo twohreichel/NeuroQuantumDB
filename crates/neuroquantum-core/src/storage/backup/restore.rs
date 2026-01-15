@@ -6,11 +6,12 @@
 //! - Incremental restore
 //! - Verification and validation
 
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use super::{BackupId, BackupMetadata, BackupStorageBackend, BackupType};
@@ -505,8 +506,9 @@ impl RestoreManager {
 
     /// Decompress gzip data
     fn decompress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
-        use flate2::read::GzDecoder;
         use std::io::Read;
+
+        use flate2::read::GzDecoder;
 
         let mut decoder = GzDecoder::new(data);
         let mut decompressed = Vec::new();
@@ -549,12 +551,12 @@ mod tests {
         let mut hasher1 = Sha3_256::new();
         hasher1.update(b"test data");
         let result1 = hasher1.finalize();
-        let checksum1 = format!("{:x}", result1);
+        let checksum1 = format!("{result1:x}");
 
         let mut hasher2 = Sha3_256::new();
         hasher2.update(b"test data");
         let result2 = hasher2.finalize();
-        let checksum2 = format!("{:x}", result2);
+        let checksum2 = format!("{result2:x}");
 
         assert_eq!(checksum1, checksum2);
         assert!(!checksum1.is_empty());
@@ -569,12 +571,12 @@ mod tests {
         let mut hasher1 = Sha3_256::new();
         hasher1.update(b"test data 1");
         let result1 = hasher1.finalize();
-        let checksum1 = format!("{:x}", result1);
+        let checksum1 = format!("{result1:x}");
 
         let mut hasher2 = Sha3_256::new();
         hasher2.update(b"test data 2");
         let result2 = hasher2.finalize();
-        let checksum2 = format!("{:x}", result2);
+        let checksum2 = format!("{result2:x}");
 
         assert_ne!(checksum1, checksum2);
     }

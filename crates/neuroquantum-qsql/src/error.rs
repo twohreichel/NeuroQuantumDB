@@ -4,6 +4,7 @@
 //! and execution of QSQL queries with neuromorphic and quantum extensions.
 
 use std::fmt;
+
 use thiserror::Error;
 
 /// Main error type for QSQL operations

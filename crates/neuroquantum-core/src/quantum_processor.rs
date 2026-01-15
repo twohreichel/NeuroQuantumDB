@@ -35,12 +35,14 @@
 //! - Research on quantum algorithm behavior
 //! - Testing quantum-classical hybrid approaches
 
-use crate::error::{CoreError, CoreResult};
-use num_complex::Complex64;
-use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use std::sync::Arc;
+
+use num_complex::Complex64;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 /// Oracle trait for Grover's algorithm - marks target states
 pub trait Oracle: Send + Sync {

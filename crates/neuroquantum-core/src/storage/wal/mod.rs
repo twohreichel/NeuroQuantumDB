@@ -7,12 +7,13 @@
 //! - Crash recovery with analysis, redo, and undo phases
 //! - Integration with Buffer Pool Manager
 
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -980,9 +981,10 @@ pub struct TransactionStats {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::storage::pager::{PagerConfig, SyncMode};
-    use tempfile::TempDir;
 
     async fn setup_test_env() -> (TempDir, Arc<PageStorageManager>, WALManager) {
         let temp_dir = TempDir::new().unwrap();

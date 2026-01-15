@@ -1,10 +1,12 @@
-use crate::auth::ApiKey;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
-use std::path::Path;
-use std::sync::{Arc, Mutex};
 use tracing::{debug, info};
+
+use crate::auth::ApiKey;
 
 /// Persistent storage for API keys using `SQLite`
 #[derive(Debug, Clone)]

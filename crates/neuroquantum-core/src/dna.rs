@@ -3,10 +3,11 @@
 //! This module implements a biologically-inspired compression algorithm using quaternary encoding
 //! (4 DNA bases: A, T, G, C) with Reed-Solomon error correction and SIMD optimizations.
 
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info, instrument, warn};
 

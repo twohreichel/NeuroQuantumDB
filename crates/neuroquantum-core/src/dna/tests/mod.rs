@@ -3,10 +3,11 @@
 //! This module provides extensive testing including unit tests, property-based tests,
 //! integration tests, and correctness verification for the DNA compression system.
 
-use crate::dna::{DNABase, DNACompressionConfig, DNACompressor, DNAError, QuantumDNACompressor};
 use proptest::prelude::*;
 use rand::prelude::*;
 use rand::Rng;
+
+use crate::dna::{DNABase, DNACompressionConfig, DNACompressor, DNAError, QuantumDNACompressor};
 
 /// Unit tests for core DNA compression functionality
 #[cfg(test)]
@@ -190,7 +191,7 @@ mod unit_tests {
         let result = compressor.decompress(&compressed).await;
         assert!(result.is_err());
 
-        if let Err(DNAError::InvalidVersion(99)) = result {
+        if matches!(result, Err(DNAError::InvalidVersion(99))) {
             // Expected error
         } else {
             panic!("Expected InvalidVersion error");
@@ -232,12 +233,12 @@ mod unit_tests {
 mod property_tests {
     use super::*;
 
-    /// Get configurable PropTest configuration from environment
+    /// Get configurable `PropTest` configuration from environment
     ///
-    /// Use PROPTEST_CASES environment variable to control test thoroughness:
-    /// - Fast (default): PROPTEST_CASES=32 (development)
-    /// - Standard: PROPTEST_CASES=64 (CI)
-    /// - Thorough: PROPTEST_CASES=256 (pre-release)
+    /// Use `PROPTEST_CASES` environment variable to control test thoroughness:
+    /// - Fast (default): `PROPTEST_CASES=32` (development)
+    /// - Standard: `PROPTEST_CASES=64` (CI)
+    /// - Thorough: `PROPTEST_CASES=256` (pre-release)
     fn get_proptest_config() -> ProptestConfig {
         let cases = std::env::var("PROPTEST_CASES")
             .ok()
@@ -388,11 +389,7 @@ mod stress_tests {
             let compressed = compressor.compress(&data).await.unwrap();
             let decompressed = compressor.decompress(&compressed).await.unwrap();
 
-            assert_eq!(
-                decompressed, data,
-                "Failed for random data of size {}",
-                size
-            );
+            assert_eq!(decompressed, data, "Failed for random data of size {size}");
         }
     }
 
@@ -410,7 +407,7 @@ mod stress_tests {
 
         // Should achieve good compression
         let ratio = compressed.compressed_size as f64 / data.len() as f64;
-        assert!(ratio < 0.5, "Poor compression ratio: {}", ratio);
+        assert!(ratio < 0.5, "Poor compression ratio: {ratio}");
     }
 
     #[tokio::test]
@@ -429,6 +426,7 @@ mod stress_tests {
     #[tokio::test]
     async fn test_concurrent_compression() {
         use std::sync::Arc;
+
         use tokio::task;
 
         let compressor = Arc::new(QuantumDNACompressor::new());
@@ -522,6 +520,7 @@ pub struct TestDataGenerator;
 
 impl TestDataGenerator {
     /// Generate test data with specific patterns
+    #[must_use]
     pub fn generate_pattern_data(pattern: &[u8], repetitions: usize) -> Vec<u8> {
         let mut data = Vec::with_capacity(pattern.len() * repetitions);
         for _ in 0..repetitions {
@@ -531,6 +530,7 @@ impl TestDataGenerator {
     }
 
     /// Generate binary data with specific entropy
+    #[must_use]
     pub fn generate_entropy_data(size: usize, entropy: f64) -> Vec<u8> {
         let mut rng = StdRng::seed_from_u64(42);
         let mut data = Vec::with_capacity(size);
@@ -545,6 +545,7 @@ impl TestDataGenerator {
     }
 
     /// Generate structured JSON-like data
+    #[must_use]
     pub fn generate_json_like_data(records: usize) -> Vec<u8> {
         let mut data = Vec::new();
 
@@ -562,6 +563,7 @@ impl TestDataGenerator {
     }
 
     /// Generate DNA-like sequences (for biological data testing)
+    #[must_use]
     pub fn generate_biological_sequence(length: usize) -> Vec<u8> {
         let mut rng = StdRng::seed_from_u64(12345);
         let bases = [b'A', b'T', b'G', b'C'];

@@ -2,9 +2,10 @@
 //!
 //! Tracks which pages are free and can be reused
 
+use std::collections::VecDeque;
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 
 use super::page::PageId;
 

@@ -1379,9 +1379,10 @@ impl RaftConsensus {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::atomic::{AtomicU16, Ordering};
     use std::time::Duration;
+
+    use super::*;
 
     // Start port counter at 10000 to avoid conflicts
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(10000);

@@ -14,13 +14,12 @@
 //! let result = solver.solve(&problem)?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
-use crate::quantum::{
-    tfim::{TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig},
-    tfim_quantum::{QuantumTFIMConfig, QuantumTFIMSolution, QuantumTFIMSolver},
-};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
+
+use crate::error::{CoreError, CoreResult};
+use crate::quantum::tfim::{TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
+use crate::quantum::tfim_quantum::{QuantumTFIMConfig, QuantumTFIMSolution, QuantumTFIMSolver};
 
 /// Unified TFIM configuration with automatic fallback
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,15 +178,16 @@ impl Default for UnifiedTFIMSolver {
 
 #[cfg(test)]
 mod tests {
+    use nalgebra::DMatrix;
+
     use super::*;
     use crate::quantum::SolutionMethod;
-    use nalgebra::DMatrix;
 
     #[test]
     fn test_unified_solver_quantum() {
         let problem = TFIMProblem {
             num_spins: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0, 0.0, 0.0],
             name: "Test_Unified".to_string(),
         };
@@ -221,7 +221,7 @@ mod tests {
     fn test_unified_solver_classical_fallback() {
         let problem = TFIMProblem {
             num_spins: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0, 0.0, 0.0],
             name: "Test_Classical".to_string(),
         };
@@ -260,7 +260,7 @@ mod tests {
 
         let problem = TFIMProblem {
             num_spins: 2,
-            couplings: DMatrix::from_fn(2, 2, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(2, 2, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0, 0.0],
             name: "Test_Forced".to_string(),
         };
@@ -284,7 +284,7 @@ mod tests {
 
         let problem = TFIMProblem {
             num_spins: 4,
-            couplings: DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0, 0.0, 0.0, 0.0],
             name: "Test_Classical_Only".to_string(),
         };

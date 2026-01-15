@@ -5,10 +5,11 @@
 //! - Compression statistics reporting
 //! - Error handling for non-existent tables
 
+use std::sync::Arc;
+
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
 use neuroquantum_qsql::query_plan::QueryValue;
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
-use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper to create a test setup with storage and executor

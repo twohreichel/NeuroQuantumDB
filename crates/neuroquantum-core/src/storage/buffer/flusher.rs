@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
 use tracing::{debug, info, warn};
@@ -185,10 +186,11 @@ impl BackgroundFlusher {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::storage::buffer::frame::Frame;
     use crate::storage::pager::{PageType, PagerConfig};
-    use tempfile::TempDir;
 
     #[tokio::test]
     async fn test_background_flusher_start_stop() {

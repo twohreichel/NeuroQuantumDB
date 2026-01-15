@@ -3,9 +3,10 @@
 //! Provides comprehensive metrics for WebSocket connections, including
 //! connection counts, message rates, and error tracking.
 
-use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
 
 /// Metrics for WebSocket connections
 #[derive(Debug, Clone)]

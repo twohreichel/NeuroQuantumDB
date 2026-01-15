@@ -3,12 +3,14 @@
 //! Implementation of neural plasticity mechanisms for dynamic data reorganization
 //! and intelligent memory optimization in `NeuroQuantumDB`.
 
-use crate::error::{CoreError, CoreResult};
-use crate::synaptic::SynapticNetwork;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::time::Instant;
+
+use serde::Serialize;
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
+use crate::synaptic::SynapticNetwork;
 
 /// Access pattern tracking for plasticity decisions
 #[derive(Debug, Clone, Default)]

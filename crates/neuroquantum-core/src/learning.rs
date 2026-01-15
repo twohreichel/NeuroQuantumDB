@@ -3,11 +3,13 @@
 //! Implementation of Hebbian learning algorithms for synaptic pathway strengthening
 //! and adaptive neural network optimization in `NeuroQuantumDB`.
 
-use crate::error::{CoreError, CoreResult};
-use crate::synaptic::SynapticNetwork;
 use std::collections::HashMap;
 use std::time::Instant;
+
 use tracing::{debug, info, instrument};
+
+use crate::error::{CoreError, CoreResult};
+use crate::synaptic::SynapticNetwork;
 
 /// Learning statistics for monitoring and optimization
 #[derive(Debug, Clone, Default)]

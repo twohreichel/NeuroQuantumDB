@@ -6,11 +6,10 @@
 //! - Checkpointing
 //! - Crash recovery simulation
 
-use neuroquantum_core::storage::{
-    pager::{PageStorageManager, PageType, PagerConfig, SyncMode},
-    wal::{RecoveryStats, WALConfig, WALManager},
-};
 use std::sync::Arc;
+
+use neuroquantum_core::storage::pager::{PageStorageManager, PageType, PagerConfig, SyncMode};
+use neuroquantum_core::storage::wal::{RecoveryStats, WALConfig, WALManager};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

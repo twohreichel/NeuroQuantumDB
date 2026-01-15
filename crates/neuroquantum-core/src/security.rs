@@ -3,16 +3,13 @@
 //! Implements quantum-resistant encryption, biometric authentication,
 //! role-based access control, and comprehensive audit logging.
 
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
-};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Nonce};
+use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use ml_kem::{
-    kem::{Decapsulate, Encapsulate},
-    Ciphertext, Encoded, EncodedSizeUser, KemCore, MlKem1024,
-};
+use ml_kem::kem::{Decapsulate, Encapsulate};
+use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, KemCore, MlKem1024};
 use num_complex::Complex;
 use pqcrypto_mldsa::mldsa87;
 use pqcrypto_traits::sign::{PublicKey as SigPublicKey, SecretKey as SigSecretKey, SignedMessage};
@@ -20,12 +17,13 @@ use subtle::ConstantTimeEq;
 
 /// ML-KEM-1024 ciphertext size in bytes (1568 bytes for Security Level 5)
 const MLKEM1024_CIPHERTEXT_SIZE: usize = 1568;
-use rustfft::FftPlanner;
-use serde::{Deserialize, Serialize};
-use sha3::{Digest, Sha3_512};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use rustfft::FftPlanner;
+use serde::{Deserialize, Serialize};
+use sha3::{Digest, Sha3_512};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;

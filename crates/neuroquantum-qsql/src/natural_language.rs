@@ -31,10 +31,12 @@
 //! println!("Generated QSQL: {}", qsql);
 //! ```
 
-use crate::error::{QSQLError, QSQLResult};
-use regex::Regex;
 use std::collections::{HashMap, HashSet};
+
+use regex::Regex;
 use tracing::{debug, info, instrument};
+
+use crate::error::{QSQLError, QSQLResult};
 
 // ============================================================================
 // Word Embeddings and Semantic Similarity

@@ -13,11 +13,12 @@
 
 #![allow(clippy::expect_used)] // Startup-only metric registration - fail-fast is acceptable
 
+use std::time::SystemTime;
+
 use prometheus::{
     register_counter_vec, register_gauge, register_gauge_vec, register_histogram_vec, CounterVec,
     Encoder, Gauge, GaugeVec, HistogramVec, TextEncoder,
 };
-use std::time::SystemTime;
 
 // ===== Counters =====
 

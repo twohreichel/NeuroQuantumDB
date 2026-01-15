@@ -8,8 +8,9 @@
 //! - Compression ratio analysis
 //! - Error correction capabilities
 
-use neuroquantum_core::dna::{DNACompressionConfig, DNACompressor, DNAError, QuantumDNACompressor};
 use std::time::Instant;
+
+use neuroquantum_core::dna::{DNACompressionConfig, DNACompressor, DNAError, QuantumDNACompressor};
 
 #[tokio::main]
 async fn main() -> Result<(), DNAError> {

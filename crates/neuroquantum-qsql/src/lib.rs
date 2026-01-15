@@ -36,25 +36,21 @@ mod tests;
 #[cfg(test)]
 mod proptest_suite;
 
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, instrument, warn};
 
+use anyhow::Result;
 // Import types from modules to avoid duplicates
 use optimizer::{NeuromorphicOptimizer, OptimizerConfig};
-use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
-
-// Internal use
-use query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
-
 // Re-export key types for external use (avoid conflicts)
 pub use parser::QSQLParser as Parser;
-pub use query_plan::ExecutorConfig;
-pub use query_plan::QueryExecutor;
-pub use query_plan::QueryResult;
+use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
+// Internal use
+use query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
+pub use query_plan::{ExecutorConfig, QueryExecutor, QueryResult};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info, instrument, warn};
 
 // Use the QueryPlan from query_plan module (what the executor expects)
 // pub use query_plan::QueryPlan; // Commented out to avoid duplicate definition

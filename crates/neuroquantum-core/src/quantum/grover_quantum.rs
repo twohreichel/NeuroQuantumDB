@@ -39,13 +39,15 @@
 //!
 //! Where D = Diffusion operator = H⊗n · (2|0⟩⟨0| - I) · H⊗n
 
-use crate::error::{CoreError, CoreResult};
+use std::f64::consts::PI;
+use std::time::Instant;
+
 use num_complex::Complex64;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::f64::consts::PI;
-use std::time::Instant;
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 // Type alias for convenience
 type Complex = Complex64;

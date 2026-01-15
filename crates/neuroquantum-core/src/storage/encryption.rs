@@ -12,15 +12,14 @@
 //! Fallback to file-based storage is available for environments without keychain support,
 //! but this is not recommended for production deployments.
 
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
-};
+use std::path::{Path, PathBuf};
+
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Nonce};
 use anyhow::{anyhow, Result};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
-use std::path::{Path, PathBuf};
 use tokio::fs;
 use zeroize::Zeroize;
 
@@ -310,7 +309,8 @@ impl EncryptionManager {
     /// Generate a unique instance ID from the data directory path
     fn generate_instance_id(data_dir: &Path) -> String {
         let hash = Self::hash_data(data_dir.to_string_lossy().as_bytes());
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         // Use first 16 bytes as a unique but readable identifier
         general_purpose::URL_SAFE_NO_PAD.encode(&hash[..16])
     }
@@ -382,13 +382,15 @@ impl EncryptionManager {
 
     /// Encode a key for storage
     fn encode_key(key: &[u8; 32]) -> String {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         general_purpose::STANDARD.encode(key)
     }
 
     /// Decode a key from storage
     fn decode_key(encoded: &str) -> Result<[u8; 32]> {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         let decoded = general_purpose::STANDARD
             .decode(encoded.trim())
             .map_err(|e| anyhow!("Failed to decode master key: {e}"))?;
@@ -723,10 +725,8 @@ impl EncryptionManager {
 
     /// Derive a key from password using Argon2
     pub fn derive_key_from_password(password: &str, salt: &[u8]) -> Result<[u8; 32]> {
-        use argon2::{
-            password_hash::{PasswordHasher, SaltString},
-            Argon2,
-        };
+        use argon2::password_hash::{PasswordHasher, SaltString};
+        use argon2::Argon2;
 
         let salt_string =
             SaltString::encode_b64(salt).map_err(|e| anyhow!("Failed to encode salt: {e}"))?;
@@ -762,7 +762,8 @@ impl EncryptionManager {
     #[must_use]
     pub fn get_key_fingerprint(&self) -> String {
         let hash = Self::hash_data(&self.master_key);
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         general_purpose::STANDARD.encode(&hash[..8]) // First 8 bytes as fingerprint
     }
 }
@@ -904,7 +905,7 @@ mod tests {
     fn test_keychain_status_check() {
         let status = EncryptionManager::check_keychain_status();
         // Just verify it doesn't panic - actual availability depends on system
-        println!("Keychain status: {:?}", status);
+        println!("Keychain status: {status:?}");
     }
 
     #[tokio::test]

@@ -4,12 +4,13 @@
 //! It leverages the neuromorphic nature of `NeuroQuantumDB` to process brainwave patterns and
 //! create unique user signatures for advanced authentication.
 
+use std::collections::HashMap;
+use std::f32::consts::PI;
+
 use neuroquantum_core::security::constant_time_threshold_check;
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::f32::consts::PI;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 

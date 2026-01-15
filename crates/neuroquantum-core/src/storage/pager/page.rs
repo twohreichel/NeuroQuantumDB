@@ -5,9 +5,10 @@
 //! - Page Data (4032 bytes): actual data
 //! - Total: 4096 bytes (4KB)
 
+use std::fmt;
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 /// Page size in bytes (4KB standard)
 pub const PAGE_SIZE: usize = 4096;

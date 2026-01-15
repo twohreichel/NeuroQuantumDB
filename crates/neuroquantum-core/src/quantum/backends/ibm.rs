@@ -39,8 +39,9 @@
 //! - `IBM_QUANTUM_BACKEND`: Backend name (default: `ibm_brisbane`)
 //! - `IBM_QUANTUM_ENDPOINT`: API endpoint (optional)
 
-use serde::{Deserialize, Serialize};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use super::{QuantumBackendConfig, QuantumBackendInfo, QuantumExecutionResult, QuantumProvider};

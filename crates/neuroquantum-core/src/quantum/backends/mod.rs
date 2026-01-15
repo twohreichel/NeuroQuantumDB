@@ -66,13 +66,12 @@ pub mod dwave;
 pub mod ibm;
 pub mod ionq;
 
-use serde::{Deserialize, Serialize};
-
 // Re-export all backend types for convenience
 pub use braket::*;
 pub use dwave::*;
 pub use ibm::*;
 pub use ionq::*;
+use serde::{Deserialize, Serialize};
 
 // =============================================================================
 // Common Backend Traits

@@ -2,11 +2,12 @@
 //!
 //! Handles serialization, deserialization, and disk I/O of B+ Tree pages
 
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, warn};
@@ -411,8 +412,9 @@ struct PageManagerMetadata {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn test_page_header_serialization() {

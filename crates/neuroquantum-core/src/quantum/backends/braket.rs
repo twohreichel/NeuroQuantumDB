@@ -44,8 +44,9 @@
 //! - `AWS_BRAKET_DEVICE_ARN`: Device ARN
 //! - `AWS_BRAKET_S3_BUCKET`: S3 bucket for results
 
-use serde::{Deserialize, Serialize};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use super::{QuantumBackendConfig, QuantumBackendInfo, QuantumExecutionResult, QuantumProvider};

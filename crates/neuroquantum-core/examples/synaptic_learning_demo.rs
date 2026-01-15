@@ -9,10 +9,11 @@
 //! - Synaptic weight adaptation
 //! - Pattern recognition and learning
 
+use std::time::Instant;
+
 use neuroquantum_core::synaptic::{
     ActivationFunction, Neuron, Synapse, SynapticNetwork, SynapticNode,
 };
-use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

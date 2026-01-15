@@ -27,15 +27,17 @@
 //!      └─► StreamingRegistry (tracks all active streams)
 //! ```
 
-use crate::websocket::types::ConnectionId;
-use neuroquantum_core::storage::{Row, Value};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use neuroquantum_core::storage::{Row, Value};
+use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
+
+use crate::websocket::types::ConnectionId;
 
 /// Unique identifier for a streaming query
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

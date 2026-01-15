@@ -4,10 +4,10 @@
 //! DNA compression operations on Intel/AMD processors.
 
 #[cfg(target_arch = "x86_64")]
-use crate::dna::{DNABase, DNAError};
+use std::arch::x86_64::*;
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use crate::dna::{DNABase, DNAError};
 
 /// AVX2-optimized encoding of bytes to DNA bases
 ///

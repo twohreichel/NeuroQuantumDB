@@ -4,13 +4,18 @@
 //! comprehensive neuromorphic metrics for synaptic learning, plasticity,
 //! and neural network operations.
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Router};
+use std::sync::Arc;
+
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::routing::get;
+use axum::Router;
+use prometheus::core::{AtomicU64, GenericGauge};
 use prometheus::{
-    core::{AtomicU64, GenericGauge},
     Encoder, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge,
     IntGaugeVec, Opts, Registry, TextEncoder,
 };
-use std::sync::Arc;
 
 /// Prometheus metrics registry and collectors
 #[derive(Clone)]
@@ -1002,6 +1007,6 @@ mod tests {
 
         // This would require axum testing utilities
         // Just verify the router can be created
-        assert!(!format!("{:?}", app).is_empty());
+        assert!(!format!("{app:?}").is_empty());
     }
 }

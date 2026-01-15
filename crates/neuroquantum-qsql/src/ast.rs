@@ -3,9 +3,10 @@
 //! This module defines the AST nodes for parsing QSQL queries with neuromorphic
 //! and quantum-inspired extensions.
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+
+use serde::{Deserialize, Serialize};
 
 /// Learning algorithms for pattern learning
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

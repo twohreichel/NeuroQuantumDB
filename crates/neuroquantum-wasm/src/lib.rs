@@ -29,9 +29,10 @@
 //! }
 //! ```
 
+use std::collections::HashMap;
+
 use js_sys::{Array, Object, Reflect};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 /// Initialize panic hook for better error messages in the browser console
@@ -351,8 +352,9 @@ fn console_log(s: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use wasm_bindgen_test::*;
+
+    use super::*;
 
     #[wasm_bindgen_test]
     fn test_create_db() {

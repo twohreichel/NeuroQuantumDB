@@ -10,17 +10,15 @@
 
 use std::time::{Duration, Instant};
 
-use crate::{
-    ast::*,
-    error::*,
-    natural_language::*,
-    optimizer::NeuromorphicOptimizer,
-    parser::*,
-    query_plan::{
-        ExecutionStrategy, ExecutorConfig, OptimizationMetadata, QueryExecutor, QueryPlan,
-    },
-    QSQLConfig, QSQLEngine,
+use crate::ast::*;
+use crate::error::*;
+use crate::natural_language::*;
+use crate::optimizer::NeuromorphicOptimizer;
+use crate::parser::*;
+use crate::query_plan::{
+    ExecutionStrategy, ExecutorConfig, OptimizationMetadata, QueryExecutor, QueryPlan,
 };
+use crate::{QSQLConfig, QSQLEngine};
 
 #[cfg(test)]
 mod parser_tests {
@@ -1577,8 +1575,9 @@ mod engine_tests {
 
 #[cfg(test)]
 mod integration_tests {
-    use super::*;
     use tokio::time::timeout;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_full_pipeline() {

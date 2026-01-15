@@ -50,13 +50,14 @@
 //! let solution = solver.solve(&problem).await?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
 use super::tfim::{TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
+use crate::error::{CoreError, CoreResult};
 
 // =============================================================================
 // Annealing Backend Trait
@@ -721,14 +722,15 @@ impl UnifiedTFIMAnnealingSolver {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::DMatrix;
+
+    use super::*;
 
     #[test]
     fn test_bqm_from_tfim() {
         let problem = TFIMProblem {
             num_spins: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.5, -0.5, 0.0],
             name: "Test".to_string(),
         };
@@ -770,7 +772,7 @@ mod tests {
 
         let problem = TFIMProblem {
             num_spins: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0; 3],
             name: "Test".to_string(),
         };
@@ -796,7 +798,7 @@ mod tests {
 
         let problem = TFIMProblem {
             num_spins: 4,
-            couplings: DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0; 4],
             name: "Unified Test".to_string(),
         };

@@ -1,19 +1,17 @@
+use std::future::{ready, Ready};
+use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
+
+use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
+use actix_web::http::header::{HeaderName, HeaderValue};
+use actix_web::{Error, HttpMessage};
+use futures_util::future::LocalBoxFuture;
+use tracing::{debug, info, warn};
+
 use crate::auth::AuthService;
 use crate::error::ApiError;
 use crate::jwt::JwtService;
-use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    http::header::{HeaderName, HeaderValue},
-    Error, HttpMessage,
-};
-use futures_util::future::LocalBoxFuture;
-use std::{
-    future::{ready, Ready},
-    rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
-    time::{Duration, Instant},
-};
-use tracing::{debug, info, warn};
 
 /// Authentication middleware that supports both JWT and API key authentication
 pub struct AuthMiddleware<S> {

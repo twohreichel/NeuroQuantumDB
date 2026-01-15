@@ -5,9 +5,10 @@
 //!
 //! Uses reed-solomon-simd for better performance and to avoid unmaintained dependencies.
 
-use crate::dna::{DNABase, DNAError};
 use reed_solomon_simd::{ReedSolomonDecoder, ReedSolomonEncoder};
 use tracing::{debug, instrument, warn};
+
+use crate::dna::{DNABase, DNAError};
 
 /// Error correction statistics
 #[derive(Debug, Default, Clone)]

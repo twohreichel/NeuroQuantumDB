@@ -32,11 +32,12 @@
 //! - Spin glass problems
 //! - Prototyping before deploying to real quantum annealers
 
-use crate::error::{CoreError, CoreResult};
 use nalgebra::DMatrix;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
+
+use crate::error::{CoreError, CoreResult};
 
 /// Field schedule for transverse field annealing
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -431,7 +432,7 @@ mod tests {
     fn test_tfim_simple() {
         let problem = TFIMProblem {
             num_spins: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0, 0.0, 0.0],
             name: "Simple".to_string(),
         };

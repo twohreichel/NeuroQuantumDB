@@ -3,10 +3,11 @@
 //! Diese Test-Suite validiert die vollständige SQL Engine Implementierung
 //! mit SELECT, INSERT, UPDATE, DELETE sowie neuromorphic und quantum features.
 
+use std::time::Duration;
+
 use crate::ast::*;
 use crate::parser::QSQLParser;
 use crate::query_plan::*;
-use std::time::Duration;
 
 #[test]
 fn test_basic_select_parsing() {
