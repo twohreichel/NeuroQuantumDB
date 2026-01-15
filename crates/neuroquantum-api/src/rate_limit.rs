@@ -371,7 +371,7 @@ impl RateLimitMiddleware {
     }
 
     /// Create middleware that uses IP address as the rate limiting key
-    #[must_use] 
+    #[must_use]
     pub fn by_ip(service: RateLimitService) -> Self {
         Self::new(service, |req| {
             req.connection_info()
@@ -382,7 +382,7 @@ impl RateLimitMiddleware {
     }
 
     /// Create middleware that uses user ID from JWT token as the rate limiting key
-    #[must_use] 
+    #[must_use]
     pub fn by_user(service: RateLimitService) -> Self {
         Self::new(service, |req| {
             if let Some(auth_token) = req.extensions().get::<crate::error::AuthToken>() {
@@ -397,7 +397,7 @@ impl RateLimitMiddleware {
     }
 
     /// Create middleware that uses API key as the rate limiting key
-    #[must_use] 
+    #[must_use]
     pub fn by_api_key(service: RateLimitService) -> Self {
         Self::new(service, |req| {
             if let Some(api_key) = req.extensions().get::<crate::auth::ApiKey>() {

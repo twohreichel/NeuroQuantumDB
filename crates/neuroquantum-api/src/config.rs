@@ -109,7 +109,7 @@ impl Default for JwtConfig {
 
 impl JwtConfig {
     /// Check if the current secret is a known insecure default
-    #[must_use] 
+    #[must_use]
     pub fn is_insecure_default_secret(&self) -> bool {
         INSECURE_DEFAULT_SECRETS.contains(&self.secret.as_str())
     }
@@ -535,19 +535,19 @@ impl ApiConfig {
     }
 
     /// Get the bind address for the server
-    #[must_use] 
+    #[must_use]
     pub fn bind_address(&self) -> String {
         format!("{}:{}", self.server.host, self.server.port)
     }
 
     /// Check if TLS is enabled
-    #[must_use] 
+    #[must_use]
     pub const fn is_tls_enabled(&self) -> bool {
         self.server.tls.is_some()
     }
 
     /// Get the base URL for the API
-    #[must_use] 
+    #[must_use]
     pub fn base_url(&self) -> String {
         let protocol = if self.is_tls_enabled() {
             "https"
@@ -565,7 +565,7 @@ impl ApiConfig {
     }
 
     /// Create a development configuration
-    #[must_use] 
+    #[must_use]
     pub fn development() -> Self {
         Self {
             server: ServerConfig {
@@ -601,7 +601,7 @@ impl ApiConfig {
     }
 
     /// Create a production configuration
-    #[must_use] 
+    #[must_use]
     pub fn production() -> Self {
         Self {
             server: ServerConfig {

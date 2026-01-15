@@ -36,7 +36,7 @@ pub enum ActivationFunction {
 
 impl ActivationFunction {
     /// Apply the activation function to an input value
-    #[must_use] 
+    #[must_use]
     pub fn activate(&self, x: f32) -> f32 {
         match self {
             | Self::Sigmoid => 1.0 / (1.0 + (-x).exp()),
@@ -54,7 +54,7 @@ impl ActivationFunction {
     }
 
     /// Derivative of the activation function for backpropagation
-    #[must_use] 
+    #[must_use]
     pub fn derivative(&self, x: f32) -> f32 {
         match self {
             | Self::Sigmoid => {
@@ -99,7 +99,7 @@ pub struct Neuron {
 
 impl Neuron {
     /// Create a new neuron with specified activation function
-    #[must_use] 
+    #[must_use]
     pub const fn new(id: u64, activation_function: ActivationFunction) -> Self {
         Self {
             id,
@@ -124,7 +124,7 @@ impl Neuron {
     }
 
     /// Check if neuron can fire (not in refractory period)
-    #[must_use] 
+    #[must_use]
     pub fn can_fire(&self) -> bool {
         if let Some(last_spike) = self.last_spike_time {
             let elapsed = Instant::now().duration_since(last_spike);
@@ -160,7 +160,7 @@ pub struct Synapse {
 
 impl Synapse {
     /// Create a new synapse
-    #[must_use] 
+    #[must_use]
     pub fn new(pre_neuron: u64, post_neuron: u64, initial_weight: f32) -> Self {
         Self {
             pre_neuron,
@@ -194,7 +194,9 @@ impl Synapse {
 
     /// Update eligibility trace for temporal credit assignment
     pub fn update_eligibility_trace(&mut self, pre_activity: f32, post_activity: f32, decay: f32) {
-        self.eligibility_trace = self.eligibility_trace.mul_add(decay, pre_activity * post_activity);
+        self.eligibility_trace = self
+            .eligibility_trace
+            .mul_add(decay, pre_activity * post_activity);
     }
 }
 
@@ -230,7 +232,7 @@ pub struct SynapticConnection {
 
 impl SynapticNode {
     /// Create a new synaptic node
-    #[must_use] 
+    #[must_use]
     pub fn new(id: u64) -> Self {
         Self {
             id,
@@ -248,7 +250,7 @@ impl SynapticNode {
     }
 
     /// Create a node with data payload
-    #[must_use] 
+    #[must_use]
     pub fn with_data(id: u64, data: Vec<u8>) -> Self {
         Self {
             id,
@@ -338,7 +340,7 @@ impl SynapticNode {
     }
 
     /// Get memory usage of this node
-    #[must_use] 
+    #[must_use]
     pub const fn memory_usage(&self) -> usize {
         std::mem::size_of::<Self>()
             + self.connections.len() * std::mem::size_of::<SynapticConnection>()
@@ -471,7 +473,9 @@ impl SynapticNetwork {
 
         // Update pattern statistics
         pattern.access_count += 1;
-        pattern.performance_score = pattern.performance_score.mul_add(0.9, performance_metric * 0.1);
+        pattern.performance_score = pattern
+            .performance_score
+            .mul_add(0.9, performance_metric * 0.1);
         pattern.last_accessed = Instant::now();
 
         // Find optimal neurons for this pattern
@@ -1075,9 +1079,9 @@ impl SynapticNetwork {
             })?;
         }
 
-        tokio::fs::write(state_path, &state).await.map_err(|e| {
-            CoreError::StorageError(format!("Failed to write synaptic state: {e}"))
-        })?;
+        tokio::fs::write(state_path, &state)
+            .await
+            .map_err(|e| CoreError::StorageError(format!("Failed to write synaptic state: {e}")))?;
 
         tracing::info!("✅ Synaptic learning state saved ({} bytes)", state.len());
         Ok(())
@@ -1092,9 +1096,9 @@ impl SynapticNetwork {
             return Ok(());
         }
 
-        let state = tokio::fs::read(state_path).await.map_err(|e| {
-            CoreError::StorageError(format!("Failed to read synaptic state: {e}"))
-        })?;
+        let state = tokio::fs::read(state_path)
+            .await
+            .map_err(|e| CoreError::StorageError(format!("Failed to read synaptic state: {e}")))?;
 
         self.deserialize_network_state(&state)?;
 

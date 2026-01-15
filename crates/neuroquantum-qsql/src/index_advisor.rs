@@ -181,13 +181,13 @@ pub struct IndexAdvisor {
 
 impl IndexAdvisor {
     /// Create a new Index Advisor with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(IndexAdvisorConfig::default())
     }
 
     /// Create a new Index Advisor with custom configuration
-    #[must_use] 
+    #[must_use]
     pub fn with_config(config: IndexAdvisorConfig) -> Self {
         Self {
             config,
@@ -560,9 +560,7 @@ impl IndexAdvisor {
         let index_name = format!("idx_{}_{}_advisor", table_name, columns.join("_"));
 
         let columns_sql = columns.join(", ");
-        let create_statement = format!(
-            "CREATE INDEX {index_name} ON {table_name} ({columns_sql})"
-        );
+        let create_statement = format!("CREATE INDEX {index_name} ON {table_name} ({columns_sql})");
 
         // Estimate improvement based on full scan ratio and column usage
         let full_scan_ratio = if table_stats.query_count > 0 {
@@ -691,7 +689,8 @@ impl IndexAdvisor {
                 join_columns[0].clone(),
                 where_columns
                     .iter()
-                    .find(|c| **c != join_columns[0]).map_or_else(|| where_columns[0].clone(), |c| (*c).clone()),
+                    .find(|c| **c != join_columns[0])
+                    .map_or_else(|| where_columns[0].clone(), |c| (*c).clone()),
             ];
 
             // Don't recommend if it's the same column twice
@@ -711,9 +710,8 @@ impl IndexAdvisor {
             );
 
             let columns_sql = composite_columns.join(", ");
-            let create_statement = format!(
-                "CREATE INDEX {index_name} ON {table_name} ({columns_sql})"
-            );
+            let create_statement =
+                format!("CREATE INDEX {index_name} ON {table_name} ({columns_sql})");
 
             // Generate unique ID for composite index recommendation
             let id = format!(

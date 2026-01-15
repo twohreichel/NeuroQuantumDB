@@ -729,9 +729,7 @@ mod input_validation_tests {
         let depth = 100;
         let nested_parens_open = "(".repeat(depth);
         let nested_parens_close = ")".repeat(depth);
-        let query = format!(
-            "SELECT * FROM t WHERE {nested_parens_open}1=1{nested_parens_close}"
-        );
+        let query = format!("SELECT * FROM t WHERE {nested_parens_open}1=1{nested_parens_close}");
 
         let start = Instant::now();
         let result = parser.parse(&query);
@@ -1035,10 +1033,7 @@ mod timing_attack_tests {
 
         // Additionally verify the function returns correct results
         assert!(constant_time_compare(secret.as_bytes(), secret.as_bytes()));
-        assert!(!constant_time_compare(
-            secret.as_bytes(),
-            b"wrong"
-        ));
+        assert!(!constant_time_compare(secret.as_bytes(), b"wrong"));
     }
 
     /// Test password hash timing

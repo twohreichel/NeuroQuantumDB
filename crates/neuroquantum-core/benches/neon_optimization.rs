@@ -12,7 +12,7 @@ fn bench_dna_compression(c: &mut Criterion) {
     let mut group = c.benchmark_group("dna_compression");
 
     // Test with different data sizes
-    for size in [64, 256, 1024, 4096, 16384].iter() {
+    for size in &[64, 256, 1024, 4096, 16384] {
         let data: Vec<u8> = (0..*size).map(|i| (i % 256) as u8).collect();
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
@@ -35,7 +35,7 @@ fn bench_matrix_multiply(c: &mut Criterion) {
     let mut group = c.benchmark_group("matrix_multiply");
 
     // Test with different matrix sizes
-    for size in [4, 8, 16, 32, 64].iter() {
+    for size in &[4, 8, 16, 32, 64] {
         let rows_a = *size;
         let cols_a = *size;
         let cols_b = *size;
@@ -69,7 +69,7 @@ fn bench_quantum_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("quantum_operations");
 
     // Test with different state vector sizes (powers of 2 for quantum states)
-    for qubits in [4, 6, 8, 10, 12].iter() {
+    for qubits in &[4, 6, 8, 10, 12] {
         let size = 1 << qubits; // 2^qubits
         let real_parts: Vec<f32> = (0..size).map(|i| (i as f32) / (size as f32)).collect();
         let imag_parts: Vec<f32> = (0..size)
@@ -136,7 +136,7 @@ fn bench_parallel_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("parallel_search");
 
     // Test with different haystack sizes
-    for size in [256, 1024, 4096, 16384].iter() {
+    for size in &[256, 1024, 4096, 16384] {
         let haystack: Vec<u8> = (0..*size).map(|i| (i % 256) as u8).collect();
         let needle = vec![42u8, 43, 44, 45];
 
@@ -160,7 +160,7 @@ fn bench_dot_product(c: &mut Criterion) {
     let mut group = c.benchmark_group("dot_product");
 
     // Test with different vector sizes
-    for size in [16, 64, 256, 1024, 4096].iter() {
+    for size in &[16, 64, 256, 1024, 4096] {
         let a: Vec<f32> = (0..*size).map(|i| i as f32 * 0.1).collect();
         let b: Vec<f32> = (0..*size).map(|i| i as f32 * 0.2).collect();
 
@@ -180,8 +180,8 @@ fn bench_activation_function(c: &mut Criterion) {
     let mut group = c.benchmark_group("activation_function");
 
     // Test with different input sizes (typical neural network layer sizes)
-    for size in [64, 128, 256, 512, 1024].iter() {
-        let inputs: Vec<f32> = (0..*size).map(|i| (i as f32) * 0.01 - 5.0).collect();
+    for size in &[64, 128, 256, 512, 1024] {
+        let inputs: Vec<f32> = (0..*size).map(|i| (i as f32).mul_add(0.01, -5.0)).collect();
         let threshold = 0.5;
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {

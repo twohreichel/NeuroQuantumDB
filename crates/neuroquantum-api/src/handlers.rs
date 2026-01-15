@@ -1,5 +1,17 @@
 use crate::auth::{ApiKey, AuthService};
-use crate::error::{SqlQueryRequest, SqlQueryResponse, CreateTableRequest, CreateTableResponse, InsertDataRequest, InsertDataResponse, QueryDataRequest, QueryDataResponse, UpdateDataRequest, UpdateDataResponse, DeleteDataRequest, DeleteDataResponse, TrainNeuralNetworkRequest, TrainNeuralNetworkResponse, QuantumSearchRequest, QuantumSearchResponse, QuantumSearchResult, QuantumStats, TFIMRequestConfig, TFIMResults, QUBORequestConfig, QUBOResults, ParallelTemperingRequestConfig, ParallelTemperingResults, GroverRequestConfig, GroverResults, CompressDnaRequest, CompressDnaResponse, CompressedSequence, CompressionStats, DecompressDnaRequest, DecompressDnaResponse, DecompressedSequence, DecompressionStats, PerformanceStats, SystemMetrics, DatabaseMetrics, NeuralMetrics, QuantumMetrics, TableSchema, ColumnDefinition, DataType, ApiError, ApiResponse, ResponseMetadata, ConstraintType, QueryStats, TrainingStatus};
+use crate::error::{
+    ApiError, ApiResponse, ColumnDefinition, CompressDnaRequest, CompressDnaResponse,
+    CompressedSequence, CompressionStats, ConstraintType, CreateTableRequest, CreateTableResponse,
+    DataType, DatabaseMetrics, DecompressDnaRequest, DecompressDnaResponse, DecompressedSequence,
+    DecompressionStats, DeleteDataRequest, DeleteDataResponse, GroverRequestConfig, GroverResults,
+    InsertDataRequest, InsertDataResponse, NeuralMetrics, ParallelTemperingRequestConfig,
+    ParallelTemperingResults, PerformanceStats, QUBORequestConfig, QUBOResults, QuantumMetrics,
+    QuantumSearchRequest, QuantumSearchResponse, QuantumSearchResult, QuantumStats,
+    QueryDataRequest, QueryDataResponse, QueryStats, ResponseMetadata, SqlQueryRequest,
+    SqlQueryResponse, SystemMetrics, TFIMRequestConfig, TFIMResults, TableSchema,
+    TrainNeuralNetworkRequest, TrainNeuralNetworkResponse, TrainingStatus, UpdateDataRequest,
+    UpdateDataResponse,
+};
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Result as ActixResult};
 use neuroquantum_core::{DNACompressor, NeuroQuantumDB};
 use neuroquantum_qsql::query_plan::QueryValue;
@@ -857,9 +869,7 @@ pub async fn update_data(
         response,
         ResponseMetadata::new(
             start.elapsed(),
-            &format!(
-                "Updated {updated_count} records in table '{table_name}'"
-            ),
+            &format!("Updated {updated_count} records in table '{table_name}'"),
         ),
     )))
 }
@@ -935,9 +945,7 @@ pub async fn delete_data(
         response,
         ResponseMetadata::new(
             start.elapsed(),
-            &format!(
-                "Deleted {deleted_count} records from table '{table_name}'"
-            ),
+            &format!("Deleted {deleted_count} records from table '{table_name}'"),
         ),
     )))
 }
@@ -1228,9 +1236,12 @@ pub async fn quantum_search(
     let compute_quantum_scores = |idx: usize| -> (f32, f32, f32) {
         let base_score = (idx as f32).mul_add(-SIMILARITY_DECAY, BASE_SIMILARITY);
         let similarity_score = (base_score * entanglement_boost).min(1.0);
-        let quantum_probability = (idx as f32).mul_add(-PROBABILITY_DECAY, BASE_PROBABILITY).max(0.0);
-        let entanglement_strength =
-            (idx as f32).mul_add(-ENTANGLEMENT_DECAY, BASE_ENTANGLEMENT).max(0.0);
+        let quantum_probability = (idx as f32)
+            .mul_add(-PROBABILITY_DECAY, BASE_PROBABILITY)
+            .max(0.0);
+        let entanglement_strength = (idx as f32)
+            .mul_add(-ENTANGLEMENT_DECAY, BASE_ENTANGLEMENT)
+            .max(0.0);
         (similarity_score, quantum_probability, entanglement_strength)
     };
 
@@ -1309,7 +1320,10 @@ pub async fn quantum_search(
     };
 
     let quantum_stats = QuantumStats {
-        coherence_time_used_ms: start.elapsed().as_secs_f32().mul_add(1000.0, QUANTUM_OVERHEAD_MS),
+        coherence_time_used_ms: start
+            .elapsed()
+            .as_secs_f32()
+            .mul_add(1000.0, QUANTUM_OVERHEAD_MS),
         superposition_states: search_req.query_vector.len() as u32,
         measurement_collapses: results.len() as u32,
         entanglement_operations: (results.len() * 2) as u32,
@@ -1453,7 +1467,8 @@ fn execute_tfim_computation(search_req: &QuantumSearchRequest) -> Result<TFIMRes
             )
         } else if let Some(ref classical_sol) = result.classical_solution {
             // Classical solution: generate approximate observables
-            let magnetization: Vec<f64> = classical_sol.spins.iter().map(|&s| f64::from(s)).collect();
+            let magnetization: Vec<f64> =
+                classical_sol.spins.iter().map(|&s| f64::from(s)).collect();
             let order_param = magnetization.iter().sum::<f64>() / num_qubits as f64;
             (
                 classical_sol.energy,
@@ -1918,9 +1933,7 @@ pub async fn compress_dna(
             .all(|c| matches!(c, 'A' | 'T' | 'G' | 'C' | 'a' | 't' | 'g' | 'c'))
         {
             return Err(ApiError::CompressionError {
-                reason: format!(
-                    "Invalid DNA sequence at index {i}: contains non-ATGC characters"
-                ),
+                reason: format!("Invalid DNA sequence at index {i}: contains non-ATGC characters"),
             });
         }
 
@@ -2776,9 +2789,7 @@ pub async fn biometric_enroll(
         user_id: body.user_id.clone(),
         enrollment_status: "completed".to_string(),
         template_quality: avg_quality / 100.0, // Convert to 0-1 scale
-        message: format!(
-            "EEG-Muster erfolgreich registriert ({successful_samples} samples)"
-        ),
+        message: format!("EEG-Muster erfolgreich registriert ({successful_samples} samples)"),
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
@@ -3007,8 +3018,10 @@ pub async fn execute_sql_query(
                                     },
                                     | QueryValue::DNASequence(s) => serde_json::Value::String(s),
                                     | QueryValue::SynapticWeight(w) => {
-                                        serde_json::Number::from_f64(f64::from(w))
-                                            .map_or(serde_json::Value::Null, serde_json::Value::Number)
+                                        serde_json::Number::from_f64(f64::from(w)).map_or(
+                                            serde_json::Value::Null,
+                                            serde_json::Value::Number,
+                                        )
                                     },
                                     | QueryValue::QuantumState(s) => serde_json::Value::String(s),
                                 };

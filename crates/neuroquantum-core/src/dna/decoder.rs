@@ -16,7 +16,7 @@ pub struct QuaternaryDecoder {
 
 impl QuaternaryDecoder {
     /// Create a new decoder with the given configuration
-    #[must_use] 
+    #[must_use]
     pub fn new(config: &DNACompressionConfig) -> Self {
         Self {
             config: config.clone(),
@@ -311,7 +311,7 @@ impl QuaternaryDecoder {
     }
 
     /// Get decoding statistics for the last operation
-    #[must_use] 
+    #[must_use]
     pub fn get_decoding_stats(&self, bases: &[DNABase]) -> DecodingStats {
         let total_bases = bases.len();
         let expected_bytes = total_bases / 4;

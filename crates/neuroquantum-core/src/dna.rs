@@ -55,13 +55,13 @@ impl DNABase {
     }
 
     /// Get the 2-bit representation of this base
-    #[must_use] 
+    #[must_use]
     pub const fn to_bits(self) -> u8 {
         self as u8
     }
 
     /// Get the ASCII character representation
-    #[must_use] 
+    #[must_use]
     pub const fn to_char(self) -> char {
         match self {
             | Self::Adenine => 'A',
@@ -235,13 +235,13 @@ pub struct QuantumDNACompressor {
 
 impl QuantumDNACompressor {
     /// Create a new DNA compressor with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(DNACompressionConfig::default())
     }
 
     /// Create a new DNA compressor with custom configuration
-    #[must_use] 
+    #[must_use]
     pub fn with_config(config: DNACompressionConfig) -> Self {
         let metrics = Arc::new(std::sync::Mutex::new(CompressionMetrics {
             compression_time_us: 0,

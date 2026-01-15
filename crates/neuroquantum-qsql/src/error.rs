@@ -273,7 +273,7 @@ pub struct ErrorContext {
 }
 
 impl ErrorContext {
-    #[must_use] 
+    #[must_use]
     pub const fn new(query: String, operation: String) -> Self {
         Self {
             query,
@@ -284,7 +284,7 @@ impl ErrorContext {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn with_position(mut self, position: usize) -> Self {
         self.position = Some(position);
 

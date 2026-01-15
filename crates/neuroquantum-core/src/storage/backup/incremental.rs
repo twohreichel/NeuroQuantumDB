@@ -296,7 +296,7 @@ pub struct IncrementalBackupManager {
 
 impl IncrementalBackupManager {
     /// Create a new incremental backup manager
-    #[must_use] 
+    #[must_use]
     pub const fn new(last_full_backup_lsn: u64) -> Self {
         Self {
             last_full_backup_lsn,
@@ -305,7 +305,7 @@ impl IncrementalBackupManager {
     }
 
     /// Get LSN to backup from
-    #[must_use] 
+    #[must_use]
     pub fn get_backup_since_lsn(&self) -> u64 {
         self.last_incremental_backup_lsn
             .unwrap_or(self.last_full_backup_lsn)

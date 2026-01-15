@@ -155,14 +155,14 @@ impl AutoIncrementConfig {
     }
 
     /// Set the starting value
-    #[must_use] 
+    #[must_use]
     pub const fn start_with(mut self, start: i64) -> Self {
         self.next_value = start;
         self
     }
 
     /// Set the increment step
-    #[must_use] 
+    #[must_use]
     pub const fn increment_by(mut self, step: i64) -> Self {
         self.increment_by = step;
         self
@@ -419,7 +419,7 @@ pub struct QueryExecutionStats {
 }
 
 impl QueryExecutionStats {
-    #[must_use] 
+    #[must_use]
     pub fn cache_hit_rate(&self) -> Option<f32> {
         let total = self.cache_hits + self.cache_misses;
         if total > 0 {
@@ -507,7 +507,7 @@ impl StorageEngine {
     /// # }
     /// ```
     #[doc(hidden)] // Hide from public API docs
-    #[must_use] 
+    #[must_use]
     pub fn new_placeholder(data_dir: &std::path::Path) -> Self {
         let metadata = DatabaseMetadata {
             version: "1.0.0".to_string(),
@@ -1459,19 +1459,19 @@ impl StorageEngine {
     }
 
     /// Get the last query execution statistics
-    #[must_use] 
+    #[must_use]
     pub const fn get_last_query_stats(&self) -> &QueryExecutionStats {
         &self.last_query_stats
     }
 
     /// Get a reference to the transaction manager
-    #[must_use] 
+    #[must_use]
     pub const fn get_transaction_manager(&self) -> &TransactionManager {
         &self.transaction_manager
     }
 
     /// Get the number of tables in the database
-    #[must_use] 
+    #[must_use]
     pub fn get_table_count(&self) -> usize {
         self.metadata.tables.len()
     }
@@ -1480,7 +1480,7 @@ impl StorageEngine {
     ///
     /// Returns the table schema if it exists, or None if the table doesn't exist.
     /// This is useful for checking column definitions and default values during INSERT.
-    #[must_use] 
+    #[must_use]
     pub fn get_table_schema(&self, table_name: &str) -> Option<&TableSchema> {
         self.metadata.tables.get(table_name)
     }
@@ -1826,11 +1826,8 @@ impl StorageEngine {
         }
 
         // Fall back to JSON for legacy compatibility
-        serde_json::from_slice::<Row>(&decompressed).map_err(|e| {
-            anyhow!(
-                "Failed to deserialize row with both bincode and JSON: {e}"
-            )
-        })
+        serde_json::from_slice::<Row>(&decompressed)
+            .map_err(|e| anyhow!("Failed to deserialize row with both bincode and JSON: {e}"))
     }
 
     /// Update indexes for inserted row
@@ -3220,7 +3217,7 @@ impl StorageEngine {
 // === HELPER FUNCTIONS ===
 
 /// Create a basic table schema for testing
-#[must_use] 
+#[must_use]
 pub fn create_test_schema(name: &str) -> TableSchema {
     TableSchema {
         name: name.to_string(),
@@ -3280,21 +3277,21 @@ impl ColumnDefinition {
     }
 
     /// Set the column as nullable
-    #[must_use] 
+    #[must_use]
     pub const fn nullable(mut self) -> Self {
         self.nullable = true;
         self
     }
 
     /// Set a default value for the column
-    #[must_use] 
+    #[must_use]
     pub fn with_default(mut self, value: Value) -> Self {
         self.default_value = Some(value);
         self
     }
 
     /// Explicitly set auto-increment behavior
-    #[must_use] 
+    #[must_use]
     pub const fn auto_increment(mut self) -> Self {
         self.auto_increment = true;
         self
@@ -3331,7 +3328,7 @@ impl TableSchema {
     }
 
     /// Set a custom ID generation strategy
-    #[must_use] 
+    #[must_use]
     pub const fn with_id_strategy(mut self, strategy: IdGenerationStrategy) -> Self {
         self.id_strategy = strategy;
         self
@@ -3339,7 +3336,7 @@ impl TableSchema {
 }
 
 /// Create a test row
-#[must_use] 
+#[must_use]
 pub fn create_test_row(id: i64, name: &str) -> Row {
     let mut fields = HashMap::new();
     fields.insert("id".to_string(), Value::Integer(id));

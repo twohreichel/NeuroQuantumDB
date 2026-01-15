@@ -1324,10 +1324,7 @@ async fn test_special_characters_in_text() {
         };
 
         let result = storage.insert_row(table_name, row).await;
-        assert!(
-            result.is_ok(),
-            "Should handle special characters: {text:?}"
-        );
+        assert!(result.is_ok(), "Should handle special characters: {text:?}");
     }
 
     // Verify all records were stored

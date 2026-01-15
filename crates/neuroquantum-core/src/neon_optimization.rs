@@ -159,7 +159,12 @@ impl NeonOptimizer {
         // Handle remaining connections
         let remaining_start = num_chunks * chunk_size;
         for connection in node.connections.iter_mut().skip(remaining_start) {
-            connection.weight = connection.weight.mul_add(node.decay_factor, connection.usage_count as f32 * 0.01 * node.learning_rate)
+            connection.weight = connection
+                .weight
+                .mul_add(
+                    node.decay_factor,
+                    connection.usage_count as f32 * 0.01 * node.learning_rate,
+                )
                 .clamp(-1.0, 1.0);
         }
 
@@ -321,13 +326,13 @@ impl NeonOptimizer {
     }
 
     /// Get optimization statistics
-    #[must_use] 
+    #[must_use]
     pub const fn get_stats(&self) -> &OptimizationStats {
         &self.optimization_stats
     }
 
     /// Check if NEON optimizations are enabled
-    #[must_use] 
+    #[must_use]
     pub const fn is_enabled(&self) -> bool {
         self.enabled
     }

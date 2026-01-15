@@ -4,8 +4,8 @@
 //! including synaptic pathway optimization, Hebbian learning for query patterns,
 //! and adaptive plasticity for performance tuning.
 
-use crate::ast::{Statement, SelectItem};
-use crate::error::{QSQLResult, QSQLError};
+use crate::ast::{SelectItem, Statement};
+use crate::error::{QSQLError, QSQLResult};
 use neuroquantum_core::learning::HebbianLearningEngine;
 use neuroquantum_core::plasticity::PlasticityMatrix;
 use neuroquantum_core::synaptic::SynapticNetwork;

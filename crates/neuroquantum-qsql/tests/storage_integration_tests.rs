@@ -356,10 +356,8 @@ async fn test_delete_with_dna_cleanup() {
                 updated_at: chrono::Utc::now(),
             };
             row.fields.insert("id".to_string(), Value::Integer(i));
-            row.fields.insert(
-                "message".to_string(),
-                Value::Text(format!("Log entry {i}")),
-            );
+            row.fields
+                .insert("message".to_string(), Value::Text(format!("Log entry {i}")));
             storage_guard.insert_row("logs", row).await.unwrap();
         }
     }

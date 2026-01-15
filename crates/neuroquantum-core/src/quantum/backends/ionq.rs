@@ -124,7 +124,7 @@ impl std::fmt::Display for IonQTarget {
 
 impl IonQTarget {
     /// Get max qubits for this target
-    #[must_use] 
+    #[must_use]
     pub const fn max_qubits(&self) -> usize {
         match self {
             | Self::Aria => 25,
@@ -166,7 +166,7 @@ pub struct IonQBackend {
 
 impl IonQBackend {
     /// Create a new `IonQ` backend with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: IonQConfig) -> Self {
         Self { config }
     }
@@ -176,7 +176,7 @@ impl IonQBackend {
     /// Reads:
     /// - `IONQ_API_KEY`: API key
     /// - `IONQ_TARGET`: Target device (optional, defaults to simulator)
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let target = std::env::var("IONQ_TARGET")
             .ok()
@@ -196,7 +196,7 @@ impl IonQBackend {
     }
 
     /// Get the API key, checking environment if not configured
-    #[must_use] 
+    #[must_use]
     pub fn get_api_key(&self) -> Option<String> {
         self.config
             .api_key
@@ -205,7 +205,7 @@ impl IonQBackend {
     }
 
     /// Get the current configuration
-    #[must_use] 
+    #[must_use]
     pub const fn config(&self) -> &IonQConfig {
         &self.config
     }
@@ -216,13 +216,13 @@ impl IonQBackend {
     }
 
     /// Get the target device
-    #[must_use] 
+    #[must_use]
     pub const fn target(&self) -> IonQTarget {
         self.config.target
     }
 
     /// Build `IonQ` circuit in their JSON format
-    #[must_use] 
+    #[must_use]
     pub fn build_circuit(&self, num_qubits: usize, gates: &[IonQGate]) -> IonQCircuit {
         IonQCircuit {
             qubits: num_qubits,
@@ -231,7 +231,7 @@ impl IonQBackend {
     }
 
     /// Build Grover's algorithm circuit for `IonQ`
-    #[must_use] 
+    #[must_use]
     pub fn build_grover_circuit(
         &self,
         num_qubits: usize,
@@ -304,7 +304,7 @@ impl IonQBackend {
     }
 
     /// Convert circuit to `IonQ` native gates
-    #[must_use] 
+    #[must_use]
     pub fn to_native_gates(&self, circuit: &IonQCircuit) -> IonQCircuit {
         let mut native = Vec::new();
 

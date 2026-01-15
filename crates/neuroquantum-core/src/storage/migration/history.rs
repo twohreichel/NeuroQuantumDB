@@ -57,7 +57,7 @@ pub struct MigrationHistory {
 
 impl MigrationHistory {
     /// Create a new migration history tracker
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             records: RwLock::new(HashMap::new()),

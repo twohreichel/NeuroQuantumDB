@@ -122,9 +122,7 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
                 execution_time_ms,
                 ..
             } => {
-                println!(
-                    "✅ Completed: {total_rows} rows in {execution_time_ms} ms"
-                );
+                println!("✅ Completed: {total_rows} rows in {execution_time_ms} ms");
             },
             | _ => {},
         }

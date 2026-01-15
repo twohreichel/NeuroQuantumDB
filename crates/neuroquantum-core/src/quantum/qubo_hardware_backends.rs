@@ -180,13 +180,13 @@ pub struct DWaveQUBOSolver {
 
 impl DWaveQUBOSolver {
     /// Create a new D-Wave QUBO solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: DWaveConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = DWaveConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -450,13 +450,13 @@ pub struct IBMQUBOSolver {
 
 impl IBMQUBOSolver {
     /// Create a new IBM Quantum QAOA solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: IBMConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IBMConfig {
             api_token: std::env::var("IBM_QUANTUM_TOKEN").ok(),
@@ -731,13 +731,13 @@ pub struct HybridQUBOSolver {
 
 impl HybridQUBOSolver {
     /// Create a new Hybrid solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: HybridSolverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = HybridSolverConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -859,7 +859,7 @@ pub struct SimulatedAnnealingQUBOSolver {
 
 impl SimulatedAnnealingQUBOSolver {
     /// Create a new simulated annealing solver
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: SimulatedAnnealingConfig) -> Self {
         Self { config }
     }
@@ -959,13 +959,13 @@ pub struct UnifiedQUBOSolver {
 
 impl UnifiedQUBOSolver {
     /// Create a new unified solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: UnifiedQUBOConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver that auto-configures from environment variables
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let dwave = if std::env::var("DWAVE_API_TOKEN").is_ok() {
             Some(DWaveConfig {

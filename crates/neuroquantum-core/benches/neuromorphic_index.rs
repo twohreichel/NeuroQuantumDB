@@ -3,7 +3,7 @@
 //! This module benchmarks neuromorphic (Hebbian) indexes against classical B+ Tree indexes
 //! to demonstrate the adaptive learning capabilities and performance characteristics.
 //!
-//! Run with: cargo bench --features benchmarks --bench neuromorphic_index
+//! Run with: cargo bench --features benchmarks --bench `neuromorphic_index`
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::learning::AntiHebbianLearning;
@@ -23,7 +23,7 @@ fn bench_hebbian_index_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("hebbian_index_insert");
     group.measurement_time(Duration::from_secs(10));
 
-    for size in [100, 1_000, 10_000].iter() {
+    for size in &[100, 1_000, 10_000] {
         group.throughput(Throughput::Elements(*size as u64));
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
@@ -34,7 +34,7 @@ fn bench_hebbian_index_insert(c: &mut Criterion) {
                 // Insert nodes with connections (simulating index entries)
                 for i in 0..size {
                     let node =
-                        SynapticNode::with_data(i as u64, format!("key{:010}", i).into_bytes());
+                        SynapticNode::with_data(i as u64, format!("key{i:010}").into_bytes());
                     let _ = network.add_node(node);
 
                     // Create connections to simulate index relationships
@@ -63,13 +63,13 @@ fn bench_hebbian_index_lookup(c: &mut Criterion) {
     let mut group = c.benchmark_group("hebbian_index_lookup");
     group.measurement_time(Duration::from_secs(10));
 
-    for size in [1_000, 10_000, 50_000].iter() {
+    for size in &[1_000, 10_000, 50_000] {
         group.throughput(Throughput::Elements(1));
 
         // Setup: Create network with data
         let network = SynapticNetwork::new(*size + 10, 0.5).unwrap();
         for i in 0..*size {
-            let node = SynapticNode::with_data(i as u64, format!("key{:010}", i).into_bytes());
+            let node = SynapticNode::with_data(i as u64, format!("key{i:010}").into_bytes());
             let _ = network.add_node(node);
 
             if i > 0 {
@@ -99,7 +99,7 @@ fn bench_hebbian_index_lookup(c: &mut Criterion) {
                     }
                 }
 
-                black_box(result.map(|n| n.data_payload.clone()))
+                black_box(result.map(|n| n.data_payload))
             });
         });
     }
@@ -112,14 +112,14 @@ fn bench_hebbian_learning_update(c: &mut Criterion) {
     let mut group = c.benchmark_group("hebbian_learning_update");
     group.measurement_time(Duration::from_secs(10));
 
-    for size in [100, 1_000, 5_000].iter() {
+    for size in &[100, 1_000, 5_000] {
         group.throughput(Throughput::Elements(*size as u64));
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             // Setup: Create network
             let network = SynapticNetwork::new(size + 10, 0.5).unwrap();
             for i in 0..size {
-                let node = SynapticNode::with_data(i as u64, format!("key{:010}", i).into_bytes());
+                let node = SynapticNode::with_data(i as u64, format!("key{i:010}").into_bytes());
                 let _ = network.add_node(node);
 
                 if i > 0 {
@@ -168,7 +168,7 @@ fn bench_hebbian_vs_btree_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("hebbian_vs_btree_insert");
     group.measurement_time(Duration::from_secs(15));
 
-    for size in [100, 1_000, 5_000].iter() {
+    for size in &[100, 1_000, 5_000] {
         group.throughput(Throughput::Elements(*size as u64));
 
         // B+ Tree insertion
@@ -180,7 +180,7 @@ fn bench_hebbian_vs_btree_insert(c: &mut Criterion) {
                     let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
                     for i in 0..size {
-                        let key = format!("key{:010}", i).into_bytes();
+                        let key = format!("key{i:010}").into_bytes();
                         btree.insert(key, i as u64).await.unwrap();
                     }
 
@@ -196,7 +196,7 @@ fn bench_hebbian_vs_btree_insert(c: &mut Criterion) {
 
                 for i in 0..size {
                     let node =
-                        SynapticNode::with_data(i as u64, format!("key{:010}", i).into_bytes());
+                        SynapticNode::with_data(i as u64, format!("key{i:010}").into_bytes());
                     let _ = network.add_node(node);
 
                     if i > 0 {
@@ -222,7 +222,7 @@ fn bench_hebbian_vs_btree_lookup(c: &mut Criterion) {
     let mut group = c.benchmark_group("hebbian_vs_btree_lookup");
     group.measurement_time(Duration::from_secs(15));
 
-    for size in [1_000, 10_000].iter() {
+    for size in &[1_000, 10_000] {
         group.throughput(Throughput::Elements(1));
 
         // Setup B+ Tree
@@ -232,7 +232,7 @@ fn bench_hebbian_vs_btree_lookup(c: &mut Criterion) {
             let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
             for i in 0..*size {
-                let key = format!("key{:010}", i).into_bytes();
+                let key = format!("key{i:010}").into_bytes();
                 btree.insert(key, i as u64).await.unwrap();
             }
 
@@ -242,7 +242,7 @@ fn bench_hebbian_vs_btree_lookup(c: &mut Criterion) {
         // Setup Hebbian Index
         let network = SynapticNetwork::new(*size + 10, 0.5).unwrap();
         for i in 0..*size {
-            let node = SynapticNode::with_data(i as u64, format!("key{:010}", i).into_bytes());
+            let node = SynapticNode::with_data(i as u64, format!("key{i:010}").into_bytes());
             let _ = network.add_node(node);
 
             if i > 0 {
@@ -264,7 +264,7 @@ fn bench_hebbian_vs_btree_lookup(c: &mut Criterion) {
             b.iter(|| {
                 let idx = search_indices[counter % search_indices.len()];
                 counter += 1;
-                let key = format!("key{:010}", idx).into_bytes();
+                let key = format!("key{idx:010}").into_bytes();
                 rt.block_on(async { black_box(btree.search(&key).await.unwrap()) })
             });
         });
@@ -290,11 +290,11 @@ fn bench_synaptic_weight_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("synaptic_weight_calculation");
     group.measurement_time(Duration::from_secs(10));
 
-    for connection_count in [100, 1_000, 10_000].iter() {
+    for connection_count in &[100, 1_000, 10_000] {
         group.throughput(Throughput::Elements(*connection_count as u64));
 
         // Setup network with many connections
-        let node_count = (*connection_count as f64).sqrt() as usize + 1;
+        let node_count = f64::from(*connection_count).sqrt() as usize + 1;
         let network = SynapticNetwork::new(node_count + 10, 0.5).unwrap();
 
         for i in 0..node_count {
@@ -351,7 +351,7 @@ fn bench_anti_hebbian_pruning(c: &mut Criterion) {
     let mut group = c.benchmark_group("anti_hebbian_pruning");
     group.measurement_time(Duration::from_secs(10));
 
-    for size in [1_000, 5_000, 10_000].iter() {
+    for size in &[1_000, 5_000, 10_000] {
         group.throughput(Throughput::Elements(*size as u64));
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
@@ -394,7 +394,7 @@ fn bench_competitive_learning(c: &mut Criterion) {
     let mut group = c.benchmark_group("competitive_learning");
     group.measurement_time(Duration::from_secs(10));
 
-    for neuron_count in [50, 100, 500].iter() {
+    for neuron_count in &[50, 100, 500] {
         group.throughput(Throughput::Elements(*neuron_count as u64));
 
         // Setup network
@@ -456,11 +456,11 @@ fn bench_activation_functions(c: &mut Criterion) {
         ActivationFunction::LeakyReLU,
     ];
 
-    for func in functions.iter() {
+    for func in &functions {
         group.throughput(Throughput::Elements(inputs.len() as u64));
 
         group.bench_with_input(
-            BenchmarkId::new("activate", format!("{:?}", func)),
+            BenchmarkId::new("activate", format!("{func:?}")),
             &inputs,
             |b, inputs| {
                 b.iter(|| {
@@ -471,7 +471,7 @@ fn bench_activation_functions(c: &mut Criterion) {
         );
 
         group.bench_with_input(
-            BenchmarkId::new("derivative", format!("{:?}", func)),
+            BenchmarkId::new("derivative", format!("{func:?}")),
             &inputs,
             |b, inputs| {
                 b.iter(|| {

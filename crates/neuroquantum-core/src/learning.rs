@@ -78,7 +78,7 @@ impl AntiHebbianLearning {
     /// # Arguments
     /// * `decay_rate` - Rate of synaptic decay (0.0-1.0), higher = faster decay
     /// * `pruning_threshold` - Weight threshold for connection pruning
-    #[must_use] 
+    #[must_use]
     pub fn new(decay_rate: f32, pruning_threshold: f32) -> Self {
         Self {
             decay_rate: decay_rate.clamp(0.0, 1.0),
@@ -93,7 +93,7 @@ impl AntiHebbianLearning {
     }
 
     /// Create with full configuration
-    #[must_use] 
+    #[must_use]
     pub fn with_config(
         decay_rate: f32,
         pruning_threshold: f32,
@@ -173,8 +173,10 @@ impl AntiHebbianLearning {
         // Update statistics
         self.stats.decay_operations += 1;
         if decay_count > 0 {
-            self.stats.average_decay_applied =
-                f32::midpoint(self.stats.average_decay_applied, total_decay / decay_count as f32);
+            self.stats.average_decay_applied = f32::midpoint(
+                self.stats.average_decay_applied,
+                total_decay / decay_count as f32,
+            );
         }
 
         info!(
@@ -439,7 +441,7 @@ impl AntiHebbianLearning {
     }
 
     /// Get current statistics
-    #[must_use] 
+    #[must_use]
     pub const fn get_stats(&self) -> &AntiHebbianStats {
         &self.stats
     }
@@ -465,19 +467,19 @@ impl AntiHebbianLearning {
     }
 
     /// Get the decay rate
-    #[must_use] 
+    #[must_use]
     pub const fn decay_rate(&self) -> f32 {
         self.decay_rate
     }
 
     /// Get the competition factor
-    #[must_use] 
+    #[must_use]
     pub const fn competition_factor(&self) -> f32 {
         self.competition_factor
     }
 
     /// Get the pruning threshold
-    #[must_use] 
+    #[must_use]
     pub const fn pruning_threshold(&self) -> f32 {
         self.pruning_threshold
     }
@@ -567,8 +569,10 @@ impl HebbianLearningEngine {
                         connection.weight = connection.weight.clamp(-2.0, 2.0);
 
                         // Update plasticity factor based on recent activity
-                        connection.plasticity_factor =
-                            connection.plasticity_factor.mul_add(0.95, 0.05).clamp(0.1, 2.0);
+                        connection.plasticity_factor = connection
+                            .plasticity_factor
+                            .mul_add(0.95, 0.05)
+                            .clamp(0.1, 2.0);
                         connection.last_strengthened = Instant::now();
                         connection.usage_count += 1;
 
@@ -770,7 +774,7 @@ impl HebbianLearningEngine {
     }
 
     /// Get current learning statistics
-    #[must_use] 
+    #[must_use]
     pub const fn get_stats(&self) -> &LearningStats {
         &self.stats
     }
@@ -829,7 +833,7 @@ impl HebbianLearningEngine {
     }
 
     /// Get most frequent query patterns for optimization
-    #[must_use] 
+    #[must_use]
     pub fn get_frequent_patterns(&self, top_n: usize) -> Vec<(QueryPattern, u64)> {
         let mut patterns: Vec<_> = self
             .query_patterns
@@ -903,7 +907,7 @@ impl HebbianLearningEngine {
     }
 
     /// Get total number of tracked patterns
-    #[must_use] 
+    #[must_use]
     pub fn get_pattern_count(&self) -> usize {
         self.query_patterns.len()
     }
@@ -1016,7 +1020,7 @@ impl HebbianLearningEngine {
     }
 
     /// Get the decay factor
-    #[must_use] 
+    #[must_use]
     pub const fn decay_factor(&self) -> f32 {
         self.decay_factor
     }
@@ -1033,7 +1037,7 @@ impl HebbianLearningEngine {
     }
 
     /// Get a reference to the anti-Hebbian learning engine
-    #[must_use] 
+    #[must_use]
     pub const fn anti_hebbian(&self) -> &AntiHebbianLearning {
         &self.anti_hebbian
     }

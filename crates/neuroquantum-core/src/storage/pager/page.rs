@@ -91,7 +91,7 @@ const MAGIC_NUMBER: u32 = 0xDEADBEEF;
 
 impl PageHeader {
     /// Create a new page header
-    #[must_use] 
+    #[must_use]
     pub const fn new(page_id: PageId, page_type: PageType) -> Self {
         Self {
             magic: MAGIC_NUMBER,
@@ -108,7 +108,7 @@ impl PageHeader {
     }
 
     /// Validate magic number
-    #[must_use] 
+    #[must_use]
     pub const fn is_valid(&self) -> bool {
         self.magic == MAGIC_NUMBER
     }
@@ -213,7 +213,7 @@ pub struct Page {
 
 impl Page {
     /// Create a new empty page
-    #[must_use] 
+    #[must_use]
     pub const fn new(page_id: PageId, page_type: PageType) -> Self {
         Self {
             header: PageHeader::new(page_id, page_type),
@@ -222,13 +222,13 @@ impl Page {
     }
 
     /// Get page ID
-    #[must_use] 
+    #[must_use]
     pub const fn id(&self) -> PageId {
         self.header.page_id
     }
 
     /// Get page header
-    #[must_use] 
+    #[must_use]
     pub const fn header(&self) -> &PageHeader {
         &self.header
     }
@@ -239,7 +239,7 @@ impl Page {
     }
 
     /// Get page data
-    #[must_use] 
+    #[must_use]
     pub const fn data(&self) -> &[u8; PAGE_DATA_SIZE] {
         &self.data
     }
@@ -281,7 +281,7 @@ impl Page {
     }
 
     /// Calculate checksum for the page
-    #[must_use] 
+    #[must_use]
     pub fn calculate_checksum(&self) -> u32 {
         // Simple CRC32 checksum
         crc32fast::hash(&self.data)
@@ -293,7 +293,7 @@ impl Page {
     }
 
     /// Verify checksum
-    #[must_use] 
+    #[must_use]
     pub fn verify_checksum(&self) -> bool {
         self.header.checksum == self.calculate_checksum()
     }
@@ -331,13 +331,13 @@ impl Page {
     }
 
     /// Get available free space
-    #[must_use] 
+    #[must_use]
     pub const fn free_space(&self) -> u16 {
         self.header.free_space
     }
 
     /// Get slot count
-    #[must_use] 
+    #[must_use]
     pub const fn slot_count(&self) -> u16 {
         self.header.slot_count
     }

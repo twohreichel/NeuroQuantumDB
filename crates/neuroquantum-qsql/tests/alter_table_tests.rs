@@ -96,10 +96,7 @@ async fn test_alter_table_add_column() {
     let sql = "ALTER TABLE users ADD COLUMN email TEXT DEFAULT 'unknown@example.com'";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(
-        result.is_ok(),
-        "ALTER TABLE ADD COLUMN failed: {result:?}"
-    );
+    assert!(result.is_ok(), "ALTER TABLE ADD COLUMN failed: {result:?}");
 
     // Verify the column was added to schema by checking storage directly
     {
@@ -146,10 +143,7 @@ async fn test_alter_table_add_column_nullable() {
     let sql = "ALTER TABLE users ADD COLUMN phone TEXT";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(
-        result.is_ok(),
-        "ALTER TABLE ADD COLUMN failed: {result:?}"
-    );
+    assert!(result.is_ok(), "ALTER TABLE ADD COLUMN failed: {result:?}");
 
     // Verify existing rows have NULL for the new column
     let sql = "SELECT id, name, phone FROM users WHERE id = 1";
@@ -168,10 +162,7 @@ async fn test_alter_table_drop_column() {
     let sql = "ALTER TABLE users DROP COLUMN age";
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await;
-    assert!(
-        result.is_ok(),
-        "ALTER TABLE DROP COLUMN failed: {result:?}"
-    );
+    assert!(result.is_ok(), "ALTER TABLE DROP COLUMN failed: {result:?}");
 
     // Verify the column was removed from schema
     {

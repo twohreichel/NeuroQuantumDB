@@ -19,7 +19,7 @@ pub struct FreeList {
 
 impl FreeList {
     /// Create a new empty free list
-    #[must_use] 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             free_pages: VecDeque::new(),
@@ -44,13 +44,13 @@ impl FreeList {
     }
 
     /// Get the number of free pages
-    #[must_use] 
+    #[must_use]
     pub const fn free_count(&self) -> usize {
         self.count
     }
 
     /// Check if the free list is empty
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.free_pages.is_empty()
     }
@@ -66,7 +66,7 @@ impl FreeList {
     }
 
     /// Get all free page IDs (for debugging)
-    #[must_use] 
+    #[must_use]
     pub fn get_free_pages(&self) -> Vec<PageId> {
         self.free_pages.iter().copied().collect()
     }

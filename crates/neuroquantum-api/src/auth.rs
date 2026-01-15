@@ -76,7 +76,7 @@ impl AuthService {
     }
 
     /// Check if any admin keys exist
-    #[must_use] 
+    #[must_use]
     pub fn has_admin_keys(&self) -> bool {
         self.storage.has_admin_keys().unwrap_or(false)
     }
@@ -197,12 +197,12 @@ impl AuthService {
         Some(updated_key)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_key_expired(&self, api_key: &ApiKey) -> bool {
         Utc::now() > api_key.expires_at
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn check_endpoint_permission(&self, api_key: &ApiKey, path: &str) -> bool {
         // Define permission mappings for different endpoints
         let required_permission = match path {
@@ -259,12 +259,12 @@ impl AuthService {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn list_api_keys(&self) -> Vec<ApiKeyInfo> {
         self.storage.list_keys().unwrap_or_default()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn get_storage_stats(&self) -> StorageStats {
         self.storage.get_stats().unwrap_or(StorageStats {
             total_active_keys: 0,
@@ -311,7 +311,7 @@ impl AuthService {
         entry.retain(|&time| time > cutoff);
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn get_api_key_stats(&self, key: &str) -> Option<ApiKeyStats> {
         if let Ok(Some((api_key, _hash))) = self.storage.get_key(key) {
             let usage_times = self.usage_tracking.get(key)?;

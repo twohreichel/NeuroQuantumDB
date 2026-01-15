@@ -19,7 +19,7 @@ pub struct DNACompressionEngine {
 
 impl DNACompressionEngine {
     /// Create a new compression engine
-    #[must_use] 
+    #[must_use]
     pub fn new(config: &DNACompressionConfig) -> Self {
         Self {
             config: config.clone(),
@@ -493,7 +493,7 @@ impl HuffmanTree {
     /// - Loop invariants ensure heap has sufficient elements
     /// - Index values 0-3 always map to valid DNA bases
     #[allow(clippy::expect_used)] // Loop invariants and valid indices guarantee success
-    #[must_use] 
+    #[must_use]
     pub fn build(frequencies: &[u64; 4]) -> Self {
         let mut heap = BinaryHeap::new();
 
@@ -559,7 +559,7 @@ impl HuffmanTree {
     }
 
     /// Get Huffman code for a base
-    #[must_use] 
+    #[must_use]
     pub fn get_code(&self, base: DNABase) -> &[bool] {
         &self.codes[base as usize]
     }

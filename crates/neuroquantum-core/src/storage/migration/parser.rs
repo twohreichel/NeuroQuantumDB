@@ -35,7 +35,7 @@ pub struct Migration {
 
 impl Migration {
     /// Get SQL for the specified direction
-    #[must_use] 
+    #[must_use]
     pub fn get_sql(&self, direction: MigrationDirection) -> &str {
         match direction {
             | MigrationDirection::Up => &self.up_sql,
@@ -51,7 +51,7 @@ pub struct MigrationParser {
 
 impl MigrationParser {
     /// Create a new migration parser
-    #[must_use] 
+    #[must_use]
     pub const fn new(migrations_dir: PathBuf) -> Self {
         Self { migrations_dir }
     }

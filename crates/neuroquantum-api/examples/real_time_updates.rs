@@ -211,9 +211,7 @@ async fn demo_database_notifications() -> Result<(), Box<dyn std::error::Error>>
 
     // Client 3 watches all database changes
     manager.subscribe(client3, "db.**.changes").await?;
-    println!(
-        "  ✓ Client {client3} watching: db.**.changes (all tables)\n"
-    );
+    println!("  ✓ Client {client3} watching: db.**.changes (all tables)\n");
 
     // Simulate database operations
     let operations = vec![
@@ -257,15 +255,9 @@ async fn demo_database_notifications() -> Result<(), Box<dyn std::error::Error>>
     }
 
     println!("\n  📊 Notification Summary:");
-    println!(
-        "    • Client {client1} received notifications for: users table"
-    );
-    println!(
-        "    • Client {client2} received notifications for: orders table"
-    );
-    println!(
-        "    • Client {client3} received notifications for: all tables"
-    );
+    println!("    • Client {client1} received notifications for: users table");
+    println!("    • Client {client2} received notifications for: orders table");
+    println!("    • Client {client3} received notifications for: all tables");
 
     Ok(())
 }
@@ -338,9 +330,7 @@ async fn demo_channel_statistics() -> Result<(), Box<dyn std::error::Error>> {
             manager.subscribe(conn, channel.as_str()).await?;
         }
 
-        println!(
-            "    • {channel_name} → {subscriber_count} subscriber(s)"
-        );
+        println!("    • {channel_name} → {subscriber_count} subscriber(s)");
     }
 
     // Publish messages

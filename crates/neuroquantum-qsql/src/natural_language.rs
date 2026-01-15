@@ -31,7 +31,7 @@
 //! println!("Generated QSQL: {}", qsql);
 //! ```
 
-use crate::error::{QSQLResult, QSQLError};
+use crate::error::{QSQLError, QSQLResult};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, info, instrument};
@@ -72,7 +72,7 @@ pub enum POSTag {
 
 impl POSTag {
     /// Convert POS tag to string for display
-    #[must_use] 
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             | Self::Noun => "NOUN",
@@ -723,7 +723,7 @@ impl SemanticAnalyzer {
     }
 
     /// Compute cosine similarity between two word vectors
-    #[must_use] 
+    #[must_use]
     pub fn cosine_similarity(&self, word1: &str, word2: &str) -> f32 {
         let w1 = word1.to_lowercase();
         let w2 = word2.to_lowercase();
@@ -780,7 +780,7 @@ impl SemanticAnalyzer {
     }
 
     /// Get the most similar word from vocabulary
-    #[must_use] 
+    #[must_use]
     pub fn find_most_similar(&self, word: &str) -> Option<(String, f32)> {
         let w = word.to_lowercase();
         let mut best_match: Option<(String, f32)> = None;
@@ -800,7 +800,7 @@ impl SemanticAnalyzer {
     }
 
     /// Expand a query using synonyms and semantic similarity
-    #[must_use] 
+    #[must_use]
     pub fn expand_query(&self, tokens: &[String]) -> Vec<String> {
         let mut expanded = tokens.to_vec();
         let mut expansions = HashSet::new();
@@ -831,13 +831,13 @@ impl SemanticAnalyzer {
     }
 
     /// Get the domain term mapping for a word
-    #[must_use] 
+    #[must_use]
     pub fn get_domain_term(&self, word: &str) -> Option<&DomainTerm> {
         self.domain_terms.get(&word.to_lowercase())
     }
 
     /// Get the POS tag for a word
-    #[must_use] 
+    #[must_use]
     pub fn get_pos_tag(&self, word: &str) -> POSTag {
         if let Some(emb) = self.embeddings.get(&word.to_lowercase()) {
             emb.pos_tag
@@ -854,7 +854,7 @@ impl SemanticAnalyzer {
     }
 
     /// Check for N-gram pattern matches and return confidence boosts
-    #[must_use] 
+    #[must_use]
     pub fn check_ngram_patterns(&self, text: &str) -> Vec<(QueryIntent, f32)> {
         let normalized = text.to_lowercase();
         let mut matches = Vec::new();
@@ -869,7 +869,7 @@ impl SemanticAnalyzer {
     }
 
     /// Analyze semantic relationships between entities
-    #[must_use] 
+    #[must_use]
     pub fn analyze_relationships(&self, entities: &[Entity]) -> Vec<SemanticRelation> {
         let mut relations = Vec::new();
 
@@ -1003,7 +1003,7 @@ pub struct DependencyParser {
 }
 
 impl DependencyParser {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let mut parser = Self {
             verb_patterns: HashSet::new(),
@@ -1035,7 +1035,7 @@ impl DependencyParser {
     }
 
     /// Parse dependencies from tokens
-    #[must_use] 
+    #[must_use]
     pub fn parse(&self, tokens: &[Token]) -> Vec<DependencyRelation> {
         let mut relations = Vec::new();
         let mut root_idx = None;
@@ -1098,7 +1098,7 @@ impl DependencyParser {
     }
 
     /// Extract the main action from dependencies
-    #[must_use] 
+    #[must_use]
     pub fn extract_main_action(&self, tokens: &[Token]) -> Option<String> {
         for token in tokens {
             if token.token_type == TokenType::Word
@@ -1111,7 +1111,7 @@ impl DependencyParser {
     }
 
     /// Extract direct objects from dependencies
-    #[must_use] 
+    #[must_use]
     pub fn extract_objects(
         &self,
         tokens: &[Token],
@@ -1279,13 +1279,13 @@ impl NLQueryEngine {
     }
 
     /// Get semantic similarity between two words
-    #[must_use] 
+    #[must_use]
     pub fn word_similarity(&self, word1: &str, word2: &str) -> f32 {
         self.semantic_analyzer.cosine_similarity(word1, word2)
     }
 
     /// Find most similar word in vocabulary
-    #[must_use] 
+    #[must_use]
     pub fn find_similar_word(&self, word: &str) -> Option<(String, f32)> {
         self.semantic_analyzer.find_most_similar(word)
     }
@@ -2028,7 +2028,8 @@ impl QSQLGenerator {
 
         let table = entities
             .iter()
-            .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "sensors".to_string(), |e| e.value.clone());
+            .find(|e| e.entity_type == EntityType::TableName)
+            .map_or_else(|| "sensors".to_string(), |e| e.value.clone());
 
         query.push_str(&table);
 
@@ -2046,7 +2047,8 @@ impl QSQLGenerator {
                     .iter()
                     .skip(i)
                     .take(3)
-                    .find(|e| e.entity_type == EntityType::Operator).map_or_else(|| ">".to_string(), |e| self.normalize_operator(&e.value));
+                    .find(|e| e.entity_type == EntityType::Operator)
+                    .map_or_else(|| ">".to_string(), |e| self.normalize_operator(&e.value));
 
                 let value = entities
                     .iter()
@@ -2089,19 +2091,22 @@ impl QueryGenerator for QSQLGenerator {
             | QueryIntent::NeuroMatch => {
                 let table = entities
                     .iter()
-                    .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "memories".to_string(), |e| e.value.clone());
+                    .find(|e| e.entity_type == EntityType::TableName)
+                    .map_or_else(|| "memories".to_string(), |e| e.value.clone());
                 Ok(format!("NEUROMATCH {table}"))
             },
             | QueryIntent::QuantumSearch => {
                 let table = entities
                     .iter()
-                    .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "data".to_string(), |e| e.value.clone());
+                    .find(|e| e.entity_type == EntityType::TableName)
+                    .map_or_else(|| "data".to_string(), |e| e.value.clone());
                 Ok(format!("QUANTUM_SEARCH {table}"))
             },
             | QueryIntent::Aggregate => {
                 let table = entities
                     .iter()
-                    .find(|e| e.entity_type == EntityType::TableName).map_or_else(|| "users".to_string(), |e| e.value.clone());
+                    .find(|e| e.entity_type == EntityType::TableName)
+                    .map_or_else(|| "users".to_string(), |e| e.value.clone());
                 Ok(format!("SELECT COUNT(*) FROM {table}"))
             },
             | _ => Err(QSQLError::NLPError {
@@ -2488,9 +2493,7 @@ impl NaturalLanguageProcessor {
 
         if !numbers.is_empty() {
             let limit_number = numbers[0].value.clone();
-            query = format!(
-                "SELECT * FROM users ORDER BY post_count DESC LIMIT {limit_number}"
-            );
+            query = format!("SELECT * FROM users ORDER BY post_count DESC LIMIT {limit_number}");
         }
 
         Ok(query)

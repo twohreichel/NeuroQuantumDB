@@ -103,8 +103,7 @@ fn sql_query() -> impl Strategy<Value = String> {
 
 /// Generate IP address strings
 fn ip_address() -> impl Strategy<Value = String> {
-    (0u8..255, 0u8..255, 0u8..255, 0u8..255)
-        .prop_map(|(a, b, c, d)| format!("{a}.{b}.{c}.{d}"))
+    (0u8..255, 0u8..255, 0u8..255, 0u8..255).prop_map(|(a, b, c, d)| format!("{a}.{b}.{c}.{d}"))
 }
 
 // ============================================================================
@@ -150,7 +149,7 @@ proptest! {
         use actix_web::ResponseError;
 
         let error = ApiError::InternalServerError {
-            message: message,
+            message,
         };
 
         // Should not panic when formatting
@@ -197,7 +196,7 @@ proptest! {
     #[test]
     fn sql_query_request_handles_arbitrary_sql(query in arbitrary_string()) {
         let request = SqlQueryRequest {
-            query: query,
+            query,
         };
 
         // Should serialize without panic

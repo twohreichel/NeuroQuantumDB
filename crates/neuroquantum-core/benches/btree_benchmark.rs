@@ -1,6 +1,6 @@
 //! B+ Tree Performance Benchmarks
 //!
-//! Run with: cargo bench --features benchmarks --bench btree_benchmark
+//! Run with: cargo bench --features benchmarks --bench `btree_benchmark`
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::storage::btree::BTree;
@@ -12,7 +12,7 @@ use tokio::runtime::Runtime;
 fn btree_insert_sequential(c: &mut Criterion) {
     let mut group = c.benchmark_group("btree_insert_sequential");
 
-    for size in [100, 1_000, 10_000, 100_000].iter() {
+    for size in &[100, 1_000, 10_000, 100_000] {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let rt = Runtime::new().unwrap();
@@ -22,7 +22,7 @@ fn btree_insert_sequential(c: &mut Criterion) {
                     let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
                     for i in 0..size {
-                        let key = format!("key{:010}", i).into_bytes();
+                        let key = format!("key{i:010}").into_bytes();
                         btree.insert(key, i as u64).await.unwrap();
                     }
 
@@ -38,7 +38,7 @@ fn btree_insert_sequential(c: &mut Criterion) {
 fn btree_insert_random(c: &mut Criterion) {
     let mut group = c.benchmark_group("btree_insert_random");
 
-    for size in [100, 1_000, 10_000].iter() {
+    for size in &[100, 1_000, 10_000] {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let rt = Runtime::new().unwrap();
@@ -70,7 +70,7 @@ fn btree_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("btree_search");
     group.measurement_time(Duration::from_secs(10));
 
-    for size in [1_000, 10_000, 100_000].iter() {
+    for size in &[1_000, 10_000, 100_000] {
         group.throughput(Throughput::Elements(1));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let rt = Runtime::new().unwrap();
@@ -81,7 +81,7 @@ fn btree_search(c: &mut Criterion) {
                 let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
                 for i in 0..size {
-                    let key = format!("key{:010}", i).into_bytes();
+                    let key = format!("key{i:010}").into_bytes();
                     btree.insert(key, i as u64).await.unwrap();
                 }
 
@@ -107,7 +107,7 @@ fn btree_range_scan(c: &mut Criterion) {
     let mut group = c.benchmark_group("btree_range_scan");
 
     let tree_size = 100_000;
-    for scan_size in [10, 100, 1_000, 10_000].iter() {
+    for scan_size in &[10, 100, 1_000, 10_000] {
         group.throughput(Throughput::Elements(*scan_size as u64));
         group.bench_with_input(
             BenchmarkId::from_parameter(scan_size),
@@ -121,7 +121,7 @@ fn btree_range_scan(c: &mut Criterion) {
                     let mut btree = BTree::new(temp_dir.path()).await.unwrap();
 
                     for i in 0..tree_size {
-                        let key = format!("key{:010}", i).into_bytes();
+                        let key = format!("key{i:010}").into_bytes();
                         btree.insert(key, i as u64).await.unwrap();
                     }
 
@@ -148,7 +148,7 @@ fn btree_range_scan(c: &mut Criterion) {
 fn btree_delete(c: &mut Criterion) {
     let mut group = c.benchmark_group("btree_delete");
 
-    for size in [100, 1_000, 10_000].iter() {
+    for size in &[100, 1_000, 10_000] {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let rt = Runtime::new().unwrap();
@@ -160,13 +160,13 @@ fn btree_delete(c: &mut Criterion) {
 
                     // Insert keys
                     for i in 0..size {
-                        let key = format!("key{:010}", i).into_bytes();
+                        let key = format!("key{i:010}").into_bytes();
                         btree.insert(key, i as u64).await.unwrap();
                     }
 
                     // Delete keys
                     for i in 0..size {
-                        let key = format!("key{:010}", i).into_bytes();
+                        let key = format!("key{i:010}").into_bytes();
                         btree.delete(&key).await.unwrap();
                     }
 
@@ -194,7 +194,7 @@ fn btree_mixed_workload(c: &mut Criterion) {
 
                 // Initial data
                 for i in 0..1000 {
-                    let key = format!("key{:010}", i).into_bytes();
+                    let key = format!("key{i:010}").into_bytes();
                     btree.insert(key, i as u64).await.unwrap();
                 }
 

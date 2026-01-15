@@ -327,7 +327,7 @@ impl NeuroQuantumDB {
         note = "Use NeuroQuantumDBBuilder::new().build().await instead for compile-time initialization guarantees"
     )]
     #[allow(deprecated)]
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(NeuroQuantumConfig::default())
     }
@@ -365,7 +365,7 @@ impl NeuroQuantumDB {
         since = "0.2.0",
         note = "Use NeuroQuantumDBBuilder::with_config(config).build().await instead for compile-time initialization guarantees"
     )]
-    #[must_use] 
+    #[must_use]
     pub fn with_config(config: NeuroQuantumConfig) -> Self {
         let dna_compressor = dna::QuantumDNACompressor::with_config(config.dna_compression.clone());
 
@@ -499,7 +499,7 @@ impl NeuroQuantumDB {
     }
 
     /// Get compression statistics
-    #[must_use] 
+    #[must_use]
     pub fn get_compression_stats(&self) -> CompressionMetrics {
         self.dna_compressor.get_metrics()
     }
@@ -553,7 +553,7 @@ impl NeuroQuantumDB {
     ///
     /// This is useful for sharing the storage engine with other components
     /// like the QSQL engine that need their own reference to the storage.
-    #[must_use] 
+    #[must_use]
     pub fn storage_engine_arc(
         &self,
     ) -> std::sync::Arc<tokio::sync::RwLock<storage::StorageEngine>> {
@@ -564,7 +564,7 @@ impl NeuroQuantumDB {
     ///
     /// This allows external components to perform DNA compression operations
     /// directly using the configured compressor.
-    #[must_use] 
+    #[must_use]
     pub const fn dna_compressor(&self) -> &dna::QuantumDNACompressor {
         &self.dna_compressor
     }
@@ -617,25 +617,25 @@ impl NeuroQuantumDBCore {
     }
 
     /// Get active connections count
-    #[must_use] 
+    #[must_use]
     pub const fn get_active_connections(&self) -> u32 {
         self.active_connections
     }
 
     /// Get quantum operations rate
-    #[must_use] 
+    #[must_use]
     pub const fn get_quantum_ops_rate(&self) -> f32 {
         self.quantum_ops_rate
     }
 
     /// Get synaptic adaptations count
-    #[must_use] 
+    #[must_use]
     pub const fn get_synaptic_adaptations(&self) -> u64 {
         self.synaptic_adaptations
     }
 
     /// Get average compression ratio
-    #[must_use] 
+    #[must_use]
     pub const fn get_avg_compression_ratio(&self) -> f32 {
         self.avg_compression_ratio
     }

@@ -6,7 +6,9 @@
 #![cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 
 use crate::dna::{DNABase, DNAError};
-use std::arch::aarch64::{vld1q_u8, vgetq_lane_u8, veorq_u8, __crc32d, __crc32b, vdupq_n_u8, vceqq_u8};
+use std::arch::aarch64::{
+    __crc32b, __crc32d, vceqq_u8, vdupq_n_u8, veorq_u8, vgetq_lane_u8, vld1q_u8,
+};
 
 /// NEON-optimized encoding of bytes to DNA bases
 ///
@@ -143,7 +145,7 @@ unsafe fn decode_64_bases_neon(chunk: &[DNABase], output: &mut Vec<u8>) -> Resul
 /// - Input slices are valid and properly aligned
 /// - Needle length is <= 16 bytes
 #[target_feature(enable = "neon")]
-#[must_use] 
+#[must_use]
 pub unsafe fn find_pattern_neon(haystack: &[u8], needle: &[u8]) -> Vec<usize> {
     let mut matches = Vec::new();
 
@@ -279,7 +281,7 @@ unsafe fn hamming_distance_16_bytes_neon(chunk1: &[u8], chunk2: &[u8]) -> usize 
 /// - The CPU supports both NEON and CRC instructions
 /// - Input slice is valid
 #[target_feature(enable = "neon,crc")]
-#[must_use] 
+#[must_use]
 pub unsafe fn crc32_neon(data: &[u8]) -> u32 {
     let mut crc = 0u32;
 
@@ -306,7 +308,7 @@ pub unsafe fn crc32_neon(data: &[u8]) -> u32 {
 /// - The CPU supports NEON instructions
 /// - Input slice contains valid `DNABase` values
 #[target_feature(enable = "neon")]
-#[must_use] 
+#[must_use]
 pub unsafe fn count_base_frequencies_neon(bases: &[DNABase]) -> [usize; 4] {
     let mut counts = [0usize; 4];
 
@@ -408,7 +410,7 @@ fn bases_to_bytes(bases: &[DNABase]) -> Vec<u8> {
 }
 
 /// NEON feature detection and capability reporting
-#[must_use] 
+#[must_use]
 pub fn detect_neon_capabilities() -> super::NeonCapabilities {
     super::NeonCapabilities {
         has_neon: std::arch::is_aarch64_feature_detected!("neon"),

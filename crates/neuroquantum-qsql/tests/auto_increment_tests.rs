@@ -125,9 +125,8 @@ async fn test_auto_increment_sequential_ids() {
     ];
 
     for (title, author) in &books {
-        let insert_sql = format!(
-            "INSERT INTO books (title, author) VALUES ('{title}', '{author}')"
-        );
+        let insert_sql =
+            format!("INSERT INTO books (title, author) VALUES ('{title}', '{author}')");
         let statement = parser.parse(&insert_sql).unwrap();
         executor.execute_statement(&statement).await.unwrap();
     }

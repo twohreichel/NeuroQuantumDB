@@ -83,7 +83,7 @@ pub struct OptimizationSuggestion {
 
 impl OptimizationSuggestion {
     /// Create a new optimization suggestion
-    #[must_use] 
+    #[must_use]
     pub fn new(
         suggestion_type: OptimizationSuggestionType,
         description: String,
@@ -105,14 +105,14 @@ impl OptimizationSuggestion {
     }
 
     /// Set the suggested index type
-    #[must_use] 
+    #[must_use]
     pub const fn with_index_type(mut self, index_type: SuggestedIndexType) -> Self {
         self.suggested_index_type = Some(index_type);
         self
     }
 
     /// Add metadata to the suggestion
-    #[must_use] 
+    #[must_use]
     pub fn with_metadata(mut self, key: &str, value: &str) -> Self {
         self.metadata.insert(key.to_string(), value.to_string());
         self
@@ -131,7 +131,7 @@ pub struct QueryResult {
 
 impl QueryResult {
     /// Create an empty query result
-    #[must_use] 
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             query_id: 0,
@@ -143,7 +143,7 @@ impl QueryResult {
     }
 
     /// Create a new query result
-    #[must_use] 
+    #[must_use]
     pub fn new(
         query_id: u64,
         matched_nodes: Vec<u64>,
@@ -184,7 +184,7 @@ pub struct QueryCondition {
 
 impl Query {
     /// Create a new query with content
-    #[must_use] 
+    #[must_use]
     pub fn new(content: String) -> Self {
         Self {
             id: rand::random(),
@@ -560,7 +560,9 @@ impl NeuromorphicQueryProcessor {
                 }
             } else {
                 // Clean up old spikes (keep only recent history)
-                let cutoff_time = current_time.checked_sub(std::time::Duration::from_secs(1)).unwrap();
+                let cutoff_time = current_time
+                    .checked_sub(std::time::Duration::from_secs(1))
+                    .unwrap();
                 for spike_list in spike_patterns.values_mut() {
                     spike_list.retain(|&t| t > cutoff_time);
                 }
@@ -763,7 +765,7 @@ impl NeuromorphicQueryProcessor {
     ///
     /// # Returns
     /// A vector of `OptimizationSuggestion` sorted by priority and estimated improvement
-    #[must_use] 
+    #[must_use]
     pub fn generate_optimization_suggestions(&self, query: &Query) -> Vec<OptimizationSuggestion> {
         let mut suggestions = Vec::new();
 
@@ -950,7 +952,7 @@ impl NeuromorphicQueryProcessor {
     }
 
     /// Get current query statistics
-    #[must_use] 
+    #[must_use]
     pub fn get_statistics(&self) -> QueryStatistics {
         if let Ok(stats) = self.query_statistics.read() {
             stats.clone()

@@ -26,13 +26,13 @@ impl ChannelId {
     }
 
     /// Get the channel name
-    #[must_use] 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Check if this channel matches a pattern (supports wildcards)
-    #[must_use] 
+    #[must_use]
     pub fn matches(&self, pattern: &str) -> bool {
         // Simple wildcard matching:
         // "*" matches single segment
@@ -340,7 +340,7 @@ impl PubSubManager {
     }
 
     /// Get subscriptions for a specific connection
-    #[must_use] 
+    #[must_use]
     pub fn get_connection_subscriptions(&self, conn_id: ConnectionId) -> Vec<String> {
         self.subscriptions
             .get(&conn_id)
@@ -349,7 +349,7 @@ impl PubSubManager {
     }
 
     /// Get all active channels
-    #[must_use] 
+    #[must_use]
     pub fn get_all_channels(&self) -> Vec<ChannelId> {
         self.channels.iter().map(|e| e.key().clone()).collect()
     }

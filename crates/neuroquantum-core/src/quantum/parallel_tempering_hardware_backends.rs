@@ -200,13 +200,13 @@ pub struct IBMParallelTemperingSolver {
 
 impl IBMParallelTemperingSolver {
     /// Create a new IBM Quantum Parallel Tempering solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: IBMPTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IBMPTConfig {
             api_token: std::env::var("IBM_QUANTUM_API_KEY").ok(),
@@ -527,13 +527,13 @@ pub struct BraketParallelTemperingSolver {
 
 impl BraketParallelTemperingSolver {
     /// Create a new AWS Braket Parallel Tempering solver
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: BraketPTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = BraketPTConfig {
             aws_access_key_id: std::env::var("AWS_ACCESS_KEY_ID").ok(),
@@ -771,13 +771,13 @@ pub struct DWaveParallelTemperingSolver {
 
 impl DWaveParallelTemperingSolver {
     /// Create a new D-Wave Parallel Tempering solver
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: DWavePTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = DWavePTConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -1006,13 +1006,13 @@ pub struct IonQParallelTemperingSolver {
 
 impl IonQParallelTemperingSolver {
     /// Create a new `IonQ` Parallel Tempering solver
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: IonQPTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IonQPTConfig {
             api_key: std::env::var("IONQ_API_KEY").ok(),
@@ -1210,13 +1210,13 @@ pub struct SimulatorParallelTemperingSolver {
 
 impl SimulatorParallelTemperingSolver {
     /// Create a new local simulator
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: SimulatorPTConfig) -> Self {
         Self { config }
     }
 
     /// Create with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn default_simulator() -> Self {
         Self::new(SimulatorPTConfig::default())
     }
@@ -1321,7 +1321,7 @@ pub struct UnifiedPTSolver {
 
 impl UnifiedPTSolver {
     /// Create a new unified solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub fn new(config: UnifiedPTConfig) -> Self {
         let ibm_solver = config
             .ibm_config
@@ -1357,7 +1357,7 @@ impl UnifiedPTSolver {
     }
 
     /// Create a solver using environment variables for all backends
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let ibm_solver = {
             let solver = IBMParallelTemperingSolver::from_env();
@@ -1458,7 +1458,7 @@ impl UnifiedPTSolver {
     }
 
     /// List all available backends
-    #[must_use] 
+    #[must_use]
     pub fn available_backends(&self) -> Vec<PTBackendType> {
         let mut available = Vec::new();
 

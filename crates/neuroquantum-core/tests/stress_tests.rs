@@ -1,4 +1,4 @@
-//! # Stress Testing Suite for NeuroQuantumDB
+//! # Stress Testing Suite for `NeuroQuantumDB`
 //!
 //! Comprehensive stress tests covering:
 //! - **Concurrency Tests**: Parallel transactions, lock contention, deadlock scenarios
@@ -73,7 +73,7 @@ fn create_test_row(id: i64, counter: i64, data: &str) -> Row {
     }
 }
 
-/// Create a WhereClause for filtering by id
+/// Create a `WhereClause` for filtering by id
 fn where_id_equals(id: i64) -> WhereClause {
     WhereClause {
         conditions: vec![Condition {
@@ -102,7 +102,7 @@ async fn test_concurrent_reads() {
 
     // Insert 20 rows (reduced from 50 for faster test execution)
     for i in 0..20 {
-        let row = create_test_row(i, i * 10, &format!("data_{}", i));
+        let row = create_test_row(i, i * 10, &format!("data_{i}"));
         storage.insert_row("stress_test", row).await.unwrap();
     }
 
@@ -119,7 +119,7 @@ async fn test_concurrent_reads() {
 
         let handle = tokio::spawn(async move {
             for read_num in 0..reads_per_reader {
-                let target_id = ((reader_id * reads_per_reader + read_num) % 20) as i64;
+                let target_id = i64::from((reader_id * reads_per_reader + read_num) % 20);
                 let query = SelectQuery {
                     table: "stress_test".to_string(),
                     columns: vec!["*".to_string()],
@@ -148,8 +148,7 @@ async fn test_concurrent_reads() {
 
     assert_eq!(
         total_reads, expected_reads,
-        "Expected {} successful reads, got {}",
-        expected_reads, total_reads
+        "Expected {expected_reads} successful reads, got {total_reads}"
     );
 }
 
@@ -183,9 +182,9 @@ async fn test_concurrent_writes_with_locking() {
             for write_num in 0..writes_per_writer {
                 let row_id = writer_id * writes_per_writer + write_num;
                 let row = create_test_row(
-                    row_id as i64,
-                    write_num as i64,
-                    &format!("writer_{}_data_{}", writer_id, write_num),
+                    i64::from(row_id),
+                    i64::from(write_num),
+                    &format!("writer_{writer_id}_data_{write_num}"),
                 );
 
                 let mut storage_guard = storage_clone.write().await;
@@ -207,8 +206,7 @@ async fn test_concurrent_writes_with_locking() {
 
     assert_eq!(
         total_writes, expected_writes,
-        "Expected {} successful writes, got {}",
-        expected_writes, total_writes
+        "Expected {expected_writes} successful writes, got {total_writes}"
     );
 
     // Verify all rows were inserted
@@ -251,7 +249,7 @@ async fn test_lock_manager_contention() {
             let mut acquired = 0;
             for res_num in 0..resources_per_tx {
                 // Each transaction tries to lock different resources to avoid deadlocks
-                let resource_id = format!("resource_{}_{}", tx_num, res_num);
+                let resource_id = format!("resource_{tx_num}_{res_num}");
 
                 // Use timeout to prevent test hanging
                 let lock_result = tokio::time::timeout(
@@ -260,7 +258,7 @@ async fn test_lock_manager_contention() {
                 )
                 .await;
 
-                if let Ok(Ok(())) = lock_result {
+                if matches!(lock_result, Ok(Ok(()))) {
                     acquired += 1;
                 }
             }
@@ -284,8 +282,7 @@ async fn test_lock_manager_contention() {
     // All locks should be acquired since each transaction uses unique resources
     assert_eq!(
         total_locks, expected_locks,
-        "Expected {} locks, got {}",
-        expected_locks, total_locks
+        "Expected {expected_locks} locks, got {total_locks}"
     );
 }
 
@@ -317,7 +314,7 @@ async fn test_shared_lock_compatibility() {
             )
             .await;
 
-            if let Ok(Ok(())) = lock_result {
+            if matches!(lock_result, Ok(Ok(()))) {
                 lock_counter.fetch_add(1, Ordering::SeqCst);
 
                 // Hold the lock for a bit
@@ -340,8 +337,7 @@ async fn test_shared_lock_compatibility() {
     // All shared locks should be acquired since they're compatible
     assert_eq!(
         total_shared_locks, num_readers as u64,
-        "Expected {} shared locks, got {}",
-        num_readers, total_shared_locks
+        "Expected {num_readers} shared locks, got {total_shared_locks}"
     );
 }
 
@@ -379,7 +375,7 @@ async fn test_deadlock_detection() {
         .await;
 
         if let Ok(Err(e)) = result {
-            if format!("{:?}", e).contains("Deadlock") {
+            if format!("{e:?}").contains("Deadlock") {
                 deadlock_counter1.fetch_add(1, Ordering::SeqCst);
             }
         }
@@ -407,7 +403,7 @@ async fn test_deadlock_detection() {
         .await;
 
         if let Ok(Err(e)) = result {
-            if format!("{:?}", e).contains("Deadlock") {
+            if format!("{e:?}").contains("Deadlock") {
                 deadlock_counter2.fetch_add(1, Ordering::SeqCst);
             }
         }
@@ -421,8 +417,7 @@ async fn test_deadlock_detection() {
     let total_deadlocks = deadlocks_detected.load(Ordering::SeqCst);
     assert!(
         total_deadlocks >= 1,
-        "Expected at least 1 deadlock to be detected, got {}",
-        total_deadlocks
+        "Expected at least 1 deadlock to be detected, got {total_deadlocks}"
     );
 }
 
@@ -445,13 +440,13 @@ async fn test_recovery_after_partial_write() {
 
         // Insert some rows that will be persisted
         for i in 0..10 {
-            let row = create_test_row(i, i * 100, &format!("persisted_data_{}", i));
+            let row = create_test_row(i, i * 100, &format!("persisted_data_{i}"));
             storage.insert_row("stress_test", row).await.unwrap();
         }
 
         // Insert more rows (these may not be fully persisted)
         for i in 10..20 {
-            let row = create_test_row(i, i * 100, &format!("partial_data_{}", i));
+            let row = create_test_row(i, i * 100, &format!("partial_data_{i}"));
             storage.insert_row("stress_test", row).await.unwrap();
         }
 
@@ -487,9 +482,7 @@ async fn test_recovery_after_partial_write() {
                     assert_eq!(
                         *counter,
                         id * 100,
-                        "Data corruption detected: id={}, counter={}",
-                        id,
-                        counter
+                        "Data corruption detected: id={id}, counter={counter}"
                     );
                 }
             }
@@ -596,8 +589,7 @@ async fn test_wal_integrity_concurrent_writes() {
     // All transactions should commit successfully
     assert_eq!(
         total_commits, num_transactions as u64,
-        "Expected {} commits, got {}",
-        num_transactions, total_commits
+        "Expected {num_transactions} commits, got {total_commits}"
     );
 }
 
@@ -621,7 +613,7 @@ async fn test_high_volume_inserts() {
     let start = Instant::now();
 
     for i in 0..num_inserts {
-        let row = create_test_row(i, i * 2, &format!("bulk_data_{}", i));
+        let row = create_test_row(i, i * 2, &format!("bulk_data_{i}"));
         storage.insert_row("stress_test", row).await.unwrap();
     }
 
@@ -644,8 +636,7 @@ async fn test_high_volume_inserts() {
     // (Adjust threshold based on expected performance)
     assert!(
         duration < Duration::from_secs(30),
-        "High volume insert took too long: {:?}",
-        duration
+        "High volume insert took too long: {duration:?}"
     );
 
     println!(
@@ -672,7 +663,7 @@ async fn test_sustained_mixed_workload() {
             .unwrap();
 
         for i in 0..10 {
-            let row = create_test_row(i, 0, &format!("initial_data_{}", i));
+            let row = create_test_row(i, 0, &format!("initial_data_{i}"));
             storage_guard.insert_row("stress_test", row).await.unwrap();
         }
     }
@@ -714,9 +705,9 @@ async fn test_sustained_mixed_workload() {
                     // Write operation (insert new row)
                     let new_id = 1000 + worker_id * operations_per_worker + op_num;
                     let row = create_test_row(
-                        new_id as i64,
-                        op_num as i64,
-                        &format!("worker_{}_op_{}", worker_id, op_num),
+                        i64::from(new_id),
+                        i64::from(op_num),
+                        &format!("worker_{worker_id}_op_{op_num}"),
                     );
 
                     let mut storage_guard = storage_clone.write().await;
@@ -771,7 +762,7 @@ async fn test_memory_pressure_large_batch() {
     let start = Instant::now();
 
     for i in 0..num_rows {
-        let row = create_test_row(i, i, &format!("{}_{}", large_data, i));
+        let row = create_test_row(i, i, &format!("{large_data}_{i}"));
         storage.insert_row("stress_test", row).await.unwrap();
     }
 
@@ -791,8 +782,7 @@ async fn test_memory_pressure_large_batch() {
     assert_eq!(rows.len(), num_rows as usize);
 
     println!(
-        "Large batch insert completed: {} rows with 10KB payload each in {:?}",
-        num_rows, duration
+        "Large batch insert completed: {num_rows} rows with 10KB payload each in {duration:?}"
     );
 }
 
@@ -866,14 +856,13 @@ async fn test_rapid_transaction_throughput() {
         "Completed {} transactions in {:?} ({:.2} tx/sec)",
         num_transactions,
         duration,
-        num_transactions as f64 / duration.as_secs_f64()
+        f64::from(num_transactions) / duration.as_secs_f64()
     );
 
     // Should complete in reasonable time
     assert!(
         duration < Duration::from_secs(30),
-        "Transaction throughput too slow: {:?}",
-        duration
+        "Transaction throughput too slow: {duration:?}"
     );
 }
 
@@ -960,7 +949,7 @@ async fn test_no_dirty_reads_concurrent() {
             let _ = storage_guard.delete_rows(&delete_query).await;
 
             // Insert new row
-            let row = create_test_row(1, new_counter, &format!("updated_{}", new_counter));
+            let row = create_test_row(1, new_counter, &format!("updated_{new_counter}"));
             let _ = storage_guard.insert_row("stress_test", row).await;
 
             tokio::time::sleep(Duration::from_millis(5)).await;
@@ -1010,8 +999,7 @@ async fn test_no_dirty_reads_concurrent() {
     let inconsistent = inconsistent_reads.load(Ordering::SeqCst);
     assert_eq!(
         inconsistent, 0,
-        "Detected {} inconsistent reads (possible dirty reads)",
-        inconsistent
+        "Detected {inconsistent} inconsistent reads (possible dirty reads)"
     );
 }
 
@@ -1081,9 +1069,7 @@ async fn test_transaction_isolation_stress() {
 
     assert!(
         total_ops >= expected_min,
-        "Expected at least {} successful operations, got {}",
-        expected_min,
-        total_ops
+        "Expected at least {expected_min} successful operations, got {total_ops}"
     );
 
     println!(
@@ -1107,7 +1093,7 @@ async fn test_rapid_storage_open_close() {
             .unwrap();
 
         for i in 0..50 {
-            let row = create_test_row(i, i, &format!("persistent_data_{}", i));
+            let row = create_test_row(i, i, &format!("persistent_data_{i}"));
             storage.insert_row("stress_test", row).await.unwrap();
         }
     }
@@ -1141,8 +1127,7 @@ async fn test_rapid_storage_open_close() {
             {
                 assert_eq!(
                     *id, *counter,
-                    "Cycle {}: Data corruption detected: id={}, counter={}",
-                    cycle, id, counter
+                    "Cycle {cycle}: Data corruption detected: id={id}, counter={counter}"
                 );
             }
         }

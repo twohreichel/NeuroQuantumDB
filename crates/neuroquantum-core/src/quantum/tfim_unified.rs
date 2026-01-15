@@ -68,7 +68,7 @@ pub struct UnifiedTFIMSolver {
 
 impl UnifiedTFIMSolver {
     /// Create new unified solver
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: UnifiedTFIMConfig) -> Self {
         Self { config }
     }
@@ -145,7 +145,7 @@ impl UnifiedTFIMSolver {
     }
 
     /// Create solver that forces quantum implementation (no fallback)
-    #[must_use] 
+    #[must_use]
     pub fn quantum_only(quantum_config: QuantumTFIMConfig) -> Self {
         Self {
             config: UnifiedTFIMConfig {
@@ -158,7 +158,7 @@ impl UnifiedTFIMSolver {
     }
 
     /// Create solver that forces classical implementation
-    #[must_use] 
+    #[must_use]
     pub const fn classical_only(classical_config: TransverseFieldConfig) -> Self {
         Self {
             config: UnifiedTFIMConfig {

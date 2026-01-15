@@ -231,7 +231,7 @@ pub struct QuantumTFIMSolver {
 
 impl QuantumTFIMSolver {
     /// Create new quantum TFIM solver
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: QuantumTFIMConfig::default(),
@@ -239,7 +239,7 @@ impl QuantumTFIMSolver {
     }
 
     /// Create solver with custom configuration
-    #[must_use] 
+    #[must_use]
     pub const fn with_config(config: QuantumTFIMConfig) -> Self {
         Self { config }
     }

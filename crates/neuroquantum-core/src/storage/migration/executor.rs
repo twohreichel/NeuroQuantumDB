@@ -34,7 +34,7 @@ pub struct MigrationExecutor {
 
 impl MigrationExecutor {
     /// Create a new migration executor
-    #[must_use] 
+    #[must_use]
     pub fn new(config: MigrationExecutorConfig) -> Self {
         let parser = MigrationParser::new(config.config.migrations_dir.clone());
         let history = MigrationHistory::new();

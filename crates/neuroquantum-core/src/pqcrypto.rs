@@ -97,14 +97,14 @@ impl PQCryptoManager {
     }
 
     /// Get the ML-KEM encapsulation (public) key as base64
-    #[must_use] 
+    #[must_use]
     pub fn get_mlkem_public_key_base64(&self) -> String {
         let encoded = self.mlkem_encapsulation_key.as_bytes();
         base64::Engine::encode(&base64::engine::general_purpose::STANDARD, encoded)
     }
 
     /// Get the ML-DSA public key as base64
-    #[must_use] 
+    #[must_use]
     pub fn get_mldsa_public_key_base64(&self) -> String {
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD,
@@ -113,7 +113,7 @@ impl PQCryptoManager {
     }
 
     /// Sign a message using ML-DSA (Dilithium)
-    #[must_use] 
+    #[must_use]
     pub fn sign_message(&self, message: &[u8]) -> Vec<u8> {
         let signed_msg = mldsa65::sign(message, &self.mldsa_secret_key);
         // SignedMessage is a wrapper, convert to bytes using the trait
@@ -147,7 +147,7 @@ impl PQCryptoManager {
     /// Panics if ML-KEM encapsulation fails with a valid key, which should never happen
     /// according to the algorithm specification. This is a catastrophic cryptographic failure.
     #[allow(clippy::expect_used)] // Encapsulation with valid key should never fail per spec
-    #[must_use] 
+    #[must_use]
     pub fn encapsulate(&self) -> (Vec<u8>, Vec<u8>) {
         let mut rng = rand::thread_rng();
 
@@ -186,11 +186,14 @@ impl PQCryptoManager {
         })?;
 
         // Decapsulate using the decapsulation key
-        let shared_secret = self.mlkem_decapsulation_key.decapsulate(&ct).map_err(|()| {
-            PQCryptoError::DecapsulationFailed(
-                "ML-KEM decapsulation failed - possibly corrupted ciphertext".to_string(),
-            )
-        })?;
+        let shared_secret = self
+            .mlkem_decapsulation_key
+            .decapsulate(&ct)
+            .map_err(|()| {
+                PQCryptoError::DecapsulationFailed(
+                    "ML-KEM decapsulation failed - possibly corrupted ciphertext".to_string(),
+                )
+            })?;
 
         let shared_secret_bytes = AsRef::<[u8]>::as_ref(&shared_secret).to_vec();
 

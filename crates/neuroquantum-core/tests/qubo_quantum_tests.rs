@@ -351,10 +351,10 @@ fn test_max_cut_cycle_graph() {
     let cut_value: f64 = edges
         .iter()
         .map(|&(i, j, w)| {
-            if solution.variables[i] != solution.variables[j] {
-                w
-            } else {
+            if solution.variables[i] == solution.variables[j] {
                 0.0
+            } else {
+                w
             }
         })
         .sum();
@@ -396,10 +396,10 @@ fn test_max_cut_complete_graph() {
     let cut_value: f64 = edges
         .iter()
         .map(|&(i, j, w)| {
-            if solution.variables[i] != solution.variables[j] {
-                w
-            } else {
+            if solution.variables[i] == solution.variables[j] {
                 0.0
+            } else {
+                w
             }
         })
         .sum();
@@ -437,13 +437,12 @@ fn test_all_backends_produce_valid_solutions() {
         };
 
         let solver = QuantumQuboSolver::with_config(config);
-        let solution = solver.solve(&q, &format!("{:?}", backend)).unwrap();
+        let solution = solver.solve(&q, &format!("{backend:?}")).unwrap();
 
         assert_eq!(
             solution.variables.len(),
             3,
-            "Backend {:?} should produce 3 variables",
-            backend
+            "Backend {backend:?} should produce 3 variables"
         );
         assert_eq!(solution.backend_used, backend, "Should use correct backend");
         assert!(solution.quality >= 0.0 && solution.quality <= 1.0);

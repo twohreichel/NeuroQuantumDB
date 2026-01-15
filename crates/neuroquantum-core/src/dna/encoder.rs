@@ -17,7 +17,7 @@ pub struct QuaternaryEncoder {
 
 impl QuaternaryEncoder {
     /// Create a new encoder with the given configuration
-    #[must_use] 
+    #[must_use]
     pub fn new(config: &DNACompressionConfig) -> Self {
         Self {
             config: config.clone(),
@@ -224,13 +224,13 @@ impl QuaternaryEncoder {
     }
 
     /// Get the dictionary built during compression (if any)
-    #[must_use] 
+    #[must_use]
     pub fn get_dictionary(&self) -> Option<HashMap<Vec<u8>, u16>> {
         self.dictionary.clone()
     }
 
     /// Estimate compression ratio without full compression
-    #[must_use] 
+    #[must_use]
     pub fn estimate_compression_ratio(&self, data: &[u8]) -> f64 {
         if data.is_empty() {
             return 1.0;

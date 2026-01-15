@@ -41,7 +41,7 @@ pub struct ReedSolomonCorrector {
 
 impl ReedSolomonCorrector {
     /// Create a new Reed-Solomon corrector with the given error correction strength
-    #[must_use] 
+    #[must_use]
     pub fn new(error_correction_strength: u8) -> Self {
         // Map error correction strength (0-255) to Reed-Solomon parameters
         // GF(2^8) requires data_shards + parity_shards <= 255
@@ -66,7 +66,7 @@ impl ReedSolomonCorrector {
     }
 
     /// Get error correction statistics
-    #[must_use] 
+    #[must_use]
     pub fn get_stats(&self) -> ErrorCorrectionStats {
         self.stats
             .lock()
@@ -451,7 +451,7 @@ impl ReedSolomonCorrector {
     }
 
     /// Calculate the required parity length for a given data size
-    #[must_use] 
+    #[must_use]
     pub const fn calculate_parity_length(&self, data_size: usize) -> usize {
         let blocks = data_size.div_ceil(self.data_shards);
         // Each parity shard is shard_bytes (2) bytes
@@ -476,7 +476,7 @@ impl ReedSolomonCorrector {
     }
 
     /// Get Reed-Solomon configuration info
-    #[must_use] 
+    #[must_use]
     pub fn get_info(&self) -> RSInfo {
         RSInfo {
             data_shards: self.data_shards,

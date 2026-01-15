@@ -12,8 +12,8 @@
 //! ## Mathematical Background
 //!
 //! QUBO (Quadratic Unconstrained Binary Optimization) problems are of the form:
-//!   minimize E(x) = x^T Q x = sum_{i,j} Q_{ij} * x_i * x_j
-//! where x_i ∈ {0, 1}
+//!   minimize E(x) = x^T Q x = sum_{i,j} Q_{ij} * `x_i` * `x_j`
+//! where `x_i` ∈ {0, 1}
 //!
 //! These tests verify correctness against known analytical solutions and constraint
 //! satisfaction for NP-hard combinatorial problems.
@@ -27,7 +27,7 @@ use neuroquantum_core::quantum::tfim::TFIMSolver;
 use std::collections::HashSet;
 
 /// Create a solver configured for reliable correctness testing
-/// Uses ClassicalFallback backend for deterministic behavior
+/// Uses `ClassicalFallback` backend for deterministic behavior
 fn create_test_solver() -> QUBOSolver {
     let config = QUBOConfig {
         backend: QuboQuantumBackend::ClassicalFallback,
@@ -75,10 +75,7 @@ fn test_energy_calculation_correctness() {
         let calculated = calculate_energy(&problem, &solution);
         assert!(
             (calculated - expected_energy).abs() < 1e-10,
-            "Energy mismatch for {:?}: expected {}, got {}",
-            solution,
-            expected_energy,
-            calculated
+            "Energy mismatch for {solution:?}: expected {expected_energy}, got {calculated}"
         );
     }
 }
@@ -336,8 +333,8 @@ fn test_qubo_ising_ground_state_equivalence() {
 
 /// Test Max-Cut QUBO formulation is correct
 /// The QUBO formulation converts Max-Cut (maximization) to minimization
-/// E(x) = sum_{(i,j) in E} w_ij * (x_i + x_j - 2*x_i*x_j)
-/// A cut edge (x_i != x_j) contributes w_ij to the cut value
+/// E(x) = sum_{(i,j) in E} `w_ij` * (`x_i` + `x_j` - 2*`x_i`*`x_j`)
+/// A cut edge (`x_i` != `x_j`) contributes `w_ij` to the cut value
 #[test]
 fn test_max_cut_qubo_formulation() {
     // Simple edge: 0-1 with weight 1
@@ -555,9 +552,7 @@ fn test_graph_coloring_one_color_constraint() {
             // But should not have more than 1
             assert!(
                 colors_assigned <= 1,
-                "Node {} has {} colors assigned",
-                node,
-                colors_assigned
+                "Node {node} has {colors_assigned} colors assigned"
             );
         }
     }
@@ -611,8 +606,7 @@ fn test_tsp_3cities_optimal() {
     if found_valid_tour {
         assert!(
             best_tour_length <= 10.0, // Allow some slack for stochastic solver
-            "Best tour length {} is too large",
-            best_tour_length
+            "Best tour length {best_tour_length} is too large"
         );
     }
 }
@@ -635,9 +629,7 @@ fn test_tsp_city_constraint() {
             // QUBO relaxation might violate this, but it should be close
             assert!(
                 visits <= 2,
-                "City {} visited {} times (constraint violation)",
-                city,
-                visits
+                "City {city} visited {visits} times (constraint violation)"
             );
         }
     }
@@ -660,9 +652,7 @@ fn test_tsp_time_constraint() {
             // Should have at most one city per time step
             assert!(
                 cities_at_time <= 2,
-                "Time step {} has {} cities (constraint violation)",
-                time,
-                cities_at_time
+                "Time step {time} has {cities_at_time} cities (constraint violation)"
             );
         }
     }
@@ -726,12 +716,11 @@ fn test_quantum_tunneling_effectiveness() {
 
     // Both should find reasonable solutions
     // Quantum tunneling might help escape local minima
-    let avg_no_qt = sum_energy_no_qt / runs as f64;
-    let avg_with_qt = sum_energy_with_qt / runs as f64;
+    let avg_no_qt = sum_energy_no_qt / f64::from(runs);
+    let avg_with_qt = sum_energy_with_qt / f64::from(runs);
 
     println!(
-        "Average energy without QT: {}, with QT: {}",
-        avg_no_qt, avg_with_qt
+        "Average energy without QT: {avg_no_qt}, with QT: {avg_with_qt}"
     );
 
     // Just verify both work - QT effectiveness can vary
@@ -782,9 +771,7 @@ fn test_solver_convergence() {
     for energy in &energies {
         assert!(
             (*energy - optimal).abs() < 1.0,
-            "Solution energy {} far from optimal {}",
-            energy,
-            optimal
+            "Solution energy {energy} far from optimal {optimal}"
         );
     }
 }

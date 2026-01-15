@@ -281,9 +281,7 @@ impl DiscoveryService {
         // Connect to etcd cluster
         let mut client = Client::connect(&etcd_config.endpoints, None)
             .await
-            .map_err(|e| {
-                ClusterError::DiscoveryError(format!("Failed to connect to etcd: {e}"))
-            })?;
+            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to connect to etcd: {e}")))?;
 
         // Query for all keys with the given prefix
         let resp = client

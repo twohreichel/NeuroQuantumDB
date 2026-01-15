@@ -142,7 +142,7 @@ pub struct BraketBackend {
 
 impl BraketBackend {
     /// Create a new AWS Braket backend with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: BraketConfig) -> Self {
         Self { config }
     }
@@ -153,7 +153,7 @@ impl BraketBackend {
     /// 1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
     /// 2. Shared credentials file (~/.aws/credentials)
     /// 3. IAM role for EC2/ECS/Lambda
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = BraketConfig {
             region: std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
@@ -171,7 +171,7 @@ impl BraketBackend {
     }
 
     /// Check if AWS credentials are available
-    #[must_use] 
+    #[must_use]
     pub fn has_credentials(&self) -> bool {
         // Check for AWS credentials via environment variables or default credential chain
         std::env::var("AWS_ACCESS_KEY_ID").is_ok()
@@ -186,7 +186,7 @@ impl BraketBackend {
     }
 
     /// Get the current configuration
-    #[must_use] 
+    #[must_use]
     pub const fn config(&self) -> &BraketConfig {
         &self.config
     }
@@ -197,7 +197,7 @@ impl BraketBackend {
     }
 
     /// Get the device type from the ARN
-    #[must_use] 
+    #[must_use]
     pub fn device_type(&self) -> BraketDeviceType {
         let arn = &self.config.device_arn;
         if arn.contains("ionq") {
@@ -216,13 +216,13 @@ impl BraketBackend {
     }
 
     /// Check if this is an annealing device
-    #[must_use] 
+    #[must_use]
     pub fn is_annealer(&self) -> bool {
         matches!(self.device_type(), BraketDeviceType::DWave)
     }
 
     /// Check if this is a gate-based device
-    #[must_use] 
+    #[must_use]
     pub fn is_gate_based(&self) -> bool {
         matches!(
             self.device_type(),
@@ -234,7 +234,7 @@ impl BraketBackend {
     }
 
     /// Build `OpenQASM` 3.0 circuit for Braket
-    #[must_use] 
+    #[must_use]
     pub fn build_qasm_circuit(&self, num_qubits: usize, gates: &[BraketGate]) -> String {
         let mut qasm = String::new();
         qasm.push_str("OPENQASM 3.0;\n");
@@ -266,7 +266,7 @@ impl BraketBackend {
     }
 
     /// Build annealing problem for D-Wave via Braket
-    #[must_use] 
+    #[must_use]
     pub fn build_annealing_problem(
         &self,
         linear: &std::collections::HashMap<usize, f64>,

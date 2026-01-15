@@ -52,7 +52,7 @@ pub enum FrequencyBand {
 
 impl FrequencyBand {
     /// Get frequency range for this band in Hz
-    #[must_use] 
+    #[must_use]
     pub const fn range(&self) -> (f32, f32) {
         match self {
             | Self::Delta => (0.5, 4.0),
@@ -89,7 +89,7 @@ pub struct CascadedBiquads {
 impl CascadedBiquads {
     /// Apply cascaded biquad filter to signal
     /// Each section is applied sequentially for numerical stability
-    #[must_use] 
+    #[must_use]
     pub fn apply(&self, signal: &[f32]) -> Vec<f32> {
         let mut result = signal.to_vec();
         for section in &self.sections {
@@ -100,7 +100,7 @@ impl CascadedBiquads {
 
     /// Apply zero-phase filtering using cascaded biquads
     /// Each section applies filtfilt independently for maximum stability
-    #[must_use] 
+    #[must_use]
     pub fn filtfilt(&self, signal: &[f32]) -> Vec<f32> {
         let mut result = signal.to_vec();
         for section in &self.sections {
@@ -113,7 +113,7 @@ impl CascadedBiquads {
 impl IIRCoefficients {
     /// Apply IIR filter to signal using Direct Form II Transposed
     /// This implementation is numerically stable for higher-order filters
-    #[must_use] 
+    #[must_use]
     pub fn apply(&self, signal: &[f32]) -> Vec<f32> {
         if signal.is_empty() {
             return vec![];
@@ -159,7 +159,7 @@ impl IIRCoefficients {
     /// Apply zero-phase filtering (forward-backward, equivalent to scipy.signal.filtfilt)
     /// This eliminates phase distortion, which is critical for EEG analysis
     /// where timing relationships between frequency components matter.
-    #[must_use] 
+    #[must_use]
     pub fn filtfilt(&self, signal: &[f32]) -> Vec<f32> {
         if signal.len() < 12 {
             // Need enough samples for edge padding
@@ -212,7 +212,7 @@ pub struct ButterworthDesign {
 }
 
 impl ButterworthDesign {
-    #[must_use] 
+    #[must_use]
     pub const fn new(sampling_rate: f32) -> Self {
         Self { sampling_rate }
     }
@@ -224,7 +224,7 @@ impl ButterworthDesign {
     /// H(s) = `ω_c²` / (s² + √`2·ω_c·s` + `ω_c²`)
     ///
     /// After bilinear transformation with frequency prewarping:
-    #[must_use] 
+    #[must_use]
     pub fn lowpass_biquad(&self, cutoff: f32) -> IIRCoefficients {
         let nyquist = self.sampling_rate / 2.0;
         // Clamp cutoff to safe range (0.1% to 45% of Nyquist for guaranteed stability)
@@ -263,7 +263,7 @@ impl ButterworthDesign {
     ///
     /// The transfer function of a 2nd-order highpass Butterworth filter is:
     /// H(s) = s² / (s² + √`2·ω_c·s` + `ω_c²`)
-    #[must_use] 
+    #[must_use]
     pub fn highpass_biquad(&self, cutoff: f32) -> IIRCoefficients {
         let nyquist = self.sampling_rate / 2.0;
         // Clamp cutoff to safe range
@@ -295,7 +295,7 @@ impl ButterworthDesign {
     /// Design a bandpass Butterworth filter by cascading lowpass and highpass
     /// The order parameter determines the steepness of the filter rolloff
     /// Returns cascaded biquad sections for numerical stability
-    #[must_use] 
+    #[must_use]
     pub fn bandpass(&self, low_cutoff: f32, high_cutoff: f32, order: usize) -> CascadedBiquads {
         // For a bandpass, we cascade highpass (for low cutoff) with lowpass (for high cutoff)
         // Each 2nd-order section contributes 12 dB/octave rolloff
@@ -319,7 +319,7 @@ impl ButterworthDesign {
 
     /// Design a notch (band-stop) filter using a 2nd-order IIR notch
     /// Useful for removing power line interference (50Hz or 60Hz)
-    #[must_use] 
+    #[must_use]
     pub fn notch(&self, center_freq: f32, q_factor: f32) -> IIRCoefficients {
         let nyquist = self.sampling_rate / 2.0;
         let normalized_freq = (center_freq / nyquist).clamp(0.001, 0.999);
@@ -358,7 +358,7 @@ pub enum FilterCoefficients {
 
 impl FilterCoefficients {
     /// Apply filter using zero-phase filtering
-    #[must_use] 
+    #[must_use]
     pub fn filtfilt(&self, signal: &[f32]) -> Vec<f32> {
         match self {
             | Self::Single(coef) => coef.filtfilt(signal),
@@ -390,7 +390,7 @@ pub enum FilterType {
 
 impl DigitalFilter {
     /// Create a bandpass filter for specific frequency range
-    #[must_use] 
+    #[must_use]
     pub const fn bandpass(low: f32, high: f32, order: usize) -> Self {
         Self {
             filter_type: FilterType::Bandpass,
@@ -403,7 +403,7 @@ impl DigitalFilter {
     }
 
     /// Create a bandpass filter with pre-computed coefficients for a specific sampling rate
-    #[must_use] 
+    #[must_use]
     pub fn bandpass_with_rate(low: f32, high: f32, order: usize, sampling_rate: f32) -> Self {
         let designer = ButterworthDesign::new(sampling_rate);
         let coefficients = FilterCoefficients::Cascaded(designer.bandpass(low, high, order));
@@ -418,7 +418,7 @@ impl DigitalFilter {
     }
 
     /// Create a notch filter (e.g., for 50/60Hz power line interference)
-    #[must_use] 
+    #[must_use]
     pub fn notch(frequency: f32) -> Self {
         Self {
             filter_type: FilterType::Notch,
@@ -431,7 +431,7 @@ impl DigitalFilter {
     }
 
     /// Create a notch filter with pre-computed coefficients
-    #[must_use] 
+    #[must_use]
     pub fn notch_with_rate(frequency: f32, sampling_rate: f32) -> Self {
         let designer = ButterworthDesign::new(sampling_rate);
         // Q factor of 30 gives a narrow notch (about 1.7Hz bandwidth at 50Hz)
@@ -450,7 +450,7 @@ impl DigitalFilter {
     /// Uses zero-phase filtering (filtfilt) to eliminate phase distortion.
     /// If the filter was created with a sampling rate (e.g., via `bandpass_with_rate`),
     /// that rate is used. Otherwise, defaults to 256 Hz (common for EEG).
-    #[must_use] 
+    #[must_use]
     pub fn apply(&self, signal: &[f32]) -> Vec<f32> {
         // Use stored sampling rate if available, otherwise default to 256 Hz (common EEG rate)
         let rate = self.sampling_rate.unwrap_or(256.0);
@@ -458,7 +458,7 @@ impl DigitalFilter {
     }
 
     /// Apply filter with explicit sampling rate
-    #[must_use] 
+    #[must_use]
     pub fn apply_with_rate(&self, signal: &[f32], sampling_rate: f32) -> Vec<f32> {
         if signal.len() < 12 {
             return signal.to_vec();
@@ -499,7 +499,7 @@ pub struct FFTAnalyzer {
 }
 
 impl FFTAnalyzer {
-    #[must_use] 
+    #[must_use]
     pub const fn new(sampling_rate: f32) -> Self {
         Self { sampling_rate }
     }
@@ -510,7 +510,7 @@ impl FFTAnalyzer {
     /// which is significantly faster than naive DFT for large signals.
     /// For EEG signals with typical lengths of 512-8192 samples, this provides
     /// a ~10-100x speedup compared to naive O(n²) DFT.
-    #[must_use] 
+    #[must_use]
     pub fn analyze(&self, signal: &[f32]) -> FrequencySpectrum {
         let n = signal.len();
         if n == 0 {
@@ -550,7 +550,7 @@ impl FFTAnalyzer {
     /// The Hann window reduces spectral leakage, which is important for
     /// accurate EEG band power estimation. This is particularly useful
     /// for distinguishing closely spaced frequency components in brainwaves.
-    #[must_use] 
+    #[must_use]
     pub fn analyze_windowed(&self, signal: &[f32]) -> FrequencySpectrum {
         let n = signal.len();
         if n == 0 {
@@ -596,7 +596,7 @@ impl FFTAnalyzer {
     }
 
     /// Extract power in specific frequency band
-    #[must_use] 
+    #[must_use]
     pub fn band_power(&self, spectrum: &FrequencySpectrum, band: FrequencyBand) -> f32 {
         let (low, high) = band.range();
         let freq_resolution = self.sampling_rate / (spectrum.spectrum.len() as f32 * 2.0);
@@ -647,7 +647,7 @@ pub struct EEGFeatures {
 
 impl EEGFeatures {
     /// Calculate similarity with another feature set (0.0 - 1.0)
-    #[must_use] 
+    #[must_use]
     pub fn similarity(&self, other: &Self) -> f32 {
         let features_self = self.to_vector();
         let features_other = other.to_vector();
@@ -994,7 +994,7 @@ impl EEGAuthService {
     }
 
     /// Get user signature
-    #[must_use] 
+    #[must_use]
     pub fn get_signature(&self, user_id: &str) -> Option<&UserSignature> {
         self.user_signatures.get(user_id)
     }
@@ -1005,7 +1005,7 @@ impl EEGAuthService {
     }
 
     /// List all enrolled users
-    #[must_use] 
+    #[must_use]
     pub fn list_users(&self) -> Vec<String> {
         self.user_signatures.keys().cloned().collect()
     }

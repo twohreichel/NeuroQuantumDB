@@ -83,7 +83,7 @@ pub struct ResponseMetadata {
 }
 
 impl ResponseMetadata {
-    #[must_use] 
+    #[must_use]
     pub fn new(duration: std::time::Duration, message: &str) -> Self {
         Self {
             response_time_ms: duration.as_secs_f64() * 1000.0,
@@ -105,7 +105,7 @@ impl<T> ApiResponse<T> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn error(error: ApiError, metadata: ResponseMetadata) -> Self {
         Self {
             success: false,
@@ -1021,9 +1021,7 @@ where
                 | Some(ApiError::NotFound(_)) => Self::NotFound(),
                 | Some(ApiError::Conflict(_)) => Self::Conflict(),
                 | Some(ApiError::RateLimitExceeded { .. }) => Self::TooManyRequests(),
-                | Some(ApiError::QuantumOperationFailed { .. }) => {
-                    Self::InternalServerError()
-                },
+                | Some(ApiError::QuantumOperationFailed { .. }) => Self::InternalServerError(),
                 | Some(ApiError::InvalidQuery { .. }) => Self::BadRequest(),
                 | Some(ApiError::InternalServerError { .. }) => Self::InternalServerError(),
                 | Some(ApiError::CompressionError { .. }) => Self::InternalServerError(),

@@ -751,15 +751,13 @@ impl ShardManager {
 
         let bytes_transferred: u64 = state.transfers.values().map(|t| t.bytes_transferred).sum();
 
-        let started_at_ms = state
-            .rebalance_started_at
-            .map_or(0, |start| {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64
-                    - start.elapsed().as_millis() as u64
-            });
+        let started_at_ms = state.rebalance_started_at.map_or(0, |start| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64
+                - start.elapsed().as_millis() as u64
+        });
 
         // Calculate throughput and ETA
         let (throughput_bytes_per_sec, eta_seconds) =

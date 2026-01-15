@@ -313,12 +313,7 @@ impl BTree {
     // === PRIVATE RECURSIVE OPERATIONS ===
 
     /// Recursive insert helper
-    fn insert_recursive(
-        &mut self,
-        page_id: PageId,
-        key: Key,
-        value: Value,
-    ) -> InsertFuture<'_> {
+    fn insert_recursive(&mut self, page_id: PageId, key: Key, value: Value) -> InsertFuture<'_> {
         Box::pin(async move {
             // Try to read as internal node first
             if let Ok(mut internal_node) = self.page_manager.read_internal_node(page_id).await {
@@ -389,12 +384,7 @@ impl BTree {
 
     /// Recursive upsert helper
     /// Returns: (optional split info, whether key was new)
-    fn upsert_recursive(
-        &mut self,
-        page_id: PageId,
-        key: Key,
-        value: Value,
-    ) -> UpsertFuture<'_> {
+    fn upsert_recursive(&mut self, page_id: PageId, key: Key, value: Value) -> UpsertFuture<'_> {
         Box::pin(async move {
             // Try to read as internal node first
             if let Ok(mut internal_node) = self.page_manager.read_internal_node(page_id).await {

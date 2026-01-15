@@ -61,7 +61,7 @@ pub struct PreparedStatementManager {
 
 impl PreparedStatementManager {
     /// Create a new `PreparedStatementManager` with default settings
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             statements: HashMap::new(),
@@ -71,7 +71,7 @@ impl PreparedStatementManager {
     }
 
     /// Create a new `PreparedStatementManager` with a custom statement limit
-    #[must_use] 
+    #[must_use]
     pub fn with_max_statements(max_statements: usize) -> Self {
         Self {
             statements: HashMap::new(),
@@ -128,7 +128,7 @@ impl PreparedStatementManager {
     }
 
     /// Get a prepared statement by name
-    #[must_use] 
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&PreparedStatement> {
         self.statements.get(name)
     }
@@ -232,13 +232,16 @@ impl PreparedStatementManager {
     }
 
     /// List all prepared statement names
-    #[must_use] 
+    #[must_use]
     pub fn list_statements(&self) -> Vec<&str> {
-        self.statements.keys().map(std::string::String::as_str).collect()
+        self.statements
+            .keys()
+            .map(std::string::String::as_str)
+            .collect()
     }
 
     /// Get statistics for all prepared statements
-    #[must_use] 
+    #[must_use]
     pub fn get_statistics(&self) -> PreparedStatementsStatistics {
         PreparedStatementsStatistics {
             total_statements: self.statements.len(),
@@ -252,7 +255,7 @@ impl PreparedStatementManager {
     }
 
     /// Check if a statement with the given name exists
-    #[must_use] 
+    #[must_use]
     pub fn exists(&self, name: &str) -> bool {
         self.statements.contains_key(name)
     }

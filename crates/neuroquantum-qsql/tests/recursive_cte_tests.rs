@@ -270,9 +270,7 @@ async fn test_recursive_cte_depth_limit() {
     // the query from hitting the cycle
     for i in 1..=100 {
         let next_id = if i < 100 { i + 1 } else { 1 }; // Closes the loop
-        let insert_sql = format!(
-            "INSERT INTO circular (id, next_id) VALUES ({i}, {next_id})"
-        );
+        let insert_sql = format!("INSERT INTO circular (id, next_id) VALUES ({i}, {next_id})");
         let statement = parser.parse(&insert_sql).unwrap();
         executor.execute_statement(&statement).await.unwrap();
     }

@@ -84,7 +84,7 @@ pub type CoreResult<T> = Result<T, NeuroQuantumError>;
 
 impl NeuroQuantumError {
     /// Create an invalid operation error
-    #[must_use] 
+    #[must_use]
     pub fn invalid_operation(msg: &str) -> Self {
         Self::InvalidOperation(msg.to_string())
     }

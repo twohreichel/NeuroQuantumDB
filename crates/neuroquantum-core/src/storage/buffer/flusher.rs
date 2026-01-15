@@ -177,7 +177,7 @@ impl BackgroundFlusher {
     }
 
     /// Check if flusher is running
-    #[must_use] 
+    #[must_use]
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
     }

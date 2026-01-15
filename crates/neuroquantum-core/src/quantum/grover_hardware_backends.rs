@@ -160,13 +160,13 @@ pub struct IBMGroverSolver {
 
 impl IBMGroverSolver {
     /// Create a new IBM Quantum Grover solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: IBMGroverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IBMGroverConfig {
             api_token: std::env::var("IBM_QUANTUM_API_KEY").ok(),
@@ -358,13 +358,13 @@ pub struct BraketGroverSolver {
 
 impl BraketGroverSolver {
     /// Create a new AWS Braket Grover solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: BraketGroverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = BraketGroverConfig {
             region: std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
@@ -570,13 +570,13 @@ pub struct IonQGroverSolver {
 
 impl IonQGroverSolver {
     /// Create a new `IonQ` Grover solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: IonQGroverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IonQGroverConfig {
             api_key: std::env::var("IONQ_API_KEY").ok(),
@@ -745,7 +745,7 @@ pub struct SimulatorGroverSolver {
 
 impl SimulatorGroverSolver {
     /// Create a new local simulator solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: SimulatorGroverConfig) -> Self {
         Self { config }
     }
@@ -835,7 +835,7 @@ pub struct UnifiedGroverConfig {
 
 impl UnifiedGroverConfig {
     /// Create configuration from environment variables
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         Self {
             ibm: if std::env::var("IBM_QUANTUM_API_KEY").is_ok() {
@@ -906,7 +906,7 @@ impl UnifiedGroverSolver {
     }
 
     /// Create a solver from environment variables
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         Self::new(UnifiedGroverConfig::from_env())
     }
@@ -948,7 +948,7 @@ impl UnifiedGroverSolver {
     }
 
     /// List all available backends
-    #[must_use] 
+    #[must_use]
     pub fn available_backends(&self) -> Vec<String> {
         let mut backends = Vec::new();
 

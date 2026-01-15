@@ -160,7 +160,7 @@ pub struct DWaveBackend {
 
 impl DWaveBackend {
     /// Create a new D-Wave backend with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: DWaveConfig) -> Self {
         Self { config }
     }
@@ -171,7 +171,7 @@ impl DWaveBackend {
     /// - `DWAVE_API_TOKEN`: API token
     /// - `DWAVE_SOLVER`: Solver name (optional)
     /// - `DWAVE_ENDPOINT`: API endpoint (optional)
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = DWaveConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -184,7 +184,7 @@ impl DWaveBackend {
     }
 
     /// Get the API token, checking environment if not configured
-    #[must_use] 
+    #[must_use]
     pub fn get_api_token(&self) -> Option<String> {
         self.config
             .api_token
@@ -193,7 +193,7 @@ impl DWaveBackend {
     }
 
     /// Get the current configuration
-    #[must_use] 
+    #[must_use]
     pub const fn config(&self) -> &DWaveConfig {
         &self.config
     }
@@ -206,7 +206,7 @@ impl DWaveBackend {
     /// Convert QUBO matrix to D-Wave format
     ///
     /// D-Wave expects a dictionary of (i, j) -> coefficient pairs
-    #[must_use] 
+    #[must_use]
     pub fn qubo_to_dwave_format(&self, q_matrix: &DMatrix<f64>) -> HashMap<(usize, usize), f64> {
         let n = q_matrix.nrows();
         let mut q_dict = HashMap::new();
@@ -231,7 +231,7 @@ impl DWaveBackend {
     /// Convert Ising model to D-Wave format
     ///
     /// Returns (h, J) where h is linear biases and J is quadratic couplings
-    #[must_use] 
+    #[must_use]
     pub fn ising_to_dwave_format(
         &self,
         fields: &[f64],
@@ -282,7 +282,7 @@ impl DWaveBackend {
     }
 
     /// Build D-Wave problem submission payload
-    #[must_use] 
+    #[must_use]
     pub fn build_problem_payload(
         &self,
         linear: &HashMap<usize, f64>,

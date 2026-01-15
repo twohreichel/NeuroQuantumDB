@@ -51,7 +51,7 @@ pub struct WasmError {
 impl WasmError {
     /// Get the error message
     #[wasm_bindgen(getter)]
-    #[must_use] 
+    #[must_use]
     pub fn message(&self) -> String {
         self.message.clone()
     }
@@ -107,9 +107,8 @@ impl NeuroQuantumDB {
                 for row in results {
                     let obj = Object::new();
                     for (key, value) in row {
-                        let js_val = serde_wasm_bindgen::to_value(&value).map_err(|e| {
-                            JsValue::from_str(&format!("Serialization error: {e}"))
-                        })?;
+                        let js_val = serde_wasm_bindgen::to_value(&value)
+                            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))?;
                         Reflect::set(&obj, &JsValue::from_str(&key), &js_val)?;
                     }
                     array.push(&obj);

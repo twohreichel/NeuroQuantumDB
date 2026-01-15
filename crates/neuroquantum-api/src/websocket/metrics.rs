@@ -34,7 +34,7 @@ pub struct ConnectionMetrics {
 
 impl ConnectionMetrics {
     /// Create a new metrics instance
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             total_connections: Arc::new(AtomicU64::new(0)),
@@ -89,7 +89,7 @@ impl ConnectionMetrics {
     }
 
     /// Get a snapshot of current metrics
-    #[must_use] 
+    #[must_use]
     pub fn snapshot(&self) -> MetricsSnapshot {
         MetricsSnapshot {
             total_connections: self.total_connections.load(Ordering::Relaxed),
@@ -134,7 +134,7 @@ pub struct MetricsSnapshot {
 
 impl MetricsSnapshot {
     /// Calculate message rate (messages per second)
-    #[must_use] 
+    #[must_use]
     pub fn message_rate(&self, duration_secs: f64) -> f64 {
         if duration_secs > 0.0 {
             (self.total_messages_sent + self.total_messages_received) as f64 / duration_secs
@@ -144,7 +144,7 @@ impl MetricsSnapshot {
     }
 
     /// Calculate error rate (errors per connection)
-    #[must_use] 
+    #[must_use]
     pub fn error_rate(&self) -> f64 {
         if self.total_connections > 0 {
             (self.connection_errors + self.heartbeat_failures) as f64

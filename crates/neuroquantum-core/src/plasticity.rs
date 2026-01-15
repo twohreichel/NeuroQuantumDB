@@ -195,7 +195,7 @@ impl PlasticityMatrix {
     }
 
     /// Get the maximum nodes capacity
-    #[must_use] 
+    #[must_use]
     pub const fn max_nodes(&self) -> usize {
         self.max_nodes
     }
@@ -206,7 +206,7 @@ impl PlasticityMatrix {
     }
 
     /// Get the current capacity configuration
-    #[must_use] 
+    #[must_use]
     pub const fn capacity_config(&self) -> &CapacityConfig {
         &self.capacity_config
     }
@@ -850,8 +850,8 @@ impl PlasticityMatrix {
         // and optimizing their memory access patterns
         for &(node_id, frequency) in &top_nodes {
             // Calculate boost factor based on frequency ranking
-            let frequency_percentile = (*frequency as f32)
-                / (nodes_by_frequency.first().map_or(1, |(_, f)| *f) as f32);
+            let frequency_percentile =
+                (*frequency as f32) / (nodes_by_frequency.first().map_or(1, |(_, f)| *f) as f32);
 
             // Update plasticity score with frequency boost
             let current_score = self.plasticity_scores.get(node_id).unwrap_or(&0.0);
@@ -957,7 +957,7 @@ impl PlasticityMatrix {
     }
 
     /// Get plasticity statistics
-    #[must_use] 
+    #[must_use]
     pub fn get_plasticity_stats(&self) -> PlasticityStats {
         let total_nodes = self.plasticity_scores.len();
         let high_plasticity_nodes = self
@@ -994,7 +994,7 @@ impl PlasticityMatrix {
     }
 
     /// Get current access patterns
-    #[must_use] 
+    #[must_use]
     pub const fn get_access_patterns(&self) -> &AccessPatterns {
         &self.access_patterns
     }

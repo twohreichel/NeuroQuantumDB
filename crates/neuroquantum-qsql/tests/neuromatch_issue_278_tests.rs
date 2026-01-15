@@ -135,21 +135,17 @@ async fn test_neuromatch_returns_results() {
 
     // Verify that fantasy books are included
     let has_harry_potter = result.rows.iter().any(|row| {
-        row.get("title")
-            .is_some_and(|v| match v {
-                | neuroquantum_qsql::query_plan::QueryValue::String(s) => {
-                    s.contains("Harry Potter")
-                },
-                | _ => false,
-            })
+        row.get("title").is_some_and(|v| match v {
+            | neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Harry Potter"),
+            | _ => false,
+        })
     });
 
     let has_hobbit = result.rows.iter().any(|row| {
-        row.get("title")
-            .is_some_and(|v| match v {
-                | neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Hobbit"),
-                | _ => false,
-            })
+        row.get("title").is_some_and(|v| match v {
+            | neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Hobbit"),
+            | _ => false,
+        })
     });
 
     assert!(

@@ -130,7 +130,7 @@ fn is_public_endpoint(path: &str) -> bool {
 }
 
 /// Convenience function to create auth middleware
-#[must_use] 
+#[must_use]
 pub const fn auth_middleware() -> AuthMiddlewareFactory {
     AuthMiddlewareFactory
 }
@@ -227,7 +227,7 @@ where
     }
 }
 
-#[must_use] 
+#[must_use]
 pub const fn security_headers_middleware() -> SecurityHeadersMiddlewareFactory {
     SecurityHeadersMiddlewareFactory
 }
@@ -305,7 +305,7 @@ pub struct RequestValidationMiddlewareFactory {
 }
 
 impl RequestValidationMiddlewareFactory {
-    #[must_use] 
+    #[must_use]
     pub const fn new(max_payload_size: usize) -> Self {
         Self { max_payload_size }
     }
@@ -331,7 +331,7 @@ where
     }
 }
 
-#[must_use] 
+#[must_use]
 pub const fn request_validation_middleware(
     max_payload_size: usize,
 ) -> RequestValidationMiddlewareFactory {
@@ -358,7 +358,7 @@ enum CircuitBreakerState {
 }
 
 impl CircuitBreaker {
-    #[must_use] 
+    #[must_use]
     pub fn new(failure_threshold: u64, success_threshold: u64, timeout: Duration) -> Self {
         Self {
             failure_threshold,
@@ -583,7 +583,7 @@ pub struct IpWhitelistMiddlewareFactory {
 }
 
 impl IpWhitelistMiddlewareFactory {
-    #[must_use] 
+    #[must_use]
     pub const fn new(whitelist: Vec<String>) -> Self {
         Self { whitelist }
     }
@@ -616,7 +616,7 @@ fn is_admin_endpoint(path: &str) -> bool {
         || path.contains("/api-key/generate")
 }
 
-#[must_use] 
+#[must_use]
 pub const fn ip_whitelist_middleware(whitelist: Vec<String>) -> IpWhitelistMiddlewareFactory {
     IpWhitelistMiddlewareFactory::new(whitelist)
 }
@@ -657,7 +657,10 @@ where
                     }
 
                     fn keys(&self) -> Vec<&str> {
-                        self.0.keys().map(actix_web::http::header::HeaderName::as_str).collect()
+                        self.0
+                            .keys()
+                            .map(actix_web::http::header::HeaderName::as_str)
+                            .collect()
                     }
                 }
 
@@ -729,7 +732,7 @@ where
     }
 }
 
-#[must_use] 
+#[must_use]
 pub const fn tracing_middleware() -> TracingMiddlewareFactory {
     TracingMiddlewareFactory
 }

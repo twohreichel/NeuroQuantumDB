@@ -183,7 +183,7 @@ pub struct IsingHamiltonian {
 
 impl IsingHamiltonian {
     /// Create a new Ising Hamiltonian
-    #[must_use] 
+    #[must_use]
     pub const fn new(
         num_spins: usize,
         couplings: DMatrix<f64>,
@@ -199,7 +199,7 @@ impl IsingHamiltonian {
     }
 
     /// Calculate classical Ising energy for a configuration
-    #[must_use] 
+    #[must_use]
     pub fn classical_energy(&self, config: &[i8]) -> f64 {
         let mut energy = 0.0;
 
@@ -219,7 +219,7 @@ impl IsingHamiltonian {
     }
 
     /// Build the full Hamiltonian matrix (for small systems)
-    #[must_use] 
+    #[must_use]
     pub fn build_matrix(&self) -> DMatrix<Complex> {
         let dim = 1 << self.num_spins; // 2^n
         let mut h = DMatrix::zeros(dim, dim);
@@ -251,7 +251,7 @@ impl IsingHamiltonian {
     }
 
     /// Convert spin configuration to state index
-    #[must_use] 
+    #[must_use]
     pub fn config_to_index(&self, config: &[i8]) -> usize {
         config
             .iter()
@@ -270,13 +270,13 @@ pub struct QuantumParallelTempering {
 
 impl QuantumParallelTempering {
     /// Create a new quantum parallel tempering optimizer
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(QuantumParallelTemperingConfig::default())
     }
 
     /// Create with custom configuration
-    #[must_use] 
+    #[must_use]
     pub fn with_config(config: QuantumParallelTemperingConfig) -> Self {
         let temperatures = Self::generate_temperature_ladder(&config);
 
@@ -599,7 +599,11 @@ impl QuantumParallelTempering {
                         *state_vec = evolved;
 
                         // Renormalize
-                        let norm: f64 = state_vec.iter().map(nalgebra::Complex::norm_sqr).sum::<f64>().sqrt();
+                        let norm: f64 = state_vec
+                            .iter()
+                            .map(nalgebra::Complex::norm_sqr)
+                            .sum::<f64>()
+                            .sqrt();
                         if norm > 1e-10 {
                             *state_vec /= Complex::new(norm, 0.0);
                         }
@@ -735,7 +739,11 @@ impl QuantumParallelTempering {
                         *state_vec = evolved;
 
                         // Normalize
-                        let norm: f64 = state_vec.iter().map(nalgebra::Complex::norm_sqr).sum::<f64>().sqrt();
+                        let norm: f64 = state_vec
+                            .iter()
+                            .map(nalgebra::Complex::norm_sqr)
+                            .sum::<f64>()
+                            .sqrt();
                         if norm > 1e-10 {
                             *state_vec /= Complex::new(norm, 0.0);
                         }
@@ -823,7 +831,8 @@ impl QuantumParallelTempering {
             .ok_or_else(|| CoreError::invalid_operation("Hamiltonian not set"))?
             .clone();
 
-        let threshold_temp = f64::midpoint(self.config.min_temperature, self.config.max_temperature);
+        let threshold_temp =
+            f64::midpoint(self.config.min_temperature, self.config.max_temperature);
 
         for replica_arc in &self.replicas {
             let temp = {
@@ -1181,7 +1190,7 @@ pub struct ThermodynamicObservables {
 }
 
 /// Helper function to create quantum parallel tempering with Ising model
-#[must_use] 
+#[must_use]
 pub fn create_quantum_ising_optimizer(
     num_spins: usize,
     couplings: DMatrix<f64>,

@@ -28,7 +28,7 @@ pub struct LRUEviction {
 
 impl LRUEviction {
     /// Create a new LRU eviction policy
-    #[must_use] 
+    #[must_use]
     pub fn new(_pool_size: usize) -> Self {
         Self {
             queue: VecDeque::new(),

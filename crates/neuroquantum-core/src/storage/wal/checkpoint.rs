@@ -41,7 +41,7 @@ pub struct CheckpointManager {
 
 impl CheckpointManager {
     /// Create a new checkpoint manager
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: WALConfig) -> Self {
         Self {
             config,
@@ -51,7 +51,7 @@ impl CheckpointManager {
     }
 
     /// Check if a checkpoint is needed based on time interval
-    #[must_use] 
+    #[must_use]
     pub fn should_checkpoint(&self) -> bool {
         match self.last_checkpoint_time {
             | None => true, // Never checkpointed
@@ -72,13 +72,13 @@ impl CheckpointManager {
     }
 
     /// Get the last checkpoint LSN
-    #[must_use] 
+    #[must_use]
     pub const fn get_last_checkpoint_lsn(&self) -> Option<LSN> {
         self.last_checkpoint_lsn
     }
 
     /// Create a checkpoint record
-    #[must_use] 
+    #[must_use]
     pub fn create_checkpoint_record(
         checkpoint_lsn: LSN,
         active_transactions: Vec<TransactionId>,

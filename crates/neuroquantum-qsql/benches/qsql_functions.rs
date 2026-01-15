@@ -345,27 +345,21 @@ fn bench_function_composition(c: &mut Criterion) {
                 let results: Vec<_> = rows
                     .iter()
                     .filter(|row| {
-                        let name_match = row
-                            .fields
-                            .get("name")
-                            .is_some_and(|v| {
-                                if let Value::Text(t) = v {
-                                    neuromatch_score(t, "John") > 0.5
-                                } else {
-                                    false
-                                }
-                            });
+                        let name_match = row.fields.get("name").is_some_and(|v| {
+                            if let Value::Text(t) = v {
+                                neuromatch_score(t, "John") > 0.5
+                            } else {
+                                false
+                            }
+                        });
 
-                        let email_match = row
-                            .fields
-                            .get("email")
-                            .is_some_and(|v| {
-                                if let Value::Text(t) = v {
-                                    neuromatch_score(t, "example") > 0.3
-                                } else {
-                                    false
-                                }
-                            });
+                        let email_match = row.fields.get("email").is_some_and(|v| {
+                            if let Value::Text(t) = v {
+                                neuromatch_score(t, "example") > 0.3
+                            } else {
+                                false
+                            }
+                        });
 
                         name_match || email_match
                     })
@@ -380,38 +374,29 @@ fn bench_function_composition(c: &mut Criterion) {
                 let mut results: Vec<_> = rows
                     .iter()
                     .filter(|row| {
-                        let name_match = row
-                            .fields
-                            .get("name")
-                            .is_some_and(|v| {
-                                if let Value::Text(t) = v {
-                                    neuromatch_score(t, "John") > 0.3
-                                } else {
-                                    false
-                                }
-                            });
+                        let name_match = row.fields.get("name").is_some_and(|v| {
+                            if let Value::Text(t) = v {
+                                neuromatch_score(t, "John") > 0.3
+                            } else {
+                                false
+                            }
+                        });
 
-                        let email_match = row
-                            .fields
-                            .get("email")
-                            .is_some_and(|v| {
-                                if let Value::Text(t) = v {
-                                    neuromatch_score(t, "example") > 0.3
-                                } else {
-                                    false
-                                }
-                            });
+                        let email_match = row.fields.get("email").is_some_and(|v| {
+                            if let Value::Text(t) = v {
+                                neuromatch_score(t, "example") > 0.3
+                            } else {
+                                false
+                            }
+                        });
 
-                        let age_check = row
-                            .fields
-                            .get("age")
-                            .is_some_and(|v| {
-                                if let Value::Integer(a) = v {
-                                    *a > 25
-                                } else {
-                                    false
-                                }
-                            });
+                        let age_check = row.fields.get("age").is_some_and(|v| {
+                            if let Value::Integer(a) = v {
+                                *a > 25
+                            } else {
+                                false
+                            }
+                        });
 
                         name_match && email_match && age_check
                     })
@@ -419,14 +404,20 @@ fn bench_function_composition(c: &mut Criterion) {
 
                 // Sort by score
                 results.sort_by(|a, b| {
-                    let score_a = a
-                        .fields
-                        .get("score")
-                        .map_or(0.0, |v| if let Value::Float(f) = v { *f } else { 0.0 });
-                    let score_b = b
-                        .fields
-                        .get("score")
-                        .map_or(0.0, |v| if let Value::Float(f) = v { *f } else { 0.0 });
+                    let score_a = a.fields.get("score").map_or(0.0, |v| {
+                        if let Value::Float(f) = v {
+                            *f
+                        } else {
+                            0.0
+                        }
+                    });
+                    let score_b = b.fields.get("score").map_or(0.0, |v| {
+                        if let Value::Float(f) = v {
+                            *f
+                        } else {
+                            0.0
+                        }
+                    });
                     score_b.partial_cmp(&score_a).unwrap()
                 });
 

@@ -750,7 +750,7 @@ impl WebSocketService {
     }
 
     /// Get streaming registry for advanced operations
-    #[must_use] 
+    #[must_use]
     pub fn streaming_registry(&self) -> Arc<StreamingRegistry> {
         self.streaming_registry.clone()
     }

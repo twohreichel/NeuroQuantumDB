@@ -156,19 +156,19 @@ impl ConnectionManager {
     }
 
     /// Get a connection by ID
-    #[must_use] 
+    #[must_use]
     pub fn get_connection(&self, conn_id: ConnectionId) -> Option<Arc<Connection>> {
         self.connections.get(&conn_id).map(|entry| entry.clone())
     }
 
     /// Get all active connection IDs
-    #[must_use] 
+    #[must_use]
     pub fn get_all_connection_ids(&self) -> Vec<ConnectionId> {
         self.connections.iter().map(|entry| *entry.key()).collect()
     }
 
     /// Get the number of active connections
-    #[must_use] 
+    #[must_use]
     pub fn connection_count(&self) -> usize {
         self.connections.len()
     }
@@ -337,7 +337,7 @@ impl ConnectionManager {
     }
 
     /// Get current metrics snapshot
-    #[must_use] 
+    #[must_use]
     pub fn get_metrics(&self) -> crate::websocket::metrics::MetricsSnapshot {
         self.metrics.snapshot()
     }

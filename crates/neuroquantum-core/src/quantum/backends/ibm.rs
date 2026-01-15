@@ -127,7 +127,7 @@ pub struct IBMQuantumBackend {
 
 impl IBMQuantumBackend {
     /// Create a new IBM Quantum backend with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: IBMQuantumConfig) -> Self {
         Self { config }
     }
@@ -138,7 +138,7 @@ impl IBMQuantumBackend {
     /// - `IBM_QUANTUM_API_KEY`: API token
     /// - `IBM_QUANTUM_BACKEND`: Backend name (optional, defaults to `ibm_brisbane`)
     /// - `IBM_QUANTUM_ENDPOINT`: API endpoint (optional)
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IBMQuantumConfig {
             api_token: std::env::var("IBM_QUANTUM_API_KEY").ok(),
@@ -152,7 +152,7 @@ impl IBMQuantumBackend {
     }
 
     /// Get the API token, checking environment if not configured
-    #[must_use] 
+    #[must_use]
     pub fn get_api_token(&self) -> Option<String> {
         self.config
             .api_token
@@ -161,7 +161,7 @@ impl IBMQuantumBackend {
     }
 
     /// Get the current configuration
-    #[must_use] 
+    #[must_use]
     pub const fn config(&self) -> &IBMQuantumConfig {
         &self.config
     }
@@ -177,7 +177,7 @@ impl IBMQuantumBackend {
     /// * `num_qubits` - Number of qubits in the search space
     /// * `marked_states` - States to search for
     /// * `num_iterations` - Number of Grover iterations
-    #[must_use] 
+    #[must_use]
     pub fn build_grover_qasm(
         &self,
         num_qubits: usize,
@@ -261,7 +261,7 @@ impl IBMQuantumBackend {
     /// * `gamma` - Problem unitary angle
     /// * `beta` - Mixer unitary angle
     /// * `q_matrix` - QUBO coefficients
-    #[must_use] 
+    #[must_use]
     pub fn build_qaoa_qasm(&self, num_qubits: usize, gammas: &[f64], betas: &[f64]) -> String {
         let mut qasm = String::new();
         qasm.push_str("OPENQASM 3.0;\n");

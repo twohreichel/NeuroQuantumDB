@@ -3,8 +3,18 @@
 //! This module provides a comprehensive parser for QSQL language that extends
 //! standard SQL with neuromorphic computing and quantum-inspired features.
 
-use crate::ast::{BinaryOperator, Statement, SelectItem, Expression, Literal, TableReference, FromClause, OrderByItem, SelectStatement, InsertStatement, Assignment, UpdateStatement, DeleteStatement, NeuroMatchClause, NeuroMatchStatement, QuantumSearchStatement, LearnPatternStatement, AdaptWeightsStatement, QuantumJoinStatement, CreateTableStatement, ColumnDefinition, ColumnConstraint, DataType, TableConstraint, DropTableStatement, AlterTableOperation, AlterTableStatement, CreateIndexStatement, DropIndexStatement, TruncateBehavior, TruncateTableStatement, CompressionAlgorithm, CompressTableStatement, WithClause, CommonTableExpression, JoinClause, JoinType, UnaryOperator, ParameterRef, WindowFunctionType, WindowSpec, PrepareStatement, ExecuteStatement, DeallocateStatement};
-use crate::error::{QSQLResult, QSQLError};
+use crate::ast::{
+    AdaptWeightsStatement, AlterTableOperation, AlterTableStatement, Assignment, BinaryOperator,
+    ColumnConstraint, ColumnDefinition, CommonTableExpression, CompressTableStatement,
+    CompressionAlgorithm, CreateIndexStatement, CreateTableStatement, DataType,
+    DeallocateStatement, DeleteStatement, DropIndexStatement, DropTableStatement, ExecuteStatement,
+    Expression, FromClause, InsertStatement, JoinClause, JoinType, LearnPatternStatement, Literal,
+    NeuroMatchClause, NeuroMatchStatement, OrderByItem, ParameterRef, PrepareStatement,
+    QuantumJoinStatement, QuantumSearchStatement, SelectItem, SelectStatement, Statement,
+    TableConstraint, TableReference, TruncateBehavior, TruncateTableStatement, UnaryOperator,
+    UpdateStatement, WindowFunctionType, WindowSpec, WithClause,
+};
+use crate::error::{QSQLError, QSQLResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, instrument, warn};
@@ -39,7 +49,7 @@ pub enum Precedence {
 
 impl Precedence {
     /// Get the next higher precedence level
-    #[must_use] 
+    #[must_use]
     pub const fn next(self) -> Self {
         match self {
             | Self::None => Self::Or,
@@ -309,7 +319,7 @@ pub enum TokenType {
 
 impl QSQLParser {
     /// Create a new QSQL parser with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(ParserConfig::default()).expect("Failed to create QSQL parser")
     }

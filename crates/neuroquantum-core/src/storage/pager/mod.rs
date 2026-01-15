@@ -345,7 +345,7 @@ impl PageStorageManager {
     }
 
     /// Get storage statistics (synchronous version for backup)
-    #[must_use] 
+    #[must_use]
     pub const fn get_stats(&self) -> StorageStats {
         // This is a simplified version that doesn't require async
         // In production, you might want to use a cached version

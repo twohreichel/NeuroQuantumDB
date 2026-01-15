@@ -85,9 +85,7 @@ async fn test_dna_compression_and_encryption_roundtrip() {
             .expect("Failed to insert row");
 
         inserted_ids.push(row_id);
-        println!(
-            "✅ Inserted row {row_id} with DNA compression + encryption"
-        );
+        println!("✅ Inserted row {row_id} with DNA compression + encryption");
     }
 
     // Verify data is actually on disk (encrypted and compressed)
@@ -256,7 +254,5 @@ async fn test_compression_ratio_with_encryption() {
     );
 
     println!("✅ DNA Compression + Encryption storage test PASSED");
-    println!(
-        "   File size: {file_size} bytes (ratio: {compression_ratio:.2}x)"
-    );
+    println!("   File size: {file_size} bytes (ratio: {compression_ratio:.2}x)");
 }

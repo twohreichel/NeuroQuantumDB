@@ -299,7 +299,9 @@ fn bench_solution_quality(c: &mut Criterion) {
         if i == j {
             0.0
         } else {
-            (i as f64 - j as f64).mul_add(i as f64 - j as f64, 1.0).sqrt()
+            (i as f64 - j as f64)
+                .mul_add(i as f64 - j as f64, 1.0)
+                .sqrt()
         }
     });
 

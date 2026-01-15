@@ -297,9 +297,7 @@ async fn test_streaming_large_batch_throughput() {
     assert!(result.is_ok(), "Large stream should complete");
     assert_eq!(total_rows, 5000, "Should receive all rows");
     assert_eq!(total_batches, 10, "Should have 10 batches of 500");
-    println!(
-        "✅ Large batch throughput test passed! Streamed 5000 rows in {elapsed:?}"
-    );
+    println!("✅ Large batch throughput test passed! Streamed 5000 rows in {elapsed:?}");
 }
 
 // ==================== PubSub Integration Tests ====================

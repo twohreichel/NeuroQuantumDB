@@ -1,10 +1,10 @@
 //! Synaptic Learning Demo
 //!
-//! Demonstrates NeuroQuantumDB's neuromorphic computing capabilities:
+//! Demonstrates `NeuroQuantumDB`'s neuromorphic computing capabilities:
 //! - Hebbian Learning: "Neurons that fire together, wire together"
 //! - Long-Term Potentiation (LTP) and Long-Term Depression (LTD)
 //! - Spike-Timing Dependent Plasticity (STDP)
-//! - Multiple activation functions (Sigmoid, ReLU, Tanh, LeakyReLU)
+//! - Multiple activation functions (Sigmoid, `ReLU`, Tanh, `LeakyReLU`)
 //! - Forward propagation through neural networks
 //! - Synaptic weight adaptation
 //! - Pattern recognition and learning
@@ -76,13 +76,12 @@ fn demo_activation_functions() -> Result<(), Box<dyn std::error::Error>> {
     let test_inputs = vec![-2.0, -1.0, 0.0, 1.0, 2.0];
 
     println!(
-        "Testing activation functions with inputs: {:?}",
-        test_inputs
+        "Testing activation functions with inputs: {test_inputs:?}"
     );
     println!();
 
     for func in &functions {
-        println!("{:?} Activation:", func);
+        println!("{func:?} Activation:");
         print!("  Outputs:     ");
         for &input in &test_inputs {
             print!("{:6.3}  ", func.activate(input));
@@ -131,8 +130,8 @@ fn demo_neuron_behavior() -> Result<(), Box<dyn std::error::Error>> {
         let output = neuron.activate(strength);
         let fired = neuron.fire();
 
-        println!("Input strength: {:.1}", strength);
-        println!("  → Activation output: {:.4}", output);
+        println!("Input strength: {strength:.1}");
+        println!("  → Activation output: {output:.4}");
         println!(
             "  → Neuron fired: {}",
             if fired { "✅ YES" } else { "❌ NO" }
@@ -261,7 +260,7 @@ fn demo_synaptic_plasticity() -> Result<(), Box<dyn std::error::Error>> {
         synapse.hebbian_update(pre_activity, post_activity, 0.05);
 
         if iteration % 5 == 0 {
-            println!("Iteration {:#2}:", iteration);
+            println!("Iteration {iteration:#2}:");
             println!(
                 "  • Weight: {:.4} (Δ {:.4})",
                 synapse.weight,
@@ -361,13 +360,13 @@ fn demo_neural_network() -> Result<(), Box<dyn std::error::Error>> {
         let outputs = network.forward_propagate(&inputs)?;
         let elapsed = start.elapsed();
 
-        println!("{}: {:?}", label, inputs);
+        println!("{label}: {inputs:?}");
         println!(
             "  → Network outputs: [{:.4}, {:.4}, {:.4}, {:.4}, {:.4}, {:.4}, {:.4}]",
             outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5], outputs[6]
         );
         println!("  → Output layer: [{:.4}, {:.4}]", outputs[5], outputs[6]);
-        println!("  → Propagation time: {:?}", elapsed);
+        println!("  → Propagation time: {elapsed:?}");
         println!();
     }
 
@@ -489,8 +488,8 @@ fn demo_pattern_learning() -> Result<(), Box<dyn std::error::Error>> {
             "  • Embedding: [{:.1}, {:.1}, {:.1}, {:.1}, {:.1}]",
             embedding[0], embedding[1], embedding[2], embedding[3], embedding[4]
         );
-        println!("  • Performance: {:.2}", performance);
-        println!("  • Adaptation time: {:?}", elapsed);
+        println!("  • Performance: {performance:.2}");
+        println!("  • Adaptation time: {elapsed:?}");
         println!();
     }
 

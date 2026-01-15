@@ -103,7 +103,7 @@ pub struct WALRecord {
 
 impl WALRecord {
     /// Create a new WAL record
-    #[must_use] 
+    #[must_use]
     pub fn new(
         lsn: LSN,
         prev_lsn: Option<LSN>,
@@ -138,7 +138,7 @@ impl WALRecord {
     }
 
     /// Verify checksum
-    #[must_use] 
+    #[must_use]
     pub fn verify_checksum(&self) -> bool {
         let expected = self.compute_checksum();
         self.checksum == expected
@@ -216,7 +216,7 @@ pub struct TransactionState {
 
 impl TransactionState {
     /// Create a new transaction state
-    #[must_use] 
+    #[must_use]
     pub fn new(tx_id: TransactionId, first_lsn: LSN) -> Self {
         Self {
             tx_id,
@@ -232,7 +232,7 @@ impl TransactionState {
     }
 
     /// Check if transaction is in a terminal state
-    #[must_use] 
+    #[must_use]
     pub const fn is_terminal(&self) -> bool {
         matches!(
             self.status,
@@ -241,7 +241,7 @@ impl TransactionState {
     }
 
     /// Check if transaction needs undo during recovery
-    #[must_use] 
+    #[must_use]
     pub const fn needs_undo(&self) -> bool {
         matches!(
             self.status,
@@ -250,7 +250,7 @@ impl TransactionState {
     }
 
     /// Check if transaction needs redo during recovery
-    #[must_use] 
+    #[must_use]
     pub const fn needs_redo(&self) -> bool {
         matches!(
             self.status,
@@ -300,13 +300,13 @@ impl TransactionState {
     }
 
     /// Get transaction duration
-    #[must_use] 
+    #[must_use]
     pub fn duration(&self) -> chrono::Duration {
         chrono::Utc::now() - self.start_time
     }
 
     /// Get transaction summary for monitoring
-    #[must_use] 
+    #[must_use]
     pub fn summary(&self) -> TransactionSummary {
         TransactionSummary {
             tx_id: self.tx_id,
@@ -342,19 +342,19 @@ pub enum TransactionStatus {
 
 impl TransactionStatus {
     /// Check if this status indicates an active transaction
-    #[must_use] 
+    #[must_use]
     pub const fn is_active(&self) -> bool {
         matches!(self, Self::Active | Self::Committing | Self::Aborting)
     }
 
     /// Check if this status indicates a completed transaction
-    #[must_use] 
+    #[must_use]
     pub const fn is_complete(&self) -> bool {
         matches!(self, Self::Committed | Self::Aborted)
     }
 
     /// Get human-readable status string
-    #[must_use] 
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             | Self::Active => "ACTIVE",
@@ -809,7 +809,7 @@ impl WALManager {
     }
 
     /// Get current LSN
-    #[must_use] 
+    #[must_use]
     pub fn get_current_lsn(&self) -> LSN {
         self.next_lsn.load(Ordering::SeqCst)
     }
@@ -857,13 +857,13 @@ impl WALManager {
     }
 
     /// Get current LSN (alias for compatibility)
-    #[must_use] 
+    #[must_use]
     pub fn current_lsn(&self) -> LSN {
         self.get_current_lsn()
     }
 
     /// Get WAL directory path
-    #[must_use] 
+    #[must_use]
     pub fn get_wal_directory(&self) -> PathBuf {
         self._config.wal_dir.clone()
     }

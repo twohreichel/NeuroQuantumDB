@@ -388,7 +388,7 @@ fn bases_to_bytes(bases: &[DNABase]) -> Vec<u8> {
 }
 
 /// AVX2 feature detection and capability reporting
-#[must_use] 
+#[must_use]
 pub const fn detect_avx2_capabilities() -> Avx2Capabilities {
     #[cfg(target_arch = "x86_64")]
     {

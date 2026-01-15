@@ -22,7 +22,7 @@ pub struct InternalNode {
 
 impl InternalNode {
     /// Create a new internal node
-    #[must_use] 
+    #[must_use]
     pub fn new(order: usize) -> Self {
         Self {
             keys: Vec::with_capacity(order),
@@ -32,13 +32,13 @@ impl InternalNode {
     }
 
     /// Check if the node is full
-    #[must_use] 
+    #[must_use]
     pub const fn is_full(&self) -> bool {
         self.keys.len() >= self.max_keys
     }
 
     /// Find the index of the child to follow for a given key
-    #[must_use] 
+    #[must_use]
     pub fn find_child_index(&self, key: &Key) -> usize {
         for (i, k) in self.keys.iter().enumerate() {
             if key < k {
@@ -100,7 +100,7 @@ pub struct LeafNode {
 
 impl LeafNode {
     /// Create a new leaf node
-    #[must_use] 
+    #[must_use]
     pub fn new(order: usize) -> Self {
         Self {
             entries: Vec::with_capacity(order),
@@ -110,7 +110,7 @@ impl LeafNode {
     }
 
     /// Check if the node is full
-    #[must_use] 
+    #[must_use]
     pub const fn is_full(&self) -> bool {
         self.entries.len() >= self.max_entries
     }
@@ -152,7 +152,7 @@ impl LeafNode {
     }
 
     /// Search for a value by key
-    #[must_use] 
+    #[must_use]
     pub fn search(&self, key: &Key) -> Option<Value> {
         self.entries
             .binary_search_by(|(k, _)| k.cmp(key))
@@ -187,13 +187,13 @@ impl LeafNode {
     }
 
     /// Get the minimum key in this leaf
-    #[must_use] 
+    #[must_use]
     pub fn min_key(&self) -> Option<&Key> {
         self.entries.first().map(|(k, _)| k)
     }
 
     /// Get the maximum key in this leaf
-    #[must_use] 
+    #[must_use]
     pub fn max_key(&self) -> Option<&Key> {
         self.entries.last().map(|(k, _)| k)
     }
@@ -208,13 +208,13 @@ pub enum BTreeNode {
 
 impl BTreeNode {
     /// Check if this is an internal node
-    #[must_use] 
+    #[must_use]
     pub const fn is_internal(&self) -> bool {
         matches!(self, Self::Internal(_))
     }
 
     /// Check if this is a leaf node
-    #[must_use] 
+    #[must_use]
     pub const fn is_leaf(&self) -> bool {
         matches!(self, Self::Leaf(_))
     }
@@ -232,7 +232,7 @@ impl BTreeNode {
         note = "Use try_as_internal() or as_internal_checked() for proper error handling"
     )]
     #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
-    #[must_use] 
+    #[must_use]
     pub const fn as_internal(&self) -> &InternalNode {
         self.try_as_internal()
             .expect("BTreeNode::as_internal called on a leaf node")
@@ -269,7 +269,7 @@ impl BTreeNode {
         note = "Use try_as_leaf() or as_leaf_checked() for proper error handling"
     )]
     #[allow(clippy::expect_used)] // Deprecated method - panic is documented behavior
-    #[must_use] 
+    #[must_use]
     pub const fn as_leaf(&self) -> &LeafNode {
         self.try_as_leaf()
             .expect("BTreeNode::as_leaf called on an internal node")

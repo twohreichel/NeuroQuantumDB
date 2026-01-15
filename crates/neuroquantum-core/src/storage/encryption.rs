@@ -555,7 +555,7 @@ impl EncryptionManager {
     }
 
     /// Check the status of the OS keychain
-    #[must_use] 
+    #[must_use]
     pub fn check_keychain_status() -> KeychainStatus {
         let test_entry = Entry::new(KEYRING_SERVICE, "status-check");
 
@@ -597,7 +597,7 @@ impl EncryptionManager {
     }
 
     /// Get the current storage strategy
-    #[must_use] 
+    #[must_use]
     pub const fn storage_strategy(&self) -> KeyStorageStrategy {
         self.storage_strategy
     }
@@ -606,7 +606,7 @@ impl EncryptionManager {
     ///
     /// Returns `true` if keys are stored in the OS keychain, `false` if using file-based storage.
     /// This is useful for security audits and production readiness checks.
-    #[must_use] 
+    #[must_use]
     pub fn is_using_secure_storage(&self) -> bool {
         self.storage_strategy == KeyStorageStrategy::OsKeychain
     }
@@ -615,7 +615,7 @@ impl EncryptionManager {
     ///
     /// Returns a security status report indicating whether the current key storage
     /// configuration is suitable for production use.
-    #[must_use] 
+    #[must_use]
     pub fn security_status(&self) -> SecurityStatus {
         let is_secure = self.is_using_secure_storage();
         let keychain_status = Self::check_keychain_status();
@@ -645,13 +645,13 @@ impl EncryptionManager {
     }
 
     /// Get the instance ID
-    #[must_use] 
+    #[must_use]
     pub fn instance_id(&self) -> &str {
         &self.instance_id
     }
 
     /// Get the key file path
-    #[must_use] 
+    #[must_use]
     pub fn key_path(&self) -> &Path {
         &self.key_path
     }
@@ -748,7 +748,7 @@ impl EncryptionManager {
     }
 
     /// Hash data using SHA3-256
-    #[must_use] 
+    #[must_use]
     pub fn hash_data(data: &[u8]) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
         hasher.update(data);
@@ -759,7 +759,7 @@ impl EncryptionManager {
     }
 
     /// Get encryption key fingerprint for verification
-    #[must_use] 
+    #[must_use]
     pub fn get_key_fingerprint(&self) -> String {
         let hash = Self::hash_data(&self.master_key);
         use base64::{engine::general_purpose, Engine as _};

@@ -52,24 +52,26 @@ pub static API_REQUESTS_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::Lazy
 });
 
 /// Total WebSocket connections
-pub static WEBSOCKET_CONNECTIONS_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::LazyLock::new(|| {
-    register_counter_vec!(
-        "neuroquantum_websocket_connections_total",
-        "Total WebSocket connections",
-        &["status"]
-    )
-    .expect("Failed to register websocket_connections_total metric")
-});
+pub static WEBSOCKET_CONNECTIONS_TOTAL: std::sync::LazyLock<CounterVec> =
+    std::sync::LazyLock::new(|| {
+        register_counter_vec!(
+            "neuroquantum_websocket_connections_total",
+            "Total WebSocket connections",
+            &["status"]
+        )
+        .expect("Failed to register websocket_connections_total metric")
+    });
 
 /// Total messages sent/received via WebSocket
-pub static WEBSOCKET_MESSAGES_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::LazyLock::new(|| {
-    register_counter_vec!(
-        "neuroquantum_websocket_messages_total",
-        "Total WebSocket messages",
-        &["direction", "type"]
-    )
-    .expect("Failed to register websocket_messages_total metric")
-});
+pub static WEBSOCKET_MESSAGES_TOTAL: std::sync::LazyLock<CounterVec> =
+    std::sync::LazyLock::new(|| {
+        register_counter_vec!(
+            "neuroquantum_websocket_messages_total",
+            "Total WebSocket messages",
+            &["direction", "type"]
+        )
+        .expect("Failed to register websocket_messages_total metric")
+    });
 
 /// Total database operations
 pub static DB_OPERATIONS_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::LazyLock::new(|| {
@@ -82,14 +84,15 @@ pub static DB_OPERATIONS_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::Laz
 });
 
 /// Total DNA compression operations
-pub static DNA_COMPRESSION_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::LazyLock::new(|| {
-    register_counter_vec!(
-        "neuroquantum_dna_compression_total",
-        "Total DNA compression operations",
-        &["status"]
-    )
-    .expect("Failed to register dna_compression_total metric")
-});
+pub static DNA_COMPRESSION_TOTAL: std::sync::LazyLock<CounterVec> =
+    std::sync::LazyLock::new(|| {
+        register_counter_vec!(
+            "neuroquantum_dna_compression_total",
+            "Total DNA compression operations",
+            &["status"]
+        )
+        .expect("Failed to register dna_compression_total metric")
+    });
 
 /// Total quantum search operations
 pub static QUANTUM_SEARCH_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::LazyLock::new(|| {
@@ -102,14 +105,15 @@ pub static QUANTUM_SEARCH_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::La
 });
 
 /// Total neural network training operations
-pub static NEURAL_TRAINING_TOTAL: std::sync::LazyLock<CounterVec> = std::sync::LazyLock::new(|| {
-    register_counter_vec!(
-        "neuroquantum_neural_training_total",
-        "Total neural network training operations",
-        &["status"]
-    )
-    .expect("Failed to register neural_training_total metric")
-});
+pub static NEURAL_TRAINING_TOTAL: std::sync::LazyLock<CounterVec> =
+    std::sync::LazyLock::new(|| {
+        register_counter_vec!(
+            "neuroquantum_neural_training_total",
+            "Total neural network training operations",
+            &["status"]
+        )
+        .expect("Failed to register neural_training_total metric")
+    });
 
 // ===== Gauges =====
 
@@ -165,13 +169,14 @@ pub static NEURAL_NETWORKS_TRAINING: std::sync::LazyLock<Gauge> = std::sync::Laz
 });
 
 /// System temperature in Celsius (for Raspberry Pi monitoring)
-pub static SYSTEM_TEMPERATURE_CELSIUS: std::sync::LazyLock<Gauge> = std::sync::LazyLock::new(|| {
-    register_gauge!(
-        "neuroquantum_system_temperature_celsius",
-        "System temperature in Celsius"
-    )
-    .expect("Failed to register system_temperature_celsius metric")
-});
+pub static SYSTEM_TEMPERATURE_CELSIUS: std::sync::LazyLock<Gauge> =
+    std::sync::LazyLock::new(|| {
+        register_gauge!(
+            "neuroquantum_system_temperature_celsius",
+            "System temperature in Celsius"
+        )
+        .expect("Failed to register system_temperature_celsius metric")
+    });
 
 /// API Key usage by key name
 pub static API_KEY_USAGE: std::sync::LazyLock<GaugeVec> = std::sync::LazyLock::new(|| {
@@ -186,59 +191,64 @@ pub static API_KEY_USAGE: std::sync::LazyLock<GaugeVec> = std::sync::LazyLock::n
 // ===== Histograms =====
 
 /// Response time for queries in seconds
-pub static QUERY_RESPONSE_TIME_SECONDS: std::sync::LazyLock<HistogramVec> = std::sync::LazyLock::new(|| {
-    register_histogram_vec!(
-        "neuroquantum_query_response_time_seconds",
-        "Query response time in seconds",
-        &["type"],
-        vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
-    )
-    .expect("Failed to register query_response_time_seconds metric")
-});
+pub static QUERY_RESPONSE_TIME_SECONDS: std::sync::LazyLock<HistogramVec> =
+    std::sync::LazyLock::new(|| {
+        register_histogram_vec!(
+            "neuroquantum_query_response_time_seconds",
+            "Query response time in seconds",
+            &["type"],
+            vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+        )
+        .expect("Failed to register query_response_time_seconds metric")
+    });
 
 /// API request duration in seconds
-pub static API_REQUEST_DURATION_SECONDS: std::sync::LazyLock<HistogramVec> = std::sync::LazyLock::new(|| {
-    register_histogram_vec!(
-        "neuroquantum_api_request_duration_seconds",
-        "API request duration in seconds",
-        &["endpoint", "method"],
-        vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
-    )
-    .expect("Failed to register api_request_duration_seconds metric")
-});
+pub static API_REQUEST_DURATION_SECONDS: std::sync::LazyLock<HistogramVec> =
+    std::sync::LazyLock::new(|| {
+        register_histogram_vec!(
+            "neuroquantum_api_request_duration_seconds",
+            "API request duration in seconds",
+            &["endpoint", "method"],
+            vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+        )
+        .expect("Failed to register api_request_duration_seconds metric")
+    });
 
 /// Database operation duration in seconds
-pub static DB_OPERATION_DURATION_SECONDS: std::sync::LazyLock<HistogramVec> = std::sync::LazyLock::new(|| {
-    register_histogram_vec!(
-        "neuroquantum_db_operation_duration_seconds",
-        "Database operation duration in seconds",
-        &["operation"],
-        vec![0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
-    )
-    .expect("Failed to register db_operation_duration_seconds metric")
-});
+pub static DB_OPERATION_DURATION_SECONDS: std::sync::LazyLock<HistogramVec> =
+    std::sync::LazyLock::new(|| {
+        register_histogram_vec!(
+            "neuroquantum_db_operation_duration_seconds",
+            "Database operation duration in seconds",
+            &["operation"],
+            vec![0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
+        )
+        .expect("Failed to register db_operation_duration_seconds metric")
+    });
 
 /// DNA compression ratio
-pub static DNA_COMPRESSION_RATIO: std::sync::LazyLock<HistogramVec> = std::sync::LazyLock::new(|| {
-    register_histogram_vec!(
-        "neuroquantum_dna_compression_ratio",
-        "DNA compression ratio",
-        &["status"],
-        vec![1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
-    )
-    .expect("Failed to register dna_compression_ratio metric")
-});
+pub static DNA_COMPRESSION_RATIO: std::sync::LazyLock<HistogramVec> =
+    std::sync::LazyLock::new(|| {
+        register_histogram_vec!(
+            "neuroquantum_dna_compression_ratio",
+            "DNA compression ratio",
+            &["status"],
+            vec![1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+        )
+        .expect("Failed to register dna_compression_ratio metric")
+    });
 
 /// Neural network training duration in seconds
-pub static NEURAL_TRAINING_DURATION_SECONDS: std::sync::LazyLock<HistogramVec> = std::sync::LazyLock::new(|| {
-    register_histogram_vec!(
-        "neuroquantum_neural_training_duration_seconds",
-        "Neural network training duration in seconds",
-        &["status"],
-        vec![1.0, 5.0, 10.0, 30.0, 60.0, 300.0, 600.0, 1800.0, 3600.0]
-    )
-    .expect("Failed to register neural_training_duration_seconds metric")
-});
+pub static NEURAL_TRAINING_DURATION_SECONDS: std::sync::LazyLock<HistogramVec> =
+    std::sync::LazyLock::new(|| {
+        register_histogram_vec!(
+            "neuroquantum_neural_training_duration_seconds",
+            "Neural network training duration in seconds",
+            &["status"],
+            vec![1.0, 5.0, 10.0, 30.0, 60.0, 300.0, 600.0, 1800.0, 3600.0]
+        )
+        .expect("Failed to register neural_training_duration_seconds metric")
+    });
 
 // ===== Utility Functions =====
 
@@ -348,7 +358,7 @@ pub fn get_uptime_seconds() -> f64 {
 }
 
 /// Get system temperature in Celsius (Linux-specific, returns None on other platforms)
-#[must_use] 
+#[must_use]
 pub const fn get_system_temperature() -> Option<f32> {
     #[cfg(target_os = "linux")]
     {

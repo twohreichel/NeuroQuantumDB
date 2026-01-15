@@ -112,9 +112,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Inserted {} row", result3.rows_affected);
 
     let single_duration = start.elapsed();
-    println!(
-        "⏱️  Time taken for 3 single-row INSERTs: {single_duration:?}\n"
-    );
+    println!("⏱️  Time taken for 3 single-row INSERTs: {single_duration:?}\n");
 
     // Clear the table for next example
     let truncate_sql = "DELETE FROM users WHERE id > 0";
@@ -204,10 +202,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get("email")
             .map(|v| format!("{v:?}"))
             .unwrap_or_default();
-        let age = row
-            .get("age")
-            .map(|v| format!("{v:?}"))
-            .unwrap_or_default();
+        let age = row.get("age").map(|v| format!("{v:?}")).unwrap_or_default();
         println!("  - {name} ({email}) - Age: {age}");
     }
     println!();

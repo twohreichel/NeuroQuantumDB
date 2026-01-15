@@ -774,7 +774,7 @@ impl MetricsExporter {
     }
 
     /// Get the registry
-    #[must_use] 
+    #[must_use]
     pub fn registry(&self) -> &Registry {
         &self.registry
     }

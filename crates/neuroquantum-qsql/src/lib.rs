@@ -409,7 +409,10 @@ impl QSQLEngine {
     // Private helper methods
 
     async fn execute_cached_plan(&mut self, plan: &QueryPlan) -> Result<QueryResult> {
-        self.executor.execute(plan).await.map_err(std::convert::Into::into)
+        self.executor
+            .execute(plan)
+            .await
+            .map_err(std::convert::Into::into)
     }
 
     fn cache_plan(&mut self, query: String, plan: QueryPlan, duration: Duration) {

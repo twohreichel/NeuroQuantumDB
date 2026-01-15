@@ -43,13 +43,13 @@ pub struct QueryStreamId(Uuid);
 
 impl QueryStreamId {
     /// Create a new unique query stream ID
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
 
     /// Get the inner UUID
-    #[must_use] 
+    #[must_use]
     pub const fn as_uuid(&self) -> Uuid {
         self.0
     }
@@ -514,7 +514,7 @@ impl QueryStreamer {
     }
 
     /// Create a mock result set for testing
-    #[must_use] 
+    #[must_use]
     pub fn create_mock_results(&self, count: usize) -> Vec<Row> {
         (0..count)
             .map(|i| Row {

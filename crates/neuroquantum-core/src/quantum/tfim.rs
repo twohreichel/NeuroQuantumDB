@@ -118,7 +118,7 @@ pub struct TFIMSolver {
 
 impl TFIMSolver {
     /// Create a new TFIM solver with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: TransverseFieldConfig::default(),
@@ -126,7 +126,7 @@ impl TFIMSolver {
     }
 
     /// Create a new TFIM solver with custom configuration
-    #[must_use] 
+    #[must_use]
     pub const fn with_config(config: TransverseFieldConfig) -> Self {
         Self { config }
     }
@@ -293,15 +293,18 @@ impl TFIMSolver {
     /// Get transverse field strength at given progress (0 to 1)
     fn get_field_strength(&self, progress: f64) -> f64 {
         match &self.config.field_schedule {
-            | FieldSchedule::Linear => {
-                self.config.initial_field.mul_add(1.0 - progress, self.config.final_field * progress)
-            },
-            | FieldSchedule::Exponential { decay_rate } => {
-                self.config.initial_field.mul_add((-decay_rate * progress).exp(), self.config.final_field)
-            },
-            | FieldSchedule::Polynomial { power } => {
-                self.config.initial_field.mul_add((1.0 - progress).powf(*power), self.config.final_field)
-            },
+            | FieldSchedule::Linear => self
+                .config
+                .initial_field
+                .mul_add(1.0 - progress, self.config.final_field * progress),
+            | FieldSchedule::Exponential { decay_rate } => self
+                .config
+                .initial_field
+                .mul_add((-decay_rate * progress).exp(), self.config.final_field),
+            | FieldSchedule::Polynomial { power } => self
+                .config
+                .initial_field
+                .mul_add((1.0 - progress).powf(*power), self.config.final_field),
             | FieldSchedule::Custom { values } => {
                 let idx = (progress * (values.len() - 1) as f64) as usize;
                 values[idx.min(values.len() - 1)]

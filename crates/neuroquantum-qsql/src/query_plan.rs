@@ -7,8 +7,18 @@
 // These expects occur in contexts where the engine should be available.
 #![allow(clippy::expect_used)]
 
-use crate::ast::{SelectStatement, WithClause, DataType, Statement, SelectItem, Expression, TableReference, Literal, BinaryOperator, JoinType, OrderByItem, InsertStatement, UpdateStatement, DeleteStatement, NeuroMatchStatement, QuantumSearchStatement, SuperpositionQueryStatement, LearnPatternStatement, AdaptWeightsStatement, QuantumJoinStatement, ExplainStatement, ExplainFormat, AnalyzeStatement, CreateTableStatement, ColumnConstraint, TableConstraint, DropTableStatement, AlterTableStatement, AlterTableOperation, CreateIndexStatement, DropIndexStatement, TruncateTableStatement, CompressTableStatement, BeginTransactionStatement, SavepointStatement, RollbackToSavepointStatement, ReleaseSavepointStatement, UnaryOperator, NeuroMatchClause, WindowFunctionType, WindowSpec};
-use crate::error::{QSQLResult, QSQLError};
+use crate::ast::{
+    AdaptWeightsStatement, AlterTableOperation, AlterTableStatement, AnalyzeStatement,
+    BeginTransactionStatement, BinaryOperator, ColumnConstraint, CompressTableStatement,
+    CreateIndexStatement, CreateTableStatement, DataType, DeleteStatement, DropIndexStatement,
+    DropTableStatement, ExplainFormat, ExplainStatement, Expression, InsertStatement, JoinType,
+    LearnPatternStatement, Literal, NeuroMatchClause, NeuroMatchStatement, OrderByItem,
+    QuantumJoinStatement, QuantumSearchStatement, ReleaseSavepointStatement,
+    RollbackToSavepointStatement, SavepointStatement, SelectItem, SelectStatement, Statement,
+    SuperpositionQueryStatement, TableConstraint, TableReference, TruncateTableStatement,
+    UnaryOperator, UpdateStatement, WindowFunctionType, WindowSpec, WithClause,
+};
+use crate::error::{QSQLError, QSQLResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -51,7 +61,7 @@ pub struct CTEContext {
 
 impl CTEContext {
     /// Create a new CTE context from a WITH clause
-    #[must_use] 
+    #[must_use]
     pub fn from_with_clause(with_clause: &WithClause) -> Self {
         let mut definitions = HashMap::new();
         for cte in &with_clause.ctes {
@@ -65,19 +75,19 @@ impl CTEContext {
     }
 
     /// Check if a table name is a CTE reference
-    #[must_use] 
+    #[must_use]
     pub fn is_cte(&self, name: &str) -> bool {
         self.definitions.contains_key(name)
     }
 
     /// Get the CTE definition for a given name
-    #[must_use] 
+    #[must_use]
     pub fn get_definition(&self, name: &str) -> Option<&SelectStatement> {
         self.definitions.get(name)
     }
 
     /// Get cached result for a CTE (if already executed)
-    #[must_use] 
+    #[must_use]
     pub fn get_cached(&self, name: &str) -> Option<&Arc<Vec<Row>>> {
         self.cached_results.get(name)
     }
@@ -88,7 +98,7 @@ impl CTEContext {
     }
 
     /// Check if this is a recursive CTE
-    #[must_use] 
+    #[must_use]
     pub const fn is_recursive(&self) -> bool {
         self.recursive
     }
@@ -153,7 +163,7 @@ impl ExecutorConfig {
     ///
     /// Note: This is equivalent to `Default::default()` as the default
     /// configuration is production-safe.
-    #[must_use] 
+    #[must_use]
     pub fn production() -> Self {
         Self::default()
     }
@@ -490,13 +500,10 @@ impl QueryExecutor {
 
             // Check if we have CTE references in the FROM clause
             let has_cte_references = if let Some(ref ctx) = cte_context {
-                select
-                    .from
-                    .as_ref()
-                    .is_some_and(|f| {
-                        f.relations.iter().any(|r| ctx.is_cte(&r.name))
-                            || f.joins.iter().any(|j| ctx.is_cte(&j.relation.name))
-                    })
+                select.from.as_ref().is_some_and(|f| {
+                    f.relations.iter().any(|r| ctx.is_cte(&r.name))
+                        || f.joins.iter().any(|j| ctx.is_cte(&j.relation.name))
+                })
             } else {
                 false
             };
@@ -514,13 +521,10 @@ impl QueryExecutor {
             }
 
             // Check if we have derived tables (subqueries in FROM clause)
-            let has_derived_tables = select
-                .from
-                .as_ref()
-                .is_some_and(|f| {
-                    f.relations.iter().any(|r| r.subquery.is_some())
-                        || f.joins.iter().any(|j| j.relation.subquery.is_some())
-                });
+            let has_derived_tables = select.from.as_ref().is_some_and(|f| {
+                f.relations.iter().any(|r| r.subquery.is_some())
+                    || f.joins.iter().any(|j| j.relation.subquery.is_some())
+            });
 
             if has_derived_tables {
                 // Execute with derived table logic
@@ -530,10 +534,7 @@ impl QueryExecutor {
             }
 
             // Check if we have JOINs in the query
-            let has_joins = select
-                .from
-                .as_ref()
-                .is_some_and(|f| !f.joins.is_empty());
+            let has_joins = select.from.as_ref().is_some_and(|f| !f.joins.is_empty());
 
             if has_joins {
                 // Execute with JOIN logic
@@ -2265,8 +2266,7 @@ impl QueryExecutor {
                     (left.as_ref(), right.as_ref())
                 {
                     // Determine which column belongs to which table
-                    let (left_key, right_key) = if left_col.starts_with(&format!("{left_alias}."))
-                    {
+                    let (left_key, right_key) = if left_col.starts_with(&format!("{left_alias}.")) {
                         (
                             left_col
                                 .strip_prefix(&format!("{left_alias}."))
@@ -2329,9 +2329,7 @@ impl QueryExecutor {
                 .get(col_name)
                 .or_else(|| row.fields.get(&format!("{alias}.{col_name}")))
                 .ok_or_else(|| QSQLError::ExecutionError {
-                    message: format!(
-                        "Join key column '{col_name}' not found in table '{alias}'"
-                    ),
+                    message: format!("Join key column '{col_name}' not found in table '{alias}'"),
                 })?;
 
             // Convert value to string for hashing
@@ -6120,7 +6118,8 @@ impl QueryExecutor {
                 let col_name = Self::expression_to_string_static(expr);
                 current_row
                     .fields
-                    .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
+                    .get(&col_name)
+                    .map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
             })
             .collect();
 
@@ -6133,7 +6132,8 @@ impl QueryExecutor {
                     .map(|expr| {
                         let col_name = Self::expression_to_string_static(expr);
                         row.fields
-                            .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
+                            .get(&col_name)
+                            .map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
                     })
                     .collect();
                 row_key == current_key
@@ -6206,7 +6206,8 @@ impl QueryExecutor {
                 let col_name = Self::expression_to_string_static(&ob.expression);
                 current_row
                     .fields
-                    .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
+                    .get(&col_name)
+                    .map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
             })
             .collect();
 
@@ -6221,7 +6222,8 @@ impl QueryExecutor {
                     .map(|ob| {
                         let col_name = Self::expression_to_string_static(&ob.expression);
                         row.fields
-                            .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
+                            .get(&col_name)
+                            .map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
                     })
                     .collect();
 
@@ -6245,7 +6247,8 @@ impl QueryExecutor {
                     .map(|ob| {
                         let col_name = Self::expression_to_string_static(&ob.expression);
                         row.fields
-                            .get(&col_name).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
+                            .get(&col_name)
+                            .map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v))
                     })
                     .collect();
 
@@ -7087,7 +7090,9 @@ impl QueryExecutor {
                     } else if let Ok(parsed) =
                         NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
                     {
-                        Ok(QueryValue::Integer(i64::from(parsed.date().iso_week().week())))
+                        Ok(QueryValue::Integer(i64::from(
+                            parsed.date().iso_week().week(),
+                        )))
                     } else {
                         Ok(QueryValue::Null)
                     }
@@ -7175,9 +7180,7 @@ impl QueryExecutor {
                     | QueryValue::Float(f) => f as i64,
                     | QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
-                            message: format!(
-                                "Invalid interval value: '{s}' is not a valid number"
-                            ),
+                            message: format!("Invalid interval value: '{s}' is not a valid number"),
                         })?
                     },
                     | _ => return Ok(QueryValue::Null),
@@ -7293,10 +7296,9 @@ impl QueryExecutor {
                                 | "SECOND" => Some(dt + chrono::Duration::seconds(interval_value)),
                                 | _ => None,
                             };
-                            return Ok(new_dt
-                                .map_or(QueryValue::Null, |d| {
-                                    QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
-                                }));
+                            return Ok(new_dt.map_or(QueryValue::Null, |d| {
+                                QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
+                            }));
                         },
                         | _ => {
                             return Err(QSQLError::ExecutionError {
@@ -7329,9 +7331,7 @@ impl QueryExecutor {
                     | QueryValue::Float(f) => f as i64,
                     | QueryValue::String(s) => {
                         s.parse::<i64>().map_err(|_| QSQLError::ExecutionError {
-                            message: format!(
-                                "Invalid interval value: '{s}' is not a valid number"
-                            ),
+                            message: format!("Invalid interval value: '{s}' is not a valid number"),
                         })?
                     },
                     | _ => return Ok(QueryValue::Null),
@@ -7447,10 +7447,9 @@ impl QueryExecutor {
                                 | "SECOND" => Some(dt - chrono::Duration::seconds(interval_value)),
                                 | _ => None,
                             };
-                            return Ok(new_dt
-                                .map_or(QueryValue::Null, |d| {
-                                    QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
-                                }));
+                            return Ok(new_dt.map_or(QueryValue::Null, |d| {
+                                QueryValue::String(d.format("%Y-%m-%d %H:%M:%S").to_string())
+                            }));
                         },
                         | _ => {
                             return Err(QSQLError::ExecutionError {
@@ -7648,7 +7647,9 @@ impl QueryExecutor {
             },
             | "WEEK" | "WEEKOFYEAR" => {
                 // Week of year (ISO week)
-                Ok(QueryValue::Integer(i64::from(datetime.date().iso_week().week())))
+                Ok(QueryValue::Integer(i64::from(
+                    datetime.date().iso_week().week(),
+                )))
             },
             | "QUARTER" => {
                 // Quarter (1-4)
@@ -7953,7 +7954,8 @@ impl QueryExecutor {
             for col in group_by_columns {
                 let value_str = row
                     .fields
-                    .get(col).map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v));
+                    .get(col)
+                    .map_or_else(|| "NULL".to_string(), |v| self.value_to_string(v));
                 key.push(value_str);
             }
             groups.entry(key).or_default().push(row.clone());
@@ -8122,19 +8124,25 @@ impl QueryExecutor {
             | (QueryValue::Float(f1), QueryValue::Float(f2)) => {
                 if f1 < f2 {
                     -1
-                } else { i32::from(f1 > f2) }
+                } else {
+                    i32::from(f1 > f2)
+                }
             },
             | (QueryValue::Integer(i), QueryValue::Float(f)) => {
                 let i_f = *i as f64;
                 if i_f < *f {
                     -1
-                } else { i32::from(i_f > *f) }
+                } else {
+                    i32::from(i_f > *f)
+                }
             },
             | (QueryValue::Float(f), QueryValue::Integer(i)) => {
                 let i_f = *i as f64;
                 if *f < i_f {
                     -1
-                } else { i32::from(*f > i_f) }
+                } else {
+                    i32::from(*f > i_f)
+                }
             },
             | (QueryValue::String(s1), QueryValue::String(s2)) => s1.cmp(s2) as i32,
             | (QueryValue::Null, QueryValue::Null) => 0,

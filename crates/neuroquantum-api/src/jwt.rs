@@ -55,7 +55,7 @@ impl JwtKeyRotation {
     }
 
     /// Create with custom grace period
-    #[must_use] 
+    #[must_use]
     pub fn with_grace_period(
         initial_secret: &[u8],
         rotation_schedule: Duration,
@@ -278,7 +278,7 @@ impl JwtService {
     }
 
     /// Get the key rotation manager
-    #[must_use] 
+    #[must_use]
     pub const fn rotation_manager(&self) -> Option<&Arc<JwtKeyRotation>> {
         self.key_rotation.as_ref()
     }
@@ -403,13 +403,13 @@ impl JwtService {
         &self,
         claims: &neuroquantum_core::pqcrypto::QuantumTokenClaims,
     ) -> Result<(), ApiError> {
-        self.pq_crypto.verify_quantum_claims(claims).map_err(|e| {
-            ApiError::Unauthorized(format!("Quantum claim verification failed: {e}"))
-        })
+        self.pq_crypto
+            .verify_quantum_claims(claims)
+            .map_err(|e| ApiError::Unauthorized(format!("Quantum claim verification failed: {e}")))
     }
 
     /// Get the post-quantum crypto manager for advanced operations
-    #[must_use] 
+    #[must_use]
     pub fn pq_crypto(&self) -> &PQCryptoManager {
         &self.pq_crypto
     }
@@ -436,7 +436,7 @@ pub struct JwtAuth {
 }
 
 impl JwtAuth {
-    #[must_use] 
+    #[must_use]
     pub const fn new(service: JwtService) -> Self {
         Self { service }
     }
@@ -568,7 +568,7 @@ impl Default for JwtConfig {
 
 impl JwtConfig {
     /// Create `JwtService` from config
-    #[must_use] 
+    #[must_use]
     pub fn into_service(self) -> JwtService {
         let secret = self.secret.as_bytes();
 

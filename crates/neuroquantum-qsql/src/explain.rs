@@ -3,8 +3,11 @@
 //! This module provides EXPLAIN and ANALYZE functionality for visualizing
 //! query execution plans, cost estimation, and runtime statistics.
 
-use crate::ast::{ExplainFormat, Statement, SelectStatement, NeuroMatchStatement, QuantumSearchStatement, QuantumJoinStatement};
-use crate::error::{QSQLResult, QSQLError};
+use crate::ast::{
+    ExplainFormat, NeuroMatchStatement, QuantumJoinStatement, QuantumSearchStatement,
+    SelectStatement, Statement,
+};
+use crate::error::{QSQLError, QSQLResult};
 use crate::query_plan::QueryPlan;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -144,7 +147,7 @@ pub struct ExplainGenerator {
 
 impl ExplainGenerator {
     /// Create a new explain generator
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: ExplainConfig) -> Self {
         Self { config }
     }
@@ -531,7 +534,7 @@ impl ExplainGenerator {
     }
 
     /// Format explain plan as text
-    #[must_use] 
+    #[must_use]
     pub fn format_text(&self, explain_plan: &ExplainPlan) -> String {
         let mut output = String::new();
 
@@ -641,9 +644,7 @@ impl ExplainGenerator {
             }
 
             if let Some(advantage) = node.quantum_advantage {
-                output.push_str(&format!(
-                    "{indent_str}  Quantum Speedup: {advantage:.2}x\n"
-                ));
+                output.push_str(&format!("{indent_str}  Quantum Speedup: {advantage:.2}x\n"));
             }
         }
 

@@ -81,7 +81,7 @@ impl IsingModel {
     /// Ising: min Σ `J_ij` `s_i` `s_j` + Σ `h_i` `s_i`, s ∈ {-1,+1}
     ///
     /// Using `x_i` = (1 + `s_i`) / 2
-    #[must_use] 
+    #[must_use]
     pub fn from_qubo(q_matrix: &DMatrix<f64>) -> Self {
         let n = q_matrix.nrows();
         let mut couplings = DMatrix::zeros(n, n);
@@ -114,7 +114,7 @@ impl IsingModel {
     }
 
     /// Evaluate Ising energy for a spin configuration
-    #[must_use] 
+    #[must_use]
     pub fn evaluate(&self, spins: &[i8]) -> f64 {
         let mut energy = self.offset;
 
@@ -129,7 +129,7 @@ impl IsingModel {
     }
 
     /// Convert Ising spins back to QUBO binary variables
-    #[must_use] 
+    #[must_use]
     pub fn spins_to_binary(&self, spins: &[i8]) -> Vec<u8> {
         spins.iter().map(|&s| u8::from(s == 1)).collect()
     }
@@ -265,7 +265,7 @@ pub struct QuantumQuboSolver {
 
 impl QuantumQuboSolver {
     /// Create a new quantum QUBO solver with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: QuantumQuboConfig::default(),
@@ -273,7 +273,7 @@ impl QuantumQuboSolver {
     }
 
     /// Create a new quantum QUBO solver with custom configuration
-    #[must_use] 
+    #[must_use]
     pub const fn with_config(config: QuantumQuboConfig) -> Self {
         Self { config }
     }
@@ -1056,7 +1056,7 @@ pub struct CloudQuantumBackend {
 
 impl CloudQuantumBackend {
     /// Create a new cloud quantum backend
-    #[must_use] 
+    #[must_use]
     pub fn new(provider: &str) -> Self {
         Self {
             provider: provider.to_string(),
@@ -1065,7 +1065,7 @@ impl CloudQuantumBackend {
     }
 
     /// Set API key for authentication
-    #[must_use] 
+    #[must_use]
     pub fn with_api_key(mut self, api_key: &str) -> Self {
         self.api_key = Some(api_key.to_string());
         self

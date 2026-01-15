@@ -127,7 +127,7 @@ pub enum OracleType {
 
 impl QuantumOracle {
     /// Create a new oracle for the given marked states
-    #[must_use] 
+    #[must_use]
     pub const fn new(num_qubits: usize, marked_states: Vec<usize>) -> Self {
         Self {
             num_qubits,
@@ -149,7 +149,7 @@ impl QuantumOracle {
     }
 
     /// Create oracle for byte pattern search
-    #[must_use] 
+    #[must_use]
     pub fn for_pattern_search(data: &[u8], pattern: &[u8]) -> Self {
         let marked_states: Vec<usize> = (0..=data.len().saturating_sub(pattern.len()))
             .filter(|&i| i + pattern.len() <= data.len() && &data[i..i + pattern.len()] == pattern)
@@ -160,7 +160,7 @@ impl QuantumOracle {
     }
 
     /// Generate gate sequence for this oracle
-    #[must_use] 
+    #[must_use]
     pub fn to_gates(&self) -> Vec<GroverGate> {
         let mut gates = Vec::new();
 
@@ -286,7 +286,7 @@ impl Default for QuantumGroverSolver {
 
 impl QuantumGroverSolver {
     /// Create a new quantum Grover solver with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: QuantumGroverConfig::default(),
@@ -294,7 +294,7 @@ impl QuantumGroverSolver {
     }
 
     /// Create a solver with custom configuration
-    #[must_use] 
+    #[must_use]
     pub const fn with_config(config: QuantumGroverConfig) -> Self {
         Self { config }
     }
@@ -303,7 +303,7 @@ impl QuantumGroverSolver {
     ///
     /// For N elements with M marked items:
     /// iterations = floor(π/4 * √(N/M))
-    #[must_use] 
+    #[must_use]
     pub fn calculate_optimal_iterations(search_space_size: usize, num_marked: usize) -> usize {
         if num_marked == 0 || search_space_size == 0 {
             return 0;

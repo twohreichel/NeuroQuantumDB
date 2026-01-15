@@ -67,7 +67,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 /// assert!(constant_time_compare(secret1, secret2));
 /// assert!(!constant_time_compare(secret1, secret3));
 /// ```
-#[must_use] 
+#[must_use]
 pub fn constant_time_compare(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
@@ -90,7 +90,7 @@ pub fn constant_time_compare(a: &[u8], b: &[u8]) -> bool {
 /// assert!(constant_time_compare_str(token1, token2));
 /// assert!(!constant_time_compare_str(token1, token3));
 /// ```
-#[must_use] 
+#[must_use]
 pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
     constant_time_compare(a.as_bytes(), b.as_bytes())
 }
@@ -131,7 +131,7 @@ pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
 /// assert!(constant_time_threshold_check(0.90, 0.85));
 /// assert!(!constant_time_threshold_check(0.80, 0.85));
 /// ```
-#[must_use] 
+#[must_use]
 pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
     // Handle NaN explicitly for predictable behavior in security-critical context
     // NaN comparisons always return false for security (fail-safe default)
@@ -320,7 +320,7 @@ impl QuantumKeys {
     }
 
     /// Check if keys need rotation
-    #[must_use] 
+    #[must_use]
     pub fn needs_rotation(&self, rotation_interval: u64) -> bool {
         if let Ok(elapsed) = SystemTime::now().duration_since(self.created_at) {
             elapsed.as_secs() > rotation_interval
@@ -587,7 +587,7 @@ pub struct BiometricAuth {
 }
 
 impl BiometricAuth {
-    #[must_use] 
+    #[must_use]
     pub fn new(config: BiometricAuthConfig) -> Self {
         Self {
             eeg_templates: Arc::new(RwLock::new(HashMap::new())),
@@ -898,7 +898,7 @@ pub enum Permission {
 
 impl Role {
     /// Get default permissions for a role
-    #[must_use] 
+    #[must_use]
     pub fn default_permissions(&self) -> Vec<Permission> {
         match self {
             | Self::Admin => vec![
@@ -996,12 +996,12 @@ impl User {
             .is_ok())
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn has_permission(&self, permission: &Permission) -> bool {
         self.permissions.contains(permission)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_locked(&self) -> bool {
         if let Some(locked_until) = self.locked_until {
             SystemTime::now() < locked_until
@@ -1017,7 +1017,7 @@ pub struct RBACManager {
 }
 
 impl RBACManager {
-    #[must_use] 
+    #[must_use]
     pub fn new(config: AccessControlConfig) -> Self {
         Self {
             users: Arc::new(RwLock::new(HashMap::new())),
@@ -1166,7 +1166,7 @@ pub struct AuditLogger {
 }
 
 impl AuditLogger {
-    #[must_use] 
+    #[must_use]
     pub fn new(config: AuditConfig) -> Self {
         Self {
             logs: Arc::new(RwLock::new(Vec::new())),
@@ -1306,11 +1306,7 @@ impl AuditLogger {
 // Add hex encoding support
 mod hex {
     pub fn encode(bytes: impl AsRef<[u8]>) -> String {
-        bytes
-            .as_ref()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect()
+        bytes.as_ref().iter().map(|b| format!("{b:02x}")).collect()
     }
 }
 
@@ -1353,7 +1349,7 @@ pub struct Session {
 }
 
 impl Session {
-    #[must_use] 
+    #[must_use]
     pub fn new(user_id: String, permissions: Vec<Permission>, timeout_secs: u64) -> Self {
         let now = SystemTime::now();
         Self {
@@ -1366,7 +1362,7 @@ impl Session {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         SystemTime::now() > self.expires_at
     }

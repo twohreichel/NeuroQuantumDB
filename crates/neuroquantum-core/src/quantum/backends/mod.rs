@@ -183,7 +183,7 @@ pub struct QuantumBackendFactory;
 
 impl QuantumBackendFactory {
     /// Check which quantum backends are available based on environment configuration
-    #[must_use] 
+    #[must_use]
     pub fn available_providers() -> Vec<QuantumProvider> {
         let mut providers = vec![QuantumProvider::LocalSimulator];
 
@@ -219,7 +219,7 @@ impl QuantumBackendFactory {
     }
 
     /// Get the best available provider for a specific algorithm
-    #[must_use] 
+    #[must_use]
     pub fn best_provider_for_algorithm(algorithm: &str) -> QuantumProvider {
         let available = Self::available_providers();
 

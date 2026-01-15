@@ -584,10 +584,7 @@ impl NetworkTransport {
                         timestamp_ms: ping_req.timestamp_ms,
                     };
                     client.heartbeat(req).await.map_err(|e| {
-                        ClusterError::ConnectionFailed(
-                            peer.addr,
-                            format!("gRPC call failed: {e}"),
-                        )
+                        ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {e}"))
                     })?;
                 },
                 | ClusterMessage::RequestVote(vote_req) => {
@@ -600,10 +597,7 @@ impl NetworkTransport {
                     };
                     // Send vote request and await response
                     client.request_vote(req).await.map_err(|e| {
-                        ClusterError::ConnectionFailed(
-                            peer.addr,
-                            format!("gRPC call failed: {e}"),
-                        )
+                        ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {e}"))
                     })?;
                 },
                 | ClusterMessage::AppendEntries(append_req) => {
@@ -628,10 +622,7 @@ impl NetworkTransport {
                         leader_commit: append_req.leader_commit,
                     };
                     client.append_entries(req).await.map_err(|e| {
-                        ClusterError::ConnectionFailed(
-                            peer.addr,
-                            format!("gRPC call failed: {e}"),
-                        )
+                        ClusterError::ConnectionFailed(peer.addr, format!("gRPC call failed: {e}"))
                     })?;
                 },
                 | _ => {

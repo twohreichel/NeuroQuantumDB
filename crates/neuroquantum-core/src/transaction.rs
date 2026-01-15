@@ -146,7 +146,7 @@ pub struct Transaction {
 
 impl Transaction {
     /// Create a new transaction
-    #[must_use] 
+    #[must_use]
     pub fn new(isolation_level: IsolationLevel, timeout_seconds: u64) -> Self {
         let now = chrono::Utc::now();
         Self {
@@ -167,7 +167,7 @@ impl Transaction {
     }
 
     /// Check if transaction has timed out
-    #[must_use] 
+    #[must_use]
     pub fn is_timed_out(&self) -> bool {
         let elapsed = chrono::Utc::now()
             .signed_duration_since(self.last_active)
@@ -193,7 +193,7 @@ pub struct LockManager {
 
 impl LockManager {
     /// Create a new lock manager
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             locks: Arc::new(RwLock::new(HashMap::new())),
@@ -257,8 +257,10 @@ impl LockManager {
                 // Check lock compatibility
                 let compatible = matches!(
                     (lock.lock_type, lock_type),
-                    (LockType::Shared | LockType::IntentionShared, LockType::Shared) |
-(LockType::IntentionShared, LockType::IntentionShared)
+                    (
+                        LockType::Shared | LockType::IntentionShared,
+                        LockType::Shared
+                    ) | (LockType::IntentionShared, LockType::IntentionShared)
                 );
 
                 if !compatible {
@@ -321,9 +323,10 @@ impl LockManager {
 
         // Build wait-for relationships
         if let Some(existing_locks) = locks.get(resource_id) {
-            let mut wait_for = self.wait_for.write().map_err(|e| {
-                NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}"))
-            })?;
+            let mut wait_for = self
+                .wait_for
+                .write()
+                .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
 
             let waiting_for: HashSet<TransactionId> = existing_locks
                 .iter()
@@ -472,7 +475,7 @@ impl LogManager {
     /// Panics if /dev/null cannot be opened, which would indicate a severely broken system.
     #[doc(hidden)]
     #[allow(clippy::expect_used)] // Placeholder for internal use - /dev/null should always exist
-    #[must_use] 
+    #[must_use]
     pub fn new_placeholder() -> Self {
         Self {
             log_file: Arc::new(Mutex::new(File::from_std(
@@ -632,7 +635,7 @@ impl LogManager {
     }
 
     /// Get the path to the WAL log file
-    #[must_use] 
+    #[must_use]
     pub fn get_log_path(&self) -> &Path {
         &self.log_path
     }
@@ -806,7 +809,7 @@ pub struct RecoveryManager {
 
 impl RecoveryManager {
     /// Create a new recovery manager
-    #[must_use] 
+    #[must_use]
     pub const fn new(log_manager: Arc<LogManager>) -> Self {
         Self { log_manager }
     }
@@ -816,7 +819,7 @@ impl RecoveryManager {
     /// **Important:** This uses a placeholder LogManager and should NOT be used in production.
     /// Only for internal use during synchronous construction.
     #[doc(hidden)]
-    #[must_use] 
+    #[must_use]
     pub fn new_placeholder() -> Self {
         Self {
             log_manager: Arc::new(LogManager::new_placeholder()),
@@ -1070,7 +1073,7 @@ impl Default for TransactionManager {
 impl TransactionManager {
     /// Create a placeholder transaction manager for synchronous construction
     /// This should be followed by proper async initialization with `new_async()`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             active_transactions: Arc::new(TokioRwLock::new(HashMap::new())),
@@ -1484,13 +1487,13 @@ impl TransactionManager {
     }
 
     /// Get the log manager for direct access (e.g., for archiving)
-    #[must_use] 
+    #[must_use]
     pub const fn log_manager(&self) -> &Arc<LogManager> {
         &self.log_manager
     }
 
     /// Get the recovery manager for direct access
-    #[must_use] 
+    #[must_use]
     pub const fn recovery_manager(&self) -> &Arc<RecoveryManager> {
         &self.recovery_manager
     }

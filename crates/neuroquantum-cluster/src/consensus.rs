@@ -26,13 +26,13 @@ pub struct FencingToken {
 
 impl FencingToken {
     /// Create a new fencing token.
-    #[must_use] 
+    #[must_use]
     pub const fn new(term: u64, sequence: u64) -> Self {
         Self { term, sequence }
     }
 
     /// Check if this token is newer than another.
-    #[must_use] 
+    #[must_use]
     pub fn is_newer_than(&self, other: &Self) -> bool {
         self > other
     }
@@ -51,7 +51,7 @@ pub struct LeaderLease {
 
 impl LeaderLease {
     /// Create a new leader lease.
-    #[must_use] 
+    #[must_use]
     pub fn new(duration: Duration) -> Self {
         let now = Instant::now();
         Self {
@@ -62,7 +62,7 @@ impl LeaderLease {
     }
 
     /// Check if the lease is still valid.
-    #[must_use] 
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         Instant::now() < self.expiry
     }

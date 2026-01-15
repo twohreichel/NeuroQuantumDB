@@ -619,7 +619,7 @@ impl Default for QuantumProcessor {
 
 impl QuantumProcessor {
     /// Create a new quantum processor with the given synaptic network
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         // Create a minimal synaptic network for now
         // SAFETY: Parameters (1000 neurons, 0.5 connectivity) are valid
@@ -681,13 +681,13 @@ impl QuantumProcessor {
     }
 
     /// Get quantum processor configuration
-    #[must_use] 
+    #[must_use]
     pub const fn config(&self) -> &QuantumConfig {
         &self.config
     }
 
     /// Get quantum processor statistics
-    #[must_use] 
+    #[must_use]
     pub const fn get_statistics(&self) -> QuantumStatistics {
         QuantumStatistics {
             total_searches: 0,

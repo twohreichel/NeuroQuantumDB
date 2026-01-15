@@ -43,7 +43,7 @@ pub struct RecoveryManager {
 
 impl RecoveryManager {
     /// Create a new recovery manager
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: WALConfig, pager: Arc<PageStorageManager>) -> Self {
         Self {
             _config: config,

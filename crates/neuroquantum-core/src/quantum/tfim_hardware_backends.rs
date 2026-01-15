@@ -148,7 +148,7 @@ impl BinaryQuadraticModel {
     }
 
     /// Convert BQM from SPIN to BINARY formulation
-    #[must_use] 
+    #[must_use]
     pub fn to_binary(&self) -> Self {
         if self.vartype == VarType::BINARY {
             return self.clone();
@@ -257,13 +257,13 @@ pub struct DWaveTFIMSolver {
 
 impl DWaveTFIMSolver {
     /// Create a new D-Wave TFIM solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: DWaveTFIMConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = DWaveTFIMConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -451,13 +451,13 @@ pub struct BraketTFIMSolver {
 
 impl BraketTFIMSolver {
     /// Create a new Braket TFIM solver with the given configuration
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: BraketTFIMConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let config = BraketTFIMConfig {
             region: std::env::var("AWS_REGION").unwrap_or_else(|_| "us-west-1".to_string()),
@@ -634,13 +634,13 @@ pub struct UnifiedTFIMAnnealingSolver {
 
 impl UnifiedTFIMAnnealingSolver {
     /// Create new unified solver
-    #[must_use] 
+    #[must_use]
     pub const fn new(config: UnifiedTFIMAnnealingConfig) -> Self {
         Self { config }
     }
 
     /// Create solver from environment variables
-    #[must_use] 
+    #[must_use]
     pub fn from_env() -> Self {
         let preference = match std::env::var("TFIM_BACKEND").as_deref() {
             | Ok("dwave") => TFIMBackendPreference::DWave,

@@ -16,7 +16,10 @@ pub use self::benchmark_functions::*;
 
 #[cfg(feature = "benchmarks")]
 mod benchmark_functions {
-    use super::{criterion_group, criterion_main, StdRng, SeedableRng, Distribution, Rng, Criterion, Throughput, QuantumDNACompressor, BenchmarkId, DNACompressor};
+    use super::{
+        criterion_group, criterion_main, BenchmarkId, Criterion, DNACompressor, Distribution,
+        QuantumDNACompressor, Rng, SeedableRng, StdRng, Throughput,
+    };
     use futures::future::join_all;
     use std::hint::black_box;
 
@@ -26,7 +29,7 @@ mod benchmark_functions {
     }
 
     impl BenchmarkDataGenerator {
-        #[must_use] 
+        #[must_use]
         pub fn new(seed: u64) -> Self {
             Self {
                 rng: StdRng::seed_from_u64(seed),
