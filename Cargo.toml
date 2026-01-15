@@ -72,6 +72,7 @@ unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_qualifications = "warn"
 variant_size_differences = "warn"
+dead_code = "deny"
 
 [workspace.lints.clippy]
 # Import all clippy rules from Cargo.toml.clippy

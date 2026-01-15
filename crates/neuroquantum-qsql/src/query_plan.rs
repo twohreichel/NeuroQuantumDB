@@ -4247,6 +4247,7 @@ impl QueryExecutor {
     ///
     /// Note: This function is kept as a fallback when no schema is available.
     /// For full DEFAULT value support, use `convert_insert_to_row_with_defaults`.
+    /// Reserved for future use in dynamic schema scenarios.
     #[allow(dead_code)]
     fn convert_insert_to_row_static(
         insert: &InsertStatement,

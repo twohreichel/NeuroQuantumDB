@@ -15,6 +15,7 @@ use std::hint::black_box;
 use std::time::Duration;
 
 /// Simple row structure for benchmarks (independent of actual storage Row)
+/// Fields are used for benchmark data generation but not directly accessed
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct BenchmarkRow {

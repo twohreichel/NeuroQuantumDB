@@ -142,7 +142,6 @@ pub enum RaftState {
 }
 
 /// Internal consensus state.
-#[allow(dead_code)]
 struct ConsensusState {
     /// Current term
     current_term: u64,
@@ -199,7 +198,6 @@ impl Default for ConsensusState {
 }
 
 /// Raft consensus module for the cluster.
-#[allow(dead_code)]
 pub struct RaftConsensus {
     /// Node ID
     node_id: NodeId,
@@ -533,7 +531,7 @@ impl RaftConsensus {
     }
 
     /// Generate a random election timeout within the configured range.
-    #[allow(dead_code)]
+    #[cfg(test)]
     fn random_election_timeout(&self) -> Duration {
         Self::generate_random_timeout(
             &self.config.raft.election_timeout_min,
