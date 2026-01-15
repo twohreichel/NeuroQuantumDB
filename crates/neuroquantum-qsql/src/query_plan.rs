@@ -175,6 +175,7 @@ impl ExecutorConfig {
     /// Only use this for testing purposes. Legacy mode returns simulated data
     /// instead of real storage data. This method is only available in test builds.
     #[cfg(test)]
+    #[must_use]
     pub fn testing() -> Self {
         Self {
             allow_legacy_mode: true,
@@ -363,7 +364,7 @@ impl QueryExecutor {
 
     /// Check if legacy mode is allowed (test builds only)
     #[cfg(test)]
-    pub fn is_legacy_mode_allowed(&self) -> bool {
+    pub const fn is_legacy_mode_allowed(&self) -> bool {
         self.config.allow_legacy_mode
     }
 
@@ -752,10 +753,7 @@ impl QueryExecutor {
                 for i in 1..=5 {
                     let mut row = HashMap::new();
                     row.insert("id".to_string(), QueryValue::Integer(i));
-                    row.insert(
-                        "name".to_string(),
-                        QueryValue::String(format!("User {}", i)),
-                    );
+                    row.insert("name".to_string(), QueryValue::String(format!("User {i}")));
                     rows.push(row);
                 }
 
@@ -9121,7 +9119,7 @@ mod tests {
         let result = parser.parse_query(sql);
 
         if let Err(e) = &result {
-            eprintln!("Parse error: {:?}", e);
+            eprintln!("Parse error: {e:?}");
         }
 
         assert!(result.is_ok(), "Failed to parse EXTRACT(YEAR FROM date)");
@@ -9151,13 +9149,9 @@ mod tests {
         ];
 
         for field in fields {
-            let sql = format!("SELECT EXTRACT({} FROM '2025-12-23 14:30:45')", field);
+            let sql = format!("SELECT EXTRACT({field} FROM '2025-12-23 14:30:45')");
             let result = parser.parse_query(&sql);
-            assert!(
-                result.is_ok(),
-                "Failed to parse EXTRACT({} FROM date)",
-                field
-            );
+            assert!(result.is_ok(), "Failed to parse EXTRACT({field} FROM date)");
         }
     }
 

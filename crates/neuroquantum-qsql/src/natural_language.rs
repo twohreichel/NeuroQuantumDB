@@ -2876,7 +2876,7 @@ mod tests {
         assert!(qsql.contains("SELECT"));
         assert!(qsql.contains("sensors"));
         assert!(qsql.contains("temperature"));
-        assert!(qsql.contains(">"));
+        assert!(qsql.contains('>'));
         assert!(qsql.contains("25"));
     }
 
@@ -2958,8 +2958,7 @@ mod tests {
         let similarity = analyzer.cosine_similarity("show", "display");
         assert!(
             similarity > 0.7,
-            "Similar words should have high similarity: {}",
-            similarity
+            "Similar words should have high similarity: {similarity}"
         );
 
         // Different word categories should have lower similarity

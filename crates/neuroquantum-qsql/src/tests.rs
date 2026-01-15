@@ -1,4 +1,4 @@
-//! # Comprehensive Test Suite for NeuroQuantum QSQL
+//! # Comprehensive Test Suite for `NeuroQuantum` QSQL
 //!
 //! Tests for QSQL parser, optimizer, and executor with 90%+ code coverage:
 //! - SQL parser tests for all syntax variants
@@ -98,7 +98,7 @@ mod parser_tests {
     fn test_parser_complex_query() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             SELECT u.name, COUNT(p.id) as post_count
             FROM users u
             LEFT JOIN posts p ON u.id = p.user_id
@@ -107,7 +107,7 @@ mod parser_tests {
             HAVING COUNT(p.id) > 5
             ORDER BY post_count DESC
             LIMIT 10
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
@@ -122,8 +122,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "QUANTUM_SEARCH function should parse in WHERE clause: {:?}",
-            result
+            "QUANTUM_SEARCH function should parse in WHERE clause: {result:?}"
         );
 
         // Verify the parsed structure contains a function call
@@ -144,10 +143,9 @@ mod parser_tests {
                         // The key assertion is that parsing succeeded without "Unexpected token" error
                         // In complex expressions, QUANTUM_SEARCH will be nested in the expression tree
                         assert!(
-                            format!("{:?}", other).contains("FunctionCall")
-                                || format!("{:?}", other).contains("QUANTUM_SEARCH"),
-                            "WHERE clause should contain QUANTUM_SEARCH function: {:?}",
-                            other
+                            format!("{other:?}").contains("FunctionCall")
+                                || format!("{other:?}").contains("QUANTUM_SEARCH"),
+                            "WHERE clause should contain QUANTUM_SEARCH function: {other:?}"
                         );
                     },
                     | None => panic!("WHERE clause should be present"),
@@ -166,8 +164,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "NEUROMATCH function should parse in WHERE clause: {:?}",
-            result
+            "NEUROMATCH function should parse in WHERE clause: {result:?}"
         );
 
         // Verify the parsed structure contains a comparison with NEUROMATCH function
@@ -187,11 +184,7 @@ mod parser_tests {
 
         let sql = "SELECT * FROM users NEUROMATCH('John')";
         let result = parser.parse_query(sql);
-        assert!(
-            result.is_ok(),
-            "NEUROMATCH clause should parse: {:?}",
-            result
-        );
+        assert!(result.is_ok(), "NEUROMATCH clause should parse: {result:?}");
 
         // Verify the parsed structure contains neuromatch_clause
         match result.unwrap() {
@@ -227,8 +220,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "NEUROMATCH clause with field should parse: {:?}",
-            result
+            "NEUROMATCH clause with field should parse: {result:?}"
         );
 
         // Verify the parsed structure contains neuromatch_clause with field
@@ -258,8 +250,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "NEUROMATCH clause with WHERE should parse: {:?}",
-            result
+            "NEUROMATCH clause with WHERE should parse: {result:?}"
         );
 
         // Verify both clauses are present
@@ -287,8 +278,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "QUANTUM_SEARCH with comparison should parse: {:?}",
-            result
+            "QUANTUM_SEARCH with comparison should parse: {result:?}"
         );
     }
 
@@ -303,8 +293,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "HEBBIAN_LEARNING function should parse in WHERE clause: {:?}",
-            result
+            "HEBBIAN_LEARNING function should parse in WHERE clause: {result:?}"
         );
 
         // Verify the parsed structure contains a comparison with HEBBIAN_LEARNING function
@@ -335,8 +324,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "HEBBIAN_LEARNING function should parse in SELECT clause: {:?}",
-            result
+            "HEBBIAN_LEARNING function should parse in SELECT clause: {result:?}"
         );
 
         // Verify the parsed structure contains a HEBBIAN_LEARNING function call
@@ -374,8 +362,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "HEBBIAN_LEARNING function with single arg should parse: {:?}",
-            result
+            "HEBBIAN_LEARNING function with single arg should parse: {result:?}"
         );
     }
 
@@ -523,12 +510,12 @@ mod parser_tests {
     fn test_parser_basic_cte() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             WITH active_users AS (
                 SELECT * FROM users WHERE status = 'active'
             )
             SELECT * FROM active_users WHERE age > 25
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
@@ -549,14 +536,14 @@ mod parser_tests {
     fn test_parser_multiple_ctes() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             WITH 
                 active_users AS (SELECT * FROM users WHERE status = 'active'),
                 recent_orders AS (SELECT * FROM orders WHERE created_at > '2025-01-01')
             SELECT u.name, o.amount 
             FROM active_users u 
             JOIN recent_orders o ON u.id = o.user_id
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
@@ -578,12 +565,12 @@ mod parser_tests {
     fn test_parser_recursive_cte() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             WITH RECURSIVE subordinates AS (
                 SELECT id, name, manager_id FROM employees WHERE manager_id IS NULL
             )
             SELECT * FROM subordinates
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
@@ -604,12 +591,12 @@ mod parser_tests {
     fn test_parser_cte_with_column_list() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             WITH user_stats (user_id, total_posts, avg_likes) AS (
                 SELECT user_id, COUNT(*), AVG(likes) FROM posts GROUP BY user_id
             )
             SELECT * FROM user_stats
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(result.is_ok());
@@ -635,11 +622,11 @@ mod parser_tests {
     fn test_parser_union() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             SELECT id, name FROM users
             UNION
             SELECT id, name FROM archived_users
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(result.is_ok(), "Failed to parse UNION: {:?}", result.err());
@@ -658,11 +645,11 @@ mod parser_tests {
     fn test_parser_union_all() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             SELECT id, name FROM users
             UNION ALL
             SELECT id, name FROM archived_users
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(
@@ -686,14 +673,14 @@ mod parser_tests {
         let parser = QSQLParser::new();
 
         // Start with a simpler test case
-        let sql = r#"
+        let sql = r"
             WITH RECURSIVE hierarchy AS (
                 SELECT id, name FROM employees WHERE parent_id IS NULL
                 UNION ALL
                 SELECT e.id, e.name FROM employees e JOIN hierarchy h ON e.parent_id = h.id
             )
             SELECT * FROM hierarchy
-        "#;
+        ";
 
         let result = parser.parse_query(sql);
         assert!(
@@ -729,11 +716,7 @@ mod parser_tests {
 
         let sql = "EXPLAIN SELECT * FROM users WHERE age > 30";
         let result = parser.parse_query(sql);
-        assert!(
-            result.is_ok(),
-            "Failed to parse EXPLAIN SELECT: {:?}",
-            result
-        );
+        assert!(result.is_ok(), "Failed to parse EXPLAIN SELECT: {result:?}");
 
         let stmt = result.unwrap();
         match stmt {
@@ -760,8 +743,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "Failed to parse EXPLAIN ANALYZE SELECT: {:?}",
-            result
+            "Failed to parse EXPLAIN ANALYZE SELECT: {result:?}"
         );
 
         let stmt = result.unwrap();
@@ -787,8 +769,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "Failed to parse EXPLAIN (FORMAT JSON): {:?}",
-            result
+            "Failed to parse EXPLAIN (FORMAT JSON): {result:?}"
         );
 
         let stmt = result.unwrap();
@@ -809,8 +790,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "Failed to parse EXPLAIN (ANALYZE, FORMAT JSON): {:?}",
-            result
+            "Failed to parse EXPLAIN (ANALYZE, FORMAT JSON): {result:?}"
         );
 
         let stmt = result.unwrap();
@@ -831,8 +811,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "Failed to parse EXPLAIN (FORMAT YAML): {:?}",
-            result
+            "Failed to parse EXPLAIN (FORMAT YAML): {result:?}"
         );
 
         let stmt = result.unwrap();
@@ -852,8 +831,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "Failed to parse EXPLAIN (FORMAT XML): {:?}",
-            result
+            "Failed to parse EXPLAIN (FORMAT XML): {result:?}"
         );
 
         let stmt = result.unwrap();
@@ -873,8 +851,7 @@ mod parser_tests {
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "Failed to parse EXPLAIN VERBOSE: {:?}",
-            result
+            "Failed to parse EXPLAIN VERBOSE: {result:?}"
         );
 
         let stmt = result.unwrap();
@@ -891,18 +868,17 @@ mod parser_tests {
     fn test_parser_explain_with_join() {
         let parser = QSQLParser::new();
 
-        let sql = r#"
+        let sql = r"
             EXPLAIN ANALYZE
             SELECT u.name, o.amount
             FROM users u
             JOIN orders o ON u.id = o.user_id
             WHERE o.amount > 100
-        "#;
+        ";
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
-            "Failed to parse EXPLAIN with JOIN: {:?}",
-            result
+            "Failed to parse EXPLAIN with JOIN: {result:?}"
         );
 
         let stmt = result.unwrap();
@@ -928,11 +904,7 @@ mod parser_tests {
 
         let sql = "EXPLAIN INSERT INTO users (name, age) VALUES ('John', 30)";
         let result = parser.parse_query(sql);
-        assert!(
-            result.is_ok(),
-            "Failed to parse EXPLAIN INSERT: {:?}",
-            result
-        );
+        assert!(result.is_ok(), "Failed to parse EXPLAIN INSERT: {result:?}");
 
         let stmt = result.unwrap();
         match stmt {
@@ -950,11 +922,7 @@ mod parser_tests {
 
         let sql = "EXPLAIN UPDATE users SET age = 31 WHERE name = 'John'";
         let result = parser.parse_query(sql);
-        assert!(
-            result.is_ok(),
-            "Failed to parse EXPLAIN UPDATE: {:?}",
-            result
-        );
+        assert!(result.is_ok(), "Failed to parse EXPLAIN UPDATE: {result:?}");
 
         let stmt = result.unwrap();
         match stmt {
@@ -972,11 +940,7 @@ mod parser_tests {
 
         let sql = "EXPLAIN DELETE FROM users WHERE age < 18";
         let result = parser.parse_query(sql);
-        assert!(
-            result.is_ok(),
-            "Failed to parse EXPLAIN DELETE: {:?}",
-            result
-        );
+        assert!(result.is_ok(), "Failed to parse EXPLAIN DELETE: {result:?}");
 
         let stmt = result.unwrap();
         match stmt {
@@ -1344,11 +1308,10 @@ mod executor_tests {
             "TRUNCATE TABLE should fail without storage engine"
         );
         let err = result.unwrap_err();
-        let err_msg = format!("{}", err);
+        let err_msg = format!("{err}");
         assert!(
             err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
-            "Expected storage-related error, got: {}",
-            err_msg
+            "Expected storage-related error, got: {err_msg}"
         );
     }
 
@@ -1384,11 +1347,10 @@ mod executor_tests {
             "TRUNCATE should fail without storage engine"
         );
         let err = result.unwrap_err();
-        let err_msg = format!("{}", err);
+        let err_msg = format!("{err}");
         assert!(
             err_msg.contains("Storage engine not configured") || err_msg.contains("storage"),
-            "Expected storage-related error, got: {}",
-            err_msg
+            "Expected storage-related error, got: {err_msg}"
         );
     }
 }
@@ -1473,7 +1435,7 @@ mod error_tests {
             position: 0,
         };
         // Note: QSQLError doesn't implement Serialize, so we test display instead
-        let error_string = format!("{}", error);
+        let error_string = format!("{error}");
         assert!(error_string.contains("syntax error"));
     }
 
@@ -1482,7 +1444,7 @@ mod error_tests {
         let error = QSQLError::ExecutionError {
             message: "table not found".to_string(),
         };
-        let error_string = format!("{}", error);
+        let error_string = format!("{error}");
         assert!(error_string.contains("table not found"));
     }
 
@@ -1607,7 +1569,7 @@ mod integration_tests {
             let engine_clone = engine.clone();
             let handle = tokio::spawn(async move {
                 let mut engine_guard = engine_clone.write().await;
-                let sql = format!("SELECT * FROM users WHERE id = {}", i);
+                let sql = format!("SELECT * FROM users WHERE id = {i}");
                 engine_guard.execute_query(&sql).await
             });
             handles.push(handle);
@@ -1648,7 +1610,7 @@ mod integration_tests {
         // Use column references instead of bare literals since the parser requires columns
         let mut success_count = 0;
         for i in 0..100 {
-            let sql = format!("SELECT id, value_{} FROM test_table LIMIT 1", i);
+            let sql = format!("SELECT id, value_{i} FROM test_table LIMIT 1");
             let result = engine.execute_query(&sql).await;
             if result.is_ok() {
                 success_count += 1;
@@ -2252,14 +2214,14 @@ mod derived_table_tests {
     #[test]
     fn test_derived_table_with_aggregation() {
         let parser = QSQLParser::new();
-        let sql = r#"
+        let sql = r"
             SELECT dept, avg_salary FROM (
                 SELECT department AS dept, AVG(salary) AS avg_salary 
                 FROM employees 
                 GROUP BY department
             ) AS dept_stats
             WHERE avg_salary > 50000
-        "#;
+        ";
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
@@ -2283,7 +2245,7 @@ mod derived_table_tests {
     #[test]
     fn test_join_with_derived_table() {
         let parser = QSQLParser::new();
-        let sql = r#"
+        let sql = r"
             SELECT u.name, s.total_orders
             FROM users u
             JOIN (
@@ -2291,7 +2253,7 @@ mod derived_table_tests {
                 FROM orders 
                 GROUP BY user_id
             ) AS s ON u.id = s.user_id
-        "#;
+        ";
         let result = parser.parse_query(sql);
         assert!(result.is_ok(), "Failed to parse join with derived table");
 
@@ -2337,13 +2299,13 @@ mod derived_table_tests {
     #[test]
     fn test_nested_derived_tables() {
         let parser = QSQLParser::new();
-        let sql = r#"
+        let sql = r"
             SELECT * FROM (
                 SELECT name FROM (
                     SELECT name, age FROM users WHERE age > 21
                 ) AS inner_subq
             ) AS outer_subq
-        "#;
+        ";
         let result = parser.parse_query(sql);
         assert!(result.is_ok(), "Failed to parse nested derived tables");
 
@@ -2370,12 +2332,12 @@ mod derived_table_tests {
     fn test_derived_table_left_join() {
         let parser = QSQLParser::new();
         // Simplified test - just a.count instead of a.*, b.count
-        let sql = r#"
+        let sql = r"
             SELECT a.id, b.total
             FROM users a
             LEFT JOIN (SELECT user_id, COUNT(*) as total FROM orders GROUP BY user_id) AS b 
             ON a.id = b.user_id
-        "#;
+        ";
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
@@ -2407,11 +2369,11 @@ mod derived_table_tests {
     #[test]
     fn test_derived_table_in_from_with_regular_join() {
         let parser = QSQLParser::new();
-        let sql = r#"
+        let sql = r"
             SELECT d.name, p.product_name
             FROM (SELECT * FROM departments WHERE active = true) AS d
             JOIN products p ON d.id = p.department_id
-        "#;
+        ";
         let result = parser.parse_query(sql);
         assert!(
             result.is_ok(),
@@ -2464,14 +2426,14 @@ mod derived_table_tests {
 
         for sql in test_cases {
             let result = parser.parse_query(sql);
-            assert!(result.is_ok(), "Failed to parse: {}", sql);
+            assert!(result.is_ok(), "Failed to parse: {sql}");
 
             match result.unwrap() {
                 | Statement::CompressTable(compress) => {
                     assert_eq!(compress.table_name, "logs");
                     assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
                 },
-                | _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
+                | _ => panic!("Expected COMPRESS TABLE statement for: {sql}"),
             }
         }
     }
@@ -2491,14 +2453,14 @@ mod derived_table_tests {
 
         for (sql, expected_table) in test_cases {
             let result = parser.parse_query(sql);
-            assert!(result.is_ok(), "Failed to parse: {}", sql);
+            assert!(result.is_ok(), "Failed to parse: {sql}");
 
             match result.unwrap() {
                 | Statement::CompressTable(compress) => {
                     assert_eq!(compress.table_name, expected_table);
                     assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
                 },
-                | _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
+                | _ => panic!("Expected COMPRESS TABLE statement for: {sql}"),
             }
         }
     }

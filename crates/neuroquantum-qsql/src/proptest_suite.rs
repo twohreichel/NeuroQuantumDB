@@ -17,13 +17,13 @@ use crate::ast::*;
 use crate::optimizer::NeuromorphicOptimizer;
 use crate::parser::{ParserConfig, QSQLParser};
 
-/// Get configurable PropTest configuration from environment
+/// Get configurable `PropTest` configuration from environment
 ///
-/// Use PROPTEST_CASES environment variable to control test thoroughness:
-/// - Fast (default): PROPTEST_CASES=32 (development)
-/// - Standard: PROPTEST_CASES=64 (CI)
-/// - Thorough: PROPTEST_CASES=256 (pre-release)
-/// - Exhaustive: PROPTEST_CASES=512 (release)
+/// Use `PROPTEST_CASES` environment variable to control test thoroughness:
+/// - Fast (default): `PROPTEST_CASES=32` (development)
+/// - Standard: `PROPTEST_CASES=64` (CI)
+/// - Thorough: `PROPTEST_CASES=256` (pre-release)
+/// - Exhaustive: `PROPTEST_CASES=512` (release)
 fn get_proptest_config() -> ProptestConfig {
     let cases = std::env::var("PROPTEST_CASES")
         .ok()
@@ -278,10 +278,7 @@ fn select_with_group_by() -> impl Strategy<Value = String> {
         table_name(),
     )
         .prop_map(|(group_col, agg_fn, agg_col, table)| {
-            format!(
-                "SELECT {}, {}({}) FROM {} GROUP BY {}",
-                group_col, agg_fn, agg_col, table, group_col
-            )
+            format!("SELECT {group_col}, {agg_fn}({agg_col}) FROM {table} GROUP BY {group_col}")
         })
 }
 
@@ -298,7 +295,7 @@ fn insert_statement() -> impl Strategy<Value = String> {
         .prop_map(|(table, cols, vals)| {
             let values_str = vals
                 .iter()
-                .map(|v| v.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(", ");
             format!(
@@ -321,10 +318,7 @@ fn update_statement() -> impl Strategy<Value = String> {
         integer_literal(),
     )
         .prop_map(|(table, set_col, set_val, where_col, op, where_val)| {
-            format!(
-                "UPDATE {} SET {} = {} WHERE {} {} {}",
-                table, set_col, set_val, where_col, op, where_val
-            )
+            format!("UPDATE {table} SET {set_col} = {set_val} WHERE {where_col} {op} {where_val}")
         })
 }
 
@@ -337,20 +331,14 @@ fn delete_statement() -> impl Strategy<Value = String> {
         integer_literal(),
     )
         .prop_map(|(table, where_col, op, where_val)| {
-            format!(
-                "DELETE FROM {} WHERE {} {} {}",
-                table, where_col, op, where_val
-            )
+            format!("DELETE FROM {table} WHERE {where_col} {op} {where_val}")
         })
 }
 
 /// Generate neuromorphic NEUROMATCH queries
 fn neuromatch_query() -> impl Strategy<Value = String> {
     (table_name(), string_literal(), synaptic_weight()).prop_map(|(table, pattern, strength)| {
-        format!(
-            "SELECT * FROM {} NEUROMATCH '{}' STRENGTH > {:.2}",
-            table, pattern, strength
-        )
+        format!("SELECT * FROM {table} NEUROMATCH '{pattern}' STRENGTH > {strength:.2}")
     })
 }
 
@@ -359,8 +347,7 @@ fn quantum_join_query() -> impl Strategy<Value = String> {
     (table_name(), table_name(), column_name(), column_name()).prop_map(
         |(table1, table2, col1, col2)| {
             format!(
-                "SELECT * FROM {} QUANTUM_JOIN {} ON superposition({}.{}, {}.{})",
-                table1, table2, table1, col1, table2, col2
+                "SELECT * FROM {table1} QUANTUM_JOIN {table2} ON superposition({table1}.{col1}, {table2}.{col2})"
             )
         },
     )
@@ -647,7 +634,7 @@ proptest! {
     /// Valid identifiers should be accepted
     #[test]
     fn valid_identifiers_accepted(id in sql_identifier()) {
-        let query = format!("SELECT {} FROM test_table", id);
+        let query = format!("SELECT {id} FROM test_table");
         let parser = QSQLParser::new();
         let result = parser.parse_query(&query);
         prop_assert!(result.is_ok(), "Valid identifier should be accepted: {}", id);
@@ -659,8 +646,8 @@ proptest! {
         num in 0i32..9,
         rest in prop::string::string_regex("[a-zA-Z_]{1,10}").unwrap()
     ) {
-        let invalid_id = format!("{}{}", num, rest);
-        let query = format!("SELECT {} FROM test_table", invalid_id);
+        let invalid_id = format!("{num}{rest}");
+        let query = format!("SELECT {invalid_id} FROM test_table");
         let parser = QSQLParser::new();
         let result = parser.parse_query(&query);
         // Should fail or the parser may interpret it differently
@@ -680,7 +667,7 @@ proptest! {
         col2 in column_name(),
         table in table_name()
     ) {
-        let query = format!("SELECT {} {} {} FROM {}", col1, op, col2, table);
+        let query = format!("SELECT {col1} {op} {col2} FROM {table}");
         let parser = QSQLParser::new();
         let result = parser.parse_query(&query);
         prop_assert!(result.is_ok(), "Failed to parse: {}", query);
@@ -695,7 +682,7 @@ proptest! {
         col3 in column_name(),
         table in table_name()
     ) {
-        let query = format!("SELECT ({} + {}) * {} FROM {}", col1, col2, col3, table);
+        let query = format!("SELECT ({col1} + {col2}) * {col3} FROM {table}");
         let parser = QSQLParser::new();
         // We don't assert success, just that it doesn't panic
         let _ = parser.parse_query(&query);
@@ -711,8 +698,7 @@ proptest! {
         table in table_name()
     ) {
         let query = format!(
-            "SELECT * FROM {} WHERE {} > {} AND {} < {}",
-            table, col1, val1, col2, val2
+            "SELECT * FROM {table} WHERE {col1} > {val1} AND {col2} < {val2}"
         );
         let parser = QSQLParser::new();
         let result = parser.parse_query(&query);
@@ -744,7 +730,7 @@ mod edge_case_tests {
 
         // Very long but valid identifier
         let long_id = "a".repeat(100);
-        let query = format!("SELECT {} FROM test", long_id);
+        let query = format!("SELECT {long_id} FROM test");
         let result = parser.parse_query(&query);
         // Should either parse or fail gracefully
         let _ = result;
@@ -756,7 +742,7 @@ mod edge_case_tests {
 
         // Deeply nested parentheses
         let nested = "(((((1 + 2)))))";
-        let query = format!("SELECT {} FROM test", nested);
+        let query = format!("SELECT {nested} FROM test");
         let result = parser.parse_query(&query);
         // Should either parse or fail gracefully (no panic)
         let _ = result;
@@ -808,7 +794,7 @@ mod edge_case_tests {
         let special_ids = vec!["col@name", "col#name", "col$name", "col-name"];
 
         for id in special_ids {
-            let query = format!("SELECT {} FROM test", id);
+            let query = format!("SELECT {id} FROM test");
             let _ = parser.parse_query(&query);
         }
     }

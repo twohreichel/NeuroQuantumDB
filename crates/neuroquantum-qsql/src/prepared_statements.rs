@@ -789,7 +789,7 @@ mod tests {
             };
 
             let prepare_stmt = PrepareStatement {
-                name: format!("stmt_{}", i),
+                name: format!("stmt_{i}"),
                 statement: Box::new(Statement::Select(select)),
                 parameter_types: None,
             };

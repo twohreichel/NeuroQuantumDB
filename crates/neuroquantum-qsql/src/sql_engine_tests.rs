@@ -281,7 +281,7 @@ async fn test_complete_sql_workflow() {
         let ast = parser.parse(query).unwrap();
         let plan = create_test_query_plan(ast);
         let result = executor.execute(&plan).await;
-        assert!(result.is_ok(), "Failed to execute query: {}", query);
+        assert!(result.is_ok(), "Failed to execute query: {query}");
     }
 }
 
@@ -298,13 +298,12 @@ fn test_performance_requirements() {
     }
 
     let duration = start.elapsed();
-    println!("Parsed 100 queries in {:?}", duration);
+    println!("Parsed 100 queries in {duration:?}");
 
     // Should be able to parse 100 simple queries in under 100ms
     assert!(
         duration.as_millis() < 1000,
-        "Parsing took too long: {:?}",
-        duration
+        "Parsing took too long: {duration:?}"
     );
 }
 
@@ -1231,8 +1230,7 @@ fn test_case_expression_simple() {
 
     assert!(
         result.is_ok(),
-        "Simple CASE expression should parse successfully: {:?}",
-        result
+        "Simple CASE expression should parse successfully: {result:?}"
     );
     match result.unwrap() {
         | Statement::Select(select) => {
@@ -1267,8 +1265,7 @@ fn test_case_expression_multiple_when() {
 
     assert!(
         result.is_ok(),
-        "CASE with multiple WHEN should parse successfully: {:?}",
-        result
+        "CASE with multiple WHEN should parse successfully: {result:?}"
     );
     match result.unwrap() {
         | Statement::Select(select) => {
@@ -1297,8 +1294,7 @@ fn test_case_expression_without_else() {
 
     assert!(
         result.is_ok(),
-        "CASE without ELSE should parse successfully: {:?}",
-        result
+        "CASE without ELSE should parse successfully: {result:?}"
     );
     match result.unwrap() {
         | Statement::Select(select) => {
@@ -1329,8 +1325,7 @@ fn test_case_expression_with_alias() {
 
     assert!(
         result.is_ok(),
-        "CASE with alias should parse successfully: {:?}",
-        result
+        "CASE with alias should parse successfully: {result:?}"
     );
     match result.unwrap() {
         | Statement::Select(select) => {
@@ -1358,8 +1353,7 @@ fn test_case_expression_string_comparison() {
 
     assert!(
         result.is_ok(),
-        "CASE with string comparison should parse: {:?}",
-        result
+        "CASE with string comparison should parse: {result:?}"
     );
 }
 
@@ -1373,8 +1367,7 @@ fn test_case_expression_with_complex_condition() {
 
     assert!(
         result.is_ok(),
-        "CASE with complex AND condition should parse: {:?}",
-        result
+        "CASE with complex AND condition should parse: {result:?}"
     );
 }
 
@@ -1387,8 +1380,7 @@ fn test_in_subquery_parsing() {
     let result = parser.parse("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)");
     assert!(
         result.is_ok(),
-        "IN subquery should parse successfully: {:?}",
-        result
+        "IN subquery should parse successfully: {result:?}"
     );
 
     match result.unwrap() {
@@ -1434,8 +1426,7 @@ fn test_not_in_subquery_parsing() {
         parser.parse("SELECT * FROM users WHERE id NOT IN (SELECT user_id FROM inactive_users)");
     assert!(
         result.is_ok(),
-        "NOT IN subquery should parse successfully: {:?}",
-        result
+        "NOT IN subquery should parse successfully: {result:?}"
     );
 
     match result.unwrap() {
@@ -1481,8 +1472,7 @@ fn test_in_subquery_with_where_clause() {
         .parse("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE amount > 100)");
     assert!(
         result.is_ok(),
-        "IN subquery with WHERE should parse successfully: {:?}",
-        result
+        "IN subquery with WHERE should parse successfully: {result:?}"
     );
 
     match result.unwrap() {
@@ -1570,13 +1560,9 @@ fn test_date_add_various_units() {
     let units = vec!["YEAR", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE", "SECOND"];
 
     for unit in units {
-        let query = format!("SELECT DATE_ADD('2025-01-01', INTERVAL 1 {})", unit);
+        let query = format!("SELECT DATE_ADD('2025-01-01', INTERVAL 1 {unit})");
         let result = parser.parse(&query);
-        assert!(
-            result.is_ok(),
-            "Failed to parse DATE_ADD with unit: {}",
-            unit
-        );
+        assert!(result.is_ok(), "Failed to parse DATE_ADD with unit: {unit}");
     }
 }
 
@@ -1588,13 +1574,9 @@ fn test_date_sub_various_units() {
     let units = vec!["YEAR", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE", "SECOND"];
 
     for unit in units {
-        let query = format!("SELECT DATE_SUB('2025-12-31', INTERVAL 5 {})", unit);
+        let query = format!("SELECT DATE_SUB('2025-12-31', INTERVAL 5 {unit})");
         let result = parser.parse(&query);
-        assert!(
-            result.is_ok(),
-            "Failed to parse DATE_SUB with unit: {}",
-            unit
-        );
+        assert!(result.is_ok(), "Failed to parse DATE_SUB with unit: {unit}");
     }
 }
 

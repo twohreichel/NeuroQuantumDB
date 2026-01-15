@@ -483,6 +483,7 @@ impl QSQLConfig {
     /// Create a testing configuration that uses mock/simulated storage
     /// instead of requiring a real storage engine.
     #[cfg(test)]
+    #[must_use]
     pub fn testing() -> Self {
         Self {
             parser_config: ParserConfig::default(),
