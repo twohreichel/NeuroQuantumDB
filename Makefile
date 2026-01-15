@@ -106,6 +106,11 @@ docs-check: ## Check documentation for issues
 	@mdbook build 2>&1 | grep -i "error" || echo "  ✅ mdbook builds successfully"
 	@echo "✅ Documentation check completed!"
 
+docs-lint: ## Lint documentation with strict warnings (Issue #318)
+	@echo "📝 Checking documentation..."
+	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features --workspace
+	@echo "✅ Documentation check passed!"
+
 docs-install-tools: ## Install documentation tools
 	@echo "📦 Installing documentation tools..."
 	@command -v mdbook >/dev/null 2>&1 || { echo "  Installing mdbook..."; cargo install mdbook; }

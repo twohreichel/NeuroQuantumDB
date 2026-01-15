@@ -69,7 +69,8 @@ cargo-machete = "0.6.2"
 unsafe_code = "forbid"
 # Keine unsafe-op-in-unsafe-fn erlaubt
 unsafe_op_in_unsafe_fn = "forbid"
-missing_docs = "warn"
+missing_docs = "deny"
+missing_debug_implementations = "deny"
 unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_qualifications = "warn"
@@ -204,8 +205,10 @@ manual_ok_or = "warn"
 map_flatten = "warn"
 map_unwrap_or = "warn"
 match_wildcard_for_single_variants = "warn"
-missing_errors_doc = "warn"
-missing_panics_doc = "warn"
+missing_errors_doc = "deny"
+missing_panics_doc = "deny"
+missing_safety_doc = "deny"
+missing_docs_in_private_items = "warn"
 must_use_candidate = "warn"
 needless_bitwise_bool = "warn"
 needless_continue = "warn"
@@ -223,6 +226,13 @@ unicode_not_nfc = "warn"
 unnecessary_wraps = "warn"
 unused_self = "warn"
 used_underscore_binding = "warn"
+
+# ============================================================================
+# DOCUMENTATION QUALITY LINTS - Issue #318
+# ============================================================================
+doc_link_with_quotes = "deny"
+doc_markdown = "warn"
+empty_line_after_doc_comments = "warn"
 
 # ============================================================================
 # NURSERY LINTS - Experimentell aber nützlich
