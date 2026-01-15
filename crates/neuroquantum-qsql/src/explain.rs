@@ -708,6 +708,11 @@ impl Default for TableStatistics {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::{Expression, FromClause, Literal, TableReference};
+    use crate::query_plan::{
+        ExecutionStrategy, OptimizationMetadata, QuantumOptimization, QuantumOptimizationType,
+        SynapticPathway,
+    };
 
     #[test]
     fn test_explain_generator() {
