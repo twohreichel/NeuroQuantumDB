@@ -325,6 +325,13 @@ impl NeuroQuantumDB {
 }
 
 impl Default for NeuroQuantumDB {
+    /// Creates a default instance of NeuroQuantumDB.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the default instance cannot be created. This is acceptable
+    /// for WASM usage where the Default trait is commonly used for initialization.
+    #[allow(clippy::expect_used)] // Acceptable for Default impl in WASM context
     fn default() -> Self {
         Self::new().expect("Failed to create default NeuroQuantumDB instance")
     }

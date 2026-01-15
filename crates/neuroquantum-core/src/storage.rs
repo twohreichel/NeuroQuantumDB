@@ -10,6 +10,7 @@ pub mod migration;
 pub mod pager;
 pub mod wal;
 
+use crate::error::CoreError;
 use anyhow::{anyhow, Result};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
@@ -522,6 +523,8 @@ impl StorageEngine {
             dna_compressor: QuantumDNACompressor::new(),
             next_row_id: 1,
             next_lsn: 1,
+            // SAFETY: 10000 is a non-zero constant
+            #[allow(clippy::expect_used)]
             row_cache: LruCache::new(NonZeroUsize::new(10000).expect("10000 is non-zero")),
             transaction_manager: TransactionManager::new(),
             encryption_manager: None,
@@ -569,6 +572,8 @@ impl StorageEngine {
             dna_compressor,
             next_row_id: 1,
             next_lsn: 1,
+            // SAFETY: 10000 is a non-zero constant
+            #[allow(clippy::expect_used)]
             row_cache: LruCache::new(NonZeroUsize::new(10000).expect("10000 is non-zero")), // 10k rows LRU cache
             transaction_manager,
             encryption_manager: Some(encryption_manager),
@@ -1498,11 +1503,9 @@ impl StorageEngine {
             row.updated_at = chrono::Utc::now();
 
             // Validate updated row
-            let schema = self
-                .metadata
-                .tables
-                .get(&query.table)
-                .expect("table schema should exist for update operation");
+            let schema = self.metadata.tables.get(&query.table).ok_or_else(|| {
+                CoreError::invalid_operation(&format!("Table '{}' schema not found", query.table))
+            })?;
             self.validate_row(schema, &row)?;
 
             // Update compressed data
@@ -1571,7 +1574,12 @@ impl StorageEngine {
                 .metadata
                 .tables
                 .get(&query.table)
-                .expect("table schema should exist for delete operation")
+                .ok_or_else(|| {
+                    CoreError::invalid_operation(&format!(
+                        "Table '{}' schema not found",
+                        query.table
+                    ))
+                })?
                 .clone();
             self.update_indexes_for_delete(&schema, &row)?;
 
@@ -2798,11 +2806,9 @@ impl StorageEngine {
             row.updated_at = chrono::Utc::now();
 
             // Validate updated row
-            let schema = self
-                .metadata
-                .tables
-                .get(&query.table)
-                .expect("table schema should exist for transactional update");
+            let schema = self.metadata.tables.get(&query.table).ok_or_else(|| {
+                CoreError::invalid_operation(&format!("Table '{}' schema not found", query.table))
+            })?;
             self.validate_row(schema, &row)?;
 
             // Serialize after-image for WAL
@@ -2906,7 +2912,12 @@ impl StorageEngine {
                 .metadata
                 .tables
                 .get(&query.table)
-                .expect("table schema should exist for transactional delete")
+                .ok_or_else(|| {
+                    CoreError::invalid_operation(&format!(
+                        "Table '{}' schema not found",
+                        query.table
+                    ))
+                })?
                 .clone();
             self.update_indexes_for_delete(&schema, &row)?;
 

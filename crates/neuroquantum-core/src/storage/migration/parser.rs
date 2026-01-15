@@ -2,7 +2,7 @@
 //!
 //! Parses SQL migration files with up/down migrations.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::fs;
 use std::path::PathBuf;
 
@@ -70,7 +70,7 @@ impl MigrationParser {
             if path.is_file() && path.extension().is_some_and(|ext| ext == "sql") {
                 let filename = path
                     .file_stem()
-                    .expect("SQL file should have a filename")
+                    .ok_or_else(|| anyhow!("SQL file has no filename: {}", path.display()))?
                     .to_string_lossy();
 
                 // Check if this is an up or down migration

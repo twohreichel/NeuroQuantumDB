@@ -266,6 +266,7 @@ pub enum DiscoveryMethod {
 }
 
 impl Default for ClusterConfig {
+    #[allow(clippy::expect_used)] // Default impl with valid constant address
     fn default() -> Self {
         Self {
             node_id: 1,
