@@ -9,9 +9,6 @@ use crate::config::{ClusterConfig, DiscoveryMethod};
 use crate::error::{ClusterError, ClusterResult};
 use crate::node::{NodeId, NodeRole, PeerInfo};
 
-/// Default port for DNS discovery when SRV records are not available.
-const DNS_DEFAULT_PORT: u16 = 9000;
-
 /// Generate a deterministic node ID from a socket address.
 fn generate_node_id_from_addr(addr: &SocketAddr) -> u64 {
     use std::collections::hash_map::DefaultHasher;
@@ -30,9 +27,6 @@ pub struct DiscoveryService {
     static_nodes: Vec<String>,
     /// DNS configuration
     dns_config: Option<crate::config::DnsConfig>,
-    /// Legacy DNS name (for backward compatibility)
-    #[allow(deprecated)]
-    dns_name: Option<String>,
     /// Consul configuration
     consul_config: Option<crate::config::ConsulConfig>,
     /// etcd configuration
@@ -54,8 +48,6 @@ impl DiscoveryService {
             method: config.discovery.method.clone(),
             static_nodes: config.discovery.static_nodes.clone(),
             dns_config: config.discovery.dns.clone(),
-            #[allow(deprecated)]
-            dns_name: config.discovery.dns_name.clone(),
             consul_config: config.discovery.consul.clone(),
             etcd_config: config.discovery.etcd.clone(),
             local_node_id: config.node_id,
@@ -109,18 +101,14 @@ impl DiscoveryService {
 
     /// Discover nodes using DNS (e.g., Kubernetes headless service).
     async fn discover_dns(&self) -> ClusterResult<Vec<PeerInfo>> {
-        // Support both new dns config and legacy dns_name for backward compatibility
-        let (dns_name, default_port) = if let Some(dns_config) = &self.dns_config {
-            (dns_config.name.as_str(), dns_config.default_port)
-        } else {
-            #[allow(deprecated)]
-            let name = self.dns_name.as_ref().ok_or_else(|| {
-                ClusterError::ConfigError(
-                    "DNS discovery enabled but no dns configuration provided".into(),
-                )
-            })?;
-            (name.as_str(), DNS_DEFAULT_PORT) // Default port for backward compatibility
-        };
+        let dns_config = self.dns_config.as_ref().ok_or_else(|| {
+            ClusterError::ConfigError(
+                "DNS discovery enabled but no dns configuration provided".into(),
+            )
+        })?;
+
+        let dns_name = dns_config.name.as_str();
+        let default_port = dns_config.default_port;
 
         debug!(dns_name, "Using DNS node discovery");
 
@@ -446,9 +434,7 @@ mod tests {
             node_id: 1,
             discovery: crate::config::DiscoveryConfig {
                 method: DiscoveryMethod::Dns,
-                #[allow(deprecated)]
-                dns_name: None, // Missing DNS name
-                dns: None, // Missing new DNS config
+                dns: None, // Missing DNS config
                 ..Default::default()
             },
             ..Default::default()
