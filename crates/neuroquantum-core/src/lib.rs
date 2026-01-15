@@ -604,7 +604,7 @@ impl NeuroQuantumDBCore {
     ///
     /// This function is infallible but returns `Result` for API consistency.
     #[cfg(test)]
-    pub fn new_test() -> Result<Self> {
+    pub const fn new_test() -> Result<Self> {
         Ok(Self {
             active_connections: 1,
             quantum_ops_rate: 100.0,
