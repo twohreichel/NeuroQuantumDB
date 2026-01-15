@@ -89,7 +89,7 @@ fn demo_qubo_max_cut() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|(i, j, _)| solution.variables[*i] != solution.variables[*j])
         .map(|(_, _, w)| w)
         .sum();
-    println!("Cut value: {:.2}", cut_value);
+    println!("Cut value: {cut_value:.2}");
 
     Ok(())
 }
@@ -103,7 +103,7 @@ fn demo_qubo_graph_coloring() -> Result<(), Box<dyn std::error::Error>> {
     let edges = vec![(0, 1), (1, 2), (2, 0)];
     let num_colors = 3;
 
-    println!("Graph: Triangle (3 nodes), {} colors", num_colors);
+    println!("Graph: Triangle (3 nodes), {num_colors} colors");
 
     let problem = graph_coloring_problem(&edges, 3, num_colors)?;
 
@@ -127,7 +127,7 @@ fn demo_qubo_graph_coloring() -> Result<(), Box<dyn std::error::Error>> {
         for color in 0..num_colors {
             let idx = node * num_colors + color;
             if solution.variables[idx] == 1 {
-                println!("  Node {}: Color {}", node, color);
+                println!("  Node {node}: Color {color}");
             }
         }
     }
@@ -210,7 +210,7 @@ fn demo_tfim_ferromagnetic() -> Result<(), Box<dyn std::error::Error>> {
 
     // Check alignment
     let all_aligned = solution.spins.windows(2).all(|w| w[0] == w[1]);
-    println!("All spins aligned: {}", all_aligned);
+    println!("All spins aligned: {all_aligned}");
 
     Ok(())
 }
@@ -257,10 +257,10 @@ async fn demo_parallel_tempering() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create Ising problem
     let couplings = DMatrix::from_fn(10, 10, |i, j| {
-        if i != j {
-            (i as f64 - j as f64).abs().recip()
-        } else {
+        if i == j {
             0.0
+        } else {
+            (i as f64 - j as f64).abs().recip()
         }
     });
     let external_fields = vec![0.0; 10];
@@ -369,7 +369,7 @@ async fn demo_method_comparison() -> Result<(), Box<dyn std::error::Error>> {
 
     // Method 4: Quantum Parallel Tempering
     println!("4. Quantum Parallel Tempering (PIMC):");
-    let couplings = DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 });
+    let couplings = DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 });
     let external_fields = vec![0.0; 4];
     let config = QuantumParallelTemperingConfig {
         num_replicas: 4,

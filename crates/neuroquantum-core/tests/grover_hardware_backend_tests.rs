@@ -1,7 +1,7 @@
 //! # Grover Hardware Backend Integration Tests
 //!
 //! This module contains comprehensive tests for the real quantum hardware
-//! backend implementations including IBM Quantum, AWS Braket, and IonQ.
+//! backend implementations including IBM Quantum, AWS Braket, and `IonQ`.
 //!
 //! ## Test Categories
 //!

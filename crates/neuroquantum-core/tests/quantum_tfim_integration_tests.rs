@@ -131,12 +131,10 @@ fn test_quantum_tfim_qaoa_optimization() {
         couplings: DMatrix::from_fn(4, 4, |i, j| {
             if i == j {
                 0.0
+            } else if (i + j) % 2 == 0 {
+                1.0
             } else {
-                if (i + j) % 2 == 0 {
-                    1.0
-                } else {
-                    -1.0
-                }
+                -1.0
             }
         }),
         transverse_fields: vec![0.5; 4],

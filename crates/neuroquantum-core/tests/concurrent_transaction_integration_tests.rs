@@ -185,7 +185,7 @@ async fn test_multiple_concurrent_inserts() {
             let result = storage_write
                 .insert_row(
                     "concurrent_inserts",
-                    create_test_row(i as i64, &format!("User_{}", i), i as i64 * 100),
+                    create_test_row(i64::from(i), &format!("User_{i}"), i64::from(i) * 100),
                 )
                 .await;
 
@@ -243,7 +243,7 @@ async fn test_transaction_begin_commit_cycle() {
             .insert_row_transactional(
                 tx_id,
                 "tx_cycle",
-                create_test_row(i as i64, &format!("Cycle_{}", i), i as i64 * 50),
+                create_test_row(i64::from(i), &format!("Cycle_{i}"), i64::from(i) * 50),
             )
             .await
             .unwrap();
@@ -522,7 +522,7 @@ async fn test_transaction_isolation_levels() {
             .await
             .unwrap();
 
-        assert!(lsn > 0, "Should write BEGIN for {:?}", isolation);
+        assert!(lsn > 0, "Should write BEGIN for {isolation:?}");
 
         log_manager
             .write_log_record(Some(tx_id), None, LogRecordType::Commit { tx_id })
@@ -569,7 +569,7 @@ async fn test_concurrent_log_writes() {
             }
 
             // Write UPDATE
-            let row = create_test_row(i, &format!("Concurrent_{}", i), i * 10);
+            let row = create_test_row(i, &format!("Concurrent_{i}"), i * 10);
             let after_image = serde_json::to_vec(&row).unwrap();
 
             let result = log_manager_clone
@@ -636,7 +636,7 @@ async fn test_storage_recovery_after_crash_simulation() {
             storage
                 .insert_row(
                     "crash_sim",
-                    create_test_row(i, &format!("Pre_crash_{}", i), i * 100),
+                    create_test_row(i, &format!("Pre_crash_{i}"), i * 100),
                 )
                 .await
                 .unwrap();

@@ -18,7 +18,7 @@ fn bench_page_allocation(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("page_allocation");
 
-    for size in [10, 100, 1000, 10000].iter() {
+    for size in &[10, 100, 1000, 10000] {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
@@ -26,7 +26,7 @@ fn bench_page_allocation(c: &mut Criterion) {
                     for _ in 0..size {
                         let _ = black_box(manager.allocate_page(PageType::Data).await.unwrap());
                     }
-                })
+                });
             });
         });
     }
@@ -57,7 +57,7 @@ fn bench_page_read_write(c: &mut Criterion) {
                 page.write_data(0, black_box(b"Test data for benchmark"))
                     .unwrap();
                 manager.write_page(&page).await.unwrap();
-            })
+            });
         });
     });
 
@@ -66,7 +66,7 @@ fn bench_page_read_write(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 let _ = black_box(manager.read_page(page_id).await.unwrap());
-            })
+            });
         });
     });
 
@@ -80,7 +80,7 @@ fn bench_page_read_write(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 let _ = black_box(manager.read_page(page_id).await.unwrap());
-            })
+            });
         });
     });
 
@@ -116,7 +116,7 @@ fn bench_page_cache(c: &mut Criterion) {
                 for &page_id in &page_ids {
                     let _ = black_box(manager.read_page(page_id).await.unwrap());
                 }
-            })
+            });
         });
     });
 
@@ -133,7 +133,7 @@ fn bench_page_cache(c: &mut Criterion) {
                 for &page_id in &shuffled {
                     let _ = black_box(manager.read_page(page_id).await.unwrap());
                 }
-            })
+            });
         });
     });
 
@@ -145,7 +145,7 @@ fn bench_sync_modes(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("sync_modes");
 
-    for sync_mode in [SyncMode::None, SyncMode::Commit, SyncMode::Always].iter() {
+    for sync_mode in &[SyncMode::None, SyncMode::Commit, SyncMode::Always] {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("bench.db");
 
@@ -161,7 +161,7 @@ fn bench_sync_modes(c: &mut Criterion) {
         });
 
         group.bench_with_input(
-            BenchmarkId::new("write", format!("{:?}", sync_mode)),
+            BenchmarkId::new("write", format!("{sync_mode:?}")),
             sync_mode,
             |b, _| {
                 b.iter(|| {
@@ -170,7 +170,7 @@ fn bench_sync_modes(c: &mut Criterion) {
                         page.write_data(0, black_box(b"Sync mode benchmark"))
                             .unwrap();
                         manager.write_page(&page).await.unwrap();
-                    })
+                    });
                 });
             },
         );
@@ -209,7 +209,7 @@ fn bench_batch_operations(c: &mut Criterion) {
                 for &page_id in &page_ids {
                     let _ = black_box(manager.read_page(page_id).await.unwrap());
                 }
-            })
+            });
         });
     });
 
@@ -221,7 +221,7 @@ fn bench_batch_operations(c: &mut Criterion) {
                 for &page_id in &page_ids {
                     let _ = black_box(manager.read_page(page_id).await.unwrap());
                 }
-            })
+            });
         });
     });
 
@@ -248,7 +248,7 @@ fn bench_free_list_operations(c: &mut Criterion) {
                 let page_id = manager.allocate_page(PageType::Data).await.unwrap();
                 manager.deallocate_page(page_id).await.unwrap();
                 let _ = black_box(manager.allocate_page(PageType::Data).await.unwrap());
-            })
+            });
         });
     });
 

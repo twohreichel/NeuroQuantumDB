@@ -21,7 +21,7 @@ mod benchmark_functions {
     use futures::future::join_all;
 
     use super::{
-        criterion_group, criterion_main, BenchmarkId, Criterion, DNACompressor, Distribution,
+        criterion_group, criterion_main, BenchmarkId, Criterion, DNACompressor,
         QuantumDNACompressor, Rng, SeedableRng, StdRng, Throughput,
     };
 

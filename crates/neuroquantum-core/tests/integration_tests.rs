@@ -5,7 +5,7 @@ use neuroquantum_core::storage::btree::BTree;
 use neuroquantum_core::transaction::{IsolationLevel, TransactionManager};
 use tempfile::TempDir;
 
-/// Test full CRUD operations with BTree
+/// Test full CRUD operations with `BTree`
 #[tokio::test]
 async fn test_crud_with_btree() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
@@ -44,7 +44,7 @@ async fn test_crud_with_btree() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Test BTree with multiple operations
+/// Test `BTree` with multiple operations
 #[tokio::test]
 async fn test_btree_multiple_operations() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
@@ -52,13 +52,13 @@ async fn test_btree_multiple_operations() -> anyhow::Result<()> {
 
     // Insert multiple items
     for i in 0..10 {
-        btree.insert(vec![i], i as u64).await?;
+        btree.insert(vec![i], u64::from(i)).await?;
     }
 
     // Read all data
     for i in 0..10 {
         let value = btree.search(&vec![i]).await?;
-        assert_eq!(value, Some(i as u64));
+        assert_eq!(value, Some(u64::from(i)));
     }
 
     Ok(())

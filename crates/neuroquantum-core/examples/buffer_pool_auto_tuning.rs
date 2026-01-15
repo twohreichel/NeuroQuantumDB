@@ -57,9 +57,9 @@ fn print_config(name: &str, config: &BufferPoolConfig) {
     let mb = (frames * 4) / 1024; // 4KB pages
     let gb = mb as f64 / 1024.0;
 
-    println!("  Configuration: {}", name);
-    println!("  Pool Size:     {} frames", frames);
-    println!("  Memory Usage:  {} MB ({:.2} GB)", mb, gb);
+    println!("  Configuration: {name}");
+    println!("  Pool Size:     {frames} frames");
+    println!("  Memory Usage:  {mb} MB ({gb:.2} GB)");
     println!("  Eviction:      {:?}", config.eviction_policy);
     println!("  Flush Enabled: {}", config.enable_background_flush);
     println!("  Flush Interval: {:?}", config.flush_interval);
@@ -83,9 +83,9 @@ fn print_system_info() {
 
     let usage_percent = (used_bytes as f64 / total_bytes as f64) * 100.0;
 
-    println!("  Total RAM:     {:.2} GB", total_gb);
-    println!("  Available RAM: {:.2} GB", available_gb);
-    println!("  Used RAM:      {:.2} GB ({:.1}%)", used_gb, usage_percent);
+    println!("  Total RAM:     {total_gb:.2} GB");
+    println!("  Available RAM: {available_gb:.2} GB");
+    println!("  Used RAM:      {used_gb:.2} GB ({usage_percent:.1}%)");
     println!("  Free RAM:      {:.2} GB", total_gb - used_gb);
 
     println!("\n  Calculated Buffer Pool Sizes:");

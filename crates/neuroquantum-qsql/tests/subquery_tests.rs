@@ -240,8 +240,6 @@ async fn create_test_executor() -> (
 mod parser_tests {
     use neuroquantum_qsql::*;
 
-    use super::*;
-
     #[test]
     fn test_parse_scalar_subquery_in_select_list() {
         let parser = Parser::new();
