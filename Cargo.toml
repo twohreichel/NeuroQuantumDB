@@ -67,6 +67,8 @@ cargo-machete = "0.6.2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+# Keine unsafe-op-in-unsafe-fn erlaubt
+unsafe_op_in_unsafe_fn = "forbid"
 missing_docs = "warn"
 unused_extern_crates = "warn"
 unused_import_braces = "warn"
@@ -101,6 +103,29 @@ expect_used = "deny"       # Kein expect() in Produktionscode
 # Sicherheitskritische Operationen
 indexing_slicing = "warn"           # Bounds-checking erzwingen
 arithmetic_side_effects = "warn"    # Overflow-Prüfung
+
+# ============================================================================
+# SECURITY LINTS - Issue #317
+# ============================================================================
+# Unsafe-Block-Dokumentation erzwingen
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+
+# Panics verhindern
+panic = "deny"
+panic_in_result_fn = "deny"
+
+# Integer-Sicherheit
+integer_division = "warn"
+modulo_one = "deny"
+
+# String-Sicherheit
+format_push_string = "deny"
+str_to_string = "warn"
+
+# Memory-Sicherheit
+rc_buffer = "deny"
+rc_mutex = "deny"
 
 # ============================================================================
 # PERFORMANCE LINTS - Deny Level
