@@ -338,11 +338,12 @@ impl ReplicationManager {
 }
 
 /// Anti-entropy repair for maintaining replica consistency.
-#[allow(dead_code)]
 pub struct AntiEntropyRepair {
     /// Local node ID
     node_id: NodeId,
     /// Repair interval (used in scheduled repair cycles)
+    /// Reserved for future scheduled repair implementation
+    #[allow(dead_code)]
     repair_interval: Duration,
 }
 

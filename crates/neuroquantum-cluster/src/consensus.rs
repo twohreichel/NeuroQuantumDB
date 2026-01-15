@@ -142,7 +142,6 @@ pub enum RaftState {
 }
 
 /// Internal consensus state.
-#[allow(dead_code)]
 struct ConsensusState {
     /// Current term
     current_term: u64,
@@ -199,7 +198,6 @@ impl Default for ConsensusState {
 }
 
 /// Raft consensus module for the cluster.
-#[allow(dead_code)]
 pub struct RaftConsensus {
     /// Node ID
     node_id: NodeId,
@@ -533,7 +531,7 @@ impl RaftConsensus {
     }
 
     /// Generate a random election timeout within the configured range.
-    #[allow(dead_code)]
+    #[cfg(test)]
     fn random_election_timeout(&self) -> Duration {
         Self::generate_random_timeout(
             &self.config.raft.election_timeout_min,
@@ -808,10 +806,8 @@ impl RaftConsensus {
         if response.success {
             // Update next_index and match_index for follower
             let next_idx = state.next_index.get(&follower_id).copied().unwrap_or(1);
-            let new_match_index = if response.match_index.is_some() {
-                response
-                    .match_index
-                    .expect("match_index is Some as checked above")
+            let new_match_index = if let Some(match_index) = response.match_index {
+                match_index
             } else {
                 // Calculate based on what we sent
                 let entries_sent = if next_idx <= state.log.len() as u64 {

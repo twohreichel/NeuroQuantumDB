@@ -201,6 +201,7 @@ pub struct PongResponse {
 /// Connection state for a peer.
 struct PeerConnection {
     /// Peer node ID
+    /// Reserved for future peer-to-peer routing and health monitoring
     #[allow(dead_code)]
     node_id: NodeId,
     /// Peer address
@@ -212,6 +213,7 @@ struct PeerConnection {
     /// gRPC client for this peer
     client: Option<ClusterNodeClient<tonic::transport::Channel>>,
     /// Protocol version of the peer
+    /// Reserved for future version negotiation and compatibility checks
     #[allow(dead_code)]
     protocol_version: u32,
 }

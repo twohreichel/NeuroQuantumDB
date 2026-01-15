@@ -97,7 +97,6 @@ pub struct PeerInfo {
 }
 
 /// Internal state of the cluster node.
-#[allow(dead_code)]
 pub(crate) struct NodeInner {
     /// Node configuration (used in full implementation)
     pub(crate) config: ClusterConfig,
@@ -404,36 +403,6 @@ impl ClusterNode {
                     peer.last_heartbeat = Some(Instant::now());
                 }
             }
-        }
-    }
-
-    /// Update the node's role.
-    #[allow(dead_code)]
-    pub(crate) async fn set_role(&self, role: NodeRole) {
-        let mut inner = self.inner.write().await;
-        if inner.role != role {
-            info!(
-                node_id = self.node_id,
-                old_role = %inner.role,
-                new_role = %role,
-                "Node role changed"
-            );
-            inner.role = role;
-        }
-    }
-
-    /// Update the known leader ID.
-    #[allow(dead_code)]
-    pub(crate) async fn set_leader(&self, leader_id: Option<NodeId>) {
-        let mut inner = self.inner.write().await;
-        if inner.leader_id != leader_id {
-            info!(
-                node_id = self.node_id,
-                old_leader = ?inner.leader_id,
-                new_leader = ?leader_id,
-                "Leader changed"
-            );
-            inner.leader_id = leader_id;
         }
     }
 

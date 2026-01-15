@@ -3,6 +3,10 @@
 //! This module provides query plan generation and optimization using
 //! neuromorphic intelligence and quantum-inspired algorithms.
 
+// Query planning often requires storage_engine to be present for execution.
+// These expects occur in contexts where the engine should be available.
+#![allow(clippy::expect_used)]
+
 use crate::ast::*;
 use crate::error::*;
 use serde::{Deserialize, Serialize};
@@ -4243,6 +4247,7 @@ impl QueryExecutor {
     ///
     /// Note: This function is kept as a fallback when no schema is available.
     /// For full DEFAULT value support, use `convert_insert_to_row_with_defaults`.
+    /// Reserved for future use in dynamic schema scenarios.
     #[allow(dead_code)]
     fn convert_insert_to_row_static(
         insert: &InsertStatement,

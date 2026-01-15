@@ -72,6 +72,7 @@ unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_qualifications = "warn"
 variant_size_differences = "warn"
+dead_code = "deny"
 
 [workspace.lints.clippy]
 # Import all clippy rules from Cargo.toml.clippy
@@ -92,8 +93,8 @@ print_stderr = "deny"
 exit = "deny"
 
 # Error Handling - explizite Behandlung erzwingen
-unwrap_used = "warn"       # In Produktionscode prüfen
-expect_used = "warn"       # In Produktionscode prüfen
+unwrap_used = "deny"       # Kein unwrap() in Produktionscode
+expect_used = "deny"       # Kein expect() in Produktionscode
 
 # Sicherheitskritische Operationen
 indexing_slicing = "warn"           # Bounds-checking erzwingen
