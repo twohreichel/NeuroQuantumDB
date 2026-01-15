@@ -89,8 +89,8 @@ impl NeuroQuantumDB {
 
         // Parse and execute SQL
         match self.execute_internal(sql) {
-            Ok(rows_affected) => Ok(rows_affected),
-            Err(e) => Err(JsValue::from_str(&format!("SQL execution error: {}", e))),
+            | Ok(rows_affected) => Ok(rows_affected),
+            | Err(e) => Err(JsValue::from_str(&format!("SQL execution error: {}", e))),
         }
     }
 
@@ -100,7 +100,7 @@ impl NeuroQuantumDB {
         console_log(&format!("Querying SQL: {}", sql));
 
         match self.query_internal(sql) {
-            Ok(results) => {
+            | Ok(results) => {
                 // Convert results to JavaScript array
                 let array = Array::new();
                 for row in results {
@@ -114,8 +114,8 @@ impl NeuroQuantumDB {
                     array.push(&obj);
                 }
                 Ok(array.into())
-            }
-            Err(e) => Err(JsValue::from_str(&format!("Query error: {}", e))),
+            },
+            | Err(e) => Err(JsValue::from_str(&format!("Query error: {}", e))),
         }
     }
 
@@ -294,8 +294,8 @@ impl NeuroQuantumDB {
             } else if let Ok(num) = val.parse::<f64>() {
                 // Handle floating point values carefully
                 match serde_json::Number::from_f64(num) {
-                    Some(n) => serde_json::Value::Number(n),
-                    None => return Err(format!("Invalid floating point value: {}", val)),
+                    | Some(n) => serde_json::Value::Number(n),
+                    | None => return Err(format!("Invalid floating point value: {}", val)),
                 }
             } else {
                 serde_json::Value::String(val.clone())

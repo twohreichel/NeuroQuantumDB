@@ -52,13 +52,13 @@ impl CheckpointManager {
     /// Check if a checkpoint is needed based on time interval
     pub fn should_checkpoint(&self) -> bool {
         match self.last_checkpoint_time {
-            None => true, // Never checkpointed
-            Some(last_time) => {
+            | None => true, // Never checkpointed
+            | Some(last_time) => {
                 let elapsed = chrono::Utc::now()
                     .signed_duration_since(last_time)
                     .num_seconds();
                 elapsed as u64 >= self.config.checkpoint_interval_secs
-            }
+            },
         }
     }
 

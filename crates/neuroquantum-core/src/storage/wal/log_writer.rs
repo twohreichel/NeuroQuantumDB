@@ -105,7 +105,7 @@ impl LogWriter {
             // Read record length (4 bytes)
             let mut len_buf = [0u8; 4];
             match file.read_exact(&mut len_buf).await {
-                Ok(_) => {
+                | Ok(_) => {
                     let record_len = u32::from_le_bytes(len_buf) as usize;
 
                     // Read record data
@@ -116,8 +116,8 @@ impl LogWriter {
                     if let Ok(record) = WALRecord::from_bytes(&record_buf) {
                         last_lsn = record.lsn;
                     }
-                }
-                Err(_) => break, // End of file
+                },
+                | Err(_) => break, // End of file
             }
         }
 
@@ -259,7 +259,7 @@ impl LogWriter {
             // Read record length
             let mut len_buf = [0u8; 4];
             match file.read_exact(&mut len_buf).await {
-                Ok(_) => {
+                | Ok(_) => {
                     let record_len = u32::from_le_bytes(len_buf) as usize;
 
                     // Read record data
@@ -279,8 +279,8 @@ impl LogWriter {
                             records.push(record);
                         }
                     }
-                }
-                Err(_) => break, // End of file
+                },
+                | Err(_) => break, // End of file
             }
         }
 

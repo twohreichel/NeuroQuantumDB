@@ -34,10 +34,10 @@ pub enum NodeRole {
 impl std::fmt::Display for NodeRole {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Leader => write!(f, "Leader"),
-            Self::Follower => write!(f, "Follower"),
-            Self::Candidate => write!(f, "Candidate"),
-            Self::Learner => write!(f, "Learner"),
+            | Self::Leader => write!(f, "Leader"),
+            | Self::Follower => write!(f, "Follower"),
+            | Self::Candidate => write!(f, "Candidate"),
+            | Self::Learner => write!(f, "Learner"),
         }
     }
 }
@@ -66,14 +66,14 @@ pub enum NodeState {
 impl std::fmt::Display for NodeState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Initializing => write!(f, "Initializing"),
-            Self::Joining => write!(f, "Joining"),
-            Self::Running => write!(f, "Running"),
-            Self::ReadOnly => write!(f, "ReadOnly"),
-            Self::Draining => write!(f, "Draining"),
-            Self::Leaving => write!(f, "Leaving"),
-            Self::Stopped => write!(f, "Stopped"),
-            Self::Error => write!(f, "Error"),
+            | Self::Initializing => write!(f, "Initializing"),
+            | Self::Joining => write!(f, "Joining"),
+            | Self::Running => write!(f, "Running"),
+            | Self::ReadOnly => write!(f, "ReadOnly"),
+            | Self::Draining => write!(f, "Draining"),
+            | Self::Leaving => write!(f, "Leaving"),
+            | Self::Stopped => write!(f, "Stopped"),
+            | Self::Error => write!(f, "Error"),
         }
     }
 }
@@ -338,7 +338,7 @@ impl ClusterNode {
         // Update node state based on quorum
         let mut inner = self.inner.write().await;
         match quorum_status {
-            crate::consensus::QuorumStatus::NoQuorum => {
+            | crate::consensus::QuorumStatus::NoQuorum => {
                 if inner.state == NodeState::Running {
                     warn!(
                         node_id = self.node_id,
@@ -348,8 +348,8 @@ impl ClusterNode {
                     );
                     inner.state = NodeState::ReadOnly;
                 }
-            }
-            crate::consensus::QuorumStatus::HasQuorum => {
+            },
+            | crate::consensus::QuorumStatus::HasQuorum => {
                 if inner.state == NodeState::ReadOnly {
                     info!(
                         node_id = self.node_id,
@@ -357,10 +357,10 @@ impl ClusterNode {
                     );
                     inner.state = NodeState::Running;
                 }
-            }
-            crate::consensus::QuorumStatus::Unknown => {
+            },
+            | crate::consensus::QuorumStatus::Unknown => {
                 // Do nothing during initialization
-            }
+            },
         }
 
         Ok(())

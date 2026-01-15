@@ -463,13 +463,13 @@ fn test_parser_recursive_flag() {
     let statement = parser.parse(sql).unwrap();
 
     match statement {
-        neuroquantum_qsql::ast::Statement::Select(select) => {
+        | neuroquantum_qsql::ast::Statement::Select(select) => {
             assert!(select.with_clause.is_some());
             let with_clause = select.with_clause.unwrap();
             assert!(with_clause.recursive, "WITH RECURSIVE flag should be true");
             assert_eq!(with_clause.ctes.len(), 1);
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -489,7 +489,7 @@ fn test_parser_non_recursive_cte() {
     let statement = parser.parse(sql).unwrap();
 
     match statement {
-        neuroquantum_qsql::ast::Statement::Select(select) => {
+        | neuroquantum_qsql::ast::Statement::Select(select) => {
             assert!(select.with_clause.is_some());
             let with_clause = select.with_clause.unwrap();
             assert!(
@@ -497,8 +497,8 @@ fn test_parser_non_recursive_cte() {
                 "Non-recursive CTE should have recursive=false"
             );
             assert_eq!(with_clause.ctes.len(), 1);
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -524,7 +524,7 @@ async fn test_recursive_cte_with_column_list() {
     );
 
     match statement.unwrap() {
-        neuroquantum_qsql::ast::Statement::Select(select) => {
+        | neuroquantum_qsql::ast::Statement::Select(select) => {
             let with_clause = select.with_clause.unwrap();
             assert!(with_clause.recursive);
             assert_eq!(with_clause.ctes[0].name, "numbered");
@@ -533,7 +533,7 @@ async fn test_recursive_cte_with_column_list() {
             assert_eq!(cols.len(), 2);
             assert_eq!(cols[0], "n");
             assert_eq!(cols[1], "squared");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }

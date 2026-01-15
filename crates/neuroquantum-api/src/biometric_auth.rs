@@ -54,11 +54,11 @@ impl FrequencyBand {
     /// Get frequency range for this band in Hz
     pub fn range(&self) -> (f32, f32) {
         match self {
-            FrequencyBand::Delta => (0.5, 4.0),
-            FrequencyBand::Theta => (4.0, 8.0),
-            FrequencyBand::Alpha => (8.0, 13.0),
-            FrequencyBand::Beta => (13.0, 30.0),
-            FrequencyBand::Gamma => (30.0, 100.0),
+            | FrequencyBand::Delta => (0.5, 4.0),
+            | FrequencyBand::Theta => (4.0, 8.0),
+            | FrequencyBand::Alpha => (8.0, 13.0),
+            | FrequencyBand::Beta => (13.0, 30.0),
+            | FrequencyBand::Gamma => (30.0, 100.0),
         }
     }
 }
@@ -350,8 +350,8 @@ impl FilterCoefficients {
     /// Apply filter using zero-phase filtering
     pub fn filtfilt(&self, signal: &[f32]) -> Vec<f32> {
         match self {
-            FilterCoefficients::Single(coef) => coef.filtfilt(signal),
-            FilterCoefficients::Cascaded(cascade) => cascade.filtfilt(signal),
+            | FilterCoefficients::Single(coef) => coef.filtfilt(signal),
+            | FilterCoefficients::Cascaded(cascade) => cascade.filtfilt(signal),
         }
     }
 }
@@ -453,20 +453,20 @@ impl DigitalFilter {
         } else {
             let designer = ButterworthDesign::new(sampling_rate);
             match self.filter_type {
-                FilterType::Bandpass => FilterCoefficients::Cascaded(designer.bandpass(
+                | FilterType::Bandpass => FilterCoefficients::Cascaded(designer.bandpass(
                     self.cutoff_low,
                     self.cutoff_high,
                     self.order,
                 )),
-                FilterType::Notch => FilterCoefficients::Single(
+                | FilterType::Notch => FilterCoefficients::Single(
                     designer.notch((self.cutoff_low + self.cutoff_high) / 2.0, 30.0),
                 ),
-                FilterType::Lowpass => {
+                | FilterType::Lowpass => {
                     FilterCoefficients::Single(designer.lowpass_biquad(self.cutoff_high))
-                }
-                FilterType::Highpass => {
+                },
+                | FilterType::Highpass => {
                     FilterCoefficients::Single(designer.highpass_biquad(self.cutoff_low))
-                }
+                },
             }
         };
 

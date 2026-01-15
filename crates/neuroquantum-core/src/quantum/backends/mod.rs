@@ -111,11 +111,11 @@ pub enum QuantumProvider {
 impl std::fmt::Display for QuantumProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            QuantumProvider::IBMQuantum => write!(f, "IBM Quantum"),
-            QuantumProvider::AWSBraket => write!(f, "AWS Braket"),
-            QuantumProvider::DWave => write!(f, "D-Wave"),
-            QuantumProvider::IonQ => write!(f, "IonQ"),
-            QuantumProvider::LocalSimulator => write!(f, "Local Simulator"),
+            | QuantumProvider::IBMQuantum => write!(f, "IBM Quantum"),
+            | QuantumProvider::AWSBraket => write!(f, "AWS Braket"),
+            | QuantumProvider::DWave => write!(f, "D-Wave"),
+            | QuantumProvider::IonQ => write!(f, "IonQ"),
+            | QuantumProvider::LocalSimulator => write!(f, "Local Simulator"),
         }
     }
 }
@@ -222,7 +222,7 @@ impl QuantumBackendFactory {
         let available = Self::available_providers();
 
         match algorithm.to_lowercase().as_str() {
-            "grover" | "grovers" | "grover_search" => {
+            | "grover" | "grovers" | "grover_search" => {
                 // Prefer IonQ for high-fidelity gate operations
                 if available.contains(&QuantumProvider::IonQ) {
                     return QuantumProvider::IonQ;
@@ -233,8 +233,8 @@ impl QuantumBackendFactory {
                 if available.contains(&QuantumProvider::AWSBraket) {
                     return QuantumProvider::AWSBraket;
                 }
-            }
-            "qubo" | "qaoa" | "optimization" => {
+            },
+            | "qubo" | "qaoa" | "optimization" => {
                 // Prefer D-Wave for native QUBO
                 if available.contains(&QuantumProvider::DWave) {
                     return QuantumProvider::DWave;
@@ -245,8 +245,8 @@ impl QuantumBackendFactory {
                 if available.contains(&QuantumProvider::AWSBraket) {
                     return QuantumProvider::AWSBraket;
                 }
-            }
-            "tfim" | "ising" | "annealing" => {
+            },
+            | "tfim" | "ising" | "annealing" => {
                 // Prefer D-Wave for native Ising model
                 if available.contains(&QuantumProvider::DWave) {
                     return QuantumProvider::DWave;
@@ -254,8 +254,8 @@ impl QuantumBackendFactory {
                 if available.contains(&QuantumProvider::AWSBraket) {
                     return QuantumProvider::AWSBraket;
                 }
-            }
-            "parallel_tempering" | "pt" | "thermal" => {
+            },
+            | "parallel_tempering" | "pt" | "thermal" => {
                 // Prefer D-Wave for thermal sampling
                 if available.contains(&QuantumProvider::DWave) {
                     return QuantumProvider::DWave;
@@ -266,8 +266,8 @@ impl QuantumBackendFactory {
                 if available.contains(&QuantumProvider::IonQ) {
                     return QuantumProvider::IonQ;
                 }
-            }
-            _ => {}
+            },
+            | _ => {},
         }
 
         QuantumProvider::LocalSimulator

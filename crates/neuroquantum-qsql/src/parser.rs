@@ -41,17 +41,17 @@ impl Precedence {
     /// Get the next higher precedence level
     pub fn next(self) -> Self {
         match self {
-            Precedence::None => Precedence::Or,
-            Precedence::Or => Precedence::And,
-            Precedence::And => Precedence::Not,
-            Precedence::Not => Precedence::Comparison,
-            Precedence::Comparison => Precedence::Additive,
-            Precedence::Additive => Precedence::Multiplicative,
-            Precedence::Multiplicative => Precedence::Unary,
-            Precedence::Unary => Precedence::Neuromorphic,
-            Precedence::Neuromorphic => Precedence::Quantum,
-            Precedence::Quantum => Precedence::Call,
-            Precedence::Call => Precedence::Call, // Max level
+            | Precedence::None => Precedence::Or,
+            | Precedence::Or => Precedence::And,
+            | Precedence::And => Precedence::Not,
+            | Precedence::Not => Precedence::Comparison,
+            | Precedence::Comparison => Precedence::Additive,
+            | Precedence::Additive => Precedence::Multiplicative,
+            | Precedence::Multiplicative => Precedence::Unary,
+            | Precedence::Unary => Precedence::Neuromorphic,
+            | Precedence::Neuromorphic => Precedence::Quantum,
+            | Precedence::Quantum => Precedence::Call,
+            | Precedence::Call => Precedence::Call, // Max level
         }
     }
 }
@@ -377,8 +377,8 @@ impl QSQLParser {
 
             // Skip whitespace and comments in most cases
             match token {
-                TokenType::Whitespace | TokenType::Comment(_) => {}
-                _ => tokens.push(token),
+                | TokenType::Whitespace | TokenType::Comment(_) => {},
+                | _ => tokens.push(token),
             }
 
             position = new_pos;
@@ -463,16 +463,16 @@ impl QSQLParser {
 
             if escaped {
                 match ch {
-                    'n' => value.push('\n'),
-                    't' => value.push('\t'),
-                    'r' => value.push('\r'),
-                    '\\' => value.push('\\'),
-                    '\'' => value.push('\''),
-                    '"' => value.push('"'),
-                    _ => {
+                    | 'n' => value.push('\n'),
+                    | 't' => value.push('\t'),
+                    | 'r' => value.push('\r'),
+                    | '\\' => value.push('\\'),
+                    | '\'' => value.push('\''),
+                    | '"' => value.push('"'),
+                    | _ => {
                         value.push('\\');
                         value.push(ch);
-                    }
+                    },
                 }
                 escaped = false;
             } else if ch == '\\' {
@@ -614,11 +614,11 @@ impl QSQLParser {
         if position + 1 < chars.len() {
             let two_char = format!("{}{}", ch, chars[position + 1]);
             match two_char.as_str() {
-                "<=" => return Ok((TokenType::LessThanOrEqual, position + 2)),
-                ">=" => return Ok((TokenType::GreaterThanOrEqual, position + 2)),
-                "!=" | "<>" => return Ok((TokenType::NotEqual, position + 2)),
-                ":=" => return Ok((TokenType::ColonEqual, position + 2)),
-                _ => {}
+                | "<=" => return Ok((TokenType::LessThanOrEqual, position + 2)),
+                | ">=" => return Ok((TokenType::GreaterThanOrEqual, position + 2)),
+                | "!=" | "<>" => return Ok((TokenType::NotEqual, position + 2)),
+                | ":=" => return Ok((TokenType::ColonEqual, position + 2)),
+                | _ => {},
             }
         }
 
@@ -661,25 +661,25 @@ impl QSQLParser {
 
         // Single-character operators and punctuation
         let token = match ch {
-            '=' => TokenType::Equal,
-            '<' => TokenType::LessThan,
-            '>' => TokenType::GreaterThan,
-            '+' => TokenType::Plus,
-            '-' => TokenType::Minus,
-            '*' => TokenType::Multiply,
-            '/' => TokenType::Divide,
-            '%' => TokenType::Modulo,
-            '(' => TokenType::LeftParen,
-            ')' => TokenType::RightParen,
-            ',' => TokenType::Comma,
-            ';' => TokenType::Semicolon,
-            '.' => TokenType::Dot,
-            _ => {
+            | '=' => TokenType::Equal,
+            | '<' => TokenType::LessThan,
+            | '>' => TokenType::GreaterThan,
+            | '+' => TokenType::Plus,
+            | '-' => TokenType::Minus,
+            | '*' => TokenType::Multiply,
+            | '/' => TokenType::Divide,
+            | '%' => TokenType::Modulo,
+            | '(' => TokenType::LeftParen,
+            | ')' => TokenType::RightParen,
+            | ',' => TokenType::Comma,
+            | ';' => TokenType::Semicolon,
+            | '.' => TokenType::Dot,
+            | _ => {
                 return Err(QSQLError::ParseError {
                     message: format!("Unexpected character: '{}'", ch),
                     position,
                 });
-            }
+            },
         };
 
         Ok((token, position + 1))
@@ -696,34 +696,34 @@ impl QSQLParser {
 
         // Check the first token to determine statement type
         match tokens.first() {
-            Some(TokenType::Explain) => self.parse_explain_statement(tokens),
-            Some(TokenType::With) => self.parse_select_statement(tokens),
-            Some(TokenType::Select) => self.parse_select_statement(tokens),
-            Some(TokenType::Insert) => self.parse_insert_statement(tokens),
-            Some(TokenType::Update) => self.parse_update_statement(tokens),
-            Some(TokenType::Delete) => self.parse_delete_statement(tokens),
-            Some(TokenType::Create) => self.parse_create_statement(tokens),
-            Some(TokenType::Drop) => self.parse_drop_statement(tokens),
-            Some(TokenType::Alter) => self.parse_alter_table_statement(tokens),
-            Some(TokenType::Truncate) => self.parse_truncate_table_statement(tokens),
-            Some(TokenType::Compress) => self.parse_compress_table_statement(tokens),
-            Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
-            Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
-            Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
-            Some(TokenType::Adapt) => self.parse_adapt_weights_statement(tokens),
-            Some(TokenType::QuantumJoin) => self.parse_quantum_join_statement(tokens),
+            | Some(TokenType::Explain) => self.parse_explain_statement(tokens),
+            | Some(TokenType::With) => self.parse_select_statement(tokens),
+            | Some(TokenType::Select) => self.parse_select_statement(tokens),
+            | Some(TokenType::Insert) => self.parse_insert_statement(tokens),
+            | Some(TokenType::Update) => self.parse_update_statement(tokens),
+            | Some(TokenType::Delete) => self.parse_delete_statement(tokens),
+            | Some(TokenType::Create) => self.parse_create_statement(tokens),
+            | Some(TokenType::Drop) => self.parse_drop_statement(tokens),
+            | Some(TokenType::Alter) => self.parse_alter_table_statement(tokens),
+            | Some(TokenType::Truncate) => self.parse_truncate_table_statement(tokens),
+            | Some(TokenType::Compress) => self.parse_compress_table_statement(tokens),
+            | Some(TokenType::NeuroMatch) => self.parse_neuromatch_statement(tokens),
+            | Some(TokenType::QuantumSearch) => self.parse_quantum_search_statement(tokens),
+            | Some(TokenType::Learn) => self.parse_learn_pattern_statement(tokens),
+            | Some(TokenType::Adapt) => self.parse_adapt_weights_statement(tokens),
+            | Some(TokenType::QuantumJoin) => self.parse_quantum_join_statement(tokens),
             // Transaction control statements
-            Some(TokenType::Begin) => self.parse_begin_transaction(tokens),
-            Some(TokenType::Start) => self.parse_start_transaction(tokens),
-            Some(TokenType::Commit) => self.parse_commit(tokens),
-            Some(TokenType::Rollback) => self.parse_rollback(tokens),
-            Some(TokenType::Savepoint) => self.parse_savepoint(tokens),
-            Some(TokenType::Release) => self.parse_release_savepoint(tokens),
+            | Some(TokenType::Begin) => self.parse_begin_transaction(tokens),
+            | Some(TokenType::Start) => self.parse_start_transaction(tokens),
+            | Some(TokenType::Commit) => self.parse_commit(tokens),
+            | Some(TokenType::Rollback) => self.parse_rollback(tokens),
+            | Some(TokenType::Savepoint) => self.parse_savepoint(tokens),
+            | Some(TokenType::Release) => self.parse_release_savepoint(tokens),
             // Prepared statement statements
-            Some(TokenType::Prepare) => self.parse_prepare_statement(tokens),
-            Some(TokenType::Execute) => self.parse_execute_statement(tokens),
-            Some(TokenType::Deallocate) => self.parse_deallocate_statement(tokens),
-            _ => Err(QSQLError::ParseError {
+            | Some(TokenType::Prepare) => self.parse_prepare_statement(tokens),
+            | Some(TokenType::Execute) => self.parse_execute_statement(tokens),
+            | Some(TokenType::Deallocate) => self.parse_deallocate_statement(tokens),
+            | _ => Err(QSQLError::ParseError {
                 message: "Unrecognized statement type".to_string(),
                 position: 0,
             }),
@@ -771,7 +771,7 @@ impl QSQLParser {
             }
 
             match &tokens[i] {
-                TokenType::Identifier(name) => {
+                | TokenType::Identifier(name) => {
                     // Build full qualified name (e.g., u.name, table.column)
                     let mut full_name = name.clone();
                     i += 1;
@@ -832,12 +832,12 @@ impl QSQLParser {
                             alias,
                         });
                     }
-                }
-                TokenType::Multiply => {
+                },
+                | TokenType::Multiply => {
                     select_list.push(SelectItem::Wildcard);
                     i += 1;
-                }
-                TokenType::Case => {
+                },
+                | TokenType::Case => {
                     // Parse CASE expression
                     let expr = self.parse_case_expression(tokens, &mut i)?;
 
@@ -859,8 +859,8 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
-                TokenType::Extract => {
+                },
+                | TokenType::Extract => {
                     // Parse EXTRACT expression
                     let expr = self.parse_extract_expression(tokens, &mut i)?;
 
@@ -882,9 +882,9 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // Window function tokens
-                TokenType::RowNumber
+                | TokenType::RowNumber
                 | TokenType::Rank
                 | TokenType::DenseRank
                 | TokenType::Lag
@@ -914,15 +914,15 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // Neuromorphic and Quantum function tokens in SELECT list
-                TokenType::HebbianLearning | TokenType::NeuroMatch | TokenType::QuantumSearch => {
+                | TokenType::HebbianLearning | TokenType::NeuroMatch | TokenType::QuantumSearch => {
                     // Determine function name
                     let func_name = match &tokens[i] {
-                        TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),
-                        TokenType::NeuroMatch => "NEUROMATCH".to_string(),
-                        TokenType::QuantumSearch => "QUANTUM_SEARCH".to_string(),
-                        _ => unreachable!(),
+                        | TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),
+                        | TokenType::NeuroMatch => "NEUROMATCH".to_string(),
+                        | TokenType::QuantumSearch => "QUANTUM_SEARCH".to_string(),
+                        | _ => unreachable!(),
                     };
                     i += 1; // consume the function token
 
@@ -955,8 +955,8 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
-                TokenType::LeftParen => {
+                },
+                | TokenType::LeftParen => {
                     // Scalar subquery in SELECT list: (SELECT ...)
                     i += 1; // consume '('
 
@@ -1004,9 +1004,9 @@ impl QSQLParser {
                             position: i,
                         });
                     }
-                }
+                },
                 // Integer literal in SELECT list (e.g., SELECT 1 FROM ...)
-                TokenType::IntegerLiteral(n) => {
+                | TokenType::IntegerLiteral(n) => {
                     let expr = Expression::Literal(Literal::Integer(*n));
                     i += 1;
 
@@ -1028,9 +1028,9 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // Float literal in SELECT list
-                TokenType::FloatLiteral(f) => {
+                | TokenType::FloatLiteral(f) => {
                     let expr = Expression::Literal(Literal::Float(*f));
                     i += 1;
 
@@ -1052,9 +1052,9 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // String literal in SELECT list
-                TokenType::StringLiteral(s) => {
+                | TokenType::StringLiteral(s) => {
                     let expr = Expression::Literal(Literal::String(s.clone()));
                     i += 1;
 
@@ -1076,11 +1076,11 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
-                TokenType::Comma => {
+                },
+                | TokenType::Comma => {
                     i += 1; // Skip comma and continue
-                }
-                _ => break,
+                },
+                | _ => break,
             }
         }
 
@@ -1293,7 +1293,7 @@ impl QSQLParser {
             }
 
             match &tokens[*i] {
-                TokenType::Identifier(name) => {
+                | TokenType::Identifier(name) => {
                     // Build full qualified name (e.g., u.name, table.column)
                     let mut full_name = name.clone();
                     *i += 1;
@@ -1354,12 +1354,12 @@ impl QSQLParser {
                             alias,
                         });
                     }
-                }
-                TokenType::Multiply => {
+                },
+                | TokenType::Multiply => {
                     select_list.push(SelectItem::Wildcard);
                     *i += 1;
-                }
-                TokenType::Case => {
+                },
+                | TokenType::Case => {
                     // Parse CASE expression
                     let expr = self.parse_case_expression(tokens, i)?;
 
@@ -1381,8 +1381,8 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
-                TokenType::Extract => {
+                },
+                | TokenType::Extract => {
                     // Parse EXTRACT expression
                     let expr = self.parse_extract_expression(tokens, i)?;
 
@@ -1404,9 +1404,9 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // Window function tokens
-                TokenType::RowNumber
+                | TokenType::RowNumber
                 | TokenType::Rank
                 | TokenType::DenseRank
                 | TokenType::Lag
@@ -1436,15 +1436,15 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // Neuromorphic and Quantum function tokens in SELECT list
-                TokenType::HebbianLearning | TokenType::NeuroMatch | TokenType::QuantumSearch => {
+                | TokenType::HebbianLearning | TokenType::NeuroMatch | TokenType::QuantumSearch => {
                     // Determine function name
                     let func_name = match &tokens[*i] {
-                        TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),
-                        TokenType::NeuroMatch => "NEUROMATCH".to_string(),
-                        TokenType::QuantumSearch => "QUANTUM_SEARCH".to_string(),
-                        _ => unreachable!(),
+                        | TokenType::HebbianLearning => "HEBBIAN_LEARNING".to_string(),
+                        | TokenType::NeuroMatch => "NEUROMATCH".to_string(),
+                        | TokenType::QuantumSearch => "QUANTUM_SEARCH".to_string(),
+                        | _ => unreachable!(),
                     };
                     *i += 1; // consume the function token
 
@@ -1477,8 +1477,8 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
-                TokenType::LeftParen => {
+                },
+                | TokenType::LeftParen => {
                     // Scalar subquery in SELECT list: (SELECT ...)
                     *i += 1; // consume '('
 
@@ -1526,9 +1526,9 @@ impl QSQLParser {
                             position: *i,
                         });
                     }
-                }
+                },
                 // Integer literal in SELECT list (e.g., SELECT 1 FROM ...)
-                TokenType::IntegerLiteral(n) => {
+                | TokenType::IntegerLiteral(n) => {
                     let expr = Expression::Literal(Literal::Integer(*n));
                     *i += 1;
 
@@ -1550,9 +1550,9 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // Float literal in SELECT list
-                TokenType::FloatLiteral(f) => {
+                | TokenType::FloatLiteral(f) => {
                     let expr = Expression::Literal(Literal::Float(*f));
                     *i += 1;
 
@@ -1574,9 +1574,9 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
+                },
                 // String literal in SELECT list
-                TokenType::StringLiteral(s) => {
+                | TokenType::StringLiteral(s) => {
                     let expr = Expression::Literal(Literal::String(s.clone()));
                     *i += 1;
 
@@ -1598,11 +1598,11 @@ impl QSQLParser {
                     };
 
                     select_list.push(SelectItem::Expression { expr, alias });
-                }
-                TokenType::Comma => {
+                },
+                | TokenType::Comma => {
                     *i += 1; // Skip comma and continue
-                }
-                _ => break,
+                },
+                | _ => break,
             }
         }
 
@@ -1853,8 +1853,8 @@ impl QSQLParser {
 
             // Get operator info for current token
             let op_info = match self.get_operator_info(&tokens[*i]) {
-                Some(info) => info,
-                None => break, // Not an operator, stop parsing
+                | Some(info) => info,
+                | None => break, // Not an operator, stop parsing
             };
 
             // If operator precedence is too low, stop
@@ -2225,8 +2225,8 @@ impl QSQLParser {
                 *i += 1; // consume ','
                          // First argument is field, second is pattern
                 let field_name = match &first_arg {
-                    Expression::Identifier(name) => Some(name.clone()),
-                    _ => None,
+                    | Expression::Identifier(name) => Some(name.clone()),
+                    | _ => None,
                 };
                 let pattern_expr =
                     self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
@@ -2256,22 +2256,22 @@ impl QSQLParser {
             // Parse pattern (string literal or expression)
             let pattern = if *i < tokens.len() {
                 match &tokens[*i] {
-                    TokenType::StringLiteral(s) => {
+                    | TokenType::StringLiteral(s) => {
                         let expr = Expression::Literal(Literal::String(s.clone()));
                         *i += 1;
                         expr
-                    }
-                    TokenType::Identifier(id) => {
+                    },
+                    | TokenType::Identifier(id) => {
                         let expr = Expression::Identifier(id.clone());
                         *i += 1;
                         expr
-                    }
-                    _ => {
+                    },
+                    | _ => {
                         return Err(QSQLError::ParseError {
                             message: "Expected pattern after NEUROMATCH".to_string(),
                             position: *i,
                         });
-                    }
+                    },
                 }
             } else {
                 return Err(QSQLError::ParseError {
@@ -2422,7 +2422,7 @@ impl QSQLParser {
         // Parse optional learning parameters
         while i < tokens.len() {
             match &tokens[i] {
-                TokenType::LearningRate => {
+                | TokenType::LearningRate => {
                     i += 1;
                     if i < tokens.len() {
                         if let TokenType::FloatLiteral(rate) = &tokens[i] {
@@ -2430,8 +2430,8 @@ impl QSQLParser {
                             i += 1;
                         }
                     }
-                }
-                TokenType::Epochs => {
+                },
+                | TokenType::Epochs => {
                     i += 1;
                     if i < tokens.len() {
                         if let TokenType::IntegerLiteral(e) = &tokens[i] {
@@ -2439,8 +2439,8 @@ impl QSQLParser {
                             i += 1;
                         }
                     }
-                }
-                TokenType::Algorithm => {
+                },
+                | TokenType::Algorithm => {
                     i += 1;
                     if i < tokens.len() {
                         if let TokenType::Identifier(alg) = &tokens[i] {
@@ -2448,8 +2448,8 @@ impl QSQLParser {
                             i += 1;
                         }
                     }
-                }
-                _ => break, // Exit on unexpected token
+                },
+                | _ => break, // Exit on unexpected token
             }
         }
 
@@ -2652,25 +2652,25 @@ impl QSQLParser {
         }
 
         let level = match &tokens[pos] {
-            TokenType::Read => {
+            | TokenType::Read => {
                 pos += 1;
                 // Check for UNCOMMITTED or COMMITTED
                 if pos < tokens.len() {
                     match &tokens[pos] {
-                        TokenType::Uncommitted => {
+                        | TokenType::Uncommitted => {
                             pos += 1;
                             Some("READ UNCOMMITTED".to_string())
-                        }
-                        TokenType::Committed => {
+                        },
+                        | TokenType::Committed => {
                             pos += 1;
                             Some("READ COMMITTED".to_string())
-                        }
-                        _ => {
+                        },
+                        | _ => {
                             return Err(QSQLError::ParseError {
                                 message: "Expected UNCOMMITTED or COMMITTED after READ".to_string(),
                                 position: pos,
                             });
-                        }
+                        },
                     }
                 } else {
                     return Err(QSQLError::ParseError {
@@ -2678,8 +2678,8 @@ impl QSQLParser {
                         position: pos,
                     });
                 }
-            }
-            TokenType::Repeatable => {
+            },
+            | TokenType::Repeatable => {
                 pos += 1;
                 // Expect READ
                 if pos < tokens.len() && matches!(tokens[pos], TokenType::Read) {
@@ -2691,19 +2691,19 @@ impl QSQLParser {
                         position: pos,
                     });
                 }
-            }
-            TokenType::Serializable => {
+            },
+            | TokenType::Serializable => {
                 pos += 1;
                 Some("SERIALIZABLE".to_string())
-            }
-            other => {
+            },
+            | other => {
                 // Provide a user-friendly description of what was found
                 let token_desc = match other {
-                    TokenType::Identifier(name) => format!("identifier '{}'", name),
-                    TokenType::IntegerLiteral(n) => format!("number {}", n),
-                    TokenType::StringLiteral(s) => format!("string '{}'", s),
-                    TokenType::EOF => "end of statement".to_string(),
-                    _ => format!("{:?}", other),
+                    | TokenType::Identifier(name) => format!("identifier '{}'", name),
+                    | TokenType::IntegerLiteral(n) => format!("number {}", n),
+                    | TokenType::StringLiteral(s) => format!("string '{}'", s),
+                    | TokenType::EOF => "end of statement".to_string(),
+                    | _ => format!("{:?}", other),
                 };
                 return Err(QSQLError::ParseError {
                     message: format!(
@@ -2712,7 +2712,7 @@ impl QSQLParser {
                     ),
                     position: pos,
                 });
-            }
+            },
         };
 
         Ok((level, pos))
@@ -2912,13 +2912,13 @@ impl QSQLParser {
                     // Parse format type
                     if i < tokens.len() {
                         match &tokens[i] {
-                            TokenType::Identifier(f) => {
+                            | TokenType::Identifier(f) => {
                                 format = match f.to_uppercase().as_str() {
-                                    "TEXT" => ExplainFormat::Text,
-                                    "JSON" => ExplainFormat::Json,
-                                    "YAML" => ExplainFormat::Yaml,
-                                    "XML" => ExplainFormat::Xml,
-                                    _ => {
+                                    | "TEXT" => ExplainFormat::Text,
+                                    | "JSON" => ExplainFormat::Json,
+                                    | "YAML" => ExplainFormat::Yaml,
+                                    | "XML" => ExplainFormat::Xml,
+                                    | _ => {
                                         return Err(QSQLError::ParseError {
                                             message: format!(
                                                 "Unknown EXPLAIN format: {}. Expected TEXT, JSON, YAML, or XML",
@@ -2926,16 +2926,16 @@ impl QSQLParser {
                                             ),
                                             position: i,
                                         });
-                                    }
+                                    },
                                 };
                                 i += 1;
-                            }
-                            _ => {
+                            },
+                            | _ => {
                                 return Err(QSQLError::ParseError {
                                     message: "Expected format type after FORMAT".to_string(),
                                     position: i,
                                 });
-                            }
+                            },
                         }
                     }
                 }
@@ -2998,9 +2998,9 @@ impl QSQLParser {
         }
 
         match &tokens[1] {
-            TokenType::Table => self.parse_create_table_statement(tokens),
-            TokenType::Index | TokenType::Unique => self.parse_create_index_statement(tokens),
-            _ => Err(QSQLError::ParseError {
+            | TokenType::Table => self.parse_create_table_statement(tokens),
+            | TokenType::Index | TokenType::Unique => self.parse_create_index_statement(tokens),
+            | _ => Err(QSQLError::ParseError {
                 message: "Expected TABLE or INDEX after CREATE".to_string(),
                 position: 1,
             }),
@@ -3126,14 +3126,14 @@ impl QSQLParser {
         let mut constraints = Vec::new();
         while *i < tokens.len() {
             let constraint = match &tokens[*i] {
-                TokenType::Primary => {
+                | TokenType::Primary => {
                     *i += 1;
                     if *i < tokens.len() && matches!(tokens[*i], TokenType::Key) {
                         *i += 1;
                     }
                     ColumnConstraint::PrimaryKey
-                }
-                TokenType::Not => {
+                },
+                | TokenType::Not => {
                     *i += 1;
                     if *i < tokens.len() && matches!(tokens[*i], TokenType::Null) {
                         *i += 1;
@@ -3144,21 +3144,21 @@ impl QSQLParser {
                             position: *i,
                         });
                     }
-                }
-                TokenType::Unique => {
+                },
+                | TokenType::Unique => {
                     *i += 1;
                     ColumnConstraint::Unique
-                }
-                TokenType::Default => {
+                },
+                | TokenType::Default => {
                     *i += 1;
                     let default_expr = self.parse_expression(tokens, i)?;
                     ColumnConstraint::Default(default_expr)
-                }
-                TokenType::AutoIncrement => {
+                },
+                | TokenType::AutoIncrement => {
                     *i += 1;
                     ColumnConstraint::AutoIncrement
-                }
-                TokenType::References => {
+                },
+                | TokenType::References => {
                     *i += 1;
                     let table = if let TokenType::Identifier(t) = &tokens[*i] {
                         *i += 1;
@@ -3199,8 +3199,8 @@ impl QSQLParser {
                     *i += 1;
 
                     ColumnConstraint::ForeignKey { table, column }
-                }
-                _ => break,
+                },
+                | _ => break,
             };
             constraints.push(constraint);
         }
@@ -3223,21 +3223,21 @@ impl QSQLParser {
         }
 
         let data_type = match &tokens[*i] {
-            TokenType::Identifier(type_name) => {
+            | TokenType::Identifier(type_name) => {
                 *i += 1;
                 match type_name.to_uppercase().as_str() {
-                    "INTEGER" | "INT" => DataType::Integer,
-                    "BIGINT" => DataType::BigInt,
-                    "SMALLINT" => DataType::SmallInt,
-                    "REAL" | "FLOAT" => DataType::Real,
-                    "DOUBLE" => DataType::Double,
-                    "TEXT" => DataType::Text,
-                    "BOOLEAN" | "BOOL" => DataType::Boolean,
-                    "DATE" => DataType::Date,
-                    "TIME" => DataType::Time,
-                    "TIMESTAMP" => DataType::Timestamp,
-                    "BLOB" => DataType::Blob,
-                    "VARCHAR" => {
+                    | "INTEGER" | "INT" => DataType::Integer,
+                    | "BIGINT" => DataType::BigInt,
+                    | "SMALLINT" => DataType::SmallInt,
+                    | "REAL" | "FLOAT" => DataType::Real,
+                    | "DOUBLE" => DataType::Double,
+                    | "TEXT" => DataType::Text,
+                    | "BOOLEAN" | "BOOL" => DataType::Boolean,
+                    | "DATE" => DataType::Date,
+                    | "TIME" => DataType::Time,
+                    | "TIMESTAMP" => DataType::Timestamp,
+                    | "BLOB" => DataType::Blob,
+                    | "VARCHAR" => {
                         if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
                             *i += 1;
                             if let TokenType::IntegerLiteral(size) = tokens[*i] {
@@ -3261,8 +3261,8 @@ impl QSQLParser {
                         } else {
                             DataType::VarChar(None)
                         }
-                    }
-                    "DECIMAL" => {
+                    },
+                    | "DECIMAL" => {
                         if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
                             *i += 1;
                             let precision = if let TokenType::IntegerLiteral(p) = tokens[*i] {
@@ -3303,40 +3303,40 @@ impl QSQLParser {
                         } else {
                             DataType::Decimal(10, 2)
                         }
-                    }
-                    _ => {
+                    },
+                    | _ => {
                         return Err(QSQLError::ParseError {
                             message: format!("Unknown data type: {}", type_name),
                             position: *i - 1,
-                        })
-                    }
+                        });
+                    },
                 }
-            }
-            TokenType::Serial => {
+            },
+            | TokenType::Serial => {
                 *i += 1;
                 DataType::Serial
-            }
-            TokenType::BigSerial => {
+            },
+            | TokenType::BigSerial => {
                 *i += 1;
                 DataType::BigSerial
-            }
-            TokenType::SmallSerial => {
+            },
+            | TokenType::SmallSerial => {
                 *i += 1;
                 DataType::SmallSerial
-            }
+            },
             // AUTO_INCREMENT without explicit type defaults to INTEGER
             // This allows MySQL-style syntax: `id AUTO_INCREMENT PRIMARY KEY`
-            TokenType::AutoIncrement => {
+            | TokenType::AutoIncrement => {
                 // Don't consume the token here - let parse_column_definition handle it
                 // Just return Integer as the implicit data type
                 DataType::Integer
-            }
-            _ => {
+            },
+            | _ => {
                 return Err(QSQLError::ParseError {
                     message: format!("Expected data type, found {:?}", tokens[*i]),
                     position: *i,
-                })
-            }
+                });
+            },
         };
 
         Ok(data_type)
@@ -3349,7 +3349,7 @@ impl QSQLParser {
         i: &mut usize,
     ) -> QSQLResult<TableConstraint> {
         match &tokens[*i] {
-            TokenType::Primary => {
+            | TokenType::Primary => {
                 *i += 1;
                 if *i < tokens.len() && matches!(tokens[*i], TokenType::Key) {
                     *i += 1;
@@ -3392,8 +3392,8 @@ impl QSQLParser {
                 *i += 1;
 
                 Ok(TableConstraint::PrimaryKey(columns))
-            }
-            TokenType::Unique => {
+            },
+            | TokenType::Unique => {
                 *i += 1;
 
                 // Expect '('
@@ -3433,8 +3433,8 @@ impl QSQLParser {
                 *i += 1;
 
                 Ok(TableConstraint::Unique(columns))
-            }
-            _ => Err(QSQLError::ParseError {
+            },
+            | _ => Err(QSQLError::ParseError {
                 message: format!("Unexpected constraint token: {:?}", tokens[*i]),
                 position: *i,
             }),
@@ -3451,9 +3451,9 @@ impl QSQLParser {
         }
 
         match &tokens[1] {
-            TokenType::Table => self.parse_drop_table_statement(tokens),
-            TokenType::Index => self.parse_drop_index_statement(tokens),
-            _ => Err(QSQLError::ParseError {
+            | TokenType::Table => self.parse_drop_table_statement(tokens),
+            | TokenType::Index => self.parse_drop_index_statement(tokens),
+            | _ => Err(QSQLError::ParseError {
                 message: "Expected TABLE or INDEX after DROP".to_string(),
                 position: 1,
             }),
@@ -3528,7 +3528,7 @@ impl QSQLParser {
 
         // Parse operation (ADD, DROP, MODIFY)
         let operation = match &tokens[i] {
-            TokenType::Add => {
+            | TokenType::Add => {
                 i += 1;
                 // Skip optional COLUMN keyword
                 if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
@@ -3537,8 +3537,8 @@ impl QSQLParser {
 
                 let column = self.parse_column_definition(tokens, &mut i)?;
                 AlterTableOperation::AddColumn { column }
-            }
-            TokenType::Drop => {
+            },
+            | TokenType::Drop => {
                 i += 1;
                 // Skip optional COLUMN keyword
                 if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
@@ -3555,8 +3555,8 @@ impl QSQLParser {
                 };
 
                 AlterTableOperation::DropColumn { column_name }
-            }
-            TokenType::Modify => {
+            },
+            | TokenType::Modify => {
                 i += 1;
                 // Skip optional COLUMN keyword
                 if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
@@ -3588,20 +3588,20 @@ impl QSQLParser {
                         )
                     {
                         match &tokens[i] {
-                            TokenType::Identifier(s) => expr.push_str(s),
-                            TokenType::StringLiteral(s) => {
+                            | TokenType::Identifier(s) => expr.push_str(s),
+                            | TokenType::StringLiteral(s) => {
                                 expr.push('\'');
                                 expr.push_str(s);
                                 expr.push('\'');
-                            }
-                            TokenType::Colon => expr.push(':'),
-                            TokenType::Dot => expr.push('.'),
-                            TokenType::LeftParen => expr.push('('),
-                            TokenType::RightParen => expr.push(')'),
-                            _ => {
+                            },
+                            | TokenType::Colon => expr.push(':'),
+                            | TokenType::Dot => expr.push('.'),
+                            | TokenType::LeftParen => expr.push('('),
+                            | TokenType::RightParen => expr.push(')'),
+                            | _ => {
                                 // For other tokens, use a simple string representation
                                 expr.push_str(&format!("{:?}", tokens[i]));
-                            }
+                            },
                         }
                         i += 1;
                         if i < tokens.len() {
@@ -3618,8 +3618,8 @@ impl QSQLParser {
                     new_data_type,
                     using_expression,
                 }
-            }
-            TokenType::Rename => {
+            },
+            | TokenType::Rename => {
                 i += 1;
                 // Skip optional COLUMN keyword
                 if i < tokens.len() && matches!(tokens[i], TokenType::Column) {
@@ -3655,13 +3655,13 @@ impl QSQLParser {
                 };
 
                 AlterTableOperation::RenameColumn { old_name, new_name }
-            }
-            _ => {
+            },
+            | _ => {
                 return Err(QSQLError::ParseError {
                     message: "Expected ADD, DROP, MODIFY, or RENAME after ALTER TABLE".to_string(),
                     position: i,
-                })
-            }
+                });
+            },
         };
 
         // Check for CONCURRENTLY keyword at the end
@@ -3984,13 +3984,13 @@ impl QSQLParser {
             if let TokenType::Identifier(alg) = &tokens[i] {
                 let alg_upper = alg.to_uppercase();
                 match alg_upper.as_str() {
-                    "DNA" => CompressionAlgorithm::DNA,
-                    _ => {
+                    | "DNA" => CompressionAlgorithm::DNA,
+                    | _ => {
                         return Err(QSQLError::ParseError {
                             message: format!("Unknown compression algorithm: {}", alg),
                             position: i,
                         });
-                    }
+                    },
                 }
             } else {
                 return Err(QSQLError::ParseError {
@@ -4203,15 +4203,15 @@ impl QSQLParser {
 
             // Determine join type
             let join_type = match &tokens[*i] {
-                TokenType::Inner => {
+                | TokenType::Inner => {
                     *i += 1;
                     // Expect JOIN after INNER
                     if *i < tokens.len() && matches!(tokens[*i], TokenType::Join) {
                         *i += 1;
                     }
                     JoinType::Inner
-                }
-                TokenType::Left => {
+                },
+                | TokenType::Left => {
                     *i += 1;
                     // Optional OUTER keyword
                     if *i < tokens.len() {
@@ -4226,8 +4226,8 @@ impl QSQLParser {
                         *i += 1;
                     }
                     JoinType::Left
-                }
-                TokenType::Right => {
+                },
+                | TokenType::Right => {
                     *i += 1;
                     // Optional OUTER keyword
                     if *i < tokens.len() {
@@ -4242,8 +4242,8 @@ impl QSQLParser {
                         *i += 1;
                     }
                     JoinType::Right
-                }
-                TokenType::Full => {
+                },
+                | TokenType::Full => {
                     *i += 1;
                     // Optional OUTER keyword
                     if *i < tokens.len() {
@@ -4258,21 +4258,21 @@ impl QSQLParser {
                         *i += 1;
                     }
                     JoinType::Full
-                }
-                TokenType::Cross => {
+                },
+                | TokenType::Cross => {
                     *i += 1;
                     // Expect JOIN
                     if *i < tokens.len() && matches!(tokens[*i], TokenType::Join) {
                         *i += 1;
                     }
                     JoinType::Cross
-                }
-                TokenType::Join => {
+                },
+                | TokenType::Join => {
                     // Plain JOIN defaults to INNER JOIN
                     *i += 1;
                     JoinType::Inner
-                }
-                _ => break, // No more joins
+                },
+                | _ => break, // No more joins
             };
 
             // Parse the table name or derived table for the join
@@ -4885,8 +4885,8 @@ impl QSQLParser {
 
             // Get operator info for current token
             let op_info = match self.get_operator_info(&tokens[*i]) {
-                Some(info) => info,
-                None => break, // Not an operator, stop parsing
+                | Some(info) => info,
+                | None => break, // Not an operator, stop parsing
             };
 
             // If operator precedence is too low, stop
@@ -5018,7 +5018,7 @@ impl QSQLParser {
             }
 
             match &tokens[*i] {
-                TokenType::When => {
+                | TokenType::When => {
                     *i += 1; // consume WHEN
 
                     // Parse condition
@@ -5039,8 +5039,8 @@ impl QSQLParser {
                         self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
 
                     when_clauses.push((Box::new(condition), Box::new(result)));
-                }
-                TokenType::Else => {
+                },
+                | TokenType::Else => {
                     *i += 1; // consume ELSE
 
                     // Parse else result
@@ -5057,12 +5057,12 @@ impl QSQLParser {
                     }
                     *i += 1; // consume END
                     break;
-                }
-                TokenType::End => {
+                },
+                | TokenType::End => {
                     *i += 1; // consume END
                     break;
-                }
-                _ => {
+                },
+                | _ => {
                     return Err(QSQLError::ParseError {
                         message: format!(
                             "Expected WHEN, ELSE, or END in CASE expression, found {:?}",
@@ -5070,7 +5070,7 @@ impl QSQLParser {
                         ),
                         position: *i,
                     });
-                }
+                },
             }
         }
 
@@ -5108,8 +5108,8 @@ impl QSQLParser {
 
         // Parse the field identifier (YEAR, MONTH, DAY, etc.)
         let field = match &tokens[*i] {
-            TokenType::Identifier(name) => name.to_uppercase(),
-            _ => {
+            | TokenType::Identifier(name) => name.to_uppercase(),
+            | _ => {
                 return Err(QSQLError::ParseError {
                     message: format!(
                         "Expected field identifier in EXTRACT expression, found {:?}",
@@ -5117,7 +5117,7 @@ impl QSQLParser {
                     ),
                     position: *i,
                 });
-            }
+            },
         };
         *i += 1; // consume field identifier
 
@@ -5163,13 +5163,13 @@ impl QSQLParser {
 
         match &tokens[*i] {
             // CASE expression: CASE WHEN ... THEN ... [ELSE ...] END
-            TokenType::Case => self.parse_case_expression(tokens, i),
+            | TokenType::Case => self.parse_case_expression(tokens, i),
 
             // EXTRACT expression: EXTRACT(field FROM source)
-            TokenType::Extract => self.parse_extract_expression(tokens, i),
+            | TokenType::Extract => self.parse_extract_expression(tokens, i),
 
             // Unary NOT operator or NOT EXISTS
-            TokenType::Not => {
+            | TokenType::Not => {
                 *i += 1; // consume NOT
 
                 // Check for NOT EXISTS
@@ -5217,10 +5217,10 @@ impl QSQLParser {
                     operator: UnaryOperator::Not,
                     operand: Box::new(operand),
                 })
-            }
+            },
 
             // Unary minus
-            TokenType::Minus => {
+            | TokenType::Minus => {
                 *i += 1;
                 let operand =
                     self.parse_expression_with_precedence(tokens, i, Precedence::Unary)?;
@@ -5228,10 +5228,10 @@ impl QSQLParser {
                     operator: UnaryOperator::Minus,
                     operand: Box::new(operand),
                 })
-            }
+            },
 
             // Unary plus (usually a no-op, but we support it)
-            TokenType::Plus => {
+            | TokenType::Plus => {
                 *i += 1;
                 let operand =
                     self.parse_expression_with_precedence(tokens, i, Precedence::Unary)?;
@@ -5239,10 +5239,10 @@ impl QSQLParser {
                     operator: UnaryOperator::Plus,
                     operand: Box::new(operand),
                 })
-            }
+            },
 
             // EXISTS subquery: EXISTS (SELECT ...)
-            TokenType::Exists => {
+            | TokenType::Exists => {
                 *i += 1; // consume EXISTS
 
                 // Expect opening parenthesis
@@ -5278,10 +5278,10 @@ impl QSQLParser {
                     subquery: Box::new(subquery),
                     negated: false,
                 })
-            }
+            },
 
             // Parenthesized expression or scalar subquery
-            TokenType::LeftParen => {
+            | TokenType::LeftParen => {
                 *i += 1; // consume '('
 
                 // Check if this is a scalar subquery (starts with SELECT)
@@ -5314,36 +5314,36 @@ impl QSQLParser {
                 }
                 *i += 1; // consume ')'
                 Ok(expr)
-            }
+            },
 
             // Literals
-            TokenType::StringLiteral(s) => {
+            | TokenType::StringLiteral(s) => {
                 *i += 1;
                 Ok(Expression::Literal(Literal::String(s.clone())))
-            }
-            TokenType::IntegerLiteral(n) => {
+            },
+            | TokenType::IntegerLiteral(n) => {
                 *i += 1;
                 Ok(Expression::Literal(Literal::Integer(*n)))
-            }
-            TokenType::FloatLiteral(f) => {
+            },
+            | TokenType::FloatLiteral(f) => {
                 *i += 1;
                 Ok(Expression::Literal(Literal::Float(*f)))
-            }
-            TokenType::BooleanLiteral(b) => {
+            },
+            | TokenType::BooleanLiteral(b) => {
                 *i += 1;
                 Ok(Expression::Literal(Literal::Boolean(*b)))
-            }
-            TokenType::DNALiteral(dna) => {
+            },
+            | TokenType::DNALiteral(dna) => {
                 *i += 1;
                 Ok(Expression::Literal(Literal::DNA(dna.clone())))
-            }
-            TokenType::Null => {
+            },
+            | TokenType::Null => {
                 *i += 1;
                 Ok(Expression::Literal(Literal::Null))
-            }
+            },
 
             // Identifier or function call (including qualified names like table.column)
-            TokenType::Identifier(name) => {
+            | TokenType::Identifier(name) => {
                 let mut full_name = name.clone();
                 *i += 1;
 
@@ -5364,19 +5364,19 @@ impl QSQLParser {
                 } else {
                     Ok(Expression::Identifier(full_name))
                 }
-            }
+            },
 
             // NULL keyword (handled separately from literal)
-            TokenType::Is => {
+            | TokenType::Is => {
                 // "IS NULL" or "IS NOT NULL" are handled as infix operators
                 Err(QSQLError::ParseError {
                     message: "IS must follow an expression".to_string(),
                     position: *i,
                 })
-            }
+            },
 
             // Window function tokens (ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, etc.)
-            TokenType::RowNumber
+            | TokenType::RowNumber
             | TokenType::Rank
             | TokenType::DenseRank
             | TokenType::Lag
@@ -5387,7 +5387,7 @@ impl QSQLParser {
             | TokenType::NthValue => self.parse_window_function(tokens, i),
 
             // Neuromorphic function: NEUROMATCH(column, pattern) - brain-inspired pattern matching
-            TokenType::NeuroMatch => {
+            | TokenType::NeuroMatch => {
                 let func_name = "NEUROMATCH".to_string();
                 *i += 1; // consume the NEUROMATCH token
                 if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
@@ -5398,10 +5398,10 @@ impl QSQLParser {
                         position: *i,
                     })
                 }
-            }
+            },
 
             // Quantum function: QUANTUM_SEARCH(column, pattern) - quantum-inspired search
-            TokenType::QuantumSearch => {
+            | TokenType::QuantumSearch => {
                 let func_name = "QUANTUM_SEARCH".to_string();
                 *i += 1; // consume the QUANTUM_SEARCH token
                 if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
@@ -5412,12 +5412,12 @@ impl QSQLParser {
                         position: *i,
                     })
                 }
-            }
+            },
 
             // Neuromorphic function: HEBBIAN_LEARNING(col1, col2, rate) - Hebbian correlation
             // Implements the Hebbian Learning Principle: "Neurons that fire together, wire together"
             // Calculates correlation between two columns with a learning rate parameter
-            TokenType::HebbianLearning => {
+            | TokenType::HebbianLearning => {
                 let func_name = "HEBBIAN_LEARNING".to_string();
                 *i += 1; // consume the HEBBIAN_LEARNING token
                 if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
@@ -5428,30 +5428,30 @@ impl QSQLParser {
                         position: *i,
                     })
                 }
-            }
+            },
 
             // Positional parameter ($1, $2, etc.) for prepared statements
-            TokenType::PositionalParameter(index) => {
+            | TokenType::PositionalParameter(index) => {
                 let param_index = *index;
                 *i += 1;
                 Ok(Expression::Parameter(ParameterRef::Positional(param_index)))
-            }
+            },
 
             // Named parameter (:name) for prepared statements
-            TokenType::NamedParameter(name) => {
+            | TokenType::NamedParameter(name) => {
                 let param_name = name.clone();
                 *i += 1;
                 Ok(Expression::Parameter(ParameterRef::Named(param_name)))
-            }
+            },
 
             // DEFAULT keyword for INSERT statements
             // Allows using column's default value: INSERT INTO t (a, b) VALUES (1, DEFAULT)
-            TokenType::Default => {
+            | TokenType::Default => {
                 *i += 1;
                 Ok(Expression::Default)
-            }
+            },
 
-            _ => Err(QSQLError::ParseError {
+            | _ => Err(QSQLError::ParseError {
                 message: format!("Unexpected token in expression: {:?}", tokens[*i]),
                 position: *i,
             }),
@@ -5525,13 +5525,13 @@ impl QSQLParser {
                 }
 
                 let unit = match &tokens[*i] {
-                    TokenType::Identifier(s) => s.to_uppercase(),
-                    _ => {
+                    | TokenType::Identifier(s) => s.to_uppercase(),
+                    | _ => {
                         return Err(QSQLError::ParseError {
                             message: "Expected time unit (DAY, MONTH, YEAR, etc.) after INTERVAL expression".to_string(),
                             position: *i,
                         });
-                    }
+                    },
                 };
                 *i += 1; // consume unit
 
@@ -5566,12 +5566,12 @@ impl QSQLParser {
         if *i < tokens.len() && matches!(tokens[*i], TokenType::Over) {
             // Determine the aggregate window function type
             let function = match function_name.to_uppercase().as_str() {
-                "SUM" => WindowFunctionType::Sum,
-                "AVG" => WindowFunctionType::Avg,
-                "COUNT" => WindowFunctionType::Count,
-                "MIN" => WindowFunctionType::Min,
-                "MAX" => WindowFunctionType::Max,
-                _ => {
+                | "SUM" => WindowFunctionType::Sum,
+                | "AVG" => WindowFunctionType::Avg,
+                | "COUNT" => WindowFunctionType::Count,
+                | "MIN" => WindowFunctionType::Min,
+                | "MAX" => WindowFunctionType::Max,
+                | _ => {
                     return Err(QSQLError::ParseError {
                         message: format!(
                             "Function '{}' cannot be used as a window function. \
@@ -5580,7 +5580,7 @@ impl QSQLParser {
                         ),
                         position: *i,
                     });
-                }
+                },
             };
 
             *i += 1; // consume 'OVER'
@@ -5607,21 +5607,21 @@ impl QSQLParser {
     fn parse_window_function(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<Expression> {
         // Determine the window function type based on the token
         let function = match &tokens[*i] {
-            TokenType::RowNumber => WindowFunctionType::RowNumber,
-            TokenType::Rank => WindowFunctionType::Rank,
-            TokenType::DenseRank => WindowFunctionType::DenseRank,
-            TokenType::Lag => WindowFunctionType::Lag,
-            TokenType::Lead => WindowFunctionType::Lead,
-            TokenType::Ntile => WindowFunctionType::Ntile,
-            TokenType::FirstValue => WindowFunctionType::FirstValue,
-            TokenType::LastValue => WindowFunctionType::LastValue,
-            TokenType::NthValue => WindowFunctionType::NthValue,
-            _ => {
+            | TokenType::RowNumber => WindowFunctionType::RowNumber,
+            | TokenType::Rank => WindowFunctionType::Rank,
+            | TokenType::DenseRank => WindowFunctionType::DenseRank,
+            | TokenType::Lag => WindowFunctionType::Lag,
+            | TokenType::Lead => WindowFunctionType::Lead,
+            | TokenType::Ntile => WindowFunctionType::Ntile,
+            | TokenType::FirstValue => WindowFunctionType::FirstValue,
+            | TokenType::LastValue => WindowFunctionType::LastValue,
+            | TokenType::NthValue => WindowFunctionType::NthValue,
+            | _ => {
                 return Err(QSQLError::ParseError {
                     message: format!("Unexpected window function token: {:?}", tokens[*i]),
                     position: *i,
                 });
-            }
+            },
         };
         *i += 1; // consume the function token
 
@@ -5717,9 +5717,9 @@ impl QSQLParser {
 
                 // Stop if we hit ORDER, ) or other keywords
                 let should_stop = match &tokens[*i] {
-                    TokenType::OrderBy | TokenType::RightParen => true,
-                    TokenType::Identifier(s) if s.to_uppercase() == "ORDER" => true,
-                    _ => false,
+                    | TokenType::OrderBy | TokenType::RightParen => true,
+                    | TokenType::Identifier(s) if s.to_uppercase() == "ORDER" => true,
+                    | _ => false,
                 };
                 if should_stop {
                     break;
@@ -5867,39 +5867,39 @@ impl QSQLParser {
     fn get_operator_info(&self, token: &TokenType) -> Option<OperatorInfo> {
         let op_key = match token {
             // Arithmetic operators
-            TokenType::Plus => "+",
-            TokenType::Minus => "-",
-            TokenType::Multiply => "*",
-            TokenType::Divide => "/",
-            TokenType::Modulo => "%",
+            | TokenType::Plus => "+",
+            | TokenType::Minus => "-",
+            | TokenType::Multiply => "*",
+            | TokenType::Divide => "/",
+            | TokenType::Modulo => "%",
 
             // Comparison operators
-            TokenType::Equal => "=",
-            TokenType::NotEqual => "!=",
-            TokenType::LessThan => "<",
-            TokenType::LessThanOrEqual => "<=",
-            TokenType::GreaterThan => ">",
-            TokenType::GreaterThanOrEqual => ">=",
+            | TokenType::Equal => "=",
+            | TokenType::NotEqual => "!=",
+            | TokenType::LessThan => "<",
+            | TokenType::LessThanOrEqual => "<=",
+            | TokenType::GreaterThan => ">",
+            | TokenType::GreaterThanOrEqual => ">=",
 
             // Logical operators
-            TokenType::And => "AND",
-            TokenType::Or => "OR",
+            | TokenType::And => "AND",
+            | TokenType::Or => "OR",
 
             // String operators
-            TokenType::Like => "LIKE",
-            TokenType::In => "IN",
+            | TokenType::Like => "LIKE",
+            | TokenType::In => "IN",
 
             // Neuromorphic operators (from keywords)
-            TokenType::Identifier(name) => {
+            | TokenType::Identifier(name) => {
                 let upper = name.to_uppercase();
                 if self.operators.contains_key(&upper) {
                     return self.operators.get(&upper).cloned();
                 }
                 return None;
-            }
+            },
 
             // Not an infix operator
-            _ => return None,
+            | _ => return None,
         };
 
         self.operators.get(op_key).cloned()
@@ -5924,17 +5924,17 @@ impl QSQLParser {
         // Parse statement name
         let name = if i < tokens.len() {
             match &tokens[i] {
-                TokenType::Identifier(n) => {
+                | TokenType::Identifier(n) => {
                     let name = n.clone();
                     i += 1;
                     name
-                }
-                _ => {
+                },
+                | _ => {
                     return Err(QSQLError::ParseError {
                         message: "Expected prepared statement name".to_string(),
                         position: i,
                     });
-                }
+                },
             }
         } else {
             return Err(QSQLError::ParseError {
@@ -5983,17 +5983,17 @@ impl QSQLParser {
         // Parse statement name
         let name = if i < tokens.len() {
             match &tokens[i] {
-                TokenType::Identifier(n) => {
+                | TokenType::Identifier(n) => {
                     let name = n.clone();
                     i += 1;
                     name
-                }
-                _ => {
+                },
+                | _ => {
                     return Err(QSQLError::ParseError {
                         message: "Expected prepared statement name".to_string(),
                         position: i,
                     });
-                }
+                },
             }
         } else {
             return Err(QSQLError::ParseError {
@@ -6085,14 +6085,14 @@ impl QSQLParser {
         // Parse name or ALL
         let name = if i < tokens.len() {
             match &tokens[i] {
-                TokenType::All => None, // DEALLOCATE ALL
-                TokenType::Identifier(n) => Some(n.clone()),
-                _ => {
+                | TokenType::All => None, // DEALLOCATE ALL
+                | TokenType::Identifier(n) => Some(n.clone()),
+                | _ => {
                     return Err(QSQLError::ParseError {
                         message: "Expected prepared statement name or ALL".to_string(),
                         position: i,
                     });
-                }
+                },
             }
         } else {
             return Err(QSQLError::ParseError {
@@ -6108,8 +6108,8 @@ impl QSQLParser {
 impl Default for QSQLParser {
     fn default() -> Self {
         match Self::with_config(ParserConfig::default()) {
-            Ok(parser) => parser,
-            Err(_) => {
+            | Ok(parser) => parser,
+            | Err(_) => {
                 // Fallback to a minimal parser if creation fails
                 QSQLParser {
                     config: ParserConfig::default(),
@@ -6117,7 +6117,7 @@ impl Default for QSQLParser {
                     keywords: HashMap::new(),
                     operators: HashMap::new(),
                 }
-            }
+            },
         }
     }
 }

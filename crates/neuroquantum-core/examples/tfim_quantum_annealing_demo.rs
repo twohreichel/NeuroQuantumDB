@@ -275,29 +275,29 @@ fn analyze_solution(solution: &neuroquantum_core::quantum::TFIMSolution, problem
     println!("      All aligned: {}", if aligned { "Yes" } else { "No" });
 
     match problem_type {
-        "Ferromagnetic" => {
+        | "Ferromagnetic" => {
             if aligned {
                 println!("      ✓ Correct: Ferromagnetic prefers aligned spins");
             } else {
                 println!("      ⚠ Unexpected: Not all spins aligned for ferromagnet");
             }
-        }
-        "Antiferromagnetic" => {
+        },
+        | "Antiferromagnetic" => {
             let alternating = solution.spins.windows(2).all(|w| w[0] != w[1]);
             if alternating {
                 println!("      ✓ Correct: Antiferromagnetic prefers alternating spins");
             } else if !aligned {
                 println!("      ✓ Shows anti-alignment pattern");
             }
-        }
-        "Frustrated" => {
+        },
+        | "Frustrated" => {
             println!("      Note: Frustration means no configuration satisfies all bonds");
             println!("      Energy should be higher than unfrustrated systems");
-        }
-        "SpinGlass" => {
+        },
+        | "SpinGlass" => {
             println!("      Note: Spin glass has complex energy landscape");
             println!("      Multiple local minima possible");
-        }
-        _ => {}
+        },
+        | _ => {},
     }
 }

@@ -62,47 +62,47 @@ pub enum QSQLError {
 impl Clone for QSQLError {
     fn clone(&self) -> Self {
         match self {
-            QSQLError::ParseError { message, position } => QSQLError::ParseError {
+            | QSQLError::ParseError { message, position } => QSQLError::ParseError {
                 message: message.clone(),
                 position: *position,
             },
-            QSQLError::SemanticError { message } => QSQLError::SemanticError {
+            | QSQLError::SemanticError { message } => QSQLError::SemanticError {
                 message: message.clone(),
             },
-            QSQLError::OptimizationError { message } => QSQLError::OptimizationError {
+            | QSQLError::OptimizationError { message } => QSQLError::OptimizationError {
                 message: message.clone(),
             },
-            QSQLError::ExecutionError { message } => QSQLError::ExecutionError {
+            | QSQLError::ExecutionError { message } => QSQLError::ExecutionError {
                 message: message.clone(),
             },
-            QSQLError::NeuromorphicError { message } => QSQLError::NeuromorphicError {
+            | QSQLError::NeuromorphicError { message } => QSQLError::NeuromorphicError {
                 message: message.clone(),
             },
-            QSQLError::QuantumError { message } => QSQLError::QuantumError {
+            | QSQLError::QuantumError { message } => QSQLError::QuantumError {
                 message: message.clone(),
             },
-            QSQLError::NLPError { message } => QSQLError::NLPError {
+            | QSQLError::NLPError { message } => QSQLError::NLPError {
                 message: message.clone(),
             },
-            QSQLError::TypeError { message } => QSQLError::TypeError {
+            | QSQLError::TypeError { message } => QSQLError::TypeError {
                 message: message.clone(),
             },
-            QSQLError::RuntimeError { message } => QSQLError::RuntimeError {
+            | QSQLError::RuntimeError { message } => QSQLError::RuntimeError {
                 message: message.clone(),
             },
-            QSQLError::ConfigError { message } => QSQLError::ConfigError {
+            | QSQLError::ConfigError { message } => QSQLError::ConfigError {
                 message: message.clone(),
             },
-            QSQLError::MemoryError { message } => QSQLError::MemoryError {
+            | QSQLError::MemoryError { message } => QSQLError::MemoryError {
                 message: message.clone(),
             },
-            QSQLError::IOError { source } => QSQLError::IOError {
+            | QSQLError::IOError { source } => QSQLError::IOError {
                 source: std::io::Error::new(source.kind(), format!("{}", source)),
             },
-            QSQLError::SerializationError { source } => QSQLError::SerializationError {
+            | QSQLError::SerializationError { source } => QSQLError::SerializationError {
                 source: serde_json::Error::io(std::io::Error::other(format!("{}", source))),
             },
-            QSQLError::PreparedStatementError { message } => QSQLError::PreparedStatementError {
+            | QSQLError::PreparedStatementError { message } => QSQLError::PreparedStatementError {
                 message: message.clone(),
             },
         }
@@ -341,16 +341,16 @@ where
             let mut error = e.into();
             // Add context information to error message
             match &mut error {
-                QSQLError::ParseError { message, position } => {
+                | QSQLError::ParseError { message, position } => {
                     if let Some(ctx_pos) = context.position {
                         *position = ctx_pos;
                     }
                     *message = format!("{} ({})", message, context);
-                }
-                QSQLError::SemanticError { message } => {
+                },
+                | QSQLError::SemanticError { message } => {
                     *message = format!("{} ({})", message, context);
-                }
-                _ => {}
+                },
+                | _ => {},
             }
             error
         })
@@ -360,19 +360,19 @@ where
         self.map_err(|e| {
             let mut error = e.into();
             match &mut error {
-                QSQLError::ParseError { message, .. } => {
+                | QSQLError::ParseError { message, .. } => {
                     *message = format!("{} during {}", message, operation);
-                }
-                QSQLError::SemanticError { message } => {
+                },
+                | QSQLError::SemanticError { message } => {
                     *message = format!("{} during {}", message, operation);
-                }
-                QSQLError::OptimizationError { message } => {
+                },
+                | QSQLError::OptimizationError { message } => {
                     *message = format!("{} during {}", message, operation);
-                }
-                QSQLError::ExecutionError { message } => {
+                },
+                | QSQLError::ExecutionError { message } => {
                     *message = format!("{} during {}", message, operation);
-                }
-                _ => {}
+                },
+                | _ => {},
             }
             error
         })
@@ -383,11 +383,11 @@ where
 impl From<ParseError> for QSQLError {
     fn from(err: ParseError) -> Self {
         match err {
-            ParseError::UnexpectedToken { token, position } => QSQLError::ParseError {
+            | ParseError::UnexpectedToken { token, position } => QSQLError::ParseError {
                 message: format!("Unexpected token '{}'", token),
                 position,
             },
-            ParseError::ExpectedToken {
+            | ParseError::ExpectedToken {
                 expected,
                 found,
                 position,
@@ -395,7 +395,7 @@ impl From<ParseError> for QSQLError {
                 message: format!("Expected '{}' but found '{}'", expected, found),
                 position,
             },
-            _ => QSQLError::ParseError {
+            | _ => QSQLError::ParseError {
                 message: err.to_string(),
                 position: 0,
             },
@@ -455,10 +455,10 @@ mod tests {
         let qsql_error: QSQLError = neuro_error.into();
 
         match qsql_error {
-            QSQLError::NeuromorphicError { message } => {
+            | QSQLError::NeuromorphicError { message } => {
                 assert!(message.contains("Invalid synaptic weight"));
-            }
-            _ => panic!("Expected NeuromorphicError"),
+            },
+            | _ => panic!("Expected NeuromorphicError"),
         }
     }
 
@@ -470,10 +470,10 @@ mod tests {
         let qsql_error: QSQLError = quantum_error.into();
 
         match qsql_error {
-            QSQLError::QuantumError { message } => {
+            | QSQLError::QuantumError { message } => {
                 assert!(message.contains("Quantum coherence lost"));
-            }
-            _ => panic!("Expected QuantumError"),
+            },
+            | _ => panic!("Expected QuantumError"),
         }
     }
 

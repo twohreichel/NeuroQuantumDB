@@ -378,7 +378,7 @@ impl NeuromorphicOptimizer {
         let mut nodes = Vec::new();
 
         match statement {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 if let Some(from) = &select.from {
                     for relation in &from.relations {
                         let mut hasher = DefaultHasher::new();
@@ -386,18 +386,18 @@ impl NeuromorphicOptimizer {
                         nodes.push(hasher.finish());
                     }
                 }
-            }
-            Statement::NeuroMatch(neuromatch) => {
+            },
+            | Statement::NeuroMatch(neuromatch) => {
                 let mut hasher = DefaultHasher::new();
                 neuromatch.target_table.hash(&mut hasher);
                 nodes.push(hasher.finish());
-            }
-            Statement::QuantumSearch(quantum) => {
+            },
+            | Statement::QuantumSearch(quantum) => {
                 let mut hasher = DefaultHasher::new();
                 quantum.target_table.hash(&mut hasher);
                 nodes.push(hasher.finish());
-            }
-            _ => {}
+            },
+            | _ => {},
         }
 
         nodes
@@ -406,10 +406,10 @@ impl NeuromorphicOptimizer {
     /// Determine access pattern from statement type
     fn determine_access_pattern(&self, statement: &Statement) -> AccessPattern {
         match statement {
-            Statement::Select(_) => AccessPattern::Sequential,
-            Statement::NeuroMatch(_) => AccessPattern::Clustered,
-            Statement::QuantumSearch(_) => AccessPattern::Random,
-            _ => AccessPattern::Sequential,
+            | Statement::Select(_) => AccessPattern::Sequential,
+            | Statement::NeuroMatch(_) => AccessPattern::Clustered,
+            | Statement::QuantumSearch(_) => AccessPattern::Random,
+            | _ => AccessPattern::Sequential,
         }
     }
 
@@ -475,7 +475,7 @@ impl NeuromorphicOptimizer {
         use neuroquantum_core::learning::QueryPattern;
 
         match statement {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 let table = if let Some(from) = &select.from {
                     if !from.relations.is_empty() {
                         from.relations[0].name.clone()
@@ -490,10 +490,10 @@ impl NeuromorphicOptimizer {
                     .select_list
                     .iter()
                     .filter_map(|item| match item {
-                        SelectItem::Expression { expr, alias } => {
+                        | SelectItem::Expression { expr, alias } => {
                             Some(alias.clone().unwrap_or_else(|| format!("{:?}", expr)))
-                        }
-                        _ => None,
+                        },
+                        | _ => None,
                     })
                     .collect();
 
@@ -502,18 +502,18 @@ impl NeuromorphicOptimizer {
                     query_type: "SELECT".to_string(),
                     columns,
                 }
-            }
-            Statement::NeuroMatch(neuromatch) => QueryPattern {
+            },
+            | Statement::NeuroMatch(neuromatch) => QueryPattern {
                 table: neuromatch.target_table.clone(),
                 query_type: "NEUROMATCH".to_string(),
                 columns: vec![],
             },
-            Statement::QuantumSearch(quantum) => QueryPattern {
+            | Statement::QuantumSearch(quantum) => QueryPattern {
                 table: quantum.target_table.clone(),
                 query_type: "QUANTUM_SEARCH".to_string(),
                 columns: vec![],
             },
-            _ => QueryPattern {
+            | _ => QueryPattern {
                 table: "unknown".to_string(),
                 query_type: "UNKNOWN".to_string(),
                 columns: vec![],
@@ -551,10 +551,10 @@ impl NeuromorphicOptimizer {
             // Fallback: simple adaptation logic
             if adaptation_factor > 0.7 {
                 plan.execution_strategy = match plan.execution_strategy {
-                    ExecutionStrategy::Sequential => ExecutionStrategy::Parallel,
-                    ExecutionStrategy::Parallel => ExecutionStrategy::SynapticPipeline,
-                    ExecutionStrategy::SynapticPipeline => ExecutionStrategy::HybridNeuralQuantum,
-                    _ => plan.execution_strategy,
+                    | ExecutionStrategy::Sequential => ExecutionStrategy::Parallel,
+                    | ExecutionStrategy::Parallel => ExecutionStrategy::SynapticPipeline,
+                    | ExecutionStrategy::SynapticPipeline => ExecutionStrategy::HybridNeuralQuantum,
+                    | _ => plan.execution_strategy,
                 };
             }
 
@@ -574,13 +574,13 @@ impl NeuromorphicOptimizer {
         let mut hasher = DefaultHasher::new();
 
         match statement {
-            Statement::Select(_) => "SELECT".hash(&mut hasher),
-            Statement::Insert(_) => "INSERT".hash(&mut hasher),
-            Statement::Update(_) => "UPDATE".hash(&mut hasher),
-            Statement::Delete(_) => "DELETE".hash(&mut hasher),
-            Statement::NeuroMatch(_) => "NEUROMATCH".hash(&mut hasher),
-            Statement::QuantumSearch(_) => "QUANTUM_SEARCH".hash(&mut hasher),
-            _ => "UNKNOWN".hash(&mut hasher),
+            | Statement::Select(_) => "SELECT".hash(&mut hasher),
+            | Statement::Insert(_) => "INSERT".hash(&mut hasher),
+            | Statement::Update(_) => "UPDATE".hash(&mut hasher),
+            | Statement::Delete(_) => "DELETE".hash(&mut hasher),
+            | Statement::NeuroMatch(_) => "NEUROMATCH".hash(&mut hasher),
+            | Statement::QuantumSearch(_) => "QUANTUM_SEARCH".hash(&mut hasher),
+            | _ => "UNKNOWN".hash(&mut hasher),
         }
 
         hasher.finish()
@@ -613,10 +613,10 @@ impl NeuromorphicOptimizer {
     /// Generate a hash for query pattern recognition
     fn generate_pattern_hash(&self, statement: &Statement) -> QSQLResult<String> {
         let pattern = match statement {
-            Statement::Select(_) => "SELECT".to_string(),
-            Statement::NeuroMatch(n) => format!("NEUROMATCH:{}", n.target_table),
-            Statement::QuantumSearch(q) => format!("QUANTUM_SEARCH:{}", q.target_table),
-            _ => "UNKNOWN".to_string(),
+            | Statement::Select(_) => "SELECT".to_string(),
+            | Statement::NeuroMatch(n) => format!("NEUROMATCH:{}", n.target_table),
+            | Statement::QuantumSearch(q) => format!("QUANTUM_SEARCH:{}", q.target_table),
+            | _ => "UNKNOWN".to_string(),
         };
 
         let mut hasher = DefaultHasher::new();
@@ -653,20 +653,20 @@ impl NeuromorphicOptimizer {
 
     fn determine_execution_strategy(&self, statement: &Statement) -> ExecutionStrategy {
         match statement {
-            Statement::Select(_) => ExecutionStrategy::Sequential,
-            Statement::NeuroMatch(_) => ExecutionStrategy::SynapticPipeline,
-            Statement::QuantumSearch(_) => ExecutionStrategy::QuantumInspired,
-            Statement::SuperpositionQuery(_) => ExecutionStrategy::HybridNeuralQuantum,
-            _ => ExecutionStrategy::Sequential,
+            | Statement::Select(_) => ExecutionStrategy::Sequential,
+            | Statement::NeuroMatch(_) => ExecutionStrategy::SynapticPipeline,
+            | Statement::QuantumSearch(_) => ExecutionStrategy::QuantumInspired,
+            | Statement::SuperpositionQuery(_) => ExecutionStrategy::HybridNeuralQuantum,
+            | _ => ExecutionStrategy::Sequential,
         }
     }
 
     fn estimate_initial_cost(&self, statement: &Statement) -> f64 {
         match statement {
-            Statement::Select(_) => 100.0,
-            Statement::NeuroMatch(_) => 150.0,
-            Statement::QuantumSearch(_) => 50.0, // Quantum advantage
-            _ => 100.0,
+            | Statement::Select(_) => 100.0,
+            | Statement::NeuroMatch(_) => 150.0,
+            | Statement::QuantumSearch(_) => 50.0, // Quantum advantage
+            | _ => 100.0,
         }
     }
 
@@ -692,7 +692,7 @@ impl NeuromorphicOptimizer {
 
         // Add neuromorphic-specific optimizations
         match ast {
-            Statement::NeuroMatch(neuromatch) => {
+            | Statement::NeuroMatch(neuromatch) => {
                 plan.synaptic_pathways.push(SynapticPathway {
                     pathway_id: "neuromatch_primary".to_string(),
                     source_node: neuromatch.target_table.clone(),
@@ -703,8 +703,8 @@ impl NeuromorphicOptimizer {
                 });
 
                 plan.execution_strategy = ExecutionStrategy::SynapticPipeline;
-            }
-            _ => {
+            },
+            | _ => {
                 // Apply general neuromorphic optimizations
                 plan.synaptic_pathways.push(SynapticPathway {
                     pathway_id: "general_optimization".to_string(),
@@ -714,7 +714,7 @@ impl NeuromorphicOptimizer {
                     access_pattern: AccessPattern::Sequential,
                     optimization_hint: OptimizationHint::Vectorize,
                 });
-            }
+            },
         }
 
         self.optimization_stats.queries_optimized += 1;
@@ -733,7 +733,7 @@ impl NeuromorphicOptimizer {
 
         // Add quantum-specific optimizations
         match ast {
-            Statement::QuantumSearch(quantum_search) => {
+            | Statement::QuantumSearch(quantum_search) => {
                 let mut params = HashMap::new();
                 params.insert(
                     "iterations".to_string(),
@@ -761,8 +761,8 @@ impl NeuromorphicOptimizer {
 
                 plan.execution_strategy = ExecutionStrategy::QuantumInspired;
                 self.optimization_stats.quantum_operation_count += 1;
-            }
-            _ => {
+            },
+            | _ => {
                 // Apply general quantum optimizations
                 let mut params = HashMap::new();
                 params.insert("superposition_factor".to_string(), 2.0);
@@ -774,7 +774,7 @@ impl NeuromorphicOptimizer {
                     expected_speedup: 2.0,
                 });
                 self.optimization_stats.quantum_operation_count += 1;
-            }
+            },
         }
 
         plan.execution_strategy = ExecutionStrategy::HybridNeuralQuantum;
@@ -808,8 +808,8 @@ impl NeuromorphicOptimizer {
 impl Default for NeuromorphicOptimizer {
     fn default() -> Self {
         match Self::new() {
-            Ok(optimizer) => optimizer,
-            Err(_) => {
+            | Ok(optimizer) => optimizer,
+            | Err(_) => {
                 // Fallback to a minimal optimizer if creation fails
                 // Create minimal neuromorphic components with basic parameters
                 let synaptic_network = SynapticNetwork::new(100, 0.5).ok();
@@ -824,7 +824,7 @@ impl Default for NeuromorphicOptimizer {
                     optimization_stats: OptimizationStats::default(),
                     config: OptimizerConfig::default(),
                 }
-            }
+            },
         }
     }
 }

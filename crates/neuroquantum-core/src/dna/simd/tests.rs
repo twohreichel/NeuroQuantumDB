@@ -652,10 +652,10 @@ mod hamming_distance_tests {
             let mut seq2 = seq1.clone();
             for i in (0..size).step_by(3) {
                 seq2[i] = match seq2[i] {
-                    DNABase::Adenine => DNABase::Thymine,
-                    DNABase::Thymine => DNABase::Guanine,
-                    DNABase::Guanine => DNABase::Cytosine,
-                    DNABase::Cytosine => DNABase::Adenine,
+                    | DNABase::Adenine => DNABase::Thymine,
+                    | DNABase::Thymine => DNABase::Guanine,
+                    | DNABase::Guanine => DNABase::Cytosine,
+                    | DNABase::Cytosine => DNABase::Adenine,
                 };
             }
 

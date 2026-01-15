@@ -986,19 +986,19 @@ impl ResponseError for ApiError {
         let response = ApiResponse::<()>::error(self.clone(), metadata);
 
         match self {
-            ApiError::Unauthorized(_) => HttpResponse::Unauthorized().json(response),
-            ApiError::Forbidden(_) => HttpResponse::Forbidden().json(response),
-            ApiError::BadRequest(_) | ApiError::ValidationError { .. } => {
+            | ApiError::Unauthorized(_) => HttpResponse::Unauthorized().json(response),
+            | ApiError::Forbidden(_) => HttpResponse::Forbidden().json(response),
+            | ApiError::BadRequest(_) | ApiError::ValidationError { .. } => {
                 HttpResponse::BadRequest().json(response)
-            }
-            ApiError::NotFound(_) => HttpResponse::NotFound().json(response),
-            ApiError::Conflict(_) => HttpResponse::Conflict().json(response),
-            ApiError::RateLimitExceeded { .. } => HttpResponse::TooManyRequests().json(response),
-            ApiError::ServiceUnavailable { .. } | ApiError::CircuitBreakerOpen { .. } => {
+            },
+            | ApiError::NotFound(_) => HttpResponse::NotFound().json(response),
+            | ApiError::Conflict(_) => HttpResponse::Conflict().json(response),
+            | ApiError::RateLimitExceeded { .. } => HttpResponse::TooManyRequests().json(response),
+            | ApiError::ServiceUnavailable { .. } | ApiError::CircuitBreakerOpen { .. } => {
                 HttpResponse::ServiceUnavailable().json(response)
-            }
-            ApiError::NotImplemented(_) => HttpResponse::NotImplemented().json(response),
-            _ => HttpResponse::InternalServerError().json(response),
+            },
+            | ApiError::NotImplemented(_) => HttpResponse::NotImplemented().json(response),
+            | _ => HttpResponse::InternalServerError().json(response),
         }
     }
 }
@@ -1012,27 +1012,27 @@ where
             HttpResponse::Ok().json(response)
         } else {
             let mut status = match &response.error {
-                Some(ApiError::ValidationError { .. }) => HttpResponse::BadRequest(),
-                Some(ApiError::Unauthorized(_)) => HttpResponse::Unauthorized(),
-                Some(ApiError::Forbidden(_)) => HttpResponse::Forbidden(),
-                Some(ApiError::BadRequest(_)) => HttpResponse::BadRequest(),
-                Some(ApiError::NotFound(_)) => HttpResponse::NotFound(),
-                Some(ApiError::Conflict(_)) => HttpResponse::Conflict(),
-                Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
-                Some(ApiError::QuantumOperationFailed { .. }) => {
+                | Some(ApiError::ValidationError { .. }) => HttpResponse::BadRequest(),
+                | Some(ApiError::Unauthorized(_)) => HttpResponse::Unauthorized(),
+                | Some(ApiError::Forbidden(_)) => HttpResponse::Forbidden(),
+                | Some(ApiError::BadRequest(_)) => HttpResponse::BadRequest(),
+                | Some(ApiError::NotFound(_)) => HttpResponse::NotFound(),
+                | Some(ApiError::Conflict(_)) => HttpResponse::Conflict(),
+                | Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
+                | Some(ApiError::QuantumOperationFailed { .. }) => {
                     HttpResponse::InternalServerError()
-                }
-                Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
-                Some(ApiError::InternalServerError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::NeuralNetworkError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::TableError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::ConnectionPoolError { .. }) => HttpResponse::InternalServerError(),
-                Some(ApiError::CircuitBreakerOpen { .. }) => HttpResponse::ServiceUnavailable(),
-                Some(ApiError::ServiceUnavailable { .. }) => HttpResponse::ServiceUnavailable(),
-                Some(ApiError::NotImplemented(_)) => HttpResponse::NotImplemented(),
-                None => HttpResponse::InternalServerError(),
+                },
+                | Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
+                | Some(ApiError::InternalServerError { .. }) => HttpResponse::InternalServerError(),
+                | Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
+                | Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
+                | Some(ApiError::NeuralNetworkError { .. }) => HttpResponse::InternalServerError(),
+                | Some(ApiError::TableError { .. }) => HttpResponse::InternalServerError(),
+                | Some(ApiError::ConnectionPoolError { .. }) => HttpResponse::InternalServerError(),
+                | Some(ApiError::CircuitBreakerOpen { .. }) => HttpResponse::ServiceUnavailable(),
+                | Some(ApiError::ServiceUnavailable { .. }) => HttpResponse::ServiceUnavailable(),
+                | Some(ApiError::NotImplemented(_)) => HttpResponse::NotImplemented(),
+                | None => HttpResponse::InternalServerError(),
             };
             status.json(response)
         }

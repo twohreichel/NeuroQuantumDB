@@ -130,14 +130,14 @@ impl RecoveryManager {
 
         for record in &records {
             match &record.record_type {
-                WALRecordType::Begin { tx_id, .. } => {
+                | WALRecordType::Begin { tx_id, .. } => {
                     // Create a new TransactionState with full tracking
                     let tx_state = TransactionState::new(*tx_id, record.lsn);
                     active_txn_states.insert(*tx_id, tx_state);
                     active_txns.insert(*tx_id, record.lsn);
                     debug!("Found BEGIN for TX={}", tx_id);
-                }
-                WALRecordType::Update { tx_id, page_id, .. } => {
+                },
+                | WALRecordType::Update { tx_id, page_id, .. } => {
                     // Update transaction state with operation tracking
                     if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
                         tx_state.record_operation(record.lsn, Some(*page_id));
@@ -150,8 +150,8 @@ impl RecoveryManager {
                     active_txns.insert(*tx_id, record.lsn);
                     dirty_pages.entry(*page_id).or_insert(record.lsn);
                     debug!("Found UPDATE for TX={}, Page={}", tx_id, page_id.0);
-                }
-                WALRecordType::Commit { tx_id } => {
+                },
+                | WALRecordType::Commit { tx_id } => {
                     // Mark transaction as committed
                     if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
                         tx_state.begin_commit();
@@ -160,8 +160,8 @@ impl RecoveryManager {
                     active_txns.remove(tx_id);
                     committed_txns.insert(*tx_id);
                     debug!("Found COMMIT for TX={}", tx_id);
-                }
-                WALRecordType::Abort { tx_id } => {
+                },
+                | WALRecordType::Abort { tx_id } => {
                     // Mark transaction as aborted
                     if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
                         tx_state.begin_abort();
@@ -170,15 +170,15 @@ impl RecoveryManager {
                     active_txns.remove(tx_id);
                     aborted_txns.insert(*tx_id);
                     debug!("Found ABORT for TX={}", tx_id);
-                }
-                WALRecordType::CheckpointBegin { .. } => {
+                },
+                | WALRecordType::CheckpointBegin { .. } => {
                     checkpoint_lsn = Some(record.lsn);
                     debug!("Found CHECKPOINT at LSN={}", record.lsn);
-                }
-                WALRecordType::CheckpointEnd => {
+                },
+                | WALRecordType::CheckpointEnd => {
                     debug!("Found CHECKPOINT END at LSN={}", record.lsn);
-                }
-                WALRecordType::CLR {
+                },
+                | WALRecordType::CLR {
                     tx_id,
                     undo_next_lsn,
                     page_id,
@@ -193,8 +193,8 @@ impl RecoveryManager {
                     active_txns.insert(*tx_id, record.lsn);
                     dirty_pages.entry(*page_id).or_insert(record.lsn);
                     debug!("Found CLR for TX={}, undo_next={}", tx_id, undo_next_lsn);
-                }
-                WALRecordType::Savepoint { tx_id, name, .. } => {
+                },
+                | WALRecordType::Savepoint { tx_id, name, .. } => {
                     // Track savepoint in transaction state
                     if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
                         tx_state.savepoints.insert(name.clone(), record.lsn);
@@ -202,8 +202,8 @@ impl RecoveryManager {
                     }
                     active_txns.insert(*tx_id, record.lsn);
                     debug!("Found SAVEPOINT '{}' for TX={}", name, tx_id);
-                }
-                WALRecordType::RollbackToSavepoint {
+                },
+                | WALRecordType::RollbackToSavepoint {
                     tx_id,
                     name,
                     target_lsn,
@@ -218,8 +218,8 @@ impl RecoveryManager {
                         "Found ROLLBACK TO SAVEPOINT '{}' for TX={}, target_lsn={}",
                         name, tx_id, target_lsn
                     );
-                }
-                WALRecordType::ReleaseSavepoint { tx_id, name } => {
+                },
+                | WALRecordType::ReleaseSavepoint { tx_id, name } => {
                     // Remove savepoint from transaction state
                     if let Some(tx_state) = active_txn_states.get_mut(tx_id) {
                         tx_state.savepoints.remove(name);
@@ -227,7 +227,7 @@ impl RecoveryManager {
                     }
                     active_txns.insert(*tx_id, record.lsn);
                     debug!("Found RELEASE SAVEPOINT '{}' for TX={}", name, tx_id);
-                }
+                },
             }
         }
 
@@ -265,7 +265,7 @@ impl RecoveryManager {
 
         for record in &records {
             match &record.record_type {
-                WALRecordType::Update {
+                | WALRecordType::Update {
                     page_id,
                     offset,
                     after_image,
@@ -281,8 +281,8 @@ impl RecoveryManager {
                             debug!("REDO: Page={}, LSN={}", page_id.0, record.lsn);
                         }
                     }
-                }
-                WALRecordType::CLR {
+                },
+                | WALRecordType::CLR {
                     page_id, redo_data, ..
                 } => {
                     // Redo CLR operations
@@ -290,8 +290,8 @@ impl RecoveryManager {
                         .await?;
                     redo_count += 1;
                     debug!("REDO CLR: Page={}, LSN={}", page_id.0, record.lsn);
-                }
-                _ => {} // Skip non-update records
+                },
+                | _ => {}, // Skip non-update records
             }
         }
 
@@ -373,7 +373,7 @@ impl RecoveryManager {
         // Follow the undo chain
         while let Some(record) = record_map.get(&current_lsn) {
             match &record.record_type {
-                WALRecordType::Update {
+                | WALRecordType::Update {
                     page_id,
                     offset,
                     before_image,
@@ -386,12 +386,12 @@ impl RecoveryManager {
                     debug!("UNDO: TX={}, Page={}, LSN={}", tx_id, page_id.0, record.lsn);
 
                     // Write CLR (Compensation Log Record) - not implemented here for simplicity
-                }
-                WALRecordType::Begin { .. } => {
+                },
+                | WALRecordType::Begin { .. } => {
                     // Reached the beginning of the transaction
                     break;
-                }
-                _ => {}
+                },
+                | _ => {},
             }
 
             // Move to previous LSN

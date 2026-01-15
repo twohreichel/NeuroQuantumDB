@@ -683,14 +683,14 @@ impl BiometricAuth {
     /// Extract EEG features using specified method
     fn extract_eeg_features(&self, eeg_data: &[f32]) -> Result<Vec<f32>, SecurityError> {
         match self.config.feature_method {
-            BiometricFeatureMethod::FFT => self.fft_features(eeg_data),
-            BiometricFeatureMethod::Wavelet => self.wavelet_features(eeg_data),
-            BiometricFeatureMethod::Hybrid => {
+            | BiometricFeatureMethod::FFT => self.fft_features(eeg_data),
+            | BiometricFeatureMethod::Wavelet => self.wavelet_features(eeg_data),
+            | BiometricFeatureMethod::Hybrid => {
                 let mut fft = self.fft_features(eeg_data)?;
                 let wavelet = self.wavelet_features(eeg_data)?;
                 fft.extend(wavelet);
                 Ok(fft)
-            }
+            },
         }
     }
 
@@ -894,7 +894,7 @@ impl Role {
     /// Get default permissions for a role
     pub fn default_permissions(&self) -> Vec<Permission> {
         match self {
-            Role::Admin => vec![
+            | Role::Admin => vec![
                 Permission::ReadData,
                 Permission::WriteData,
                 Permission::DeleteData,
@@ -909,7 +909,7 @@ impl Role {
                 Permission::ViewAuditLogs,
                 Permission::ConfigureSystem,
             ],
-            Role::Developer => vec![
+            | Role::Developer => vec![
                 Permission::ReadData,
                 Permission::WriteData,
                 Permission::CreateTable,
@@ -918,14 +918,14 @@ impl Role {
                 Permission::UseNeuromorphicLearning,
                 Permission::UseDNACompression,
             ],
-            Role::DataScientist => vec![
+            | Role::DataScientist => vec![
                 Permission::ReadData,
                 Permission::WriteData,
                 Permission::UseQuantumSearch,
                 Permission::UseNeuromorphicLearning,
             ],
-            Role::ReadOnly => vec![Permission::ReadData],
-            Role::Custom(_) => vec![],
+            | Role::ReadOnly => vec![Permission::ReadData],
+            | Role::Custom(_) => vec![],
         }
     }
 }
@@ -1447,8 +1447,8 @@ impl SecurityManager {
         details.insert("method".to_string(), "biometric_eeg".to_string());
 
         let audit_result = match &result {
-            AuthResult::Success { .. } => AuditResult::Success,
-            AuthResult::Failed { .. } => AuditResult::Failure,
+            | AuthResult::Success { .. } => AuditResult::Success,
+            | AuthResult::Failed { .. } => AuditResult::Failure,
         };
 
         self.audit_logger
@@ -1505,7 +1505,7 @@ impl SecurityManager {
         let result = self.rbac_manager.authenticate(username, password).await?;
 
         match result {
-            AuthResult::Success { user_id, .. } => {
+            | AuthResult::Success { user_id, .. } => {
                 // Create session
                 let user = self.rbac_manager.get_user(&user_id).await?;
                 let config = self.config.read().await;
@@ -1521,8 +1521,8 @@ impl SecurityManager {
                 sessions.insert(session_id.clone(), session);
 
                 Ok(session_id)
-            }
-            AuthResult::Failed { reason } => Err(SecurityError::AuthenticationFailed(reason)),
+            },
+            | AuthResult::Failed { reason } => Err(SecurityError::AuthenticationFailed(reason)),
         }
     }
 

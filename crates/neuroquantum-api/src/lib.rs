@@ -59,7 +59,9 @@ impl AppState {
 
         // Warn if no admin keys exist - database needs initialization
         if !auth_service.has_admin_keys() {
-            tracing::warn!("⚠️  No admin keys found! Run 'neuroquantum-api init' to create the first admin key.");
+            tracing::warn!(
+                "⚠️  No admin keys found! Run 'neuroquantum-api init' to create the first admin key."
+            );
             tracing::warn!(
                 "⚠️  The API server will start but authentication will fail until initialized."
             );
@@ -147,16 +149,16 @@ pub async fn health_check() -> ActixResult<HttpResponse, ApiError> {
 /// 📊 Prometheus metrics endpoint (public - no authentication required)
 pub async fn metrics() -> HttpResponse {
     match crate::metrics::render_metrics() {
-        Ok(metrics_text) => HttpResponse::Ok()
+        | Ok(metrics_text) => HttpResponse::Ok()
             .content_type("text/plain; version=0.0.4; charset=utf-8")
             .body(metrics_text),
-        Err(e) => {
+        | Err(e) => {
             tracing::error!("Failed to render metrics: {}", e);
             HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": "Failed to collect metrics",
                 "details": e.to_string()
             }))
-        }
+        },
     }
 }
 

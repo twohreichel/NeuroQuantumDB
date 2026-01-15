@@ -241,15 +241,15 @@ async fn demo_key_validation() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test 1: Valid key
     match auth_service.validate_api_key(&test_key.key).await {
-        Some(validated_key) => {
+        | Some(validated_key) => {
             info!("✅ Key validation successful!");
             info!("   Name: {}", validated_key.name);
             info!("   Permissions: {:?}", validated_key.permissions);
             info!("   Usage count: {}", validated_key.usage_count);
-        }
-        None => {
+        },
+        | None => {
             warn!("❌ Validation failed");
-        }
+        },
     }
 
     info!("");
@@ -283,12 +283,12 @@ async fn demo_key_validation() -> Result<(), Box<dyn std::error::Error>> {
     info!("🔍 Testing invalid key rejection...");
     let invalid_key = "invalid-key-12345";
     match auth_service.validate_api_key(invalid_key).await {
-        Some(_) => {
+        | Some(_) => {
             warn!("❌ Invalid key was accepted (this should not happen!)");
-        }
-        None => {
+        },
+        | None => {
             info!("✅ Invalid key correctly rejected");
-        }
+        },
     }
 
     info!("");
@@ -322,15 +322,15 @@ async fn demo_rate_limiting() -> Result<(), Box<dyn std::error::Error>> {
         let result = auth_service.validate_api_key(&limited_key.key).await;
 
         match result {
-            Some(_) => {
+            | Some(_) => {
                 info!("   ✅ Request {} - Allowed", i);
-            }
-            None => {
+            },
+            | None => {
                 info!(
                     "   ❌ Request {} - Rate limit exceeded or other validation failure",
                     i
                 );
-            }
+            },
         }
     }
 
@@ -365,8 +365,8 @@ async fn demo_key_expiration() -> Result<(), Box<dyn std::error::Error>> {
     // Immediate validation should work
     info!("🔍 Testing immediate validation...");
     match auth_service.validate_api_key(&short_lived_key.key).await {
-        Some(_) => info!("   ✅ Key is valid (as expected)"),
-        None => warn!("   ❌ Validation failed"),
+        | Some(_) => info!("   ✅ Key is valid (as expected)"),
+        | None => warn!("   ❌ Validation failed"),
     }
 
     info!("");
@@ -379,8 +379,8 @@ async fn demo_key_expiration() -> Result<(), Box<dyn std::error::Error>> {
     // Post-expiration validation should fail
     info!("🔍 Testing post-expiration validation...");
     match auth_service.validate_api_key(&short_lived_key.key).await {
-        Some(_) => warn!("   ❌ Expired key was accepted (this should not happen!)"),
-        None => info!("   ✅ Expired key correctly rejected"),
+        | Some(_) => warn!("   ❌ Expired key was accepted (this should not happen!)"),
+        | None => info!("   ✅ Expired key correctly rejected"),
     }
 
     info!("");

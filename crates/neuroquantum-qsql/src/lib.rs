@@ -438,8 +438,8 @@ impl QSQLEngine {
 impl Default for QSQLEngine {
     fn default() -> Self {
         match Self::new() {
-            Ok(engine) => engine,
-            Err(_) => {
+            | Ok(engine) => engine,
+            | Err(_) => {
                 // Fallback to a minimal engine if creation fails
                 QSQLEngine {
                     parser: ParserQSQLParser::default(),
@@ -449,7 +449,7 @@ impl Default for QSQLEngine {
                     metrics: QSQLMetrics::default(),
                     index_advisor: index_advisor::IndexAdvisor::new(),
                 }
-            }
+            },
         }
     }
 }

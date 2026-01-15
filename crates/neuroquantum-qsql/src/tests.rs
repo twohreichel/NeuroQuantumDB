@@ -47,12 +47,12 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert_eq!(select.select_list.len(), 2);
                 assert!(select.from.is_some());
                 assert!(select.where_clause.is_some());
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -83,8 +83,8 @@ mod parser_tests {
         assert!(result.is_err());
 
         match result.unwrap_err() {
-            QSQLError::ParseError { .. } => {} // Expected
-            _ => panic!("Expected ParseError"),
+            | QSQLError::ParseError { .. } => {}, // Expected
+            | _ => panic!("Expected ParseError"),
         }
     }
 
@@ -130,18 +130,18 @@ mod parser_tests {
 
         // Verify the parsed structure contains a function call
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(
                     select.where_clause.is_some(),
                     "WHERE clause should be present"
                 );
                 // Verify WHERE clause contains QUANTUM_SEARCH function call
                 match &select.where_clause {
-                    Some(Expression::FunctionCall { name, args }) => {
+                    | Some(Expression::FunctionCall { name, args }) => {
                         assert_eq!(name, "QUANTUM_SEARCH");
                         assert_eq!(args.len(), 2);
-                    }
-                    Some(other) => {
+                    },
+                    | Some(other) => {
                         // WHERE clause may contain other expression types
                         // The key assertion is that parsing succeeded without "Unexpected token" error
                         // In complex expressions, QUANTUM_SEARCH will be nested in the expression tree
@@ -151,11 +151,11 @@ mod parser_tests {
                             "WHERE clause should contain QUANTUM_SEARCH function: {:?}",
                             other
                         );
-                    }
-                    None => panic!("WHERE clause should be present"),
+                    },
+                    | None => panic!("WHERE clause should be present"),
                 }
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -174,10 +174,10 @@ mod parser_tests {
 
         // Verify the parsed structure contains a comparison with NEUROMATCH function
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.where_clause.is_some());
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -197,7 +197,7 @@ mod parser_tests {
 
         // Verify the parsed structure contains neuromatch_clause
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(
                     select.neuromatch_clause.is_some(),
                     "NEUROMATCH clause should be present"
@@ -209,13 +209,13 @@ mod parser_tests {
                 );
                 // Check pattern is a string literal
                 match clause.pattern {
-                    Expression::Literal(Literal::String(s)) => {
+                    | Expression::Literal(Literal::String(s)) => {
                         assert_eq!(s, "John");
-                    }
-                    _ => panic!("Expected string literal pattern"),
+                    },
+                    | _ => panic!("Expected string literal pattern"),
                 }
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -235,7 +235,7 @@ mod parser_tests {
 
         // Verify the parsed structure contains neuromatch_clause with field
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(
                     select.neuromatch_clause.is_some(),
                     "NEUROMATCH clause should be present"
@@ -246,8 +246,8 @@ mod parser_tests {
                     Some("name".to_string()),
                     "Field should be 'name'"
                 );
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -266,7 +266,7 @@ mod parser_tests {
 
         // Verify both clauses are present
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(
                     select.neuromatch_clause.is_some(),
                     "NEUROMATCH clause should be present"
@@ -275,8 +275,8 @@ mod parser_tests {
                     select.where_clause.is_some(),
                     "WHERE clause should be present"
                 );
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -311,7 +311,7 @@ mod parser_tests {
 
         // Verify the parsed structure contains a comparison with HEBBIAN_LEARNING function
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(
                     select.where_clause.is_some(),
                     "WHERE clause should be present"
@@ -323,8 +323,8 @@ mod parser_tests {
                     "WHERE clause should contain HEBBIAN_LEARNING function: {:?}",
                     select.where_clause
                 );
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -343,27 +343,27 @@ mod parser_tests {
 
         // Verify the parsed structure contains a HEBBIAN_LEARNING function call
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert_eq!(select.select_list.len(), 1, "Should have one select item");
                 match &select.select_list[0] {
-                    SelectItem::Expression { expr, alias } => {
+                    | SelectItem::Expression { expr, alias } => {
                         match expr {
-                            Expression::FunctionCall { name, args } => {
+                            | Expression::FunctionCall { name, args } => {
                                 assert_eq!(name, "HEBBIAN_LEARNING");
                                 assert_eq!(
                                     args.len(),
                                     3,
                                     "HEBBIAN_LEARNING should have 3 arguments"
                                 );
-                            }
-                            _ => panic!("Expected FunctionCall expression"),
+                            },
+                            | _ => panic!("Expected FunctionCall expression"),
                         }
                         assert_eq!(alias.as_deref(), Some("correlation"));
-                    }
-                    _ => panic!("Expected Expression select item"),
+                    },
+                    | _ => panic!("Expected Expression select item"),
                 }
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -420,8 +420,8 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Insert(_) => {} // Expected
-            _ => panic!("Expected INSERT statement"),
+            | Statement::Insert(_) => {}, // Expected
+            | _ => panic!("Expected INSERT statement"),
         }
     }
 
@@ -434,8 +434,8 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Update(_) => {} // Expected
-            _ => panic!("Expected UPDATE statement"),
+            | Statement::Update(_) => {}, // Expected
+            | _ => panic!("Expected UPDATE statement"),
         }
     }
 
@@ -448,8 +448,8 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Delete(_) => {} // Expected
-            _ => panic!("Expected DELETE statement"),
+            | Statement::Delete(_) => {}, // Expected
+            | _ => panic!("Expected DELETE statement"),
         }
     }
 
@@ -466,10 +466,10 @@ mod parser_tests {
         );
 
         match result.unwrap() {
-            Statement::TruncateTable(truncate) => {
+            | Statement::TruncateTable(truncate) => {
                 assert_eq!(truncate.table_name, "users");
-            }
-            _ => panic!("Expected TRUNCATE TABLE statement"),
+            },
+            | _ => panic!("Expected TRUNCATE TABLE statement"),
         }
     }
 
@@ -486,10 +486,10 @@ mod parser_tests {
         );
 
         match result.unwrap() {
-            Statement::TruncateTable(truncate) => {
+            | Statement::TruncateTable(truncate) => {
                 assert_eq!(truncate.table_name, "orders");
-            }
-            _ => panic!("Expected TRUNCATE TABLE statement"),
+            },
+            | _ => panic!("Expected TRUNCATE TABLE statement"),
         }
     }
 
@@ -502,10 +502,10 @@ mod parser_tests {
         assert!(result.is_ok(), "Failed to parse lowercase TRUNCATE TABLE");
 
         match result.unwrap() {
-            Statement::TruncateTable(truncate) => {
+            | Statement::TruncateTable(truncate) => {
                 assert_eq!(truncate.table_name, "PRODUCTS");
-            }
-            _ => panic!("Expected TRUNCATE TABLE statement"),
+            },
+            | _ => panic!("Expected TRUNCATE TABLE statement"),
         }
     }
 
@@ -536,14 +536,14 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.with_clause.is_some());
                 let with_clause = select.with_clause.unwrap();
                 assert_eq!(with_clause.ctes.len(), 1);
                 assert_eq!(with_clause.ctes[0].name, "active_users");
                 assert!(!with_clause.recursive);
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -564,15 +564,15 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.with_clause.is_some());
                 let with_clause = select.with_clause.unwrap();
                 assert_eq!(with_clause.ctes.len(), 2);
                 assert_eq!(with_clause.ctes[0].name, "active_users");
                 assert_eq!(with_clause.ctes[1].name, "recent_orders");
                 assert!(!with_clause.recursive);
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -591,14 +591,14 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.with_clause.is_some());
                 let with_clause = select.with_clause.unwrap();
                 assert_eq!(with_clause.ctes.len(), 1);
                 assert_eq!(with_clause.ctes[0].name, "subordinates");
                 assert!(with_clause.recursive);
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -617,7 +617,7 @@ mod parser_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.with_clause.is_some());
                 let with_clause = select.with_clause.unwrap();
                 assert_eq!(with_clause.ctes.len(), 1);
@@ -628,8 +628,8 @@ mod parser_tests {
                 assert_eq!(columns[0], "user_id");
                 assert_eq!(columns[1], "total_posts");
                 assert_eq!(columns[2], "avg_likes");
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -647,12 +647,12 @@ mod parser_tests {
         assert!(result.is_ok(), "Failed to parse UNION: {:?}", result.err());
 
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.union_clause.is_some(), "Expected UNION clause");
                 let union = select.union_clause.unwrap();
                 assert!(matches!(union.union_type, crate::ast::UnionType::Union));
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -674,12 +674,12 @@ mod parser_tests {
         );
 
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.union_clause.is_some(), "Expected UNION ALL clause");
                 let union = select.union_clause.unwrap();
                 assert!(matches!(union.union_type, crate::ast::UnionType::UnionAll));
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -705,7 +705,7 @@ mod parser_tests {
         );
 
         match result.unwrap() {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.with_clause.is_some(), "Expected WITH clause");
                 let with_clause = select.with_clause.unwrap();
                 assert!(with_clause.recursive, "Expected RECURSIVE flag");
@@ -720,8 +720,8 @@ mod parser_tests {
                 );
                 let union = cte_query.union_clause.as_ref().unwrap();
                 assert!(matches!(union.union_type, crate::ast::UnionType::UnionAll));
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -739,18 +739,18 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(!explain.analyze);
                 assert!(!explain.verbose);
                 assert!(matches!(explain.format, ExplainFormat::Text));
                 match explain.statement.as_ref() {
-                    Statement::Select(select) => {
+                    | Statement::Select(select) => {
                         assert!(select.where_clause.is_some());
-                    }
-                    _ => panic!("Expected SELECT inside EXPLAIN"),
+                    },
+                    | _ => panic!("Expected SELECT inside EXPLAIN"),
                 }
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -768,16 +768,16 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(explain.analyze, "ANALYZE should be true");
                 assert!(!explain.verbose);
                 assert!(matches!(explain.format, ExplainFormat::Text));
                 match explain.statement.as_ref() {
-                    Statement::Select(_) => {}
-                    _ => panic!("Expected SELECT inside EXPLAIN"),
+                    | Statement::Select(_) => {},
+                    | _ => panic!("Expected SELECT inside EXPLAIN"),
                 }
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -795,11 +795,11 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(!explain.analyze);
                 assert!(matches!(explain.format, ExplainFormat::Json));
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -817,11 +817,11 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(explain.analyze, "ANALYZE should be true");
                 assert!(matches!(explain.format, ExplainFormat::Json));
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -839,10 +839,10 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(matches!(explain.format, ExplainFormat::Yaml));
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -860,10 +860,10 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(matches!(explain.format, ExplainFormat::Xml));
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -881,11 +881,11 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(explain.verbose, "VERBOSE should be true");
                 assert!(!explain.analyze);
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -909,18 +909,18 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => {
+            | Statement::Explain(explain) => {
                 assert!(explain.analyze);
                 match explain.statement.as_ref() {
-                    Statement::Select(select) => {
+                    | Statement::Select(select) => {
                         assert!(select.from.is_some());
                         let from = select.from.as_ref().unwrap();
                         assert!(!from.joins.is_empty(), "Expected JOIN in query");
-                    }
-                    _ => panic!("Expected SELECT inside EXPLAIN"),
+                    },
+                    | _ => panic!("Expected SELECT inside EXPLAIN"),
                 }
-            }
-            _ => panic!("Expected EXPLAIN statement"),
+            },
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -938,11 +938,11 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => match explain.statement.as_ref() {
-                Statement::Insert(_) => {}
-                _ => panic!("Expected INSERT inside EXPLAIN"),
+            | Statement::Explain(explain) => match explain.statement.as_ref() {
+                | Statement::Insert(_) => {},
+                | _ => panic!("Expected INSERT inside EXPLAIN"),
             },
-            _ => panic!("Expected EXPLAIN statement"),
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -960,11 +960,11 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => match explain.statement.as_ref() {
-                Statement::Update(_) => {}
-                _ => panic!("Expected UPDATE inside EXPLAIN"),
+            | Statement::Explain(explain) => match explain.statement.as_ref() {
+                | Statement::Update(_) => {},
+                | _ => panic!("Expected UPDATE inside EXPLAIN"),
             },
-            _ => panic!("Expected EXPLAIN statement"),
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -982,11 +982,11 @@ mod parser_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Explain(explain) => match explain.statement.as_ref() {
-                Statement::Delete(_) => {}
-                _ => panic!("Expected DELETE inside EXPLAIN"),
+            | Statement::Explain(explain) => match explain.statement.as_ref() {
+                | Statement::Delete(_) => {},
+                | _ => panic!("Expected DELETE inside EXPLAIN"),
             },
-            _ => panic!("Expected EXPLAIN statement"),
+            | _ => panic!("Expected EXPLAIN statement"),
         }
     }
 
@@ -1494,8 +1494,8 @@ mod error_tests {
         let qsql_error = QSQLError::from(io_error);
 
         match qsql_error {
-            QSQLError::IOError { source: _ } => {} // Expected
-            _ => panic!("Expected IOError variant"),
+            | QSQLError::IOError { source: _ } => {}, // Expected
+            | _ => panic!("Expected IOError variant"),
         }
     }
 }
@@ -1782,25 +1782,25 @@ mod extract_function_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert_eq!(select.select_list.len(), 1);
                 match &select.select_list[0] {
-                    SelectItem::Expression { expr, .. } => match expr {
-                        Expression::Extract { field, source } => {
+                    | SelectItem::Expression { expr, .. } => match expr {
+                        | Expression::Extract { field, source } => {
                             assert_eq!(field, "YEAR");
                             match source.as_ref() {
-                                Expression::Literal(Literal::String(s)) => {
+                                | Expression::Literal(Literal::String(s)) => {
                                     assert_eq!(s, "2025-12-23");
-                                }
-                                _ => panic!("Expected string literal as source"),
+                                },
+                                | _ => panic!("Expected string literal as source"),
                             }
-                        }
-                        _ => panic!("Expected Extract expression"),
+                        },
+                        | _ => panic!("Expected Extract expression"),
                     },
-                    _ => panic!("Expected Expression select item"),
+                    | _ => panic!("Expected Expression select item"),
                 }
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -2235,7 +2235,7 @@ mod derived_table_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.from.is_some());
                 let from = select.from.unwrap();
                 assert_eq!(from.relations.len(), 1);
@@ -2245,8 +2245,8 @@ mod derived_table_tests {
                     "Expected subquery in table reference"
                 );
                 assert_eq!(table_ref.alias, Some("adult_users".to_string()));
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -2269,15 +2269,15 @@ mod derived_table_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.from.is_some());
                 let from = select.from.unwrap();
                 let table_ref = &from.relations[0];
                 assert!(table_ref.subquery.is_some());
                 assert_eq!(table_ref.alias, Some("dept_stats".to_string()));
                 assert!(select.where_clause.is_some());
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -2298,7 +2298,7 @@ mod derived_table_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.from.is_some());
                 let from = select.from.unwrap();
                 assert_eq!(from.relations.len(), 1);
@@ -2311,8 +2311,8 @@ mod derived_table_tests {
                     "Expected subquery in JOIN"
                 );
                 assert_eq!(join.relation.alias, Some("s".to_string()));
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -2350,7 +2350,7 @@ mod derived_table_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 let from = select.from.unwrap();
                 let table_ref = &from.relations[0];
                 assert!(table_ref.subquery.is_some());
@@ -2362,8 +2362,8 @@ mod derived_table_tests {
                 let inner_table_ref = &inner_from.relations[0];
                 assert!(inner_table_ref.subquery.is_some());
                 assert_eq!(inner_table_ref.alias, Some("inner_subq".to_string()));
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -2386,7 +2386,7 @@ mod derived_table_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 assert!(select.from.is_some(), "FROM clause should not be None");
                 let from = select.from.unwrap();
                 assert_eq!(
@@ -2400,8 +2400,8 @@ mod derived_table_tests {
                     "Expected subquery in join relation"
                 );
                 assert_eq!(from.joins[0].join_type, JoinType::Left);
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -2421,7 +2421,7 @@ mod derived_table_tests {
 
         let stmt = result.unwrap();
         match stmt {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 let from = select.from.unwrap();
 
                 // First relation is a derived table
@@ -2431,8 +2431,8 @@ mod derived_table_tests {
                 // Join is a regular table
                 assert!(from.joins[0].relation.subquery.is_none());
                 assert_eq!(from.joins[0].relation.name, "products");
-            }
-            _ => panic!("Expected SELECT statement"),
+            },
+            | _ => panic!("Expected SELECT statement"),
         }
     }
 
@@ -2444,11 +2444,11 @@ mod derived_table_tests {
         assert!(result.is_ok(), "Failed to parse COMPRESS TABLE statement");
 
         match result.unwrap() {
-            Statement::CompressTable(compress) => {
+            | Statement::CompressTable(compress) => {
                 assert_eq!(compress.table_name, "logs");
                 assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
-            }
-            _ => panic!("Expected COMPRESS TABLE statement"),
+            },
+            | _ => panic!("Expected COMPRESS TABLE statement"),
         }
     }
 
@@ -2468,11 +2468,11 @@ mod derived_table_tests {
             assert!(result.is_ok(), "Failed to parse: {}", sql);
 
             match result.unwrap() {
-                Statement::CompressTable(compress) => {
+                | Statement::CompressTable(compress) => {
                     assert_eq!(compress.table_name, "logs");
                     assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
-                }
-                _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
+                },
+                | _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
             }
         }
     }
@@ -2495,11 +2495,11 @@ mod derived_table_tests {
             assert!(result.is_ok(), "Failed to parse: {}", sql);
 
             match result.unwrap() {
-                Statement::CompressTable(compress) => {
+                | Statement::CompressTable(compress) => {
                     assert_eq!(compress.table_name, expected_table);
                     assert_eq!(compress.algorithm, CompressionAlgorithm::DNA);
-                }
-                _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
+                },
+                | _ => panic!("Expected COMPRESS TABLE statement for: {}", sql),
             }
         }
     }

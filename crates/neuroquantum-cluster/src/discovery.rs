@@ -57,10 +57,10 @@ impl DiscoveryService {
     /// Discover cluster nodes.
     pub async fn discover(&self) -> ClusterResult<Vec<PeerInfo>> {
         match &self.method {
-            DiscoveryMethod::Static => self.discover_static().await,
-            DiscoveryMethod::Dns => self.discover_dns().await,
-            DiscoveryMethod::Consul => self.discover_consul().await,
-            DiscoveryMethod::Etcd => self.discover_etcd().await,
+            | DiscoveryMethod::Static => self.discover_static().await,
+            | DiscoveryMethod::Dns => self.discover_dns().await,
+            | DiscoveryMethod::Consul => self.discover_consul().await,
+            | DiscoveryMethod::Etcd => self.discover_etcd().await,
         }
     }
 
@@ -123,7 +123,7 @@ impl DiscoveryService {
 
         // Try SRV record lookup first (preferred for service discovery)
         match resolver.srv_lookup(dns_name).await {
-            Ok(srv_records) => {
+            | Ok(srv_records) => {
                 debug!("Found {} SRV records", srv_records.iter().count());
                 for srv in srv_records.iter() {
                     let target = srv.target().to_string();
@@ -131,7 +131,7 @@ impl DiscoveryService {
 
                     // Look up A/AAAA records for the target
                     match resolver.lookup_ip(target.as_str()).await {
-                        Ok(ips) => {
+                        | Ok(ips) => {
                             for ip in ips.iter() {
                                 let addr = SocketAddr::new(ip, port);
                                 let node_id = generate_node_id_from_addr(&addr);
@@ -147,18 +147,18 @@ impl DiscoveryService {
                                     });
                                 }
                             }
-                        }
-                        Err(e) => {
+                        },
+                        | Err(e) => {
                             warn!(target = %target, error = %e, "Failed to resolve target");
-                        }
+                        },
                     }
                 }
-            }
-            Err(_) => {
+            },
+            | Err(_) => {
                 // Fallback to A/AAAA record lookup
                 debug!("No SRV records found, trying A/AAAA records");
                 match resolver.lookup_ip(dns_name).await {
-                    Ok(ips) => {
+                    | Ok(ips) => {
                         // Use configured default port for direct A/AAAA lookups
                         for ip in ips.iter() {
                             let addr = SocketAddr::new(ip, default_port);
@@ -175,15 +175,15 @@ impl DiscoveryService {
                                 });
                             }
                         }
-                    }
-                    Err(e) => {
+                    },
+                    | Err(e) => {
                         return Err(ClusterError::DiscoveryError(format!(
                             "Failed to resolve DNS name '{}': {}",
                             dns_name, e
                         )));
-                    }
+                    },
                 }
-            }
+            },
         }
 
         info!(count = peers.len(), "Discovered nodes via DNS");
@@ -303,7 +303,7 @@ impl DiscoveryService {
             })?;
 
             match serde_json::from_str::<NodeRegistration>(value_str) {
-                Ok(registration) => {
+                | Ok(registration) => {
                     // Skip self
                     if registration.node_id == self.local_node_id {
                         continue;
@@ -325,14 +325,14 @@ impl DiscoveryService {
                         healthy: false,
                         protocol_version: 1, // Default, updated during handshake
                     });
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!(
                         key = ?std::str::from_utf8(kv.key()).unwrap_or("<invalid>"),
                         error = %e,
                         "Failed to parse node registration from etcd"
                     );
-                }
+                },
             }
         }
 

@@ -946,14 +946,14 @@ impl ShardManager {
     fn find_node_for_hash(&self, ring: &[RingPoint], hash: u64) -> NodeId {
         // Binary search for the first point >= hash
         let idx = match ring.binary_search_by_key(&hash, |p| p.hash) {
-            Ok(i) => i,
-            Err(i) => {
+            | Ok(i) => i,
+            | Err(i) => {
                 if i >= ring.len() {
                     0 // Wrap around to first node
                 } else {
                     i
                 }
-            }
+            },
         };
 
         ring[idx].node_id
@@ -967,8 +967,8 @@ impl ShardManager {
 
         let mut nodes = Vec::new();
         let start_idx = match ring.binary_search_by_key(&hash, |p| p.hash) {
-            Ok(i) => i,
-            Err(i) => i % ring.len(),
+            | Ok(i) => i,
+            | Err(i) => i % ring.len(),
         };
 
         let mut idx = start_idx;

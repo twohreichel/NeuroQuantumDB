@@ -88,15 +88,15 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
     let mut message_count = 0;
     let send_fn = |msg: StreamingMessage| {
         match &msg {
-            StreamingMessage::Started {
+            | StreamingMessage::Started {
                 query,
                 estimated_rows,
                 ..
             } => {
                 println!("▶️  Query started: {}", query);
                 println!("   Estimated rows: {:?}", estimated_rows);
-            }
-            StreamingMessage::Batch {
+            },
+            | StreamingMessage::Batch {
                 batch_number,
                 rows,
                 has_more,
@@ -108,16 +108,16 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
                     rows.len(),
                     has_more
                 );
-            }
-            StreamingMessage::Progress { progress, .. } => {
+            },
+            | StreamingMessage::Progress { progress, .. } => {
                 println!(
                     "⏳ Progress: {:.1}% ({} rows, {:.0} rows/sec)",
                     progress.percentage.unwrap_or(0.0),
                     progress.rows_processed,
                     progress.throughput
                 );
-            }
-            StreamingMessage::Completed {
+            },
+            | StreamingMessage::Completed {
                 total_rows,
                 execution_time_ms,
                 ..
@@ -126,8 +126,8 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
                     "✅ Completed: {} rows in {} ms",
                     total_rows, execution_time_ms
                 );
-            }
-            _ => {}
+            },
+            | _ => {},
         }
         message_count += 1;
         Ok(())
@@ -246,8 +246,8 @@ async fn demo_query_cancellation() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await
     {
-        Ok(total) => println!("✅ Processed {} rows before cancellation\n", total),
-        Err(e) => println!("❌ Query cancelled: {}\n", e),
+        | Ok(total) => println!("✅ Processed {} rows before cancellation\n", total),
+        | Err(e) => println!("❌ Query cancelled: {}\n", e),
     }
 
     let stats = registry.get_stream_stats(stream_id).await;

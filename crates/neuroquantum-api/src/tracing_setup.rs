@@ -32,12 +32,12 @@ pub fn init_tracing(config: &TracingConfig) -> Result<()> {
 
     // Create tracer based on exporter type
     let tracer = match &config.exporter {
-        TracingExporter::Jaeger => create_jaeger_tracer(config)?,
-        TracingExporter::Otlp => create_otlp_tracer(config)?,
-        TracingExporter::Console => create_console_tracer(config)?,
-        TracingExporter::Zipkin => {
+        | TracingExporter::Jaeger => create_jaeger_tracer(config)?,
+        | TracingExporter::Otlp => create_otlp_tracer(config)?,
+        | TracingExporter::Console => create_console_tracer(config)?,
+        | TracingExporter::Zipkin => {
             anyhow::bail!("Zipkin exporter is not yet implemented");
-        }
+        },
     };
 
     // Create the tracing layer with OpenTelemetry

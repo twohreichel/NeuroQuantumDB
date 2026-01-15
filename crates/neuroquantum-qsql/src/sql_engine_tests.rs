@@ -15,11 +15,11 @@ fn test_basic_select_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             assert!(select.from.is_some());
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -30,11 +30,11 @@ fn test_select_with_where_clause() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 2);
             assert!(select.where_clause.is_some());
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -45,10 +45,10 @@ fn test_select_with_limit() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.limit, Some(10));
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -59,12 +59,12 @@ fn test_insert_statement_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Insert(insert) => {
+        | Statement::Insert(insert) => {
             assert_eq!(insert.table_name, "users");
             assert!(insert.columns.is_some());
             assert_eq!(insert.values.len(), 1);
-        }
-        _ => panic!("Expected INSERT statement"),
+        },
+        | _ => panic!("Expected INSERT statement"),
     }
 }
 
@@ -76,11 +76,11 @@ fn test_insert_multiple_values() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Insert(insert) => {
+        | Statement::Insert(insert) => {
             assert_eq!(insert.table_name, "products");
             assert_eq!(insert.values.len(), 2);
-        }
-        _ => panic!("Expected INSERT statement"),
+        },
+        | _ => panic!("Expected INSERT statement"),
     }
 }
 
@@ -91,12 +91,12 @@ fn test_update_statement_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Update(update) => {
+        | Statement::Update(update) => {
             assert_eq!(update.table_name, "users");
             assert_eq!(update.assignments.len(), 1);
             assert!(update.where_clause.is_some());
-        }
-        _ => panic!("Expected UPDATE statement"),
+        },
+        | _ => panic!("Expected UPDATE statement"),
     }
 }
 
@@ -107,11 +107,11 @@ fn test_update_multiple_columns() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Update(update) => {
+        | Statement::Update(update) => {
             assert_eq!(update.table_name, "products");
             assert_eq!(update.assignments.len(), 2);
-        }
-        _ => panic!("Expected UPDATE statement"),
+        },
+        | _ => panic!("Expected UPDATE statement"),
     }
 }
 
@@ -122,11 +122,11 @@ fn test_delete_statement_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Delete(delete) => {
+        | Statement::Delete(delete) => {
             assert_eq!(delete.table_name, "users");
             assert!(delete.where_clause.is_some());
-        }
-        _ => panic!("Expected DELETE statement"),
+        },
+        | _ => panic!("Expected DELETE statement"),
     }
 }
 
@@ -137,11 +137,11 @@ fn test_delete_all_rows() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Delete(delete) => {
+        | Statement::Delete(delete) => {
             assert_eq!(delete.table_name, "temp_table");
             assert!(delete.where_clause.is_none());
-        }
-        _ => panic!("Expected DELETE statement"),
+        },
+        | _ => panic!("Expected DELETE statement"),
     }
 }
 
@@ -152,11 +152,11 @@ fn test_neuromorphic_neuromatch_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::NeuroMatch(neuromatch) => {
+        | Statement::NeuroMatch(neuromatch) => {
             assert_eq!(neuromatch.target_table, "patterns");
             assert!(neuromatch.hebbian_strengthening);
-        }
-        _ => panic!("Expected NEUROMATCH statement"),
+        },
+        | _ => panic!("Expected NEUROMATCH statement"),
     }
 }
 
@@ -167,11 +167,11 @@ fn test_quantum_search_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::QuantumSearch(quantum_search) => {
+        | Statement::QuantumSearch(quantum_search) => {
             assert_eq!(quantum_search.target_table, "quantum_data");
             assert!(quantum_search.amplitude_amplification);
-        }
-        _ => panic!("Expected QUANTUM_SEARCH statement"),
+        },
+        | _ => panic!("Expected QUANTUM_SEARCH statement"),
     }
 }
 
@@ -191,10 +191,10 @@ fn test_complex_expression_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert!(select.where_clause.is_some());
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -396,7 +396,7 @@ fn test_operator_precedence_mult_over_add() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 left: _,
                 operator: BinaryOperator::Equal,
@@ -438,8 +438,8 @@ fn test_operator_precedence_mult_over_add() {
                     }
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -453,7 +453,7 @@ fn test_operator_precedence_and_over_or() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 operator: top_op, ..
             }) = &select.where_clause
@@ -463,8 +463,8 @@ fn test_operator_precedence_and_over_or() {
             } else {
                 panic!("Expected binary operation at top level");
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -478,7 +478,7 @@ fn test_operator_precedence_comparison_over_arithmetic() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 left: cmp_left,
                 operator: cmp_op,
@@ -505,8 +505,8 @@ fn test_operator_precedence_comparison_over_arithmetic() {
                     panic!("Expected addition expression");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -520,7 +520,7 @@ fn test_parentheses_override_precedence() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 left: _,
                 operator: BinaryOperator::Equal,
@@ -553,8 +553,8 @@ fn test_parentheses_override_precedence() {
                     }
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -567,7 +567,7 @@ fn test_unary_not_operator() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::UnaryOp {
                 operator: UnaryOperator::Not,
                 ..
@@ -577,8 +577,8 @@ fn test_unary_not_operator() {
             } else {
                 panic!("Expected NOT unary operator at top level");
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -591,7 +591,7 @@ fn test_unary_minus_operator() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 left: _,
                 operator: BinaryOperator::Equal,
@@ -612,8 +612,8 @@ fn test_unary_minus_operator() {
                     panic!("Expected unary minus");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -626,7 +626,7 @@ fn test_function_call_parsing() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 left,
                 operator: BinaryOperator::GreaterThan,
@@ -640,8 +640,8 @@ fn test_function_call_parsing() {
                     panic!("Expected function call");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -655,7 +655,7 @@ fn test_complex_nested_expression() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             // Top level should be OR (lowest precedence among binary logical ops)
             if let Some(Expression::BinaryOp {
                 operator: top_op, ..
@@ -665,8 +665,8 @@ fn test_complex_nested_expression() {
             } else {
                 panic!("Expected OR at top level");
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -680,7 +680,7 @@ fn test_left_associativity() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 left: _,
                 operator: BinaryOperator::Equal,
@@ -715,8 +715,8 @@ fn test_left_associativity() {
                     }
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -729,7 +729,7 @@ fn test_like_operator() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 operator: BinaryOperator::Like,
                 ..
@@ -739,8 +739,8 @@ fn test_like_operator() {
             } else {
                 panic!("Expected LIKE operator");
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -753,7 +753,7 @@ fn test_division_and_modulo() {
     assert!(result.is_ok());
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::BinaryOp {
                 left: _,
                 operator: BinaryOperator::Equal,
@@ -780,8 +780,8 @@ fn test_division_and_modulo() {
                     panic!("Expected modulo at top of arithmetic expression");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -796,7 +796,7 @@ fn test_group_by_parsing() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert!(
                 !select.group_by.is_empty(),
                 "GROUP BY clause should be parsed"
@@ -806,8 +806,8 @@ fn test_group_by_parsing() {
                 1,
                 "Should have exactly one GROUP BY column"
             );
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -818,14 +818,14 @@ fn test_group_by_with_having() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert!(
                 !select.group_by.is_empty(),
                 "GROUP BY clause should be parsed"
             );
             assert!(select.having.is_some(), "HAVING clause should be parsed");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -836,14 +836,14 @@ fn test_group_by_multiple_columns() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(
                 select.group_by.len(),
                 2,
                 "Should have exactly two GROUP BY columns"
             );
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -855,15 +855,15 @@ fn test_group_by_with_aggregate_functions() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(
                 select.select_list.len(),
                 3,
                 "Should have three select items"
             );
             assert!(!select.group_by.is_empty(), "GROUP BY should be parsed");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -876,7 +876,7 @@ fn test_group_by_with_where_and_having() {
 
     assert!(result.is_ok());
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert!(
                 select.where_clause.is_some(),
                 "WHERE clause should be parsed"
@@ -886,8 +886,8 @@ fn test_group_by_with_where_and_having() {
                 "GROUP BY clause should be parsed"
             );
             assert!(select.having.is_some(), "HAVING clause should be parsed");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -901,7 +901,7 @@ fn test_in_operator_parsing() {
     assert!(result.is_ok(), "IN operator should parse successfully");
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::InList {
                 expr,
                 list,
@@ -927,8 +927,8 @@ fn test_in_operator_parsing() {
             } else {
                 panic!("Expected InList expression, got: {:?}", select.where_clause);
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -941,7 +941,7 @@ fn test_not_in_operator_parsing() {
     assert!(result.is_ok(), "NOT IN operator should parse successfully");
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::InList {
                 expr,
                 list,
@@ -960,8 +960,8 @@ fn test_not_in_operator_parsing() {
             } else {
                 panic!("Expected InList expression");
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -974,7 +974,7 @@ fn test_in_operator_with_and_or() {
     assert!(result.is_ok(), "IN with AND should parse successfully");
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             // Should be AND at top level
             if let Some(Expression::BinaryOp {
                 operator: crate::ast::BinaryOperator::And,
@@ -992,8 +992,8 @@ fn test_in_operator_with_and_or() {
             } else {
                 panic!("Expected AND expression at top level");
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1007,7 +1007,7 @@ fn test_inner_join_parsing() {
 
     assert!(result.is_ok(), "INNER JOIN should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.relations.len(), 1, "Should have one base relation");
             assert_eq!(from.relations[0].name, "users");
@@ -1019,8 +1019,8 @@ fn test_inner_join_parsing() {
             assert_eq!(join.relation.name, "orders");
             assert_eq!(join.relation.alias, Some("o".to_string()));
             assert!(join.condition.is_some(), "Should have ON condition");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1032,12 +1032,12 @@ fn test_left_join_parsing() {
 
     assert!(result.is_ok(), "LEFT JOIN should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert_eq!(from.joins[0].join_type, JoinType::Left);
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1049,12 +1049,12 @@ fn test_left_outer_join_parsing() {
 
     assert!(result.is_ok(), "LEFT OUTER JOIN should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert_eq!(from.joins[0].join_type, JoinType::Left);
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1066,12 +1066,12 @@ fn test_right_join_parsing() {
 
     assert!(result.is_ok(), "RIGHT JOIN should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert_eq!(from.joins[0].join_type, JoinType::Right);
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1083,12 +1083,12 @@ fn test_full_outer_join_parsing() {
 
     assert!(result.is_ok(), "FULL OUTER JOIN should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert_eq!(from.joins[0].join_type, JoinType::Full);
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1100,7 +1100,7 @@ fn test_cross_join_parsing() {
 
     assert!(result.is_ok(), "CROSS JOIN should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert_eq!(from.joins[0].join_type, JoinType::Cross);
@@ -1108,8 +1108,8 @@ fn test_cross_join_parsing() {
                 from.joins[0].condition.is_none(),
                 "CROSS JOIN should not have ON condition"
             );
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1121,7 +1121,7 @@ fn test_plain_join_parsing() {
 
     assert!(result.is_ok(), "Plain JOIN should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert_eq!(
@@ -1129,8 +1129,8 @@ fn test_plain_join_parsing() {
                 JoinType::Inner,
                 "Plain JOIN defaults to INNER"
             );
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1146,15 +1146,15 @@ fn test_multiple_joins_parsing() {
 
     assert!(result.is_ok(), "Multiple JOINs should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 2, "Should have two JOINs");
             assert_eq!(from.joins[0].join_type, JoinType::Inner);
             assert_eq!(from.joins[0].relation.name, "orders");
             assert_eq!(from.joins[1].join_type, JoinType::Left);
             assert_eq!(from.joins[1].relation.name, "products");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1168,12 +1168,12 @@ fn test_join_with_where_clause() {
 
     assert!(result.is_ok(), "JOIN with WHERE should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert!(select.where_clause.is_some(), "Should have WHERE clause");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1190,12 +1190,12 @@ fn test_join_with_order_by() {
         "JOIN with ORDER BY should parse successfully"
     );
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert!(!select.order_by.is_empty(), "Should have ORDER BY clause");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1208,12 +1208,12 @@ fn test_join_with_limit() {
 
     assert!(result.is_ok(), "JOIN with LIMIT should parse successfully");
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             let from = select.from.expect("Should have FROM clause");
             assert_eq!(from.joins.len(), 1, "Should have one JOIN");
             assert_eq!(select.limit, Some(10), "Should have LIMIT 10");
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1234,25 +1234,25 @@ fn test_case_expression_simple() {
         result
     );
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 2, "Should have 2 select items");
             // Verify second item is a CASE expression
             if let SelectItem::Expression { expr, .. } = &select.select_list[1] {
                 match expr {
-                    Expression::Case {
+                    | Expression::Case {
                         when_clauses,
                         else_result,
                     } => {
                         assert_eq!(when_clauses.len(), 1, "Should have 1 WHEN clause");
                         assert!(else_result.is_some(), "Should have ELSE clause");
-                    }
-                    _ => panic!("Expected CASE expression"),
+                    },
+                    | _ => panic!("Expected CASE expression"),
                 }
             } else {
                 panic!("Expected Expression select item");
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1270,21 +1270,21 @@ fn test_case_expression_multiple_when() {
         result
     );
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let SelectItem::Expression { expr, .. } = &select.select_list[1] {
                 match expr {
-                    Expression::Case {
+                    | Expression::Case {
                         when_clauses,
                         else_result,
                     } => {
                         assert_eq!(when_clauses.len(), 2, "Should have 2 WHEN clauses");
                         assert!(else_result.is_some(), "Should have ELSE clause");
-                    }
-                    _ => panic!("Expected CASE expression"),
+                    },
+                    | _ => panic!("Expected CASE expression"),
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1300,21 +1300,21 @@ fn test_case_expression_without_else() {
         result
     );
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let SelectItem::Expression { expr, .. } = &select.select_list[1] {
                 match expr {
-                    Expression::Case {
+                    | Expression::Case {
                         when_clauses,
                         else_result,
                     } => {
                         assert_eq!(when_clauses.len(), 1, "Should have 1 WHEN clause");
                         assert!(else_result.is_none(), "Should NOT have ELSE clause");
-                    }
-                    _ => panic!("Expected CASE expression"),
+                    },
+                    | _ => panic!("Expected CASE expression"),
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1332,7 +1332,7 @@ fn test_case_expression_with_alias() {
         result
     );
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let SelectItem::Expression { expr, alias } = &select.select_list[1] {
                 assert!(
                     matches!(expr, Expression::Case { .. }),
@@ -1344,8 +1344,8 @@ fn test_case_expression_with_alias() {
                     "Should have alias 'status'"
                 );
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1391,7 +1391,7 @@ fn test_in_subquery_parsing() {
     );
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::InSubquery {
                 expr,
                 subquery,
@@ -1419,8 +1419,8 @@ fn test_in_subquery_parsing() {
                     select.where_clause
                 );
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1438,7 +1438,7 @@ fn test_not_in_subquery_parsing() {
     );
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::InSubquery {
                 expr,
                 subquery,
@@ -1466,8 +1466,8 @@ fn test_not_in_subquery_parsing() {
                     select.where_clause
                 );
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1485,7 +1485,7 @@ fn test_in_subquery_with_where_clause() {
     );
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             if let Some(Expression::InSubquery { subquery, .. }) = &select.where_clause {
                 // Check the subquery has a WHERE clause
                 assert!(
@@ -1498,8 +1498,8 @@ fn test_in_subquery_with_where_clause() {
                     select.where_clause
                 );
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1517,7 +1517,7 @@ fn test_date_add_parsing() {
 
     // Verify the AST structure
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
                 if let Expression::FunctionCall { name, args } = expr {
@@ -1527,8 +1527,8 @@ fn test_date_add_parsing() {
                     panic!("Expected FunctionCall expression");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1546,7 +1546,7 @@ fn test_date_sub_parsing() {
 
     // Verify the AST structure
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
                 if let Expression::FunctionCall { name, args } = expr {
@@ -1556,8 +1556,8 @@ fn test_date_sub_parsing() {
                     panic!("Expected FunctionCall expression");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1608,10 +1608,10 @@ fn test_date_add_in_where_clause() {
     assert!(result.is_ok(), "Failed to parse DATE_ADD in WHERE clause");
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert!(select.where_clause.is_some());
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1625,10 +1625,10 @@ fn test_date_sub_in_where_clause() {
     assert!(result.is_ok(), "Failed to parse DATE_SUB in WHERE clause");
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert!(select.where_clause.is_some());
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1666,21 +1666,21 @@ fn test_synaptic_weight_parsing() {
 
     // Verify the parsed statement structure
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             // Verify it's a function call
             match &select.select_list[0] {
-                SelectItem::Expression { expr, .. } => match expr {
-                    Expression::FunctionCall { name, args } => {
+                | SelectItem::Expression { expr, .. } => match expr {
+                    | Expression::FunctionCall { name, args } => {
                         assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
                         assert_eq!(args.len(), 2, "SYNAPTIC_WEIGHT should have 2 arguments");
-                    }
-                    _ => panic!("Expected FunctionCall expression"),
+                    },
+                    | _ => panic!("Expected FunctionCall expression"),
                 },
-                _ => panic!("Expected Expression SelectItem"),
+                | _ => panic!("Expected Expression SelectItem"),
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1740,28 +1740,28 @@ fn test_synaptic_weight_with_string_pattern() {
 
     // Verify the parsed statement structure contains the function call
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             // Verify it's a function call
             match &select.select_list[0] {
-                SelectItem::Expression { expr, .. } => match expr {
-                    Expression::FunctionCall { name, args } => {
+                | SelectItem::Expression { expr, .. } => match expr {
+                    | Expression::FunctionCall { name, args } => {
                         assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
                         assert_eq!(args.len(), 2, "SYNAPTIC_WEIGHT should have 2 arguments");
                         // Second argument should be a string literal
                         match &args[1] {
-                            Expression::Literal(Literal::String(s)) => {
+                            | Expression::Literal(Literal::String(s)) => {
                                 assert_eq!(s, "John");
-                            }
-                            _ => panic!("Expected string literal as second argument"),
+                            },
+                            | _ => panic!("Expected string literal as second argument"),
                         }
-                    }
-                    _ => panic!("Expected FunctionCall expression"),
+                    },
+                    | _ => panic!("Expected FunctionCall expression"),
                 },
-                _ => panic!("Expected Expression SelectItem"),
+                | _ => panic!("Expected Expression SelectItem"),
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1827,15 +1827,15 @@ fn test_synaptic_weight_with_order_by() {
 
     // Verify the parsed statement structure
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             // Verify ORDER BY clause exists and is not empty
             assert!(
                 !select.order_by.is_empty(),
                 "Expected ORDER BY clause in query"
             );
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -1853,21 +1853,21 @@ fn test_synaptic_weight_single_argument_parsing() {
 
     // Verify the parsed statement structure
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             // Verify it's a function call with 1 argument
             match &select.select_list[0] {
-                SelectItem::Expression { expr, .. } => match expr {
-                    Expression::FunctionCall { name, args } => {
+                | SelectItem::Expression { expr, .. } => match expr {
+                    | Expression::FunctionCall { name, args } => {
                         assert_eq!(name.to_uppercase(), "SYNAPTIC_WEIGHT");
                         assert_eq!(args.len(), 1, "SYNAPTIC_WEIGHT should have 1 argument");
-                    }
-                    _ => panic!("Expected FunctionCall expression"),
+                    },
+                    | _ => panic!("Expected FunctionCall expression"),
                 },
-                _ => panic!("Expected Expression SelectItem"),
+                | _ => panic!("Expected Expression SelectItem"),
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -2441,7 +2441,7 @@ fn test_curdate_parsing() {
     assert!(result.is_ok(), "Failed to parse CURDATE()");
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
                 if let Expression::FunctionCall { name, .. } = expr {
@@ -2450,8 +2450,8 @@ fn test_curdate_parsing() {
                     panic!("Expected FunctionCall expression");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }
 
@@ -2464,7 +2464,7 @@ fn test_curtime_parsing() {
     assert!(result.is_ok(), "Failed to parse CURTIME()");
 
     match result.unwrap() {
-        Statement::Select(select) => {
+        | Statement::Select(select) => {
             assert_eq!(select.select_list.len(), 1);
             if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
                 if let Expression::FunctionCall { name, .. } = expr {
@@ -2473,7 +2473,7 @@ fn test_curtime_parsing() {
                     panic!("Expected FunctionCall expression");
                 }
             }
-        }
-        _ => panic!("Expected SELECT statement"),
+        },
+        | _ => panic!("Expected SELECT statement"),
     }
 }

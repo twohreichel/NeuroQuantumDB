@@ -1044,10 +1044,10 @@ async fn test_transaction_isolation_stress() {
             for i in 0..iterations_per_task {
                 // Alternate between isolation levels
                 let level = match (task_id + i) % 4 {
-                    0 => IsolationLevel::ReadUncommitted,
-                    1 => IsolationLevel::ReadCommitted,
-                    2 => IsolationLevel::RepeatableRead,
-                    _ => IsolationLevel::Serializable,
+                    | 0 => IsolationLevel::ReadUncommitted,
+                    | 1 => IsolationLevel::ReadCommitted,
+                    | 2 => IsolationLevel::RepeatableRead,
+                    | _ => IsolationLevel::Serializable,
                 };
 
                 if let Ok(tx_id) = tm.begin_transaction(level).await {

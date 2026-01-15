@@ -77,13 +77,13 @@ impl UnifiedTFIMSolver {
         if self.config.prefer_quantum && self.config.quantum_config.is_some() {
             // Try quantum first
             match self.solve_quantum(classical_problem) {
-                Ok(result) => {
+                | Ok(result) => {
                     info!("Quantum TFIM succeeded: energy={:.6}", result.energy);
                     return Ok(result);
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!("Quantum TFIM failed ({}), falling back to classical", e);
-                }
+                },
             }
         }
 

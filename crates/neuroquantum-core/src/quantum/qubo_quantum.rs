@@ -300,26 +300,28 @@ impl QuantumQuboSolver {
 
         // Try the configured backend, fall back if needed
         let result = match self.config.backend {
-            QuboQuantumBackend::VQE => self.solve_vqe(&ising, q_matrix),
-            QuboQuantumBackend::QAOA => self.solve_qaoa(&ising, q_matrix),
-            QuboQuantumBackend::QuantumAnnealing => self.solve_quantum_annealing(&ising, q_matrix),
-            QuboQuantumBackend::SimulatedQuantumAnnealing => self.solve_sqa(&ising, q_matrix),
-            QuboQuantumBackend::ClassicalFallback => {
+            | QuboQuantumBackend::VQE => self.solve_vqe(&ising, q_matrix),
+            | QuboQuantumBackend::QAOA => self.solve_qaoa(&ising, q_matrix),
+            | QuboQuantumBackend::QuantumAnnealing => {
+                self.solve_quantum_annealing(&ising, q_matrix)
+            },
+            | QuboQuantumBackend::SimulatedQuantumAnnealing => self.solve_sqa(&ising, q_matrix),
+            | QuboQuantumBackend::ClassicalFallback => {
                 self.solve_classical_fallback(&ising, q_matrix)
-            }
+            },
         };
 
         // Handle fallback if enabled
         let mut solution = match result {
-            Ok(sol) => sol,
-            Err(e) if self.config.auto_fallback => {
+            | Ok(sol) => sol,
+            | Err(e) if self.config.auto_fallback => {
                 warn!(
                     "Quantum backend {:?} failed: {:?}, falling back to classical",
                     self.config.backend, e
                 );
                 self.solve_classical_fallback(&ising, q_matrix)?
-            }
-            Err(e) => return Err(e),
+            },
+            | Err(e) => return Err(e),
         };
 
         solution.computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;

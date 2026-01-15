@@ -469,13 +469,13 @@ impl NeuroQuantumDB {
 
         // Check if data exists
         let data = match serialized {
-            Some(data) => data,
-            None => {
+            | Some(data) => data,
+            | None => {
                 return Err(NeuroQuantumError::NotFound(format!(
                     "Key '{}' not found",
                     key
-                )))
-            }
+                )));
+            },
         };
 
         // Deserialize compressed data
@@ -514,13 +514,13 @@ impl NeuroQuantumDB {
 
         // Check if data exists
         let data = match serialized {
-            Some(data) => data,
-            None => {
+            | Some(data) => data,
+            | None => {
                 return Err(NeuroQuantumError::NotFound(format!(
                     "Key '{}' not found",
                     key
-                )))
-            }
+                )));
+            },
         };
 
         let compressed: CompressedDNA = serde_json::from_slice(&data)

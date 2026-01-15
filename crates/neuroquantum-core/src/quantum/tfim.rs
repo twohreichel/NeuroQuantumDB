@@ -161,12 +161,12 @@ impl TFIMSolver {
             let solution = self.solve_single_run(problem)?;
 
             match &best_solution {
-                None => best_solution = Some(solution),
-                Some(current_best) => {
+                | None => best_solution = Some(solution),
+                | Some(current_best) => {
                     if solution.energy < current_best.energy {
                         best_solution = Some(solution);
                     }
-                }
+                },
             }
         }
 
@@ -291,19 +291,19 @@ impl TFIMSolver {
     /// Get transverse field strength at given progress (0 to 1)
     fn get_field_strength(&self, progress: f64) -> f64 {
         match &self.config.field_schedule {
-            FieldSchedule::Linear => {
+            | FieldSchedule::Linear => {
                 self.config.initial_field * (1.0 - progress) + self.config.final_field * progress
-            }
-            FieldSchedule::Exponential { decay_rate } => {
+            },
+            | FieldSchedule::Exponential { decay_rate } => {
                 self.config.initial_field * (-decay_rate * progress).exp() + self.config.final_field
-            }
-            FieldSchedule::Polynomial { power } => {
+            },
+            | FieldSchedule::Polynomial { power } => {
                 self.config.initial_field * (1.0 - progress).powf(*power) + self.config.final_field
-            }
-            FieldSchedule::Custom { values } => {
+            },
+            | FieldSchedule::Custom { values } => {
                 let idx = (progress * (values.len() - 1) as f64) as usize;
                 values[idx.min(values.len() - 1)]
-            }
+            },
         }
     }
 

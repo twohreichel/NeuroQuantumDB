@@ -118,11 +118,11 @@ impl LeafNode {
 
         // Find insertion position
         match self.entries.binary_search_by(|(k, _)| k.cmp(&key)) {
-            Ok(_) => Err(anyhow!("Duplicate key")),
-            Err(pos) => {
+            | Ok(_) => Err(anyhow!("Duplicate key")),
+            | Err(pos) => {
                 self.entries.insert(pos, (key, value));
                 Ok(())
-            }
+            },
         }
     }
 
@@ -130,19 +130,19 @@ impl LeafNode {
     pub fn upsert(&mut self, key: Key, value: Value) -> Result<bool> {
         // Find insertion position
         match self.entries.binary_search_by(|(k, _)| k.cmp(&key)) {
-            Ok(pos) => {
+            | Ok(pos) => {
                 // Key exists, update the value
                 self.entries[pos].1 = value;
                 Ok(false) // false = updated existing key
-            }
-            Err(pos) => {
+            },
+            | Err(pos) => {
                 // Key doesn't exist, insert new entry
                 if self.is_full() {
                     return Err(anyhow!("Leaf node is full"));
                 }
                 self.entries.insert(pos, (key, value));
                 Ok(true) // true = inserted new key
-            }
+            },
         }
     }
 
@@ -335,8 +335,8 @@ impl BTreeNode {
     #[must_use]
     pub fn try_as_internal(&self) -> Option<&InternalNode> {
         match self {
-            BTreeNode::Internal(node) => Some(node),
-            BTreeNode::Leaf(_) => None,
+            | BTreeNode::Internal(node) => Some(node),
+            | BTreeNode::Leaf(_) => None,
         }
     }
 
@@ -346,8 +346,8 @@ impl BTreeNode {
     #[must_use]
     pub fn try_as_internal_mut(&mut self) -> Option<&mut InternalNode> {
         match self {
-            BTreeNode::Internal(node) => Some(node),
-            BTreeNode::Leaf(_) => None,
+            | BTreeNode::Internal(node) => Some(node),
+            | BTreeNode::Leaf(_) => None,
         }
     }
 
@@ -357,8 +357,8 @@ impl BTreeNode {
     #[must_use]
     pub fn try_as_leaf(&self) -> Option<&LeafNode> {
         match self {
-            BTreeNode::Leaf(node) => Some(node),
-            BTreeNode::Internal(_) => None,
+            | BTreeNode::Leaf(node) => Some(node),
+            | BTreeNode::Internal(_) => None,
         }
     }
 
@@ -368,8 +368,8 @@ impl BTreeNode {
     #[must_use]
     pub fn try_as_leaf_mut(&mut self) -> Option<&mut LeafNode> {
         match self {
-            BTreeNode::Leaf(node) => Some(node),
-            BTreeNode::Internal(_) => None,
+            | BTreeNode::Leaf(node) => Some(node),
+            | BTreeNode::Internal(_) => None,
         }
     }
 }

@@ -370,20 +370,20 @@ impl QuantumGroverSolver {
 
         // Execute based on backend
         let result = match self.config.backend {
-            GroverQuantumBackend::Simulator => {
+            | GroverQuantumBackend::Simulator => {
                 self.execute_simulator(oracle, &circuit, iterations)?
-            }
-            GroverQuantumBackend::ClassicalFallback => {
+            },
+            | GroverQuantumBackend::ClassicalFallback => {
                 self.execute_classical_fallback(oracle, iterations)?
-            }
+            },
             // For hardware backends, we simulate them for now
-            _ => {
+            | _ => {
                 warn!(
                     "Hardware backend {:?} not available, using simulator",
                     self.config.backend
                 );
                 self.execute_simulator(oracle, &circuit, iterations)?
-            }
+            },
         };
 
         let computation_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -604,33 +604,33 @@ impl QuantumGroverSolver {
         num_qubits: usize,
     ) -> CoreResult<()> {
         match gate {
-            GroverGate::H { qubit } => {
+            | GroverGate::H { qubit } => {
                 self.apply_hadamard(state, *qubit, num_qubits);
-            }
-            GroverGate::X { qubit } => {
+            },
+            | GroverGate::X { qubit } => {
                 self.apply_x(state, *qubit, num_qubits);
-            }
-            GroverGate::Z { qubit } => {
+            },
+            | GroverGate::Z { qubit } => {
                 self.apply_z(state, *qubit, num_qubits);
-            }
-            GroverGate::RZ { qubit, angle } => {
+            },
+            | GroverGate::RZ { qubit, angle } => {
                 self.apply_rz(state, *qubit, *angle, num_qubits);
-            }
-            GroverGate::CNOT { control, target } => {
+            },
+            | GroverGate::CNOT { control, target } => {
                 self.apply_cnot(state, *control, *target, num_qubits);
-            }
-            GroverGate::CZ { control, target } => {
+            },
+            | GroverGate::CZ { control, target } => {
                 self.apply_cz(state, *control, *target, num_qubits);
-            }
-            GroverGate::MCX { controls, target } => {
+            },
+            | GroverGate::MCX { controls, target } => {
                 self.apply_mcx(state, controls, *target, num_qubits);
-            }
-            GroverGate::MCZ { controls, target } => {
+            },
+            | GroverGate::MCZ { controls, target } => {
                 self.apply_mcz(state, controls, *target, num_qubits);
-            }
-            GroverGate::Phase { qubit, angle } => {
+            },
+            | GroverGate::Phase { qubit, angle } => {
                 self.apply_phase(state, *qubit, *angle, num_qubits);
-            }
+            },
         }
         Ok(())
     }

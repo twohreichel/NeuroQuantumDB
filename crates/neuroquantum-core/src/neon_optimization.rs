@@ -510,7 +510,7 @@ impl NeonOptimizer {
         operation: QuantumOperation,
     ) -> CoreResult<()> {
         match operation {
-            QuantumOperation::Normalize => {
+            | QuantumOperation::Normalize => {
                 let norm_sq: f32 = real_parts
                     .iter()
                     .zip(imag_parts.iter())
@@ -524,14 +524,14 @@ impl NeonOptimizer {
                         *i /= norm;
                     }
                 }
-            }
-            QuantumOperation::PhaseFlip => {
+            },
+            | QuantumOperation::PhaseFlip => {
                 for (r, i) in real_parts.iter_mut().zip(imag_parts.iter_mut()) {
                     *r = -*r;
                     *i = -*i;
                 }
-            }
-            QuantumOperation::Hadamard => {
+            },
+            | QuantumOperation::Hadamard => {
                 let inv_sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
                 for i in 0..(real_parts.len() / 2) {
                     let r0 = real_parts[i * 2];
@@ -544,7 +544,7 @@ impl NeonOptimizer {
                     real_parts[i * 2 + 1] = (r0 - r1) * inv_sqrt2;
                     imag_parts[i * 2 + 1] = (i0 - i1) * inv_sqrt2;
                 }
-            }
+            },
         }
         Ok(())
     }
@@ -598,10 +598,10 @@ impl NeonOptimizer {
         let speedup = expected_scalar_time / duration_ns as f32;
 
         match operation_type {
-            "dna_compression" => self.optimization_stats.dna_compression_speedup = speedup,
-            "matrix_ops" => self.optimization_stats.matrix_ops_speedup = speedup,
-            "quantum_ops" => self.optimization_stats.quantum_ops_speedup = speedup,
-            _ => {}
+            | "dna_compression" => self.optimization_stats.dna_compression_speedup = speedup,
+            | "matrix_ops" => self.optimization_stats.matrix_ops_speedup = speedup,
+            | "quantum_ops" => self.optimization_stats.quantum_ops_speedup = speedup,
+            | _ => {},
         }
 
         self.optimization_stats.performance_gain =

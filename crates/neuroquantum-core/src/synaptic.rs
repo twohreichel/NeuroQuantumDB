@@ -38,43 +38,43 @@ impl ActivationFunction {
     /// Apply the activation function to an input value
     pub fn activate(&self, x: f32) -> f32 {
         match self {
-            ActivationFunction::Sigmoid => 1.0 / (1.0 + (-x).exp()),
-            ActivationFunction::ReLU => x.max(0.0),
-            ActivationFunction::Tanh => x.tanh(),
-            ActivationFunction::Linear => x,
-            ActivationFunction::LeakyReLU => {
+            | ActivationFunction::Sigmoid => 1.0 / (1.0 + (-x).exp()),
+            | ActivationFunction::ReLU => x.max(0.0),
+            | ActivationFunction::Tanh => x.tanh(),
+            | ActivationFunction::Linear => x,
+            | ActivationFunction::LeakyReLU => {
                 if x > 0.0 {
                     x
                 } else {
                     0.01 * x
                 }
-            }
+            },
         }
     }
 
     /// Derivative of the activation function for backpropagation
     pub fn derivative(&self, x: f32) -> f32 {
         match self {
-            ActivationFunction::Sigmoid => {
+            | ActivationFunction::Sigmoid => {
                 let s = self.activate(x);
                 s * (1.0 - s)
-            }
-            ActivationFunction::ReLU => {
+            },
+            | ActivationFunction::ReLU => {
                 if x > 0.0 {
                     1.0
                 } else {
                     0.0
                 }
-            }
-            ActivationFunction::Tanh => 1.0 - x.tanh().powi(2),
-            ActivationFunction::Linear => 1.0,
-            ActivationFunction::LeakyReLU => {
+            },
+            | ActivationFunction::Tanh => 1.0 - x.tanh().powi(2),
+            | ActivationFunction::Linear => 1.0,
+            | ActivationFunction::LeakyReLU => {
                 if x > 0.0 {
                     1.0
                 } else {
                     0.01
                 }
-            }
+            },
         }
     }
 }

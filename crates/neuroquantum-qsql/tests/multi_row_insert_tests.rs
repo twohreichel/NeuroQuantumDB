@@ -29,7 +29,7 @@ fn test_parse_multi_row_insert() {
 
     let statement = result.unwrap();
     match statement {
-        neuroquantum_qsql::ast::Statement::Insert(insert) => {
+        | neuroquantum_qsql::ast::Statement::Insert(insert) => {
             assert_eq!(insert.table_name, "users");
             assert_eq!(insert.values.len(), 3, "Expected 3 value sets");
 
@@ -41,8 +41,8 @@ fn test_parse_multi_row_insert() {
 
             // Check third row
             assert_eq!(insert.values[2].len(), 3, "Expected 3 values in third row");
-        }
-        _ => panic!("Expected INSERT statement"),
+        },
+        | _ => panic!("Expected INSERT statement"),
     }
 }
 

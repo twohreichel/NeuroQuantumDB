@@ -133,13 +133,13 @@ async fn test_dna_compression_and_encryption_roundtrip() {
         let row = &rows[i];
 
         let name = match row.fields.get("name") {
-            Some(Value::Text(n)) => n,
-            _ => panic!("Name field not found or wrong type"),
+            | Some(Value::Text(n)) => n,
+            | _ => panic!("Name field not found or wrong type"),
         };
 
         let email = match row.fields.get("email") {
-            Some(Value::Text(e)) => e,
-            _ => panic!("Email field not found or wrong type"),
+            | Some(Value::Text(e)) => e,
+            | _ => panic!("Email field not found or wrong type"),
         };
 
         assert_eq!(name, expected_name, "Name should match");
@@ -247,8 +247,8 @@ async fn test_compression_ratio_with_encryption() {
     assert_eq!(rows.len(), 1);
 
     let retrieved_content = match rows[0].fields.get("content") {
-        Some(Value::Text(c)) => c,
-        _ => panic!("Content not found"),
+        | Some(Value::Text(c)) => c,
+        | _ => panic!("Content not found"),
     };
 
     assert_eq!(

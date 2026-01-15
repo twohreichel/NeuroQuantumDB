@@ -137,8 +137,10 @@ async fn test_neuromatch_returns_results() {
     let has_harry_potter = result.rows.iter().any(|row| {
         row.get("title")
             .map(|v| match v {
-                neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Harry Potter"),
-                _ => false,
+                | neuroquantum_qsql::query_plan::QueryValue::String(s) => {
+                    s.contains("Harry Potter")
+                },
+                | _ => false,
             })
             .unwrap_or(false)
     });
@@ -146,8 +148,8 @@ async fn test_neuromatch_returns_results() {
     let has_hobbit = result.rows.iter().any(|row| {
         row.get("title")
             .map(|v| match v {
-                neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Hobbit"),
-                _ => false,
+                | neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Hobbit"),
+                | _ => false,
             })
             .unwrap_or(false)
     });

@@ -541,10 +541,10 @@ impl HuffmanTree {
 
     fn build_codes_recursive(&mut self, node: &HuffmanNode, path: Vec<bool>) {
         match node {
-            HuffmanNode::Leaf { base } => {
+            | HuffmanNode::Leaf { base } => {
                 self.codes[*base as usize] = path;
-            }
-            HuffmanNode::Internal { left, right } => {
+            },
+            | HuffmanNode::Internal { left, right } => {
                 let mut left_path = path.clone();
                 left_path.push(false);
                 self.build_codes_recursive(left, left_path);
@@ -552,7 +552,7 @@ impl HuffmanTree {
                 let mut right_path = path;
                 right_path.push(true);
                 self.build_codes_recursive(right, right_path);
-            }
+            },
         }
     }
 
@@ -572,15 +572,15 @@ fn decode_from_node(
     bit_stream: &mut BitStream,
 ) -> Result<Option<DNABase>, DNAError> {
     match node {
-        HuffmanNode::Leaf { base } => Ok(Some(*base)),
-        HuffmanNode::Internal { left, right } => {
+        | HuffmanNode::Leaf { base } => Ok(Some(*base)),
+        | HuffmanNode::Internal { left, right } => {
             if let Some(bit) = bit_stream.next_bit() {
                 let child = if bit { right } else { left };
                 decode_from_node(child, bit_stream)
             } else {
                 Ok(None)
             }
-        }
+        },
     }
 }
 

@@ -115,13 +115,13 @@ fn test_row_number_parsing() {
             &select.select_list[0]
         {
             match expr {
-                neuroquantum_qsql::ast::Expression::WindowFunction { function, .. } => {
+                | neuroquantum_qsql::ast::Expression::WindowFunction { function, .. } => {
                     assert_eq!(
                         *function,
                         neuroquantum_qsql::ast::WindowFunctionType::RowNumber
                     );
-                }
-                _ => panic!("Expected WindowFunction expression, got {:?}", expr),
+                },
+                | _ => panic!("Expected WindowFunction expression, got {:?}", expr),
             }
             assert_eq!(alias.as_deref(), Some("row_num"));
         } else {
@@ -150,7 +150,7 @@ fn test_rank_with_partition_parsing() {
         if let neuroquantum_qsql::ast::SelectItem::Expression { expr, .. } = &select.select_list[0]
         {
             match expr {
-                neuroquantum_qsql::ast::Expression::WindowFunction {
+                | neuroquantum_qsql::ast::Expression::WindowFunction {
                     function,
                     over_clause,
                     ..
@@ -161,8 +161,8 @@ fn test_rank_with_partition_parsing() {
                         "Expected PARTITION BY clause"
                     );
                     assert!(!over_clause.order_by.is_empty(), "Expected ORDER BY clause");
-                }
-                _ => panic!("Expected WindowFunction expression"),
+                },
+                | _ => panic!("Expected WindowFunction expression"),
             }
         }
     }
@@ -198,11 +198,11 @@ fn test_lag_parsing() {
         if let neuroquantum_qsql::ast::SelectItem::Expression { expr, .. } = &select.select_list[2]
         {
             match expr {
-                neuroquantum_qsql::ast::Expression::WindowFunction { function, args, .. } => {
+                | neuroquantum_qsql::ast::Expression::WindowFunction { function, args, .. } => {
                     assert_eq!(*function, neuroquantum_qsql::ast::WindowFunctionType::Lag);
                     assert_eq!(args.len(), 3, "LAG should have 3 arguments");
-                }
-                _ => panic!("Expected WindowFunction expression"),
+                },
+                | _ => panic!("Expected WindowFunction expression"),
             }
         }
     }
@@ -272,9 +272,9 @@ async fn test_rank_execution_with_ties() {
         if let Some(QueryValue::String(name)) = row.get("name") {
             if let Some(QueryValue::Integer(rank)) = row.get("salary_rank") {
                 match name.as_str() {
-                    "Bob" => bob_rank = Some(*rank),
-                    "Charlie" => charlie_rank = Some(*rank),
-                    _ => {}
+                    | "Bob" => bob_rank = Some(*rank),
+                    | "Charlie" => charlie_rank = Some(*rank),
+                    | _ => {},
                 }
             }
         }

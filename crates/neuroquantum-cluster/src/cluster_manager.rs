@@ -302,11 +302,11 @@ impl ClusterManager {
 
         tokio::spawn(async move {
             let discovery = match DiscoveryService::new(&config) {
-                Ok(d) => d,
-                Err(e) => {
+                | Ok(d) => d,
+                | Err(e) => {
                     error!(node_id, error = %e, "Failed to create discovery service");
                     return;
-                }
+                },
             };
 
             let mut interval = tokio::time::interval(config.discovery.refresh_interval);
@@ -325,7 +325,7 @@ impl ClusterManager {
 
                 // Discover peers
                 match discovery.discover().await {
-                    Ok(peers) => {
+                    | Ok(peers) => {
                         let peer_count = peers.len();
 
                         // Update state with discovered peers
@@ -350,10 +350,10 @@ impl ClusterManager {
                         }
 
                         debug!(node_id, peer_count, "Peer discovery completed");
-                    }
-                    Err(e) => {
+                    },
+                    | Err(e) => {
                         warn!(node_id, error = %e, "Peer discovery failed");
-                    }
+                    },
                 }
             }
         });

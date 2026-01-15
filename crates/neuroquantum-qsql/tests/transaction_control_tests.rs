@@ -11,8 +11,8 @@ fn test_parse_transaction_statements() {
     let result = parser.parse("BEGIN");
     assert!(result.is_ok(), "Failed to parse BEGIN");
     match result.unwrap() {
-        Statement::BeginTransaction(_) => {}
-        other => panic!("Expected BeginTransaction, got {:?}", other),
+        | Statement::BeginTransaction(_) => {},
+        | other => panic!("Expected BeginTransaction, got {:?}", other),
     }
 
     // Test START TRANSACTION
@@ -34,30 +34,30 @@ fn test_parse_transaction_statements() {
     let result = parser.parse("SAVEPOINT sp1");
     assert!(result.is_ok(), "Failed to parse SAVEPOINT");
     match result.unwrap() {
-        Statement::Savepoint(sp) => {
+        | Statement::Savepoint(sp) => {
             assert_eq!(sp.name, "sp1", "Savepoint name mismatch");
-        }
-        other => panic!("Expected Savepoint, got {:?}", other),
+        },
+        | other => panic!("Expected Savepoint, got {:?}", other),
     }
 
     // Test ROLLBACK TO SAVEPOINT
     let result = parser.parse("ROLLBACK TO SAVEPOINT sp1");
     assert!(result.is_ok(), "Failed to parse ROLLBACK TO SAVEPOINT");
     match result.unwrap() {
-        Statement::RollbackToSavepoint(rts) => {
+        | Statement::RollbackToSavepoint(rts) => {
             assert_eq!(rts.name, "sp1", "Savepoint name mismatch");
-        }
-        other => panic!("Expected RollbackToSavepoint, got {:?}", other),
+        },
+        | other => panic!("Expected RollbackToSavepoint, got {:?}", other),
     }
 
     // Test RELEASE SAVEPOINT
     let result = parser.parse("RELEASE SAVEPOINT sp1");
     assert!(result.is_ok(), "Failed to parse RELEASE SAVEPOINT");
     match result.unwrap() {
-        Statement::ReleaseSavepoint(rs) => {
+        | Statement::ReleaseSavepoint(rs) => {
             assert_eq!(rs.name, "sp1", "Savepoint name mismatch");
-        }
-        other => panic!("Expected ReleaseSavepoint, got {:?}", other),
+        },
+        | other => panic!("Expected ReleaseSavepoint, got {:?}", other),
     }
 }
 
@@ -98,10 +98,10 @@ fn test_multiple_savepoints() {
         assert!(result.is_ok(), "Failed to parse: {}", sql);
 
         match result.unwrap() {
-            Statement::Savepoint(sp) => {
+            | Statement::Savepoint(sp) => {
                 assert_eq!(sp.name, name, "Savepoint name mismatch");
-            }
-            other => panic!("Expected Savepoint, got {:?}", other),
+            },
+            | other => panic!("Expected Savepoint, got {:?}", other),
         }
     }
 }

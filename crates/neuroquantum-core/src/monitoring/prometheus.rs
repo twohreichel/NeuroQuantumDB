@@ -797,8 +797,8 @@ pub async fn metrics_handler(
     State(exporter): State<Arc<MetricsExporter>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     match exporter.export() {
-        Ok(metrics) => Ok((StatusCode::OK, metrics)),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        | Ok(metrics) => Ok((StatusCode::OK, metrics)),
+        | Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 

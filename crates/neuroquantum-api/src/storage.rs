@@ -165,9 +165,9 @@ impl ApiKeyStorage {
         });
 
         match result {
-            Ok(data) => Ok(Some(data)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e.into()),
+            | Ok(data) => Ok(Some(data)),
+            | Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            | Err(e) => Err(e.into()),
         }
     }
 

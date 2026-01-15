@@ -37,8 +37,8 @@ impl Migration {
     /// Get SQL for the specified direction
     pub fn get_sql(&self, direction: MigrationDirection) -> &str {
         match direction {
-            MigrationDirection::Up => &self.up_sql,
-            MigrationDirection::Down => &self.down_sql,
+            | MigrationDirection::Up => &self.up_sql,
+            | MigrationDirection::Down => &self.down_sql,
         }
     }
 }

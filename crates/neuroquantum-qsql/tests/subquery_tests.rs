@@ -175,10 +175,10 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
             .insert("name".to_string(), Value::Text(name.to_string()));
         row.fields.insert("age".to_string(), Value::Integer(*age));
         match dept_id {
-            Some(d) => row
+            | Some(d) => row
                 .fields
                 .insert("department_id".to_string(), Value::Integer(*d)),
-            None => row.fields.insert("department_id".to_string(), Value::Null),
+            | None => row.fields.insert("department_id".to_string(), Value::Null),
         };
         storage_guard.insert_row("users", row).await.unwrap();
     }

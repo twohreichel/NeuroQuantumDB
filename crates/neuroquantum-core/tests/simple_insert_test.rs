@@ -35,11 +35,11 @@ async fn test_simple_insert() {
 
     println!("Creating table...");
     match storage.create_table(schema.clone()).await {
-        Ok(_) => println!("✅ Table created"),
-        Err(e) => {
+        | Ok(_) => println!("✅ Table created"),
+        | Err(e) => {
             println!("❌ Failed to create table: {}", e);
             panic!("Table creation failed");
-        }
+        },
     }
 
     // Test: Insert without specifying ID - it should be auto-generated!
@@ -56,12 +56,12 @@ async fn test_simple_insert() {
 
     println!("Inserting row...");
     match storage.insert_row("simple_test", row).await {
-        Ok(id) => println!("✅ Row inserted with ID: {}", id),
-        Err(e) => {
+        | Ok(id) => println!("✅ Row inserted with ID: {}", id),
+        | Err(e) => {
             println!("❌ Failed to insert row: {}", e);
             println!("Error details: {:?}", e);
             panic!("Insert failed: {}", e);
-        }
+        },
     }
 
     println!("🎉 Test passed!");

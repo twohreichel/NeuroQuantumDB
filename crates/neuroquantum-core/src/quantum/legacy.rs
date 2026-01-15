@@ -454,15 +454,15 @@ impl QuantumSearch for GroverSearch {
         // Collapse superposition by measuring all results
         for task in query_tasks {
             match task.await {
-                Ok(Ok(result)) => results.push(result),
-                Ok(Err(e)) => {
+                | Ok(Ok(result)) => results.push(result),
+                | Ok(Err(e)) => {
                     warn!("Query failed in superposition: {}", e);
                     results.push(QueryResult::empty());
-                }
-                Err(e) => {
+                },
+                | Err(e) => {
                     warn!("Superposition collapse failed: {}", e);
                     results.push(QueryResult::empty());
-                }
+                },
             }
         }
 

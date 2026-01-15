@@ -116,23 +116,23 @@ pub enum NodeType {
 impl fmt::Display for NodeType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeType::SeqScan => write!(f, "Seq Scan"),
-            NodeType::IndexScan => write!(f, "Index Scan"),
-            NodeType::IndexOnlyScan => write!(f, "Index Only Scan"),
-            NodeType::BitmapIndexScan => write!(f, "Bitmap Index Scan"),
-            NodeType::BitmapHeapScan => write!(f, "Bitmap Heap Scan"),
-            NodeType::NestedLoop => write!(f, "Nested Loop"),
-            NodeType::MergeJoin => write!(f, "Merge Join"),
-            NodeType::HashJoin => write!(f, "Hash Join"),
-            NodeType::Sort => write!(f, "Sort"),
-            NodeType::Aggregate => write!(f, "Aggregate"),
-            NodeType::Limit => write!(f, "Limit"),
-            NodeType::NeuromorphicScan => write!(f, "Neuromorphic Scan"),
-            NodeType::SynapticFilter => write!(f, "Synaptic Filter"),
-            NodeType::QuantumScan => write!(f, "Quantum Scan"),
-            NodeType::GroverSearch => write!(f, "Grover Search"),
-            NodeType::SuperpositionJoin => write!(f, "Superposition Join"),
-            _ => write!(f, "{:?}", self),
+            | NodeType::SeqScan => write!(f, "Seq Scan"),
+            | NodeType::IndexScan => write!(f, "Index Scan"),
+            | NodeType::IndexOnlyScan => write!(f, "Index Only Scan"),
+            | NodeType::BitmapIndexScan => write!(f, "Bitmap Index Scan"),
+            | NodeType::BitmapHeapScan => write!(f, "Bitmap Heap Scan"),
+            | NodeType::NestedLoop => write!(f, "Nested Loop"),
+            | NodeType::MergeJoin => write!(f, "Merge Join"),
+            | NodeType::HashJoin => write!(f, "Hash Join"),
+            | NodeType::Sort => write!(f, "Sort"),
+            | NodeType::Aggregate => write!(f, "Aggregate"),
+            | NodeType::Limit => write!(f, "Limit"),
+            | NodeType::NeuromorphicScan => write!(f, "Neuromorphic Scan"),
+            | NodeType::SynapticFilter => write!(f, "Synaptic Filter"),
+            | NodeType::QuantumScan => write!(f, "Quantum Scan"),
+            | NodeType::GroverSearch => write!(f, "Grover Search"),
+            | NodeType::SuperpositionJoin => write!(f, "Superposition Join"),
+            | _ => write!(f, "{:?}", self),
         }
     }
 }
@@ -197,25 +197,25 @@ impl ExplainGenerator {
         let mut nodes = Vec::new();
 
         match &query_plan.statement {
-            Statement::Select(select) => {
+            | Statement::Select(select) => {
                 let node = self.build_select_node(select, query_plan)?;
                 nodes.push(node);
-            }
-            Statement::NeuroMatch(neuromatch) => {
+            },
+            | Statement::NeuroMatch(neuromatch) => {
                 let node = self.build_neuromatch_node(neuromatch, query_plan)?;
                 nodes.push(node);
-            }
-            Statement::QuantumSearch(quantum) => {
+            },
+            | Statement::QuantumSearch(quantum) => {
                 let node = self.build_quantum_search_node(quantum, query_plan)?;
                 nodes.push(node);
-            }
-            Statement::QuantumJoin(qjoin) => {
+            },
+            | Statement::QuantumJoin(qjoin) => {
                 let node = self.build_quantum_join_node(qjoin, query_plan)?;
                 nodes.push(node);
-            }
-            _ => {
+            },
+            | _ => {
                 nodes.push(self.build_generic_node(query_plan)?);
-            }
+            },
         }
 
         Ok(nodes)

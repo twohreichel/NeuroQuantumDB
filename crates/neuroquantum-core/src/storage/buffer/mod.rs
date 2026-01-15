@@ -254,8 +254,8 @@ impl BufferPoolManager {
 
         // Create eviction policy
         let eviction: Box<dyn EvictionPolicy> = match config.eviction_policy {
-            EvictionPolicyType::LRU => Box::new(LRUEviction::new(config.pool_size)),
-            EvictionPolicyType::Clock => Box::new(ClockEviction::new(config.pool_size)),
+            | EvictionPolicyType::LRU => Box::new(LRUEviction::new(config.pool_size)),
+            | EvictionPolicyType::Clock => Box::new(ClockEviction::new(config.pool_size)),
         };
 
         let manager = Self {

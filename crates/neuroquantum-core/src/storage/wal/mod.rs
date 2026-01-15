@@ -346,11 +346,11 @@ impl TransactionStatus {
     /// Get human-readable status string
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Active => "ACTIVE",
-            Self::Committing => "COMMITTING",
-            Self::Committed => "COMMITTED",
-            Self::Aborting => "ABORTING",
-            Self::Aborted => "ABORTED",
+            | Self::Active => "ACTIVE",
+            | Self::Committing => "COMMITTING",
+            | Self::Committed => "COMMITTED",
+            | Self::Aborting => "ABORTING",
+            | Self::Aborted => "ABORTED",
         }
     }
 }
@@ -881,11 +881,11 @@ impl WALManager {
 
         for state in txns.values() {
             match state.status {
-                TransactionStatus::Active => stats.active += 1,
-                TransactionStatus::Committing => stats.committing += 1,
-                TransactionStatus::Committed => stats.committed += 1,
-                TransactionStatus::Aborting => stats.aborting += 1,
-                TransactionStatus::Aborted => stats.aborted += 1,
+                | TransactionStatus::Active => stats.active += 1,
+                | TransactionStatus::Committing => stats.committing += 1,
+                | TransactionStatus::Committed => stats.committed += 1,
+                | TransactionStatus::Aborting => stats.aborting += 1,
+                | TransactionStatus::Aborted => stats.aborted += 1,
             }
             stats.total_operations += state.operation_count;
         }
@@ -1485,10 +1485,10 @@ mod tests {
         assert!(deserialized.verify_checksum());
 
         match deserialized.record_type {
-            WALRecordType::Savepoint { name, .. } => {
+            | WALRecordType::Savepoint { name, .. } => {
                 assert_eq!(name, "test_sp");
-            }
-            _ => panic!("Expected Savepoint record type"),
+            },
+            | _ => panic!("Expected Savepoint record type"),
         }
     }
 
@@ -1513,13 +1513,13 @@ mod tests {
         assert!(deserialized.verify_checksum());
 
         match deserialized.record_type {
-            WALRecordType::RollbackToSavepoint {
+            | WALRecordType::RollbackToSavepoint {
                 name, target_lsn, ..
             } => {
                 assert_eq!(name, "sp1");
                 assert_eq!(target_lsn, 100);
-            }
-            _ => panic!("Expected RollbackToSavepoint record type"),
+            },
+            | _ => panic!("Expected RollbackToSavepoint record type"),
         }
     }
 
@@ -1543,10 +1543,10 @@ mod tests {
         assert!(deserialized.verify_checksum());
 
         match deserialized.record_type {
-            WALRecordType::ReleaseSavepoint { name, .. } => {
+            | WALRecordType::ReleaseSavepoint { name, .. } => {
                 assert_eq!(name, "sp1");
-            }
-            _ => panic!("Expected ReleaseSavepoint record type"),
+            },
+            | _ => panic!("Expected ReleaseSavepoint record type"),
         }
     }
 }

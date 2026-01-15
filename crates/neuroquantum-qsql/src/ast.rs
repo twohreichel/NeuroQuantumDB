@@ -930,32 +930,32 @@ pub enum ParameterRef {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Statement::Select(_s) => write!(f, "SELECT"),
-            Statement::CreateTable(ct) => write!(f, "CREATE TABLE {}", ct.table_name),
-            Statement::DropTable(dt) => write!(f, "DROP TABLE {}", dt.table_name),
-            Statement::AlterTable(at) => write!(f, "ALTER TABLE {}", at.table_name),
-            Statement::CreateIndex(ci) => write!(f, "CREATE INDEX {}", ci.index_name),
-            Statement::DropIndex(di) => write!(f, "DROP INDEX {}", di.index_name),
-            Statement::TruncateTable(tt) => write!(f, "TRUNCATE TABLE {}", tt.table_name),
-            Statement::NeuroMatch(n) => write!(f, "NEUROMATCH {}", n.target_table),
-            Statement::QuantumSearch(q) => write!(f, "QUANTUM_SEARCH {}", q.target_table),
-            Statement::Explain(e) => {
+            | Statement::Select(_s) => write!(f, "SELECT"),
+            | Statement::CreateTable(ct) => write!(f, "CREATE TABLE {}", ct.table_name),
+            | Statement::DropTable(dt) => write!(f, "DROP TABLE {}", dt.table_name),
+            | Statement::AlterTable(at) => write!(f, "ALTER TABLE {}", at.table_name),
+            | Statement::CreateIndex(ci) => write!(f, "CREATE INDEX {}", ci.index_name),
+            | Statement::DropIndex(di) => write!(f, "DROP INDEX {}", di.index_name),
+            | Statement::TruncateTable(tt) => write!(f, "TRUNCATE TABLE {}", tt.table_name),
+            | Statement::NeuroMatch(n) => write!(f, "NEUROMATCH {}", n.target_table),
+            | Statement::QuantumSearch(q) => write!(f, "QUANTUM_SEARCH {}", q.target_table),
+            | Statement::Explain(e) => {
                 write!(f, "EXPLAIN {}", if e.analyze { "ANALYZE" } else { "" })
-            }
-            Statement::Analyze(a) => write!(f, "ANALYZE {}", a.table_name),
-            Statement::BeginTransaction(_) => write!(f, "BEGIN TRANSACTION"),
-            Statement::Commit(_) => write!(f, "COMMIT"),
-            Statement::Rollback(_) => write!(f, "ROLLBACK"),
-            Statement::Savepoint(s) => write!(f, "SAVEPOINT {}", s.name),
-            Statement::RollbackToSavepoint(s) => write!(f, "ROLLBACK TO SAVEPOINT {}", s.name),
-            Statement::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
-            Statement::Prepare(p) => write!(f, "PREPARE {}", p.name),
-            Statement::Execute(e) => write!(f, "EXECUTE {}", e.name),
-            Statement::Deallocate(d) => match &d.name {
-                Some(name) => write!(f, "DEALLOCATE {}", name),
-                None => write!(f, "DEALLOCATE ALL"),
             },
-            _ => write!(f, "{:?}", self),
+            | Statement::Analyze(a) => write!(f, "ANALYZE {}", a.table_name),
+            | Statement::BeginTransaction(_) => write!(f, "BEGIN TRANSACTION"),
+            | Statement::Commit(_) => write!(f, "COMMIT"),
+            | Statement::Rollback(_) => write!(f, "ROLLBACK"),
+            | Statement::Savepoint(s) => write!(f, "SAVEPOINT {}", s.name),
+            | Statement::RollbackToSavepoint(s) => write!(f, "ROLLBACK TO SAVEPOINT {}", s.name),
+            | Statement::ReleaseSavepoint(s) => write!(f, "RELEASE SAVEPOINT {}", s.name),
+            | Statement::Prepare(p) => write!(f, "PREPARE {}", p.name),
+            | Statement::Execute(e) => write!(f, "EXECUTE {}", e.name),
+            | Statement::Deallocate(d) => match &d.name {
+                | Some(name) => write!(f, "DEALLOCATE {}", name),
+                | None => write!(f, "DEALLOCATE ALL"),
+            },
+            | _ => write!(f, "{:?}", self),
         }
     }
 }
@@ -963,24 +963,24 @@ impl fmt::Display for Statement {
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expression::Literal(lit) => write!(f, "{:?}", lit),
-            Expression::Identifier(id) => write!(f, "{}", id),
-            Expression::BinaryOp {
+            | Expression::Literal(lit) => write!(f, "{:?}", lit),
+            | Expression::Identifier(id) => write!(f, "{}", id),
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
             } => {
                 write!(f, "({} {:?} {})", left, operator, right)
-            }
-            Expression::SynapticMatch {
+            },
+            | Expression::SynapticMatch {
                 pattern, weight, ..
             } => {
                 write!(f, "SYNAPTIC_MATCH({}, {})", pattern, weight)
-            }
-            Expression::QuantumSuperposition { states } => {
+            },
+            | Expression::QuantumSuperposition { states } => {
                 write!(f, "QUANTUM_SUPERPOSITION({})", states.len())
-            }
-            _ => write!(f, "{:?}", self),
+            },
+            | _ => write!(f, "{:?}", self),
         }
     }
 }
@@ -1037,8 +1037,8 @@ mod tests {
         };
 
         match synaptic_expr {
-            Expression::SynapticMatch { weight, .. } => assert_eq!(weight, 0.75),
-            _ => panic!("Expected SynapticMatch expression"),
+            | Expression::SynapticMatch { weight, .. } => assert_eq!(weight, 0.75),
+            | _ => panic!("Expected SynapticMatch expression"),
         }
     }
 
@@ -1052,8 +1052,8 @@ mod tests {
         };
 
         match superposition {
-            Expression::QuantumSuperposition { states } => assert_eq!(states.len(), 2),
-            _ => panic!("Expected QuantumSuperposition expression"),
+            | Expression::QuantumSuperposition { states } => assert_eq!(states.len(), 2),
+            | _ => panic!("Expected QuantumSuperposition expression"),
         }
     }
 }

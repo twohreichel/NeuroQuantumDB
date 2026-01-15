@@ -70,7 +70,7 @@ impl JwtKeyRotation {
         let last_rotation = self.last_rotation.read().await;
 
         match SystemTime::now().duration_since(*last_rotation) {
-            Ok(elapsed) => {
+            | Ok(elapsed) => {
                 let needs = elapsed >= self.rotation_schedule;
                 if needs {
                     info!(
@@ -79,11 +79,11 @@ impl JwtKeyRotation {
                     );
                 }
                 needs
-            }
-            Err(_) => {
+            },
+            | Err(_) => {
                 warn!("⚠️  Clock skew detected during key rotation check");
                 false
-            }
+            },
         }
     }
 
@@ -232,7 +232,9 @@ impl JwtService {
         // Initialize post-quantum cryptography manager
         let pq_crypto = PQCryptoManager::new();
 
-        info!("🔐 JWT Service initialized with post-quantum cryptographic keys (ML-KEM-768 + ML-DSA-65)");
+        info!(
+            "🔐 JWT Service initialized with post-quantum cryptographic keys (ML-KEM-768 + ML-DSA-65)"
+        );
 
         Self {
             encoding_key: Arc::new(EncodingKey::from_secret(secret)),
@@ -313,24 +315,24 @@ impl JwtService {
     pub async fn validate_token(&self, token: &str) -> Result<AuthToken, ApiError> {
         // Try with current key first
         match decode::<AuthToken>(token, &self.decoding_key, &self.validation) {
-            Ok(data) => Ok(data.claims),
-            Err(current_err) => {
+            | Ok(data) => Ok(data.claims),
+            | Err(current_err) => {
                 // If rotation is enabled and we have a previous key, try that
                 if let Some(ref rotation) = self.key_rotation {
                     if let Some(prev_secret) = rotation.previous_secret().await {
                         let prev_key = DecodingKey::from_secret(&prev_secret);
                         match decode::<AuthToken>(token, &prev_key, &self.validation) {
-                            Ok(data) => {
+                            | Ok(data) => {
                                 info!("✅ Token validated with previous key (within grace period)");
                                 return Ok(data.claims);
-                            }
-                            Err(_) => {
+                            },
+                            | Err(_) => {
                                 // Both keys failed, return original error
                                 warn!(
                                     "JWT validation failed with both current and previous keys: {}",
                                     current_err
                                 );
-                            }
+                            },
                         }
                     }
                 }
@@ -341,7 +343,7 @@ impl JwtService {
                     "Invalid token: {}",
                     current_err
                 )))
-            }
+            },
         }
     }
 
@@ -498,12 +500,12 @@ where
                 if let Ok(auth_str) = auth_header.to_str() {
                     if let Some(token) = auth_str.strip_prefix("Bearer ") {
                         match jwt_service.validate_token(token).await {
-                            Ok(claims) => {
+                            | Ok(claims) => {
                                 // Add claims to request extensions
                                 req.extensions_mut().insert(claims);
                                 return service.call(req).await;
-                            }
-                            Err(e) => {
+                            },
+                            | Err(e) => {
                                 warn!("JWT validation failed: {:?}", e);
                                 return Err(ErrorUnauthorized(
                                     serde_json::json!({
@@ -512,7 +514,7 @@ where
                                     })
                                     .to_string(),
                                 ));
-                            }
+                            },
                         }
                     }
                 }

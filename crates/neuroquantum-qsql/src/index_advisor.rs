@@ -78,10 +78,10 @@ pub enum RecommendationPriority {
 impl std::fmt::Display for RecommendationPriority {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Critical => write!(f, "CRITICAL"),
-            Self::High => write!(f, "HIGH"),
-            Self::Medium => write!(f, "MEDIUM"),
-            Self::Low => write!(f, "LOW"),
+            | Self::Critical => write!(f, "CRITICAL"),
+            | Self::High => write!(f, "HIGH"),
+            | Self::Medium => write!(f, "MEDIUM"),
+            | Self::Low => write!(f, "LOW"),
         }
     }
 }
@@ -102,10 +102,10 @@ pub enum IndexType {
 impl std::fmt::Display for IndexType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BTree => write!(f, "BTREE"),
-            Self::Hash => write!(f, "HASH"),
-            Self::Covering { .. } => write!(f, "COVERING"),
-            Self::Composite => write!(f, "COMPOSITE"),
+            | Self::BTree => write!(f, "BTREE"),
+            | Self::Hash => write!(f, "HASH"),
+            | Self::Covering { .. } => write!(f, "COVERING"),
+            | Self::Composite => write!(f, "COMPOSITE"),
         }
     }
 }
@@ -207,20 +207,20 @@ impl IndexAdvisor {
         self.total_queries.fetch_add(1, Ordering::Relaxed);
 
         match statement {
-            Statement::Select(select) => self.track_select(select),
-            Statement::Update(update) => {
+            | Statement::Select(select) => self.track_select(select),
+            | Statement::Update(update) => {
                 // Track WHERE clause from UPDATE
                 if let Some(ref where_clause) = update.where_clause {
                     self.track_expression_columns(where_clause, &update.table_name, "WHERE");
                 }
-            }
-            Statement::Delete(delete) => {
+            },
+            | Statement::Delete(delete) => {
                 // Track WHERE clause from DELETE
                 if let Some(ref where_clause) = delete.where_clause {
                     self.track_expression_columns(where_clause, &delete.table_name, "WHERE");
                 }
-            }
-            _ => {} // Other statement types don't need index recommendations
+            },
+            | _ => {}, // Other statement types don't need index recommendations
         }
     }
 
@@ -277,10 +277,10 @@ impl IndexAdvisor {
     /// Track columns used in an expression
     fn track_expression_columns(&self, expr: &Expression, table_name: &str, context: &str) {
         match expr {
-            Expression::Identifier(col_name) => {
+            | Expression::Identifier(col_name) => {
                 self.increment_column_usage(table_name, col_name, context, None);
-            }
-            Expression::BinaryOp {
+            },
+            | Expression::BinaryOp {
                 left,
                 operator,
                 right,
@@ -296,19 +296,19 @@ impl IndexAdvisor {
                 // Recurse for nested expressions
                 self.track_expression_columns(left, table_name, context);
                 self.track_expression_columns(right, table_name, context);
-            }
-            Expression::FunctionCall { args, .. } => {
+            },
+            | Expression::FunctionCall { args, .. } => {
                 for arg in args {
                     self.track_expression_columns(arg, table_name, context);
                 }
-            }
-            Expression::InList { expr, list, .. } => {
+            },
+            | Expression::InList { expr, list, .. } => {
                 self.track_expression_columns(expr, table_name, context);
                 for item in list {
                     self.track_expression_columns(item, table_name, context);
                 }
-            }
-            _ => {} // Other expression types
+            },
+            | _ => {}, // Other expression types
         }
     }
 
@@ -388,11 +388,11 @@ impl IndexAdvisor {
         col_stats.last_access_ms = now_ms;
 
         match context {
-            "WHERE" => col_stats.where_count += 1,
-            "JOIN" => col_stats.join_count += 1,
-            "ORDER_BY" => col_stats.order_by_count += 1,
-            "GROUP_BY" => col_stats.group_by_count += 1,
-            _ => {}
+            | "WHERE" => col_stats.where_count += 1,
+            | "JOIN" => col_stats.join_count += 1,
+            | "ORDER_BY" => col_stats.order_by_count += 1,
+            | "GROUP_BY" => col_stats.group_by_count += 1,
+            | _ => {},
         }
 
         if let Some(op) = operator {
