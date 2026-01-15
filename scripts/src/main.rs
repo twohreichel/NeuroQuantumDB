@@ -130,9 +130,7 @@ fn main() {
         }
     }
 
-    println!(
-        "\n📊 Summary: {success_count} converted, {skip_count} skipped"
-    );
+    println!("\n📊 Summary: {success_count} converted, {skip_count} skipped");
 
     if success_count > 0 {
         println!("✅ Documentation generation complete!");

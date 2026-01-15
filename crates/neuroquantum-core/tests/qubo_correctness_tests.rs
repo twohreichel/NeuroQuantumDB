@@ -719,9 +719,7 @@ fn test_quantum_tunneling_effectiveness() {
     let avg_no_qt = sum_energy_no_qt / f64::from(runs);
     let avg_with_qt = sum_energy_with_qt / f64::from(runs);
 
-    println!(
-        "Average energy without QT: {avg_no_qt}, with QT: {avg_with_qt}"
-    );
+    println!("Average energy without QT: {avg_no_qt}, with QT: {avg_with_qt}");
 
     // Just verify both work - QT effectiveness can vary
     assert!(

@@ -328,9 +328,7 @@ fn demo_scaling_analysis() -> Result<(), Box<dyn std::error::Error>> {
         let grover_iters = ((std::f64::consts::PI / 4.0) * (states as f64).sqrt()) as usize;
         let classical_ops = states; // Linear search
 
-        println!(
-            "{qubits:<10} {states:<15} {grover_iters:<20} {classical_ops:<20}"
-        );
+        println!("{qubits:<10} {states:<15} {grover_iters:<20} {classical_ops:<20}");
     }
 
     println!();

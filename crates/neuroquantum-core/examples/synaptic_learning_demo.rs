@@ -75,9 +75,7 @@ fn demo_activation_functions() -> Result<(), Box<dyn std::error::Error>> {
 
     let test_inputs = vec![-2.0, -1.0, 0.0, 1.0, 2.0];
 
-    println!(
-        "Testing activation functions with inputs: {test_inputs:?}"
-    );
+    println!("Testing activation functions with inputs: {test_inputs:?}");
     println!();
 
     for func in &functions {
