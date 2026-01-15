@@ -1,6 +1,5 @@
 //! OpenTelemetry distributed tracing setup and configuration
 
-use crate::config::{TracingConfig, TracingExporter};
 use anyhow::{Context, Result};
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};
@@ -12,6 +11,8 @@ use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Registry};
+
+use crate::config::{TracingConfig, TracingExporter};
 
 /// Initialize OpenTelemetry tracing based on configuration
 ///

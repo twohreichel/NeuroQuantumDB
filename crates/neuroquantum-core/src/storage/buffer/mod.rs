@@ -1,4 +1,4 @@
-//! Buffer Pool Manager for NeuroQuantumDB
+//! Buffer Pool Manager for `NeuroQuantumDB`
 //!
 //! Provides intelligent page caching with:
 //! - LRU/Clock page replacement policies
@@ -7,9 +7,10 @@
 //! - Background flushing
 //! - Memory limit enforcement
 
-use anyhow::{anyhow, Result};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
+
+use anyhow::{anyhow, Result};
 use tokio::sync::{RwLock, Semaphore};
 use tokio::time::Duration;
 use tracing::{debug, info};
@@ -173,8 +174,7 @@ impl BufferPoolConfig {
     pub fn with_ram_percentage(ram_percentage: f64) -> Self {
         assert!(
             (0.0..=1.0).contains(&ram_percentage),
-            "RAM percentage must be between 0.0 and 1.0, got {}",
-            ram_percentage
+            "RAM percentage must be between 0.0 and 1.0, got {ram_percentage}"
         );
 
         use sysinfo::System;
@@ -320,7 +320,7 @@ impl BufferPoolManager {
             let frames = self.frames.read().await;
             let frame = frames
                 .get(&frame_id)
-                .ok_or_else(|| anyhow!("Frame not found: {:?}", frame_id))?;
+                .ok_or_else(|| anyhow!("Frame not found: {frame_id:?}"))?;
 
             frame.pin();
             debug!(
@@ -356,7 +356,7 @@ impl BufferPoolManager {
         let mut frames = self.frames.write().await;
         let frame = frames
             .get_mut(&frame_id)
-            .ok_or_else(|| anyhow!("Frame not found: {:?}", frame_id))?;
+            .ok_or_else(|| anyhow!("Frame not found: {frame_id:?}"))?;
 
         frame.set_page(page_id, page).await;
         frame.pin();
@@ -408,7 +408,7 @@ impl BufferPoolManager {
         let frames = self.frames.read().await;
         let frame = frames
             .get(&victim_frame_id)
-            .ok_or_else(|| anyhow!("Victim frame not found: {:?}", victim_frame_id))?;
+            .ok_or_else(|| anyhow!("Victim frame not found: {victim_frame_id:?}"))?;
 
         if frame.is_pinned() {
             drop(frames);
@@ -442,7 +442,7 @@ impl BufferPoolManager {
         let mut frames = self.frames.write().await;
         let frame = frames
             .get_mut(&victim_frame_id)
-            .ok_or_else(|| anyhow!("Victim frame not found: {:?}", victim_frame_id))?;
+            .ok_or_else(|| anyhow!("Victim frame not found: {victim_frame_id:?}"))?;
         frame.clear().await;
         drop(frames);
 
@@ -458,18 +458,18 @@ impl BufferPoolManager {
         let page_table = self.page_table.read().await;
         let frame_id = page_table
             .get(&page_id)
-            .ok_or_else(|| anyhow!("Page not in buffer: {:?}", page_id))?;
+            .ok_or_else(|| anyhow!("Page not in buffer: {page_id:?}"))?;
         let frame_id = *frame_id;
         drop(page_table);
 
         let frames = self.frames.read().await;
         let frame = frames
             .get(&frame_id)
-            .ok_or_else(|| anyhow!("Frame not found: {:?}", frame_id))?;
+            .ok_or_else(|| anyhow!("Frame not found: {frame_id:?}"))?;
 
         frame
             .unpin()
-            .map_err(|e| anyhow!("Failed to unpin frame {:?}: {}", frame_id, e))?;
+            .map_err(|e| anyhow!("Failed to unpin frame {frame_id:?}: {e}"))?;
 
         if is_dirty {
             frame.set_dirty(true);
@@ -494,7 +494,7 @@ impl BufferPoolManager {
         let page_table = self.page_table.read().await;
         let frame_id = page_table
             .get(&page_id)
-            .ok_or_else(|| anyhow!("Page not in buffer: {:?}", page_id))?;
+            .ok_or_else(|| anyhow!("Page not in buffer: {page_id:?}"))?;
         let frame_id = *frame_id;
         drop(page_table);
 
@@ -509,7 +509,7 @@ impl BufferPoolManager {
         let frames = self.frames.read().await;
         let frame = frames
             .get(&frame_id)
-            .ok_or_else(|| anyhow!("Frame not found: {:?}", frame_id))?;
+            .ok_or_else(|| anyhow!("Frame not found: {frame_id:?}"))?;
 
         if !frame.is_dirty() {
             drop(frames);
@@ -528,7 +528,7 @@ impl BufferPoolManager {
         let frames = self.frames.read().await;
         let frame = frames
             .get(&frame_id)
-            .ok_or_else(|| anyhow!("Frame not found: {:?}", frame_id))?;
+            .ok_or_else(|| anyhow!("Frame not found: {frame_id:?}"))?;
         frame.set_dirty(false);
         drop(frames);
 
@@ -664,9 +664,10 @@ pub struct BufferPoolStats {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::storage::pager::{PageType, PagerConfig};
-    use tempfile::TempDir;
 
     async fn create_test_buffer_pool() -> (BufferPoolManager, TempDir) {
         let temp_dir = TempDir::new().unwrap();
@@ -902,14 +903,12 @@ mod tests {
         let (buffer_pool, _temp_dir) = create_test_buffer_pool().await;
 
         // Fill buffer pool
-        let mut page_ids = Vec::new();
         for _ in 0..10 {
             let page_id = buffer_pool
                 .pager
                 .allocate_page(PageType::Data)
                 .await
                 .unwrap();
-            page_ids.push(page_id);
 
             let page = buffer_pool.fetch_page(page_id).await.unwrap();
             drop(page);

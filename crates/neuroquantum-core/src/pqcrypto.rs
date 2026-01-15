@@ -1,7 +1,9 @@
-/// Post-Quantum Cryptography utilities for NeuroQuantumDB
+use std::sync::Arc;
+
+/// Post-Quantum Cryptography utilities for `NeuroQuantumDB`
 ///
 /// Implements NIST post-quantum standards:
-/// - ML-KEM (Kyber) for key encapsulation (using RustCrypto ml-kem crate)
+/// - ML-KEM (Kyber) for key encapsulation (using `RustCrypto` ml-kem crate)
 /// - ML-DSA (Dilithium) for digital signatures
 use ml_kem::{
     kem::{Decapsulate, Encapsulate},
@@ -10,7 +12,6 @@ use ml_kem::{
 use pqcrypto_mldsa::mldsa65;
 use pqcrypto_traits::sign::{PublicKey as SignPublicKey, SecretKey as SignSecretKey};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use thiserror::Error;
 
 /// Type aliases for ML-KEM-768 (NIST Security Level 3)
@@ -45,7 +46,7 @@ pub enum PQCryptoError {
 
 /// Post-quantum cryptographic key manager
 ///
-/// Uses ML-KEM-768 (RustCrypto implementation) for key encapsulation and
+/// Uses ML-KEM-768 (`RustCrypto` implementation) for key encapsulation and
 /// ML-DSA-65 (pqcrypto implementation) for digital signatures.
 /// Both provide NIST Security Level 3.
 #[derive(Clone)]
@@ -97,12 +98,14 @@ impl PQCryptoManager {
     }
 
     /// Get the ML-KEM encapsulation (public) key as base64
+    #[must_use]
     pub fn get_mlkem_public_key_base64(&self) -> String {
         let encoded = self.mlkem_encapsulation_key.as_bytes();
         base64::Engine::encode(&base64::engine::general_purpose::STANDARD, encoded)
     }
 
     /// Get the ML-DSA public key as base64
+    #[must_use]
     pub fn get_mldsa_public_key_base64(&self) -> String {
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD,
@@ -111,6 +114,7 @@ impl PQCryptoManager {
     }
 
     /// Sign a message using ML-DSA (Dilithium)
+    #[must_use]
     pub fn sign_message(&self, message: &[u8]) -> Vec<u8> {
         let signed_msg = mldsa65::sign(message, &self.mldsa_secret_key);
         // SignedMessage is a wrapper, convert to bytes using the trait
@@ -129,11 +133,11 @@ impl PQCryptoManager {
         let opened_msg = mldsa65::open(&signed_msg, &self.mldsa_public_key)
             .map_err(|_| PQCryptoError::SignatureVerificationFailed)?;
 
-        Ok(opened_msg.to_vec())
+        Ok(opened_msg)
     }
 
     /// Encapsulate a shared secret using ML-KEM (Kyber)
-    /// Returns (ciphertext_bytes, shared_secret_bytes)
+    /// Returns (`ciphertext_bytes`, `shared_secret_bytes`)
     ///
     /// The ciphertext can be transmitted to the key holder who can then
     /// decapsulate it using their decapsulation key to obtain the same shared secret.
@@ -144,6 +148,7 @@ impl PQCryptoManager {
     /// Panics if ML-KEM encapsulation fails with a valid key, which should never happen
     /// according to the algorithm specification. This is a catastrophic cryptographic failure.
     #[allow(clippy::expect_used)] // Encapsulation with valid key should never fail per spec
+    #[must_use]
     pub fn encapsulate(&self) -> (Vec<u8>, Vec<u8>) {
         let mut rng = rand::thread_rng();
 
@@ -182,11 +187,14 @@ impl PQCryptoManager {
         })?;
 
         // Decapsulate using the decapsulation key
-        let shared_secret = self.mlkem_decapsulation_key.decapsulate(&ct).map_err(|_| {
-            PQCryptoError::DecapsulationFailed(
-                "ML-KEM decapsulation failed - possibly corrupted ciphertext".to_string(),
-            )
-        })?;
+        let shared_secret = self
+            .mlkem_decapsulation_key
+            .decapsulate(&ct)
+            .map_err(|()| {
+                PQCryptoError::DecapsulationFailed(
+                    "ML-KEM decapsulation failed - possibly corrupted ciphertext".to_string(),
+                )
+            })?;
 
         let shared_secret_bytes = AsRef::<[u8]>::as_ref(&shared_secret).to_vec();
 
@@ -209,7 +217,7 @@ impl PQCryptoManager {
         session_id: &str,
     ) -> Result<QuantumTokenClaims, PQCryptoError> {
         let timestamp = chrono::Utc::now().timestamp();
-        let message = format!("{}:{}:{}", user_id, session_id, timestamp);
+        let message = format!("{user_id}:{session_id}:{timestamp}");
 
         // Sign the message with ML-DSA
         let signature = self.sign_message(message.as_bytes());
@@ -243,7 +251,7 @@ impl PQCryptoManager {
             &base64::engine::general_purpose::STANDARD,
             &claims.quantum_signature,
         )
-        .map_err(|e| PQCryptoError::EncodingError(format!("Invalid base64: {}", e)))?;
+        .map_err(|e| PQCryptoError::EncodingError(format!("Invalid base64: {e}")))?;
 
         // Verify the signature
         let verified_msg = self.verify_signature(&signature)?;

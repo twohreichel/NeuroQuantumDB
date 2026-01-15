@@ -1,6 +1,6 @@
 //! API Handler Integration Tests
 //!
-//! This module provides comprehensive integration tests for the NeuroQuantumDB API handlers.
+//! This module provides comprehensive integration tests for the `NeuroQuantumDB` API handlers.
 //! These tests directly exercise the HTTP handlers using actix-web's test utilities.
 //!
 //! Tests cover:
@@ -13,10 +13,11 @@
 //!
 //! Status: Addresses AUDIT.md "Mehr API-Integration-Tests" (Line 1203)
 
-use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
-use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
+use serde_json::json;
 use tokio::sync::RwLock;
 
 // =============================================================================
@@ -91,7 +92,7 @@ async fn insert_test_data(db: &Arc<RwLock<NeuroQuantumDB>>, table: &str, count: 
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text(format!("item_{}", i)),
+            neuroquantum_core::storage::Value::Text(format!("item_{i}")),
         );
         fields.insert(
             "value".to_string(),
@@ -404,8 +405,7 @@ async fn test_insert_batch_records() {
         assert_eq!(
             rows.len(),
             batch_size,
-            "Should have exactly {} rows",
-            batch_size
+            "Should have exactly {batch_size} rows"
         );
     }
 }
@@ -1010,7 +1010,7 @@ async fn test_concurrent_read_operations() {
             };
 
             let result = storage.select_rows(&query).await;
-            assert!(result.is_ok(), "Concurrent read {} should succeed", i);
+            assert!(result.is_ok(), "Concurrent read {i} should succeed");
             result.unwrap().len()
         });
 
@@ -1083,7 +1083,7 @@ async fn test_concurrent_read_write_operations() {
             );
             fields.insert(
                 "name".to_string(),
-                neuroquantum_core::storage::Value::Text(format!("concurrent_{}", i)),
+                neuroquantum_core::storage::Value::Text(format!("concurrent_{i}")),
             );
             fields.insert(
                 "value".to_string(),
@@ -1306,7 +1306,7 @@ async fn test_special_characters_in_text() {
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text(text.to_string()),
+            neuroquantum_core::storage::Value::Text((*text).to_string()),
         );
         fields.insert(
             "value".to_string(),
@@ -1325,11 +1325,7 @@ async fn test_special_characters_in_text() {
         };
 
         let result = storage.insert_row(table_name, row).await;
-        assert!(
-            result.is_ok(),
-            "Should handle special characters: {:?}",
-            text
-        );
+        assert!(result.is_ok(), "Should handle special characters: {text:?}");
     }
 
     // Verify all records were stored
@@ -1390,7 +1386,7 @@ async fn test_integer_boundary_values() {
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text(format!("value_{}", value)),
+            neuroquantum_core::storage::Value::Text(format!("value_{value}")),
         );
         fields.insert(
             "value".to_string(),
@@ -1450,8 +1446,7 @@ async fn test_integer_boundary_values() {
         // Check that zero is present (a key boundary)
         assert!(
             stored_values.contains(&0),
-            "Zero should be stored - stored values: {:?}",
-            stored_values
+            "Zero should be stored - stored values: {stored_values:?}"
         );
     }
 
@@ -1489,7 +1484,7 @@ async fn test_insert_and_immediate_read() {
             );
             fields.insert(
                 "name".to_string(),
-                neuroquantum_core::storage::Value::Text(format!("item_{}", i)),
+                neuroquantum_core::storage::Value::Text(format!("item_{i}")),
             );
             fields.insert(
                 "value".to_string(),
@@ -1534,8 +1529,7 @@ async fn test_insert_and_immediate_read() {
             assert_eq!(
                 rows.len(),
                 1,
-                "Inserted record {} should be immediately readable",
-                i
+                "Inserted record {i} should be immediately readable"
             );
         }
     }
@@ -1611,8 +1605,7 @@ async fn test_update_and_immediate_verify() {
             assert_eq!(
                 rows[0].fields.get("value"),
                 Some(&neuroquantum_core::storage::Value::Integer(new_value)),
-                "Update to {} should be immediately visible",
-                new_value
+                "Update to {new_value} should be immediately visible"
             );
         }
     }

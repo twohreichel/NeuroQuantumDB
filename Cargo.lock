@@ -3478,7 +3478,6 @@ dependencies = [
  "neuroquantum-core",
  "neuroquantum-qsql",
  "num_cpus",
- "once_cell",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",

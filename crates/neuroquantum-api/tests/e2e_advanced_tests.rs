@@ -1,4 +1,4 @@
-//! Advanced End-to-End Integration Tests for NeuroQuantumDB
+//! Advanced End-to-End Integration Tests for `NeuroQuantumDB`
 //!
 //! These tests cover:
 //! - Extended API workflows including multi-step operations
@@ -7,24 +7,25 @@
 //!
 //! Status: Addresses AUDIT.md open points (Lines 978-980, 1203-1205)
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use neuroquantum_core::storage::{
     ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, IdGenerationStrategy,
     Row, SelectQuery, TableSchema, UpdateQuery, Value, WhereClause,
 };
 use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
-use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// Default test data size for E2E tests (configurable via E2E_DATA_SIZE env var)
+/// Default test data size for E2E tests (configurable via `E2E_DATA_SIZE` env var)
 const TEST_DATA_SIZE_DEFAULT: usize = 10;
 
 /// Get configurable test data size from environment
 ///
-/// Use E2E_DATA_SIZE environment variable to control test thoroughness:
-/// - Fast (default): E2E_DATA_SIZE=10 (development)
-/// - Standard: E2E_DATA_SIZE=25 (CI)
-/// - Thorough: E2E_DATA_SIZE=50 (pre-release)
+/// Use `E2E_DATA_SIZE` environment variable to control test thoroughness:
+/// - Fast (default): `E2E_DATA_SIZE=10` (development)
+/// - Standard: `E2E_DATA_SIZE=25` (CI)
+/// - Thorough: `E2E_DATA_SIZE=50` (pre-release)
 fn get_test_data_size() -> usize {
     std::env::var("E2E_DATA_SIZE")
         .ok()
@@ -96,7 +97,7 @@ async fn insert_test_data(db: &Arc<RwLock<NeuroQuantumDB>>, table: &str, count: 
     for i in 0..count {
         let mut fields = HashMap::new();
         fields.insert("id".to_string(), Value::Integer(i as i64));
-        fields.insert("name".to_string(), Value::Text(format!("item_{}", i)));
+        fields.insert("name".to_string(), Value::Text(format!("item_{i}")));
         fields.insert("value".to_string(), Value::Integer((i * 10) as i64));
         fields.insert("active".to_string(), Value::Boolean(i % 2 == 0));
 
@@ -155,7 +156,7 @@ async fn test_complete_api_workflow_crud() {
             .select_rows(&query)
             .await
             .expect("Failed to select all rows");
-        assert_eq!(rows.len(), data_size, "Should have {} rows", data_size);
+        assert_eq!(rows.len(), data_size, "Should have {data_size} rows");
 
         // Query with limit and offset (proportional to data size)
         let limit_size = std::cmp::min(5, data_size / 2);
@@ -177,8 +178,7 @@ async fn test_complete_api_workflow_crud() {
         assert_eq!(
             rows_limited.len(),
             expected_limited,
-            "Should have {} rows with limit",
-            expected_limited
+            "Should have {expected_limited} rows with limit"
         );
     }
 
@@ -378,7 +378,7 @@ async fn test_complex_multi_table_workflow() {
         for i in 1..=10 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("username".to_string(), Value::Text(format!("user_{}", i)));
+            fields.insert("username".to_string(), Value::Text(format!("user_{i}")));
 
             let row = Row {
                 id: 0,
@@ -402,7 +402,7 @@ async fn test_complex_multi_table_workflow() {
             fields.insert("user_id".to_string(), Value::Integer((i % 10) + 1));
             fields.insert(
                 "content".to_string(),
-                Value::Text(format!("Post content {}", i)),
+                Value::Text(format!("Post content {i}")),
             );
 
             let row = Row {
@@ -474,7 +474,7 @@ async fn test_transaction_like_workflow() {
         for i in 0..5 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("name".to_string(), Value::Text(format!("item_{}", i)));
+            fields.insert("name".to_string(), Value::Text(format!("item_{i}")));
             fields.insert("value".to_string(), Value::Integer(100));
             fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -531,8 +531,9 @@ async fn test_transaction_like_workflow() {
 
 #[tokio::test]
 async fn test_websocket_concurrent_message_handling() {
-    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
     use std::time::Duration;
+
+    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
 
     let config = ConnectionConfig {
         max_connections: 1000,
@@ -552,7 +553,7 @@ async fn test_websocket_concurrent_message_handling() {
         let handle = tokio::spawn(async move {
             // Simulate message processing
             for _ in 0..10 {
-                manager_clone.get_metrics();
+                let _ = manager_clone.get_metrics();
                 tokio::time::sleep(Duration::from_millis(1)).await;
             }
         });
@@ -572,8 +573,9 @@ async fn test_websocket_concurrent_message_handling() {
 
 #[tokio::test]
 async fn test_websocket_connection_limit() {
-    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
     use std::time::Duration;
+
+    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
 
     let config = ConnectionConfig {
         max_connections: 10, // Low limit for testing
@@ -596,8 +598,9 @@ async fn test_websocket_connection_limit() {
 
 #[tokio::test]
 async fn test_websocket_high_throughput_broadcasting() {
-    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
     use std::time::Duration;
+
+    use neuroquantum_api::websocket::{ConnectionConfig, ConnectionManager};
 
     let config = ConnectionConfig::default();
     let manager = Arc::new(ConnectionManager::new(config));
@@ -651,7 +654,7 @@ async fn test_crash_recovery_wal_replay() {
             for i in 0..20 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert("name".to_string(), Value::Text(format!("pre_crash_{}", i)));
+                fields.insert("name".to_string(), Value::Text(format!("pre_crash_{i}")));
                 fields.insert("value".to_string(), Value::Integer(i * 10));
                 fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -697,12 +700,11 @@ async fn test_crash_recovery_wal_replay() {
 
         // Verify data integrity
         for (idx, row) in rows.iter().enumerate() {
-            let expected_name = format!("pre_crash_{}", idx);
+            let expected_name = format!("pre_crash_{idx}");
             assert_eq!(
                 row.fields.get("name"),
                 Some(&Value::Text(expected_name)),
-                "Row {} should have correct name",
-                idx
+                "Row {idx} should have correct name"
             );
         }
     }
@@ -737,7 +739,7 @@ async fn test_backup_and_restore() {
             for i in 0..10 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert("name".to_string(), Value::Text(format!("backup_{}", i)));
+                fields.insert("name".to_string(), Value::Text(format!("backup_{i}")));
                 fields.insert("value".to_string(), Value::Integer(i * 100));
                 fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -791,12 +793,11 @@ async fn test_backup_and_restore() {
         assert_eq!(rows.len(), 10, "Should have all 10 rows after restore");
 
         for (idx, row) in rows.iter().enumerate() {
-            let expected_name = format!("backup_{}", idx);
+            let expected_name = format!("backup_{idx}");
             assert_eq!(
                 row.fields.get("name"),
                 Some(&Value::Text(expected_name)),
-                "Restored row {} should have correct name",
-                idx
+                "Restored row {idx} should have correct name"
             );
         }
     }
@@ -876,7 +877,7 @@ async fn test_concurrent_recovery_operations() {
             for i in 0..50 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert("name".to_string(), Value::Text(format!("concurrent_{}", i)));
+                fields.insert("name".to_string(), Value::Text(format!("concurrent_{i}")));
                 fields.insert("value".to_string(), Value::Integer(i));
                 fields.insert("active".to_string(), Value::Boolean(true));
 

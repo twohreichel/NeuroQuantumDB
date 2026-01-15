@@ -35,12 +35,14 @@
 //! - Research on quantum algorithm behavior
 //! - Testing quantum-classical hybrid approaches
 
-use crate::error::{CoreError, CoreResult};
-use num_complex::Complex64;
-use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use std::sync::Arc;
+
+use num_complex::Complex64;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 /// Oracle trait for Grover's algorithm - marks target states
 pub trait Oracle: Send + Sync {
@@ -58,7 +60,7 @@ pub struct DatabaseOracle<T: PartialEq + Send + Sync> {
 }
 
 impl<T: PartialEq + Send + Sync> DatabaseOracle<T> {
-    pub fn new(database: Vec<T>, target: T) -> Self {
+    pub const fn new(database: Vec<T>, target: T) -> Self {
         Self { database, target }
     }
 }
@@ -88,7 +90,8 @@ pub struct ByteOracle {
 }
 
 impl ByteOracle {
-    pub fn new(data: Vec<u8>, pattern: Vec<u8>) -> Self {
+    #[must_use]
+    pub const fn new(data: Vec<u8>, pattern: Vec<u8>) -> Self {
         Self { data, pattern }
     }
 }
@@ -237,6 +240,7 @@ impl QuantumStateProcessor {
     }
 
     /// Measure and return all indices with probability above threshold
+    #[must_use]
     pub fn measure_all_above_threshold(&self, threshold: f64) -> Vec<(usize, f64)> {
         self.state_vector
             .iter()
@@ -247,6 +251,7 @@ impl QuantumStateProcessor {
     }
 
     /// Get the probability of measuring a specific index
+    #[must_use]
     pub fn get_probability(&self, index: usize) -> f64 {
         if index < self.state_vector.len() {
             self.state_vector[index].norm_sqr()
@@ -256,8 +261,13 @@ impl QuantumStateProcessor {
     }
 
     /// Verify the quantum state is properly normalized: Σ|amplitude|^2 = 1
+    #[must_use]
     pub fn verify_normalization(&self) -> bool {
-        let total_probability: f64 = self.state_vector.iter().map(|a| a.norm_sqr()).sum();
+        let total_probability: f64 = self
+            .state_vector
+            .iter()
+            .map(nalgebra::Complex::norm_sqr)
+            .sum();
 
         (total_probability - 1.0).abs() < 1e-10
     }
@@ -351,12 +361,14 @@ impl QuantumStateProcessor {
     }
 
     /// Get the number of qubits
-    pub fn qubit_count(&self) -> usize {
+    #[must_use]
+    pub const fn qubit_count(&self) -> usize {
         self.qubits
     }
 
     /// Get the state vector size
-    pub fn state_size(&self) -> usize {
+    #[must_use]
+    pub const fn state_size(&self) -> usize {
         self.state_vector.len()
     }
 

@@ -12,7 +12,7 @@
 //! ## Hardware
 //!
 //! IBM Quantum offers several processor families:
-//! - **Eagle** (127 qubits): ibm_brisbane, ibm_kyoto
+//! - **Eagle** (127 qubits): `ibm_brisbane`, `ibm_kyoto`
 //! - **Heron** (133 qubits): Latest generation
 //! - **Osprey** (433 qubits): For large-scale experiments
 //!
@@ -36,11 +36,12 @@
 //! ## Environment Variables
 //!
 //! - `IBM_QUANTUM_API_KEY`: Your IBM Quantum API token
-//! - `IBM_QUANTUM_BACKEND`: Backend name (default: ibm_brisbane)
+//! - `IBM_QUANTUM_BACKEND`: Backend name (default: `ibm_brisbane`)
 //! - `IBM_QUANTUM_ENDPOINT`: API endpoint (optional)
 
-use serde::{Deserialize, Serialize};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use super::{QuantumBackendConfig, QuantumBackendInfo, QuantumExecutionResult, QuantumProvider};
@@ -54,13 +55,13 @@ use crate::error::{CoreError, CoreResult};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IBMQuantumConfig {
     /// IBM Quantum API token
-    /// If None, will attempt to read from IBM_QUANTUM_API_KEY environment variable
+    /// If None, will attempt to read from `IBM_QUANTUM_API_KEY` environment variable
     pub api_token: Option<String>,
 
     /// IBM Quantum API endpoint URL
     pub api_endpoint: String,
 
-    /// Backend name (e.g., "ibm_brisbane", "ibm_kyoto", "ibmq_qasm_simulator")
+    /// Backend name (e.g., "`ibm_brisbane`", "`ibm_kyoto`", "`ibmq_qasm_simulator`")
     pub backend_name: String,
 
     /// Number of shots for measurement
@@ -127,7 +128,8 @@ pub struct IBMQuantumBackend {
 
 impl IBMQuantumBackend {
     /// Create a new IBM Quantum backend with the given configuration
-    pub fn new(config: IBMQuantumConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: IBMQuantumConfig) -> Self {
         Self { config }
     }
 
@@ -135,8 +137,9 @@ impl IBMQuantumBackend {
     ///
     /// Reads:
     /// - `IBM_QUANTUM_API_KEY`: API token
-    /// - `IBM_QUANTUM_BACKEND`: Backend name (optional, defaults to ibm_brisbane)
+    /// - `IBM_QUANTUM_BACKEND`: Backend name (optional, defaults to `ibm_brisbane`)
     /// - `IBM_QUANTUM_ENDPOINT`: API endpoint (optional)
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IBMQuantumConfig {
             api_token: std::env::var("IBM_QUANTUM_API_KEY").ok(),
@@ -150,6 +153,7 @@ impl IBMQuantumBackend {
     }
 
     /// Get the API token, checking environment if not configured
+    #[must_use]
     pub fn get_api_token(&self) -> Option<String> {
         self.config
             .api_token
@@ -158,21 +162,23 @@ impl IBMQuantumBackend {
     }
 
     /// Get the current configuration
-    pub fn config(&self) -> &IBMQuantumConfig {
+    #[must_use]
+    pub const fn config(&self) -> &IBMQuantumConfig {
         &self.config
     }
 
     /// Get mutable reference to configuration
-    pub fn config_mut(&mut self) -> &mut IBMQuantumConfig {
+    pub const fn config_mut(&mut self) -> &mut IBMQuantumConfig {
         &mut self.config
     }
 
-    /// Build OpenQASM 3.0 circuit for Grover's algorithm
+    /// Build `OpenQASM` 3.0 circuit for Grover's algorithm
     ///
     /// # Arguments
     /// * `num_qubits` - Number of qubits in the search space
     /// * `marked_states` - States to search for
     /// * `num_iterations` - Number of Grover iterations
+    #[must_use]
     pub fn build_grover_qasm(
         &self,
         num_qubits: usize,
@@ -182,12 +188,12 @@ impl IBMQuantumBackend {
         let mut qasm = String::new();
         qasm.push_str("OPENQASM 3.0;\n");
         qasm.push_str("include \"stdgates.inc\";\n\n");
-        qasm.push_str(&format!("qubit[{}] q;\n", num_qubits));
-        qasm.push_str(&format!("bit[{}] c;\n\n", num_qubits));
+        qasm.push_str(&format!("qubit[{num_qubits}] q;\n"));
+        qasm.push_str(&format!("bit[{num_qubits}] c;\n\n"));
 
         // Initial superposition
         for i in 0..num_qubits {
-            qasm.push_str(&format!("h q[{}];\n", i));
+            qasm.push_str(&format!("h q[{i}];\n"));
         }
         qasm.push('\n');
 
@@ -195,11 +201,11 @@ impl IBMQuantumBackend {
         for _iter in 0..num_iterations {
             // Oracle: flip phase of marked states
             for &state in marked_states {
-                qasm.push_str(&format!("// Oracle for state {}\n", state));
+                qasm.push_str(&format!("// Oracle for state {state}\n"));
                 // Apply X gates to qubits that should be 0 in the marked state
                 for j in 0..num_qubits {
                     if (state >> j) & 1 == 0 {
-                        qasm.push_str(&format!("x q[{}];\n", j));
+                        qasm.push_str(&format!("x q[{j}];\n"));
                     }
                 }
                 // Multi-controlled Z
@@ -207,14 +213,14 @@ impl IBMQuantumBackend {
                     qasm.push_str("h q[0];\n");
                     // Build multi-controlled X
                     for j in 1..num_qubits {
-                        qasm.push_str(&format!("cx q[{}], q[0];\n", j));
+                        qasm.push_str(&format!("cx q[{j}], q[0];\n"));
                     }
                     qasm.push_str("h q[0];\n");
                 }
                 // Undo X gates
                 for j in 0..num_qubits {
                     if (state >> j) & 1 == 0 {
-                        qasm.push_str(&format!("x q[{}];\n", j));
+                        qasm.push_str(&format!("x q[{j}];\n"));
                     }
                 }
             }
@@ -222,28 +228,28 @@ impl IBMQuantumBackend {
             // Diffusion operator
             qasm.push_str("// Diffusion operator\n");
             for i in 0..num_qubits {
-                qasm.push_str(&format!("h q[{}];\n", i));
+                qasm.push_str(&format!("h q[{i}];\n"));
             }
             for i in 0..num_qubits {
-                qasm.push_str(&format!("x q[{}];\n", i));
+                qasm.push_str(&format!("x q[{i}];\n"));
             }
             qasm.push_str("h q[0];\n");
             for j in 1..num_qubits {
-                qasm.push_str(&format!("cx q[{}], q[0];\n", j));
+                qasm.push_str(&format!("cx q[{j}], q[0];\n"));
             }
             qasm.push_str("h q[0];\n");
             for i in 0..num_qubits {
-                qasm.push_str(&format!("x q[{}];\n", i));
+                qasm.push_str(&format!("x q[{i}];\n"));
             }
             for i in 0..num_qubits {
-                qasm.push_str(&format!("h q[{}];\n", i));
+                qasm.push_str(&format!("h q[{i}];\n"));
             }
             qasm.push('\n');
         }
 
         // Measurement
         for i in 0..num_qubits {
-            qasm.push_str(&format!("c[{}] = measure q[{}];\n", i, i));
+            qasm.push_str(&format!("c[{i}] = measure q[{i}];\n"));
         }
 
         qasm
@@ -256,22 +262,23 @@ impl IBMQuantumBackend {
     /// * `gamma` - Problem unitary angle
     /// * `beta` - Mixer unitary angle
     /// * `q_matrix` - QUBO coefficients
+    #[must_use]
     pub fn build_qaoa_qasm(&self, num_qubits: usize, gammas: &[f64], betas: &[f64]) -> String {
         let mut qasm = String::new();
         qasm.push_str("OPENQASM 3.0;\n");
         qasm.push_str("include \"stdgates.inc\";\n\n");
-        qasm.push_str(&format!("qubit[{}] q;\n", num_qubits));
-        qasm.push_str(&format!("bit[{}] c;\n\n", num_qubits));
+        qasm.push_str(&format!("qubit[{num_qubits}] q;\n"));
+        qasm.push_str(&format!("bit[{num_qubits}] c;\n\n"));
 
         // Initial superposition
         for i in 0..num_qubits {
-            qasm.push_str(&format!("h q[{}];\n", i));
+            qasm.push_str(&format!("h q[{i}];\n"));
         }
         qasm.push('\n');
 
         // QAOA layers
         for (layer, (gamma, beta)) in gammas.iter().zip(betas.iter()).enumerate() {
-            qasm.push_str(&format!("// QAOA layer {}\n", layer));
+            qasm.push_str(&format!("// QAOA layer {layer}\n"));
 
             // Problem unitary: exp(-i * gamma * C)
             // For QUBO: apply RZZ for quadratic terms, RZ for linear terms
@@ -293,7 +300,7 @@ impl IBMQuantumBackend {
 
         // Measurement
         for i in 0..num_qubits {
-            qasm.push_str(&format!("c[{}] = measure q[{}];\n", i, i));
+            qasm.push_str(&format!("c[{i}] = measure q[{i}];\n"));
         }
 
         qasm
@@ -356,7 +363,7 @@ impl QuantumBackendInfo for IBMQuantumBackend {
         self.config.max_qubits.unwrap_or(127)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "IBM Quantum"
     }
 

@@ -3,13 +3,15 @@
 //! Core synaptic data structures implementing neuromorphic computing principles
 //! for self-optimizing data organization and intelligent indexing.
 
-use crate::error::{CoreError, CoreResult};
-use crate::neon_optimization::NeonOptimizer;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
+use crate::neon_optimization::NeonOptimizer;
 
 /// Helper function for serde default with Instant
 fn instant_now() -> Instant {
@@ -36,13 +38,14 @@ pub enum ActivationFunction {
 
 impl ActivationFunction {
     /// Apply the activation function to an input value
+    #[must_use]
     pub fn activate(&self, x: f32) -> f32 {
         match self {
-            | ActivationFunction::Sigmoid => 1.0 / (1.0 + (-x).exp()),
-            | ActivationFunction::ReLU => x.max(0.0),
-            | ActivationFunction::Tanh => x.tanh(),
-            | ActivationFunction::Linear => x,
-            | ActivationFunction::LeakyReLU => {
+            | Self::Sigmoid => 1.0 / (1.0 + (-x).exp()),
+            | Self::ReLU => x.max(0.0),
+            | Self::Tanh => x.tanh(),
+            | Self::Linear => x,
+            | Self::LeakyReLU => {
                 if x > 0.0 {
                     x
                 } else {
@@ -53,22 +56,23 @@ impl ActivationFunction {
     }
 
     /// Derivative of the activation function for backpropagation
+    #[must_use]
     pub fn derivative(&self, x: f32) -> f32 {
         match self {
-            | ActivationFunction::Sigmoid => {
+            | Self::Sigmoid => {
                 let s = self.activate(x);
                 s * (1.0 - s)
             },
-            | ActivationFunction::ReLU => {
+            | Self::ReLU => {
                 if x > 0.0 {
                     1.0
                 } else {
                     0.0
                 }
             },
-            | ActivationFunction::Tanh => 1.0 - x.tanh().powi(2),
-            | ActivationFunction::Linear => 1.0,
-            | ActivationFunction::LeakyReLU => {
+            | Self::Tanh => x.tanh().mul_add(-x.tanh(), 1.0),
+            | Self::Linear => 1.0,
+            | Self::LeakyReLU => {
                 if x > 0.0 {
                     1.0
                 } else {
@@ -97,7 +101,8 @@ pub struct Neuron {
 
 impl Neuron {
     /// Create a new neuron with specified activation function
-    pub fn new(id: u64, activation_function: ActivationFunction) -> Self {
+    #[must_use]
+    pub const fn new(id: u64, activation_function: ActivationFunction) -> Self {
         Self {
             id,
             activation: 0.0,
@@ -121,10 +126,11 @@ impl Neuron {
     }
 
     /// Check if neuron can fire (not in refractory period)
+    #[must_use]
     pub fn can_fire(&self) -> bool {
         if let Some(last_spike) = self.last_spike_time {
             let elapsed = Instant::now().duration_since(last_spike);
-            elapsed.as_millis() > self.refractory_period_ms as u128
+            elapsed.as_millis() > u128::from(self.refractory_period_ms)
         } else {
             true
         }
@@ -156,6 +162,7 @@ pub struct Synapse {
 
 impl Synapse {
     /// Create a new synapse
+    #[must_use]
     pub fn new(pre_neuron: u64, post_neuron: u64, initial_weight: f32) -> Self {
         Self {
             pre_neuron,
@@ -189,7 +196,9 @@ impl Synapse {
 
     /// Update eligibility trace for temporal credit assignment
     pub fn update_eligibility_trace(&mut self, pre_activity: f32, post_activity: f32, decay: f32) {
-        self.eligibility_trace = self.eligibility_trace * decay + pre_activity * post_activity;
+        self.eligibility_trace = self
+            .eligibility_trace
+            .mul_add(decay, pre_activity * post_activity);
     }
 }
 
@@ -225,6 +234,7 @@ pub struct SynapticConnection {
 
 impl SynapticNode {
     /// Create a new synaptic node
+    #[must_use]
     pub fn new(id: u64) -> Self {
         Self {
             id,
@@ -242,6 +252,7 @@ impl SynapticNode {
     }
 
     /// Create a node with data payload
+    #[must_use]
     pub fn with_data(id: u64, data: Vec<u8>) -> Self {
         Self {
             id,
@@ -271,7 +282,7 @@ impl SynapticNode {
 
     /// Apply natural decay to simulate forgetting
     /// Uses exponential decay: weight(t) = weight(0) * exp(-dt/τ)
-    /// where τ is the time constant (decay_tau_ms)
+    /// where τ is the time constant (`decay_tau_ms`)
     pub fn apply_decay(&mut self) {
         let now = Instant::now();
         let elapsed_ms = now.duration_since(self.last_decay).as_millis() as f32;
@@ -313,8 +324,7 @@ impl SynapticNode {
         // Check if connection already exists
         if self.connections.iter().any(|c| c.target_id == target_id) {
             return Err(CoreError::InvalidOperation(format!(
-                "Connection to node {} already exists",
-                target_id
+                "Connection to node {target_id} already exists"
             )));
         }
 
@@ -332,7 +342,8 @@ impl SynapticNode {
     }
 
     /// Get memory usage of this node
-    pub fn memory_usage(&self) -> usize {
+    #[must_use]
+    pub const fn memory_usage(&self) -> usize {
         std::mem::size_of::<Self>()
             + self.connections.len() * std::mem::size_of::<SynapticConnection>()
             + self.data_payload.len()
@@ -464,7 +475,9 @@ impl SynapticNetwork {
 
         // Update pattern statistics
         pattern.access_count += 1;
-        pattern.performance_score = (pattern.performance_score * 0.9) + (performance_metric * 0.1);
+        pattern.performance_score = pattern
+            .performance_score
+            .mul_add(0.9, performance_metric * 0.1);
         pattern.last_accessed = Instant::now();
 
         // Find optimal neurons for this pattern
@@ -867,7 +880,7 @@ impl SynapticNetwork {
     /// Update memory usage cache efficiently
     fn update_memory_usage_cache(&self) {
         if let Ok(nodes) = self.nodes.read() {
-            let total_memory: usize = nodes.values().map(|node| node.memory_usage()).sum();
+            let total_memory: usize = nodes.values().map(SynapticNode::memory_usage).sum();
 
             if let Ok(mut memory_usage) = self.memory_usage.write() {
                 *memory_usage = total_memory;
@@ -925,7 +938,7 @@ impl SynapticNetwork {
     pub fn is_neon_optimization_available(&self) -> bool {
         self.neon_optimizer
             .as_ref()
-            .is_some_and(|opt| opt.is_enabled())
+            .is_some_and(super::neon_optimization::NeonOptimizer::is_enabled)
     }
 
     /// Get NEON optimization statistics if available
@@ -1064,13 +1077,13 @@ impl SynapticNetwork {
         // Create directory if it doesn't exist
         if let Some(parent) = state_path.parent() {
             tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                CoreError::StorageError(format!("Failed to create synaptic state directory: {}", e))
+                CoreError::StorageError(format!("Failed to create synaptic state directory: {e}"))
             })?;
         }
 
-        tokio::fs::write(state_path, &state).await.map_err(|e| {
-            CoreError::StorageError(format!("Failed to write synaptic state: {}", e))
-        })?;
+        tokio::fs::write(state_path, &state)
+            .await
+            .map_err(|e| CoreError::StorageError(format!("Failed to write synaptic state: {e}")))?;
 
         tracing::info!("✅ Synaptic learning state saved ({} bytes)", state.len());
         Ok(())
@@ -1085,9 +1098,9 @@ impl SynapticNetwork {
             return Ok(());
         }
 
-        let state = tokio::fs::read(state_path).await.map_err(|e| {
-            CoreError::StorageError(format!("Failed to read synaptic state: {}", e))
-        })?;
+        let state = tokio::fs::read(state_path)
+            .await
+            .map_err(|e| CoreError::StorageError(format!("Failed to read synaptic state: {e}")))?;
 
         self.deserialize_network_state(&state)?;
 
@@ -1152,7 +1165,7 @@ impl SynapticNetwork {
         };
 
         bincode::serialize(&state).map_err(|e| {
-            CoreError::SerializationError(format!("Failed to serialize network state: {}", e))
+            CoreError::SerializationError(format!("Failed to serialize network state: {e}"))
         })
     }
 
@@ -1169,7 +1182,7 @@ impl SynapticNetwork {
         }
 
         let state: NetworkState = bincode::deserialize(data).map_err(|e| {
-            CoreError::StorageError(format!("Failed to deserialize network state: {}", e))
+            CoreError::StorageError(format!("Failed to deserialize network state: {e}"))
         })?;
 
         // Restore nodes
@@ -1306,7 +1319,7 @@ impl SynapticNetwork {
     pub fn get_node_ids(&self) -> Vec<u64> {
         self.nodes
             .read()
-            .map(|nodes| nodes.keys().cloned().collect())
+            .map(|nodes| nodes.keys().copied().collect())
             .unwrap_or_default()
     }
 
@@ -1358,7 +1371,7 @@ impl SynapticNetwork {
         self.modify_node(source_id, |source_node| {
             source_node.add_connection(target_id, weight, connection_type)
         })
-        .ok_or_else(|| CoreError::NotFound(format!("Source node {} not found", source_id)))?
+        .ok_or_else(|| CoreError::NotFound(format!("Source node {source_id} not found")))?
     }
 }
 

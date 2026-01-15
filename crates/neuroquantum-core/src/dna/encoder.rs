@@ -3,10 +3,12 @@
 //! This module implements the encoding phase of DNA compression, converting binary data
 //! to quaternary DNA base sequences with optional dictionary compression for patterns.
 
-use crate::dna::{DNABase, DNACompressionConfig, DNAError};
-use rayon::prelude::*;
 use std::collections::HashMap;
+
+use rayon::prelude::*;
 use tracing::{debug, instrument};
+
+use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 
 /// Quaternary encoder that converts binary data to DNA bases
 #[derive(Debug)]
@@ -17,6 +19,7 @@ pub struct QuaternaryEncoder {
 
 impl QuaternaryEncoder {
     /// Create a new encoder with the given configuration
+    #[must_use]
     pub fn new(config: &DNACompressionConfig) -> Self {
         Self {
             config: config.clone(),
@@ -223,11 +226,13 @@ impl QuaternaryEncoder {
     }
 
     /// Get the dictionary built during compression (if any)
+    #[must_use]
     pub fn get_dictionary(&self) -> Option<HashMap<Vec<u8>, u16>> {
         self.dictionary.clone()
     }
 
     /// Estimate compression ratio without full compression
+    #[must_use]
     pub fn estimate_compression_ratio(&self, data: &[u8]) -> f64 {
         if data.is_empty() {
             return 1.0;
@@ -244,7 +249,7 @@ impl QuaternaryEncoder {
         };
 
         // Account for Reed-Solomon parity overhead
-        let parity_overhead = (self.config.error_correction_strength as f64 / 255.0) * 0.2;
+        let parity_overhead = (f64::from(self.config.error_correction_strength) / 255.0) * 0.2;
 
         let effective_ratio =
             (base_size as f64 - dict_savings) / data.len() as f64 + parity_overhead;

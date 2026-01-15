@@ -8,13 +8,13 @@ mod history;
 mod parser;
 mod progress;
 
+use std::path::PathBuf;
+
 pub use executor::{MigrationExecutor, MigrationExecutorConfig};
 pub use history::{MigrationHistory, MigrationRecord, MigrationStatus};
 pub use parser::{Migration, MigrationDirection, MigrationParser};
 pub use progress::{MigrationProgress, ProgressTracker};
-
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// Migration identifier
 pub type MigrationId = String;

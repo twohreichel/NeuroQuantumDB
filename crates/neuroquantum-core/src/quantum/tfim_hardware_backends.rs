@@ -50,13 +50,14 @@
 //! let solution = solver.solve(&problem).await?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
 use super::tfim::{TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
+use crate::error::{CoreError, CoreResult};
 
 // =============================================================================
 // Annealing Backend Trait
@@ -139,7 +140,7 @@ impl BinaryQuadraticModel {
             }
         }
 
-        Ok(BinaryQuadraticModel {
+        Ok(Self {
             linear,
             quadratic,
             offset: 0.0,
@@ -148,6 +149,7 @@ impl BinaryQuadraticModel {
     }
 
     /// Convert BQM from SPIN to BINARY formulation
+    #[must_use]
     pub fn to_binary(&self) -> Self {
         if self.vartype == VarType::BINARY {
             return self.clone();
@@ -172,7 +174,7 @@ impl BinaryQuadraticModel {
             new_offset += j_ij;
         }
 
-        BinaryQuadraticModel {
+        Self {
             linear: new_linear,
             quadratic: new_quadratic,
             offset: new_offset,
@@ -189,13 +191,13 @@ impl BinaryQuadraticModel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DWaveTFIMConfig {
     /// D-Wave API token (from Leap account)
-    /// If None, will attempt to read from DWAVE_API_TOKEN environment variable
+    /// If None, will attempt to read from `DWAVE_API_TOKEN` environment variable
     pub api_token: Option<String>,
 
     /// D-Wave API endpoint URL
     pub api_endpoint: String,
 
-    /// Solver name (e.g., "Advantage_system6.4", "Advantage2_prototype2.1")
+    /// Solver name (e.g., "`Advantage_system6.4`", "`Advantage2_prototype2.1`")
     pub solver_name: Option<String>,
 
     /// Number of reads (samples) to take
@@ -256,11 +258,13 @@ pub struct DWaveTFIMSolver {
 
 impl DWaveTFIMSolver {
     /// Create a new D-Wave TFIM solver with the given configuration
-    pub fn new(config: DWaveTFIMConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: DWaveTFIMConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use]
     pub fn from_env() -> Self {
         let config = DWaveTFIMConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -393,11 +397,11 @@ impl AnnealingBackend for DWaveTFIMSolver {
         5000
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "D-Wave Quantum Annealer"
     }
 
-    fn topology(&self) -> &str {
+    fn topology(&self) -> &'static str {
         "Pegasus"
     }
 }
@@ -448,11 +452,13 @@ pub struct BraketTFIMSolver {
 
 impl BraketTFIMSolver {
     /// Create a new Braket TFIM solver with the given configuration
-    pub fn new(config: BraketTFIMConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: BraketTFIMConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use]
     pub fn from_env() -> Self {
         let config = BraketTFIMConfig {
             region: std::env::var("AWS_REGION").unwrap_or_else(|_| "us-west-1".to_string()),
@@ -569,11 +575,11 @@ impl AnnealingBackend for BraketTFIMSolver {
         5000
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "AWS Braket D-Wave Annealer"
     }
 
-    fn topology(&self) -> &str {
+    fn topology(&self) -> &'static str {
         "Pegasus"
     }
 }
@@ -629,11 +635,13 @@ pub struct UnifiedTFIMAnnealingSolver {
 
 impl UnifiedTFIMAnnealingSolver {
     /// Create new unified solver
-    pub fn new(config: UnifiedTFIMAnnealingConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: UnifiedTFIMAnnealingConfig) -> Self {
         Self { config }
     }
 
     /// Create solver from environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         let preference = match std::env::var("TFIM_BACKEND").as_deref() {
             | Ok("dwave") => TFIMBackendPreference::DWave,
@@ -714,14 +722,15 @@ impl UnifiedTFIMAnnealingSolver {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::DMatrix;
+
+    use super::*;
 
     #[test]
     fn test_bqm_from_tfim() {
         let problem = TFIMProblem {
             num_spins: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.5, -0.5, 0.0],
             name: "Test".to_string(),
         };
@@ -763,7 +772,7 @@ mod tests {
 
         let problem = TFIMProblem {
             num_spins: 3,
-            couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0; 3],
             name: "Test".to_string(),
         };
@@ -789,7 +798,7 @@ mod tests {
 
         let problem = TFIMProblem {
             num_spins: 4,
-            couplings: DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 }),
+            couplings: DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 }),
             external_fields: vec![0.0; 4],
             name: "Unified Test".to_string(),
         };

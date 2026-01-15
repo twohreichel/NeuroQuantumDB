@@ -1,7 +1,7 @@
 //! # ARM64/NEON Optimization
 //!
 //! SIMD optimizations for ARM64 architecture using NEON instructions
-//! to accelerate neuromorphic computations in NeuroQuantumDB.
+//! to accelerate neuromorphic computations in `NeuroQuantumDB`.
 //!
 //! This module provides hardware-accelerated implementations for:
 //! - DNA compression and decompression
@@ -10,9 +10,11 @@
 //! - Search operations
 //! - Synaptic weight updates
 
-use crate::error::{CoreError, CoreResult};
 use std::collections::HashMap;
+
 use tracing::{debug, info, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 /// NEON optimizer for ARM64 SIMD operations
 #[derive(Debug)]
@@ -159,8 +161,12 @@ impl NeonOptimizer {
         // Handle remaining connections
         let remaining_start = num_chunks * chunk_size;
         for connection in node.connections.iter_mut().skip(remaining_start) {
-            connection.weight = (connection.weight * node.decay_factor
-                + connection.usage_count as f32 * 0.01 * node.learning_rate)
+            connection.weight = connection
+                .weight
+                .mul_add(
+                    node.decay_factor,
+                    connection.usage_count as f32 * 0.01 * node.learning_rate,
+                )
                 .clamp(-1.0, 1.0);
         }
 
@@ -322,12 +328,14 @@ impl NeonOptimizer {
     }
 
     /// Get optimization statistics
-    pub fn get_stats(&self) -> &OptimizationStats {
+    #[must_use]
+    pub const fn get_stats(&self) -> &OptimizationStats {
         &self.optimization_stats
     }
 
     /// Check if NEON optimizations are enabled
-    pub fn is_enabled(&self) -> bool {
+    #[must_use]
+    pub const fn is_enabled(&self) -> bool {
         self.enabled
     }
 
@@ -638,7 +646,7 @@ mod tests {
         let b = vec![2.0, 3.0, 4.0, 5.0];
 
         let result = optimizer.dot_product(&a, &b).unwrap();
-        let expected = 1.0 * 2.0 + 2.0 * 3.0 + 3.0 * 4.0 + 4.0 * 5.0;
+        let expected = 4.0f32.mul_add(5.0, 3.0f32.mul_add(4.0, 1.0f32.mul_add(2.0, 2.0 * 3.0)));
         assert!((result - expected).abs() < 1e-6);
     }
 

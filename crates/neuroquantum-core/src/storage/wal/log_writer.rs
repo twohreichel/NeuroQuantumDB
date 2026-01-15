@@ -6,8 +6,9 @@
 //! - Fsync control for durability
 //! - Log file rotation
 
-use anyhow::{anyhow, Result};
 use std::path::PathBuf;
+
+use anyhow::{anyhow, Result};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tracing::{debug, info, warn};
@@ -90,7 +91,7 @@ impl LogWriter {
         }
 
         // Read the latest segment to find the last LSN
-        let segment_path = wal_dir.join(format!("wal-{:08}.log", max_segment));
+        let segment_path = wal_dir.join(format!("wal-{max_segment:08}.log"));
         let next_lsn = Self::scan_segment_for_last_lsn(&segment_path).await?;
 
         Ok((max_segment, next_lsn + 1))
@@ -129,7 +130,7 @@ impl LogWriter {
         let segment_path = self
             .config
             .wal_dir
-            .join(format!("wal-{:08}.log", segment_num));
+            .join(format!("wal-{segment_num:08}.log"));
 
         let file = OpenOptions::new()
             .create(true)
@@ -223,7 +224,7 @@ impl LogWriter {
     }
 
     /// Get the next LSN that will be assigned
-    pub fn get_next_lsn(&self) -> LSN {
+    pub const fn get_next_lsn(&self) -> LSN {
         self.next_lsn
     }
 
@@ -236,7 +237,7 @@ impl LogWriter {
             let segment_path = self
                 .config
                 .wal_dir
-                .join(format!("wal-{:08}.log", segment_num));
+                .join(format!("wal-{segment_num:08}.log"));
 
             if !segment_path.exists() {
                 continue;
@@ -299,7 +300,7 @@ impl LogWriter {
             let segment_path = self
                 .config
                 .wal_dir
-                .join(format!("wal-{:08}.log", segment_num));
+                .join(format!("wal-{segment_num:08}.log"));
 
             if segment_path.exists() {
                 tokio::fs::remove_file(&segment_path).await?;
@@ -313,10 +314,11 @@ impl LogWriter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::storage::wal::WALRecordType;
     use tempfile::TempDir;
     use uuid::Uuid;
+
+    use super::*;
+    use crate::storage::wal::WALRecordType;
 
     #[tokio::test]
     async fn test_log_writer_creation() {

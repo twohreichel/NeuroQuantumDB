@@ -2,10 +2,11 @@
 //!
 //! Defines core types for connection management, metadata, and status tracking.
 
-use actix_ws::Session;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use actix_ws::Session;
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -15,12 +16,14 @@ pub struct ConnectionId(Uuid);
 
 impl ConnectionId {
     /// Create a new unique connection ID
+    #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
 
     /// Get the underlying UUID
-    pub fn as_uuid(&self) -> &Uuid {
+    #[must_use]
+    pub const fn as_uuid(&self) -> &Uuid {
         &self.0
     }
 }
@@ -64,6 +67,7 @@ pub struct ConnectionMetadata {
 
 impl ConnectionMetadata {
     /// Create new metadata with minimal information
+    #[must_use]
     pub fn new(remote_addr: String) -> Self {
         let now = chrono::Utc::now();
         Self {
@@ -83,6 +87,7 @@ impl ConnectionMetadata {
     }
 
     /// Check if connection has been idle for longer than the given duration
+    #[must_use]
     pub fn is_idle(&self, timeout: Duration) -> bool {
         let elapsed = chrono::Utc::now()
             .signed_duration_since(self.last_activity)
@@ -137,6 +142,7 @@ pub struct Connection {
 
 impl Connection {
     /// Create a new connection
+    #[must_use]
     pub fn new(session: Session, metadata: ConnectionMetadata) -> Self {
         Self {
             id: ConnectionId::new(),

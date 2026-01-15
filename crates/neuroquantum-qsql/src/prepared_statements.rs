@@ -3,15 +3,17 @@
 //! This module provides session-scoped prepared statement storage and execution
 //! with query plan caching for improved performance.
 
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
+
 use crate::ast::{
     DeallocateStatement, ExecuteStatement, Expression, ParameterRef, PrepareStatement, Statement,
 };
 use crate::error::{QSQLError, QSQLResult};
 use crate::query_plan::QueryPlan;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
-use tracing::{debug, info};
 
 /// A prepared statement with its cached query plan
 #[derive(Debug, Clone)]
@@ -47,7 +49,7 @@ pub struct PreparedStatementStats {
 
 /// Session-scoped prepared statement manager
 ///
-/// Each session/connection should have its own PreparedStatementManager
+/// Each session/connection should have its own `PreparedStatementManager`
 /// for proper isolation of prepared statements.
 #[derive(Debug, Default)]
 pub struct PreparedStatementManager {
@@ -60,7 +62,8 @@ pub struct PreparedStatementManager {
 }
 
 impl PreparedStatementManager {
-    /// Create a new PreparedStatementManager with default settings
+    /// Create a new `PreparedStatementManager` with default settings
+    #[must_use]
     pub fn new() -> Self {
         Self {
             statements: HashMap::new(),
@@ -69,7 +72,8 @@ impl PreparedStatementManager {
         }
     }
 
-    /// Create a new PreparedStatementManager with a custom statement limit
+    /// Create a new `PreparedStatementManager` with a custom statement limit
+    #[must_use]
     pub fn with_max_statements(max_statements: usize) -> Self {
         Self {
             statements: HashMap::new(),
@@ -126,6 +130,7 @@ impl PreparedStatementManager {
     }
 
     /// Get a prepared statement by name
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&PreparedStatement> {
         self.statements.get(name)
     }
@@ -147,7 +152,7 @@ impl PreparedStatementManager {
             self.statements
                 .get(name)
                 .ok_or_else(|| QSQLError::PreparedStatementError {
-                    message: format!("Prepared statement '{}' not found", name),
+                    message: format!("Prepared statement '{name}' not found"),
                 })?;
 
         // Build parameter map from positional and named parameters
@@ -192,7 +197,7 @@ impl PreparedStatementManager {
             prepared.stats.total_execution_time += execution_time;
             prepared.stats.average_execution_time = Duration::from_nanos(
                 (prepared.stats.total_execution_time.as_nanos()
-                    / prepared.stats.execution_count as u128) as u64,
+                    / u128::from(prepared.stats.execution_count)) as u64,
             );
             self.total_executions += 1;
         }
@@ -205,7 +210,7 @@ impl PreparedStatementManager {
             Ok(())
         } else {
             Err(QSQLError::PreparedStatementError {
-                message: format!("Prepared statement '{}' not found", name),
+                message: format!("Prepared statement '{name}' not found"),
             })
         }
     }
@@ -229,11 +234,16 @@ impl PreparedStatementManager {
     }
 
     /// List all prepared statement names
+    #[must_use]
     pub fn list_statements(&self) -> Vec<&str> {
-        self.statements.keys().map(|s| s.as_str()).collect()
+        self.statements
+            .keys()
+            .map(std::string::String::as_str)
+            .collect()
     }
 
     /// Get statistics for all prepared statements
+    #[must_use]
     pub fn get_statistics(&self) -> PreparedStatementsStatistics {
         PreparedStatementsStatistics {
             total_statements: self.statements.len(),
@@ -247,6 +257,7 @@ impl PreparedStatementManager {
     }
 
     /// Check if a statement with the given name exists
+    #[must_use]
     pub fn exists(&self, name: &str) -> bool {
         self.statements.contains_key(name)
     }
@@ -375,11 +386,11 @@ fn substitute_parameters(
         match expr {
             | Expression::Parameter(param_ref) => params.get(param_ref).cloned().ok_or_else(|| {
                 let param_str = match param_ref {
-                    | ParameterRef::Positional(idx) => format!("${}", idx),
-                    | ParameterRef::Named(name) => format!(":{}", name),
+                    | ParameterRef::Positional(idx) => format!("${idx}"),
+                    | ParameterRef::Named(name) => format!(":{name}"),
                 };
                 QSQLError::PreparedStatementError {
-                    message: format!("Missing parameter value for {}", param_str),
+                    message: format!("Missing parameter value for {param_str}"),
                 }
             }),
             | Expression::BinaryOp {
@@ -778,7 +789,7 @@ mod tests {
             };
 
             let prepare_stmt = PrepareStatement {
-                name: format!("stmt_{}", i),
+                name: format!("stmt_{i}"),
                 statement: Box::new(Statement::Select(select)),
                 parameter_types: None,
             };

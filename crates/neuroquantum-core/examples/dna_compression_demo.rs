@@ -1,6 +1,6 @@
 //! DNA Compression Demo
 //!
-//! Demonstrates NeuroQuantumDB's advanced DNA-based compression system:
+//! Demonstrates `NeuroQuantumDB`'s advanced DNA-based compression system:
 //! - Quaternary encoding (4 DNA bases: A, T, G, C)
 //! - Reed-Solomon error correction
 //! - Dictionary compression for pattern optimization
@@ -8,8 +8,9 @@
 //! - Compression ratio analysis
 //! - Error correction capabilities
 
-use neuroquantum_core::dna::{DNACompressionConfig, DNACompressor, DNAError, QuantumDNACompressor};
 use std::time::Instant;
+
+use neuroquantum_core::dna::{DNACompressionConfig, DNACompressor, DNAError, QuantumDNACompressor};
 
 #[tokio::main]
 async fn main() -> Result<(), DNAError> {
@@ -72,7 +73,7 @@ async fn demo_basic_compression() -> Result<(), DNAError> {
         "Compression ratio: {:.2}%",
         compressed.sequence.metadata.compression_ratio * 100.0
     );
-    println!("Compression time: {:?}", compress_time);
+    println!("Compression time: {compress_time:?}");
     println!(
         "DNA bases generated: {} ({}x efficiency)",
         compressed.sequence.bases.len(),
@@ -91,7 +92,7 @@ async fn demo_basic_compression() -> Result<(), DNAError> {
     let decompressed = compressor.decompress(&compressed).await?;
     let decompress_time = start.elapsed();
 
-    println!("Decompression time: {:?}", decompress_time);
+    println!("Decompression time: {decompress_time:?}");
     println!(
         "Data integrity: {}",
         if decompressed == original_data {
@@ -205,8 +206,7 @@ async fn demo_error_correction() -> Result<(), DNAError> {
         let decompressed = compressor.decompress(&compressed).await?;
         assert_eq!(
             decompressed, original_data,
-            "Decompression with strength {} failed!",
-            strength
+            "Decompression with strength {strength} failed!"
         );
     }
 
@@ -273,9 +273,9 @@ async fn demo_performance_comparison() -> Result<(), DNAError> {
         let _decompressed = compressor.decompress(&compressed).await?;
         let decompress_time = start.elapsed();
 
-        println!("Configuration: {}", name);
-        println!("  Compression time: {:?}", compress_time);
-        println!("  Decompression time: {:?}", decompress_time);
+        println!("Configuration: {name}");
+        println!("  Compression time: {compress_time:?}");
+        println!("  Decompression time: {decompress_time:?}");
         println!("  Compressed size: {} bytes", compressed.compressed_size);
         println!(
             "  Compression ratio: {:.2}%",
@@ -319,7 +319,7 @@ async fn demo_realistic_data() -> Result<(), DNAError> {
     println!();
 
     // Scenario 4: Numeric data
-    let numeric_data = (0..1000).map(|i| format!("{},", i)).collect::<String>();
+    let numeric_data = (0..1000).map(|i| format!("{i},")).collect::<String>();
     println!("Scenario 4: Numeric Sequence");
     test_compression(&compressor, numeric_data.as_bytes(), "Numeric").await?;
 
@@ -342,7 +342,7 @@ async fn test_compression(
 
     let decompressed = compressor.decompress(&compressed).await?;
 
-    println!("  Original size: {} bytes", original_size);
+    println!("  Original size: {original_size} bytes");
     println!("  Compressed size: {} bytes", compressed.compressed_size);
     println!(
         "  Compression ratio: {:.2}%",
@@ -359,7 +359,7 @@ async fn test_compression(
             compressed.compressed_size - original_size
         );
     }
-    println!("  Compression time: {:?}", compress_time);
+    println!("  Compression time: {compress_time:?}");
     println!(
         "  DNA bases: {} ({} bases per byte)",
         compressed.sequence.bases.len(),
@@ -376,8 +376,7 @@ async fn test_compression(
 
     assert_eq!(
         decompressed, data,
-        "{} compression verification failed!",
-        label
+        "{label} compression verification failed!"
     );
 
     Ok(())

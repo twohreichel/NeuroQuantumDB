@@ -1,16 +1,15 @@
-//! Comprehensive Integration Tests for NeuroQuantumDB
+//! Comprehensive Integration Tests for `NeuroQuantumDB`
 //!
 //! Tests complete workflows including CRUD operations, transactions,
 //! backup/restore, and system recovery.
 
-use neuroquantum_core::{
-    storage::{
-        ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
-        TableSchema, UpdateQuery, Value, WhereClause,
-    },
-    NeuroQuantumDBBuilder,
-};
 use std::collections::HashMap;
+
+use neuroquantum_core::storage::{
+    ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, Row, SelectQuery,
+    TableSchema, UpdateQuery, Value, WhereClause,
+};
+use neuroquantum_core::NeuroQuantumDBBuilder;
 use tempfile::TempDir;
 
 /// Test 1: Complete CRUD Workflow
@@ -46,7 +45,7 @@ async fn test_complete_crud_workflow() -> anyhow::Result<()> {
         for i in 1..=3 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("name".to_string(), Value::Text(format!("Employee {}", i)));
+            fields.insert("name".to_string(), Value::Text(format!("Employee {i}")));
             fields.insert("salary".to_string(), Value::Integer(50000 + i * 10000));
 
             let row = Row {
@@ -236,7 +235,7 @@ async fn test_complex_queries() -> anyhow::Result<()> {
         for i in 1..=10 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("name".to_string(), Value::Text(format!("Product {}", i)));
+            fields.insert("name".to_string(), Value::Text(format!("Product {i}")));
             fields.insert("price".to_string(), Value::Integer(i * 100));
 
             let row = Row {

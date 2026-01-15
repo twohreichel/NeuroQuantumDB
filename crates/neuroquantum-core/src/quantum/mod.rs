@@ -20,13 +20,13 @@
 //!   - **IBM Quantum**: QITE (Quantum Imaginary Time Evolution) for thermal state preparation
 //!   - **AWS Braket**: Multi-vendor access for thermal sampling
 //!   - **D-Wave**: Native quantum annealing with reverse annealing for temperature control
-//!   - **IonQ**: High-fidelity trapped-ion thermal state preparation
+//!   - **`IonQ`**: High-fidelity trapped-ion thermal state preparation
 //!   - **Local Simulator**: Classical fallback (always available)
 //!
 //! - **Grover's Search**: Now with **real quantum hardware integration** supporting:
 //!   - **IBM Quantum**: Execute on IBM gate-based quantum computers via Qiskit Runtime
-//!   - **AWS Braket**: Execute on IonQ, Rigetti, and OQC devices via AWS Braket
-//!   - **IonQ Direct**: Direct API access to IonQ trapped-ion quantum computers
+//!   - **AWS Braket**: Execute on `IonQ`, Rigetti, and OQC devices via AWS Braket
+//!   - **`IonQ` Direct**: Direct API access to `IonQ` trapped-ion quantum computers
 //!   - **Local Simulator**: State vector simulation for development and testing
 //!   
 //!   The `UnifiedGroverSolver` provides automatic backend selection with fallback
@@ -80,8 +80,8 @@
 //! The `grover_hardware_backends` module provides real quantum hardware integration:
 //!
 //! - **IBM Quantum**: Gate-based superconducting qubits via IBM Quantum Experience
-//! - **AWS Braket**: Multi-vendor access (IonQ, Rigetti, OQC) via AWS
-//! - **IonQ Direct**: Native trapped-ion quantum computing API
+//! - **AWS Braket**: Multi-vendor access (`IonQ`, Rigetti, OQC) via AWS
+//! - **`IonQ` Direct**: Native trapped-ion quantum computing API
 //! - **Local Simulator**: State vector simulation (always available)
 //!
 //! ### Configuration Example
@@ -111,7 +111,7 @@
 //!   - Reverse annealing for thermal state preparation
 //!   - Multi-temperature annealing schedules
 //! - **AWS Braket**: Multi-vendor quantum access including D-Wave annealers
-//! - **IonQ**: High-fidelity trapped-ion thermal state preparation
+//! - **`IonQ`**: High-fidelity trapped-ion thermal state preparation
 //! - **Local Simulator**: Classical PIMC/QMC fallback (always available)
 //!
 //! ### Parallel Tempering Configuration Example
@@ -179,104 +179,38 @@ pub mod tfim_quantum;
 pub mod tfim_unified;
 
 // Re-export legacy quantum types for backwards compatibility
-pub use legacy::{
-    GroverSearch, OptimizedIndex, QuantumConfig, QuantumError, QuantumProcessor,
-    QuantumQueryResults, QuantumSearch, QuantumSearchResult, QuantumStatistics,
+// Re-export AWS Braket backend (new provider-centric implementation)
+pub use backends::braket::{
+    BraketAnnealingProblem, BraketBackend, BraketConfig as UnifiedBraketConfig, BraketDeviceType,
+    BraketGate, BraketProblemType, BraketTaskInfo, BraketTaskStatus,
 };
-
-// Re-export new quantum extension types
-pub use quantum_parallel_tempering::{
-    create_quantum_ising_optimizer, IsingHamiltonian, QuantumBackend, QuantumParallelTempering,
-    QuantumParallelTemperingConfig, QuantumParallelTemperingSolution, QuantumReplica, QuantumState,
-    ThermodynamicObservables,
+// Re-export D-Wave backend (new provider-centric implementation)
+// Use aliases to avoid conflicts with qubo_hardware_backends exports
+pub use backends::dwave::{
+    DWaveBackend, DWaveConfig as UnifiedDWaveConfig, DWavePostprocessing, DWaveProblem,
+    DWaveSample, DWaveSampleSet, DWaveSolverInfo, DWaveTiming as UnifiedDWaveTiming, DWaveTopology,
 };
-
-// QUBO exports (consolidated from qubo.rs into qubo_quantum.rs)
-pub use qubo_quantum::{
-    // Problem builders
-    graph_coloring_problem,
-    max_cut_problem,
-    tsp_problem,
-    // Quantum solver and config
-    AnnealingSchedule,
-    ClassicalOptimizer,
-    CloudQuantumBackend,
-    IsingModel,
-    MeasurementStats,
-    // Legacy type aliases for backwards compatibility
-    QUBOConfig,
-    QUBOProblem,
-    QUBOSolution,
-    QUBOSolver,
-    QuantumHardwareBackend,
-    QuantumQuboConfig,
-    QuantumQuboSolution,
-    QuantumQuboSolver,
-    QuboQuantumBackend,
-    VqeAnsatz,
+// Re-export IBM Quantum backend (new provider-centric implementation)
+pub use backends::ibm::{
+    IBMJobInfo, IBMJobStatus, IBMProcessorFamily, IBMQuantumBackend, IBMQuantumConfig,
 };
-
-// Real quantum hardware backends for QUBO
-pub use qubo_hardware_backends::{
-    // D-Wave quantum annealer
-    DWaveConfig,
-    DWaveQUBOSolver,
-    DWaveTiming,
-    // D-Wave Hybrid solver
-    HybridQUBOSolver,
-    HybridSolverConfig,
-    // IBM Quantum QAOA
-    IBMConfig,
-    IBMOptimizer,
-    IBMQUBOSolver,
-    QAOACircuit,
-    QAOAGate,
-    // Unified solver with auto-selection
-    QUBOSolverBackend,
-    // Classical fallback
-    SimulatedAnnealingConfig,
-    SimulatedAnnealingQUBOSolver,
-    UnifiedQUBOConfig,
-    UnifiedQUBOSolver,
+// Re-export IonQ backend (new provider-centric implementation)
+pub use backends::ionq::{
+    IonQBackend, IonQCircuit, IonQConfig as UnifiedIonQConfig, IonQDeviceSpec, IonQGate,
+    IonQJobStatus, IonQMetadata, IonQResult, IonQTarget,
 };
-
-pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
-
-// Real quantum hardware backends for TFIM (Quantum Annealing)
-pub use tfim_hardware_backends::{
-    // Backend trait
-    AnnealingBackend,
-    // Binary Quadratic Model
-    BinaryQuadraticModel,
-    // AWS Braket annealer
-    BraketTFIMConfig,
-    BraketTFIMSolver,
-    // D-Wave quantum annealer
-    DWaveTFIMConfig,
-    DWaveTFIMSolver,
-    // Unified solver with auto-selection
-    TFIMBackendPreference,
-    UnifiedTFIMAnnealingConfig,
-    UnifiedTFIMAnnealingSolver,
-    VarType,
+// Unified quantum hardware backends (NEW!)
+// These provide a reorganized, provider-centric view of quantum backends
+// The module is exported for direct use; common types are re-exported with prefixes
+// to avoid conflicts with the algorithm-specific hardware backends above
+pub use backends::{
+    // Common types (no conflicts)
+    QuantumBackendConfig as UnifiedBackendConfig,
+    QuantumBackendFactory,
+    QuantumBackendInfo,
+    QuantumExecutionResult,
+    QuantumProvider,
 };
-
-// Real quantum TFIM exports (VQE, QAOA, Trotter-Suzuki)
-pub use tfim_quantum::{
-    HardwareMapping, QuantumBackend as TFIMQuantumBackend, QuantumCircuit, QuantumGate,
-    QuantumObservables, QuantumTFIMConfig, QuantumTFIMProblem, QuantumTFIMSolution,
-    QuantumTFIMSolver, SolutionMethod, VQEAnsatz,
-};
-
-// Unified TFIM interface (automatic quantum/classical selection)
-pub use tfim_unified::{UnifiedTFIMConfig, UnifiedTFIMResult, UnifiedTFIMSolver};
-
-// Real quantum Grover's search exports
-pub use grover_quantum::{
-    GroverCircuit, GroverGate, GroverMeasurementStats, GroverQuantumBackend, OracleType,
-    QuantumGroverConfig, QuantumGroverResult, QuantumGroverSolver, QuantumOracle,
-};
-
 // Real quantum hardware backends for Grover's search
 pub use grover_hardware_backends::{
     // AWS Braket
@@ -297,7 +231,15 @@ pub use grover_hardware_backends::{
     UnifiedGroverConfig,
     UnifiedGroverSolver,
 };
-
+// Real quantum Grover's search exports
+pub use grover_quantum::{
+    GroverCircuit, GroverGate, GroverMeasurementStats, GroverQuantumBackend, OracleType,
+    QuantumGroverConfig, QuantumGroverResult, QuantumGroverSolver, QuantumOracle,
+};
+pub use legacy::{
+    GroverSearch, OptimizedIndex, QuantumConfig, QuantumError, QuantumProcessor,
+    QuantumQueryResults, QuantumSearch, QuantumSearchResult, QuantumStatistics,
+};
 // Real quantum hardware backends for Parallel Tempering
 pub use parallel_tempering_hardware_backends::{
     BraketPTConfig,
@@ -325,40 +267,83 @@ pub use parallel_tempering_hardware_backends::{
     UnifiedPTConfig,
     UnifiedPTSolver,
 };
-
-// Unified quantum hardware backends (NEW!)
-// These provide a reorganized, provider-centric view of quantum backends
-// The module is exported for direct use; common types are re-exported with prefixes
-// to avoid conflicts with the algorithm-specific hardware backends above
-pub use backends::{
-    // Common types (no conflicts)
-    QuantumBackendConfig as UnifiedBackendConfig,
-    QuantumBackendFactory,
-    QuantumBackendInfo,
-    QuantumExecutionResult,
-    QuantumProvider,
+// Re-export new quantum extension types
+pub use quantum_parallel_tempering::{
+    create_quantum_ising_optimizer, IsingHamiltonian, QuantumBackend, QuantumParallelTempering,
+    QuantumParallelTemperingConfig, QuantumParallelTemperingSolution, QuantumReplica, QuantumState,
+    ThermodynamicObservables,
 };
-
-// Re-export IBM Quantum backend (new provider-centric implementation)
-pub use backends::ibm::{
-    IBMJobInfo, IBMJobStatus, IBMProcessorFamily, IBMQuantumBackend, IBMQuantumConfig,
+// Real quantum hardware backends for QUBO
+pub use qubo_hardware_backends::{
+    // D-Wave quantum annealer
+    DWaveConfig,
+    DWaveQUBOSolver,
+    DWaveTiming,
+    // D-Wave Hybrid solver
+    HybridQUBOSolver,
+    HybridSolverConfig,
+    // IBM Quantum QAOA
+    IBMConfig,
+    IBMOptimizer,
+    IBMQUBOSolver,
+    QAOACircuit,
+    QAOAGate,
+    // Unified solver with auto-selection
+    QUBOSolverBackend,
+    // Classical fallback
+    SimulatedAnnealingConfig,
+    SimulatedAnnealingQUBOSolver,
+    UnifiedQUBOConfig,
+    UnifiedQUBOSolver,
 };
-
-// Re-export AWS Braket backend (new provider-centric implementation)
-pub use backends::braket::{
-    BraketAnnealingProblem, BraketBackend, BraketConfig as UnifiedBraketConfig, BraketDeviceType,
-    BraketGate, BraketProblemType, BraketTaskInfo, BraketTaskStatus,
+// QUBO exports (consolidated from qubo.rs into qubo_quantum.rs)
+pub use qubo_quantum::{
+    // Problem builders
+    graph_coloring_problem,
+    max_cut_problem,
+    tsp_problem,
+    // Quantum solver and config
+    AnnealingSchedule,
+    ClassicalOptimizer,
+    CloudQuantumBackend,
+    IsingModel,
+    MeasurementStats,
+    // Legacy type aliases for backwards compatibility
+    QUBOConfig,
+    QUBOProblem,
+    QUBOSolution,
+    QUBOSolver,
+    QuantumHardwareBackend,
+    QuantumQuboConfig,
+    QuantumQuboSolution,
+    QuantumQuboSolver,
+    QuboQuantumBackend,
+    VqeAnsatz,
 };
-
-// Re-export D-Wave backend (new provider-centric implementation)
-// Use aliases to avoid conflicts with qubo_hardware_backends exports
-pub use backends::dwave::{
-    DWaveBackend, DWaveConfig as UnifiedDWaveConfig, DWavePostprocessing, DWaveProblem,
-    DWaveSample, DWaveSampleSet, DWaveSolverInfo, DWaveTiming as UnifiedDWaveTiming, DWaveTopology,
+pub use tfim::{FieldSchedule, TFIMProblem, TFIMSolution, TFIMSolver, TransverseFieldConfig};
+// Real quantum hardware backends for TFIM (Quantum Annealing)
+pub use tfim_hardware_backends::{
+    // Backend trait
+    AnnealingBackend,
+    // Binary Quadratic Model
+    BinaryQuadraticModel,
+    // AWS Braket annealer
+    BraketTFIMConfig,
+    BraketTFIMSolver,
+    // D-Wave quantum annealer
+    DWaveTFIMConfig,
+    DWaveTFIMSolver,
+    // Unified solver with auto-selection
+    TFIMBackendPreference,
+    UnifiedTFIMAnnealingConfig,
+    UnifiedTFIMAnnealingSolver,
+    VarType,
 };
-
-// Re-export IonQ backend (new provider-centric implementation)
-pub use backends::ionq::{
-    IonQBackend, IonQCircuit, IonQConfig as UnifiedIonQConfig, IonQDeviceSpec, IonQGate,
-    IonQJobStatus, IonQMetadata, IonQResult, IonQTarget,
+// Real quantum TFIM exports (VQE, QAOA, Trotter-Suzuki)
+pub use tfim_quantum::{
+    HardwareMapping, QuantumBackend as TFIMQuantumBackend, QuantumCircuit, QuantumGate,
+    QuantumObservables, QuantumTFIMConfig, QuantumTFIMProblem, QuantumTFIMSolution,
+    QuantumTFIMSolver, SolutionMethod, VQEAnsatz,
 };
+// Unified TFIM interface (automatic quantum/classical selection)
+pub use tfim_unified::{UnifiedTFIMConfig, UnifiedTFIMResult, UnifiedTFIMSolver};

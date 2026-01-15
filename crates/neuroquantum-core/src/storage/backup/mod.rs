@@ -1,4 +1,4 @@
-//! Backup and Restore System for NeuroQuantumDB
+//! Backup and Restore System for `NeuroQuantumDB`
 //!
 //! Provides comprehensive backup and restore capabilities:
 //! - Hot backups (no downtime required)
@@ -8,11 +8,12 @@
 //! - Backup verification and validation
 //! - Compression and encryption
 
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -412,8 +413,7 @@ impl BackupManager {
         for chunk_start in (0..total_pages).step_by(chunk_size) {
             let chunk_end = (chunk_start + chunk_size as u64).min(total_pages);
 
-            let chunk_file =
-                data_dir.join(format!("pages_{:08x}_{:08x}.dat", chunk_start, chunk_end));
+            let chunk_file = data_dir.join(format!("pages_{chunk_start:08x}_{chunk_end:08x}.dat"));
             let mut chunk_data = Vec::new();
 
             for page_id in chunk_start..chunk_end {
@@ -500,9 +500,10 @@ impl BackupManager {
 
     /// Compress data using gzip
     fn compress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
+        use std::io::Write;
+
         use flate2::write::GzEncoder;
         use flate2::Compression;
-        use std::io::Write;
 
         let mut encoder =
             GzEncoder::new(Vec::new(), Compression::new(self.config.compression_level));
@@ -512,9 +513,7 @@ impl BackupManager {
 
     /// Get backup directory path
     fn get_backup_directory(&self, backup_id: &BackupId) -> PathBuf {
-        self.config
-            .output_path
-            .join(format!("backup_{}", backup_id))
+        self.config.output_path.join(format!("backup_{backup_id}"))
     }
 
     /// Save backup metadata
@@ -571,7 +570,7 @@ impl BackupManager {
         }
 
         let result = hasher.finalize();
-        Ok(format!("{:x}", result))
+        Ok(format!("{result:x}"))
     }
 
     /// Find last backup of a specific type

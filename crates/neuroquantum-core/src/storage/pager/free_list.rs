@@ -2,9 +2,10 @@
 //!
 //! Tracks which pages are free and can be reused
 
+use std::collections::VecDeque;
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 
 use super::page::PageId;
 
@@ -19,7 +20,8 @@ pub struct FreeList {
 
 impl FreeList {
     /// Create a new empty free list
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             free_pages: VecDeque::new(),
             count: 0,
@@ -43,26 +45,29 @@ impl FreeList {
     }
 
     /// Get the number of free pages
-    pub fn free_count(&self) -> usize {
+    #[must_use]
+    pub const fn free_count(&self) -> usize {
         self.count
     }
 
     /// Check if the free list is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.free_pages.is_empty()
     }
 
     /// Serialize free list to bytes
     pub fn serialize(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| anyhow!("Failed to serialize free list: {}", e))
+        bincode::serialize(self).map_err(|e| anyhow!("Failed to serialize free list: {e}"))
     }
 
     /// Deserialize free list from bytes
     pub fn deserialize(data: &[u8]) -> Result<Self> {
-        bincode::deserialize(data).map_err(|e| anyhow!("Failed to deserialize free list: {}", e))
+        bincode::deserialize(data).map_err(|e| anyhow!("Failed to deserialize free list: {e}"))
     }
 
     /// Get all free page IDs (for debugging)
+    #[must_use]
     pub fn get_free_pages(&self) -> Vec<PageId> {
         self.free_pages.iter().copied().collect()
     }

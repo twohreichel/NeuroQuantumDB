@@ -29,26 +29,28 @@
 //!
 //! ## Technical Notes
 //!
-//! Unlike the classical parallel_tempering.rs, this implementation:
+//! Unlike the classical `parallel_tempering.rs`, this implementation:
 //! - Uses quantum state vectors for proper quantum superposition
 //! - Implements imaginary time evolution for thermal state preparation
 //! - Uses quantum-aware exchange probability calculations
 //! - Provides true quantum tunneling through transverse field dynamics
 
-use crate::error::{CoreError, CoreResult};
+use std::sync::Arc;
+
 use nalgebra::{DMatrix, DVector};
 use num_complex::Complex64;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 /// Type alias for complex numbers
 type Complex = Complex64;
 
 /// Quantum backend selection for parallel tempering
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum QuantumBackend {
     /// Path Integral Monte Carlo - exact quantum thermal sampling
     #[default]
@@ -66,9 +68,9 @@ pub enum QuantumBackend {
 pub struct QuantumParallelTemperingConfig {
     /// Number of temperature replicas
     pub num_replicas: usize,
-    /// Minimum temperature (inverse beta_max)
+    /// Minimum temperature (inverse `beta_max`)
     pub min_temperature: f64,
-    /// Maximum temperature (inverse beta_min)
+    /// Maximum temperature (inverse `beta_min`)
     pub max_temperature: f64,
     /// Number of Trotter slices for PIMC
     pub trotter_slices: usize,
@@ -173,9 +175,9 @@ pub struct QuantumParallelTemperingSolution {
 pub struct IsingHamiltonian {
     /// Number of spins
     pub num_spins: usize,
-    /// Coupling matrix J_ij
+    /// Coupling matrix `J_ij`
     pub couplings: DMatrix<f64>,
-    /// External field h_i
+    /// External field `h_i`
     pub external_fields: Vec<f64>,
     /// Transverse field strength Γ
     pub transverse_field: f64,
@@ -183,7 +185,8 @@ pub struct IsingHamiltonian {
 
 impl IsingHamiltonian {
     /// Create a new Ising Hamiltonian
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         num_spins: usize,
         couplings: DMatrix<f64>,
         external_fields: Vec<f64>,
@@ -198,25 +201,27 @@ impl IsingHamiltonian {
     }
 
     /// Calculate classical Ising energy for a configuration
+    #[must_use]
     pub fn classical_energy(&self, config: &[i8]) -> f64 {
         let mut energy = 0.0;
 
         // Interaction terms: -J_ij * s_i * s_j
         for i in 0..self.num_spins {
             for j in (i + 1)..self.num_spins {
-                energy -= self.couplings[(i, j)] * config[i] as f64 * config[j] as f64;
+                energy -= self.couplings[(i, j)] * f64::from(config[i]) * f64::from(config[j]);
             }
         }
 
         // External field terms: -h_i * s_i
         for (i, &spin) in config.iter().enumerate().take(self.num_spins) {
-            energy -= self.external_fields[i] * spin as f64;
+            energy -= self.external_fields[i] * f64::from(spin);
         }
 
         energy
     }
 
     /// Build the full Hamiltonian matrix (for small systems)
+    #[must_use]
     pub fn build_matrix(&self) -> DMatrix<Complex> {
         let dim = 1 << self.num_spins; // 2^n
         let mut h = DMatrix::zeros(dim, dim);
@@ -248,11 +253,12 @@ impl IsingHamiltonian {
     }
 
     /// Convert spin configuration to state index
+    #[must_use]
     pub fn config_to_index(&self, config: &[i8]) -> usize {
         config
             .iter()
             .enumerate()
-            .fold(0, |acc, (i, &s)| acc | (((s > 0) as usize) << i))
+            .fold(0, |acc, (i, &s)| acc | (usize::from(s > 0) << i))
     }
 }
 
@@ -266,11 +272,13 @@ pub struct QuantumParallelTempering {
 
 impl QuantumParallelTempering {
     /// Create a new quantum parallel tempering optimizer
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(QuantumParallelTemperingConfig::default())
     }
 
     /// Create with custom configuration
+    #[must_use]
     pub fn with_config(config: QuantumParallelTemperingConfig) -> Self {
         let temperatures = Self::generate_temperature_ladder(&config);
 
@@ -481,7 +489,7 @@ impl QuantumParallelTempering {
         for handle in handles {
             handle
                 .await
-                .map_err(|e| CoreError::invalid_operation(&format!("PIMC task failed: {}", e)))??;
+                .map_err(|e| CoreError::invalid_operation(&format!("PIMC task failed: {e}")))??;
         }
 
         Ok(())
@@ -522,12 +530,12 @@ impl QuantumParallelTempering {
                             if j != spin_idx {
                                 delta_e_classical += 2.0
                                     * hamiltonian.couplings[(spin_idx, j)]
-                                    * old_spin as f64
-                                    * neighbor_spin as f64;
+                                    * f64::from(old_spin)
+                                    * f64::from(neighbor_spin);
                             }
                         }
                         delta_e_classical +=
-                            2.0 * hamiltonian.external_fields[spin_idx] * old_spin as f64;
+                            2.0 * hamiltonian.external_fields[spin_idx] * f64::from(old_spin);
 
                         // Imaginary time coupling between adjacent slices
                         let prev_slice = (slice_idx + num_slices - 1) % num_slices;
@@ -538,11 +546,11 @@ impl QuantumParallelTempering {
 
                         let delta_e_temporal = 2.0
                             * j_perp
-                            * old_spin as f64
-                            * (slices[prev_slice][spin_idx] as f64
-                                + slices[next_slice][spin_idx] as f64);
+                            * f64::from(old_spin)
+                            * (f64::from(slices[prev_slice][spin_idx])
+                                + f64::from(slices[next_slice][spin_idx]));
 
-                        let total_delta_e = delta_tau * delta_e_classical + delta_e_temporal;
+                        let total_delta_e = delta_tau.mul_add(delta_e_classical, delta_e_temporal);
 
                         // Metropolis acceptance
                         let accept = if total_delta_e < 0.0 {
@@ -593,7 +601,11 @@ impl QuantumParallelTempering {
                         *state_vec = evolved;
 
                         // Renormalize
-                        let norm: f64 = state_vec.iter().map(|c| c.norm_sqr()).sum::<f64>().sqrt();
+                        let norm: f64 = state_vec
+                            .iter()
+                            .map(nalgebra::Complex::norm_sqr)
+                            .sum::<f64>()
+                            .sqrt();
                         if norm > 1e-10 {
                             *state_vec /= Complex::new(norm, 0.0);
                         }
@@ -676,11 +688,11 @@ impl QuantumParallelTempering {
                 if j != flip_idx {
                     delta_e += 2.0
                         * hamiltonian.couplings[(flip_idx, j)]
-                        * old_spin as f64
-                        * neighbor_spin as f64;
+                        * f64::from(old_spin)
+                        * f64::from(neighbor_spin);
                 }
             }
-            delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * old_spin as f64;
+            delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * f64::from(old_spin);
 
             // Quantum correction from transverse field
             // This approximates the effect of quantum tunneling
@@ -729,7 +741,11 @@ impl QuantumParallelTempering {
                         *state_vec = evolved;
 
                         // Normalize
-                        let norm: f64 = state_vec.iter().map(|c| c.norm_sqr()).sum::<f64>().sqrt();
+                        let norm: f64 = state_vec
+                            .iter()
+                            .map(nalgebra::Complex::norm_sqr)
+                            .sum::<f64>()
+                            .sqrt();
                         if norm > 1e-10 {
                             *state_vec /= Complex::new(norm, 0.0);
                         }
@@ -783,11 +799,11 @@ impl QuantumParallelTempering {
                 if j != flip_idx {
                     delta_e += 2.0
                         * hamiltonian.couplings[(flip_idx, j)]
-                        * old_spin as f64
-                        * neighbor_spin as f64;
+                        * f64::from(old_spin)
+                        * f64::from(neighbor_spin);
                 }
             }
-            delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * old_spin as f64;
+            delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * f64::from(old_spin);
 
             // Quantum tunneling probability from transverse field
             // P_tunnel = Γ * exp(-β * max(ΔE, 0))
@@ -817,7 +833,8 @@ impl QuantumParallelTempering {
             .ok_or_else(|| CoreError::invalid_operation("Hamiltonian not set"))?
             .clone();
 
-        let threshold_temp = (self.config.min_temperature + self.config.max_temperature) / 2.0;
+        let threshold_temp =
+            f64::midpoint(self.config.min_temperature, self.config.max_temperature);
 
         for replica_arc in &self.replicas {
             let temp = {
@@ -879,11 +896,11 @@ impl QuantumParallelTempering {
                 if j != flip_idx {
                     delta_e += 2.0
                         * hamiltonian.couplings[(flip_idx, j)]
-                        * old_spin as f64
-                        * neighbor_spin as f64;
+                        * f64::from(old_spin)
+                        * f64::from(neighbor_spin);
                 }
             }
-            delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * old_spin as f64;
+            delta_e += 2.0 * hamiltonian.external_fields[flip_idx] * f64::from(old_spin);
 
             let accept = if delta_e < 0.0 {
                 true
@@ -965,7 +982,7 @@ impl QuantumParallelTempering {
             let t_min = self.temperatures[0];
             let t_max = self.temperatures[self.temperatures.len() - 1];
             let old_t = self.temperatures[i];
-            let new_t = t_min + (old_t - t_min) * adjustment;
+            let new_t = (old_t - t_min).mul_add(adjustment, t_min);
             self.temperatures[i] = new_t.clamp(t_min, t_max);
         }
 
@@ -1082,7 +1099,7 @@ impl QuantumParallelTempering {
         use rand::SeedableRng;
 
         let mut rng = StdRng::from_entropy();
-        let probabilities: Vec<f64> = state_vec.iter().map(|c| c.norm_sqr()).collect();
+        let probabilities: Vec<f64> = state_vec.iter().map(nalgebra::Complex::norm_sqr).collect();
         let total: f64 = probabilities.iter().sum();
 
         // Sample from probability distribution
@@ -1175,6 +1192,7 @@ pub struct ThermodynamicObservables {
 }
 
 /// Helper function to create quantum parallel tempering with Ising model
+#[must_use]
 pub fn create_quantum_ising_optimizer(
     num_spins: usize,
     couplings: DMatrix<f64>,
@@ -1207,7 +1225,7 @@ mod tests {
         let mut qpt = QuantumParallelTempering::with_config(config);
 
         // Simple ferromagnetic Ising model
-        let couplings = DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 });
+        let couplings = DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 });
         let external_fields = vec![0.0; 4];
         let hamiltonian = IsingHamiltonian::new(4, couplings, external_fields, 1.0);
 
@@ -1238,7 +1256,7 @@ mod tests {
         let mut qpt = QuantumParallelTempering::with_config(config);
 
         // Small system for state vector representation
-        let couplings = DMatrix::from_fn(3, 3, |i, j| if i != j { 0.5 } else { 0.0 });
+        let couplings = DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 0.5 });
         let external_fields = vec![0.1, 0.0, -0.1];
         let hamiltonian = IsingHamiltonian::new(3, couplings, external_fields, 0.5);
 
@@ -1283,7 +1301,7 @@ mod tests {
 
     #[test]
     fn test_ising_hamiltonian_energy() {
-        let couplings = DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 });
+        let couplings = DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 });
         let external_fields = vec![0.0; 3];
         let hamiltonian = IsingHamiltonian::new(3, couplings, external_fields, 0.0);
 
@@ -1356,7 +1374,7 @@ mod tests {
 
         let mut qpt = QuantumParallelTempering::with_config(config);
 
-        let couplings = DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 });
+        let couplings = DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 });
         let hamiltonian = IsingHamiltonian::new(3, couplings, vec![0.0; 3], 0.5);
 
         let _ = qpt.optimize(hamiltonian, vec![1, 1, 1]).await.unwrap();
@@ -1380,7 +1398,7 @@ mod tests {
 
         let mut qpt = QuantumParallelTempering::with_config(config);
 
-        let couplings = DMatrix::from_fn(4, 4, |i, j| if i != j { 0.5 } else { 0.0 });
+        let couplings = DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 0.5 });
         let hamiltonian = IsingHamiltonian::new(4, couplings, vec![0.0; 4], 1.0);
 
         let solution = qpt.optimize(hamiltonian, vec![1, -1, 1, -1]).await.unwrap();

@@ -1,21 +1,21 @@
 //! Integrated WebSocket Handler
 //!
-//! Combines ConnectionManager and PubSubManager for a complete
+//! Combines `ConnectionManager` and `PubSubManager` for a complete
 //! real-time communication solution with query streaming support.
 
-use crate::websocket::{
-    manager::{ConnectionError, ConnectionManager},
-    pubsub::{ChannelId, PubSubManager},
-    streaming::{
-        QueryStreamId, QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
-    },
-    types::{ConnectionId, ConnectionMetadata},
-};
+use std::sync::Arc;
+
 use actix_ws::{Message, Session};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tracing::{debug, error, info, warn};
+
+use crate::websocket::manager::{ConnectionError, ConnectionManager};
+use crate::websocket::pubsub::{ChannelId, PubSubManager};
+use crate::websocket::streaming::{
+    QueryStreamId, QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
+};
+use crate::websocket::types::{ConnectionId, ConnectionMetadata};
 
 /// WebSocket message types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -476,7 +476,7 @@ impl WebSocketService {
                                     | QueryValue::String(s) => Value::Text(s),
                                     | QueryValue::Blob(b) => Value::Binary(b),
                                     | QueryValue::DNASequence(s) => Value::Text(s),
-                                    | QueryValue::SynapticWeight(w) => Value::Float(w as f64),
+                                    | QueryValue::SynapticWeight(w) => Value::Float(f64::from(w)),
                                     | QueryValue::QuantumState(s) => Value::Text(s),
                                 };
                                 fields.insert(key, converted_value);
@@ -496,7 +496,7 @@ impl WebSocketService {
                     // Send error to client
                     let error_response = WsResponse::Error {
                         code: "QUERY_FAILED".to_string(),
-                        message: format!("Query execution failed: {}", e),
+                        message: format!("Query execution failed: {e}"),
                     };
                     self.send_to_connection(conn_id, &error_response).await?;
                     self.streaming_registry.remove_stream(stream_id).await;
@@ -576,7 +576,7 @@ impl WebSocketService {
                     },
                     | StreamingMessage::Error { stream_id, error } => WsResponse::Error {
                         code: "STREAM_ERROR".to_string(),
-                        message: format!("Stream {}: {}", stream_id, error),
+                        message: format!("Stream {stream_id}: {error}"),
                     },
                 };
 
@@ -586,7 +586,7 @@ impl WebSocketService {
                         tokio::runtime::Handle::current()
                             .block_on(async { connection.send_json(&response).await })
                     })
-                    .map_err(|e| format!("Failed to send: {}", e))?;
+                    .map_err(|e| format!("Failed to send: {e}"))?;
                 }
 
                 Ok(())
@@ -627,7 +627,7 @@ impl WebSocketService {
             | Err(_) => {
                 let response = WsResponse::Error {
                     code: "INVALID_STREAM_ID".to_string(),
-                    message: format!("Invalid stream ID: {}", stream_id_str),
+                    message: format!("Invalid stream ID: {stream_id_str}"),
                 };
                 self.send_to_connection(conn_id, &response).await?;
                 return Ok(());
@@ -636,7 +636,7 @@ impl WebSocketService {
 
         // Cancel the stream
         match self.streaming_registry.cancel_stream(stream_id).await {
-            | Ok(_) => {
+            | Ok(()) => {
                 info!(
                     "🛑 Cancelled query stream {} for connection {}",
                     stream_id, conn_id
@@ -750,6 +750,7 @@ impl WebSocketService {
     }
 
     /// Get streaming registry for advanced operations
+    #[must_use]
     pub fn streaming_registry(&self) -> Arc<StreamingRegistry> {
         self.streaming_registry.clone()
     }

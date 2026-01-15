@@ -1,7 +1,7 @@
 //! SIMD Correctness Tests for DNA Compression
 //!
 //! This module provides comprehensive correctness tests for all SIMD implementations,
-//! verifying that ARM64 NEON and x86_64 AVX2 optimized functions produce identical
+//! verifying that ARM64 NEON and `x86_64` AVX2 optimized functions produce identical
 //! results to their scalar fallback implementations.
 //!
 //! Test categories:
@@ -113,7 +113,7 @@ fn scalar_crc32(data: &[u8]) -> u32 {
     // Simple CRC32 implementation (polynomial 0x04C11DB7)
     let mut crc = 0xFFFFFFFFu32;
     for &byte in data {
-        crc ^= (byte as u32) << 24;
+        crc ^= u32::from(byte) << 24;
         for _ in 0..8 {
             if crc & 0x80000000 != 0 {
                 crc = (crc << 1) ^ 0x04C11DB7;
@@ -221,7 +221,7 @@ mod encoder_decoder_tests {
                 .decode_bases_to_bytes(&encoded, &mut decoded)
                 .unwrap();
 
-            assert_eq!(decoded, input, "Roundtrip failed for size {}", size);
+            assert_eq!(decoded, input, "Roundtrip failed for size {size}");
         }
     }
 
@@ -240,7 +240,7 @@ mod encoder_decoder_tests {
                 .decode_bases_to_bytes(&encoded, &mut decoded)
                 .unwrap();
 
-            assert_eq!(decoded, input, "Roundtrip failed for size {}", size);
+            assert_eq!(decoded, input, "Roundtrip failed for size {size}");
         }
     }
 
@@ -260,8 +260,7 @@ mod encoder_decoder_tests {
 
             assert_eq!(
                 simd_output, scalar_output,
-                "SIMD encoding differs from scalar for size {}",
-                size
+                "SIMD encoding differs from scalar for size {size}"
             );
         }
     }
@@ -300,7 +299,7 @@ mod encoder_decoder_tests {
             let mut output = Vec::new();
 
             let result = decoder.decode_bases_to_bytes(&bases, &mut output);
-            assert!(result.is_err(), "Expected error for length {}", invalid_len);
+            assert!(result.is_err(), "Expected error for length {invalid_len}");
         }
     }
 
@@ -543,8 +542,7 @@ mod pattern_matcher_tests {
 
             assert_eq!(
                 result, expected,
-                "Pattern matching differs for needle length {}",
-                needle_len
+                "Pattern matching differs for needle length {needle_len}"
             );
         }
     }
@@ -662,11 +660,7 @@ mod hamming_distance_tests {
             let result = utils::hamming_distance_simd(&seq1, &seq2).unwrap();
             let expected = scalar_hamming_distance(&seq1, &seq2).unwrap();
 
-            assert_eq!(
-                result, expected,
-                "Hamming distance differs for size {}",
-                size
-            );
+            assert_eq!(result, expected, "Hamming distance differs for size {size}");
         }
     }
 }
@@ -804,8 +798,7 @@ mod base_frequency_tests {
 
             assert_eq!(
                 result, expected,
-                "Frequency counting differs for size {}",
-                size
+                "Frequency counting differs for size {size}"
             );
 
             // Verify total count matches
@@ -878,7 +871,7 @@ mod crc32_tests {
             let data = vec![byte];
             let result1 = simd_crc32(&data);
             let result2 = simd_crc32(&data);
-            assert_eq!(result1, result2, "CRC32 not consistent for byte {}", byte);
+            assert_eq!(result1, result2, "CRC32 not consistent for byte {byte}");
         }
     }
 
@@ -915,7 +908,7 @@ mod crc32_tests {
             let result1 = simd_crc32(&data);
             let result2 = simd_crc32(&data);
 
-            assert_eq!(result1, result2, "CRC32 not consistent for size {}", size);
+            assert_eq!(result1, result2, "CRC32 not consistent for size {size}");
         }
     }
 
@@ -931,8 +924,7 @@ mod crc32_tests {
             let new_crc = simd_crc32(&data);
             assert_ne!(
                 original_crc, new_crc,
-                "CRC should change when byte {} is modified",
-                i
+                "CRC should change when byte {i} is modified"
             );
             data[i] = 0;
         }
@@ -1150,7 +1142,7 @@ mod neon_specific_tests {
             safe_encode_chunk_neon(&input, &mut output).unwrap();
             let expected = scalar_encode(&input).unwrap();
 
-            assert_eq!(output, expected, "NEON encode failed for size {}", size);
+            assert_eq!(output, expected, "NEON encode failed for size {size}");
         }
     }
 
@@ -1165,8 +1157,7 @@ mod neon_specific_tests {
 
             assert_eq!(
                 output, input_bytes,
-                "NEON decode failed for {} bytes",
-                num_bytes
+                "NEON decode failed for {num_bytes} bytes"
             );
         }
     }

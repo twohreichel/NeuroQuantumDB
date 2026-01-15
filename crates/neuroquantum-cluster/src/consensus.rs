@@ -26,11 +26,13 @@ pub struct FencingToken {
 
 impl FencingToken {
     /// Create a new fencing token.
-    pub fn new(term: u64, sequence: u64) -> Self {
+    #[must_use]
+    pub const fn new(term: u64, sequence: u64) -> Self {
         Self { term, sequence }
     }
 
     /// Check if this token is newer than another.
+    #[must_use]
     pub fn is_newer_than(&self, other: &Self) -> bool {
         self > other
     }
@@ -49,6 +51,7 @@ pub struct LeaderLease {
 
 impl LeaderLease {
     /// Create a new leader lease.
+    #[must_use]
     pub fn new(duration: Duration) -> Self {
         let now = Instant::now();
         Self {
@@ -59,6 +62,7 @@ impl LeaderLease {
     }
 
     /// Check if the lease is still valid.
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         Instant::now() < self.expiry
     }
@@ -113,7 +117,7 @@ pub struct ConfigChange {
     pub change_type: ConfigChangeType,
     /// Node ID affected by the change
     pub node_id: NodeId,
-    /// Node address (for AddNode)
+    /// Node address (for `AddNode`)
     pub address: Option<String>,
 }
 
@@ -378,7 +382,7 @@ impl RaftConsensus {
     }
 
     /// Check if the node has quorum.
-    fn has_quorum(&self, state: &ConsensusState) -> bool {
+    const fn has_quorum(&self, state: &ConsensusState) -> bool {
         if state.cluster_size == 1 {
             // Single node cluster always has quorum
             return true;
@@ -572,7 +576,7 @@ impl RaftConsensus {
                 }
 
                 // Generate random election timeout
-                let timeout = RaftConsensus::generate_random_timeout(
+                let timeout = Self::generate_random_timeout(
                     &config.raft.election_timeout_min,
                     &config.raft.election_timeout_max,
                 );
@@ -775,7 +779,7 @@ impl RaftConsensus {
         Ok(())
     }
 
-    /// Handle AppendEntries response from a follower (leader side).
+    /// Handle `AppendEntries` response from a follower (leader side).
     pub async fn handle_append_entries_response(
         &self,
         follower_id: NodeId,
@@ -877,7 +881,7 @@ impl RaftConsensus {
         Ok(())
     }
 
-    /// Try to advance commit index based on match_index from followers.
+    /// Try to advance commit index based on `match_index` from followers.
     async fn try_advance_commit_index(&self, state: &mut ConsensusState) {
         if state.state != RaftState::Leader {
             return;
@@ -918,7 +922,7 @@ impl RaftConsensus {
         }
     }
 
-    /// Handle incoming AppendEntries RPC (follower side).
+    /// Handle incoming `AppendEntries` RPC (follower side).
     pub async fn handle_append_entries(
         &self,
         request: AppendEntriesRequest,
@@ -1193,7 +1197,7 @@ impl RaftConsensus {
         Ok(())
     }
 
-    /// Handle incoming RequestVote RPC (follower/candidate side).
+    /// Handle incoming `RequestVote` RPC (follower/candidate side).
     pub async fn handle_request_vote(
         &self,
         request: crate::network::RequestVoteRequest,
@@ -1278,7 +1282,7 @@ impl RaftConsensus {
         }
     }
 
-    /// Handle RequestVote response (candidate side).
+    /// Handle `RequestVote` response (candidate side).
     pub async fn handle_request_vote_response(
         &self,
         from_node: NodeId,
@@ -1375,9 +1379,10 @@ impl RaftConsensus {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::atomic::{AtomicU16, Ordering};
     use std::time::Duration;
+
+    use super::*;
 
     // Start port counter at 10000 to avoid conflicts
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(10000);
@@ -1385,7 +1390,7 @@ mod tests {
     fn get_test_config() -> ClusterConfig {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
         ClusterConfig {
-            bind_addr: format!("127.0.0.1:{}", port).parse().unwrap(),
+            bind_addr: format!("127.0.0.1:{port}").parse().unwrap(),
             ..Default::default()
         }
     }

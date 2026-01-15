@@ -1,6 +1,6 @@
-//! # IonQ Backend
+//! # `IonQ` Backend
 //!
-//! This module provides integration with IonQ trapped-ion quantum computers
+//! This module provides integration with `IonQ` trapped-ion quantum computers
 //! for high-fidelity gate-based quantum computing.
 //!
 //! ## Supported Algorithms
@@ -11,7 +11,7 @@
 //!
 //! ## Hardware
 //!
-//! IonQ offers several trapped-ion systems:
+//! `IonQ` offers several trapped-ion systems:
 //! - **Aria**: 25 algorithmic qubits, high fidelity
 //! - **Forte**: 36 qubits, native entangling gates
 //! - **Simulator**: Classical simulation for testing
@@ -21,7 +21,7 @@
 //! - **All-to-all connectivity**: Any qubit can interact with any other
 //! - **High gate fidelity**: >99.5% single-qubit, >99% two-qubit
 //! - **Long coherence**: Minutes of coherence time
-//! - **Native gates**: GPi, GPi2, MS (Mølmer-Sørensen)
+//! - **Native gates**: `GPi`, `GPi2`, MS (Mølmer-Sørensen)
 //!
 //! ## Configuration
 //!
@@ -42,11 +42,12 @@
 //!
 //! ## Environment Variables
 //!
-//! - `IONQ_API_KEY`: Your IonQ API key
+//! - `IONQ_API_KEY`: Your `IonQ` API key
 //! - `IONQ_TARGET`: Target device (aria, forte, simulator)
 
-use serde::{Deserialize, Serialize};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use super::{QuantumBackendConfig, QuantumBackendInfo, QuantumProvider};
@@ -56,14 +57,14 @@ use crate::error::{CoreError, CoreResult};
 // IonQ Configuration
 // =============================================================================
 
-/// Configuration for IonQ backend
+/// Configuration for `IonQ` backend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IonQConfig {
-    /// IonQ API key
-    /// If None, will attempt to read from IONQ_API_KEY environment variable
+    /// `IonQ` API key
+    /// If None, will attempt to read from `IONQ_API_KEY` environment variable
     pub api_key: Option<String>,
 
-    /// IonQ API endpoint URL
+    /// `IonQ` API endpoint URL
     pub api_endpoint: String,
 
     /// Target device
@@ -75,7 +76,7 @@ pub struct IonQConfig {
     /// Error mitigation level (0-2)
     pub error_mitigation: u8,
 
-    /// Use native gates (GPi, GPi2, MS) vs standard gates
+    /// Use native gates (`GPi`, `GPi2`, MS) vs standard gates
     pub native_gates: bool,
 
     /// Maximum qubits (device-dependent)
@@ -101,34 +102,35 @@ impl Default for IonQConfig {
     }
 }
 
-/// IonQ target device
+/// `IonQ` target device
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IonQTarget {
-    /// IonQ Aria (25 qubits)
+    /// `IonQ` Aria (25 qubits)
     Aria,
-    /// IonQ Forte (36 qubits)
+    /// `IonQ` Forte (36 qubits)
     Forte,
-    /// IonQ Simulator
+    /// `IonQ` Simulator
     Simulator,
 }
 
 impl std::fmt::Display for IonQTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            | IonQTarget::Aria => write!(f, "qpu.aria-1"),
-            | IonQTarget::Forte => write!(f, "qpu.forte-1"),
-            | IonQTarget::Simulator => write!(f, "simulator"),
+            | Self::Aria => write!(f, "qpu.aria-1"),
+            | Self::Forte => write!(f, "qpu.forte-1"),
+            | Self::Simulator => write!(f, "simulator"),
         }
     }
 }
 
 impl IonQTarget {
     /// Get max qubits for this target
-    pub fn max_qubits(&self) -> usize {
+    #[must_use]
+    pub const fn max_qubits(&self) -> usize {
         match self {
-            | IonQTarget::Aria => 25,
-            | IonQTarget::Forte => 36,
-            | IonQTarget::Simulator => 29,
+            | Self::Aria => 25,
+            | Self::Forte => 36,
+            | Self::Simulator => 29,
         }
     }
 }
@@ -137,9 +139,9 @@ impl IonQTarget {
 // IonQ Backend
 // =============================================================================
 
-/// IonQ backend for trapped-ion quantum computing
+/// `IonQ` backend for trapped-ion quantum computing
 ///
-/// This backend connects to IonQ's cloud API to execute quantum circuits
+/// This backend connects to `IonQ`'s cloud API to execute quantum circuits
 /// on trapped-ion quantum processors with all-to-all connectivity.
 ///
 /// ## Capabilities
@@ -147,7 +149,7 @@ impl IonQTarget {
 /// - **Connectivity**: All-to-all (any qubit pair can interact)
 /// - **Gate Fidelity**: >99.5% single-qubit, >99% two-qubit
 /// - **Coherence Time**: Minutes
-/// - **Native Gates**: GPi, GPi2, MS (Mølmer-Sørensen)
+/// - **Native Gates**: `GPi`, `GPi2`, MS (Mølmer-Sørensen)
 ///
 /// ## Example
 ///
@@ -164,8 +166,9 @@ pub struct IonQBackend {
 }
 
 impl IonQBackend {
-    /// Create a new IonQ backend with the given configuration
-    pub fn new(config: IonQConfig) -> Self {
+    /// Create a new `IonQ` backend with the given configuration
+    #[must_use]
+    pub const fn new(config: IonQConfig) -> Self {
         Self { config }
     }
 
@@ -174,15 +177,15 @@ impl IonQBackend {
     /// Reads:
     /// - `IONQ_API_KEY`: API key
     /// - `IONQ_TARGET`: Target device (optional, defaults to simulator)
+    #[must_use]
     pub fn from_env() -> Self {
         let target = std::env::var("IONQ_TARGET")
             .ok()
-            .map(|t| match t.to_lowercase().as_str() {
+            .map_or(IonQTarget::Simulator, |t| match t.to_lowercase().as_str() {
                 | "aria" | "qpu.aria-1" => IonQTarget::Aria,
                 | "forte" | "qpu.forte-1" => IonQTarget::Forte,
                 | _ => IonQTarget::Simulator,
-            })
-            .unwrap_or(IonQTarget::Simulator);
+            });
 
         let config = IonQConfig {
             api_key: std::env::var("IONQ_API_KEY").ok(),
@@ -194,6 +197,7 @@ impl IonQBackend {
     }
 
     /// Get the API key, checking environment if not configured
+    #[must_use]
     pub fn get_api_key(&self) -> Option<String> {
         self.config
             .api_key
@@ -202,21 +206,24 @@ impl IonQBackend {
     }
 
     /// Get the current configuration
-    pub fn config(&self) -> &IonQConfig {
+    #[must_use]
+    pub const fn config(&self) -> &IonQConfig {
         &self.config
     }
 
     /// Get mutable reference to configuration
-    pub fn config_mut(&mut self) -> &mut IonQConfig {
+    pub const fn config_mut(&mut self) -> &mut IonQConfig {
         &mut self.config
     }
 
     /// Get the target device
-    pub fn target(&self) -> IonQTarget {
+    #[must_use]
+    pub const fn target(&self) -> IonQTarget {
         self.config.target
     }
 
-    /// Build IonQ circuit in their JSON format
+    /// Build `IonQ` circuit in their JSON format
+    #[must_use]
     pub fn build_circuit(&self, num_qubits: usize, gates: &[IonQGate]) -> IonQCircuit {
         IonQCircuit {
             qubits: num_qubits,
@@ -224,7 +231,8 @@ impl IonQBackend {
         }
     }
 
-    /// Build Grover's algorithm circuit for IonQ
+    /// Build Grover's algorithm circuit for `IonQ`
+    #[must_use]
     pub fn build_grover_circuit(
         &self,
         num_qubits: usize,
@@ -296,7 +304,8 @@ impl IonQBackend {
         }
     }
 
-    /// Convert circuit to IonQ native gates
+    /// Convert circuit to `IonQ` native gates
+    #[must_use]
     pub fn to_native_gates(&self, circuit: &IonQCircuit) -> IonQCircuit {
         let mut native = Vec::new();
 
@@ -351,7 +360,7 @@ impl IonQBackend {
         }
     }
 
-    /// Submit a circuit to IonQ API
+    /// Submit a circuit to `IonQ` API
     ///
     /// Note: This is a placeholder for actual HTTP client implementation.
     pub async fn submit_circuit(&self, circuit: &IonQCircuit) -> CoreResult<IonQResult> {
@@ -414,7 +423,7 @@ impl QuantumBackendInfo for IonQBackend {
         self.config.max_qubits
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "IonQ Trapped-Ion"
     }
 
@@ -427,7 +436,7 @@ impl QuantumBackendInfo for IonQBackend {
 // IonQ Types
 // =============================================================================
 
-/// IonQ circuit representation
+/// `IonQ` circuit representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IonQCircuit {
     /// Number of qubits
@@ -436,7 +445,7 @@ pub struct IonQCircuit {
     pub circuit: Vec<IonQGate>,
 }
 
-/// IonQ gate operations
+/// `IonQ` gate operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "gate")]
 pub enum IonQGate {
@@ -473,10 +482,10 @@ pub enum IonQGate {
     SWAP { targets: Vec<usize> },
 
     // Native IonQ gates
-    /// GPi gate (native)
+    /// `GPi` gate (native)
     #[serde(rename = "gpi")]
     GPi { target: usize, phase: f64 },
-    /// GPi2 gate (native)
+    /// `GPi2` gate (native)
     #[serde(rename = "gpi2")]
     GPi2 { target: usize, phase: f64 },
     /// Mølmer-Sørensen gate (native)
@@ -488,7 +497,7 @@ pub enum IonQGate {
     },
 }
 
-/// IonQ job result
+/// `IonQ` job result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IonQResult {
     /// Job ID
@@ -505,7 +514,7 @@ pub struct IonQResult {
     pub metadata: IonQMetadata,
 }
 
-/// IonQ job status
+/// `IonQ` job status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum IonQJobStatus {
@@ -521,7 +530,7 @@ pub enum IonQJobStatus {
     Canceled,
 }
 
-/// IonQ execution metadata
+/// `IonQ` execution metadata
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct IonQMetadata {
     /// Number of shots executed
@@ -536,7 +545,7 @@ pub struct IonQMetadata {
     pub error_mitigation: Option<String>,
 }
 
-/// IonQ device specifications
+/// `IonQ` device specifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IonQDeviceSpec {
     /// Device name

@@ -2,8 +2,9 @@
 //!
 //! Provides efficient async read/write operations for database pages
 
-use anyhow::{Context, Result};
 use std::sync::Arc;
+
+use anyhow::{Context, Result};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::RwLock;
@@ -14,7 +15,7 @@ use super::{PagerConfig, SyncMode};
 
 /// Page I/O handler
 pub struct PageIO {
-    /// Database file handle (wrapped in RwLock for interior mutability)
+    /// Database file handle (wrapped in `RwLock` for interior mutability)
     file: Arc<RwLock<File>>,
     /// Configuration
     config: PagerConfig,
@@ -39,7 +40,7 @@ impl PageIO {
     }
 
     /// Calculate file offset for a page
-    fn page_offset(page_id: PageId) -> u64 {
+    const fn page_offset(page_id: PageId) -> u64 {
         page_id.0 * PAGE_SIZE as u64
     }
 
@@ -54,16 +55,16 @@ impl PageIO {
         // Seek to page position
         file.seek(std::io::SeekFrom::Start(offset))
             .await
-            .context(format!("Failed to seek to page {:?}", page_id))?;
+            .context(format!("Failed to seek to page {page_id:?}"))?;
 
         // Read page data
         let mut buf = vec![0u8; PAGE_SIZE];
         file.read_exact(&mut buf)
             .await
-            .context(format!("Failed to read page {:?}", page_id))?;
+            .context(format!("Failed to read page {page_id:?}"))?;
 
         // Deserialize page
-        Page::from_bytes(&buf).context(format!("Failed to deserialize page {:?}", page_id))
+        Page::from_bytes(&buf).context(format!("Failed to deserialize page {page_id:?}"))
     }
 
     /// Write a page to disk
@@ -76,19 +77,19 @@ impl PageIO {
         // Serialize page
         let buf = page
             .to_bytes()
-            .context(format!("Failed to serialize page {:?}", page_id))?;
+            .context(format!("Failed to serialize page {page_id:?}"))?;
 
         let mut file = self.file.write().await;
 
         // Seek to page position
         file.seek(std::io::SeekFrom::Start(offset))
             .await
-            .context(format!("Failed to seek to page {:?}", page_id))?;
+            .context(format!("Failed to seek to page {page_id:?}"))?;
 
         // Write page data
         file.write_all(&buf)
             .await
-            .context(format!("Failed to write page {:?}", page_id))?;
+            .context(format!("Failed to write page {page_id:?}"))?;
 
         Ok(())
     }
@@ -157,10 +158,11 @@ impl PageIO {
 
 #[cfg(test)]
 mod tests {
-    use super::super::page::PageType;
-    use super::*;
     use tempfile::TempDir;
     use tokio::fs::OpenOptions;
+
+    use super::super::page::PageType;
+    use super::*;
 
     #[tokio::test]
     async fn test_page_io_basic() {
@@ -210,7 +212,7 @@ mod tests {
         // Write 10 pages
         for i in 0..10 {
             let mut page = Page::new(PageId(i), PageType::Data);
-            let data = format!("Page {}", i).into_bytes();
+            let data = format!("Page {i}").into_bytes();
             page.write_data(0, &data).unwrap();
             page.update_checksum();
 
@@ -220,7 +222,7 @@ mod tests {
         // Read back in random order
         for i in [5, 2, 8, 0, 9, 3, 1, 7, 4, 6] {
             let page = io.read_page(PageId(i)).await.unwrap();
-            let expected = format!("Page {}", i).into_bytes();
+            let expected = format!("Page {i}").into_bytes();
             let actual = page.read_data(0, expected.len()).unwrap();
             assert_eq!(actual, expected.as_slice());
         }
@@ -246,7 +248,7 @@ mod tests {
         let pages: Vec<Page> = (0..5)
             .map(|i| {
                 let mut page = Page::new(PageId(i), PageType::Data);
-                let data = format!("Batch page {}", i).into_bytes();
+                let data = format!("Batch page {i}").into_bytes();
                 page.write_data(0, &data).unwrap();
                 page.update_checksum();
                 page
@@ -262,7 +264,7 @@ mod tests {
 
         assert_eq!(read_pages.len(), 5);
         for (i, page) in read_pages.iter().enumerate() {
-            let expected = format!("Batch page {}", i).into_bytes();
+            let expected = format!("Batch page {i}").into_bytes();
             let actual = page.read_data(0, expected.len()).unwrap();
             assert_eq!(actual, expected.as_slice());
         }

@@ -1,9 +1,10 @@
 //! Simple test to isolate the serialization error
 
+use std::collections::HashMap;
+
 use neuroquantum_core::storage::{
     ColumnDefinition, DataType, IdGenerationStrategy, Row, StorageEngine, TableSchema,
 };
-use std::collections::HashMap;
 use tempfile::TempDir;
 
 #[tokio::test]
@@ -35,9 +36,9 @@ async fn test_simple_insert() {
 
     println!("Creating table...");
     match storage.create_table(schema.clone()).await {
-        | Ok(_) => println!("✅ Table created"),
+        | Ok(()) => println!("✅ Table created"),
         | Err(e) => {
-            println!("❌ Failed to create table: {}", e);
+            println!("❌ Failed to create table: {e}");
             panic!("Table creation failed");
         },
     }
@@ -56,11 +57,11 @@ async fn test_simple_insert() {
 
     println!("Inserting row...");
     match storage.insert_row("simple_test", row).await {
-        | Ok(id) => println!("✅ Row inserted with ID: {}", id),
+        | Ok(id) => println!("✅ Row inserted with ID: {id}"),
         | Err(e) => {
-            println!("❌ Failed to insert row: {}", e);
-            println!("Error details: {:?}", e);
-            panic!("Insert failed: {}", e);
+            println!("❌ Failed to insert row: {e}");
+            println!("Error details: {e:?}");
+            panic!("Insert failed: {e}");
         },
     }
 

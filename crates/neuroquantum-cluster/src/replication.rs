@@ -292,7 +292,7 @@ impl ReplicationManager {
         pending
             .get(&request_id)
             .map(|r| r.status)
-            .ok_or_else(|| ClusterError::Internal(format!("Unknown request {}", request_id)))
+            .ok_or_else(|| ClusterError::Internal(format!("Unknown request {request_id}")))
     }
 
     /// Clean up completed or expired replication requests.
@@ -327,7 +327,7 @@ impl ReplicationManager {
     }
 
     /// Calculate required acks for a consistency level.
-    fn required_acks(&self, level: ConsistencyLevel) -> usize {
+    const fn required_acks(&self, level: ConsistencyLevel) -> usize {
         match level {
             | ConsistencyLevel::One => 1,
             | ConsistencyLevel::Quorum => (self.replication_factor as usize / 2) + 1,

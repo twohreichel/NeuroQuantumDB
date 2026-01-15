@@ -142,12 +142,12 @@ impl From<serde_json::Error> for ClusterError {
 
 impl From<tonic::Status> for ClusterError {
     fn from(err: tonic::Status) -> Self {
-        Self::NetworkError(format!("gRPC error: {}", err))
+        Self::NetworkError(format!("gRPC error: {err}"))
     }
 }
 
 impl From<tonic::transport::Error> for ClusterError {
     fn from(err: tonic::transport::Error) -> Self {
-        Self::NetworkError(format!("gRPC transport error: {}", err))
+        Self::NetworkError(format!("gRPC transport error: {err}"))
     }
 }

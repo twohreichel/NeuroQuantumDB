@@ -1,6 +1,6 @@
-//! NeuroQuantumDB Core Library
+//! `NeuroQuantumDB` Core Library
 //!
-//! This is the core library for the NeuroQuantumDB neuromorphic database system,
+//! This is the core library for the `NeuroQuantumDB` neuromorphic database system,
 //! featuring advanced DNA-based compression, quantum storage optimization, and
 //! synaptic learning algorithms.
 
@@ -23,9 +23,7 @@ pub mod query;
 mod simd; // SIMD optimizations - internal only
 
 // Quantum extensions submodules
-pub use quantum::quantum_parallel_tempering;
-pub use quantum::qubo_quantum;
-pub use quantum::tfim;
+pub use quantum::{quantum_parallel_tempering, qubo_quantum, tfim};
 pub mod security;
 pub mod spiking; // Biologically accurate spiking neural networks (Izhikevich model)
 pub mod storage;
@@ -37,27 +35,22 @@ pub use dna::{
     CompressedDNA, CompressionMetadata, CompressionMetrics, DNABase, DNACompressionConfig,
     DNACompressor, DNAError, DNASequence, QuantumDNACompressor,
 };
-
-// Re-export nalgebra for API use
-pub use nalgebra;
-
 // Re-export other core types
 pub use error::NeuroQuantumError;
-pub use storage::StorageEngine;
-
+// Re-export nalgebra for API use
+pub use nalgebra;
 // Re-export NEON optimization types
 pub use neon_optimization::{NeonOptimizer, OptimizationStats, QuantumOperation};
-
-// Re-export transaction management types
-pub use transaction::{
-    IsolationLevel, LockManager, LockType, LogManager, RecoveryManager, Transaction, TransactionId,
-    TransactionManager, TransactionStatistics, TransactionStatus, LSN,
-};
-
 // Re-export spiking neural network types (Izhikevich model)
 pub use spiking::{
     IzhikevichNeuron, IzhikevichNeuronType, IzhikevichParameters, NetworkStatistics, STDPRule,
     SpikingNeuralNetwork, SpikingSynapse,
+};
+pub use storage::StorageEngine;
+// Re-export transaction management types
+pub use transaction::{
+    IsolationLevel, LockManager, LockType, LogManager, RecoveryManager, Transaction, TransactionId,
+    TransactionManager, TransactionStatistics, TransactionStatus, LSN,
 };
 
 // Quantum search constants
@@ -92,7 +85,7 @@ pub struct NeuroQuantumDB {
     config: NeuroQuantumConfig,
 }
 
-/// Builder for creating a fully initialized NeuroQuantumDB instance.
+/// Builder for creating a fully initialized `NeuroQuantumDB` instance.
 ///
 /// This builder pattern ensures compile-time guarantees that the database
 /// is properly initialized before use. Use [`NeuroQuantumDBBuilder::build()`]
@@ -171,7 +164,7 @@ impl NeuroQuantumDBBuilder {
     /// # }
     /// ```
     #[must_use]
-    pub fn with_config(config: NeuroQuantumConfig) -> Self {
+    pub const fn with_config(config: NeuroQuantumConfig) -> Self {
         Self { config }
     }
 
@@ -184,33 +177,33 @@ impl NeuroQuantumDBBuilder {
 
     /// Set the memory limit in gigabytes.
     #[must_use]
-    pub fn memory_limit_gb(mut self, limit: usize) -> Self {
+    pub const fn memory_limit_gb(mut self, limit: usize) -> Self {
         self.config.memory_limit_gb = limit;
         self
     }
 
     /// Enable or disable quantum optimization.
     #[must_use]
-    pub fn enable_quantum_optimization(mut self, enable: bool) -> Self {
+    pub const fn enable_quantum_optimization(mut self, enable: bool) -> Self {
         self.config.enable_quantum_optimization = enable;
         self
     }
 
     /// Enable or disable neuromorphic learning.
     #[must_use]
-    pub fn enable_neuromorphic_learning(mut self, enable: bool) -> Self {
+    pub const fn enable_neuromorphic_learning(mut self, enable: bool) -> Self {
         self.config.enable_neuromorphic_learning = enable;
         self
     }
 
     /// Set the DNA compression configuration.
     #[must_use]
-    pub fn dna_compression(mut self, config: dna::DNACompressionConfig) -> Self {
+    pub const fn dna_compression(mut self, config: dna::DNACompressionConfig) -> Self {
         self.config.dna_compression = config;
         self
     }
 
-    /// Build and initialize the NeuroQuantumDB instance.
+    /// Build and initialize the `NeuroQuantumDB` instance.
     ///
     /// This method performs all necessary async initialization, including:
     /// - Creating the storage directory structure
@@ -272,7 +265,7 @@ impl Default for NeuroQuantumDBBuilder {
     }
 }
 
-/// Configuration for the NeuroQuantumDB system
+/// Configuration for the `NeuroQuantumDB` system
 #[derive(Debug, Clone)]
 pub struct NeuroQuantumConfig {
     /// DNA compression configuration
@@ -299,7 +292,7 @@ impl Default for NeuroQuantumConfig {
 }
 
 impl NeuroQuantumDB {
-    /// Create a new NeuroQuantumDB instance with default configuration.
+    /// Create a new `NeuroQuantumDB` instance with default configuration.
     ///
     /// # Deprecated
     ///
@@ -327,11 +320,12 @@ impl NeuroQuantumDB {
         note = "Use NeuroQuantumDBBuilder::new().build().await instead for compile-time initialization guarantees"
     )]
     #[allow(deprecated)]
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(NeuroQuantumConfig::default())
     }
 
-    /// Create a new NeuroQuantumDB instance with custom configuration.
+    /// Create a new `NeuroQuantumDB` instance with custom configuration.
     ///
     /// # Deprecated
     ///
@@ -364,6 +358,7 @@ impl NeuroQuantumDB {
         since = "0.2.0",
         note = "Use NeuroQuantumDBBuilder::with_config(config).build().await instead for compile-time initialization guarantees"
     )]
+    #[must_use]
     pub fn with_config(config: NeuroQuantumConfig) -> Self {
         let dna_compressor = dna::QuantumDNACompressor::with_config(config.dna_compression.clone());
 
@@ -472,8 +467,7 @@ impl NeuroQuantumDB {
             | Some(data) => data,
             | None => {
                 return Err(NeuroQuantumError::NotFound(format!(
-                    "Key '{}' not found",
-                    key
+                    "Key '{key}' not found"
                 )));
             },
         };
@@ -498,8 +492,9 @@ impl NeuroQuantumDB {
     }
 
     /// Get compression statistics
+    #[must_use]
     pub fn get_compression_stats(&self) -> CompressionMetrics {
-        self.dna_compressor.get_metrics().clone()
+        self.dna_compressor.get_metrics()
     }
 
     /// Validate stored compressed data integrity
@@ -517,8 +512,7 @@ impl NeuroQuantumDB {
             | Some(data) => data,
             | None => {
                 return Err(NeuroQuantumError::NotFound(format!(
-                    "Key '{}' not found",
-                    key
+                    "Key '{key}' not found"
                 )));
             },
         };
@@ -552,6 +546,7 @@ impl NeuroQuantumDB {
     ///
     /// This is useful for sharing the storage engine with other components
     /// like the QSQL engine that need their own reference to the storage.
+    #[must_use]
     pub fn storage_engine_arc(
         &self,
     ) -> std::sync::Arc<tokio::sync::RwLock<storage::StorageEngine>> {
@@ -562,14 +557,15 @@ impl NeuroQuantumDB {
     ///
     /// This allows external components to perform DNA compression operations
     /// directly using the configured compressor.
-    pub fn dna_compressor(&self) -> &dna::QuantumDNACompressor {
+    #[must_use]
+    pub const fn dna_compressor(&self) -> &dna::QuantumDNACompressor {
         &self.dna_compressor
     }
 }
 
 #[allow(deprecated)]
 impl Default for NeuroQuantumDB {
-    /// Creates a default NeuroQuantumDB instance.
+    /// Creates a default `NeuroQuantumDB` instance.
     ///
     /// # Deprecated
     ///
@@ -580,7 +576,7 @@ impl Default for NeuroQuantumDB {
     }
 }
 
-/// Core NeuroQuantumDB engine
+/// Core `NeuroQuantumDB` engine
 #[derive(Clone)]
 pub struct NeuroQuantumDBCore {
     active_connections: u32,
@@ -590,7 +586,7 @@ pub struct NeuroQuantumDBCore {
 }
 
 impl NeuroQuantumDBCore {
-    /// Initialize production-ready NeuroQuantumDB instance
+    /// Initialize production-ready `NeuroQuantumDB` instance
     pub async fn new(_config: &DatabaseConfig) -> Result<Self> {
         info!("🧠 Initializing NeuroQuantumDB production instance...");
 
@@ -603,8 +599,12 @@ impl NeuroQuantumDBCore {
     }
 
     /// For testing: initialize with predefined parameters
+    ///
+    /// # Errors
+    ///
+    /// This function is infallible but returns `Result` for API consistency.
     #[cfg(test)]
-    pub async fn new_test() -> Result<Self> {
+    pub const fn new_test() -> Result<Self> {
         Ok(Self {
             active_connections: 1,
             quantum_ops_rate: 100.0,
@@ -614,22 +614,26 @@ impl NeuroQuantumDBCore {
     }
 
     /// Get active connections count
-    pub fn get_active_connections(&self) -> u32 {
+    #[must_use]
+    pub const fn get_active_connections(&self) -> u32 {
         self.active_connections
     }
 
     /// Get quantum operations rate
-    pub fn get_quantum_ops_rate(&self) -> f32 {
+    #[must_use]
+    pub const fn get_quantum_ops_rate(&self) -> f32 {
         self.quantum_ops_rate
     }
 
     /// Get synaptic adaptations count
-    pub fn get_synaptic_adaptations(&self) -> u64 {
+    #[must_use]
+    pub const fn get_synaptic_adaptations(&self) -> u64 {
         self.synaptic_adaptations
     }
 
     /// Get average compression ratio
-    pub fn get_avg_compression_ratio(&self) -> f32 {
+    #[must_use]
+    pub const fn get_avg_compression_ratio(&self) -> f32 {
         self.avg_compression_ratio
     }
 
@@ -668,7 +672,7 @@ impl NeuroQuantumDBCore {
             // Diffusion operator: inversion about average
             let average = amplitudes.iter().sum::<f64>() / amplitudes.len() as f64;
             for amplitude in &mut amplitudes {
-                *amplitude = 2.0 * average - *amplitude;
+                *amplitude = 2.0f64.mul_add(average, -*amplitude);
             }
         }
 
@@ -731,7 +735,7 @@ impl NeuroQuantumDBCore {
         let mut synaptic_adaptations = 0;
 
         // Parse and analyze the query plan
-        let query_str = format!("{:?}", query_plan);
+        let query_str = format!("{query_plan:?}");
         let mut execution_steps = Vec::new();
         let mut result_data = serde_json::json!({
             "execution_id": uuid::Uuid::new_v4().to_string(),
@@ -1013,7 +1017,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_quantum_search() {
-        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+        let db_core = NeuroQuantumDBCore::new_test().unwrap();
 
         let request = QueryRequest {
             query: "quantum search test".to_string(),
@@ -1031,7 +1035,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_qsql() {
-        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+        let db_core = NeuroQuantumDBCore::new_test().unwrap();
 
         let query_plan = vec![
             "SCAN users",
@@ -1048,7 +1052,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_schema_info() {
-        let db_core = NeuroQuantumDBCore::new_test().await.unwrap();
+        let db_core = NeuroQuantumDBCore::new_test().unwrap();
 
         let schema_info = db_core.get_schema_info().await.unwrap();
         assert!(schema_info.tables.is_empty());

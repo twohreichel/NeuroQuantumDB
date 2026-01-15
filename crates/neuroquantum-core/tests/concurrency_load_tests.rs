@@ -1,4 +1,4 @@
-//! # Concurrency Load Testing Suite for NeuroQuantumDB
+//! # Concurrency Load Testing Suite for `NeuroQuantumDB`
 //!
 //! This module provides comprehensive load tests for concurrent database operations,
 //! validating system behavior under high concurrency scenarios and measuring
@@ -27,15 +27,16 @@
 //! cargo test --package neuroquantum-core --test concurrency_load_tests -- --include-ignored --nocapture
 //! ```
 
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
 use neuroquantum_core::storage::{
     ColumnDefinition, ComparisonOperator, Condition, DataType, DeleteQuery, IdGenerationStrategy,
     Row, SelectQuery, StorageEngine, TableSchema, Value, WhereClause,
 };
 use neuroquantum_core::transaction::{IsolationLevel, LockManager, LockType, TransactionManager};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tokio::sync::Barrier;
 
@@ -126,7 +127,7 @@ fn create_load_test_row(id: i64, version: i64, worker_id: i64, payload: &str) ->
     }
 }
 
-/// Create a WhereClause for filtering by id
+/// Create a `WhereClause` for filtering by id
 fn where_id_equals(id: i64) -> WhereClause {
     WhereClause {
         conditions: vec![Condition {
@@ -148,7 +149,7 @@ struct LoadTestStats {
 }
 
 impl LoadTestStats {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             successful_ops: AtomicU64::new(0),
             failed_ops: AtomicU64::new(0),
@@ -238,7 +239,7 @@ impl LoadTestStats {
 // ============================================================================
 
 /// Test read throughput with varying concurrency levels
-/// Run with: cargo test --test concurrency_load_tests test_read_throughput_scaling -- --ignored --nocapture
+/// Run with: cargo test --test `concurrency_load_tests` `test_read_throughput_scaling` -- --ignored --nocapture
 #[tokio::test]
 #[ignore]
 async fn test_read_throughput_scaling() {
@@ -255,7 +256,7 @@ async fn test_read_throughput_scaling() {
 
     let seed_rows = 20;
     for i in 0..seed_rows {
-        let row = create_load_test_row(i, 1, 0, &format!("seed_data_{}", i));
+        let row = create_load_test_row(i, 1, 0, &format!("seed_data_{i}"));
         storage.insert_row("throughput_read", row).await.unwrap();
     }
 
@@ -313,7 +314,7 @@ async fn test_read_throughput_scaling() {
 }
 
 /// Test write throughput with varying concurrency levels
-/// Run with: cargo test --test concurrency_load_tests test_write_throughput_scaling -- --ignored --nocapture
+/// Run with: cargo test --test `concurrency_load_tests` `test_write_throughput_scaling` -- --ignored --nocapture
 #[tokio::test]
 #[ignore]
 async fn test_write_throughput_scaling() {
@@ -354,7 +355,7 @@ async fn test_write_throughput_scaling() {
                         row_id,
                         1,
                         worker_id as i64,
-                        &format!("worker_{}_data_{}", worker_id, i),
+                        &format!("worker_{worker_id}_data_{i}"),
                     );
 
                     let op_start = Instant::now();
@@ -399,7 +400,7 @@ async fn test_mixed_workload_throughput() {
             .unwrap();
 
         for i in 0..10 {
-            let row = create_load_test_row(i, 1, 0, &format!("seed_data_{}", i));
+            let row = create_load_test_row(i, 1, 0, &format!("seed_data_{i}"));
             storage_guard
                 .insert_row("mixed_workload", row)
                 .await
@@ -458,7 +459,7 @@ async fn test_mixed_workload_throughput() {
                         new_id,
                         1,
                         worker_id as i64,
-                        &format!("worker_{}_new_{}", worker_id, i),
+                        &format!("worker_{worker_id}_new_{i}"),
                     );
 
                     let op_start = Instant::now();
@@ -699,7 +700,7 @@ async fn test_reader_writer_fairness() {
             .unwrap();
 
         for i in 0..10 {
-            let row = create_load_test_row(i, 1, 0, &format!("data_{}", i));
+            let row = create_load_test_row(i, 1, 0, &format!("data_{i}"));
             storage_guard
                 .insert_row("fairness_test", row)
                 .await
@@ -761,8 +762,8 @@ async fn test_reader_writer_fairness() {
                 let row = create_load_test_row(
                     new_id,
                     1,
-                    writer_id as i64,
-                    &format!("writer_{}", writer_id),
+                    i64::from(writer_id),
+                    &format!("writer_{writer_id}"),
                 );
 
                 let mut storage_guard = storage_clone.write().await;
@@ -790,10 +791,7 @@ async fn test_reader_writer_fairness() {
     let total_reads = read_ops.load(Ordering::Relaxed);
     let total_writes = write_ops.load(Ordering::Relaxed);
 
-    println!(
-        "  Completed {} reads and {} writes in {:?}",
-        total_reads, total_writes, test_duration
-    );
+    println!("  Completed {total_reads} reads and {total_writes} writes in {test_duration:?}");
     println!(
         "  Read throughput: {:.2} ops/sec",
         total_reads as f64 / test_duration.as_secs_f64()
@@ -812,14 +810,13 @@ async fn test_reader_writer_fairness() {
 
     // Check fairness ratio (writers should get at least 5% of read operations)
     let fairness_ratio = total_writes as f64 / total_reads as f64;
-    println!("  Fairness ratio (writes/reads): {:.4}", fairness_ratio);
+    println!("  Fairness ratio (writes/reads): {fairness_ratio:.4}");
 
     // Writers are intentionally slower, so we expect a lower ratio
     // but they should still make meaningful progress
     assert!(
         fairness_ratio >= 0.01,
-        "Unfair scheduling: writes/reads ratio = {:.4}",
-        fairness_ratio
+        "Unfair scheduling: writes/reads ratio = {fairness_ratio:.4}"
     );
 }
 
@@ -901,9 +898,7 @@ async fn test_transaction_throughput_concurrent() {
     let expected_min = ((num_workers * txs_per_worker) as f64 * 0.9) as u64;
     assert!(
         successful >= expected_min,
-        "Expected at least {} successful transactions, got {}",
-        expected_min,
-        successful
+        "Expected at least {expected_min} successful transactions, got {successful}"
     );
 }
 
@@ -959,16 +954,11 @@ async fn test_isolation_levels_concurrent_correctness() {
         }
 
         let total_success = successful.load(Ordering::Relaxed);
-        println!(
-            "  {}: {} transactions completed successfully",
-            name, total_success
-        );
+        println!("  {name}: {total_success} transactions completed successfully");
 
         assert!(
             total_success >= 80,
-            "{}: Expected at least 80 successful transactions, got {}",
-            name,
-            total_success
+            "{name}: Expected at least 80 successful transactions, got {total_success}"
         );
     }
 }
@@ -978,7 +968,7 @@ async fn test_isolation_levels_concurrent_correctness() {
 // ============================================================================
 
 /// Test system stability under sustained load
-/// Run with: cargo test --test concurrency_load_tests test_sustained_load_stability -- --ignored --nocapture
+/// Run with: cargo test --test `concurrency_load_tests` `test_sustained_load_stability` -- --ignored --nocapture
 #[tokio::test]
 #[ignore]
 async fn test_sustained_load_stability() {
@@ -998,7 +988,7 @@ async fn test_sustained_load_stability() {
             .unwrap();
 
         for i in 0..100 {
-            let row = create_load_test_row(i, 1, 0, &format!("initial_{}", i));
+            let row = create_load_test_row(i, 1, 0, &format!("initial_{i}"));
             storage_guard
                 .insert_row("sustained_load", row)
                 .await
@@ -1045,9 +1035,9 @@ async fn test_sustained_load_stability() {
                         // Insert (20%)
                         local_id += 1;
                         let row = create_load_test_row(
-                            local_id as i64,
+                            i64::from(local_id),
                             1,
-                            worker_id as i64,
+                            i64::from(worker_id),
                             "sustained_insert",
                         );
 
@@ -1119,7 +1109,7 @@ async fn test_sustained_load_stability() {
 // ============================================================================
 
 /// Run all load tests and generate a summary report
-/// Run with: cargo test --test concurrency_load_tests test_load_test_summary -- --ignored --nocapture
+/// Run with: cargo test --test `concurrency_load_tests` `test_load_test_summary` -- --ignored --nocapture
 #[tokio::test]
 #[ignore]
 async fn test_load_test_summary() {

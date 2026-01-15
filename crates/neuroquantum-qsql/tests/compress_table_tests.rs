@@ -5,10 +5,11 @@
 //! - Compression statistics reporting
 //! - Error handling for non-existent tables
 
+use std::sync::Arc;
+
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
 use neuroquantum_qsql::query_plan::QueryValue;
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
-use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper to create a test setup with storage and executor
@@ -75,8 +76,7 @@ async fn setup_test_env() -> (
     // Insert test rows
     for i in 1..=10 {
         let sql = format!(
-            "INSERT INTO logs (id, message, severity) VALUES ({}, 'Log message {}', 'INFO')",
-            i, i
+            "INSERT INTO logs (id, message, severity) VALUES ({i}, 'Log message {i}', 'INFO')"
         );
         let statement = parser.parse(&sql).unwrap();
         executor.execute_statement(&statement).await.unwrap();
@@ -215,29 +215,23 @@ async fn test_compress_table_statistics() {
     // Verify compression statistics make sense
     assert!(
         original_size > 0,
-        "Original size should be positive: {}",
-        original_size
+        "Original size should be positive: {original_size}"
     );
     assert!(
         compressed_size > 0,
-        "Compressed size should be positive: {}",
-        compressed_size
+        "Compressed size should be positive: {compressed_size}"
     );
     assert!(
         compressed_size < original_size,
-        "Compressed size ({}) should be less than original size ({})",
-        compressed_size,
-        original_size
+        "Compressed size ({compressed_size}) should be less than original size ({original_size})"
     );
     assert!(
         compression_ratio > 0.0 && compression_ratio <= 100.0,
-        "Compression ratio should be between 0 and 100: {}",
-        compression_ratio
+        "Compression ratio should be between 0 and 100: {compression_ratio}"
     );
     assert!(
         space_saved > 0,
-        "Space saved should be positive: {}",
-        space_saved
+        "Space saved should be positive: {space_saved}"
     );
     assert_eq!(
         space_saved,
@@ -267,8 +261,7 @@ async fn test_compress_table_nonexistent() {
         error_message.contains("nonexistent_table")
             || error_message.contains("does not exist")
             || error_message.contains("cannot be accessed"),
-        "Error message should mention the table: {}",
-        error_message
+        "Error message should mention the table: {error_message}"
     );
 }
 
@@ -359,16 +352,14 @@ async fn test_compress_table_case_insensitive() {
         assert_eq!(
             result.rows.len(),
             1,
-            "Test case {}: Should return one result row",
-            i
+            "Test case {i}: Should return one result row"
         );
 
         let row = &result.rows[0];
         assert_eq!(
             row.get("algorithm"),
             Some(&QueryValue::String("DNA".to_string())),
-            "Test case {}: Algorithm should be DNA",
-            i
+            "Test case {i}: Algorithm should be DNA"
         );
     }
 }

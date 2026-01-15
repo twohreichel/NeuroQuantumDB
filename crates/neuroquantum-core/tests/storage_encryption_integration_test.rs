@@ -2,11 +2,12 @@
 //! This test validates that data is properly compressed with DNA encoding
 //! and encrypted with AES-256-GCM before being written to disk
 
+use std::collections::HashMap;
+
 use neuroquantum_core::storage::{
     ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
     Value,
 };
-use std::collections::HashMap;
 use tempfile::TempDir;
 
 #[tokio::test]
@@ -69,8 +70,8 @@ async fn test_dna_compression_and_encryption_roundtrip() {
     for (i, (name, email)) in test_data.iter().enumerate() {
         let mut fields = HashMap::new();
         fields.insert("id".to_string(), Value::Integer((i + 1) as i64));
-        fields.insert("name".to_string(), Value::Text(name.to_string()));
-        fields.insert("email".to_string(), Value::Text(email.to_string()));
+        fields.insert("name".to_string(), Value::Text((*name).to_string()));
+        fields.insert("email".to_string(), Value::Text((*email).to_string()));
 
         let row = Row {
             id: 0, // Will be assigned by storage engine
@@ -85,10 +86,7 @@ async fn test_dna_compression_and_encryption_roundtrip() {
             .expect("Failed to insert row");
 
         inserted_ids.push(row_id);
-        println!(
-            "✅ Inserted row {} with DNA compression + encryption",
-            row_id
-        );
+        println!("✅ Inserted row {row_id} with DNA compression + encryption");
     }
 
     // Verify data is actually on disk (encrypted and compressed)
@@ -216,11 +214,11 @@ async fn test_compression_ratio_with_encryption() {
     let file_size = tokio::fs::metadata(&table_file).await.unwrap().len() as usize;
 
     println!("📊 Compression Statistics:");
-    println!("   Original size: {} bytes", original_size);
-    println!("   Compressed + Encrypted: {} bytes", file_size);
+    println!("   Original size: {original_size} bytes");
+    println!("   Compressed + Encrypted: {file_size} bytes");
 
     let compression_ratio = original_size as f64 / file_size as f64;
-    println!("   Compression ratio: {:.2}x", compression_ratio);
+    println!("   Compression ratio: {compression_ratio:.2}x");
 
     // Note: With encryption overhead, small files may actually expand
     // The encryption adds ~50+ bytes overhead (nonce, authentication tag, etc.)
@@ -257,8 +255,5 @@ async fn test_compression_ratio_with_encryption() {
     );
 
     println!("✅ DNA Compression + Encryption storage test PASSED");
-    println!(
-        "   File size: {} bytes (ratio: {:.2}x)",
-        file_size, compression_ratio
-    );
+    println!("   File size: {file_size} bytes (ratio: {compression_ratio:.2}x)");
 }

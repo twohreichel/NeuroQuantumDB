@@ -8,10 +8,11 @@
 //! - NOT EXISTS subqueries: `WHERE NOT EXISTS (SELECT 1 FROM ...)`
 //! - Derived tables: `SELECT * FROM (SELECT * FROM users WHERE age > 25) AS adults`
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 /// Helper function to set up test tables
@@ -137,7 +138,7 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
         (3, "Sales", false), // Inactive department
     ];
 
-    for (id, name, active) in departments.iter() {
+    for (id, name, active) in &departments {
         let mut row = neuroquantum_core::storage::Row {
             id: 0,
             fields: HashMap::new(),
@@ -146,7 +147,7 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
         };
         row.fields.insert("id".to_string(), Value::Integer(*id));
         row.fields
-            .insert("name".to_string(), Value::Text(name.to_string()));
+            .insert("name".to_string(), Value::Text((*name).to_string()));
         row.fields
             .insert("active".to_string(), Value::Boolean(*active));
         storage_guard.insert_row("departments", row).await.unwrap();
@@ -163,7 +164,7 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
         (6, "Frank", 45, None),      // No department
     ];
 
-    for (id, name, age, dept_id) in users.iter() {
+    for (id, name, age, dept_id) in &users {
         let mut row = neuroquantum_core::storage::Row {
             id: 0,
             fields: HashMap::new(),
@@ -172,7 +173,7 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
         };
         row.fields.insert("id".to_string(), Value::Integer(*id));
         row.fields
-            .insert("name".to_string(), Value::Text(name.to_string()));
+            .insert("name".to_string(), Value::Text((*name).to_string()));
         row.fields.insert("age".to_string(), Value::Integer(*age));
         match dept_id {
             | Some(d) => row
@@ -198,7 +199,7 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
         (6, 4, 125.0), // Diana
     ];
 
-    for (id, user_id, amount) in orders.iter() {
+    for (id, user_id, amount) in &orders {
         let mut row = neuroquantum_core::storage::Row {
             id: 0,
             fields: HashMap::new(),
@@ -237,7 +238,6 @@ async fn create_test_executor() -> (
 // =============================================================================
 
 mod parser_tests {
-    use super::*;
     use neuroquantum_qsql::*;
 
     #[test]

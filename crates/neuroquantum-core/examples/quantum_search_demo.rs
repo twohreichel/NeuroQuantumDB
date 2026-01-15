@@ -8,11 +8,12 @@
 //! - Multiple search scenarios
 //! - Performance comparisons with classical search
 
+use std::sync::Arc;
+use std::time::Instant;
+
 use neuroquantum_core::quantum_processor::{
     create_byte_search_processor, DatabaseOracle, QuantumProcessorConfig, QuantumStateProcessor,
 };
-use std::sync::Arc;
-use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -84,8 +85,8 @@ fn demo_simple_database_search() -> Result<(), Box<dyn std::error::Error>> {
     let target = 55;
     let n = database.len();
 
-    println!("Database: {:?}", database);
-    println!("Target: {}", target);
+    println!("Database: {database:?}");
+    println!("Target: {target}");
     println!(
         "Size: N = {} (requires {} qubits)",
         n,
@@ -102,7 +103,7 @@ fn demo_simple_database_search() -> Result<(), Box<dyn std::error::Error>> {
 
     // Calculate optimal iterations
     let iterations = ((std::f64::consts::PI / 4.0) * (n as f64).sqrt()) as usize;
-    println!("Optimal Grover iterations: π/4 * √{} ≈ {}", n, iterations);
+    println!("Optimal Grover iterations: π/4 * √{n} ≈ {iterations}");
     println!();
 
     // Run Grover's search
@@ -119,7 +120,7 @@ fn demo_simple_database_search() -> Result<(), Box<dyn std::error::Error>> {
         probability,
         probability * 100.0
     );
-    println!("  Time: {:?}", elapsed);
+    println!("  Time: {elapsed:?}");
     println!(
         "  Verification: {}",
         if database[result] == target {
@@ -136,9 +137,9 @@ fn demo_simple_database_search() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
     println!("📊 Classical Linear Search:");
-    println!("  Found index: {}", classical_result);
-    println!("  Time: {:?}", classical_elapsed);
-    println!("  Expected comparisons: {} (worst case)", n);
+    println!("  Found index: {classical_result}");
+    println!("  Time: {classical_elapsed:?}");
+    println!("  Expected comparisons: {n} (worst case)");
 
     Ok(())
 }
@@ -171,12 +172,12 @@ fn demo_byte_pattern_search() -> Result<(), Box<dyn std::error::Error>> {
     let elapsed = start.elapsed();
 
     println!("✅ Quantum Search Result:");
-    println!("  Found at position: {}", result);
+    println!("  Found at position: {result}");
     println!(
         "  Context: \"{}\"",
         String::from_utf8_lossy(&data[result..result + 10.min(data.len() - result)])
     );
-    println!("  Time: {:?}", elapsed);
+    println!("  Time: {elapsed:?}");
 
     // Verify result
     let is_correct = result + pattern.len() <= data.len()
@@ -202,7 +203,7 @@ fn demo_multiple_targets() -> Result<(), Box<dyn std::error::Error>> {
     let database = vec![10, 20, 30, 20, 40, 20, 50, 60];
     let target = 20;
 
-    println!("Database: {:?}", database);
+    println!("Database: {database:?}");
     println!(
         "Target: {} (appears {} times)",
         target,
@@ -227,7 +228,7 @@ fn demo_multiple_targets() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("✅ Quantum Search Results (multiple targets):");
     println!("  Found {} results", results.len());
-    println!("  Time: {:?}", elapsed);
+    println!("  Time: {elapsed:?}");
     println!();
 
     for (index, probability) in &results {
@@ -282,7 +283,7 @@ fn demo_quantum_vs_classical() -> Result<(), Box<dyn std::error::Error>> {
         // Quantum search
         let oracle = Arc::new(DatabaseOracle::new(database.clone(), target));
         let config = QuantumProcessorConfig::default();
-        let qubits = (size as f64).log2().ceil() as usize;
+        let qubits = f64::from(size).log2().ceil() as usize;
         let mut processor = QuantumStateProcessor::new(qubits, oracle, config)?;
 
         let quantum_start = Instant::now();
@@ -328,10 +329,7 @@ fn demo_scaling_analysis() -> Result<(), Box<dyn std::error::Error>> {
         let grover_iters = ((std::f64::consts::PI / 4.0) * (states as f64).sqrt()) as usize;
         let classical_ops = states; // Linear search
 
-        println!(
-            "{:<10} {:<15} {:<20} {:<20}",
-            qubits, states, grover_iters, classical_ops
-        );
+        println!("{qubits:<10} {states:<15} {grover_iters:<20} {classical_ops:<20}");
     }
 
     println!();
@@ -371,8 +369,8 @@ fn demo_dna_sequence_search() -> Result<(), Box<dyn std::error::Error>> {
     let elapsed = start.elapsed();
 
     println!("✅ Quantum DNA Motif Search Result:");
-    println!("  Motif found at position: {}", result);
-    println!("  Time: {:?}", elapsed);
+    println!("  Motif found at position: {result}");
+    println!("  Time: {elapsed:?}");
 
     // Extract context
     if result + 10 <= dna_sequence.len() {

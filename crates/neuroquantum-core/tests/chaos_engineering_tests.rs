@@ -1,4 +1,4 @@
-//! # Chaos Engineering Tests for NeuroQuantumDB
+//! # Chaos Engineering Tests for `NeuroQuantumDB`
 //!
 //! This module implements comprehensive chaos engineering tests to validate
 //! the crash recovery capabilities of the database engine.
@@ -30,14 +30,15 @@
 //! cargo test --package neuroquantum-core --test chaos_engineering_tests -- --include-ignored --nocapture
 //! ```
 
-use neuroquantum_core::storage::{
-    ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
-    Value,
-};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use neuroquantum_core::storage::{
+    ColumnDefinition, DataType, IdGenerationStrategy, Row, SelectQuery, StorageEngine, TableSchema,
+    Value,
+};
 use tempfile::TempDir;
 use tokio::fs;
 use tokio::io::AsyncReadExt;
@@ -102,7 +103,7 @@ fn create_chaos_test_schema(name: &str) -> TableSchema {
 /// Create a test row with given parameters and computed checksum
 fn create_chaos_test_row(id: i64, value: &str) -> Row {
     // Simple checksum: sum of bytes in value modulo i64::MAX
-    let checksum = value.bytes().map(|b| b as i64).sum::<i64>();
+    let checksum = value.bytes().map(i64::from).sum::<i64>();
 
     Row {
         id: id as u64,
@@ -121,7 +122,7 @@ fn verify_row_checksum(row: &Row) -> bool {
     if let (Some(Value::Text(value)), Some(Value::Integer(stored_checksum))) =
         (row.fields.get("value"), row.fields.get("checksum"))
     {
-        let computed_checksum: i64 = value.bytes().map(|b| b as i64).sum();
+        let computed_checksum: i64 = value.bytes().map(i64::from).sum();
         computed_checksum == *stored_checksum
     } else {
         false
@@ -204,7 +205,7 @@ async fn test_wal_partial_write_recovery() {
 
         // Insert initial rows
         for i in 0..10 {
-            let row = create_chaos_test_row(i, &format!("value_{}", i));
+            let row = create_chaos_test_row(i, &format!("value_{i}"));
             storage.insert_row("chaos_test", row).await.unwrap();
         }
     }
@@ -252,7 +253,7 @@ async fn test_wal_partial_write_recovery() {
         },
         | Err(e) => {
             // Graceful failure is acceptable
-            println!("Recovery failed gracefully: {}", e);
+            println!("Recovery failed gracefully: {e}");
         },
     }
 }
@@ -272,7 +273,7 @@ async fn test_wal_checksum_corruption_recovery() {
             .unwrap();
 
         for i in 0..5 {
-            let row = create_chaos_test_row(i, &format!("checksum_value_{}", i));
+            let row = create_chaos_test_row(i, &format!("checksum_value_{i}"));
             storage.insert_row("checksum_test", row).await.unwrap();
         }
     }
@@ -316,7 +317,7 @@ async fn test_wal_checksum_corruption_recovery() {
             let _ = storage.select_rows(&query).await;
         },
         | Err(e) => {
-            println!("Recovery detected corruption and failed safely: {}", e);
+            println!("Recovery detected corruption and failed safely: {e}");
         },
     }
 }
@@ -414,7 +415,7 @@ async fn test_multi_row_transaction_crash() {
             .unwrap();
 
         for i in 0..10 {
-            let row = create_chaos_test_row(i, &format!("baseline_{}", i));
+            let row = create_chaos_test_row(i, &format!("baseline_{i}"));
             storage.insert_row("multi_row_crash", row).await.unwrap();
         }
     }
@@ -426,7 +427,7 @@ async fn test_multi_row_transaction_crash() {
 
         // Insert multiple rows in transaction
         for i in 100..105 {
-            let row = create_chaos_test_row(i, &format!("transaction_{}", i));
+            let row = create_chaos_test_row(i, &format!("transaction_{i}"));
             storage
                 .insert_row_transactional(tx_id, "multi_row_crash", row)
                 .await
@@ -490,7 +491,7 @@ async fn test_interrupted_checkpoint_recovery() {
             .unwrap();
 
         for i in 0..20 {
-            let row = create_chaos_test_row(i, &format!("pre_checkpoint_{}", i));
+            let row = create_chaos_test_row(i, &format!("pre_checkpoint_{i}"));
             storage.insert_row("checkpoint_test", row).await.unwrap();
         }
     }
@@ -550,7 +551,7 @@ async fn test_torn_write_recovery() {
             .unwrap();
 
         for i in 0..15 {
-            let row = create_chaos_test_row(i, &format!("data_{}", i));
+            let row = create_chaos_test_row(i, &format!("data_{i}"));
             storage.insert_row("torn_write", row).await.unwrap();
         }
     }
@@ -566,7 +567,7 @@ async fn test_torn_write_recovery() {
                 if content.len() > 512 {
                     // Simulate torn write: zero out part of a page
                     let start = content.len() - 256;
-                    for byte in content[start..].iter_mut() {
+                    for byte in &mut content[start..] {
                         *byte = 0;
                     }
                     fs::write(&path, content).await.unwrap();
@@ -594,7 +595,7 @@ async fn test_torn_write_recovery() {
             println!("Recovered from torn write successfully");
         },
         | Err(e) => {
-            println!("Torn write detected, recovery handled error: {}", e);
+            println!("Torn write detected, recovery handled error: {e}");
         },
     }
 }
@@ -644,7 +645,7 @@ async fn test_concurrent_transactions_crash() {
                         let row_id = counter_clone.fetch_add(1, Ordering::SeqCst) as i64;
                         let row = create_chaos_test_row(
                             row_id,
-                            &format!("worker_{}_row_{}", worker_id, row_id),
+                            &format!("worker_{worker_id}_row_{row_id}"),
                         );
 
                         let mut guard = storage_clone.write().await;
@@ -732,7 +733,7 @@ async fn test_missing_metadata_recovery() {
             .unwrap();
 
         for i in 0..5 {
-            let row = create_chaos_test_row(i, &format!("metadata_row_{}", i));
+            let row = create_chaos_test_row(i, &format!("metadata_row_{i}"));
             storage.insert_row("metadata_test", row).await.unwrap();
         }
     }
@@ -753,7 +754,7 @@ async fn test_missing_metadata_recovery() {
         },
         | Err(e) => {
             // Graceful failure
-            println!("Failed gracefully without metadata: {}", e);
+            println!("Failed gracefully without metadata: {e}");
         },
     }
 }
@@ -773,7 +774,7 @@ async fn test_empty_wal_recovery() {
             .unwrap();
 
         for i in 0..5 {
-            let row = create_chaos_test_row(i, &format!("wal_row_{}", i));
+            let row = create_chaos_test_row(i, &format!("wal_row_{i}"));
             storage.insert_row("empty_wal", row).await.unwrap();
         }
     }
@@ -808,7 +809,7 @@ async fn test_acid_properties_after_crash() {
 
     // Phase 1: Set up initial data
     let initial_rows: Vec<_> = (0..50)
-        .map(|i| create_chaos_test_row(i, &format!("initial_{}", i)))
+        .map(|i| create_chaos_test_row(i, &format!("initial_{i}")))
         .collect();
 
     {
@@ -825,7 +826,7 @@ async fn test_acid_properties_after_crash() {
 
     // Phase 2: Perform committed and uncommitted transactions
     let committed_tx_rows: Vec<_> = (100..110)
-        .map(|i| create_chaos_test_row(i, &format!("committed_{}", i)))
+        .map(|i| create_chaos_test_row(i, &format!("committed_{i}")))
         .collect();
 
     {
@@ -844,7 +845,7 @@ async fn test_acid_properties_after_crash() {
         // Uncommitted transaction (will be rolled back)
         let uncommitted_tx = storage.begin_transaction().await.unwrap();
         for i in 200..210 {
-            let row = create_chaos_test_row(i, &format!("uncommitted_{}", i));
+            let row = create_chaos_test_row(i, &format!("uncommitted_{i}"));
             storage
                 .insert_row_transactional(uncommitted_tx, "acid_test", row)
                 .await
@@ -931,7 +932,7 @@ async fn test_repeated_crash_recovery_cycles() {
 
             for i in 0..config::OPS_PER_CRASH_SIMULATION {
                 let row_id = (cycle * config::OPS_PER_CRASH_SIMULATION + i) as i64;
-                let row = create_chaos_test_row(row_id, &format!("stress_cycle_{}_{}", cycle, i));
+                let row = create_chaos_test_row(row_id, &format!("stress_cycle_{cycle}_{i}"));
 
                 if storage.insert_row("stress_recovery", row).await.is_ok() {
                     _total_expected_rows += 1;

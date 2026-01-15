@@ -1,19 +1,17 @@
+use std::future::{ready, Ready};
+use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
+
+use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
+use actix_web::http::header::{HeaderName, HeaderValue};
+use actix_web::{Error, HttpMessage};
+use futures_util::future::LocalBoxFuture;
+use tracing::{debug, info, warn};
+
 use crate::auth::AuthService;
 use crate::error::ApiError;
 use crate::jwt::JwtService;
-use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    http::header::{HeaderName, HeaderValue},
-    Error, HttpMessage,
-};
-use futures_util::future::LocalBoxFuture;
-use std::{
-    future::{ready, Ready},
-    rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
-    time::{Duration, Instant},
-};
-use tracing::{debug, info, warn};
 
 /// Authentication middleware that supports both JWT and API key authentication
 pub struct AuthMiddleware<S> {
@@ -77,9 +75,8 @@ where
                             debug!("✅ API key authentication successful for: {}", api_key.name);
                             req.extensions_mut().insert(api_key);
                             return service.call(req).await;
-                        } else {
-                            warn!("❌ Invalid API key provided");
                         }
+                        warn!("❌ Invalid API key provided");
                     }
                 }
             }
@@ -131,7 +128,8 @@ fn is_public_endpoint(path: &str) -> bool {
 }
 
 /// Convenience function to create auth middleware
-pub fn auth_middleware() -> AuthMiddlewareFactory {
+#[must_use]
+pub const fn auth_middleware() -> AuthMiddlewareFactory {
     AuthMiddlewareFactory
 }
 
@@ -227,7 +225,8 @@ where
     }
 }
 
-pub fn security_headers_middleware() -> SecurityHeadersMiddlewareFactory {
+#[must_use]
+pub const fn security_headers_middleware() -> SecurityHeadersMiddlewareFactory {
     SecurityHeadersMiddlewareFactory
 }
 
@@ -264,8 +263,7 @@ where
                                 length, max_payload_size
                             );
                             let error = ApiError::BadRequest(format!(
-                                "Payload too large. Maximum size: {} bytes, provided: {} bytes",
-                                max_payload_size, length
+                                "Payload too large. Maximum size: {max_payload_size} bytes, provided: {length} bytes"
                             ));
                             return Err(actix_web::Error::from(error));
                         }
@@ -281,8 +279,7 @@ where
                         if !content_type_str.starts_with("application/json") {
                             warn!("🚫 Invalid content type: {}", content_type_str);
                             let error = ApiError::BadRequest(format!(
-                                "Unsupported media type. Expected: application/json, provided: {}",
-                                content_type_str
+                                "Unsupported media type. Expected: application/json, provided: {content_type_str}"
                             ));
                             return Err(actix_web::Error::from(error));
                         }
@@ -306,7 +303,8 @@ pub struct RequestValidationMiddlewareFactory {
 }
 
 impl RequestValidationMiddlewareFactory {
-    pub fn new(max_payload_size: usize) -> Self {
+    #[must_use]
+    pub const fn new(max_payload_size: usize) -> Self {
         Self { max_payload_size }
     }
 }
@@ -331,7 +329,8 @@ where
     }
 }
 
-pub fn request_validation_middleware(
+#[must_use]
+pub const fn request_validation_middleware(
     max_payload_size: usize,
 ) -> RequestValidationMiddlewareFactory {
     RequestValidationMiddlewareFactory::new(max_payload_size)
@@ -357,6 +356,7 @@ enum CircuitBreakerState {
 }
 
 impl CircuitBreaker {
+    #[must_use]
     pub fn new(failure_threshold: u64, success_threshold: u64, timeout: Duration) -> Self {
         Self {
             failure_threshold,
@@ -558,8 +558,7 @@ where
                             client_ip, path
                         );
                         let error = ApiError::Forbidden(format!(
-                            "Access to admin endpoints is restricted. Your IP ({}) is not in the whitelist.",
-                            client_ip
+                            "Access to admin endpoints is restricted. Your IP ({client_ip}) is not in the whitelist."
                         ));
                         return Err(actix_web::Error::from(error));
                     }
@@ -582,7 +581,8 @@ pub struct IpWhitelistMiddlewareFactory {
 }
 
 impl IpWhitelistMiddlewareFactory {
-    pub fn new(whitelist: Vec<String>) -> Self {
+    #[must_use]
+    pub const fn new(whitelist: Vec<String>) -> Self {
         Self { whitelist }
     }
 }
@@ -614,7 +614,8 @@ fn is_admin_endpoint(path: &str) -> bool {
         || path.contains("/api-key/generate")
 }
 
-pub fn ip_whitelist_middleware(whitelist: Vec<String>) -> IpWhitelistMiddlewareFactory {
+#[must_use]
+pub const fn ip_whitelist_middleware(whitelist: Vec<String>) -> IpWhitelistMiddlewareFactory {
     IpWhitelistMiddlewareFactory::new(whitelist)
 }
 
@@ -648,13 +649,16 @@ where
 
                 struct HeaderExtractor<'a>(&'a actix_web::http::header::HeaderMap);
 
-                impl<'a> Extractor for HeaderExtractor<'a> {
+                impl Extractor for HeaderExtractor<'_> {
                     fn get(&self, key: &str) -> Option<&str> {
                         self.0.get(key).and_then(|v| v.to_str().ok())
                     }
 
                     fn keys(&self) -> Vec<&str> {
-                        self.0.keys().map(|k| k.as_str()).collect()
+                        self.0
+                            .keys()
+                            .map(actix_web::http::header::HeaderName::as_str)
+                            .collect()
                     }
                 }
 
@@ -683,7 +687,7 @@ where
 
                 struct HeaderInjector<'a>(&'a mut actix_web::http::header::HeaderMap);
 
-                impl<'a> Injector for HeaderInjector<'a> {
+                impl Injector for HeaderInjector<'_> {
                     fn set(&mut self, key: &str, value: String) {
                         if let Ok(header_name) =
                             actix_web::http::header::HeaderName::from_bytes(key.as_bytes())
@@ -726,7 +730,8 @@ where
     }
 }
 
-pub fn tracing_middleware() -> TracingMiddlewareFactory {
+#[must_use]
+pub const fn tracing_middleware() -> TracingMiddlewareFactory {
     TracingMiddlewareFactory
 }
 

@@ -2,18 +2,17 @@
 //!
 //! Executes migrations with safety checks and rollback support.
 
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Instant;
+
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use super::{
-    history::MigrationHistory,
-    parser::{Migration, MigrationDirection, MigrationParser},
-    progress::ProgressTracker,
-    MigrationConfig, MigrationResult, SafetyCheck, ValidationResult,
-};
+use super::history::MigrationHistory;
+use super::parser::{Migration, MigrationDirection, MigrationParser};
+use super::progress::ProgressTracker;
+use super::{MigrationConfig, MigrationResult, SafetyCheck, ValidationResult};
 
 /// Configuration for migration executor
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -34,6 +33,7 @@ pub struct MigrationExecutor {
 
 impl MigrationExecutor {
     /// Create a new migration executor
+    #[must_use]
     pub fn new(config: MigrationExecutorConfig) -> Self {
         let parser = MigrationParser::new(config.config.migrations_dir.clone());
         let history = MigrationHistory::new();
@@ -122,7 +122,7 @@ impl MigrationExecutor {
             let migration = migrations
                 .iter()
                 .find(|m| m.id == migration_id)
-                .ok_or_else(|| anyhow!("Migration {} not found", migration_id))?;
+                .ok_or_else(|| anyhow!("Migration {migration_id} not found"))?;
 
             let result = self
                 .execute_migration(migration, MigrationDirection::Up)
@@ -271,15 +271,16 @@ impl MigrationExecutor {
     }
 
     /// Get progress tracker
-    pub fn progress(&self) -> &ProgressTracker {
+    pub const fn progress(&self) -> &ProgressTracker {
         &self.progress
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_executor_initialization() {

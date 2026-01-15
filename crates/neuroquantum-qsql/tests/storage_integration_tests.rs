@@ -4,10 +4,12 @@
 //! actually use the storage engine with automatic DNA compression and
 //! neuromorphic learning.
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{query_plan::QueryValue, ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_qsql::query_plan::QueryValue;
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 /// Test that INSERT queries use DNA compression via storage engine
@@ -276,7 +278,7 @@ async fn test_update_with_dna_recompression() {
 
     let sql = "UPDATE employees SET salary = 60000.0 WHERE id = 1";
     let statement = parser.parse(sql).unwrap();
-    println!("📝 Parsed UPDATE statement: {:?}", statement);
+    println!("📝 Parsed UPDATE statement: {statement:?}");
 
     let result = executor.execute_statement(&statement).await.unwrap();
     println!("✏️ UPDATE result: rows_affected = {}", result.rows_affected);
@@ -293,7 +295,7 @@ async fn test_update_with_dna_recompression() {
         "🔍 SELECT after UPDATE found {} rows",
         select_result.rows.len()
     );
-    println!("📊 SELECT result: {:?}", select_result);
+    println!("📊 SELECT result: {select_result:?}");
 
     // Check that we got the updated salary
     assert_eq!(select_result.rows.len(), 1);
@@ -356,10 +358,8 @@ async fn test_delete_with_dna_cleanup() {
                 updated_at: chrono::Utc::now(),
             };
             row.fields.insert("id".to_string(), Value::Integer(i));
-            row.fields.insert(
-                "message".to_string(),
-                Value::Text(format!("Log entry {}", i)),
-            );
+            row.fields
+                .insert("message".to_string(), Value::Text(format!("Log entry {i}")));
             storage_guard.insert_row("logs", row).await.unwrap();
         }
     }
@@ -374,7 +374,7 @@ async fn test_delete_with_dna_cleanup() {
     let sql = "DELETE FROM logs";
     let statement = parser.parse(sql).unwrap();
 
-    println!("📝 Parsed statement: {:?}", statement);
+    println!("📝 Parsed statement: {statement:?}");
 
     let result = executor.execute_statement(&statement).await.unwrap();
 
@@ -681,11 +681,11 @@ async fn test_cte_with_storage() {
             row.fields
                 .insert("id".to_string(), Value::Integer((i + 1) as i64));
             row.fields
-                .insert("name".to_string(), Value::Text(name.to_string()));
+                .insert("name".to_string(), Value::Text((*name).to_string()));
             row.fields
-                .insert("status".to_string(), Value::Text(status.to_string()));
+                .insert("status".to_string(), Value::Text((*status).to_string()));
             row.fields
-                .insert("age".to_string(), Value::Integer(*age as i64));
+                .insert("age".to_string(), Value::Integer(i64::from(*age)));
 
             storage_guard.insert_row("users", row).await.unwrap();
         }
@@ -697,12 +697,12 @@ async fn test_cte_with_storage() {
 
     // Parse and execute CTE query
     let parser = Parser::new();
-    let sql = r#"
+    let sql = r"
         WITH active_users AS (
             SELECT * FROM users WHERE status = 'active'
         )
         SELECT * FROM active_users WHERE age > 25
-    "#;
+    ";
     let statement = parser.parse(sql).unwrap();
 
     // Execute CTE query
@@ -796,7 +796,7 @@ async fn test_update_without_where_clause_affects_all_rows() {
             };
             row.fields.insert("id".to_string(), Value::Integer(i));
             row.fields
-                .insert("name".to_string(), Value::Text(format!("User{}", i)));
+                .insert("name".to_string(), Value::Text(format!("User{i}")));
             row.fields.insert("status".to_string(), Value::Integer(0));
             storage_guard.insert_row("users", row).await.unwrap();
         }
@@ -818,7 +818,7 @@ async fn test_update_without_where_clause_affects_all_rows() {
 
     // Execute UPDATE without WHERE clause - should update all rows
     let sql = "UPDATE users SET status = 1";
-    println!("📝 Executing: {}", sql);
+    println!("📝 Executing: {sql}");
     let statement = parser.parse(sql).unwrap();
     let result = executor.execute_statement(&statement).await.unwrap();
 

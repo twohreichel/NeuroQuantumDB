@@ -1,9 +1,12 @@
-use anyhow::Result;
-use neuroquantum_api::{cli::Cli, start_server, ApiConfig};
 use std::env;
+
+use anyhow::Result;
+use neuroquantum_api::cli::Cli;
+use neuroquantum_api::{start_server, ApiConfig};
 use tokio::signal;
 use tracing::{error, info, warn};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -78,14 +81,14 @@ async fn main() -> Result<()> {
     tokio::select! {
         result = server_future => {
             match result {
-                Ok(_) => info!("✅ Server stopped gracefully"),
+                Ok(()) => info!("✅ Server stopped gracefully"),
                 Err(e) => {
                     error!("❌ Server error: {}", e);
                     std::process::exit(1);
                 }
             }
         }
-        _ = shutdown_signal => {
+        () = shutdown_signal => {
             info!("🛑 Received shutdown signal, stopping server...");
         }
     }
@@ -173,7 +176,7 @@ fn init_logging() -> Result<()> {
 
 /// Print the startup banner
 fn print_banner() {
-    let banner = r#"
+    let banner = r"
 ███╗   ██╗███████╗██╗   ██╗██████╗  ██████╗  ██████╗ ██╗   ██╗ █████╗ ███╗   ██╗████████╗██╗   ██╗███╗   ███╗
 ████╗  ██║██╔════╝██║   ██║██╔══██╗██╔═══██╗██╔═══██╗██║   ██║██╔══██╗████╗  ██║╚══██╔══╝██║   ██║████╗ ████║
 ██╔██╗ ██║█████╗  ██║   ██║██████╔╝██║   ██║██║   ██║██║   ██║███████║██╔██╗ ██║   ██║   ██║   ██║██╔████╔██║
@@ -187,7 +190,7 @@ fn print_banner() {
     ██║  ██║██╔══██╗   ██╔══██║██╔═══╝ ██║    ╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
     ██████╔╝██████╔╝   ██║  ██║██║     ██║    ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
     ╚═════╝ ╚═════╝    ╚═╝  ╚═╝╚═╝     ╚═╝    ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-    "#;
+    ";
 
     info!("{}", banner);
     info!("🧠 Ultra-Efficient Neuromorphic Database for Edge Computing");
@@ -310,10 +313,10 @@ async fn setup_graceful_shutdown() {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => {
+        () = ctrl_c => {
             info!("📡 Received SIGINT (Ctrl+C)");
         },
-        _ = terminate => {
+        () = terminate => {
             info!("📡 Received SIGTERM");
         },
     }

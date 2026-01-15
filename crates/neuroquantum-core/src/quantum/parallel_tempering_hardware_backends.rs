@@ -24,8 +24,8 @@
 //! - Physical temperature control via annealing schedule
 //! - Reverse annealing for thermal state preparation
 //!
-//! ### 4. IonQ (`IonQParallelTemperingSolver`)
-//! IonQ trapped-ion quantum computer integration.
+//! ### 4. `IonQ` (`IonQParallelTemperingSolver`)
+//! `IonQ` trapped-ion quantum computer integration.
 //! - High-fidelity gate operations for thermal state preparation
 //! - Native all-to-all connectivity
 //!
@@ -53,16 +53,17 @@
 //! let result = solver.solve(&hamiltonian, &initial_config).await?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
+use std::time::Instant;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 use tracing::{debug, info};
 
 use super::quantum_parallel_tempering::{
     IsingHamiltonian, QuantumBackend, QuantumParallelTemperingConfig,
     QuantumParallelTemperingSolution,
 };
+use crate::error::{CoreError, CoreResult};
 
 // =============================================================================
 // Parallel Tempering Hardware Backend Trait
@@ -112,7 +113,7 @@ pub enum PTBackendType {
     AWSBraket,
     /// D-Wave quantum annealer
     DWave,
-    /// IonQ trapped-ion quantum computer
+    /// `IonQ` trapped-ion quantum computer
     IonQ,
     /// Local classical simulator (fallback)
     LocalSimulator,
@@ -121,11 +122,11 @@ pub enum PTBackendType {
 impl std::fmt::Display for PTBackendType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            | PTBackendType::IBMQuantum => write!(f, "IBM Quantum"),
-            | PTBackendType::AWSBraket => write!(f, "AWS Braket"),
-            | PTBackendType::DWave => write!(f, "D-Wave"),
-            | PTBackendType::IonQ => write!(f, "IonQ"),
-            | PTBackendType::LocalSimulator => write!(f, "Local Simulator"),
+            | Self::IBMQuantum => write!(f, "IBM Quantum"),
+            | Self::AWSBraket => write!(f, "AWS Braket"),
+            | Self::DWave => write!(f, "D-Wave"),
+            | Self::IonQ => write!(f, "IonQ"),
+            | Self::LocalSimulator => write!(f, "Local Simulator"),
         }
     }
 }
@@ -138,13 +139,13 @@ impl std::fmt::Display for PTBackendType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IBMPTConfig {
     /// IBM Quantum API token
-    /// If None, will attempt to read from IBM_QUANTUM_API_KEY environment variable
+    /// If None, will attempt to read from `IBM_QUANTUM_API_KEY` environment variable
     pub api_token: Option<String>,
 
     /// IBM Quantum API endpoint URL
     pub api_endpoint: String,
 
-    /// Backend name (e.g., "ibm_brisbane", "ibm_kyoto", "ibmq_qasm_simulator")
+    /// Backend name (e.g., "`ibm_brisbane`", "`ibm_kyoto`", "`ibmq_qasm_simulator`")
     pub backend_name: String,
 
     /// Number of shots for measurement per temperature
@@ -200,11 +201,13 @@ pub struct IBMParallelTemperingSolver {
 
 impl IBMParallelTemperingSolver {
     /// Create a new IBM Quantum Parallel Tempering solver with the given configuration
-    pub fn new(config: IBMPTConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: IBMPTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IBMPTConfig {
             api_token: std::env::var("IBM_QUANTUM_API_KEY").ok(),
@@ -344,7 +347,7 @@ impl IBMParallelTemperingSolver {
                     // Combined probability for +1 spin:
                     // At high temperature (low beta): ~50% chance
                     // At low temperature (high beta): biased toward +1
-                    let prob_plus = 0.5 + 0.5 * (circuit.beta * 0.1).tanh();
+                    let prob_plus = 0.5f64.mul_add((circuit.beta * 0.1).tanh(), 0.5);
                     if rng.gen::<f64>() < prob_plus {
                         1
                     } else {
@@ -455,7 +458,7 @@ impl PTHardwareBackend for IBMParallelTemperingSolver {
         self.config.max_qubits.unwrap_or(127)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "IBM Quantum Parallel Tempering"
     }
 
@@ -484,7 +487,7 @@ pub struct BraketPTConfig {
     /// S3 bucket for storing results
     pub s3_bucket: String,
 
-    /// Device ARN (e.g., "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1")
+    /// Device ARN (e.g., "`arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1`")
     pub device_arn: String,
 
     /// Number of shots per circuit
@@ -525,11 +528,13 @@ pub struct BraketParallelTemperingSolver {
 
 impl BraketParallelTemperingSolver {
     /// Create a new AWS Braket Parallel Tempering solver
-    pub fn new(config: BraketPTConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: BraketPTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use]
     pub fn from_env() -> Self {
         let config = BraketPTConfig {
             aws_access_key_id: std::env::var("AWS_ACCESS_KEY_ID").ok(),
@@ -603,7 +608,7 @@ impl BraketParallelTemperingSolver {
             let config: Vec<i8> = (0..hamiltonian.num_spins)
                 .map(|_| {
                     // Combined probability for +1 spin
-                    let prob_plus = 0.5 + 0.5 * (beta * 0.1).tanh();
+                    let prob_plus = 0.5f64.mul_add((beta * 0.1).tanh(), 0.5);
                     if rng.gen::<f64>() < prob_plus {
                         1
                     } else {
@@ -692,7 +697,7 @@ impl PTHardwareBackend for BraketParallelTemperingSolver {
         self.config.max_qubits.unwrap_or(25)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "AWS Braket Parallel Tempering"
     }
 
@@ -709,13 +714,13 @@ impl PTHardwareBackend for BraketParallelTemperingSolver {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DWavePTConfig {
     /// D-Wave API token (from Leap account)
-    /// If None, will attempt to read from DWAVE_API_TOKEN environment variable
+    /// If None, will attempt to read from `DWAVE_API_TOKEN` environment variable
     pub api_token: Option<String>,
 
     /// D-Wave API endpoint URL
     pub api_endpoint: String,
 
-    /// Solver name (e.g., "Advantage_system6.4", "Advantage2_prototype2.1")
+    /// Solver name (e.g., "`Advantage_system6.4`", "`Advantage2_prototype2.1`")
     pub solver_name: Option<String>,
 
     /// Number of reads (samples) per anneal
@@ -767,11 +772,13 @@ pub struct DWaveParallelTemperingSolver {
 
 impl DWaveParallelTemperingSolver {
     /// Create a new D-Wave Parallel Tempering solver
-    pub fn new(config: DWavePTConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: DWavePTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         let config = DWavePTConfig {
             api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -938,7 +945,7 @@ impl PTHardwareBackend for DWaveParallelTemperingSolver {
         self.config.max_qubits.unwrap_or(5000)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "D-Wave Parallel Tempering"
     }
 
@@ -951,14 +958,14 @@ impl PTHardwareBackend for DWaveParallelTemperingSolver {
 // IonQ Configuration and Solver
 // =============================================================================
 
-/// Configuration for IonQ Parallel Tempering solver
+/// Configuration for `IonQ` Parallel Tempering solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IonQPTConfig {
-    /// IonQ API key
-    /// If None, will attempt to read from IONQ_API_KEY environment variable
+    /// `IonQ` API key
+    /// If None, will attempt to read from `IONQ_API_KEY` environment variable
     pub api_key: Option<String>,
 
-    /// IonQ API endpoint URL
+    /// `IonQ` API endpoint URL
     pub api_endpoint: String,
 
     /// Target device ("simulator", "qpu.harmony", "qpu.aria-1", "qpu.forte-1")
@@ -991,20 +998,22 @@ impl Default for IonQPTConfig {
     }
 }
 
-/// IonQ Parallel Tempering Solver
+/// `IonQ` Parallel Tempering Solver
 ///
-/// This solver executes Parallel Tempering using IonQ trapped-ion quantum computers.
+/// This solver executes Parallel Tempering using `IonQ` trapped-ion quantum computers.
 pub struct IonQParallelTemperingSolver {
     config: IonQPTConfig,
 }
 
 impl IonQParallelTemperingSolver {
-    /// Create a new IonQ Parallel Tempering solver
-    pub fn new(config: IonQPTConfig) -> Self {
+    /// Create a new `IonQ` Parallel Tempering solver
+    #[must_use]
+    pub const fn new(config: IonQPTConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IonQPTConfig {
             api_key: std::env::var("IONQ_API_KEY").ok(),
@@ -1022,7 +1031,7 @@ impl IonQParallelTemperingSolver {
             .or_else(|| std::env::var("IONQ_API_KEY").ok())
     }
 
-    /// Submit jobs to IonQ
+    /// Submit jobs to `IonQ`
     async fn submit_to_ionq(
         &self,
         hamiltonian: &IsingHamiltonian,
@@ -1057,7 +1066,7 @@ impl IonQParallelTemperingSolver {
         Ok(results)
     }
 
-    /// Simulate IonQ results
+    /// Simulate `IonQ` results
     fn simulate_ionq_results(
         &self,
         hamiltonian: &IsingHamiltonian,
@@ -1072,7 +1081,7 @@ impl IonQParallelTemperingSolver {
             let config: Vec<i8> = (0..hamiltonian.num_spins)
                 .map(|_| {
                     // Combined probability for +1 spin (IonQ has slightly higher fidelity)
-                    let prob_plus = 0.5 + 0.5 * (beta * 0.15).tanh();
+                    let prob_plus = 0.5f64.mul_add((beta * 0.15).tanh(), 0.5);
                     if rng.gen::<f64>() < prob_plus {
                         1
                     } else {
@@ -1161,7 +1170,7 @@ impl PTHardwareBackend for IonQParallelTemperingSolver {
         self.config.max_qubits.unwrap_or(25)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "IonQ Parallel Tempering"
     }
 
@@ -1202,11 +1211,13 @@ pub struct SimulatorParallelTemperingSolver {
 
 impl SimulatorParallelTemperingSolver {
     /// Create a new local simulator
-    pub fn new(config: SimulatorPTConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: SimulatorPTConfig) -> Self {
         Self { config }
     }
 
     /// Create with default configuration
+    #[must_use]
     pub fn default_simulator() -> Self {
         Self::new(SimulatorPTConfig::default())
     }
@@ -1238,7 +1249,7 @@ impl PTHardwareBackend for SimulatorParallelTemperingSolver {
         self.config.max_qubits
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Local Simulator"
     }
 
@@ -1266,7 +1277,7 @@ pub struct UnifiedPTConfig {
     /// D-Wave configuration
     pub dwave_config: Option<DWavePTConfig>,
 
-    /// IonQ configuration
+    /// `IonQ` configuration
     pub ionq_config: Option<IonQPTConfig>,
 
     /// Simulator configuration
@@ -1311,6 +1322,7 @@ pub struct UnifiedPTSolver {
 
 impl UnifiedPTSolver {
     /// Create a new unified solver with the given configuration
+    #[must_use]
     pub fn new(config: UnifiedPTConfig) -> Self {
         let ibm_solver = config
             .ibm_config
@@ -1346,6 +1358,7 @@ impl UnifiedPTSolver {
     }
 
     /// Create a solver using environment variables for all backends
+    #[must_use]
     pub fn from_env() -> Self {
         let ibm_solver = {
             let solver = IBMParallelTemperingSolver::from_env();
@@ -1446,6 +1459,7 @@ impl UnifiedPTSolver {
     }
 
     /// List all available backends
+    #[must_use]
     pub fn available_backends(&self) -> Vec<PTBackendType> {
         let mut available = Vec::new();
 
@@ -1558,8 +1572,9 @@ pub struct PTMeasurementResult {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::DMatrix;
+
+    use super::*;
 
     fn create_test_hamiltonian(num_spins: usize) -> IsingHamiltonian {
         let couplings = DMatrix::from_fn(num_spins, num_spins, |i, j| {

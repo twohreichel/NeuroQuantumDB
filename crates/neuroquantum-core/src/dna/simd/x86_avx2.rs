@@ -1,13 +1,13 @@
-//! x86_64 AVX2 optimizations for DNA compression
+//! `x86_64` AVX2 optimizations for DNA compression
 //!
-//! This module provides x86_64 AVX2 SIMD implementations for high-performance
+//! This module provides `x86_64` AVX2 SIMD implementations for high-performance
 //! DNA compression operations on Intel/AMD processors.
 
 #[cfg(target_arch = "x86_64")]
-use crate::dna::{DNABase, DNAError};
+use std::arch::x86_64::*;
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use crate::dna::{DNABase, DNAError};
 
 /// AVX2-optimized encoding of bytes to DNA bases
 ///
@@ -388,7 +388,8 @@ fn bases_to_bytes(bases: &[DNABase]) -> Vec<u8> {
 }
 
 /// AVX2 feature detection and capability reporting
-pub fn detect_avx2_capabilities() -> Avx2Capabilities {
+#[must_use]
+pub const fn detect_avx2_capabilities() -> Avx2Capabilities {
     #[cfg(target_arch = "x86_64")]
     {
         Avx2Capabilities {

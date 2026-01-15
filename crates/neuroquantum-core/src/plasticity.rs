@@ -1,14 +1,16 @@
 //! # Adaptive Plasticity Matrix
 //!
 //! Implementation of neural plasticity mechanisms for dynamic data reorganization
-//! and intelligent memory optimization in NeuroQuantumDB.
+//! and intelligent memory optimization in `NeuroQuantumDB`.
+
+use std::collections::HashMap;
+use std::time::Instant;
+
+use serde::Serialize;
+use tracing::{debug, info, instrument, warn};
 
 use crate::error::{CoreError, CoreResult};
 use crate::synaptic::SynapticNetwork;
-use serde::Serialize;
-use std::collections::HashMap;
-use std::time::Instant;
-use tracing::{debug, info, instrument, warn};
 
 /// Access pattern tracking for plasticity decisions
 #[derive(Debug, Clone, Default)]
@@ -195,17 +197,19 @@ impl PlasticityMatrix {
     }
 
     /// Get the maximum nodes capacity
-    pub fn max_nodes(&self) -> usize {
+    #[must_use]
+    pub const fn max_nodes(&self) -> usize {
         self.max_nodes
     }
 
     /// Set the capacity configuration
-    pub fn set_capacity_config(&mut self, config: CapacityConfig) {
+    pub const fn set_capacity_config(&mut self, config: CapacityConfig) {
         self.capacity_config = config;
     }
 
     /// Get the current capacity configuration
-    pub fn capacity_config(&self) -> &CapacityConfig {
+    #[must_use]
+    pub const fn capacity_config(&self) -> &CapacityConfig {
         &self.capacity_config
     }
 
@@ -395,7 +399,7 @@ impl PlasticityMatrix {
             nodes_affected: removed_nodes
                 .iter()
                 .chain(merged_nodes.iter().map(|(src, _)| src))
-                .cloned()
+                .copied()
                 .collect(),
             performance_impact: 0.05 * nodes_consolidated as f32,
             memory_delta: -memory_freed_bytes,
@@ -476,7 +480,7 @@ impl PlasticityMatrix {
         let source_score = self.plasticity_scores.remove(&source_id).unwrap_or(0.0);
         if let Some(target_score) = self.plasticity_scores.get_mut(&target_id) {
             // Combine scores with weighted average
-            *target_score = (*target_score * 0.7 + source_score * 0.3).min(1.0);
+            *target_score = (*target_score).mul_add(0.7, source_score * 0.3).min(1.0);
         }
 
         // Remove cluster assignment for source
@@ -590,15 +594,13 @@ impl PlasticityMatrix {
             .access_patterns
             .temporal_locality_secs
             .get(&node_id)
-            .map(|times| times.len() as f32)
-            .unwrap_or(0.0);
+            .map_or(0.0, |times| times.len() as f32);
 
         let spatial_locality = self
             .access_patterns
             .spatial_locality
             .get(&node_id)
-            .map(|neighbors| neighbors.len() as f32)
-            .unwrap_or(0.0);
+            .map_or(0.0, |neighbors| neighbors.len() as f32);
 
         // Calculate composite plasticity score
         let frequency_component = frequency * self.params.frequency_weight;
@@ -665,7 +667,7 @@ impl PlasticityMatrix {
             let event = ReorganizationEvent {
                 timestamp_secs: start_time.elapsed().as_secs(),
                 event_type: ReorganizationType::SpatialClustering, // Primary type
-                nodes_affected: self.plasticity_scores.keys().cloned().collect(),
+                nodes_affected: self.plasticity_scores.keys().copied().collect(),
                 performance_impact: total_performance_impact,
                 memory_delta: 0, // Calculate actual memory change
             };
@@ -850,8 +852,8 @@ impl PlasticityMatrix {
         // and optimizing their memory access patterns
         for &(node_id, frequency) in &top_nodes {
             // Calculate boost factor based on frequency ranking
-            let frequency_percentile = (*frequency as f32)
-                / (nodes_by_frequency.first().map(|(_, f)| *f).unwrap_or(1) as f32);
+            let frequency_percentile =
+                (*frequency as f32) / (nodes_by_frequency.first().map_or(1, |(_, f)| *f) as f32);
 
             // Update plasticity score with frequency boost
             let current_score = self.plasticity_scores.get(node_id).unwrap_or(&0.0);
@@ -950,13 +952,14 @@ impl PlasticityMatrix {
             .retain(|_, &mut usage| usage > 0);
 
         // Update plasticity scores after decay
-        let node_ids: Vec<_> = self.plasticity_scores.keys().cloned().collect();
+        let node_ids: Vec<_> = self.plasticity_scores.keys().copied().collect();
         for node_id in node_ids {
             self.update_plasticity_score(node_id);
         }
     }
 
     /// Get plasticity statistics
+    #[must_use]
     pub fn get_plasticity_stats(&self) -> PlasticityStats {
         let total_nodes = self.plasticity_scores.len();
         let high_plasticity_nodes = self
@@ -988,12 +991,13 @@ impl PlasticityMatrix {
     }
 
     /// Set plasticity parameters
-    pub fn set_params(&mut self, params: PlasticityParams) {
+    pub const fn set_params(&mut self, params: PlasticityParams) {
         self.params = params;
     }
 
     /// Get current access patterns
-    pub fn get_access_patterns(&self) -> &AccessPatterns {
+    #[must_use]
+    pub const fn get_access_patterns(&self) -> &AccessPatterns {
         &self.access_patterns
     }
 }

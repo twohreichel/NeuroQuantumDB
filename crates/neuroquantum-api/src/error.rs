@@ -1,11 +1,12 @@
+use std::collections::HashMap;
+
 use actix_web::{HttpResponse, ResponseError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use thiserror::Error;
 use utoipa::ToSchema;
 use validator::Validate;
 
-/// API-specific error types for NeuroQuantumDB REST interface
+/// API-specific error types for `NeuroQuantumDB` REST interface
 #[derive(Error, Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum ApiError {
     #[error("Authentication failed: {0}")]
@@ -83,6 +84,7 @@ pub struct ResponseMetadata {
 }
 
 impl ResponseMetadata {
+    #[must_use]
     pub fn new(duration: std::time::Duration, message: &str) -> Self {
         Self {
             response_time_ms: duration.as_secs_f64() * 1000.0,
@@ -95,7 +97,7 @@ impl ResponseMetadata {
 }
 
 impl<T> ApiResponse<T> {
-    pub fn success(data: T, metadata: ResponseMetadata) -> Self {
+    pub const fn success(data: T, metadata: ResponseMetadata) -> Self {
         Self {
             success: true,
             data: Some(data),
@@ -104,7 +106,8 @@ impl<T> ApiResponse<T> {
         }
     }
 
-    pub fn error(error: ApiError, metadata: ResponseMetadata) -> Self {
+    #[must_use]
+    pub const fn error(error: ApiError, metadata: ResponseMetadata) -> Self {
         Self {
             success: false,
             data: None,
@@ -537,22 +540,22 @@ pub struct TFIMRequestConfig {
 fn default_tfim_method() -> String {
     "trotter".to_string()
 }
-fn default_num_shots() -> u32 {
+const fn default_num_shots() -> u32 {
     1000
 }
-fn default_trotter_steps() -> u32 {
+const fn default_trotter_steps() -> u32 {
     10
 }
-fn default_evolution_time() -> f64 {
+const fn default_evolution_time() -> f64 {
     1.0
 }
-fn default_transverse_field() -> f64 {
+const fn default_transverse_field() -> f64 {
     0.5
 }
-fn default_qaoa_layers() -> u32 {
+const fn default_qaoa_layers() -> u32 {
     2
 }
-fn default_vqe_depth() -> u32 {
+const fn default_vqe_depth() -> u32 {
     3
 }
 
@@ -574,13 +577,13 @@ impl Default for TFIMRequestConfig {
 pub struct QuantumSearchResponse {
     pub results: Vec<QuantumSearchResult>,
     pub quantum_stats: QuantumStats,
-    /// TFIM-specific results (when use_tfim=true)
+    /// TFIM-specific results (when `use_tfim=true`)
     pub tfim_results: Option<TFIMResults>,
-    /// QUBO optimization results (when use_qubo=true)
+    /// QUBO optimization results (when `use_qubo=true`)
     pub qubo_results: Option<QUBOResults>,
-    /// Parallel Tempering results (when use_parallel_tempering=true)
+    /// Parallel Tempering results (when `use_parallel_tempering=true`)
     pub parallel_tempering_results: Option<ParallelTemperingResults>,
-    /// Grover's search results (when use_grover=true)
+    /// Grover's search results (when `use_grover=true`)
     pub grover_results: Option<GroverResults>,
 }
 
@@ -630,13 +633,13 @@ pub struct QUBORequestConfig {
 fn default_qubo_backend() -> String {
     "qaoa".to_string()
 }
-fn default_qaoa_depth() -> u32 {
+const fn default_qaoa_depth() -> u32 {
     3
 }
-fn default_max_iterations() -> u32 {
+const fn default_max_iterations() -> u32 {
     500
 }
-fn default_convergence_threshold() -> f64 {
+const fn default_convergence_threshold() -> f64 {
     1e-6
 }
 
@@ -704,22 +707,22 @@ pub struct ParallelTemperingRequestConfig {
 fn default_pt_backend() -> String {
     "pimc".to_string()
 }
-fn default_num_replicas() -> u32 {
+const fn default_num_replicas() -> u32 {
     8
 }
-fn default_min_temperature() -> f64 {
+const fn default_min_temperature() -> f64 {
     0.1
 }
-fn default_max_temperature() -> f64 {
+const fn default_max_temperature() -> f64 {
     10.0
 }
-fn default_pt_trotter_slices() -> u32 {
+const fn default_pt_trotter_slices() -> u32 {
     20
 }
-fn default_num_exchanges() -> u32 {
+const fn default_num_exchanges() -> u32 {
     100
 }
-fn default_pt_transverse_field() -> f64 {
+const fn default_pt_transverse_field() -> f64 {
     1.0
 }
 
@@ -763,16 +766,16 @@ pub struct ParallelTemperingResults {
 /// Grover's search request configuration
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct GroverRequestConfig {
-    /// Backend: "simulator", "ibm", "braket", "ionq", "superconducting", "trapped_ion", "neutral_atom", or "classical"
+    /// Backend: "simulator", "ibm", "braket", "ionq", "superconducting", "`trapped_ion`", "`neutral_atom`", or "classical"
     ///
     /// Real hardware backends:
-    /// - "ibm": IBM Quantum via Qiskit Runtime (requires IBM_QUANTUM_API_KEY)
+    /// - "ibm": IBM Quantum via Qiskit Runtime (requires `IBM_QUANTUM_API_KEY`)
     /// - "braket": AWS Braket (requires AWS credentials)
-    /// - "ionq": IonQ trapped-ion (requires IONQ_API_KEY)
+    /// - "ionq": `IonQ` trapped-ion (requires `IONQ_API_KEY`)
     ///
     /// Simulation backends:
     /// - "simulator": Local state vector simulation (default)
-    /// - "superconducting", "trapped_ion", "neutral_atom": Simulated hardware characteristics
+    /// - "superconducting", "`trapped_ion`", "`neutral_atom"`: Simulated hardware characteristics
     /// - "classical": Classical fallback
     #[serde(default = "default_grover_backend")]
     pub backend: String,
@@ -793,13 +796,13 @@ pub struct GroverRequestConfig {
 fn default_grover_backend() -> String {
     "simulator".to_string()
 }
-fn default_grover_shots() -> u32 {
+const fn default_grover_shots() -> u32 {
     1024
 }
-fn default_error_mitigation() -> bool {
+const fn default_error_mitigation() -> bool {
     true
 }
-fn default_success_threshold() -> f64 {
+const fn default_success_threshold() -> f64 {
     0.5
 }
 
@@ -986,18 +989,18 @@ impl ResponseError for ApiError {
         let response = ApiResponse::<()>::error(self.clone(), metadata);
 
         match self {
-            | ApiError::Unauthorized(_) => HttpResponse::Unauthorized().json(response),
-            | ApiError::Forbidden(_) => HttpResponse::Forbidden().json(response),
-            | ApiError::BadRequest(_) | ApiError::ValidationError { .. } => {
+            | Self::Unauthorized(_) => HttpResponse::Unauthorized().json(response),
+            | Self::Forbidden(_) => HttpResponse::Forbidden().json(response),
+            | Self::BadRequest(_) | Self::ValidationError { .. } => {
                 HttpResponse::BadRequest().json(response)
             },
-            | ApiError::NotFound(_) => HttpResponse::NotFound().json(response),
-            | ApiError::Conflict(_) => HttpResponse::Conflict().json(response),
-            | ApiError::RateLimitExceeded { .. } => HttpResponse::TooManyRequests().json(response),
-            | ApiError::ServiceUnavailable { .. } | ApiError::CircuitBreakerOpen { .. } => {
+            | Self::NotFound(_) => HttpResponse::NotFound().json(response),
+            | Self::Conflict(_) => HttpResponse::Conflict().json(response),
+            | Self::RateLimitExceeded { .. } => HttpResponse::TooManyRequests().json(response),
+            | Self::ServiceUnavailable { .. } | Self::CircuitBreakerOpen { .. } => {
                 HttpResponse::ServiceUnavailable().json(response)
             },
-            | ApiError::NotImplemented(_) => HttpResponse::NotImplemented().json(response),
+            | Self::NotImplemented(_) => HttpResponse::NotImplemented().json(response),
             | _ => HttpResponse::InternalServerError().json(response),
         }
     }
@@ -1009,30 +1012,28 @@ where
 {
     fn from(response: ApiResponse<T>) -> Self {
         if response.success {
-            HttpResponse::Ok().json(response)
+            Self::Ok().json(response)
         } else {
             let mut status = match &response.error {
-                | Some(ApiError::ValidationError { .. }) => HttpResponse::BadRequest(),
-                | Some(ApiError::Unauthorized(_)) => HttpResponse::Unauthorized(),
-                | Some(ApiError::Forbidden(_)) => HttpResponse::Forbidden(),
-                | Some(ApiError::BadRequest(_)) => HttpResponse::BadRequest(),
-                | Some(ApiError::NotFound(_)) => HttpResponse::NotFound(),
-                | Some(ApiError::Conflict(_)) => HttpResponse::Conflict(),
-                | Some(ApiError::RateLimitExceeded { .. }) => HttpResponse::TooManyRequests(),
-                | Some(ApiError::QuantumOperationFailed { .. }) => {
-                    HttpResponse::InternalServerError()
-                },
-                | Some(ApiError::InvalidQuery { .. }) => HttpResponse::BadRequest(),
-                | Some(ApiError::InternalServerError { .. }) => HttpResponse::InternalServerError(),
-                | Some(ApiError::CompressionError { .. }) => HttpResponse::InternalServerError(),
-                | Some(ApiError::EncryptionError { .. }) => HttpResponse::InternalServerError(),
-                | Some(ApiError::NeuralNetworkError { .. }) => HttpResponse::InternalServerError(),
-                | Some(ApiError::TableError { .. }) => HttpResponse::InternalServerError(),
-                | Some(ApiError::ConnectionPoolError { .. }) => HttpResponse::InternalServerError(),
-                | Some(ApiError::CircuitBreakerOpen { .. }) => HttpResponse::ServiceUnavailable(),
-                | Some(ApiError::ServiceUnavailable { .. }) => HttpResponse::ServiceUnavailable(),
-                | Some(ApiError::NotImplemented(_)) => HttpResponse::NotImplemented(),
-                | None => HttpResponse::InternalServerError(),
+                | Some(ApiError::ValidationError { .. }) => Self::BadRequest(),
+                | Some(ApiError::Unauthorized(_)) => Self::Unauthorized(),
+                | Some(ApiError::Forbidden(_)) => Self::Forbidden(),
+                | Some(ApiError::BadRequest(_)) => Self::BadRequest(),
+                | Some(ApiError::NotFound(_)) => Self::NotFound(),
+                | Some(ApiError::Conflict(_)) => Self::Conflict(),
+                | Some(ApiError::RateLimitExceeded { .. }) => Self::TooManyRequests(),
+                | Some(ApiError::QuantumOperationFailed { .. }) => Self::InternalServerError(),
+                | Some(ApiError::InvalidQuery { .. }) => Self::BadRequest(),
+                | Some(ApiError::InternalServerError { .. }) => Self::InternalServerError(),
+                | Some(ApiError::CompressionError { .. }) => Self::InternalServerError(),
+                | Some(ApiError::EncryptionError { .. }) => Self::InternalServerError(),
+                | Some(ApiError::NeuralNetworkError { .. }) => Self::InternalServerError(),
+                | Some(ApiError::TableError { .. }) => Self::InternalServerError(),
+                | Some(ApiError::ConnectionPoolError { .. }) => Self::InternalServerError(),
+                | Some(ApiError::CircuitBreakerOpen { .. }) => Self::ServiceUnavailable(),
+                | Some(ApiError::ServiceUnavailable { .. }) => Self::ServiceUnavailable(),
+                | Some(ApiError::NotImplemented(_)) => Self::NotImplemented(),
+                | None => Self::InternalServerError(),
             };
             status.json(response)
         }

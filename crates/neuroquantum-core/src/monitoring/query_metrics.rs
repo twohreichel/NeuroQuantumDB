@@ -6,10 +6,11 @@
 //! - Lock contention tracking and analysis
 //! - Query execution plans and performance profiling
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 /// Comprehensive query metrics for production monitoring
@@ -88,6 +89,7 @@ pub struct SlowQueryLog {
 }
 
 impl SlowQueryLog {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
@@ -114,17 +116,20 @@ impl SlowQueryLog {
     }
 
     /// Get all slow query entries
+    #[must_use]
     pub fn get_entries(&self) -> &[SlowQueryEntry] {
         &self.entries
     }
 
     /// Get total count of slow queries
-    pub fn total_slow_queries(&self) -> u64 {
+    #[must_use]
+    pub const fn total_slow_queries(&self) -> u64 {
         self.total_slow_queries
     }
 
     /// Get slow queries by table
-    pub fn queries_by_table(&self) -> &HashMap<String, u64> {
+    #[must_use]
+    pub const fn queries_by_table(&self) -> &HashMap<String, u64> {
         &self.queries_by_table
     }
 
@@ -166,6 +171,7 @@ pub struct IndexUsageStats {
 }
 
 impl IndexUsageStats {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             indexes: HashMap::new(),
@@ -204,6 +210,7 @@ impl IndexUsageStats {
     }
 
     /// Get all index usage statistics
+    #[must_use]
     pub fn get_all_stats(&self) -> Vec<IndexUsageEntry> {
         self.indexes.values().cloned().collect()
     }
@@ -227,6 +234,7 @@ impl IndexUsageStats {
     }
 
     /// Get most frequently used indexes
+    #[must_use]
     pub fn get_top_indexes(&self, limit: usize) -> Vec<IndexUsageEntry> {
         let mut entries: Vec<IndexUsageEntry> = self.indexes.values().cloned().collect();
         entries.sort_by(|a, b| b.total_scans.cmp(&a.total_scans));
@@ -259,11 +267,11 @@ pub enum LockType {
 impl std::fmt::Display for LockType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            | LockType::Shared => write!(f, "Shared"),
-            | LockType::Exclusive => write!(f, "Exclusive"),
-            | LockType::RowLevel => write!(f, "RowLevel"),
-            | LockType::TableLevel => write!(f, "TableLevel"),
-            | LockType::IndexLevel => write!(f, "IndexLevel"),
+            | Self::Shared => write!(f, "Shared"),
+            | Self::Exclusive => write!(f, "Exclusive"),
+            | Self::RowLevel => write!(f, "RowLevel"),
+            | Self::TableLevel => write!(f, "TableLevel"),
+            | Self::IndexLevel => write!(f, "IndexLevel"),
         }
     }
 }
@@ -279,6 +287,7 @@ pub struct LockContentionTracker {
 }
 
 impl LockContentionTracker {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             events: Vec::new(),
@@ -313,16 +322,19 @@ impl LockContentionTracker {
     }
 
     /// Get all contention events
+    #[must_use]
     pub fn get_events(&self) -> &[LockContentionEvent] {
         &self.events
     }
 
     /// Get total contention count
-    pub fn total_contentions(&self) -> u64 {
+    #[must_use]
+    pub const fn total_contentions(&self) -> u64 {
         self.total_contentions
     }
 
     /// Get average wait time
+    #[must_use]
     pub fn avg_wait_time_ms(&self) -> f64 {
         if self.total_contentions == 0 {
             0.0
@@ -332,16 +344,19 @@ impl LockContentionTracker {
     }
 
     /// Get contentions by resource
-    pub fn contentions_by_resource(&self) -> &HashMap<String, u64> {
+    #[must_use]
+    pub const fn contentions_by_resource(&self) -> &HashMap<String, u64> {
         &self.contentions_by_resource
     }
 
     /// Get contentions by type
-    pub fn contentions_by_type(&self) -> &HashMap<LockType, u64> {
+    #[must_use]
+    pub const fn contentions_by_type(&self) -> &HashMap<LockType, u64> {
         &self.contentions_by_type
     }
 
     /// Get most contended resources
+    #[must_use]
     pub fn get_hot_resources(&self, limit: usize) -> Vec<(String, u64)> {
         let mut resources: Vec<(String, u64)> = self
             .contentions_by_resource
@@ -378,7 +393,8 @@ pub struct QueryHistogram {
 }
 
 impl QueryHistogram {
-    pub fn new(query_pattern: String) -> Self {
+    #[must_use]
+    pub const fn new(query_pattern: String) -> Self {
         Self {
             query_pattern,
             count: 0,
@@ -422,12 +438,13 @@ impl QueryHistogram {
 
         let len = sorted.len();
         self.p50_time_ms = sorted[len / 2];
-        self.p95_time_ms = sorted[(len as f64 * 0.95) as usize];
-        self.p99_time_ms = sorted[(len as f64 * 0.99) as usize];
+        self.p95_time_ms = sorted[len.saturating_mul(95) / 100];
+        self.p99_time_ms = sorted[len.saturating_mul(99) / 100];
     }
 }
 
 impl QueryExecutionStats {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             query_histogram: HashMap::new(),
@@ -453,11 +470,13 @@ impl QueryExecutionStats {
     }
 
     /// Get all query histograms
+    #[must_use]
     pub fn get_all_histograms(&self) -> Vec<QueryHistogram> {
         self.query_histogram.values().cloned().collect()
     }
 
     /// Get slowest query patterns
+    #[must_use]
     pub fn get_slowest_patterns(&self, limit: usize) -> Vec<QueryHistogram> {
         let mut histograms: Vec<QueryHistogram> = self.query_histogram.values().cloned().collect();
         histograms.sort_by(|a, b| {
@@ -470,6 +489,7 @@ impl QueryExecutionStats {
     }
 
     /// Get most frequent query patterns
+    #[must_use]
     pub fn get_most_frequent_patterns(&self, limit: usize) -> Vec<QueryHistogram> {
         let mut histograms: Vec<QueryHistogram> = self.query_histogram.values().cloned().collect();
         histograms.sort_by(|a, b| b.count.cmp(&a.count));
@@ -478,16 +498,19 @@ impl QueryExecutionStats {
     }
 
     /// Get total queries
-    pub fn total_queries(&self) -> u64 {
+    #[must_use]
+    pub const fn total_queries(&self) -> u64 {
         self.total_queries
     }
 
     /// Get failed queries count
-    pub fn failed_queries(&self) -> u64 {
+    #[must_use]
+    pub const fn failed_queries(&self) -> u64 {
         self.failed_queries
     }
 
     /// Get error rate percentage
+    #[must_use]
     pub fn error_rate(&self) -> f64 {
         if self.total_queries == 0 {
             0.0
@@ -499,6 +522,7 @@ impl QueryExecutionStats {
 
 impl AdvancedQueryMetrics {
     /// Create a new advanced query metrics collector
+    #[must_use]
     pub fn new(config: MonitoringConfig) -> Self {
         Self {
             slow_query_log: Arc::new(RwLock::new(SlowQueryLog::new())),

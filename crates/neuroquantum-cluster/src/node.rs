@@ -112,14 +112,14 @@ pub(crate) struct NodeInner {
     start_time: Instant,
 }
 
-/// A node in the NeuroQuantumDB cluster.
+/// A node in the `NeuroQuantumDB` cluster.
 ///
 /// The `ClusterNode` manages the node's lifecycle, handles Raft consensus,
 /// and coordinates with other nodes in the cluster.
 pub struct ClusterNode {
     /// Node identifier
     node_id: NodeId,
-    /// Internal state protected by RwLock
+    /// Internal state protected by `RwLock`
     pub(crate) inner: Arc<RwLock<NodeInner>>,
     /// Raft consensus module
     consensus: Arc<RaftConsensus>,
@@ -262,7 +262,7 @@ impl ClusterNode {
 
     /// Get the node ID.
     #[must_use]
-    pub fn node_id(&self) -> NodeId {
+    pub const fn node_id(&self) -> NodeId {
         self.node_id
     }
 
@@ -518,8 +518,7 @@ impl ClusterNode {
 
         if healthy_peers < min_healthy {
             return Err(ClusterError::HealthCheckFailed(format!(
-                "Not enough healthy peers: {} < {}",
-                healthy_peers, min_healthy
+                "Not enough healthy peers: {healthy_peers} < {min_healthy}"
             )));
         }
 

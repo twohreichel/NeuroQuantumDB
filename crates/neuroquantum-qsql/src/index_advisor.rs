@@ -14,13 +14,15 @@
 //! - **Recommendation Engine**: Generates single-column and composite index recommendations
 //! - **Impact Estimation**: Estimates performance improvement from recommended indexes
 
-use crate::ast::{Expression, FromClause, JoinClause, OrderByItem, SelectStatement, Statement};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
+
+use crate::ast::{Expression, FromClause, JoinClause, OrderByItem, SelectStatement, Statement};
 
 /// Statistics for a column access pattern
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -171,7 +173,7 @@ impl Default for IndexAdvisorConfig {
 /// based on observed query patterns.
 pub struct IndexAdvisor {
     config: IndexAdvisorConfig,
-    /// Table statistics (table_name -> TableStats)
+    /// Table statistics (`table_name` -> `TableStats`)
     table_stats: Arc<RwLock<HashMap<String, TableStats>>>,
     /// Total queries analyzed
     total_queries: AtomicU64,
@@ -181,11 +183,13 @@ pub struct IndexAdvisor {
 
 impl IndexAdvisor {
     /// Create a new Index Advisor with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(IndexAdvisorConfig::default())
     }
 
     /// Create a new Index Advisor with custom configuration
+    #[must_use]
     pub fn with_config(config: IndexAdvisorConfig) -> Self {
         Self {
             config,
@@ -286,7 +290,7 @@ impl IndexAdvisor {
                 right,
             } => {
                 // Track the operator used
-                let op_str = format!("{:?}", operator);
+                let op_str = format!("{operator:?}");
 
                 // Left side is often the column
                 if let Expression::Identifier(col_name) = left.as_ref() {
@@ -462,13 +466,13 @@ impl IndexAdvisor {
             // Generate recommendations for top columns
             for (col_name, col_stats, score) in column_scores.iter().take(5) {
                 // Check if index already exists for this column
-                if self.has_existing_index(table_stats, &[col_name.to_string()]) {
+                if self.has_existing_index(table_stats, &[(*col_name).clone()]) {
                     continue;
                 }
 
                 let recommendation = self.create_recommendation(
                     table_name,
-                    vec![col_name.to_string()],
+                    vec![(*col_name).clone()],
                     col_stats,
                     *score,
                     table_stats,
@@ -543,7 +547,7 @@ impl IndexAdvisor {
         table_stats
             .existing_indexes
             .iter()
-            .any(|idx| idx == &columns_str || idx.starts_with(&format!("{},", columns_str)))
+            .any(|idx| idx == &columns_str || idx.starts_with(&format!("{columns_str},")))
     }
 
     /// Create an index recommendation
@@ -558,10 +562,7 @@ impl IndexAdvisor {
         let index_name = format!("idx_{}_{}_advisor", table_name, columns.join("_"));
 
         let columns_sql = columns.join(", ");
-        let create_statement = format!(
-            "CREATE INDEX {} ON {} ({})",
-            index_name, table_name, columns_sql
-        );
+        let create_statement = format!("CREATE INDEX {index_name} ON {table_name} ({columns_sql})");
 
         // Estimate improvement based on full scan ratio and column usage
         let full_scan_ratio = if table_stats.query_count > 0 {
@@ -571,7 +572,7 @@ impl IndexAdvisor {
         };
 
         // Higher score = more improvement expected
-        let estimated_improvement = (score * 0.5 + full_scan_ratio * 0.3).min(0.95);
+        let estimated_improvement = score.mul_add(0.5, full_scan_ratio * 0.3).min(0.95);
 
         let priority = if estimated_improvement > 0.7 {
             RecommendationPriority::Critical
@@ -691,8 +692,7 @@ impl IndexAdvisor {
                 where_columns
                     .iter()
                     .find(|c| **c != join_columns[0])
-                    .map(|c| (*c).clone())
-                    .unwrap_or_else(|| where_columns[0].clone()),
+                    .map_or_else(|| where_columns[0].clone(), |c| (*c).clone()),
             ];
 
             // Don't recommend if it's the same column twice
@@ -712,10 +712,8 @@ impl IndexAdvisor {
             );
 
             let columns_sql = composite_columns.join(", ");
-            let create_statement = format!(
-                "CREATE INDEX {} ON {} ({})",
-                index_name, table_name, columns_sql
-            );
+            let create_statement =
+                format!("CREATE INDEX {index_name} ON {table_name} ({columns_sql})");
 
             // Generate unique ID for composite index recommendation
             let id = format!(

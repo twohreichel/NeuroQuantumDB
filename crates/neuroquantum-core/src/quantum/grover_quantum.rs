@@ -39,13 +39,15 @@
 //!
 //! Where D = Diffusion operator = H⊗n · (2|0⟩⟨0| - I) · H⊗n
 
-use crate::error::{CoreError, CoreResult};
+use std::f64::consts::PI;
+use std::time::Instant;
+
 use num_complex::Complex64;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::f64::consts::PI;
-use std::time::Instant;
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 // Type alias for convenience
 type Complex = Complex64;
@@ -58,7 +60,7 @@ pub enum GroverQuantumBackend {
     Simulator,
     /// Superconducting qubits (IBM Q style)
     Superconducting,
-    /// Trapped ion qubits (IonQ style)
+    /// Trapped ion qubits (`IonQ` style)
     TrappedIon,
     /// Neutral atom arrays (Pasqal/QuEra style)
     NeutralAtom,
@@ -127,7 +129,8 @@ pub enum OracleType {
 
 impl QuantumOracle {
     /// Create a new oracle for the given marked states
-    pub fn new(num_qubits: usize, marked_states: Vec<usize>) -> Self {
+    #[must_use]
+    pub const fn new(num_qubits: usize, marked_states: Vec<usize>) -> Self {
         Self {
             num_qubits,
             marked_states,
@@ -148,6 +151,7 @@ impl QuantumOracle {
     }
 
     /// Create oracle for byte pattern search
+    #[must_use]
     pub fn for_pattern_search(data: &[u8], pattern: &[u8]) -> Self {
         let marked_states: Vec<usize> = (0..=data.len().saturating_sub(pattern.len()))
             .filter(|&i| i + pattern.len() <= data.len() && &data[i..i + pattern.len()] == pattern)
@@ -158,6 +162,7 @@ impl QuantumOracle {
     }
 
     /// Generate gate sequence for this oracle
+    #[must_use]
     pub fn to_gates(&self) -> Vec<GroverGate> {
         let mut gates = Vec::new();
 
@@ -283,6 +288,7 @@ impl Default for QuantumGroverSolver {
 
 impl QuantumGroverSolver {
     /// Create a new quantum Grover solver with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: QuantumGroverConfig::default(),
@@ -290,7 +296,8 @@ impl QuantumGroverSolver {
     }
 
     /// Create a solver with custom configuration
-    pub fn with_config(config: QuantumGroverConfig) -> Self {
+    #[must_use]
+    pub const fn with_config(config: QuantumGroverConfig) -> Self {
         Self { config }
     }
 
@@ -298,6 +305,7 @@ impl QuantumGroverSolver {
     ///
     /// For N elements with M marked items:
     /// iterations = floor(π/4 * √(N/M))
+    #[must_use]
     pub fn calculate_optimal_iterations(search_space_size: usize, num_marked: usize) -> usize {
         if num_marked == 0 || search_space_size == 0 {
             return 0;
@@ -401,9 +409,9 @@ impl QuantumGroverSolver {
         );
 
         Ok(QuantumGroverResult {
-            quantum_speedup,
-            computation_time_ms,
             optimal_iterations,
+            computation_time_ms,
+            quantum_speedup,
             ..result
         })
     }
@@ -489,7 +497,7 @@ impl QuantumGroverSolver {
         if num_qubits > 0 {
             let controls: Vec<usize> = (0..num_qubits).collect();
             gates.push(GroverGate::MCZ {
-                controls: controls.clone(),
+                controls,
                 target: num_qubits - 1,
             });
         }
@@ -790,7 +798,7 @@ impl QuantumGroverSolver {
         let mut counts: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
 
         // Build cumulative probability distribution
-        let probs: Vec<f64> = state.iter().map(|a| a.norm_sqr()).collect();
+        let probs: Vec<f64> = state.iter().map(nalgebra::Complex::norm_sqr).collect();
         let total: f64 = probs.iter().sum();
         let normalized: Vec<f64> = probs.iter().map(|p| p / total).collect();
 
@@ -813,8 +821,7 @@ impl QuantumGroverSolver {
         let (best_state, best_count) = counts
             .iter()
             .max_by_key(|(_, &count)| count)
-            .map(|(&s, &c)| (s, c))
-            .unwrap_or((0, 0));
+            .map_or((0, 0), |(&s, &c)| (s, c));
 
         let best_probability = best_count as f64 / self.config.num_shots as f64;
 

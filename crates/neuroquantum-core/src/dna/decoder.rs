@@ -3,10 +3,12 @@
 //! This module implements the decoding phase of DNA compression, converting DNA base
 //! sequences back to binary data with dictionary decompression support.
 
-use crate::dna::{DNABase, DNACompressionConfig, DNAError};
-use rayon::prelude::*;
 use std::collections::HashMap;
+
+use rayon::prelude::*;
 use tracing::{debug, instrument};
+
+use crate::dna::{DNABase, DNACompressionConfig, DNAError};
 
 /// Quaternary decoder that converts DNA bases back to binary data
 #[derive(Debug)]
@@ -16,6 +18,7 @@ pub struct QuaternaryDecoder {
 
 impl QuaternaryDecoder {
     /// Create a new decoder with the given configuration
+    #[must_use]
     pub fn new(config: &DNACompressionConfig) -> Self {
         Self {
             config: config.clone(),
@@ -229,15 +232,14 @@ impl QuaternaryDecoder {
         while i < data.len() {
             if data[i] == 0xFF && i + 2 < data.len() {
                 // Dictionary reference: [0xFF][dict_id_high][dict_id_low]
-                let dict_id = ((data[i + 1] as u16) << 8) | (data[i + 2] as u16);
+                let dict_id = (u16::from(data[i + 1]) << 8) | u16::from(data[i + 2]);
 
                 if let Some(pattern) = reverse_dict.get(&dict_id) {
                     decompressed.extend_from_slice(pattern);
                     i += 3;
                 } else {
                     return Err(DNAError::DecompressionFailed(format!(
-                        "Invalid dictionary reference: {}",
-                        dict_id
+                        "Invalid dictionary reference: {dict_id}"
                     )));
                 }
             } else {
@@ -311,6 +313,7 @@ impl QuaternaryDecoder {
     }
 
     /// Get decoding statistics for the last operation
+    #[must_use]
     pub fn get_decoding_stats(&self, bases: &[DNABase]) -> DecodingStats {
         let total_bases = bases.len();
         let expected_bytes = total_bases / 4;

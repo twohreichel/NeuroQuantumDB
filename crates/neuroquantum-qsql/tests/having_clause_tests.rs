@@ -5,10 +5,11 @@
 //! - Aggregate functions: `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()`
 //! - Logical operators: `AND`, `OR`, `NOT`
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 /// Helper function to set up test data
@@ -76,7 +77,7 @@ async fn setup_orders_table(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>
         row.fields
             .insert("id".to_string(), Value::Integer((i + 1) as i64));
         row.fields
-            .insert("category".to_string(), Value::Text(category.to_string()));
+            .insert("category".to_string(), Value::Text((*category).to_string()));
         row.fields
             .insert("amount".to_string(), Value::Float(*amount));
         storage_guard.insert_row("orders", row).await.unwrap();

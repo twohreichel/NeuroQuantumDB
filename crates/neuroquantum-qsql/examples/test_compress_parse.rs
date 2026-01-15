@@ -6,10 +6,10 @@ fn main() {
 
     match parser.parse(sql) {
         | Ok(statement) => {
-            println!("Success! Parsed statement: {:?}", statement);
+            println!("Success! Parsed statement: {statement:?}");
         },
         | Err(e) => {
-            eprintln!("Error parsing: {:?}", e);
+            eprintln!("Error parsing: {e:?}");
         },
     }
 }

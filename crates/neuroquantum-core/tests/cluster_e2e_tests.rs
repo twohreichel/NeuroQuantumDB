@@ -1,4 +1,4 @@
-//! # Comprehensive Cluster E2E Tests for NeuroQuantumDB
+//! # Comprehensive Cluster E2E Tests for `NeuroQuantumDB`
 //!
 //! This module implements end-to-end tests for cluster mode functionality,
 //! validating distributed consensus, fault tolerance, and data consistency.
@@ -374,7 +374,7 @@ impl SimulatedCluster {
         followers
     }
 
-    fn node_count(&self) -> usize {
+    const fn node_count(&self) -> usize {
         self.nodes.len()
     }
 
@@ -768,7 +768,7 @@ async fn test_consistency_after_failover() {
 
     // Write some data before failover
     for i in 0..5 {
-        let data = format!("entry_{}", i);
+        let data = format!("entry_{i}");
         let index = leader.append_entry(data.as_bytes().to_vec()).await;
         leader.commit(index).await;
         stats.record_write();
@@ -781,7 +781,7 @@ async fn test_consistency_after_failover() {
     let followers = cluster.get_followers().await;
     for follower in &followers {
         for i in 0..5 {
-            let data = format!("entry_{}", i);
+            let data = format!("entry_{i}");
             follower.append_entry(data.as_bytes().to_vec()).await;
         }
         follower.commit(commit_index_before).await;
@@ -864,7 +864,7 @@ async fn test_linearizability_concurrent_writes() {
         let stats_clone = Arc::clone(&stats);
         let handle = tokio::spawn(async move {
             for j in 0..10 {
-                let data = format!("writer_{}_entry_{}", i, j);
+                let data = format!("writer_{i}_entry_{j}");
                 leader_clone.append_entry(data.as_bytes().to_vec()).await;
                 stats_clone.record_write();
             }
@@ -917,10 +917,7 @@ async fn test_latency_during_election() {
     let avg_latency: u64 = election_latencies.iter().sum::<u64>() / election_latencies.len() as u64;
     let max_latency: u64 = *election_latencies.iter().max().unwrap_or(&0);
 
-    println!(
-        "Election latency - Avg: {}ms, Max: {}ms",
-        avg_latency, max_latency
-    );
+    println!("Election latency - Avg: {avg_latency}ms, Max: {max_latency}ms");
 
     // Election should complete within reasonable time (simulated)
     assert!(
@@ -998,10 +995,7 @@ async fn test_throughput_during_failover() {
     let before = writes_before.load(Ordering::SeqCst);
     let after = writes_after.load(Ordering::SeqCst);
 
-    println!(
-        "Writes before failover: {}, Writes after failover: {}",
-        before, after
-    );
+    println!("Writes before failover: {before}, Writes after failover: {after}");
 
     assert!(before > 0, "Should have writes before failover");
     assert!(after > 0, "Should have writes after failover");
@@ -1044,7 +1038,7 @@ async fn test_chaos_random_node_kills() {
             // Try to write
             if let Some(leader) = cluster.get_leader().await {
                 leader
-                    .append_entry(format!("chaos_{}", cycle).as_bytes().to_vec())
+                    .append_entry(format!("chaos_{cycle}").as_bytes().to_vec())
                     .await;
                 stats.record_write();
             }
@@ -1085,7 +1079,7 @@ async fn test_chaos_network_delay() {
         // Simulate network delay
         tokio::time::sleep(Duration::from_millis(10)).await;
         leader
-            .append_entry(format!("delayed_{}", i).as_bytes().to_vec())
+            .append_entry(format!("delayed_{i}").as_bytes().to_vec())
             .await;
     }
     let total_time = start.elapsed();
@@ -1179,7 +1173,7 @@ async fn test_chaos_concurrent_load_with_failures() {
             while !stop_clone.load(Ordering::SeqCst) {
                 if let Some(leader) = cluster_clone.get_leader().await {
                     leader
-                        .append_entry(format!("writer_{}_entry_{}", i, writes).as_bytes().to_vec())
+                        .append_entry(format!("writer_{i}_entry_{writes}").as_bytes().to_vec())
                         .await;
                     stats_clone.record_write();
                     writes += 1;
@@ -1226,7 +1220,7 @@ async fn test_chaos_concurrent_load_with_failures() {
         }
     }
 
-    println!("Total writes during chaos: {}", total_writes);
+    println!("Total writes during chaos: {total_writes}");
     println!("{}", stats.report());
 
     assert!(
@@ -1322,7 +1316,7 @@ async fn test_rapid_leadership_changes() {
         }
     }
 
-    println!("Leadership changes: {}", leadership_changes);
+    println!("Leadership changes: {leadership_changes}");
     stats.record_successful_election(0);
 
     // Verify cluster is still functional
@@ -1376,7 +1370,7 @@ async fn test_cluster_documentation_example() {
 
     // Elect a leader
     let leader_id = cluster.elect_leader().await.expect("Leader elected");
-    println!("Leader elected: Node {}", leader_id);
+    println!("Leader elected: Node {leader_id}");
 
     // Get the leader and write some data
     let leader = cluster.get_leader().await.expect("Leader accessible");
@@ -1388,7 +1382,7 @@ async fn test_cluster_documentation_example() {
 
     // Simulate leader failure and failover
     let new_leader_id = cluster.failover().await.expect("New leader elected");
-    println!("New leader after failover: Node {}", new_leader_id);
+    println!("New leader after failover: Node {new_leader_id}");
 
     // Verify cluster is still operational
     assert!(cluster.has_quorum().await);

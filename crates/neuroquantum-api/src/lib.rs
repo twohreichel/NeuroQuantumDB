@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use actix_cors::Cors;
 use actix_web::body::MessageBody;
 use actix_web::middleware::{Compress, Logger};
@@ -5,7 +7,6 @@ use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as Actix
 use actix_web_prom::PrometheusMetricsBuilder;
 use anyhow::Result;
 use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
-use std::time::Instant;
 use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -25,13 +26,14 @@ pub mod storage;
 pub mod tracing_setup;
 pub mod websocket;
 
+use std::sync::Arc;
+
 use auth::AuthService;
 pub use config::ApiConfig;
 pub use error::{ApiError, ApiResponse, ResponseMetadata};
 use handlers::ApiDoc;
 use jwt::JwtService;
 use rate_limit::{RateLimitConfig, RateLimitService};
-use std::sync::Arc;
 use websocket::{ConnectionConfig, ConnectionManager, PubSubManager, WebSocketService};
 
 /// Application state shared across handlers
@@ -52,10 +54,10 @@ impl AppState {
         let db = NeuroQuantumDBBuilder::new()
             .build()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to initialize database: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to initialize database: {e}"))?;
 
         let auth_service = AuthService::new()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to initialize auth service: {e}"))?;
 
         // Warn if no admin keys exist - database needs initialization
         if !auth_service.has_admin_keys() {
@@ -86,7 +88,7 @@ impl AppState {
 
         // Initialize QSQL engine with the shared storage engine
         let qsql_engine = neuroquantum_qsql::QSQLEngine::with_storage(storage_engine_arc)
-            .map_err(|e| anyhow::anyhow!("Failed to initialize QSQL engine: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to initialize QSQL engine: {e}"))?;
         let qsql_engine_arc = Arc::new(tokio::sync::Mutex::new(qsql_engine));
 
         tracing::info!("🔗 QSQL engine initialized with shared storage engine");
@@ -194,7 +196,7 @@ pub async fn websocket_handler(
         .headers()
         .get("user-agent")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
+        .map(std::string::ToString::to_string);
 
     // Create connection metadata
     let mut metadata = ConnectionMetadata::new(remote_addr);
@@ -253,11 +255,11 @@ pub fn configure_app(
         .app_data(web::Data::new(app_state.auth_service.clone()))
         .app_data(web::Data::new(app_state.jwt_service.clone()))
         .app_data(web::Data::new(app_state.rate_limit_service.clone()))
-        .app_data(web::Data::new(app_state.config.clone()))
+        .app_data(web::Data::new(app_state.config))
         // Add tracing middleware (the middleware itself checks if tracing is enabled)
         .wrap(middleware::tracing_middleware())
         // Add other middleware
-        .wrap(prometheus.clone())
+        .wrap(prometheus)
         .wrap(Logger::default())
         .wrap(Compress::default())
         .wrap({
@@ -411,8 +413,9 @@ mod proptest_suite;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use actix_web::{test, web, App};
+
+    use super::*;
 
     #[actix_web::test]
     async fn test_health_check() {

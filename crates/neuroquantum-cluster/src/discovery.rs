@@ -73,7 +73,7 @@ impl DiscoveryService {
         for (idx, node_addr) in self.static_nodes.iter().enumerate() {
             // Parse address
             let addr: SocketAddr = node_addr.parse().map_err(|e| {
-                ClusterError::ConfigError(format!("Invalid node address '{}': {}", node_addr, e))
+                ClusterError::ConfigError(format!("Invalid node address '{node_addr}': {e}"))
             })?;
 
             // Generate a deterministic node ID based on position
@@ -116,7 +116,7 @@ impl DiscoveryService {
 
         // Create resolver from system configuration
         let resolver = TokioAsyncResolver::tokio_from_system_conf().map_err(|e| {
-            ClusterError::DiscoveryError(format!("Failed to create DNS resolver: {}", e))
+            ClusterError::DiscoveryError(format!("Failed to create DNS resolver: {e}"))
         })?;
 
         let mut peers = Vec::new();
@@ -178,8 +178,7 @@ impl DiscoveryService {
                     },
                     | Err(e) => {
                         return Err(ClusterError::DiscoveryError(format!(
-                            "Failed to resolve DNS name '{}': {}",
-                            dns_name, e
+                            "Failed to resolve DNS name '{dns_name}': {e}"
                         )));
                     },
                 }
@@ -204,18 +203,18 @@ impl DiscoveryService {
         let base_url = consul_config.address.trim_end_matches('/');
         let encoded_service = urlencoding::encode(&consul_config.service_name);
 
-        let mut url = format!("{}/v1/catalog/service/{}", base_url, encoded_service);
+        let mut url = format!("{base_url}/v1/catalog/service/{encoded_service}");
 
         if let Some(dc) = &consul_config.datacenter {
             let encoded_dc = urlencoding::encode(dc);
-            url.push_str(&format!("?dc={}", encoded_dc));
+            url.push_str(&format!("?dc={encoded_dc}"));
         }
 
         // Query Consul
         let client = reqwest::Client::new();
         let response =
             client.get(&url).send().await.map_err(|e| {
-                ClusterError::DiscoveryError(format!("Failed to query Consul: {}", e))
+                ClusterError::DiscoveryError(format!("Failed to query Consul: {e}"))
             })?;
 
         if !response.status().is_success() {
@@ -227,7 +226,7 @@ impl DiscoveryService {
 
         // Parse response
         let services: Vec<ConsulServiceEntry> = response.json().await.map_err(|e| {
-            ClusterError::DiscoveryError(format!("Failed to parse Consul response: {}", e))
+            ClusterError::DiscoveryError(format!("Failed to parse Consul response: {e}"))
         })?;
 
         let mut peers = Vec::new();
@@ -282,9 +281,7 @@ impl DiscoveryService {
         // Connect to etcd cluster
         let mut client = Client::connect(&etcd_config.endpoints, None)
             .await
-            .map_err(|e| {
-                ClusterError::DiscoveryError(format!("Failed to connect to etcd: {}", e))
-            })?;
+            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to connect to etcd: {e}")))?;
 
         // Query for all keys with the given prefix
         let resp = client
@@ -293,13 +290,13 @@ impl DiscoveryService {
                 Some(GetOptions::new().with_prefix()),
             )
             .await
-            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to query etcd: {}", e)))?;
+            .map_err(|e| ClusterError::DiscoveryError(format!("Failed to query etcd: {e}")))?;
 
         let mut peers = Vec::new();
         for kv in resp.kvs() {
             // Parse the value as JSON containing node registration
             let value_str = std::str::from_utf8(kv.value()).map_err(|e| {
-                ClusterError::DiscoveryError(format!("Invalid UTF-8 in etcd value: {}", e))
+                ClusterError::DiscoveryError(format!("Invalid UTF-8 in etcd value: {e}"))
             })?;
 
             match serde_json::from_str::<NodeRegistration>(value_str) {
@@ -359,7 +356,7 @@ pub struct NodeRegistration {
 /// Metadata about a node for service discovery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeMetadata {
-    /// Version of NeuroQuantumDB running on this node
+    /// Version of `NeuroQuantumDB` running on this node
     pub version: String,
     /// Datacenter or zone
     pub datacenter: Option<String>,

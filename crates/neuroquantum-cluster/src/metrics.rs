@@ -162,7 +162,7 @@ impl ClusterMetrics {
     /// Update rebalance progress metrics.
     pub fn update_rebalance_progress(&self, progress: &RebalanceProgress) {
         self.rebalancing_active
-            .store(if progress.active { 1 } else { 0 }, Ordering::Relaxed);
+            .store(u64::from(progress.active), Ordering::Relaxed);
         self.rebalance_transfers_total
             .store(progress.total_transfers as u64, Ordering::Relaxed);
         self.rebalance_transfers_completed
@@ -326,7 +326,7 @@ neuroquantum_cluster_rebalance_throughput_bytes_per_sec{{node_id="{node_id}"}} {
             peer_count = snapshot.peer_count,
             healthy_peer_count = snapshot.healthy_peer_count,
             replication_lag = snapshot.replication_lag_ms,
-            rebalancing_active = if snapshot.rebalancing_active { 1 } else { 0 },
+            rebalancing_active = i32::from(snapshot.rebalancing_active),
             rebalance_transfers_total = snapshot.rebalance_transfers_total,
             rebalance_transfers_completed = snapshot.rebalance_transfers_completed,
             rebalance_transfers_failed = snapshot.rebalance_transfers_failed,

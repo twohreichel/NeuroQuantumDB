@@ -1,6 +1,6 @@
 //! Authentication Flow Demo
 //!
-//! This example demonstrates the complete authentication workflow in NeuroQuantumDB:
+//! This example demonstrates the complete authentication workflow in `NeuroQuantumDB`:
 //! - Initial admin key creation (bootstrap)
 //! - API key generation with different permission levels
 //! - Key validation and authorization
@@ -9,10 +9,13 @@
 //! - JWT token generation (optional, for hybrid auth)
 //! - Post-quantum cryptographic authentication (EEG biometric + ML-KEM)
 //!
-//! Run with: cargo run --example authentication_flow
+//! Run with: cargo run --example `authentication_flow`
 
-use neuroquantum_api::{auth::AuthService, jwt::JwtService, permissions::Permission};
 use std::time::Duration;
+
+use neuroquantum_api::auth::AuthService;
+use neuroquantum_api::jwt::JwtService;
+use neuroquantum_api::permissions::Permission;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -119,7 +122,9 @@ async fn demo_bootstrap_admin_key() -> Result<(), Box<dyn std::error::Error>> {
     let mut auth_service = AuthService::new_with_path("demo_api_keys.db")?;
 
     info!("🔍 Checking for existing admin keys...");
-    if !auth_service.has_admin_keys() {
+    if auth_service.has_admin_keys() {
+        info!("⚠️  Admin key already exists - bootstrap mode disabled");
+    } else {
         info!("✅ No admin keys found - bootstrap mode enabled");
         info!("");
 
@@ -139,8 +144,6 @@ async fn demo_bootstrap_admin_key() -> Result<(), Box<dyn std::error::Error>> {
         info!("⚠️  IMPORTANT: Save this key securely!");
         info!("   This is the only time the full key will be displayed.");
         info!("   Use it in your requests with the X-API-Key header.");
-    } else {
-        info!("⚠️  Admin key already exists - bootstrap mode disabled");
     }
 
     info!("");
@@ -272,8 +275,7 @@ async fn demo_key_validation() -> Result<(), Box<dyn std::error::Error>> {
 
         assert_eq!(
             has_permission, should_have,
-            "Permission check mismatch for {}",
-            permission
+            "Permission check mismatch for {permission}"
         );
     }
 

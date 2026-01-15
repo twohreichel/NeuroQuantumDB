@@ -4,6 +4,7 @@
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+
 use thiserror::Error;
 use tokio::sync::RwLock;
 
@@ -38,6 +39,7 @@ pub struct Frame {
 
 impl Frame {
     /// Create a new empty frame
+    #[must_use]
     pub fn new(id: FrameId) -> Self {
         Self {
             id,
@@ -48,7 +50,8 @@ impl Frame {
     }
 
     /// Get frame ID
-    pub fn id(&self) -> FrameId {
+    #[must_use]
+    pub const fn id(&self) -> FrameId {
         self.id
     }
 
@@ -106,11 +109,13 @@ impl Frame {
     }
 
     /// Check if frame is pinned
+    #[must_use]
     pub fn is_pinned(&self) -> bool {
         self.pin_count.load(Ordering::SeqCst) > 0
     }
 
     /// Get pin count
+    #[must_use]
     pub fn pin_count(&self) -> usize {
         self.pin_count.load(Ordering::SeqCst)
     }
@@ -121,6 +126,7 @@ impl Frame {
     }
 
     /// Check if frame is dirty
+    #[must_use]
     pub fn is_dirty(&self) -> bool {
         self.is_dirty.load(Ordering::SeqCst)
     }

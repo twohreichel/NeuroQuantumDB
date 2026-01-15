@@ -1,7 +1,7 @@
-use pulldown_cmark::{html, Options, Parser};
-use std::env;
-use std::fs;
 use std::path::Path;
+use std::{env, fs};
+
+use pulldown_cmark::{html, Options, Parser};
 
 // This is a build-time documentation generator script.
 // Panicking on errors is acceptable as it will fail the build early.
@@ -46,7 +46,7 @@ fn main() {
 
     // Ensure output directory exists
     if let Err(e) = fs::create_dir_all("target/doc/guides") {
-        eprintln!("❌ Failed to create output directory: {}", e);
+        eprintln!("❌ Failed to create output directory: {e}");
         std::process::exit(1);
     }
 
@@ -55,17 +55,17 @@ fn main() {
 
     for (input, output, title) in docs {
         if !Path::new(input).exists() {
-            eprintln!("⚠️  Skipping {}: file not found", input);
+            eprintln!("⚠️  Skipping {input}: file not found");
             skip_count += 1;
             continue;
         }
 
-        println!("📄 Converting {} to HTML...", input);
+        println!("📄 Converting {input} to HTML...");
 
         let markdown = match fs::read_to_string(input) {
             | Ok(content) => content,
             | Err(e) => {
-                eprintln!("❌ Failed to read {}: {}", input, e);
+                eprintln!("❌ Failed to read {input}: {e}");
                 continue;
             },
         };
@@ -90,7 +90,7 @@ fn main() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{}</title>
+    <title>{title}</title>
     <link rel="stylesheet" href="docs-style.css">
 </head>
 <body>
@@ -102,23 +102,22 @@ fn main() {
         <a href="../neuroquantum_api/index.html" style="color: white;">📖 API Docs</a>
     </nav>
     <div class="container">
-        {}
+        {html_output}
     </div>
     <footer style="text-align: center; padding: 2rem; margin-top: 3rem; border-top: 2px solid #e1e4e8; color: #666;">
         <p>NeuroQuantumDB v0.1.0 | MIT License | Made with 🧠</p>
     </footer>
 </body>
-</html>"#,
-            title, html_output
+</html>"#
         );
 
         match fs::write(output, full_html) {
-            | Ok(_) => {
-                println!("✅ Generated {}", output);
+            | Ok(()) => {
+                println!("✅ Generated {output}");
                 success_count += 1;
             },
             | Err(e) => {
-                eprintln!("❌ Failed to write {}: {}", output, e);
+                eprintln!("❌ Failed to write {output}: {e}");
             },
         }
     }
@@ -127,14 +126,11 @@ fn main() {
     if Path::new("docs/docs-style.css").exists() {
         match fs::copy("docs/docs-style.css", "target/doc/guides/docs-style.css") {
             | Ok(_) => println!("✅ Copied docs-style.css"),
-            | Err(e) => eprintln!("⚠️  Failed to copy CSS: {}", e),
+            | Err(e) => eprintln!("⚠️  Failed to copy CSS: {e}"),
         }
     }
 
-    println!(
-        "\n📊 Summary: {} converted, {} skipped",
-        success_count, skip_count
-    );
+    println!("\n📊 Summary: {success_count} converted, {skip_count} skipped");
 
     if success_count > 0 {
         println!("✅ Documentation generation complete!");

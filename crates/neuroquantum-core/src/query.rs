@@ -1,16 +1,18 @@
 //! # Neuromorphic Query Processing
 //!
 //! Spiking neural network implementation for intelligent query processing
-//! using brain-inspired algorithms in NeuroQuantumDB.
+//! using brain-inspired algorithms in `NeuroQuantumDB`.
+
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
+use tracing::{debug, instrument};
 
 use crate::error::{CoreError, CoreResult};
 use crate::learning::HebbianLearningEngine;
 use crate::synaptic::SynapticNetwork;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::time::Instant;
-use tracing::{debug, instrument};
 
 /// Query types supported by the neuromorphic processor
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +85,7 @@ pub struct OptimizationSuggestion {
 
 impl OptimizationSuggestion {
     /// Create a new optimization suggestion
+    #[must_use]
     pub fn new(
         suggestion_type: OptimizationSuggestionType,
         description: String,
@@ -104,12 +107,14 @@ impl OptimizationSuggestion {
     }
 
     /// Set the suggested index type
-    pub fn with_index_type(mut self, index_type: SuggestedIndexType) -> Self {
+    #[must_use]
+    pub const fn with_index_type(mut self, index_type: SuggestedIndexType) -> Self {
         self.suggested_index_type = Some(index_type);
         self
     }
 
     /// Add metadata to the suggestion
+    #[must_use]
     pub fn with_metadata(mut self, key: &str, value: &str) -> Self {
         self.metadata.insert(key.to_string(), value.to_string());
         self
@@ -128,6 +133,7 @@ pub struct QueryResult {
 
 impl QueryResult {
     /// Create an empty query result
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             query_id: 0,
@@ -139,6 +145,7 @@ impl QueryResult {
     }
 
     /// Create a new query result
+    #[must_use]
     pub fn new(
         query_id: u64,
         matched_nodes: Vec<u64>,
@@ -179,6 +186,7 @@ pub struct QueryCondition {
 
 impl Query {
     /// Create a new query with content
+    #[must_use]
     pub fn new(content: String) -> Self {
         Self {
             id: rand::random(),
@@ -254,7 +262,7 @@ impl NeuromorphicQueryProcessor {
         // Check cache first
         let cache_key = self.generate_cache_key(query);
         if let Some(cached) = self.check_cache(&cache_key) {
-            let result = cached.result.clone();
+            let result = cached.result;
             return Ok(result);
         }
 
@@ -331,11 +339,10 @@ impl NeuromorphicQueryProcessor {
                 }
 
                 return Some(cached.clone());
-            } else {
-                // Cache miss
-                if let Ok(mut stats) = self.query_statistics.write() {
-                    stats.cache_misses += 1;
-                }
+            }
+            // Cache miss
+            if let Ok(mut stats) = self.query_statistics.write() {
+                stats.cache_misses += 1;
             }
         }
         None
@@ -555,7 +562,9 @@ impl NeuromorphicQueryProcessor {
                 }
             } else {
                 // Clean up old spikes (keep only recent history)
-                let cutoff_time = current_time - std::time::Duration::from_secs(1);
+                let cutoff_time = current_time
+                    .checked_sub(std::time::Duration::from_secs(1))
+                    .unwrap();
                 for spike_list in spike_patterns.values_mut() {
                     spike_list.retain(|&t| t > cutoff_time);
                 }
@@ -575,10 +584,10 @@ impl NeuromorphicQueryProcessor {
         let size_accuracy = 1.0 - (expected_size - actual_size).abs() / expected_size.max(1.0);
 
         // Feedback based on query priority
-        let priority_factor = query.priority as f32 / 255.0;
+        let priority_factor = f32::from(query.priority) / 255.0;
 
         // Apply learning feedback to learning engine
-        let feedback_score = (size_accuracy + priority_factor) / 2.0;
+        let feedback_score = f32::midpoint(size_accuracy, priority_factor);
 
         // Trigger adaptive learning parameter adjustment
         if let Ok(mut learning_engine) = self.learning_engine.write() {
@@ -727,15 +736,14 @@ impl NeuromorphicQueryProcessor {
                     OptimizationSuggestion::new(
                         OptimizationSuggestionType::NeuralPathwayOptimization,
                         format!(
-                            "Neural pathway has {} weak connections out of {}. \
+                            "Neural pathway has {weak_connections} weak connections out of {total_connections}. \
                              Consider running Hebbian learning cycles to strengthen frequently \
-                             used pathways or pruning unused connections.",
-                            weak_connections, total_connections
+                             used pathways or pruning unused connections."
                         ),
                         query
                             .target_nodes
                             .iter()
-                            .map(|n| format!("node_{}", n))
+                            .map(|n| format!("node_{n}"))
                             .collect(),
                         improvement,
                         0.75,
@@ -759,6 +767,7 @@ impl NeuromorphicQueryProcessor {
     ///
     /// # Returns
     /// A vector of `OptimizationSuggestion` sorted by priority and estimated improvement
+    #[must_use]
     pub fn generate_optimization_suggestions(&self, query: &Query) -> Vec<OptimizationSuggestion> {
         let mut suggestions = Vec::new();
 
@@ -787,12 +796,11 @@ impl NeuromorphicQueryProcessor {
                     .conditions
                     .iter()
                     .find(|c| &c.field == field)
-                    .map(|c| c.weight)
-                    .unwrap_or(0.5);
+                    .map_or(0.5, |c| c.weight);
 
                 let (improvement, confidence) =
                     self.estimate_index_benefit(field, operators.first().unwrap_or(&"="), weight);
-                let index_type = self.suggest_index_type(field, &operators.to_vec());
+                let index_type = self.suggest_index_type(field, &operators.clone());
 
                 suggestions.push(
                     OptimizationSuggestion::new(
@@ -800,7 +808,7 @@ impl NeuromorphicQueryProcessor {
                         format!(
                             "Create {} index on field '{}' to avoid full table scan. \
                              This field is used with operators: {}",
-                            format!("{:?}", index_type).to_lowercase(),
+                            format!("{index_type:?}").to_lowercase(),
                             field,
                             operators.join(", ")
                         ),
@@ -825,7 +833,7 @@ impl NeuromorphicQueryProcessor {
 
             // Composite index benefit increases with number of conditions
             let condition_bonus = ((query.conditions.len() - 1) as f32 * 0.1).min(0.3);
-            let improvement = (avg_weight * 0.4 + condition_bonus).min(0.8);
+            let improvement = avg_weight.mul_add(0.4, condition_bonus).min(0.8);
 
             suggestions.push(
                 OptimizationSuggestion::new(
@@ -946,6 +954,7 @@ impl NeuromorphicQueryProcessor {
     }
 
     /// Get current query statistics
+    #[must_use]
     pub fn get_statistics(&self) -> QueryStatistics {
         if let Ok(stats) = self.query_statistics.read() {
             stats.clone()
@@ -975,10 +984,11 @@ impl NeuromorphicQueryProcessor {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, RwLock};
+
     use super::*;
     use crate::learning::HebbianLearningEngine;
     use crate::synaptic::SynapticNetwork;
-    use std::sync::{Arc, RwLock};
 
     #[test]
     fn test_query_processor_creation() {

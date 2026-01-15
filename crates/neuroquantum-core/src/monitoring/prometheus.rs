@@ -1,16 +1,21 @@
-//! Prometheus Metrics Exporter for NeuroQuantumDB
+//! Prometheus Metrics Exporter for `NeuroQuantumDB`
 //!
 //! Provides Prometheus-compatible metrics endpoint for monitoring including
 //! comprehensive neuromorphic metrics for synaptic learning, plasticity,
 //! and neural network operations.
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Router};
+use std::sync::Arc;
+
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::routing::get;
+use axum::Router;
+use prometheus::core::{AtomicU64, GenericGauge};
 use prometheus::{
-    core::{AtomicU64, GenericGauge},
     Encoder, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge,
     IntGaugeVec, Opts, Registry, TextEncoder,
 };
-use std::sync::Arc;
 
 /// Prometheus metrics registry and collectors
 #[derive(Clone)]
@@ -770,10 +775,11 @@ impl MetricsExporter {
         let mut buffer = Vec::new();
         encoder.encode(&metric_families, &mut buffer)?;
         String::from_utf8(buffer)
-            .map_err(|e| prometheus::Error::Msg(format!("Invalid UTF-8 in metrics: {}", e)))
+            .map_err(|e| prometheus::Error::Msg(format!("Invalid UTF-8 in metrics: {e}")))
     }
 
     /// Get the registry
+    #[must_use]
     pub fn registry(&self) -> &Registry {
         &self.registry
     }
@@ -1001,6 +1007,6 @@ mod tests {
 
         // This would require axum testing utilities
         // Just verify the router can be created
-        assert!(!format!("{:?}", app).is_empty());
+        assert!(!format!("{app:?}").is_empty());
     }
 }

@@ -1,19 +1,21 @@
-use crate::auth::ApiKey;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
-use std::path::Path;
-use std::sync::{Arc, Mutex};
 use tracing::{debug, info};
 
-/// Persistent storage for API keys using SQLite
+use crate::auth::ApiKey;
+
+/// Persistent storage for API keys using `SQLite`
 #[derive(Debug, Clone)]
 pub struct ApiKeyStorage {
     conn: Arc<Mutex<Connection>>,
 }
 
 impl ApiKeyStorage {
-    /// Create a new API key storage with SQLite backend
+    /// Create a new API key storage with `SQLite` backend
     pub fn new<P: AsRef<Path>>(db_path: P) -> Result<Self> {
         let conn = Connection::open(db_path.as_ref())
             .context("Failed to open SQLite database for API key storage")?;
@@ -32,7 +34,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS api_keys (
@@ -72,7 +74,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         let permissions_json = serde_json::to_string(&api_key.permissions)?;
 
@@ -102,12 +104,12 @@ impl ApiKeyStorage {
         Ok(())
     }
 
-    /// Retrieve API key by key_id
+    /// Retrieve API key by `key_id`
     pub fn get_key(&self, key_id: &str) -> Result<Option<(ApiKey, String)>> {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         let mut stmt = conn.prepare(
             "SELECT key_id, key_hash, name, permissions, expires_at, created_at,
@@ -176,7 +178,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         conn.execute(
             "UPDATE api_keys
@@ -193,7 +195,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         let rows_affected = conn.execute(
             "UPDATE api_keys
@@ -215,7 +217,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         let mut stmt = conn.prepare(
             "SELECT key_id, name, permissions, expires_at, created_at,
@@ -283,7 +285,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM api_keys
@@ -300,7 +302,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         let now = Utc::now().to_rfc3339();
         let rows_affected = conn.execute(
@@ -322,7 +324,7 @@ impl ApiKeyStorage {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Database lock poisoned: {e}"))?;
 
         let total_keys: i64 = conn.query_row(
             "SELECT COUNT(*) FROM api_keys WHERE is_revoked = 0",

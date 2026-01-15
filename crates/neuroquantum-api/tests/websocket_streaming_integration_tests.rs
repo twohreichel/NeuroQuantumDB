@@ -1,19 +1,20 @@
 //! WebSocket Streaming Integration Tests
 //!
 //! Comprehensive integration tests for WebSocket streaming under load,
-//! covering concurrent streaming, backpressure handling, and PubSub scenarios.
+//! covering concurrent streaming, backpressure handling, and `PubSub` scenarios.
 //!
 //! Status: Addresses AUDIT.md Section 7.2 - Expanded integration tests for WebSocket
+
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
 use neuroquantum_api::websocket::{
     ChannelId, ConnectionConfig, ConnectionManager, PubSubManager, QueryProgress, QueryStreamId,
     QueryStreamStatus, QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
 };
 use neuroquantum_core::storage::{Row, Value};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 
 /// Helper to create mock rows for testing
@@ -24,7 +25,7 @@ fn create_mock_rows(count: usize) -> Vec<Row> {
             fields: {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i as i64));
-                fields.insert("name".to_string(), Value::Text(format!("item_{}", i)));
+                fields.insert("name".to_string(), Value::Text(format!("item_{i}")));
                 fields.insert("value".to_string(), Value::Float(i as f64 * 2.5));
                 fields.insert("active".to_string(), Value::Boolean(i % 2 == 0));
                 fields
@@ -63,7 +64,7 @@ async fn test_concurrent_query_streams() {
             use neuroquantum_api::websocket::types::ConnectionId;
 
             let conn_id = ConnectionId::new();
-            let query = format!("SELECT * FROM table_{}", stream_idx);
+            let query = format!("SELECT * FROM table_{stream_idx}");
             let stream_id = registry_clone.register_stream(conn_id, query.clone()).await;
 
             // Create mock results - varying sizes per stream
@@ -90,7 +91,7 @@ async fn test_concurrent_query_streams() {
                 })
                 .await;
 
-            assert!(result.is_ok(), "Stream {} should complete", stream_idx);
+            assert!(result.is_ok(), "Stream {stream_idx} should complete");
             assert!(batch_count > 0, "Should have received batches");
             assert!(
                 row_count_received > 0,
@@ -229,7 +230,7 @@ async fn test_streaming_registry_cleanup_expired() {
     for i in 0..5 {
         let conn_id = ConnectionId::new();
         registry
-            .register_stream(conn_id, format!("SELECT {}", i))
+            .register_stream(conn_id, format!("SELECT {i}"))
             .await;
     }
 
@@ -297,10 +298,7 @@ async fn test_streaming_large_batch_throughput() {
     assert!(result.is_ok(), "Large stream should complete");
     assert_eq!(total_rows, 5000, "Should receive all rows");
     assert_eq!(total_batches, 10, "Should have 10 batches of 500");
-    println!(
-        "✅ Large batch throughput test passed! Streamed 5000 rows in {:?}",
-        elapsed
-    );
+    println!("✅ Large batch throughput test passed! Streamed 5000 rows in {elapsed:?}");
 }
 
 // ==================== PubSub Integration Tests ====================

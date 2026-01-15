@@ -4,6 +4,7 @@
 //! and execution of QSQL queries with neuromorphic and quantum extensions.
 
 use std::fmt;
+
 use thiserror::Error;
 
 /// Main error type for QSQL operations
@@ -62,47 +63,47 @@ pub enum QSQLError {
 impl Clone for QSQLError {
     fn clone(&self) -> Self {
         match self {
-            | QSQLError::ParseError { message, position } => QSQLError::ParseError {
+            | Self::ParseError { message, position } => Self::ParseError {
                 message: message.clone(),
                 position: *position,
             },
-            | QSQLError::SemanticError { message } => QSQLError::SemanticError {
+            | Self::SemanticError { message } => Self::SemanticError {
                 message: message.clone(),
             },
-            | QSQLError::OptimizationError { message } => QSQLError::OptimizationError {
+            | Self::OptimizationError { message } => Self::OptimizationError {
                 message: message.clone(),
             },
-            | QSQLError::ExecutionError { message } => QSQLError::ExecutionError {
+            | Self::ExecutionError { message } => Self::ExecutionError {
                 message: message.clone(),
             },
-            | QSQLError::NeuromorphicError { message } => QSQLError::NeuromorphicError {
+            | Self::NeuromorphicError { message } => Self::NeuromorphicError {
                 message: message.clone(),
             },
-            | QSQLError::QuantumError { message } => QSQLError::QuantumError {
+            | Self::QuantumError { message } => Self::QuantumError {
                 message: message.clone(),
             },
-            | QSQLError::NLPError { message } => QSQLError::NLPError {
+            | Self::NLPError { message } => Self::NLPError {
                 message: message.clone(),
             },
-            | QSQLError::TypeError { message } => QSQLError::TypeError {
+            | Self::TypeError { message } => Self::TypeError {
                 message: message.clone(),
             },
-            | QSQLError::RuntimeError { message } => QSQLError::RuntimeError {
+            | Self::RuntimeError { message } => Self::RuntimeError {
                 message: message.clone(),
             },
-            | QSQLError::ConfigError { message } => QSQLError::ConfigError {
+            | Self::ConfigError { message } => Self::ConfigError {
                 message: message.clone(),
             },
-            | QSQLError::MemoryError { message } => QSQLError::MemoryError {
+            | Self::MemoryError { message } => Self::MemoryError {
                 message: message.clone(),
             },
-            | QSQLError::IOError { source } => QSQLError::IOError {
-                source: std::io::Error::new(source.kind(), format!("{}", source)),
+            | Self::IOError { source } => Self::IOError {
+                source: std::io::Error::new(source.kind(), format!("{source}")),
             },
-            | QSQLError::SerializationError { source } => QSQLError::SerializationError {
-                source: serde_json::Error::io(std::io::Error::other(format!("{}", source))),
+            | Self::SerializationError { source } => Self::SerializationError {
+                source: serde_json::Error::io(std::io::Error::other(format!("{source}"))),
             },
-            | QSQLError::PreparedStatementError { message } => QSQLError::PreparedStatementError {
+            | Self::PreparedStatementError { message } => Self::PreparedStatementError {
                 message: message.clone(),
             },
         }
@@ -273,7 +274,8 @@ pub struct ErrorContext {
 }
 
 impl ErrorContext {
-    pub fn new(query: String, operation: String) -> Self {
+    #[must_use]
+    pub const fn new(query: String, operation: String) -> Self {
         Self {
             query,
             position: None,
@@ -283,6 +285,7 @@ impl ErrorContext {
         }
     }
 
+    #[must_use]
     pub fn with_position(mut self, position: usize) -> Self {
         self.position = Some(position);
 
@@ -313,9 +316,9 @@ impl fmt::Display for ErrorContext {
         write!(f, "Error in {}", self.operation)?;
 
         if let (Some(line), Some(column)) = (self.line, self.column) {
-            write!(f, " at line {}, column {}", line, column)?;
+            write!(f, " at line {line}, column {column}")?;
         } else if let Some(position) = self.position {
-            write!(f, " at position {}", position)?;
+            write!(f, " at position {position}")?;
         }
 
         if !self.query.is_empty() {
@@ -345,10 +348,10 @@ where
                     if let Some(ctx_pos) = context.position {
                         *position = ctx_pos;
                     }
-                    *message = format!("{} ({})", message, context);
+                    *message = format!("{message} ({context})");
                 },
                 | QSQLError::SemanticError { message } => {
-                    *message = format!("{} ({})", message, context);
+                    *message = format!("{message} ({context})");
                 },
                 | _ => {},
             }
@@ -361,16 +364,16 @@ where
             let mut error = e.into();
             match &mut error {
                 | QSQLError::ParseError { message, .. } => {
-                    *message = format!("{} during {}", message, operation);
+                    *message = format!("{message} during {operation}");
                 },
                 | QSQLError::SemanticError { message } => {
-                    *message = format!("{} during {}", message, operation);
+                    *message = format!("{message} during {operation}");
                 },
                 | QSQLError::OptimizationError { message } => {
-                    *message = format!("{} during {}", message, operation);
+                    *message = format!("{message} during {operation}");
                 },
                 | QSQLError::ExecutionError { message } => {
-                    *message = format!("{} during {}", message, operation);
+                    *message = format!("{message} during {operation}");
                 },
                 | _ => {},
             }
@@ -383,19 +386,19 @@ where
 impl From<ParseError> for QSQLError {
     fn from(err: ParseError) -> Self {
         match err {
-            | ParseError::UnexpectedToken { token, position } => QSQLError::ParseError {
-                message: format!("Unexpected token '{}'", token),
+            | ParseError::UnexpectedToken { token, position } => Self::ParseError {
+                message: format!("Unexpected token '{token}'"),
                 position,
             },
             | ParseError::ExpectedToken {
                 expected,
                 found,
                 position,
-            } => QSQLError::ParseError {
-                message: format!("Expected '{}' but found '{}'", expected, found),
+            } => Self::ParseError {
+                message: format!("Expected '{expected}' but found '{found}'"),
                 position,
             },
-            | _ => QSQLError::ParseError {
+            | _ => Self::ParseError {
                 message: err.to_string(),
                 position: 0,
             },
@@ -405,7 +408,7 @@ impl From<ParseError> for QSQLError {
 
 impl From<NeuromorphicError> for QSQLError {
     fn from(err: NeuromorphicError) -> Self {
-        QSQLError::NeuromorphicError {
+        Self::NeuromorphicError {
             message: err.to_string(),
         }
     }
@@ -413,7 +416,7 @@ impl From<NeuromorphicError> for QSQLError {
 
 impl From<QuantumError> for QSQLError {
     fn from(err: QuantumError) -> Self {
-        QSQLError::QuantumError {
+        Self::QuantumError {
             message: err.to_string(),
         }
     }
@@ -421,7 +424,7 @@ impl From<QuantumError> for QSQLError {
 
 impl From<NLPError> for QSQLError {
     fn from(err: NLPError) -> Self {
-        QSQLError::NLPError {
+        Self::NLPError {
             message: err.to_string(),
         }
     }
@@ -429,7 +432,7 @@ impl From<NLPError> for QSQLError {
 
 impl From<OptimizationError> for QSQLError {
     fn from(err: OptimizationError) -> Self {
-        QSQLError::OptimizationError {
+        Self::OptimizationError {
             message: err.to_string(),
         }
     }

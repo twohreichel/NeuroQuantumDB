@@ -5,10 +5,11 @@
 //! - Aggregate functions: `COUNT()`, `SUM()`, `AVG()`
 //! - Logical operators: `AND`, `OR`
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 
 #[tokio::main]
 async fn main() {
@@ -83,7 +84,7 @@ async fn main() {
             row.fields
                 .insert("id".to_string(), Value::Integer((i + 1) as i64));
             row.fields
-                .insert("category".to_string(), Value::Text(category.to_string()));
+                .insert("category".to_string(), Value::Text((*category).to_string()));
             row.fields
                 .insert("amount".to_string(), Value::Float(*amount));
             storage_guard.insert_row("orders", row).await.unwrap();
@@ -191,7 +192,7 @@ async fn run_test(
     description: &str,
     expected_rows: usize,
 ) {
-    print!("Test: HAVING {} ... ", description);
+    print!("Test: HAVING {description} ... ");
 
     match parser.parse(sql) {
         | Ok(statement) => match executor.execute_statement(&statement).await {
@@ -205,18 +206,18 @@ async fn run_test(
                         result.rows.len()
                     );
                     for row in &result.rows {
-                        println!("    Row: {:?}", row);
+                        println!("    Row: {row:?}");
                     }
                     std::process::exit(1);
                 }
             },
             | Err(e) => {
-                println!("✗ EXECUTION ERROR: {:?}", e);
+                println!("✗ EXECUTION ERROR: {e:?}");
                 std::process::exit(1);
             },
         },
         | Err(e) => {
-            println!("✗ PARSE ERROR: {:?}", e);
+            println!("✗ PARSE ERROR: {e:?}");
             std::process::exit(1);
         },
     }

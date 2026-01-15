@@ -1,12 +1,13 @@
-//! DNA-based compression system for NeuroQuantumDB
+//! DNA-based compression system for `NeuroQuantumDB`
 //!
 //! This module implements a biologically-inspired compression algorithm using quaternary encoding
 //! (4 DNA bases: A, T, G, C) with Reed-Solomon error correction and SIMD optimizations.
 
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info, instrument, warn};
 
@@ -43,7 +44,7 @@ pub enum DNABase {
 }
 
 impl DNABase {
-    /// Create DNABase from 2-bit value
+    /// Create `DNABase` from 2-bit value
     pub fn from_bits(bits: u8) -> Result<Self, DNAError> {
         match bits & 0b11 {
             | 0b00 => Ok(Self::Adenine),
@@ -55,12 +56,14 @@ impl DNABase {
     }
 
     /// Get the 2-bit representation of this base
-    pub fn to_bits(self) -> u8 {
+    #[must_use]
+    pub const fn to_bits(self) -> u8 {
         self as u8
     }
 
     /// Get the ASCII character representation
-    pub fn to_char(self) -> char {
+    #[must_use]
+    pub const fn to_char(self) -> char {
         match self {
             | Self::Adenine => 'A',
             | Self::Thymine => 'T',
@@ -69,8 +72,8 @@ impl DNABase {
         }
     }
 
-    /// Create DNABase from ASCII character
-    pub fn from_char(c: char) -> Result<Self, DNAError> {
+    /// Create `DNABase` from ASCII character
+    pub const fn from_char(c: char) -> Result<Self, DNAError> {
         match c.to_ascii_uppercase() {
             | 'A' => Ok(Self::Adenine),
             | 'T' => Ok(Self::Thymine),
@@ -233,11 +236,13 @@ pub struct QuantumDNACompressor {
 
 impl QuantumDNACompressor {
     /// Create a new DNA compressor with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(DNACompressionConfig::default())
     }
 
     /// Create a new DNA compressor with custom configuration
+    #[must_use]
     pub fn with_config(config: DNACompressionConfig) -> Self {
         let metrics = Arc::new(std::sync::Mutex::new(CompressionMetrics {
             compression_time_us: 0,
@@ -250,7 +255,7 @@ impl QuantumDNACompressor {
     }
 
     /// Update configuration
-    pub fn update_config(&mut self, config: DNACompressionConfig) {
+    pub const fn update_config(&mut self, config: DNACompressionConfig) {
         self.config = config;
     }
 }

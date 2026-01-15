@@ -1,6 +1,6 @@
-//! # NeuroQuantumDB Cluster Module
+//! # `NeuroQuantumDB` Cluster Module
 //!
-//! This crate provides distributed cluster management for NeuroQuantumDB,
+//! This crate provides distributed cluster management for `NeuroQuantumDB`,
 //! enabling horizontal scaling through multi-node deployments.
 //!
 //! ## Architecture Overview

@@ -17,11 +17,12 @@
 //! cargo run --example query_streaming_demo
 //! ```
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use neuroquantum_api::websocket::{
     QueryStreamer, StreamingConfig, StreamingMessage, StreamingRegistry,
 };
-use std::sync::Arc;
-use std::time::Duration;
 use tracing::Level;
 
 #[tokio::main]
@@ -80,7 +81,7 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await;
 
-    println!("🔍 Stream ID: {}", stream_id);
+    println!("🔍 Stream ID: {stream_id}");
 
     // Create mock results
     let results = streamer.create_mock_results(150);
@@ -93,8 +94,8 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
                 estimated_rows,
                 ..
             } => {
-                println!("▶️  Query started: {}", query);
-                println!("   Estimated rows: {:?}", estimated_rows);
+                println!("▶️  Query started: {query}");
+                println!("   Estimated rows: {estimated_rows:?}");
             },
             | StreamingMessage::Batch {
                 batch_number,
@@ -122,10 +123,7 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
                 execution_time_ms,
                 ..
             } => {
-                println!(
-                    "✅ Completed: {} rows in {} ms",
-                    total_rows, execution_time_ms
-                );
+                println!("✅ Completed: {total_rows} rows in {execution_time_ms} ms");
             },
             | _ => {},
         }
@@ -142,7 +140,7 @@ async fn demo_basic_streaming() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await?;
 
-    println!("   Total messages: {}\n", message_count);
+    println!("   Total messages: {message_count}\n");
 
     registry.remove_stream(stream_id).await;
 
@@ -195,7 +193,7 @@ async fn demo_progress_updates() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await?;
 
-    println!("   Progress updates: {}\n", progress_count);
+    println!("   Progress updates: {progress_count}\n");
 
     registry.remove_stream(stream_id).await;
 
@@ -226,7 +224,7 @@ async fn demo_query_cancellation() -> Result<(), Box<dyn std::error::Error>> {
 
     let send_fn = move |msg: StreamingMessage| {
         if let StreamingMessage::Batch { batch_number, .. } = &msg {
-            println!("📦 Batch #{}", batch_number);
+            println!("📦 Batch #{batch_number}");
 
             if *batch_number >= 2 {
                 println!("\n⚠️  Cancelling query...");
@@ -246,8 +244,8 @@ async fn demo_query_cancellation() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await
     {
-        | Ok(total) => println!("✅ Processed {} rows before cancellation\n", total),
-        | Err(e) => println!("❌ Query cancelled: {}\n", e),
+        | Ok(total) => println!("✅ Processed {total} rows before cancellation\n"),
+        | Err(e) => println!("❌ Query cancelled: {e}\n"),
     }
 
     let stats = registry.get_stream_stats(stream_id).await;
@@ -285,10 +283,10 @@ async fn demo_concurrent_streams() -> Result<(), Box<dyn std::error::Error>> {
 
         let handle = tokio::spawn(async move {
             let conn_id = neuroquantum_api::websocket::ConnectionId::new();
-            let query = format!("SELECT * FROM table_{}", i);
+            let query = format!("SELECT * FROM table_{i}");
             let stream_id = registry_clone.register_stream(conn_id, query.clone()).await;
 
-            println!("🔍 Stream {}: Started (ID: {})", i, stream_id);
+            println!("🔍 Stream {i}: Started (ID: {stream_id})");
 
             let results = streamer_clone.create_mock_results(100 * i);
 
@@ -300,8 +298,7 @@ async fn demo_concurrent_streams() -> Result<(), Box<dyn std::error::Error>> {
                 } = msg
                 {
                     println!(
-                        "✅ Stream {}: Completed ({} rows in {} ms)",
-                        i, total_rows, execution_time_ms
+                        "✅ Stream {i}: Completed ({total_rows} rows in {execution_time_ms} ms)"
                     );
                 }
                 Ok(())
@@ -333,7 +330,7 @@ async fn demo_custom_batch_size() -> Result<(), Box<dyn std::error::Error>> {
     println!("──────────────────────────────\n");
 
     for batch_size in [10, 50, 200] {
-        println!("📦 Testing batch size: {}", batch_size);
+        println!("📦 Testing batch size: {batch_size}");
 
         let config = StreamingConfig {
             batch_size,
@@ -368,7 +365,7 @@ async fn demo_custom_batch_size() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-        println!("   Batches created: {}", batch_count);
+        println!("   Batches created: {batch_count}");
         println!("   Expected: ~{}\n", 250_usize.div_ceil(batch_size));
 
         registry.remove_stream(stream_id).await;

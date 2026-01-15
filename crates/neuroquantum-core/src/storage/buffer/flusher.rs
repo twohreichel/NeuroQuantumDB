@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
 use tracing::{debug, info, warn};
@@ -124,7 +125,7 @@ impl BackgroundFlusher {
                     )
                     .await
                     {
-                        | Ok(_) => flushed += 1,
+                        | Ok(()) => flushed += 1,
                         | Err(e) => warn!("Failed to flush page {:?}: {}", page_id, e),
                     }
                 }
@@ -177,6 +178,7 @@ impl BackgroundFlusher {
     }
 
     /// Check if flusher is running
+    #[must_use]
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
     }
@@ -184,10 +186,11 @@ impl BackgroundFlusher {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::storage::buffer::frame::Frame;
     use crate::storage::pager::{PageType, PagerConfig};
-    use tempfile::TempDir;
 
     #[tokio::test]
     async fn test_background_flusher_start_stop() {

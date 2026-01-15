@@ -1,4 +1,4 @@
-//! Page Storage Manager for NeuroQuantumDB
+//! Page Storage Manager for `NeuroQuantumDB`
 //!
 //! Provides low-level disk I/O management with:
 //! - 4KB page-based storage
@@ -7,10 +7,11 @@
 //! - Checksum validation
 //! - Async file operations
 
-use anyhow::{anyhow, Context, Result};
-use lru::LruCache;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use anyhow::{anyhow, Context, Result};
+use lru::LruCache;
 use tokio::fs::OpenOptions;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
@@ -240,7 +241,7 @@ impl PageStorageManager {
 
         // Validate checksum if enabled
         if self.config.enable_checksums && !page.verify_checksum() {
-            return Err(anyhow!("Checksum validation failed for page {:?}", page_id));
+            return Err(anyhow!("Checksum validation failed for page {page_id:?}"));
         }
 
         // Add to cache
@@ -345,7 +346,8 @@ impl PageStorageManager {
     }
 
     /// Get storage statistics (synchronous version for backup)
-    pub fn get_stats(&self) -> StorageStats {
+    #[must_use]
+    pub const fn get_stats(&self) -> StorageStats {
         // This is a simplified version that doesn't require async
         // In production, you might want to use a cached version
         StorageStats {
@@ -372,8 +374,9 @@ pub struct StorageStats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_create_page_storage_manager() {
@@ -492,7 +495,7 @@ mod tests {
                 page_ids.push(page_id);
                 let mut page = manager.read_page(page_id).await.unwrap();
 
-                let data = format!("Page {}", i).into_bytes();
+                let data = format!("Page {i}").into_bytes();
                 page.write_data(0, &data).unwrap();
 
                 manager.write_page(&page).await.unwrap();
@@ -512,7 +515,7 @@ mod tests {
 
             for (i, &page_id) in page_ids.iter().enumerate() {
                 let page = manager.read_page(page_id).await.unwrap();
-                let expected = format!("Page {}", i).into_bytes();
+                let expected = format!("Page {i}").into_bytes();
                 let actual = &page.data()[..expected.len()];
                 assert_eq!(actual, expected.as_slice());
             }

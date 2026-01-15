@@ -1,6 +1,6 @@
-//! # NeuroQuantum QSQL Language Implementation
+//! # `NeuroQuantum` QSQL Language Implementation
 //!
-//! This crate provides a brain-inspired query language (QSQL) for NeuroQuantumDB
+//! This crate provides a brain-inspired query language (QSQL) for `NeuroQuantumDB`
 //! that extends SQL with neuromorphic computing capabilities, quantum-inspired
 //! optimizations, and natural language processing.
 //!
@@ -36,25 +36,21 @@ mod tests;
 #[cfg(test)]
 mod proptest_suite;
 
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, instrument, warn};
 
+use anyhow::Result;
 // Import types from modules to avoid duplicates
 use optimizer::{NeuromorphicOptimizer, OptimizerConfig};
-use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
-
-// Internal use
-use query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
-
 // Re-export key types for external use (avoid conflicts)
 pub use parser::QSQLParser as Parser;
-pub use query_plan::ExecutorConfig;
-pub use query_plan::QueryExecutor;
-pub use query_plan::QueryResult;
+use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
+// Internal use
+use query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
+pub use query_plan::{ExecutorConfig, QueryExecutor, QueryResult};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info, instrument, warn};
 
 // Use the QueryPlan from query_plan module (what the executor expects)
 // pub use query_plan::QueryPlan; // Commented out to avoid duplicate definition
@@ -95,7 +91,7 @@ impl<'de> Deserialize<'de> for CachedQueryPlan {
         }
 
         let helper = CachedQueryPlanHelper::deserialize(deserializer)?;
-        Ok(CachedQueryPlan {
+        Ok(Self {
             plan: helper.plan,
             execution_count: helper.execution_count,
             average_duration: helper.average_duration,
@@ -219,7 +215,7 @@ impl QSQLEngine {
     }
 
     /// Check if the engine has a storage engine configured for production use.
-    pub fn has_storage_engine(&self) -> bool {
+    pub const fn has_storage_engine(&self) -> bool {
         self.executor.has_storage_engine()
     }
 
@@ -275,7 +271,7 @@ impl QSQLEngine {
         let ast = self
             .parser
             .parse_query(query)
-            .map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Parse error: {e}"))?;
         self.metrics.average_parse_time = Self::update_average(
             self.metrics.average_parse_time,
             parse_start.elapsed(),
@@ -308,7 +304,7 @@ impl QSQLEngine {
             .executor
             .execute(&plan)
             .await
-            .map_err(|e| anyhow::anyhow!("Execution error: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Execution error: {e}"))?;
         let exec_duration = exec_start.elapsed();
 
         self.metrics.average_execution_time = Self::update_average(
@@ -339,7 +335,7 @@ impl QSQLEngine {
     }
 
     /// Get current performance metrics
-    pub fn metrics(&self) -> &QSQLMetrics {
+    pub const fn metrics(&self) -> &QSQLMetrics {
         &self.metrics
     }
 
@@ -402,14 +398,17 @@ impl QSQLEngine {
     }
 
     /// Get a reference to the index advisor for advanced usage
-    pub fn index_advisor(&self) -> &index_advisor::IndexAdvisor {
+    pub const fn index_advisor(&self) -> &index_advisor::IndexAdvisor {
         &self.index_advisor
     }
 
     // Private helper methods
 
     async fn execute_cached_plan(&mut self, plan: &QueryPlan) -> Result<QueryResult> {
-        self.executor.execute(plan).await.map_err(|e| e.into())
+        self.executor
+            .execute(plan)
+            .await
+            .map_err(std::convert::Into::into)
     }
 
     fn cache_plan(&mut self, query: String, plan: QueryPlan, duration: Duration) {
@@ -424,7 +423,7 @@ impl QSQLEngine {
         self.cache.insert(query, cached);
     }
 
-    fn update_average(current: Duration, new: Duration, count: u64) -> Duration {
+    const fn update_average(current: Duration, new: Duration, count: u64) -> Duration {
         if count == 0 {
             new
         } else {
@@ -441,7 +440,7 @@ impl Default for QSQLEngine {
             | Ok(engine) => engine,
             | Err(_) => {
                 // Fallback to a minimal engine if creation fails
-                QSQLEngine {
+                Self {
                     parser: ParserQSQLParser::default(),
                     optimizer: NeuromorphicOptimizer::default(),
                     executor: QueryExecutor::default(),
@@ -484,6 +483,7 @@ impl QSQLConfig {
     /// Create a testing configuration that uses mock/simulated storage
     /// instead of requiring a real storage engine.
     #[cfg(test)]
+    #[must_use]
     pub fn testing() -> Self {
         Self {
             parser_config: ParserConfig::default(),

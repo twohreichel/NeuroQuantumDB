@@ -13,12 +13,12 @@
 //!
 //! ### 2. AWS Braket (`BraketGroverSolver`)
 //! Grover's algorithm on AWS Braket-supported devices.
-//! - Supports IonQ, Rigetti, and OQC devices
+//! - Supports `IonQ`, Rigetti, and OQC devices
 //! - AWS credentials integration
 //! - Automatic fallback to local simulation
 //!
-//! ### 3. IonQ (`IonQGroverSolver`)
-//! Direct IonQ API integration for trapped-ion devices.
+//! ### 3. `IonQ` (`IonQGroverSolver`)
+//! Direct `IonQ` API integration for trapped-ion devices.
 //! - Native support for Grover's search circuits
 //! - High-fidelity trapped-ion execution
 //!
@@ -50,16 +50,17 @@
 //! let result = solver.search(&oracle).await?;
 //! ```
 
-use crate::error::{CoreError, CoreResult};
+use std::time::Instant;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 use tracing::{debug, info, warn};
 
 use super::grover_quantum::{
     GroverQuantumBackend, QuantumGroverConfig, QuantumGroverResult, QuantumGroverSolver,
     QuantumOracle,
 };
+use crate::error::{CoreError, CoreResult};
 
 // =============================================================================
 // Grover Hardware Backend Trait
@@ -106,13 +107,13 @@ pub trait GroverHardwareBackend: Send + Sync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IBMGroverConfig {
     /// IBM Quantum API token
-    /// If None, will attempt to read from IBM_QUANTUM_API_KEY environment variable
+    /// If None, will attempt to read from `IBM_QUANTUM_API_KEY` environment variable
     pub api_token: Option<String>,
 
     /// IBM Quantum API endpoint URL
     pub api_endpoint: String,
 
-    /// Backend name (e.g., "ibm_brisbane", "ibm_kyoto", "ibmq_qasm_simulator")
+    /// Backend name (e.g., "`ibm_brisbane`", "`ibm_kyoto`", "`ibmq_qasm_simulator`")
     pub backend_name: String,
 
     /// Number of shots for measurement
@@ -160,11 +161,13 @@ pub struct IBMGroverSolver {
 
 impl IBMGroverSolver {
     /// Create a new IBM Quantum Grover solver with the given configuration
-    pub fn new(config: IBMGroverConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: IBMGroverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IBMGroverConfig {
             api_token: std::env::var("IBM_QUANTUM_API_KEY").ok(),
@@ -290,7 +293,7 @@ impl GroverHardwareBackend for IBMGroverSolver {
         self.config.max_qubits.unwrap_or(127)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "IBM Quantum Grover"
     }
 
@@ -309,7 +312,7 @@ pub struct BraketGroverConfig {
     /// AWS region
     pub region: String,
 
-    /// Device ARN (e.g., "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1")
+    /// Device ARN (e.g., "`arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1`")
     pub device_arn: String,
 
     /// Number of shots for measurement
@@ -349,18 +352,20 @@ impl Default for BraketGroverConfig {
 /// AWS Braket Grover Solver
 ///
 /// This solver executes Grover's algorithm on AWS Braket-supported quantum devices
-/// including IonQ, Rigetti, and OQC processors.
+/// including `IonQ`, Rigetti, and OQC processors.
 pub struct BraketGroverSolver {
     config: BraketGroverConfig,
 }
 
 impl BraketGroverSolver {
     /// Create a new AWS Braket Grover solver with the given configuration
-    pub fn new(config: BraketGroverConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: BraketGroverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use]
     pub fn from_env() -> Self {
         let config = BraketGroverConfig {
             region: std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
@@ -381,7 +386,7 @@ impl BraketGroverSolver {
             || std::env::var("AWS_PROFILE").is_ok()
             || std::path::Path::new(
                 &std::env::var("HOME")
-                    .map(|h| format!("{}/.aws/credentials", h))
+                    .map(|h| format!("{h}/.aws/credentials"))
                     .unwrap_or_default(),
             )
             .exists()
@@ -499,7 +504,7 @@ impl GroverHardwareBackend for BraketGroverSolver {
         self.config.max_qubits
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "AWS Braket Grover"
     }
 
@@ -516,14 +521,14 @@ impl GroverHardwareBackend for BraketGroverSolver {
 // IonQ Direct Configuration and Solver
 // =============================================================================
 
-/// Configuration for IonQ Grover solver
+/// Configuration for `IonQ` Grover solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IonQGroverConfig {
-    /// IonQ API key
-    /// If None, will attempt to read from IONQ_API_KEY environment variable
+    /// `IonQ` API key
+    /// If None, will attempt to read from `IONQ_API_KEY` environment variable
     pub api_key: Option<String>,
 
-    /// IonQ API endpoint URL
+    /// `IonQ` API endpoint URL
     pub api_endpoint: String,
 
     /// Target device (e.g., "qpu.harmony", "qpu.aria-1", "simulator")
@@ -556,21 +561,23 @@ impl Default for IonQGroverConfig {
     }
 }
 
-/// IonQ Grover Solver
+/// `IonQ` Grover Solver
 ///
-/// This solver executes Grover's algorithm directly on IonQ trapped-ion devices
-/// using the IonQ Cloud API.
+/// This solver executes Grover's algorithm directly on `IonQ` trapped-ion devices
+/// using the `IonQ` Cloud API.
 pub struct IonQGroverSolver {
     config: IonQGroverConfig,
 }
 
 impl IonQGroverSolver {
-    /// Create a new IonQ Grover solver with the given configuration
-    pub fn new(config: IonQGroverConfig) -> Self {
+    /// Create a new `IonQ` Grover solver with the given configuration
+    #[must_use]
+    pub const fn new(config: IonQGroverConfig) -> Self {
         Self { config }
     }
 
     /// Create a solver using environment variables for configuration
+    #[must_use]
     pub fn from_env() -> Self {
         let config = IonQGroverConfig {
             api_key: std::env::var("IONQ_API_KEY").ok(),
@@ -588,7 +595,7 @@ impl IonQGroverSolver {
             .or_else(|| std::env::var("IONQ_API_KEY").ok())
     }
 
-    /// Submit Grover circuit to IonQ API (placeholder for actual HTTP client)
+    /// Submit Grover circuit to `IonQ` API (placeholder for actual HTTP client)
     async fn submit_to_ionq(
         &self,
         _oracle: &QuantumOracle,
@@ -626,7 +633,7 @@ impl IonQGroverSolver {
         )))
     }
 
-    /// Simulate IonQ response using local solver (fallback)
+    /// Simulate `IonQ` response using local solver (fallback)
     fn simulate_ionq_response(&self, oracle: &QuantumOracle) -> CoreResult<QuantumGroverResult> {
         warn!(
             "IonQ API not available, using local simulation for {} qubits",
@@ -689,7 +696,7 @@ impl GroverHardwareBackend for IonQGroverSolver {
         self.config.max_qubits
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "IonQ Trapped Ion"
     }
 
@@ -739,7 +746,8 @@ pub struct SimulatorGroverSolver {
 
 impl SimulatorGroverSolver {
     /// Create a new local simulator solver with the given configuration
-    pub fn new(config: SimulatorGroverConfig) -> Self {
+    #[must_use]
+    pub const fn new(config: SimulatorGroverConfig) -> Self {
         Self { config }
     }
 }
@@ -793,7 +801,7 @@ impl GroverHardwareBackend for SimulatorGroverSolver {
         self.config.max_qubits
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Local State Vector Simulator"
     }
 
@@ -815,7 +823,7 @@ pub struct UnifiedGroverConfig {
     /// AWS Braket configuration (optional)
     pub braket: Option<BraketGroverConfig>,
 
-    /// IonQ configuration (optional)
+    /// `IonQ` configuration (optional)
     pub ionq: Option<IonQGroverConfig>,
 
     /// Local simulator configuration
@@ -828,6 +836,7 @@ pub struct UnifiedGroverConfig {
 
 impl UnifiedGroverConfig {
     /// Create configuration from environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         Self {
             ibm: if std::env::var("IBM_QUANTUM_API_KEY").is_ok() {
@@ -898,6 +907,7 @@ impl UnifiedGroverSolver {
     }
 
     /// Create a solver from environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         Self::new(UnifiedGroverConfig::from_env())
     }
@@ -939,6 +949,7 @@ impl UnifiedGroverSolver {
     }
 
     /// List all available backends
+    #[must_use]
     pub fn available_backends(&self) -> Vec<String> {
         let mut backends = Vec::new();
 
@@ -1011,8 +1022,7 @@ impl UnifiedGroverSolver {
             },
             | "simulator" => self.simulator_solver.search(oracle, num_shots).await,
             | _ => Err(CoreError::invalid_operation(&format!(
-                "Unknown backend: {}. Available: ibm, ionq, braket, simulator",
-                backend_name
+                "Unknown backend: {backend_name}. Available: ibm, ionq, braket, simulator"
             ))),
         }
     }

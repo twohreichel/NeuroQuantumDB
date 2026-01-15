@@ -4,8 +4,6 @@
 //! standard algorithms and measuring performance across different data patterns.
 
 #[cfg(feature = "benchmarks")]
-use crate::dna::{DNACompressor, QuantumDNACompressor};
-#[cfg(feature = "benchmarks")]
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 #[cfg(feature = "benchmarks")]
 use rand::prelude::*;
@@ -13,12 +11,19 @@ use rand::prelude::*;
 // Only compile benchmarks when the feature is enabled
 #[cfg(feature = "benchmarks")]
 pub use self::benchmark_functions::*;
+#[cfg(feature = "benchmarks")]
+use crate::dna::{DNACompressor, QuantumDNACompressor};
 
 #[cfg(feature = "benchmarks")]
 mod benchmark_functions {
-    use super::*;
-    use futures::future::join_all;
     use std::hint::black_box;
+
+    use futures::future::join_all;
+
+    use super::{
+        criterion_group, criterion_main, BenchmarkId, Criterion, DNACompressor,
+        QuantumDNACompressor, Rng, SeedableRng, StdRng, Throughput,
+    };
 
     /// Benchmark data generator for different biological patterns
     pub struct BenchmarkDataGenerator {
@@ -26,6 +31,7 @@ mod benchmark_functions {
     }
 
     impl BenchmarkDataGenerator {
+        #[must_use]
         pub fn new(seed: u64) -> Self {
             Self {
                 rng: StdRng::seed_from_u64(seed),
@@ -249,9 +255,10 @@ mod benchmark_functions {
             // Standard compression algorithms for comparison
             #[cfg(feature = "benchmarks")]
             {
+                use std::io::Write;
+
                 use flate2::write::GzEncoder;
                 use flate2::Compression;
-                use std::io::Write;
 
                 // GZIP compression
                 group.bench_with_input(BenchmarkId::new("gzip", name), &data, |b, data| {
@@ -424,7 +431,7 @@ mod benchmark_functions {
         // Multi-threaded with different thread counts
         for threads in [2, 4, 8] {
             group.bench_with_input(
-                BenchmarkId::new("multi_thread", format!("{}threads", threads)),
+                BenchmarkId::new("multi_thread", format!("{threads}threads")),
                 &data,
                 |b, data| {
                     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -447,7 +454,7 @@ mod benchmark_functions {
             .collect();
 
         group.bench_with_input(
-            BenchmarkId::new("parallel_batch", format!("{}batches", batch_count)),
+            BenchmarkId::new("parallel_batch", format!("{batch_count}batches")),
             &batch_data,
             |b, batches| {
                 let rt = tokio::runtime::Builder::new_multi_thread()

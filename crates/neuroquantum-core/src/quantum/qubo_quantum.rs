@@ -6,7 +6,7 @@
 //! ## Quantum Implementation Approaches
 //!
 //! ### 1. Variational Quantum Eigensolver (VQE)
-//! For gate-based quantum computers (IBM Q, Google, IonQ). Uses parameterized
+//! For gate-based quantum computers (IBM Q, Google, `IonQ`). Uses parameterized
 //! quantum circuits with classical optimization to find ground states.
 //!
 //! ### 2. Quantum Approximate Optimization Algorithm (QAOA)
@@ -31,17 +31,19 @@
 //! ## QUBO to Ising Mapping
 //!
 //! QUBO: minimize f(x) = x^T Q x where x ∈ {0,1}^n
-//! Ising: minimize H = Σ_ij J_ij s_i s_j + Σ_i h_i s_i where s ∈ {-1,+1}^n
+//! Ising: minimize H = `Σ_ij` `J_ij` `s_i` `s_j` + `Σ_i` `h_i` `s_i` where s ∈ {-1,+1}^n
 //!
-//! Mapping: x_i = (1 + s_i) / 2
+//! Mapping: `x_i` = (1 + `s_i`) / 2
 
-use crate::error::{CoreError, CoreResult};
+use std::f64::consts::PI;
+
 use nalgebra::{DMatrix, DVector};
 use num_complex::Complex64;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::f64::consts::PI;
 use tracing::{debug, info, instrument, warn};
+
+use crate::error::{CoreError, CoreResult};
 
 type Complex = Complex64;
 
@@ -64,9 +66,9 @@ pub enum QuboQuantumBackend {
 /// Ising model representation for quantum hardware
 #[derive(Debug, Clone)]
 pub struct IsingModel {
-    /// Coupling strengths J_ij between spins
+    /// Coupling strengths `J_ij` between spins
     pub couplings: DMatrix<f64>,
-    /// Local field strengths h_i
+    /// Local field strengths `h_i`
     pub local_fields: DVector<f64>,
     /// Number of spins
     pub num_spins: usize,
@@ -78,9 +80,10 @@ impl IsingModel {
     /// Convert QUBO Q matrix to Ising model
     ///
     /// QUBO: min x^T Q x, x ∈ {0,1}
-    /// Ising: min Σ J_ij s_i s_j + Σ h_i s_i, s ∈ {-1,+1}
+    /// Ising: min Σ `J_ij` `s_i` `s_j` + Σ `h_i` `s_i`, s ∈ {-1,+1}
     ///
-    /// Using x_i = (1 + s_i) / 2
+    /// Using `x_i` = (1 + `s_i`) / 2
+    #[must_use]
     pub fn from_qubo(q_matrix: &DMatrix<f64>) -> Self {
         let n = q_matrix.nrows();
         let mut couplings = DMatrix::zeros(n, n);
@@ -113,13 +116,14 @@ impl IsingModel {
     }
 
     /// Evaluate Ising energy for a spin configuration
+    #[must_use]
     pub fn evaluate(&self, spins: &[i8]) -> f64 {
         let mut energy = self.offset;
 
         for i in 0..self.num_spins {
-            energy += self.local_fields[i] * spins[i] as f64;
+            energy += self.local_fields[i] * f64::from(spins[i]);
             for j in (i + 1)..self.num_spins {
-                energy += self.couplings[(i, j)] * spins[i] as f64 * spins[j] as f64;
+                energy += self.couplings[(i, j)] * f64::from(spins[i]) * f64::from(spins[j]);
             }
         }
 
@@ -127,8 +131,9 @@ impl IsingModel {
     }
 
     /// Convert Ising spins back to QUBO binary variables
+    #[must_use]
     pub fn spins_to_binary(&self, spins: &[i8]) -> Vec<u8> {
-        spins.iter().map(|&s| if s == 1 { 1 } else { 0 }).collect()
+        spins.iter().map(|&s| u8::from(s == 1)).collect()
     }
 }
 
@@ -262,6 +267,7 @@ pub struct QuantumQuboSolver {
 
 impl QuantumQuboSolver {
     /// Create a new quantum QUBO solver with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: QuantumQuboConfig::default(),
@@ -269,11 +275,12 @@ impl QuantumQuboSolver {
     }
 
     /// Create a new quantum QUBO solver with custom configuration
-    pub fn with_config(config: QuantumQuboConfig) -> Self {
+    #[must_use]
+    pub const fn with_config(config: QuantumQuboConfig) -> Self {
         Self { config }
     }
 
-    /// Solve a QUBO problem from a QUBOProblem struct (legacy API)
+    /// Solve a QUBO problem from a `QUBOProblem` struct (legacy API)
     ///
     /// This method provides backwards compatibility with the old API.
     pub fn solve_problem(&self, problem: &QUBOProblem) -> CoreResult<QuantumQuboSolution> {
@@ -428,7 +435,7 @@ impl QuantumQuboSolver {
         }
 
         // Sample from the final state
-        let probs: Vec<f64> = state.iter().map(|c| c.norm_sqr()).collect();
+        let probs: Vec<f64> = state.iter().map(nalgebra::Complex::norm_sqr).collect();
         let mut cumulative = 0.0;
         let r: f64 = rng.gen();
 
@@ -580,7 +587,7 @@ impl QuantumQuboSolver {
         }
 
         // Sample from final state
-        let probs: Vec<f64> = state.iter().map(|c| c.norm_sqr()).collect();
+        let probs: Vec<f64> = state.iter().map(nalgebra::Complex::norm_sqr).collect();
         let mut cumulative = 0.0;
         let r: f64 = rng.gen();
 
@@ -607,7 +614,7 @@ impl QuantumQuboSolver {
         Ok((energy, spins))
     }
 
-    /// Apply cost unitary exp(-i * gamma * H_C)
+    /// Apply cost unitary exp(-i * gamma * `H_C`)
     fn apply_cost_unitary(&self, state: &mut DVector<Complex>, ising: &IsingModel, gamma: f64) {
         let n = ising.num_spins;
         let dim = state.len();
@@ -625,7 +632,7 @@ impl QuantumQuboSolver {
         }
     }
 
-    /// Apply mixer unitary exp(-i * beta * H_B) where H_B = Σ X_i
+    /// Apply mixer unitary exp(-i * beta * `H_B`) where `H_B` = Σ `X_i`
     fn apply_mixer_unitary(&self, state: &mut DVector<Complex>, n: usize, beta: f64) {
         for qubit in 0..n {
             self.apply_rx(state, qubit, 2.0 * beta);
@@ -684,14 +691,14 @@ impl QuantumQuboSolver {
 
                     // Intra-slice (classical) energy contribution
                     let mut delta_e_classical =
-                        2.0 * slices[slice_idx][spin_idx] as f64 * ising.local_fields[spin_idx];
+                        2.0 * f64::from(slices[slice_idx][spin_idx]) * ising.local_fields[spin_idx];
 
                     for j in 0..n {
                         if j != spin_idx {
                             delta_e_classical += 2.0
-                                * slices[slice_idx][spin_idx] as f64
+                                * f64::from(slices[slice_idx][spin_idx])
                                 * ising.couplings[(spin_idx, j)]
-                                * slices[slice_idx][j] as f64;
+                                * f64::from(slices[slice_idx][j]);
                         }
                     }
 
@@ -701,9 +708,9 @@ impl QuantumQuboSolver {
 
                     let delta_e_quantum = 2.0
                         * j_perp
-                        * slices[slice_idx][spin_idx] as f64
-                        * (slices[prev_slice][spin_idx] as f64
-                            + slices[next_slice][spin_idx] as f64);
+                        * f64::from(slices[slice_idx][spin_idx])
+                        * (f64::from(slices[prev_slice][spin_idx])
+                            + f64::from(slices[next_slice][spin_idx]));
 
                     let delta_e_total = beta_trotter * delta_e_classical + delta_e_quantum;
 
@@ -866,7 +873,7 @@ pub struct QUBOProblem {
 /// Create Max-Cut QUBO problem from graph
 ///
 /// Max-Cut partitions graph vertices to maximize cut edge weights.
-/// QUBO formulation: E(x) = Σ w_ij * (x_i - x_j)²
+/// QUBO formulation: E(x) = Σ `w_ij` * (`x_i` - `x_j)²`
 pub fn max_cut_problem(edges: &[(usize, usize, f64)], num_nodes: usize) -> CoreResult<QUBOProblem> {
     if num_nodes == 0 {
         return Err(CoreError::invalid_operation("Empty graph"));
@@ -945,7 +952,7 @@ pub fn graph_coloring_problem(
     Ok(QUBOProblem {
         q_matrix,
         num_vars,
-        name: format!("Graph-Coloring-{}-colors", num_colors),
+        name: format!("Graph-Coloring-{num_colors}-colors"),
     })
 }
 
@@ -1010,7 +1017,7 @@ pub fn tsp_problem(distance_matrix: &DMatrix<f64>) -> CoreResult<QUBOProblem> {
     Ok(QUBOProblem {
         q_matrix,
         num_vars,
-        name: format!("TSP-{}-cities", n),
+        name: format!("TSP-{n}-cities"),
     })
 }
 
@@ -1018,13 +1025,13 @@ pub fn tsp_problem(distance_matrix: &DMatrix<f64>) -> CoreResult<QUBOProblem> {
 // Legacy Type Aliases for Backwards Compatibility
 // =============================================================================
 
-/// Legacy configuration alias (use QuantumQuboConfig instead)
+/// Legacy configuration alias (use `QuantumQuboConfig` instead)
 pub type QUBOConfig = QuantumQuboConfig;
 
-/// Legacy solution alias (use QuantumQuboSolution instead)
+/// Legacy solution alias (use `QuantumQuboSolution` instead)
 pub type QUBOSolution = QuantumQuboSolution;
 
-/// Legacy solver alias (use QuantumQuboSolver instead)
+/// Legacy solver alias (use `QuantumQuboSolver` instead)
 pub type QUBOSolver = QuantumQuboSolver;
 
 /// Trait for quantum hardware backends
@@ -1051,6 +1058,7 @@ pub struct CloudQuantumBackend {
 
 impl CloudQuantumBackend {
     /// Create a new cloud quantum backend
+    #[must_use]
     pub fn new(provider: &str) -> Self {
         Self {
             provider: provider.to_string(),
@@ -1059,6 +1067,7 @@ impl CloudQuantumBackend {
     }
 
     /// Set API key for authentication
+    #[must_use]
     pub fn with_api_key(mut self, api_key: &str) -> Self {
         self.api_key = Some(api_key.to_string());
         self

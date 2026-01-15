@@ -1,18 +1,15 @@
-//! Production Security Layer for NeuroQuantumDB
+//! Production Security Layer for `NeuroQuantumDB`
 //!
 //! Implements quantum-resistant encryption, biometric authentication,
 //! role-based access control, and comprehensive audit logging.
 
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
-};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Nonce};
+use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use ml_kem::{
-    kem::{Decapsulate, Encapsulate},
-    Ciphertext, Encoded, EncodedSizeUser, KemCore, MlKem1024,
-};
+use ml_kem::kem::{Decapsulate, Encapsulate};
+use ml_kem::{Ciphertext, Encoded, EncodedSizeUser, KemCore, MlKem1024};
 use num_complex::Complex;
 use pqcrypto_mldsa::mldsa87;
 use pqcrypto_traits::sign::{PublicKey as SigPublicKey, SecretKey as SigSecretKey, SignedMessage};
@@ -20,12 +17,13 @@ use subtle::ConstantTimeEq;
 
 /// ML-KEM-1024 ciphertext size in bytes (1568 bytes for Security Level 5)
 const MLKEM1024_CIPHERTEXT_SIZE: usize = 1568;
-use rustfft::FftPlanner;
-use serde::{Deserialize, Serialize};
-use sha3::{Digest, Sha3_512};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use rustfft::FftPlanner;
+use serde::{Deserialize, Serialize};
+use sha3::{Digest, Sha3_512};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -67,6 +65,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 /// assert!(constant_time_compare(secret1, secret2));
 /// assert!(!constant_time_compare(secret1, secret3));
 /// ```
+#[must_use]
 pub fn constant_time_compare(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
@@ -89,11 +88,13 @@ pub fn constant_time_compare(a: &[u8], b: &[u8]) -> bool {
 /// assert!(constant_time_compare_str(token1, token2));
 /// assert!(!constant_time_compare_str(token1, token3));
 /// ```
+#[must_use]
 pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
     constant_time_compare(a.as_bytes(), b.as_bytes())
 }
 
 /// Performs constant-time threshold comparison for floating point values.
+///
 /// This is used for similarity scores in biometric authentication.
 /// Returns true if value >= threshold, using a constant-time comparison
 /// to prevent leaking information about how close the value is to the threshold.
@@ -128,6 +129,7 @@ pub fn constant_time_compare_str(a: &str, b: &str) -> bool {
 /// assert!(constant_time_threshold_check(0.90, 0.85));
 /// assert!(!constant_time_threshold_check(0.80, 0.85));
 /// ```
+#[must_use]
 pub fn constant_time_threshold_check(value: f32, threshold: f32) -> bool {
     // Handle NaN explicitly for predictable behavior in security-critical context
     // NaN comparisons always return false for security (fail-safe default)
@@ -316,6 +318,7 @@ impl QuantumKeys {
     }
 
     /// Check if keys need rotation
+    #[must_use]
     pub fn needs_rotation(&self, rotation_interval: u64) -> bool {
         if let Ok(elapsed) = SystemTime::now().duration_since(self.created_at) {
             elapsed.as_secs() > rotation_interval
@@ -408,7 +411,7 @@ impl QuantumCrypto {
 
         // Reconstruct ML-DSA secret key
         let sk = mldsa87::SecretKey::from_bytes(&keys.mldsa_secret)
-            .map_err(|e| SecurityError::SignatureFailed(format!("Invalid secret key: {:?}", e)))?;
+            .map_err(|e| SecurityError::SignatureFailed(format!("Invalid secret key: {e:?}")))?;
 
         // Sign the data
         let signed = mldsa87::sign(data, &sk);
@@ -423,21 +426,21 @@ impl QuantumCrypto {
 
         // Reconstruct ML-DSA public key
         let pk = mldsa87::PublicKey::from_bytes(&keys.mldsa_public).map_err(|e| {
-            SecurityError::SignatureVerificationFailed(format!("Invalid public key: {:?}", e))
+            SecurityError::SignatureVerificationFailed(format!("Invalid public key: {e:?}"))
         })?;
 
         // Reconstruct signed message
         let signed_msg = mldsa87::SignedMessage::from_bytes(signed_data).map_err(|e| {
-            SecurityError::SignatureVerificationFailed(format!("Invalid signature: {:?}", e))
+            SecurityError::SignatureVerificationFailed(format!("Invalid signature: {e:?}"))
         })?;
 
         // Verify and extract original message
         let message = mldsa87::open(&signed_msg, &pk).map_err(|e| {
-            SecurityError::SignatureVerificationFailed(format!("Verification failed: {:?}", e))
+            SecurityError::SignatureVerificationFailed(format!("Verification failed: {e:?}"))
         })?;
 
         debug!("✅ Signature verified successfully");
-        Ok(message.to_vec())
+        Ok(message)
     }
 
     /// Generate quantum-safe shared secret using ML-KEM
@@ -471,7 +474,7 @@ impl QuantumCrypto {
 
         // Encapsulate a shared secret
         let mut rng = rand::thread_rng();
-        let (ct, shared_secret) = ek.encapsulate(&mut rng).map_err(|_| {
+        let (ct, shared_secret) = ek.encapsulate(&mut rng).map_err(|()| {
             SecurityError::KeyExchangeFailed("ML-KEM encapsulation failed".to_string())
         })?;
 
@@ -537,7 +540,7 @@ impl QuantumCrypto {
         })?;
 
         // Decapsulate using the decapsulation key
-        let shared_secret = dk.decapsulate(&ct).map_err(|_| {
+        let shared_secret = dk.decapsulate(&ct).map_err(|()| {
             SecurityError::KeyExchangeFailed(
                 "ML-KEM decapsulation failed - possibly corrupted ciphertext".to_string(),
             )
@@ -582,6 +585,7 @@ pub struct BiometricAuth {
 }
 
 impl BiometricAuth {
+    #[must_use]
     pub fn new(config: BiometricAuthConfig) -> Self {
         Self {
             eeg_templates: Arc::new(RwLock::new(HashMap::new())),
@@ -675,7 +679,7 @@ impl BiometricAuth {
                 user_id, similarity
             );
             Ok(AuthResult::Failed {
-                reason: format!("Biometric match score too low: {:.4}", similarity),
+                reason: format!("Biometric match score too low: {similarity:.4}"),
             })
         }
     }
@@ -728,7 +732,7 @@ impl BiometricAuth {
             let power_spectrum: Vec<f32> = buffer
                 .iter()
                 .take(window_size / 2) // Only need first half (Nyquist)
-                .map(|c| c.norm_sqr())
+                .map(nalgebra::Complex::norm_sqr)
                 .collect();
 
             // Extract standard EEG frequency bands (assuming 256 Hz sampling rate)
@@ -777,7 +781,7 @@ impl BiometricAuth {
             let mut detail = Vec::new();
 
             for i in (0..signal.len() - 1).step_by(2) {
-                let avg = (signal[i] + signal[i + 1]) / 2.0;
+                let avg = f32::midpoint(signal[i], signal[i + 1]);
                 let diff = (signal[i] - signal[i + 1]) / 2.0;
                 approximation.push(avg);
                 detail.push(diff);
@@ -816,7 +820,7 @@ impl BiometricAuth {
         let power_spectrum: Vec<f32> = buffer
             .iter()
             .take(window_size / 2)
-            .map(|c| c.norm_sqr())
+            .map(nalgebra::Complex::norm_sqr)
             .collect();
 
         // Extract band powers (assuming 256 Hz sampling rate)
@@ -892,9 +896,10 @@ pub enum Permission {
 
 impl Role {
     /// Get default permissions for a role
+    #[must_use]
     pub fn default_permissions(&self) -> Vec<Permission> {
         match self {
-            | Role::Admin => vec![
+            | Self::Admin => vec![
                 Permission::ReadData,
                 Permission::WriteData,
                 Permission::DeleteData,
@@ -909,7 +914,7 @@ impl Role {
                 Permission::ViewAuditLogs,
                 Permission::ConfigureSystem,
             ],
-            | Role::Developer => vec![
+            | Self::Developer => vec![
                 Permission::ReadData,
                 Permission::WriteData,
                 Permission::CreateTable,
@@ -918,14 +923,14 @@ impl Role {
                 Permission::UseNeuromorphicLearning,
                 Permission::UseDNACompression,
             ],
-            | Role::DataScientist => vec![
+            | Self::DataScientist => vec![
                 Permission::ReadData,
                 Permission::WriteData,
                 Permission::UseQuantumSearch,
                 Permission::UseNeuromorphicLearning,
             ],
-            | Role::ReadOnly => vec![Permission::ReadData],
-            | Role::Custom(_) => vec![],
+            | Self::ReadOnly => vec![Permission::ReadData],
+            | Self::Custom(_) => vec![],
         }
     }
 }
@@ -989,10 +994,12 @@ impl User {
             .is_ok())
     }
 
+    #[must_use]
     pub fn has_permission(&self, permission: &Permission) -> bool {
         self.permissions.contains(permission)
     }
 
+    #[must_use]
     pub fn is_locked(&self) -> bool {
         if let Some(locked_until) = self.locked_until {
             SystemTime::now() < locked_until
@@ -1008,6 +1015,7 @@ pub struct RBACManager {
 }
 
 impl RBACManager {
+    #[must_use]
     pub fn new(config: AccessControlConfig) -> Self {
         Self {
             users: Arc::new(RwLock::new(HashMap::new())),
@@ -1156,6 +1164,7 @@ pub struct AuditLogger {
 }
 
 impl AuditLogger {
+    #[must_use]
     pub fn new(config: AuditConfig) -> Self {
         Self {
             logs: Arc::new(RwLock::new(Vec::new())),
@@ -1240,7 +1249,7 @@ impl AuditLogger {
     /// Cleanup logs older than retention period
     async fn cleanup_old_logs(&self, logs: &mut Vec<AuditLog>) {
         let retention_duration =
-            std::time::Duration::from_secs(self.config.retention_days as u64 * 86400);
+            std::time::Duration::from_secs(u64::from(self.config.retention_days) * 86400);
 
         let cutoff = SystemTime::now() - retention_duration;
         logs.retain(|log| log.timestamp > cutoff);
@@ -1295,11 +1304,7 @@ impl AuditLogger {
 // Add hex encoding support
 mod hex {
     pub fn encode(bytes: impl AsRef<[u8]>) -> String {
-        bytes
-            .as_ref()
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect()
+        bytes.as_ref().iter().map(|b| format!("{b:02x}")).collect()
     }
 }
 
@@ -1342,6 +1347,7 @@ pub struct Session {
 }
 
 impl Session {
+    #[must_use]
     pub fn new(user_id: String, permissions: Vec<Permission>, timeout_secs: u64) -> Self {
         let now = SystemTime::now();
         Self {
@@ -1354,6 +1360,7 @@ impl Session {
         }
     }
 
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         SystemTime::now() > self.expires_at
     }

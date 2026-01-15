@@ -1,15 +1,17 @@
 //! Comprehensive tests for Backup & Restore system
 
+use std::sync::Arc;
+
+use anyhow::Result;
+use tempfile::TempDir;
+use tokio::sync::RwLock;
+
 use crate::storage::pager::{Page, PageId, PageType};
 use crate::storage::{
     BackupConfig, BackupManager, BackupStorageBackend, BackupStorageType, BackupType, LocalBackend,
     PageStorageManager, PagerConfig, RestoreManager, RestoreOptions, SyncMode, WALConfig,
     WALManager,
 };
-use anyhow::Result;
-use std::sync::Arc;
-use tempfile::TempDir;
-use tokio::sync::RwLock;
 
 /// Helper to create test database
 async fn setup_test_db() -> Result<(
@@ -64,7 +66,7 @@ async fn test_full_backup_creation() -> Result<()> {
         let pager = pager.write().await;
         for i in 1..=10 {
             let mut page = Page::new(PageId(i), PageType::Data);
-            let test_data = format!("Test page {}", i);
+            let test_data = format!("Test page {i}");
             page.write_data(0, test_data.as_bytes())?;
             page.update_checksum();
             pager.write_page(&page).await?;
@@ -107,7 +109,7 @@ async fn test_backup_and_restore() -> Result<()> {
         let pager = pager.write().await;
         for i in 1..=5 {
             let mut page = Page::new(PageId(i), PageType::Data);
-            let test_data = format!("Backup test page {}", i);
+            let test_data = format!("Backup test page {i}");
             page.write_data(0, test_data.as_bytes())?;
             page.update_checksum();
             pager.write_page(&page).await?;

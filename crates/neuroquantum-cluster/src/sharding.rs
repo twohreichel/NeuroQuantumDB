@@ -358,7 +358,7 @@ impl ShardManager {
 
     /// Get the current rebalance configuration.
     #[must_use]
-    pub fn rebalance_config(&self) -> &RebalanceConfig {
+    pub const fn rebalance_config(&self) -> &RebalanceConfig {
         &self.rebalance_config
     }
 
@@ -575,13 +575,12 @@ impl ShardManager {
         // First, check if transfer exists and is pending
         {
             let transfer = state.transfers.get(&transfer_id).ok_or_else(|| {
-                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+                ClusterError::Internal(format!("Transfer {transfer_id} not found"))
             })?;
 
             if transfer.status != TransferStatus::Pending {
                 return Err(ClusterError::Internal(format!(
-                    "Transfer {} is not in pending state",
-                    transfer_id
+                    "Transfer {transfer_id} is not in pending state"
                 )));
             }
         }
@@ -636,7 +635,7 @@ impl ShardManager {
         let transfer = state
             .transfers
             .get_mut(&transfer_id)
-            .ok_or_else(|| ClusterError::Internal(format!("Transfer {} not found", transfer_id)))?;
+            .ok_or_else(|| ClusterError::Internal(format!("Transfer {transfer_id} not found")))?;
 
         transfer.bytes_transferred = bytes_transferred;
         transfer.keys_transferred = keys_transferred;
@@ -651,7 +650,7 @@ impl ShardManager {
         // First, update the transfer and extract needed values
         let (shard_id, target_node) = {
             let transfer = state.transfers.get_mut(&transfer_id).ok_or_else(|| {
-                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+                ClusterError::Internal(format!("Transfer {transfer_id} not found"))
             })?;
 
             transfer.status = TransferStatus::Completed;
@@ -701,7 +700,7 @@ impl ShardManager {
         // Update transfer and get shard_id
         let shard_id = {
             let transfer = state.transfers.get_mut(&transfer_id).ok_or_else(|| {
-                ClusterError::Internal(format!("Transfer {} not found", transfer_id))
+                ClusterError::Internal(format!("Transfer {transfer_id} not found"))
             })?;
 
             transfer.status = TransferStatus::Failed;
@@ -752,16 +751,13 @@ impl ShardManager {
 
         let bytes_transferred: u64 = state.transfers.values().map(|t| t.bytes_transferred).sum();
 
-        let started_at_ms = state
-            .rebalance_started_at
-            .map(|start| {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64
-                    - start.elapsed().as_millis() as u64
-            })
-            .unwrap_or(0);
+        let started_at_ms = state.rebalance_started_at.map_or(0, |start| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64
+                - start.elapsed().as_millis() as u64
+        });
 
         // Calculate throughput and ETA
         let (throughput_bytes_per_sec, eta_seconds) =
@@ -807,7 +803,7 @@ impl ShardManager {
             .transfers
             .get(&transfer_id)
             .cloned()
-            .ok_or_else(|| ClusterError::Internal(format!("Transfer {} not found", transfer_id)))
+            .ok_or_else(|| ClusterError::Internal(format!("Transfer {transfer_id} not found")))
     }
 
     /// Get all pending transfers.

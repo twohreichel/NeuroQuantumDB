@@ -2,9 +2,10 @@
 
 #[cfg(test)]
 mod replication_tests {
-    use super::super::*;
     use std::sync::atomic::{AtomicU16, Ordering};
     use std::sync::Arc;
+
+    use super::super::*;
 
     // Port counter for tests
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(20000);
@@ -13,7 +14,7 @@ mod replication_tests {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
         ClusterConfig {
             node_id,
-            bind_addr: format!("127.0.0.1:{}", port).parse().unwrap(),
+            bind_addr: format!("127.0.0.1:{port}").parse().unwrap(),
             ..Default::default()
         }
     }

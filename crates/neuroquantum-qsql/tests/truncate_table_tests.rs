@@ -7,9 +7,10 @@
 //! - TRUNCATE TABLE RESTART IDENTITY
 //! - TRUNCATE TABLE CONTINUE IDENTITY
 
+use std::sync::Arc;
+
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
-use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper to create a test setup with storage and executor

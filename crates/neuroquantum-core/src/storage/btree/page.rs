@@ -2,11 +2,12 @@
 //!
 //! Handles serialization, deserialization, and disk I/O of B+ Tree pages
 
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, warn};
@@ -42,7 +43,7 @@ impl PageHeader {
     ///
     /// The checksum field is initialized to 0 and should be set via `with_checksum()`
     /// after the data checksum has been calculated.
-    fn new(page_id: PageId, page_type: u8, data_len: u32) -> Self {
+    const fn new(page_id: PageId, page_type: u8, data_len: u32) -> Self {
         Self {
             magic: MAGIC_NUMBER,
             page_type,
@@ -53,19 +54,19 @@ impl PageHeader {
     }
 
     /// Set the checksum for this header (builder pattern).
-    fn with_checksum(mut self, checksum: u32) -> Self {
+    const fn with_checksum(mut self, checksum: u32) -> Self {
         self.checksum = checksum;
         self
     }
 
     /// Validate that this page has a valid magic number.
-    fn is_valid(&self) -> bool {
+    const fn is_valid(&self) -> bool {
         self.magic == MAGIC_NUMBER
     }
 
     /// Get the size of a serialized header in bytes.
     /// Layout: magic(4) + type(1) + id(8) + checksum(4) + len(4) = 21 bytes
-    fn serialized_size() -> usize {
+    const fn serialized_size() -> usize {
         21
     }
 
@@ -151,7 +152,7 @@ impl PageSerializer {
         // Simple CRC32-like checksum
         let mut checksum = 0u32;
         for &byte in data {
-            checksum = checksum.wrapping_add(byte as u32);
+            checksum = checksum.wrapping_add(u32::from(byte));
             checksum = checksum.wrapping_mul(31);
         }
         checksum
@@ -349,7 +350,7 @@ impl PageManager {
         // Read from disk
         let page_path = self.page_path(page_id);
         if !page_path.exists() {
-            return Err(anyhow!("Page {} not found", page_id));
+            return Err(anyhow!("Page {page_id} not found"));
         }
 
         let mut file = File::open(&page_path).await?;
@@ -387,7 +388,7 @@ impl PageManager {
 
     /// Get the file path for a page
     fn page_path(&self, page_id: PageId) -> PathBuf {
-        self.data_dir.join(format!("page_{:010}.dat", page_id))
+        self.data_dir.join(format!("page_{page_id:010}.dat"))
     }
 
     /// Save page manager metadata
@@ -411,8 +412,9 @@ struct PageManagerMetadata {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn test_page_header_serialization() {

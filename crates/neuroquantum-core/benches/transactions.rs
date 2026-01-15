@@ -5,13 +5,14 @@
 //!
 //! Run with: cargo bench --features benchmarks --bench transactions
 
+use std::hint::black_box;
+use std::sync::Arc;
+use std::time::Duration;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use neuroquantum_core::transaction::{
     IsolationLevel, LockManager, LockType, Transaction, TransactionManager, LSN,
 };
-use std::hint::black_box;
-use std::sync::Arc;
-use std::time::Duration;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
@@ -39,7 +40,7 @@ fn bench_transaction_lifecycle(c: &mut Criterion) {
         ("serializable", IsolationLevel::Serializable),
     ];
 
-    for (name, isolation) in isolation_levels.iter() {
+    for (name, isolation) in &isolation_levels {
         group.bench_with_input(
             BenchmarkId::new("isolation", *name),
             isolation,
@@ -80,7 +81,7 @@ fn bench_concurrent_transactions(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_transactions");
     group.measurement_time(Duration::from_secs(15));
 
-    for concurrency in [10, 50, 100].iter() {
+    for concurrency in &[10, 50, 100] {
         group.throughput(Throughput::Elements(*concurrency as u64));
 
         group.bench_with_input(
@@ -131,7 +132,7 @@ fn bench_concurrent_mixed_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_mixed_operations");
     group.measurement_time(Duration::from_secs(15));
 
-    for concurrency in [10, 25, 50].iter() {
+    for concurrency in &[10, 25, 50] {
         group.throughput(Throughput::Elements(*concurrency as u64));
 
         group.bench_with_input(
@@ -197,7 +198,7 @@ fn bench_savepoint_overhead(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     // Benchmark savepoint creation
-    for savepoint_count in [1, 5, 10, 20].iter() {
+    for savepoint_count in &[1, 5, 10, 20] {
         group.throughput(Throughput::Elements(*savepoint_count as u64));
 
         group.bench_with_input(
@@ -218,7 +219,7 @@ fn bench_savepoint_overhead(c: &mut Criterion) {
 
                         let mut savepoint_lsns: Vec<LSN> = Vec::new();
                         for i in 0..count {
-                            let name = format!("sp_{}", i);
+                            let name = format!("sp_{i}");
                             let lsn = manager.create_savepoint(tx_id, name).await.unwrap();
                             savepoint_lsns.push(lsn);
                         }
@@ -232,7 +233,7 @@ fn bench_savepoint_overhead(c: &mut Criterion) {
     }
 
     // Benchmark savepoint rollback
-    for savepoint_count in [1, 5, 10].iter() {
+    for savepoint_count in &[1, 5, 10] {
         group.bench_with_input(
             BenchmarkId::new("rollback", savepoint_count),
             savepoint_count,
@@ -253,7 +254,7 @@ fn bench_savepoint_overhead(c: &mut Criterion) {
                         let mut savepoint_lsns: Vec<LSN> = Vec::new();
                         for i in 0..count {
                             let lsn = manager
-                                .create_savepoint(tx_id, format!("sp_{}", i))
+                                .create_savepoint(tx_id, format!("sp_{i}"))
                                 .await
                                 .unwrap();
                             savepoint_lsns.push(lsn);
@@ -293,7 +294,7 @@ fn bench_lock_manager(c: &mut Criterion) {
 
         b.iter(|| {
             let tx_id = Uuid::new_v4();
-            let resource = format!("resource_{}", counter);
+            let resource = format!("resource_{counter}");
             counter += 1;
 
             rt.block_on(async {
@@ -308,7 +309,7 @@ fn bench_lock_manager(c: &mut Criterion) {
     });
 
     // Benchmark multiple locks per transaction
-    for lock_count in [5, 10, 20].iter() {
+    for lock_count in &[5, 10, 20] {
         group.throughput(Throughput::Elements(*lock_count as u64));
 
         group.bench_with_input(
@@ -320,7 +321,7 @@ fn bench_lock_manager(c: &mut Criterion) {
                 b.iter(|| {
                     let tx_id = Uuid::new_v4();
                     let resources: Vec<String> = (0..count)
-                        .map(|i| format!("resource_{}_{}", counter, i))
+                        .map(|i| format!("resource_{counter}_{i}"))
                         .collect();
                     counter += 1;
 
@@ -345,7 +346,7 @@ fn bench_lock_manager(c: &mut Criterion) {
 
         b.iter(|| {
             let tx_id = Uuid::new_v4();
-            let resource = format!("shared_{}", counter);
+            let resource = format!("shared_{counter}");
             counter += 1;
 
             rt.block_on(async {
@@ -364,7 +365,7 @@ fn bench_lock_manager(c: &mut Criterion) {
 
         b.iter(|| {
             let tx_id = Uuid::new_v4();
-            let resource = format!("exclusive_{}", counter);
+            let resource = format!("exclusive_{counter}");
             counter += 1;
 
             rt.block_on(async {
@@ -389,7 +390,7 @@ fn bench_lock_contention(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     // Benchmark sequential lock acquisition on same resource
-    for tx_count in [5, 10, 20].iter() {
+    for tx_count in &[5, 10, 20] {
         group.throughput(Throughput::Elements(*tx_count as u64));
 
         group.bench_with_input(
@@ -403,7 +404,7 @@ fn bench_lock_contention(c: &mut Criterion) {
                         // Each transaction acquires and releases same resource sequentially
                         for i in 0..count {
                             let tx_id = Uuid::new_v4();
-                            let resource = format!("shared_resource_{}", i);
+                            let resource = format!("shared_resource_{i}");
 
                             lock_manager
                                 .acquire_lock(tx_id, resource, LockType::Shared)
@@ -429,7 +430,7 @@ fn bench_transaction_throughput(c: &mut Criterion) {
 
     let rt = Runtime::new().unwrap();
 
-    for transaction_count in [100, 500, 1000].iter() {
+    for transaction_count in &[100, 500, 1000] {
         group.throughput(Throughput::Elements(*transaction_count as u64));
 
         group.bench_with_input(
@@ -486,7 +487,7 @@ fn bench_transaction_timeout_settings(c: &mut Criterion) {
     let mut group = c.benchmark_group("transaction_timeout_settings");
     group.measurement_time(Duration::from_secs(10));
 
-    for timeout in [10, 30, 60, 120].iter() {
+    for timeout in &[10, 30, 60, 120] {
         group.bench_with_input(
             BenchmarkId::from_parameter(timeout),
             timeout,

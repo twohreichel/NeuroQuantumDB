@@ -28,6 +28,7 @@ pub struct LRUEviction {
 
 impl LRUEviction {
     /// Create a new LRU eviction policy
+    #[must_use]
     pub fn new(_pool_size: usize) -> Self {
         Self {
             queue: VecDeque::new(),
@@ -35,7 +36,7 @@ impl LRUEviction {
         }
     }
 
-    /// Update positions in HashMap after queue modification
+    /// Update positions in `HashMap` after queue modification
     fn update_positions(&mut self) {
         self.position.clear();
         for (pos, &frame_id) in self.queue.iter().enumerate() {
@@ -110,12 +111,12 @@ impl EvictionPolicy for ClockEviction {
             let frame_id = self.frames[self.hand];
 
             if let Some(&ref_bit) = self.reference_bits.get(&frame_id) {
-                if !ref_bit {
-                    // Found victim
-                    return Some(frame_id);
-                } else {
+                if ref_bit {
                     // Give second chance, clear reference bit
                     self.reference_bits.insert(frame_id, false);
+                } else {
+                    // Found victim
+                    return Some(frame_id);
                 }
             }
 

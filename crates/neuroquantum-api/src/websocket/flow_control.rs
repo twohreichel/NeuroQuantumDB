@@ -27,9 +27,10 @@
 //!                   (with backpressure)
 //! ```
 
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
@@ -231,10 +232,11 @@ impl FlowController {
             let throttle_factor = (fill_percentage - self.config.backpressure_threshold)
                 / (self.config.pause_threshold - self.config.backpressure_threshold);
 
-            let delay_ms = self.config.min_batch_delay.as_millis() as f32
-                + throttle_factor
-                    * (self.config.max_batch_delay.as_millis() as f32
-                        - self.config.min_batch_delay.as_millis() as f32);
+            let delay_ms = throttle_factor.mul_add(
+                self.config.max_batch_delay.as_millis() as f32
+                    - self.config.min_batch_delay.as_millis() as f32,
+                self.config.min_batch_delay.as_millis() as f32,
+            );
 
             let delay = Duration::from_millis(delay_ms as u64);
 
@@ -412,6 +414,7 @@ pub struct FlowControlledSender<T> {
 
 impl<T: Clone> FlowControlledSender<T> {
     /// Create a new flow-controlled sender
+    #[must_use]
     pub fn new(config: FlowControlConfig) -> Self {
         Self {
             controller: Arc::new(FlowController::new(config)),

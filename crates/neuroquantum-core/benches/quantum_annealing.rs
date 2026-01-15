@@ -3,6 +3,8 @@
 //! Benchmarks for QUBO, TFIM, and Quantum Parallel Tempering algorithms
 //! comparing quantum-inspired approaches against classical methods.
 
+use std::hint::black_box;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::DMatrix;
 use neuroquantum_core::quantum::quantum_parallel_tempering::{
@@ -12,14 +14,13 @@ use neuroquantum_core::quantum::qubo_quantum::{
     max_cut_problem, tsp_problem, QUBOConfig, QUBOSolver, QuboQuantumBackend,
 };
 use neuroquantum_core::quantum::tfim::{FieldSchedule, TFIMSolver, TransverseFieldConfig};
-use std::hint::black_box;
 use tokio::runtime::Runtime;
 
 /// Benchmark QUBO solver on Max-Cut problems of varying sizes
 fn bench_qubo_max_cut(c: &mut Criterion) {
     let mut group = c.benchmark_group("QUBO-MaxCut");
 
-    for num_nodes in [10, 20, 30, 50].iter() {
+    for num_nodes in &[10, 20, 30, 50] {
         // Create a complete graph
         let mut edges = Vec::new();
         for i in 0..*num_nodes {
@@ -140,7 +141,7 @@ fn bench_tfim_schedules(c: &mut Criterion) {
 fn bench_tfim_spin_glass(c: &mut Criterion) {
     let mut group = c.benchmark_group("TFIM-SpinGlass");
 
-    for num_spins in [5, 10, 15, 20].iter() {
+    for num_spins in &[5, 10, 15, 20] {
         let problem = TFIMSolver::spin_glass_model(*num_spins, 1.0).unwrap();
 
         group.bench_with_input(BenchmarkId::new("spins", num_spins), num_spins, |b, _| {
@@ -160,11 +161,11 @@ fn bench_parallel_tempering_replicas(c: &mut Criterion) {
     let mut group = c.benchmark_group("QuantumParallelTempering-Replicas");
     let rt = Runtime::new().unwrap();
 
-    let couplings = DMatrix::from_fn(8, 8, |i, j| if i != j { 1.0 } else { 0.0 });
+    let couplings = DMatrix::from_fn(8, 8, |i, j| if i == j { 0.0 } else { 1.0 });
     let external_fields = vec![0.0; 8];
     let initial_state = vec![1, -1, 1, -1, 1, -1, 1, -1];
 
-    for num_replicas in [2, 4, 8, 16].iter() {
+    for num_replicas in &[2, 4, 8, 16] {
         group.bench_with_input(
             BenchmarkId::new("replicas", num_replicas),
             num_replicas,
@@ -206,10 +207,10 @@ fn bench_parallel_vs_single(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     let couplings = DMatrix::from_fn(10, 10, |i, j| {
-        if i != j {
-            (i as f64 - j as f64).abs().recip()
-        } else {
+        if i == j {
             0.0
+        } else {
+            (i as f64 - j as f64).abs().recip()
         }
     });
     let external_fields = vec![0.0; 10];
@@ -299,7 +300,9 @@ fn bench_solution_quality(c: &mut Criterion) {
         if i == j {
             0.0
         } else {
-            ((i as f64 - j as f64).powi(2) + 1.0).sqrt()
+            (i as f64 - j as f64)
+                .mul_add(i as f64 - j as f64, 1.0)
+                .sqrt()
         }
     });
 

@@ -263,7 +263,7 @@ fn analyze_solution(solution: &neuroquantum_core::quantum::TFIMSolution, problem
     let n = solution.spins.len();
 
     // Calculate magnetization
-    let magnetization: f64 = solution.spins.iter().map(|&s| s as f64).sum::<f64>() / n as f64;
+    let magnetization: f64 = solution.spins.iter().map(|&s| f64::from(s)).sum::<f64>() / n as f64;
 
     // Check if all spins are aligned
     let all_up = solution.spins.iter().all(|&s| s == 1);
@@ -271,7 +271,7 @@ fn analyze_solution(solution: &neuroquantum_core::quantum::TFIMSolution, problem
     let aligned = all_up || all_down;
 
     println!("    Analysis:");
-    println!("      Magnetization: {:.3}", magnetization);
+    println!("      Magnetization: {magnetization:.3}");
     println!("      All aligned: {}", if aligned { "Yes" } else { "No" });
 
     match problem_type {

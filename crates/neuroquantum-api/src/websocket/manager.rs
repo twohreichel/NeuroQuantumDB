@@ -7,16 +7,18 @@
 //! - Connection statistics and metrics
 //! - Graceful shutdown
 
-use crate::websocket::metrics::ConnectionMetrics;
-use crate::websocket::types::{Connection, ConnectionId, ConnectionMetadata};
+use std::sync::Arc;
+use std::time::Duration;
+
 use actix_ws::Session;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time;
 use tracing::{debug, error, info, warn};
+
+use crate::websocket::metrics::ConnectionMetrics;
+use crate::websocket::types::{Connection, ConnectionId, ConnectionMetadata};
 
 /// Configuration for the connection manager
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,7 +56,7 @@ impl Default for ConnectionConfig {
 /// Manages the lifecycle of all WebSocket connections with automatic
 /// heartbeat monitoring, metrics tracking, and graceful shutdown.
 pub struct ConnectionManager {
-    /// Active connections indexed by ConnectionId
+    /// Active connections indexed by `ConnectionId`
     connections: Arc<DashMap<ConnectionId, Arc<Connection>>>,
 
     /// Connection metrics
@@ -92,7 +94,7 @@ impl ConnectionManager {
 
     /// Register a new WebSocket connection
     ///
-    /// Returns the unique ConnectionId on success, or an error if the
+    /// Returns the unique `ConnectionId` on success, or an error if the
     /// maximum number of connections has been reached.
     pub async fn register(
         &self,
@@ -113,7 +115,7 @@ impl ConnectionManager {
         let conn_id = connection.id;
 
         // Insert the connection
-        self.connections.insert(conn_id, connection.clone());
+        self.connections.insert(conn_id, connection);
 
         // Update metrics
         self.metrics.increment_total_connections();
@@ -156,16 +158,19 @@ impl ConnectionManager {
     }
 
     /// Get a connection by ID
+    #[must_use]
     pub fn get_connection(&self, conn_id: ConnectionId) -> Option<Arc<Connection>> {
         self.connections.get(&conn_id).map(|entry| entry.clone())
     }
 
     /// Get all active connection IDs
+    #[must_use]
     pub fn get_all_connection_ids(&self) -> Vec<ConnectionId> {
         self.connections.iter().map(|entry| *entry.key()).collect()
     }
 
     /// Get the number of active connections
+    #[must_use]
     pub fn connection_count(&self) -> usize {
         self.connections.len()
     }
@@ -203,7 +208,7 @@ impl ConnectionManager {
             let connection = entry.value();
 
             match connection.send_text(msg.clone()).await {
-                | Ok(_) => {
+                | Ok(()) => {
                     success_count += 1;
                 },
                 | Err(e) => {
@@ -334,6 +339,7 @@ impl ConnectionManager {
     }
 
     /// Get current metrics snapshot
+    #[must_use]
     pub fn get_metrics(&self) -> crate::websocket::metrics::MetricsSnapshot {
         self.metrics.snapshot()
     }

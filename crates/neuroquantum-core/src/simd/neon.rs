@@ -6,8 +6,12 @@
 
 #![cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 
+use std::arch::aarch64::{
+    uint8x16_t, vaddq_f32, vandq_u8, vceqq_u8, vdupq_n_f32, vdupq_n_u8, vfmaq_f32, vgetq_lane_f32,
+    vld1q_f32, vld1q_u8, vmulq_f32, vorrq_u8, vshlq_n_u8, vshrq_n_u8, vst1q_f32, vst1q_u8,
+};
+
 use crate::error::CoreResult;
-use std::arch::aarch64::*;
 
 /// NEON-optimized DNA compression using quaternary encoding
 ///
@@ -106,7 +110,7 @@ pub unsafe fn neon_matrix_multiply(
                 let k_base = k * 4;
 
                 // Load 4 elements from row of A
-                let a_vec = vld1q_f32(&matrix_a[i * cols_a + k_base]);
+                let a_vec = vld1q_f32(&raw const matrix_a[i * cols_a + k_base]);
 
                 // Load 4 elements from column of B
                 let b_vals = [
@@ -203,7 +207,7 @@ pub fn safe_neon_parallel_search(haystack: &[u8], needle: &[u8]) -> CoreResult<V
 ///
 /// This function requires ARM64 NEON support. The caller must ensure:
 /// - The CPU supports NEON instructions
-/// - real_parts and imag_parts have the same length
+/// - `real_parts` and `imag_parts` have the same length
 /// - Use `std::arch::is_aarch64_feature_detected!("neon")` to check at runtime
 #[target_feature(enable = "neon")]
 pub unsafe fn neon_quantum_operation(
@@ -221,8 +225,8 @@ pub unsafe fn neon_quantum_operation(
 
             for i in 0..chunks {
                 let idx = i * 4;
-                let real = vld1q_f32(&real_parts[idx]);
-                let imag = vld1q_f32(&imag_parts[idx]);
+                let real = vld1q_f32(&raw const real_parts[idx]);
+                let imag = vld1q_f32(&raw const imag_parts[idx]);
 
                 let real_sq = vmulq_f32(real, real);
                 let imag_sq = vmulq_f32(imag, imag);
@@ -240,7 +244,7 @@ pub unsafe fn neon_quantum_operation(
 
             // Handle remainder
             for i in (chunks * 4)..len {
-                total_norm += real_parts[i] * real_parts[i] + imag_parts[i] * imag_parts[i];
+                total_norm += real_parts[i].mul_add(real_parts[i], imag_parts[i] * imag_parts[i]);
             }
 
             let norm = total_norm.sqrt();
@@ -250,14 +254,14 @@ pub unsafe fn neon_quantum_operation(
                 // Normalize all elements
                 for i in 0..chunks {
                     let idx = i * 4;
-                    let real = vld1q_f32(&real_parts[idx]);
-                    let imag = vld1q_f32(&imag_parts[idx]);
+                    let real = vld1q_f32(&raw const real_parts[idx]);
+                    let imag = vld1q_f32(&raw const imag_parts[idx]);
 
                     let real_norm = vmulq_f32(real, inv_norm);
                     let imag_norm = vmulq_f32(imag, inv_norm);
 
-                    vst1q_f32(&mut real_parts[idx], real_norm);
-                    vst1q_f32(&mut imag_parts[idx], imag_norm);
+                    vst1q_f32(&raw mut real_parts[idx], real_norm);
+                    vst1q_f32(&raw mut imag_parts[idx], imag_norm);
                 }
 
                 // Handle remainder
@@ -273,11 +277,11 @@ pub unsafe fn neon_quantum_operation(
 
             for i in 0..chunks {
                 let idx = i * 4;
-                let real = vld1q_f32(&real_parts[idx]);
-                let imag = vld1q_f32(&imag_parts[idx]);
+                let real = vld1q_f32(&raw const real_parts[idx]);
+                let imag = vld1q_f32(&raw const imag_parts[idx]);
 
-                vst1q_f32(&mut real_parts[idx], vmulq_f32(real, neg_one));
-                vst1q_f32(&mut imag_parts[idx], vmulq_f32(imag, neg_one));
+                vst1q_f32(&raw mut real_parts[idx], vmulq_f32(real, neg_one));
+                vst1q_f32(&raw mut imag_parts[idx], vmulq_f32(imag, neg_one));
             }
 
             // Handle remainder

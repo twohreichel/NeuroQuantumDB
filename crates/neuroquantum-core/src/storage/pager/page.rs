@@ -5,9 +5,10 @@
 //! - Page Data (4032 bytes): actual data
 //! - Total: 4096 bytes (4KB)
 
+use std::fmt;
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 /// Page size in bytes (4KB standard)
 pub const PAGE_SIZE: usize = 4096;
@@ -51,13 +52,13 @@ impl TryFrom<u8> for PageType {
 
     fn try_from(value: u8) -> Result<Self> {
         match value {
-            | 0 => Ok(PageType::FreePage),
-            | 1 => Ok(PageType::Data),
-            | 2 => Ok(PageType::BTreeInternal),
-            | 3 => Ok(PageType::BTreeLeaf),
-            | 4 => Ok(PageType::Overflow),
-            | 5 => Ok(PageType::WAL),
-            | _ => Err(anyhow!("Invalid page type: {}", value)),
+            | 0 => Ok(Self::FreePage),
+            | 1 => Ok(Self::Data),
+            | 2 => Ok(Self::BTreeInternal),
+            | 3 => Ok(Self::BTreeLeaf),
+            | 4 => Ok(Self::Overflow),
+            | 5 => Ok(Self::WAL),
+            | _ => Err(anyhow!("Invalid page type: {value}")),
         }
     }
 }
@@ -91,7 +92,8 @@ const MAGIC_NUMBER: u32 = 0xDEADBEEF;
 
 impl PageHeader {
     /// Create a new page header
-    pub fn new(page_id: PageId, page_type: PageType) -> Self {
+    #[must_use]
+    pub const fn new(page_id: PageId, page_type: PageType) -> Self {
         Self {
             magic: MAGIC_NUMBER,
             page_type,
@@ -107,7 +109,8 @@ impl PageHeader {
     }
 
     /// Validate magic number
-    pub fn is_valid(&self) -> bool {
+    #[must_use]
+    pub const fn is_valid(&self) -> bool {
         self.magic == MAGIC_NUMBER
     }
 
@@ -158,7 +161,7 @@ impl PageHeader {
 
         let magic = u32::from_le_bytes(buf[0..4].try_into()?);
         if magic != MAGIC_NUMBER {
-            return Err(anyhow!("Invalid magic number: 0x{:X}", magic));
+            return Err(anyhow!("Invalid magic number: 0x{magic:X}"));
         }
 
         let page_type = PageType::try_from(buf[4])?;
@@ -211,7 +214,8 @@ pub struct Page {
 
 impl Page {
     /// Create a new empty page
-    pub fn new(page_id: PageId, page_type: PageType) -> Self {
+    #[must_use]
+    pub const fn new(page_id: PageId, page_type: PageType) -> Self {
         Self {
             header: PageHeader::new(page_id, page_type),
             data: [0; PAGE_DATA_SIZE],
@@ -219,27 +223,30 @@ impl Page {
     }
 
     /// Get page ID
-    pub fn id(&self) -> PageId {
+    #[must_use]
+    pub const fn id(&self) -> PageId {
         self.header.page_id
     }
 
     /// Get page header
-    pub fn header(&self) -> &PageHeader {
+    #[must_use]
+    pub const fn header(&self) -> &PageHeader {
         &self.header
     }
 
     /// Get mutable page header
-    pub fn header_mut(&mut self) -> &mut PageHeader {
+    pub const fn header_mut(&mut self) -> &mut PageHeader {
         &mut self.header
     }
 
     /// Get page data
-    pub fn data(&self) -> &[u8; PAGE_DATA_SIZE] {
+    #[must_use]
+    pub const fn data(&self) -> &[u8; PAGE_DATA_SIZE] {
         &self.data
     }
 
     /// Get mutable page data
-    pub fn data_mut(&mut self) -> &mut [u8; PAGE_DATA_SIZE] {
+    pub const fn data_mut(&mut self) -> &mut [u8; PAGE_DATA_SIZE] {
         &mut self.data
     }
 
@@ -267,10 +274,7 @@ impl Page {
     pub fn read_data(&self, offset: usize, len: usize) -> Result<&[u8]> {
         if offset + len > PAGE_DATA_SIZE {
             return Err(anyhow!(
-                "Read beyond page boundary: offset={}, len={}, page_size={}",
-                offset,
-                len,
-                PAGE_DATA_SIZE
+                "Read beyond page boundary: offset={offset}, len={len}, page_size={PAGE_DATA_SIZE}"
             ));
         }
 
@@ -278,6 +282,7 @@ impl Page {
     }
 
     /// Calculate checksum for the page
+    #[must_use]
     pub fn calculate_checksum(&self) -> u32 {
         // Simple CRC32 checksum
         crc32fast::hash(&self.data)
@@ -289,6 +294,7 @@ impl Page {
     }
 
     /// Verify checksum
+    #[must_use]
     pub fn verify_checksum(&self) -> bool {
         self.header.checksum == self.calculate_checksum()
     }
@@ -326,17 +332,19 @@ impl Page {
     }
 
     /// Get available free space
-    pub fn free_space(&self) -> u16 {
+    #[must_use]
+    pub const fn free_space(&self) -> u16 {
         self.header.free_space
     }
 
     /// Get slot count
-    pub fn slot_count(&self) -> u16 {
+    #[must_use]
+    pub const fn slot_count(&self) -> u16 {
         self.header.slot_count
     }
 
     /// Set LSN
-    pub fn set_lsn(&mut self, lsn: u64) {
+    pub const fn set_lsn(&mut self, lsn: u64) {
         self.header.lsn = lsn;
     }
 

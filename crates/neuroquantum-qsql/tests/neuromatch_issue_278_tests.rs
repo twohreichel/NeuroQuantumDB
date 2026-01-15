@@ -1,10 +1,11 @@
 // Integration test for Issue #278 - NEUROMATCH clause returns no results
 // This test reproduces the bug and verifies the fix
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
-use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 #[tokio::test]
@@ -97,7 +98,7 @@ async fn test_neuromatch_returns_results() {
     // TEST 1: Execute NEUROMATCH query with legacy syntax
     println!("\n=== TEST 1: NEUROMATCH with legacy syntax ===");
     let neuromatch_sql = "SELECT * FROM books NEUROMATCH 'Fantasy Magie Abenteuer' STRENGTH > 0.5";
-    println!("Query: {}", neuromatch_sql);
+    println!("Query: {neuromatch_sql}");
 
     let neuromatch_stmt = parser.parse(neuromatch_sql).unwrap();
 
@@ -135,23 +136,17 @@ async fn test_neuromatch_returns_results() {
 
     // Verify that fantasy books are included
     let has_harry_potter = result.rows.iter().any(|row| {
-        row.get("title")
-            .map(|v| match v {
-                | neuroquantum_qsql::query_plan::QueryValue::String(s) => {
-                    s.contains("Harry Potter")
-                },
-                | _ => false,
-            })
-            .unwrap_or(false)
+        row.get("title").is_some_and(|v| match v {
+            | neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Harry Potter"),
+            | _ => false,
+        })
     });
 
     let has_hobbit = result.rows.iter().any(|row| {
-        row.get("title")
-            .map(|v| match v {
-                | neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Hobbit"),
-                | _ => false,
-            })
-            .unwrap_or(false)
+        row.get("title").is_some_and(|v| match v {
+            | neuroquantum_qsql::query_plan::QueryValue::String(s) => s.contains("Hobbit"),
+            | _ => false,
+        })
     });
 
     assert!(
@@ -172,7 +167,7 @@ async fn test_neuromatch_returns_results() {
     // TEST 2: Test with different threshold
     println!("\n=== TEST 2: NEUROMATCH with higher threshold ===");
     let high_threshold_sql = "SELECT * FROM books NEUROMATCH 'Fantasy' STRENGTH > 0.8";
-    println!("Query: {}", high_threshold_sql);
+    println!("Query: {high_threshold_sql}");
 
     let high_threshold_stmt = parser.parse(high_threshold_sql).unwrap();
     let result2 = executor

@@ -1,14 +1,15 @@
-//! Tests for AUTO_INCREMENT functionality (Issue #274)
+//! Tests for `AUTO_INCREMENT` functionality (Issue #274)
 //!
-//! This test suite validates the AUTO_INCREMENT syntax support as documented
-//! in the NeuroQuantumDB Features Guide.
+//! This test suite validates the `AUTO_INCREMENT` syntax support as documented
+//! in the `NeuroQuantumDB` Features Guide.
+
+use std::sync::Arc;
 
 use neuroquantum_core::storage::{DataType, StorageEngine};
 use neuroquantum_qsql::{Parser, QueryExecutor};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// Test basic AUTO_INCREMENT syntax in CREATE TABLE
+/// Test basic `AUTO_INCREMENT` syntax in CREATE TABLE
 #[tokio::test]
 async fn test_auto_increment_create_table() {
     // Create temporary storage
@@ -51,7 +52,7 @@ async fn test_auto_increment_create_table() {
     assert_eq!(id_column.data_type, DataType::Integer);
 }
 
-/// Test INSERT without explicit ID value uses AUTO_INCREMENT
+/// Test INSERT without explicit ID value uses `AUTO_INCREMENT`
 #[tokio::test]
 async fn test_auto_increment_insert_without_id() {
     // Create temporary storage
@@ -98,7 +99,7 @@ async fn test_auto_increment_insert_without_id() {
     }
 }
 
-/// Test multiple INSERTs with AUTO_INCREMENT generate sequential IDs
+/// Test multiple INSERTs with `AUTO_INCREMENT` generate sequential IDs
 #[tokio::test]
 async fn test_auto_increment_sequential_ids() {
     // Create temporary storage
@@ -125,10 +126,8 @@ async fn test_auto_increment_sequential_ids() {
     ];
 
     for (title, author) in &books {
-        let insert_sql = format!(
-            "INSERT INTO books (title, author) VALUES ('{}', '{}')",
-            title, author
-        );
+        let insert_sql =
+            format!("INSERT INTO books (title, author) VALUES ('{title}', '{author}')");
         let statement = parser.parse(&insert_sql).unwrap();
         executor.execute_statement(&statement).await.unwrap();
     }
@@ -143,15 +142,15 @@ async fn test_auto_increment_sequential_ids() {
     for (i, row) in result.rows.iter().enumerate() {
         let expected_id = (i + 1) as i64;
         if let Some(neuroquantum_qsql::query_plan::QueryValue::Integer(id)) = row.get("id") {
-            assert_eq!(*id, expected_id, "Row {} should have ID {}", i, expected_id);
+            assert_eq!(*id, expected_id, "Row {i} should have ID {expected_id}");
         } else {
-            panic!("Expected Integer value for id field in row {}", i);
+            panic!("Expected Integer value for id field in row {i}");
         }
     }
 }
 
-/// Test AUTO_INCREMENT with explicit ID value
-/// Note: When an explicit ID is provided, the storage engine may still use auto_increment
+/// Test `AUTO_INCREMENT` with explicit ID value
+/// Note: When an explicit ID is provided, the storage engine may still use `auto_increment`
 /// for internal row management. This test verifies that the insert succeeds.
 #[tokio::test]
 async fn test_auto_increment_with_explicit_id() {
@@ -200,7 +199,7 @@ async fn test_auto_increment_with_explicit_id() {
     assert_eq!(result.rows.len(), 2, "Both rows should be inserted");
 }
 
-/// Test AUTO_INCREMENT with AUTOINCREMENT (SQLite-style synonym)
+/// Test `AUTO_INCREMENT` with AUTOINCREMENT (SQLite-style synonym)
 #[tokio::test]
 async fn test_autoincrement_synonym() {
     // Create temporary storage
@@ -252,7 +251,7 @@ async fn test_documented_example() {
     );
 }
 
-/// Test AUTO_INCREMENT persists across storage reload
+/// Test `AUTO_INCREMENT` persists across storage reload
 #[tokio::test]
 async fn test_auto_increment_persistence() {
     let temp_dir = tempfile::tempdir().unwrap();

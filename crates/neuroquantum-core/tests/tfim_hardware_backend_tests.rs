@@ -47,7 +47,7 @@ fn test_bqm_conversion_simple() {
 fn test_bqm_conversion_ferromagnetic() {
     let problem = TFIMProblem {
         num_spins: 4,
-        couplings: DMatrix::from_fn(4, 4, |i, j| if i != j { 2.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 2.0 }),
         external_fields: vec![0.0; 4],
         name: "Ferromagnetic".to_string(),
     };
@@ -139,7 +139,7 @@ async fn test_dwave_solver_classical_fallback() {
 
     let problem = TFIMProblem {
         num_spins: 3,
-        couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
         external_fields: vec![0.0; 3],
         name: "Fallback_Test".to_string(),
     };
@@ -208,7 +208,7 @@ async fn test_unified_solver_auto_mode() {
 
     let problem = TFIMProblem {
         num_spins: 5,
-        couplings: DMatrix::from_fn(5, 5, |i, j| if i != j { 1.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(5, 5, |i, j| if i == j { 0.0 } else { 1.0 }),
         external_fields: vec![0.0; 5],
         name: "Unified_Auto_Test".to_string(),
     };
@@ -289,7 +289,7 @@ async fn test_unified_solver_dwave_preference() {
 
     let problem = TFIMProblem {
         num_spins: 3,
-        couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 2.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 2.0 }),
         external_fields: vec![0.0; 3],
         name: "DWave_Preference_Test".to_string(),
     };
@@ -340,7 +340,7 @@ fn test_annealing_backend_trait() {
     let _: &dyn AnnealingBackend = &braket_solver;
 }
 
-/// Test that the test_observables_magnetization works with quantum backend
+/// Test that the `test_observables_magnetization` works with quantum backend
 /// This is the specific test mentioned in the acceptance criteria
 #[tokio::test]
 async fn test_observables_magnetization_with_quantum_backend() {
@@ -366,7 +366,7 @@ async fn test_observables_magnetization_with_quantum_backend() {
     // Create a TFIM problem with strong ferromagnetic coupling
     let problem = TFIMProblem {
         num_spins: 3,
-        couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 2.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 2.0 }),
         external_fields: vec![0.0; 3],
         name: "Strong_Ferromagnet_For_Observables".to_string(),
     };
@@ -379,14 +379,13 @@ async fn test_observables_magnetization_with_quantum_backend() {
     assert_eq!(solution.spins.len(), 3);
 
     // Calculate magnetization per spin (should be close to ±1 for strong coupling)
-    let total_magnetization: f64 = solution.spins.iter().map(|&s| s as f64).sum();
+    let total_magnetization: f64 = solution.spins.iter().map(|&s| f64::from(s)).sum();
     let avg_magnetization = total_magnetization / 3.0;
 
     // For strong ferromagnetic coupling, spins should align
     assert!(
         avg_magnetization.abs() > 0.9,
-        "Average magnetization {} should be close to ±1 for strong ferromagnet",
-        avg_magnetization
+        "Average magnetization {avg_magnetization} should be close to ±1 for strong ferromagnet"
     );
 
     // Energy should be strongly negative for aligned ferromagnetic spins
@@ -398,6 +397,6 @@ async fn test_observables_magnetization_with_quantum_backend() {
 
     // Verify all spins are within valid range
     for &spin in &solution.spins {
-        assert!(spin == 1 || spin == -1, "Spin value {} must be ±1", spin);
+        assert!(spin == 1 || spin == -1, "Spin value {spin} must be ±1");
     }
 }

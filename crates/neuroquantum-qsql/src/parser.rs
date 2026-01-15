@@ -3,11 +3,23 @@
 //! This module provides a comprehensive parser for QSQL language that extends
 //! standard SQL with neuromorphic computing and quantum-inspired features.
 
-use crate::ast::*;
-use crate::error::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument, warn};
+
+use crate::ast::{
+    AdaptWeightsStatement, AlterTableOperation, AlterTableStatement, Assignment, BinaryOperator,
+    ColumnConstraint, ColumnDefinition, CommonTableExpression, CompressTableStatement,
+    CompressionAlgorithm, CreateIndexStatement, CreateTableStatement, DataType,
+    DeallocateStatement, DeleteStatement, DropIndexStatement, DropTableStatement, ExecuteStatement,
+    Expression, FromClause, InsertStatement, JoinClause, JoinType, LearnPatternStatement, Literal,
+    NeuroMatchClause, NeuroMatchStatement, OrderByItem, ParameterRef, PrepareStatement,
+    QuantumJoinStatement, QuantumSearchStatement, SelectItem, SelectStatement, Statement,
+    TableConstraint, TableReference, TruncateBehavior, TruncateTableStatement, UnaryOperator,
+    UpdateStatement, WindowFunctionType, WindowSpec, WithClause,
+};
+use crate::error::{QSQLError, QSQLResult};
 
 /// Operator precedence levels for Pratt parsing
 /// Higher values = higher precedence (binds tighter)
@@ -39,19 +51,20 @@ pub enum Precedence {
 
 impl Precedence {
     /// Get the next higher precedence level
-    pub fn next(self) -> Self {
+    #[must_use]
+    pub const fn next(self) -> Self {
         match self {
-            | Precedence::None => Precedence::Or,
-            | Precedence::Or => Precedence::And,
-            | Precedence::And => Precedence::Not,
-            | Precedence::Not => Precedence::Comparison,
-            | Precedence::Comparison => Precedence::Additive,
-            | Precedence::Additive => Precedence::Multiplicative,
-            | Precedence::Multiplicative => Precedence::Unary,
-            | Precedence::Unary => Precedence::Neuromorphic,
-            | Precedence::Neuromorphic => Precedence::Quantum,
-            | Precedence::Quantum => Precedence::Call,
-            | Precedence::Call => Precedence::Call, // Max level
+            | Self::None => Self::Or,
+            | Self::Or => Self::And,
+            | Self::And => Self::Not,
+            | Self::Not => Self::Comparison,
+            | Self::Comparison => Self::Additive,
+            | Self::Additive => Self::Multiplicative,
+            | Self::Multiplicative => Self::Unary,
+            | Self::Unary => Self::Neuromorphic,
+            | Self::Neuromorphic => Self::Quantum,
+            | Self::Quantum => Self::Call,
+            | Self::Call => Self::Call, // Max level
         }
     }
 }
@@ -308,11 +321,12 @@ pub enum TokenType {
 
 impl QSQLParser {
     /// Create a new QSQL parser with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(ParserConfig::default()).expect("Failed to create QSQL parser")
     }
 
-    /// Parse a QSQL query string into an AST (alias for parse_query)
+    /// Parse a QSQL query string into an AST (alias for `parse_query`)
     pub fn parse(&self, input: &str) -> QSQLResult<Statement> {
         self.parse_query(input)
     }
@@ -518,13 +532,13 @@ impl QSQLParser {
 
         if has_dot {
             let float_val = value.parse::<f64>().map_err(|_| QSQLError::ParseError {
-                message: format!("Invalid float literal: {}", value),
+                message: format!("Invalid float literal: {value}"),
                 position,
             })?;
             Ok((TokenType::FloatLiteral(float_val), new_pos))
         } else {
             let int_val = value.parse::<i64>().map_err(|_| QSQLError::ParseError {
-                message: format!("Invalid integer literal: {}", value),
+                message: format!("Invalid integer literal: {value}"),
                 position,
             })?;
             Ok((TokenType::IntegerLiteral(int_val), new_pos))
@@ -632,7 +646,7 @@ impl QSQLParser {
             }
             if !value.is_empty() {
                 let param_index: u32 = value.parse().map_err(|_| QSQLError::ParseError {
-                    message: format!("Invalid parameter index: ${}", value),
+                    message: format!("Invalid parameter index: ${value}"),
                     position,
                 })?;
                 return Ok((TokenType::PositionalParameter(param_index), new_pos));
@@ -676,7 +690,7 @@ impl QSQLParser {
             | '.' => TokenType::Dot,
             | _ => {
                 return Err(QSQLError::ParseError {
-                    message: format!("Unexpected character: '{}'", ch),
+                    message: format!("Unexpected character: '{ch}'"),
                     position,
                 });
             },
@@ -929,7 +943,7 @@ impl QSQLParser {
                     // Expect opening parenthesis
                     if i >= tokens.len() || !matches!(tokens[i], TokenType::LeftParen) {
                         return Err(QSQLError::ParseError {
-                            message: format!("Expected '(' after {} function", func_name),
+                            message: format!("Expected '(' after {func_name} function"),
                             position: i,
                         });
                     }
@@ -1251,7 +1265,7 @@ impl QSQLParser {
     }
 
     /// Parse SELECT statement starting at a specific position (for subqueries)
-    /// This method is similar to parse_select_statement but accepts and updates an index.
+    /// This method is similar to `parse_select_statement` but accepts and updates an index.
     fn parse_select_statement_at(
         &self,
         tokens: &[TokenType],
@@ -1451,7 +1465,7 @@ impl QSQLParser {
                     // Expect opening parenthesis
                     if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
                         return Err(QSQLError::ParseError {
-                            message: format!("Expected '(' after {} function", func_name),
+                            message: format!("Expected '(' after {func_name} function"),
                             position: *i,
                         });
                     }
@@ -1782,7 +1796,7 @@ impl QSQLParser {
         })
     }
 
-    /// Parse a WHERE expression for subqueries (stops at RightParen)
+    /// Parse a WHERE expression for subqueries (stops at `RightParen`)
     fn parse_subquery_where_expression(
         &self,
         tokens: &[TokenType],
@@ -1791,7 +1805,7 @@ impl QSQLParser {
         self.parse_subquery_expression_with_precedence(tokens, i, Precedence::None)
     }
 
-    /// Parse expression for subqueries, stopping at RightParen
+    /// Parse expression for subqueries, stopping at `RightParen`
     fn parse_subquery_expression_with_precedence(
         &self,
         tokens: &[TokenType],
@@ -1826,12 +1840,11 @@ impl QSQLParser {
                         negated,
                     };
                     continue;
-                } else {
-                    return Err(QSQLError::ParseError {
-                        message: "Expected NULL after IS".to_string(),
-                        position: *i,
-                    });
                 }
+                return Err(QSQLError::ParseError {
+                    message: "Expected NULL after IS".to_string(),
+                    position: *i,
+                });
             }
 
             // Check for NOT IN (two-token sequence)
@@ -2350,7 +2363,7 @@ impl QSQLParser {
         Ok(Statement::NeuroMatch(neuromatch))
     }
 
-    /// Parse QUANTUM_SEARCH statement
+    /// Parse `QUANTUM_SEARCH` statement
     fn parse_quantum_search_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut target_table = String::new();
         let max_iterations = Some(10u32);
@@ -2521,7 +2534,7 @@ impl QSQLParser {
         Ok(Statement::AdaptWeights(adapt_weights))
     }
 
-    /// Parse QUANTUM_JOIN statement
+    /// Parse `QUANTUM_JOIN` statement
     fn parse_quantum_join_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut left_table = String::new();
         let mut right_table = String::new();
@@ -2699,16 +2712,15 @@ impl QSQLParser {
             | other => {
                 // Provide a user-friendly description of what was found
                 let token_desc = match other {
-                    | TokenType::Identifier(name) => format!("identifier '{}'", name),
-                    | TokenType::IntegerLiteral(n) => format!("number {}", n),
-                    | TokenType::StringLiteral(s) => format!("string '{}'", s),
+                    | TokenType::Identifier(name) => format!("identifier '{name}'"),
+                    | TokenType::IntegerLiteral(n) => format!("number {n}"),
+                    | TokenType::StringLiteral(s) => format!("string '{s}'"),
                     | TokenType::EOF => "end of statement".to_string(),
-                    | _ => format!("{:?}", other),
+                    | _ => format!("{other:?}"),
                 };
                 return Err(QSQLError::ParseError {
                     message: format!(
-                        "Invalid isolation level. Found {}, but expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE",
-                        token_desc
+                        "Invalid isolation level. Found {token_desc}, but expected READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, or SERIALIZABLE"
                     ),
                     position: pos,
                 });
@@ -2763,7 +2775,7 @@ impl QSQLParser {
     }
 
     /// Parse COMMIT statement
-    fn parse_commit(&self, _tokens: &[TokenType]) -> QSQLResult<Statement> {
+    const fn parse_commit(&self, _tokens: &[TokenType]) -> QSQLResult<Statement> {
         Ok(Statement::Commit(crate::ast::CommitStatement {}))
     }
 
@@ -2790,12 +2802,11 @@ impl QSQLParser {
                 return Ok(Statement::RollbackToSavepoint(
                     crate::ast::RollbackToSavepointStatement { name: name.clone() },
                 ));
-            } else {
-                return Err(QSQLError::ParseError {
-                    message: "Expected savepoint name after ROLLBACK TO".to_string(),
-                    position: i,
-                });
             }
+            return Err(QSQLError::ParseError {
+                message: "Expected savepoint name after ROLLBACK TO".to_string(),
+                position: i,
+            });
         }
 
         Ok(Statement::Rollback(crate::ast::RollbackStatement {}))
@@ -2921,8 +2932,7 @@ impl QSQLParser {
                                     | _ => {
                                         return Err(QSQLError::ParseError {
                                             message: format!(
-                                                "Unknown EXPLAIN format: {}. Expected TEXT, JSON, YAML, or XML",
-                                                f
+                                                "Unknown EXPLAIN format: {f}. Expected TEXT, JSON, YAML, or XML"
                                             ),
                                             position: i,
                                         });
@@ -3306,7 +3316,7 @@ impl QSQLParser {
                     },
                     | _ => {
                         return Err(QSQLError::ParseError {
-                            message: format!("Unknown data type: {}", type_name),
+                            message: format!("Unknown data type: {type_name}"),
                             position: *i - 1,
                         });
                     },
@@ -3853,7 +3863,7 @@ impl QSQLParser {
     }
 
     /// Parse TRUNCATE TABLE statement
-    /// Syntax: TRUNCATE [TABLE] table_name [RESTART IDENTITY | CONTINUE IDENTITY] [CASCADE | RESTRICT]
+    /// Syntax: TRUNCATE [TABLE] `table_name` [RESTART IDENTITY | CONTINUE IDENTITY] [CASCADE | RESTRICT]
     fn parse_truncate_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut i = 0;
 
@@ -3934,7 +3944,7 @@ impl QSQLParser {
     }
 
     /// Parse COMPRESS TABLE statement
-    /// Syntax: COMPRESS TABLE table_name USING compression_algorithm
+    /// Syntax: COMPRESS TABLE `table_name` USING `compression_algorithm`
     fn parse_compress_table_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut i = 0;
 
@@ -3987,7 +3997,7 @@ impl QSQLParser {
                     | "DNA" => CompressionAlgorithm::DNA,
                     | _ => {
                         return Err(QSQLError::ParseError {
-                            message: format!("Unknown compression algorithm: {}", alg),
+                            message: format!("Unknown compression algorithm: {alg}"),
                             position: i,
                         });
                     },
@@ -4018,7 +4028,7 @@ impl QSQLParser {
         }
 
         // Check for AS keyword
-        if let TokenType::As = &tokens[*i] {
+        if matches!(&tokens[*i], TokenType::As) {
             *i += 1;
             if *i < tokens.len() {
                 if let TokenType::Identifier(alias) = &tokens[*i] {
@@ -4180,9 +4190,8 @@ impl QSQLParser {
             if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
                 *i += 1; // consume ','
                 continue; // Parse next CTE
-            } else {
-                break; // End of CTE list
             }
+            break; // End of CTE list
         }
 
         Ok(WithClause { recursive, ctes })
@@ -4317,7 +4326,7 @@ impl QSQLParser {
             } else {
                 // For other joins, ON is expected
                 return Err(QSQLError::ParseError {
-                    message: format!("Expected ON clause for {:?} JOIN", join_type),
+                    message: format!("Expected ON clause for {join_type:?} JOIN"),
                     position: *i,
                 });
             };
@@ -4810,7 +4819,7 @@ impl QSQLParser {
     }
 
     /// Validate AST structure
-    fn validate_ast(&self, _ast: &Statement) -> QSQLResult<()> {
+    const fn validate_ast(&self, _ast: &Statement) -> QSQLResult<()> {
         // Basic validation - could be expanded
         Ok(())
     }
@@ -4820,7 +4829,7 @@ impl QSQLParser {
     /// This implements a Pratt parser which correctly handles operator precedence
     /// and associativity. The algorithm works by:
     /// 1. Parsing a primary expression (literals, identifiers, parentheses)
-    /// 2. While the next operator has higher precedence than min_precedence:
+    /// 2. While the next operator has higher precedence than `min_precedence`:
     ///    - Parse the operator
     ///    - Recursively parse the right side with appropriate precedence
     ///    - Build the binary expression
@@ -4858,12 +4867,11 @@ impl QSQLParser {
                         negated,
                     };
                     continue;
-                } else {
-                    return Err(QSQLError::ParseError {
-                        message: "Expected NULL after IS".to_string(),
-                        position: *i,
-                    });
                 }
+                return Err(QSQLError::ParseError {
+                    message: "Expected NULL after IS".to_string(),
+                    position: *i,
+                });
             }
 
             // Check for NOT IN (two-token sequence)
@@ -5504,7 +5512,7 @@ impl QSQLParser {
                 let arg = self.parse_expression_with_precedence(tokens, i, Precedence::None)?;
                 // Wrap it to indicate DISTINCT
                 if let Expression::Identifier(col) = arg {
-                    args.push(Expression::Identifier(format!("DISTINCT {}", col)));
+                    args.push(Expression::Identifier(format!("DISTINCT {col}")));
                 } else {
                     args.push(arg);
                 }
@@ -5539,8 +5547,7 @@ impl QSQLParser {
                 // We'll extract the expression value at execution time
                 args.push(expr);
                 args.push(Expression::Literal(Literal::String(format!(
-                    "INTERVAL_UNIT:{}",
-                    unit
+                    "INTERVAL_UNIT:{unit}"
                 ))));
             } else {
                 // Parse argument expression
@@ -5574,9 +5581,8 @@ impl QSQLParser {
                 | _ => {
                     return Err(QSQLError::ParseError {
                         message: format!(
-                            "Function '{}' cannot be used as a window function. \
-                             Supported aggregate window functions: SUM, AVG, COUNT, MIN, MAX",
-                            function_name
+                            "Function '{function_name}' cannot be used as a window function. \
+                             Supported aggregate window functions: SUM, AVG, COUNT, MIN, MAX"
                         ),
                         position: *i,
                     });
@@ -5602,7 +5608,7 @@ impl QSQLParser {
     }
 
     /// Parse window function expression
-    /// e.g., ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2)
+    /// e.g., `ROW_NUMBER()` OVER (PARTITION BY col1 ORDER BY col2)
     ///       LAG(column, 1, 0) OVER (ORDER BY id)
     fn parse_window_function(&self, tokens: &[TokenType], i: &mut usize) -> QSQLResult<Expression> {
         // Determine the window function type based on the token
@@ -5907,7 +5913,7 @@ impl QSQLParser {
 
     /// Parse PREPARE statement
     /// Syntax: PREPARE name AS statement
-    /// Example: PREPARE get_user AS SELECT * FROM users WHERE id = $1
+    /// Example: PREPARE `get_user` AS SELECT * FROM users WHERE id = $1
     fn parse_prepare_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut i = 0;
 
@@ -6111,7 +6117,7 @@ impl Default for QSQLParser {
             | Ok(parser) => parser,
             | Err(_) => {
                 // Fallback to a minimal parser if creation fails
-                QSQLParser {
+                Self {
                     config: ParserConfig::default(),
                     natural_language_processor: None,
                     keywords: HashMap::new(),

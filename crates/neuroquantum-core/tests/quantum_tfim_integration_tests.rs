@@ -64,8 +64,7 @@ fn test_quantum_tfim_trotter_ferromagnetic() {
     let nn_correlation = solution.observables.correlations[(0, 1)];
     assert!(
         nn_correlation > 0.0,
-        "Nearest-neighbor correlation should be positive for ferromagnet, got: {}",
-        nn_correlation
+        "Nearest-neighbor correlation should be positive for ferromagnet, got: {nn_correlation}"
     );
 
     println!(
@@ -130,14 +129,12 @@ fn test_quantum_tfim_qaoa_optimization() {
     let problem = QuantumTFIMProblem {
         num_qubits: 4,
         couplings: DMatrix::from_fn(4, 4, |i, j| {
-            if i != j {
-                if (i + j) % 2 == 0 {
-                    1.0
-                } else {
-                    -1.0
-                }
-            } else {
+            if i == j {
                 0.0
+            } else if (i + j) % 2 == 0 {
+                1.0
+            } else {
+                -1.0
             }
         }),
         transverse_fields: vec![0.5; 4],
@@ -237,7 +234,7 @@ fn test_hardware_mapping_neutral_atom() {
 fn test_observables_magnetization() {
     let problem = QuantumTFIMProblem {
         num_qubits: 3,
-        couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 2.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 2.0 }),
         transverse_fields: vec![0.01; 3], // Very weak transverse field for strong ordering
         longitudinal_fields: vec![0.0; 3],
         name: "Strong_Ferromagnet".to_string(),
@@ -260,8 +257,7 @@ fn test_observables_magnetization() {
     for &mag in &solution.observables.magnetization {
         assert!(
             (-1.0..=1.0).contains(&mag),
-            "Magnetization out of bounds: {}",
-            mag
+            "Magnetization out of bounds: {mag}"
         );
     }
 
@@ -279,9 +275,7 @@ fn test_observables_magnetization() {
     // Check that correlations are non-trivial
     assert!(
         correlation_01.abs() > 0.01 || correlation_12.abs() > 0.01,
-        "Expected non-trivial correlations, got: C01={}, C12={}",
-        correlation_01,
-        correlation_12
+        "Expected non-trivial correlations, got: C01={correlation_01}, C12={correlation_12}"
     );
 }
 
@@ -289,7 +283,7 @@ fn test_observables_magnetization() {
 fn test_unified_solver_quantum_path() {
     let classical_problem = TFIMProblem {
         num_spins: 3,
-        couplings: DMatrix::from_fn(3, 3, |i, j| if i != j { 1.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(3, 3, |i, j| if i == j { 0.0 } else { 1.0 }),
         external_fields: vec![0.0; 3],
         name: "Unified_Test".to_string(),
     };
@@ -331,7 +325,7 @@ fn test_unified_solver_quantum_path() {
 fn test_unified_solver_classical_fallback() {
     let classical_problem = TFIMProblem {
         num_spins: 4,
-        couplings: DMatrix::from_fn(4, 4, |i, j| if i != j { 1.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(4, 4, |i, j| if i == j { 0.0 } else { 1.0 }),
         external_fields: vec![0.0; 4],
         name: "Classical_Fallback_Test".to_string(),
     };
@@ -365,7 +359,7 @@ fn test_quantum_classical_consistency() {
     // Use a simple 2-spin system for more predictable results
     let classical_problem = TFIMProblem {
         num_spins: 2,
-        couplings: DMatrix::from_fn(2, 2, |i, j| if i != j { 1.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(2, 2, |i, j| if i == j { 0.0 } else { 1.0 }),
         external_fields: vec![0.0; 2],
         name: "Consistency_Test".to_string(),
     };
@@ -414,8 +408,7 @@ fn test_quantum_classical_consistency() {
     let min_energy = quantum_result.energy.min(classical_result.energy);
     assert!(
         min_energy < 1.0,
-        "At least one method should find a low energy solution, min={:.4}",
-        min_energy
+        "At least one method should find a low energy solution, min={min_energy:.4}"
     );
 }
 
@@ -423,7 +416,7 @@ fn test_quantum_classical_consistency() {
 fn test_vqe_ansatz_types() {
     let problem = QuantumTFIMProblem {
         num_qubits: 2,
-        couplings: DMatrix::from_fn(2, 2, |i, j| if i != j { 1.0 } else { 0.0 }),
+        couplings: DMatrix::from_fn(2, 2, |i, j| if i == j { 0.0 } else { 1.0 }),
         transverse_fields: vec![0.5; 2],
         longitudinal_fields: vec![0.0; 2],
         name: "VQE_Ansatz_Test".to_string(),

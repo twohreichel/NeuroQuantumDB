@@ -1,6 +1,7 @@
+use std::path::Path;
+
 use anyhow;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 // Create a simple database config wrapper that's compatible
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,6 +110,7 @@ impl Default for JwtConfig {
 
 impl JwtConfig {
     /// Check if the current secret is a known insecure default
+    #[must_use]
     pub fn is_insecure_default_secret(&self) -> bool {
         INSECURE_DEFAULT_SECRETS.contains(&self.secret.as_str())
     }
@@ -410,7 +412,7 @@ impl ApiConfig {
     /// Load configuration from file
     pub fn from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let config: ApiConfig = toml::from_str(&content)?;
+        let config: Self = toml::from_str(&content)?;
         Ok(config)
     }
 
@@ -534,16 +536,19 @@ impl ApiConfig {
     }
 
     /// Get the bind address for the server
+    #[must_use]
     pub fn bind_address(&self) -> String {
         format!("{}:{}", self.server.host, self.server.port)
     }
 
     /// Check if TLS is enabled
-    pub fn is_tls_enabled(&self) -> bool {
+    #[must_use]
+    pub const fn is_tls_enabled(&self) -> bool {
         self.server.tls.is_some()
     }
 
     /// Get the base URL for the API
+    #[must_use]
     pub fn base_url(&self) -> String {
         let protocol = if self.is_tls_enabled() {
             "https"
@@ -561,6 +566,7 @@ impl ApiConfig {
     }
 
     /// Create a development configuration
+    #[must_use]
     pub fn development() -> Self {
         Self {
             server: ServerConfig {
@@ -596,6 +602,7 @@ impl ApiConfig {
     }
 
     /// Create a production configuration
+    #[must_use]
     pub fn production() -> Self {
         Self {
             server: ServerConfig {

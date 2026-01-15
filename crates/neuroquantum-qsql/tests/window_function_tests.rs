@@ -1,13 +1,15 @@
-//! Integration tests for Window Functions (ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD)
+//! Integration tests for Window Functions (`ROW_NUMBER`, RANK, `DENSE_RANK`, LAG, LEAD)
 //!
 //! This test suite verifies that window functions are correctly parsed and executed.
+
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use neuroquantum_core::storage::{
     ColumnDefinition, DataType, Row, StorageEngine, TableSchema, Value,
 };
-use neuroquantum_qsql::{query_plan::QueryValue, ExecutorConfig, Parser, QueryExecutor};
-use std::collections::HashMap;
-use std::sync::Arc;
+use neuroquantum_qsql::query_plan::QueryValue;
+use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
 /// Helper function to create a test table with employee data
@@ -94,7 +96,7 @@ async fn setup_test_db() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>>) {
     (temp_dir, storage_arc)
 }
 
-/// Test ROW_NUMBER() parsing
+/// Test `ROW_NUMBER()` parsing
 #[test]
 fn test_row_number_parsing() {
     let parser = Parser::new();
@@ -121,7 +123,7 @@ fn test_row_number_parsing() {
                         neuroquantum_qsql::ast::WindowFunctionType::RowNumber
                     );
                 },
-                | _ => panic!("Expected WindowFunction expression, got {:?}", expr),
+                | _ => panic!("Expected WindowFunction expression, got {expr:?}"),
             }
             assert_eq!(alias.as_deref(), Some("row_num"));
         } else {
@@ -132,7 +134,7 @@ fn test_row_number_parsing() {
     }
 }
 
-/// Test RANK() parsing with PARTITION BY
+/// Test `RANK()` parsing with PARTITION BY
 #[test]
 fn test_rank_with_partition_parsing() {
     let parser = Parser::new();
@@ -168,7 +170,7 @@ fn test_rank_with_partition_parsing() {
     }
 }
 
-/// Test DENSE_RANK() parsing
+/// Test `DENSE_RANK()` parsing
 #[test]
 fn test_dense_rank_parsing() {
     let parser = Parser::new();
@@ -182,7 +184,7 @@ fn test_dense_rank_parsing() {
     );
 }
 
-/// Test LAG() parsing with arguments
+/// Test `LAG()` parsing with arguments
 #[test]
 fn test_lag_parsing() {
     let parser = Parser::new();
@@ -208,7 +210,7 @@ fn test_lag_parsing() {
     }
 }
 
-/// Test LEAD() parsing
+/// Test `LEAD()` parsing
 #[test]
 fn test_lead_parsing() {
     let parser = Parser::new();
@@ -218,7 +220,7 @@ fn test_lead_parsing() {
     assert!(result.is_ok(), "Failed to parse LEAD: {:?}", result.err());
 }
 
-/// Test ROW_NUMBER() execution
+/// Test `ROW_NUMBER()` execution
 #[tokio::test]
 async fn test_row_number_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -246,7 +248,7 @@ async fn test_row_number_execution() {
     println!("✅ ROW_NUMBER() execution: SUCCESS");
 }
 
-/// Test RANK() execution with ties
+/// Test `RANK()` execution with ties
 #[tokio::test]
 async fn test_rank_execution_with_ties() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -288,7 +290,7 @@ async fn test_rank_execution_with_ties() {
     println!("✅ RANK() with ties: SUCCESS");
 }
 
-/// Test RANK() with PARTITION BY
+/// Test `RANK()` with PARTITION BY
 #[tokio::test]
 async fn test_rank_with_partition_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -318,7 +320,7 @@ async fn test_rank_with_partition_execution() {
     println!("✅ RANK() with PARTITION BY: SUCCESS");
 }
 
-/// Test DENSE_RANK() execution
+/// Test `DENSE_RANK()` execution
 #[tokio::test]
 async fn test_dense_rank_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -354,7 +356,7 @@ async fn test_dense_rank_execution() {
     println!("✅ DENSE_RANK() execution: SUCCESS");
 }
 
-/// Test LAG() execution
+/// Test `LAG()` execution
 #[tokio::test]
 async fn test_lag_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -384,7 +386,7 @@ async fn test_lag_execution() {
     println!("✅ LAG() execution: SUCCESS");
 }
 
-/// Test LEAD() execution
+/// Test `LEAD()` execution
 #[tokio::test]
 async fn test_lead_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -413,7 +415,7 @@ async fn test_lead_execution() {
     println!("✅ LEAD() execution: SUCCESS");
 }
 
-/// Test NTILE() parsing
+/// Test `NTILE()` parsing
 #[test]
 fn test_ntile_parsing() {
     let parser = Parser::new();
@@ -423,7 +425,7 @@ fn test_ntile_parsing() {
     assert!(result.is_ok(), "Failed to parse NTILE: {:?}", result.err());
 }
 
-/// Test FIRST_VALUE() parsing
+/// Test `FIRST_VALUE()` parsing
 #[test]
 fn test_first_value_parsing() {
     let parser = Parser::new();
@@ -437,7 +439,7 @@ fn test_first_value_parsing() {
     );
 }
 
-/// Test LAST_VALUE() parsing
+/// Test `LAST_VALUE()` parsing
 #[test]
 fn test_last_value_parsing() {
     let parser = Parser::new();
@@ -455,7 +457,7 @@ fn test_last_value_parsing() {
 // Phase 2: Aggregate Window Functions (SUM, AVG, COUNT with OVER)
 // ============================================================================
 
-/// Test SUM() OVER parsing
+/// Test `SUM()` OVER parsing
 #[test]
 fn test_sum_over_parsing() {
     let parser = Parser::new();
@@ -470,7 +472,7 @@ fn test_sum_over_parsing() {
     );
 }
 
-/// Test AVG() OVER parsing
+/// Test `AVG()` OVER parsing
 #[test]
 fn test_avg_over_parsing() {
     let parser = Parser::new();
@@ -484,7 +486,7 @@ fn test_avg_over_parsing() {
     );
 }
 
-/// Test COUNT() OVER parsing
+/// Test `COUNT()` OVER parsing
 #[test]
 fn test_count_over_parsing() {
     let parser = Parser::new();
@@ -498,7 +500,7 @@ fn test_count_over_parsing() {
     );
 }
 
-/// Test SUM() OVER execution
+/// Test `SUM()` OVER execution
 #[tokio::test]
 async fn test_sum_over_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -526,7 +528,7 @@ async fn test_sum_over_execution() {
     println!("✅ SUM() OVER execution: SUCCESS");
 }
 
-/// Test AVG() OVER execution
+/// Test `AVG()` OVER execution
 #[tokio::test]
 async fn test_avg_over_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -545,7 +547,7 @@ async fn test_avg_over_execution() {
     println!("✅ AVG() OVER execution: SUCCESS");
 }
 
-/// Test COUNT() OVER execution
+/// Test `COUNT()` OVER execution
 #[tokio::test]
 async fn test_count_over_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -577,7 +579,7 @@ async fn test_count_over_execution() {
     println!("✅ COUNT() OVER execution: SUCCESS");
 }
 
-/// Test MIN() OVER parsing
+/// Test `MIN()` OVER parsing
 #[test]
 fn test_min_over_parsing() {
     let parser = Parser::new();
@@ -592,7 +594,7 @@ fn test_min_over_parsing() {
     );
 }
 
-/// Test MAX() OVER parsing
+/// Test `MAX()` OVER parsing
 #[test]
 fn test_max_over_parsing() {
     let parser = Parser::new();
@@ -607,7 +609,7 @@ fn test_max_over_parsing() {
     );
 }
 
-/// Test MIN() OVER execution
+/// Test `MIN()` OVER execution
 #[tokio::test]
 async fn test_min_over_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -639,7 +641,7 @@ async fn test_min_over_execution() {
     println!("✅ MIN() OVER execution: SUCCESS");
 }
 
-/// Test MAX() OVER execution
+/// Test `MAX()` OVER execution
 #[tokio::test]
 async fn test_max_over_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -671,7 +673,7 @@ async fn test_max_over_execution() {
     println!("✅ MAX() OVER execution: SUCCESS");
 }
 
-/// Test FIRST_VALUE() execution
+/// Test `FIRST_VALUE()` execution
 #[tokio::test]
 async fn test_first_value_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -690,7 +692,7 @@ async fn test_first_value_execution() {
     println!("✅ FIRST_VALUE() execution: SUCCESS");
 }
 
-/// Test LAST_VALUE() execution
+/// Test `LAST_VALUE()` execution
 #[tokio::test]
 async fn test_last_value_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;
@@ -709,7 +711,7 @@ async fn test_last_value_execution() {
     println!("✅ LAST_VALUE() execution: SUCCESS");
 }
 
-/// Test NTILE() execution
+/// Test `NTILE()` execution
 #[tokio::test]
 async fn test_ntile_execution() {
     let (_temp_dir, storage_arc) = setup_test_db().await;

@@ -2,10 +2,11 @@
 
 #[cfg(test)]
 mod chaos_tests {
-    use super::super::*;
     use std::sync::atomic::{AtomicU16, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
+
+    use super::super::*;
 
     // Port counter for tests
     static PORT_COUNTER: AtomicU16 = AtomicU16::new(30000);
@@ -14,7 +15,7 @@ mod chaos_tests {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
         ClusterConfig {
             node_id,
-            bind_addr: format!("127.0.0.1:{}", port).parse().unwrap(),
+            bind_addr: format!("127.0.0.1:{port}").parse().unwrap(),
             ..Default::default()
         }
     }
@@ -288,7 +289,7 @@ mod chaos_tests {
         for i in 0..10 {
             let leader_clone = Arc::clone(&leader);
             let task = tokio::spawn(async move {
-                let data = format!("concurrent_entry_{}", i);
+                let data = format!("concurrent_entry_{i}");
                 leader_clone.propose(data.as_bytes().to_vec()).await
             });
             tasks.push(task);

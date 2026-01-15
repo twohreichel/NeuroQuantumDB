@@ -1,7 +1,7 @@
-//! Example: Using Transaction Control in NeuroQuantumDB
+//! Example: Using Transaction Control in `NeuroQuantumDB`
 //!
 //! This example demonstrates how to use BEGIN, COMMIT, and ROLLBACK
-//! statements with the NeuroQuantumDB storage engine and transaction manager.
+//! statements with the `NeuroQuantumDB` storage engine and transaction manager.
 //!
 //! # Features Demonstrated
 //! - Starting transactions with BEGIN or START TRANSACTION
@@ -10,10 +10,11 @@
 //! - Using different isolation levels
 //! - Working with savepoints
 
+use std::sync::Arc;
+
 use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema, Value};
 use neuroquantum_core::transaction::TransactionManager;
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
-use std::sync::Arc;
 use tempfile::TempDir;
 
 #[tokio::main]
@@ -240,5 +241,5 @@ fn format_account_row(
         | Some(neuroquantum_qsql::query_plan::QueryValue::Integer(b)) => b.to_string(),
         | _ => "?".to_string(),
     };
-    format!("ID: {}, Name: {}, Balance: {}", id, name, balance)
+    format!("ID: {id}, Name: {name}, Balance: {balance}")
 }

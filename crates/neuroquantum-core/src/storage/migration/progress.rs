@@ -2,9 +2,10 @@
 //!
 //! Tracks progress of long-running migrations.
 
-use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::storage::migration::MigrationId;
@@ -32,6 +33,7 @@ pub struct MigrationProgress {
 
 impl MigrationProgress {
     /// Create new progress tracker for a migration
+    #[must_use]
     pub fn new(migration_id: MigrationId, total_items: u64) -> Self {
         Self {
             migration_id,
@@ -69,6 +71,7 @@ pub struct ProgressTracker {
 
 impl ProgressTracker {
     /// Create a new progress tracker
+    #[must_use]
     pub fn new() -> Self {
         Self {
             progress: Arc::new(RwLock::new(None)),
@@ -115,11 +118,13 @@ impl ProgressTracker {
     }
 
     /// Check if paused
+    #[must_use]
     pub fn is_paused(&self) -> bool {
         self.pause_flag.load(Ordering::SeqCst)
     }
 
     /// Check if cancelled
+    #[must_use]
     pub fn is_cancelled(&self) -> bool {
         self.cancel_flag.load(Ordering::SeqCst)
     }

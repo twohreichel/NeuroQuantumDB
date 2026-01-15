@@ -1,4 +1,4 @@
-//! Encryption-at-Rest for NeuroQuantumDB
+//! Encryption-at-Rest for `NeuroQuantumDB`
 //! Provides transparent encryption/decryption using Post-Quantum Cryptography (ML-KEM)
 //! combined with symmetric encryption (AES-256-GCM) for performance.
 //!
@@ -7,20 +7,19 @@
 //! Master keys are stored securely using the OS keychain:
 //! - **macOS**: Keychain Services
 //! - **Windows**: Credential Manager
-//! - **Linux**: Secret Service (GNOME Keyring, KWallet, etc.)
+//! - **Linux**: Secret Service (GNOME Keyring, `KWallet`, etc.)
 //!
 //! Fallback to file-based storage is available for environments without keychain support,
 //! but this is not recommended for production deployments.
 
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
-};
+use std::path::{Path, PathBuf};
+
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Nonce};
 use anyhow::{anyhow, Result};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
-use std::path::{Path, PathBuf};
 use tokio::fs;
 use zeroize::Zeroize;
 
@@ -194,12 +193,11 @@ impl EncryptionManager {
                             e
                         );
                         return Err(anyhow!(
-                            "Security policy violation: OS keychain is unavailable ({}) and file-based fallback \
+                            "Security policy violation: OS keychain is unavailable ({e}) and file-based fallback \
                             is forbidden by configuration. Either:\n\
                             1. Ensure the OS keychain service is running and accessible\n\
                             2. Set 'forbid_file_fallback = false' (not recommended for production)\n\
-                            3. Check system logs for keychain-related errors",
-                            e
+                            3. Check system logs for keychain-related errors"
                         ));
                     },
                     | Err(e) => {
@@ -269,12 +267,11 @@ impl EncryptionManager {
                                 e
                             );
                             return Err(anyhow!(
-                                "Security policy violation: OS keychain is unavailable ({}) and file-based fallback \
+                                "Security policy violation: OS keychain is unavailable ({e}) and file-based fallback \
                                 is forbidden by configuration. Either:\n\
                                 1. Ensure the OS keychain service is running and accessible\n\
                                 2. Set 'forbid_file_fallback = false' (not recommended for production)\n\
-                                3. Check system logs for keychain-related errors",
-                                e
+                                3. Check system logs for keychain-related errors"
                             ));
                         },
                         | Err(e) => {
@@ -312,7 +309,8 @@ impl EncryptionManager {
     /// Generate a unique instance ID from the data directory path
     fn generate_instance_id(data_dir: &Path) -> String {
         let hash = Self::hash_data(data_dir.to_string_lossy().as_bytes());
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         // Use first 16 bytes as a unique but readable identifier
         general_purpose::URL_SAFE_NO_PAD.encode(&hash[..16])
     }
@@ -321,7 +319,7 @@ impl EncryptionManager {
     /// Also saves a backup copy to file for disaster recovery
     async fn load_or_create_keychain_key(instance_id: &str, key_path: &Path) -> Result<[u8; 32]> {
         let entry = Entry::new(KEYRING_SERVICE, instance_id)
-            .map_err(|e| anyhow!("Failed to access keychain: {}", e))?;
+            .map_err(|e| anyhow!("Failed to access keychain: {e}"))?;
 
         // Try to load existing key
         match entry.get_password() {
@@ -347,7 +345,7 @@ impl EncryptionManager {
 
                 entry
                     .set_password(&encoded)
-                    .map_err(|e| anyhow!("Failed to store key in keychain: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to store key in keychain: {e}"))?;
 
                 // Also save to file as backup for disaster recovery
                 if let Err(e) = Self::save_master_key_to_file(key_path, &key).await {
@@ -359,7 +357,7 @@ impl EncryptionManager {
                 tracing::info!("🔑 Generated and stored new master key in OS keychain");
                 Ok(key)
             },
-            | Err(e) => Err(anyhow!("Keychain error: {}", e)),
+            | Err(e) => Err(anyhow!("Keychain error: {e}")),
         }
     }
 
@@ -384,16 +382,18 @@ impl EncryptionManager {
 
     /// Encode a key for storage
     fn encode_key(key: &[u8; 32]) -> String {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         general_purpose::STANDARD.encode(key)
     }
 
     /// Decode a key from storage
     fn decode_key(encoded: &str) -> Result<[u8; 32]> {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         let decoded = general_purpose::STANDARD
             .decode(encoded.trim())
-            .map_err(|e| anyhow!("Failed to decode master key: {}", e))?;
+            .map_err(|e| anyhow!("Failed to decode master key: {e}"))?;
 
         if decoded.len() != 32 {
             return Err(anyhow!("Invalid master key length: {}", decoded.len()));
@@ -452,7 +452,7 @@ impl EncryptionManager {
         }
 
         let entry = Entry::new(KEYRING_SERVICE, &self.instance_id)
-            .map_err(|e| anyhow!("Failed to access keychain: {}", e))?;
+            .map_err(|e| anyhow!("Failed to access keychain: {e}"))?;
 
         // Check if key already exists in keychain
         if entry.get_password().is_ok() {
@@ -467,7 +467,7 @@ impl EncryptionManager {
         let encoded = Self::encode_key(&self.master_key);
         entry
             .set_password(&encoded)
-            .map_err(|e| anyhow!("Failed to store key in keychain: {}", e))?;
+            .map_err(|e| anyhow!("Failed to store key in keychain: {e}"))?;
 
         tracing::info!(
             "🔐 Successfully migrated master key to OS keychain for instance: {}",
@@ -499,12 +499,12 @@ impl EncryptionManager {
         match self.storage_strategy {
             | KeyStorageStrategy::OsKeychain | KeyStorageStrategy::KeychainWithFileFallback => {
                 let entry = Entry::new(KEYRING_SERVICE, &self.instance_id)
-                    .map_err(|e| anyhow!("Failed to access keychain: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to access keychain: {e}"))?;
 
                 let encoded = Self::encode_key(&new_key);
                 entry
                     .set_password(&encoded)
-                    .map_err(|e| anyhow!("Failed to store rotated key in keychain: {}", e))?;
+                    .map_err(|e| anyhow!("Failed to store rotated key in keychain: {e}"))?;
             },
             | KeyStorageStrategy::FileBased => {
                 Self::save_master_key_to_file(&self.key_path, &new_key).await?;
@@ -557,6 +557,7 @@ impl EncryptionManager {
     }
 
     /// Check the status of the OS keychain
+    #[must_use]
     pub fn check_keychain_status() -> KeychainStatus {
         let test_entry = Entry::new(KEYRING_SERVICE, "status-check");
 
@@ -598,7 +599,8 @@ impl EncryptionManager {
     }
 
     /// Get the current storage strategy
-    pub fn storage_strategy(&self) -> KeyStorageStrategy {
+    #[must_use]
+    pub const fn storage_strategy(&self) -> KeyStorageStrategy {
         self.storage_strategy
     }
 
@@ -606,6 +608,7 @@ impl EncryptionManager {
     ///
     /// Returns `true` if keys are stored in the OS keychain, `false` if using file-based storage.
     /// This is useful for security audits and production readiness checks.
+    #[must_use]
     pub fn is_using_secure_storage(&self) -> bool {
         self.storage_strategy == KeyStorageStrategy::OsKeychain
     }
@@ -614,6 +617,7 @@ impl EncryptionManager {
     ///
     /// Returns a security status report indicating whether the current key storage
     /// configuration is suitable for production use.
+    #[must_use]
     pub fn security_status(&self) -> SecurityStatus {
         let is_secure = self.is_using_secure_storage();
         let keychain_status = Self::check_keychain_status();
@@ -643,11 +647,13 @@ impl EncryptionManager {
     }
 
     /// Get the instance ID
+    #[must_use]
     pub fn instance_id(&self) -> &str {
         &self.instance_id
     }
 
     /// Get the key file path
+    #[must_use]
     pub fn key_path(&self) -> &Path {
         &self.key_path
     }
@@ -662,12 +668,12 @@ impl EncryptionManager {
 
         // Create cipher with master key
         let cipher = Aes256Gcm::new_from_slice(&self.master_key)
-            .map_err(|e| anyhow!("Failed to create cipher: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create cipher: {e}"))?;
 
         // Encrypt
         let ciphertext = cipher
             .encrypt(&nonce, plaintext)
-            .map_err(|e| anyhow!("Encryption failed: {}", e))?;
+            .map_err(|e| anyhow!("Encryption failed: {e}"))?;
 
         // Generate salt for key derivation (used for future enhancements)
         let mut salt = [0u8; 32];
@@ -707,30 +713,28 @@ impl EncryptionManager {
 
         // Create cipher with master key
         let cipher = Aes256Gcm::new_from_slice(&self.master_key)
-            .map_err(|e| anyhow!("Failed to create cipher: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create cipher: {e}"))?;
 
         // Decrypt
         let plaintext = cipher
             .decrypt(&nonce, encrypted.ciphertext.as_ref())
-            .map_err(|e| anyhow!("Decryption failed: {}", e))?;
+            .map_err(|e| anyhow!("Decryption failed: {e}"))?;
 
         Ok(plaintext)
     }
 
     /// Derive a key from password using Argon2
     pub fn derive_key_from_password(password: &str, salt: &[u8]) -> Result<[u8; 32]> {
-        use argon2::{
-            password_hash::{PasswordHasher, SaltString},
-            Argon2,
-        };
+        use argon2::password_hash::{PasswordHasher, SaltString};
+        use argon2::Argon2;
 
         let salt_string =
-            SaltString::encode_b64(salt).map_err(|e| anyhow!("Failed to encode salt: {}", e))?;
+            SaltString::encode_b64(salt).map_err(|e| anyhow!("Failed to encode salt: {e}"))?;
 
         let argon2 = Argon2::default();
         let hash = argon2
             .hash_password(password.as_bytes(), &salt_string)
-            .map_err(|e| anyhow!("Password hashing failed: {}", e))?;
+            .map_err(|e| anyhow!("Password hashing failed: {e}"))?;
 
         // Extract the hash as bytes
         let hash_bytes = hash.hash.ok_or_else(|| anyhow!("No hash produced"))?;
@@ -744,6 +748,7 @@ impl EncryptionManager {
     }
 
     /// Hash data using SHA3-256
+    #[must_use]
     pub fn hash_data(data: &[u8]) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
         hasher.update(data);
@@ -754,9 +759,11 @@ impl EncryptionManager {
     }
 
     /// Get encryption key fingerprint for verification
+    #[must_use]
     pub fn get_key_fingerprint(&self) -> String {
         let hash = Self::hash_data(&self.master_key);
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::engine::general_purpose;
+        use base64::Engine as _;
         general_purpose::STANDARD.encode(&hash[..8]) // First 8 bytes as fingerprint
     }
 }
@@ -898,7 +905,7 @@ mod tests {
     fn test_keychain_status_check() {
         let status = EncryptionManager::check_keychain_status();
         // Just verify it doesn't panic - actual availability depends on system
-        println!("Keychain status: {:?}", status);
+        println!("Keychain status: {status:?}");
     }
 
     #[tokio::test]

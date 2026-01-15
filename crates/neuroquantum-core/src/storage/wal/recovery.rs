@@ -5,10 +5,11 @@
 //! 2. Redo: Replay all changes from the log to restore the database state
 //! 3. Undo: Roll back incomplete transactions
 
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use super::{TransactionId, TransactionState, WALConfig, WALRecord, WALRecordType, LSN};
@@ -43,7 +44,8 @@ pub struct RecoveryManager {
 
 impl RecoveryManager {
     /// Create a new recovery manager
-    pub fn new(config: WALConfig, pager: Arc<PageStorageManager>) -> Self {
+    #[must_use]
+    pub const fn new(config: WALConfig, pager: Arc<PageStorageManager>) -> Self {
         Self {
             _config: config,
             _pager: pager,
@@ -110,8 +112,8 @@ impl RecoveryManager {
     /// Phase 1: Analysis - determine transaction and page state
     ///
     /// This phase scans the log to build:
-    /// - Transaction table: maps tx_id -> TransactionState with full ARIES tracking
-    /// - Dirty page table: maps page_id -> recovery LSN
+    /// - Transaction table: maps `tx_id` -> `TransactionState` with full ARIES tracking
+    /// - Dirty page table: maps `page_id` -> recovery LSN
     /// - Sets of committed and aborted transactions
     async fn analysis_phase(&self, wal_manager: &super::WALManager) -> Result<AnalysisResult> {
         info!("Scanning log from beginning...");
@@ -301,10 +303,10 @@ impl RecoveryManager {
 
     /// Phase 3: Undo - roll back incomplete transactions
     ///
-    /// Uses the full TransactionState information for optimized undo:
-    /// - Respects undo_next_lsn for CLR-aware recovery
-    /// - Uses modified_pages for selective page access
-    /// - Leverages operation_count for progress tracking
+    /// Uses the full `TransactionState` information for optimized undo:
+    /// - Respects `undo_next_lsn` for CLR-aware recovery
+    /// - Uses `modified_pages` for selective page access
+    /// - Leverages `operation_count` for progress tracking
     async fn undo_phase(
         &self,
         wal_manager: &super::WALManager,
@@ -356,7 +358,7 @@ impl RecoveryManager {
         Ok(undo_count)
     }
 
-    /// Undo a single transaction by following prev_lsn chain
+    /// Undo a single transaction by following `prev_lsn` chain
     async fn undo_transaction(
         &self,
         wal_manager: &super::WALManager,
@@ -429,7 +431,7 @@ impl RecoveryManager {
 /// Result of the analysis phase with full ARIES transaction tracking
 #[derive(Debug)]
 struct AnalysisResult {
-    /// Active transaction states (not committed/aborted) - full TransactionState for proper undo
+    /// Active transaction states (not committed/aborted) - full `TransactionState` for proper undo
     active_txn_states: HashMap<TransactionId, TransactionState>,
     /// Active transactions (not committed/aborted) - LSN mapping for compatibility
     active_txns: HashMap<TransactionId, LSN>,
@@ -465,10 +467,11 @@ impl AnalysisResult {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::storage::pager::{PageType, PagerConfig, SyncMode};
     use crate::storage::wal::WALManager;
-    use tempfile::TempDir;
 
     async fn setup_test_recovery() -> (TempDir, Arc<PageStorageManager>, WALManager) {
         let temp_dir = TempDir::new().unwrap();
