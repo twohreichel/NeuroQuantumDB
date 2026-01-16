@@ -42,7 +42,7 @@ async fn run_benchmark(batch_size: u64) -> Result<()> {
     let temp_dir = TempDir::new()?;
     let file_path = temp_dir.path().join("benchmark.db");
 
-    println!("\n📦 Batch size: {} pages", batch_size);
+    println!("\n📦 Batch size: {batch_size} pages");
     println!("{}", "-".repeat(60));
 
     // Create test file
@@ -127,7 +127,7 @@ async fn run_benchmark(batch_size: u64) -> Result<()> {
     let total_time = batch_write_time + batch_read_time;
     let throughput_mb = (batch_size as f64 * 4096.0) / (1024.0 * 1024.0) / total_time.as_secs_f64();
 
-    println!("  📊 Throughput:   {:>8.2} MB/s", throughput_mb);
+    println!("  📊 Throughput:   {throughput_mb:>8.2} MB/s");
 
     Ok(())
 }
