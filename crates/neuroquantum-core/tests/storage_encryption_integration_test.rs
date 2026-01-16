@@ -70,8 +70,8 @@ async fn test_dna_compression_and_encryption_roundtrip() {
     for (i, (name, email)) in test_data.iter().enumerate() {
         let mut fields = HashMap::new();
         fields.insert("id".to_string(), Value::Integer((i + 1) as i64));
-        fields.insert("name".to_string(), Value::Text((*name).to_string()));
-        fields.insert("email".to_string(), Value::Text((*email).to_string()));
+        fields.insert("name".to_string(), Value::text(*name));
+        fields.insert("email".to_string(), Value::text(*email));
 
         let row = Row {
             id: 0, // Will be assigned by storage engine
@@ -140,8 +140,8 @@ async fn test_dna_compression_and_encryption_roundtrip() {
             | _ => panic!("Email field not found or wrong type"),
         };
 
-        assert_eq!(name, expected_name, "Name should match");
-        assert_eq!(email, expected_email, "Email should match");
+        assert_eq!(name.as_str(), *expected_name, "Name should match");
+        assert_eq!(email.as_str(), *expected_email, "Email should match");
 
         println!("✅ Row {} verified: {} <{}>", i + 1, name, email);
     }
@@ -192,7 +192,7 @@ async fn test_compression_ratio_with_encryption() {
     fields.insert("id".to_string(), Value::Integer(1));
     fields.insert(
         "content".to_string(),
-        Value::Text(repetitive_content.clone()),
+        Value::text(repetitive_content.clone()),
     );
 
     let row = Row {
@@ -250,7 +250,8 @@ async fn test_compression_ratio_with_encryption() {
     };
 
     assert_eq!(
-        retrieved_content, &repetitive_content,
+        retrieved_content.as_str(),
+        repetitive_content.as_str(),
         "Content should be identical after compression/decompression"
     );
 

@@ -136,33 +136,24 @@ async fn test_execute_multi_row_insert() {
     assert_eq!(rows.len(), 3, "Expected 3 rows in storage");
 
     // Verify individual rows
-    assert_eq!(
-        rows[0].fields.get("name"),
-        Some(&Value::Text("Alice".to_string()))
-    );
+    assert_eq!(rows[0].fields.get("name"), Some(&Value::text("Alice")));
     assert_eq!(
         rows[0].fields.get("email"),
-        Some(&Value::Text("alice@example.com".to_string()))
+        Some(&Value::text("alice@example.com"))
     );
     assert_eq!(rows[0].fields.get("age"), Some(&Value::Integer(25)));
 
-    assert_eq!(
-        rows[1].fields.get("name"),
-        Some(&Value::Text("Bob".to_string()))
-    );
+    assert_eq!(rows[1].fields.get("name"), Some(&Value::text("Bob")));
     assert_eq!(
         rows[1].fields.get("email"),
-        Some(&Value::Text("bob@example.com".to_string()))
+        Some(&Value::text("bob@example.com"))
     );
     assert_eq!(rows[1].fields.get("age"), Some(&Value::Integer(30)));
 
-    assert_eq!(
-        rows[2].fields.get("name"),
-        Some(&Value::Text("Charlie".to_string()))
-    );
+    assert_eq!(rows[2].fields.get("name"), Some(&Value::text("Charlie")));
     assert_eq!(
         rows[2].fields.get("email"),
-        Some(&Value::Text("charlie@example.com".to_string()))
+        Some(&Value::text("charlie@example.com"))
     );
     assert_eq!(rows[2].fields.get("age"), Some(&Value::Integer(35)));
 }

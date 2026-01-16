@@ -58,7 +58,7 @@ fn create_test_row(id: i64, name: &str, balance: i64) -> Row {
         id: id as u64,
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(id)),
-            ("name".to_string(), Value::Text(name.to_string())),
+            ("name".to_string(), Value::text(name)),
             ("balance".to_string(), Value::Integer(balance)),
         ]),
         created_at: chrono::Utc::now(),

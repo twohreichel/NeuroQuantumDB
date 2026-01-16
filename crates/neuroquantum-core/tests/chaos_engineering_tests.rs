@@ -109,7 +109,7 @@ fn create_chaos_test_row(id: i64, value: &str) -> Row {
         id: id as u64,
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(id)),
-            ("value".to_string(), Value::Text(value.to_string())),
+            ("value".to_string(), Value::text(value)),
             ("checksum".to_string(), Value::Integer(checksum)),
         ]),
         created_at: chrono::Utc::now(),
@@ -392,7 +392,7 @@ async fn test_uncommitted_transaction_rollback() {
         let has_committed = rows.iter().any(|r| {
             r.fields
                 .get("value")
-                .is_some_and(|v| v == &Value::Text("committed_data".to_string()))
+                .is_some_and(|v| v == &Value::text("committed_data"))
         });
         assert!(has_committed, "Committed data should be present");
     }

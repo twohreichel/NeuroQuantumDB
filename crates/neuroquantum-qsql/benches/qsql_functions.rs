@@ -49,8 +49,8 @@ fn generate_test_rows(count: usize) -> Vec<BenchmarkRow> {
 
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i as i64));
-            fields.insert("name".to_string(), Value::Text(name));
-            fields.insert("email".to_string(), Value::Text(email));
+            fields.insert("name".to_string(), Value::text(name));
+            fields.insert("email".to_string(), Value::text(email));
             fields.insert(
                 "age".to_string(),
                 Value::Integer(i64::from(rng.gen_range(18..80))),

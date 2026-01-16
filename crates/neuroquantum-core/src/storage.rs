@@ -13,6 +13,7 @@ pub mod wal;
 use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 pub use backup::{
@@ -235,15 +236,82 @@ pub enum DataType {
 }
 
 /// Generic value type for database operations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+///
+/// Uses `Arc` for `Text` and `Binary` variants to enable cheap cloning (reference counting only).
+/// This significantly reduces memory allocations and improves performance for JOIN operations
+/// and CTE (Common Table Expression) execution where rows are frequently cloned.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Value {
     Integer(i64),
     Float(f64),
-    Text(String),
+    /// Text value with shared ownership for cheap cloning
+    #[serde(with = "arc_string_serde")]
+    Text(Arc<String>),
     Boolean(bool),
     Timestamp(chrono::DateTime<chrono::Utc>),
-    Binary(Vec<u8>),
+    /// Binary data with shared ownership for cheap cloning
+    #[serde(with = "arc_vec_serde")]
+    Binary(Arc<Vec<u8>>),
     Null,
+}
+
+/// Custom Clone implementation that leverages Arc's cheap reference counting
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        match self {
+            | Self::Integer(i) => Self::Integer(*i),
+            | Self::Float(f) => Self::Float(*f),
+            | Self::Text(s) => Self::Text(Arc::clone(s)),
+            | Self::Boolean(b) => Self::Boolean(*b),
+            | Self::Timestamp(ts) => Self::Timestamp(*ts),
+            | Self::Binary(b) => Self::Binary(Arc::clone(b)),
+            | Self::Null => Self::Null,
+        }
+    }
+}
+
+/// Serde helper module for Arc<String>
+mod arc_string_serde {
+    use std::sync::Arc;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(value: &Arc<String>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        value.as_str().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Arc<String>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Arc::new(s))
+    }
+}
+
+/// Serde helper module for Arc<Vec<u8>>
+mod arc_vec_serde {
+    use std::sync::Arc;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(value: &Arc<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        value.as_slice().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Arc<Vec<u8>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let v = Vec::<u8>::deserialize(deserializer)?;
+        Ok(Arc::new(v))
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -256,6 +324,52 @@ impl std::fmt::Display for Value {
             | Self::Timestamp(ts) => write!(f, "{}", ts.to_rfc3339()),
             | Self::Binary(b) => write!(f, "Binary[{} bytes]", b.len()),
             | Self::Null => write!(f, "NULL"),
+        }
+    }
+}
+
+impl Value {
+    /// Create a new Text value from a string
+    ///
+    /// # Example
+    /// ```
+    /// use neuroquantum_core::storage::Value;
+    /// let text = Value::text("Hello, World!");
+    /// ```
+    #[inline]
+    pub fn text(s: impl Into<String>) -> Self {
+        Self::Text(Arc::new(s.into()))
+    }
+
+    /// Create a new Binary value from bytes
+    ///
+    /// # Example
+    /// ```
+    /// use neuroquantum_core::storage::Value;
+    /// let binary = Value::binary(vec![0x01, 0x02, 0x03]);
+    /// ```
+    #[inline]
+    pub fn binary(data: impl Into<Vec<u8>>) -> Self {
+        Self::Binary(Arc::new(data.into()))
+    }
+
+    /// Get the inner text as a reference if this is a Text value
+    #[inline]
+    #[must_use]
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            | Self::Text(s) => Some(s.as_str()),
+            | _ => None,
+        }
+    }
+
+    /// Get the inner binary data as a reference if this is a Binary value
+    #[inline]
+    #[must_use]
+    pub fn as_binary(&self) -> Option<&[u8]> {
+        match self {
+            | Self::Binary(b) => Some(b.as_slice()),
+            | _ => None,
         }
     }
 }
@@ -1163,7 +1277,7 @@ impl StorageEngine {
                 Ok(Value::Integer(*i))
             },
             | (Value::Integer(i), DataType::Float) => Ok(Value::Float(*i as f64)),
-            | (Value::Integer(i), DataType::Text) => Ok(Value::Text(i.to_string())),
+            | (Value::Integer(i), DataType::Text) => Ok(Value::text(i.to_string())),
             | (Value::Integer(i), DataType::Boolean) => Ok(Value::Boolean(*i != 0)),
 
             // Float conversions
@@ -1171,7 +1285,7 @@ impl StorageEngine {
             | (Value::Float(f), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(*f as i64))
             },
-            | (Value::Float(f), DataType::Text) => Ok(Value::Text(f.to_string())),
+            | (Value::Float(f), DataType::Text) => Ok(Value::text(f.to_string())),
 
             // Text conversions
             | (Value::Text(s), DataType::Text) => Ok(Value::Text(s.clone())),
@@ -1213,16 +1327,16 @@ impl StorageEngine {
             | (Value::Boolean(b), DataType::Integer | DataType::Serial | DataType::BigSerial) => {
                 Ok(Value::Integer(i64::from(*b)))
             },
-            | (Value::Boolean(b), DataType::Text) => Ok(Value::Text(b.to_string())),
+            | (Value::Boolean(b), DataType::Text) => Ok(Value::text(b.to_string())),
 
             // Timestamp conversions
             | (Value::Timestamp(ts), DataType::Timestamp) => Ok(Value::Timestamp(*ts)),
-            | (Value::Timestamp(ts), DataType::Text) => Ok(Value::Text(ts.to_rfc3339())),
+            | (Value::Timestamp(ts), DataType::Text) => Ok(Value::text(ts.to_rfc3339())),
 
             // Binary conversions
-            | (Value::Binary(b), DataType::Binary) => Ok(Value::Binary(b.clone())),
+            | (Value::Binary(b), DataType::Binary) => Ok(Value::Binary(Arc::clone(b))),
             | (Value::Binary(b), DataType::Text) => {
-                Ok(Value::Text(format!("Binary[{} bytes]", b.len())))
+                Ok(Value::text(format!("Binary[{} bytes]", b.len())))
             },
 
             // Catch-all for unsupported conversions
@@ -1659,8 +1773,8 @@ impl StorageEngine {
         // Create a simple row structure for generic storage
         // Note: 'id' is not set here - it will be auto-generated by insert_row
         let mut fields = HashMap::new();
-        fields.insert("key".to_string(), Value::Text(key.to_string()));
-        fields.insert("data".to_string(), Value::Binary(data.to_vec()));
+        fields.insert("key".to_string(), Value::text(key));
+        fields.insert("data".to_string(), Value::binary(data));
 
         let row = Row {
             id: 0, // Will be set by auto-increment
@@ -1719,7 +1833,7 @@ impl StorageEngine {
                 conditions: vec![Condition {
                     field: "key".to_string(),
                     operator: ComparisonOperator::Equal,
-                    value: Value::Text(key.to_string()),
+                    value: Value::text(key),
                 }],
             }),
             order_by: None,
@@ -1730,7 +1844,7 @@ impl StorageEngine {
         let rows = self.select_rows(&query).await?;
         if let Some(row) = rows.first() {
             if let Some(Value::Binary(data)) = row.fields.get("data") {
-                return Ok(Some(data.clone()));
+                return Ok(Some(data.as_ref().clone()));
             }
         }
 
@@ -1863,13 +1977,13 @@ impl StorageEngine {
         match value {
             | Value::Integer(i) => i.to_string(),
             | Value::Float(f) => f.to_string(),
-            | Value::Text(s) => s.clone(),
+            | Value::Text(s) => s.as_ref().clone(),
             | Value::Boolean(b) => b.to_string(),
             | Value::Timestamp(ts) => ts.to_rfc3339(),
             | Value::Binary(b) => {
                 use base64::engine::general_purpose;
                 use base64::Engine as _;
-                general_purpose::STANDARD.encode(b)
+                general_purpose::STANDARD.encode(b.as_ref())
             },
             | Value::Null => "NULL".to_string(),
         }
@@ -1945,7 +2059,7 @@ impl StorageEngine {
                 if let (Value::Text(field_text), Value::Text(pattern)) =
                     (field_value, condition_value)
                 {
-                    Ok(field_text.contains(pattern))
+                    Ok(field_text.contains(pattern.as_str()))
                 } else {
                     Ok(false)
                 }
@@ -3342,7 +3456,7 @@ impl TableSchema {
 pub fn create_test_row(id: i64, name: &str) -> Row {
     let mut fields = HashMap::new();
     fields.insert("id".to_string(), Value::Integer(id));
-    fields.insert("name".to_string(), Value::Text(name.to_string()));
+    fields.insert("name".to_string(), Value::text(name));
     fields.insert(
         "created_at".to_string(),
         Value::Timestamp(chrono::Utc::now()),

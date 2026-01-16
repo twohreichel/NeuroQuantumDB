@@ -96,11 +96,11 @@ async fn test_complete_workflow_with_query_statistics() {
             );
             fields.insert(
                 "username".to_string(),
-                neuroquantum_core::storage::Value::Text((*username).to_string()),
+                neuroquantum_core::storage::Value::text(*username),
             );
             fields.insert(
                 "email".to_string(),
-                neuroquantum_core::storage::Value::Text((*email).to_string()),
+                neuroquantum_core::storage::Value::text(*email),
             );
             fields.insert(
                 "active".to_string(),
@@ -308,7 +308,7 @@ async fn test_query_statistics_accuracy() {
             );
             fields.insert(
                 "data".to_string(),
-                neuroquantum_core::storage::Value::Text(format!("data_{i}")),
+                neuroquantum_core::storage::Value::text(format!("data_{i}")),
             );
 
             let row = neuroquantum_core::storage::Row {

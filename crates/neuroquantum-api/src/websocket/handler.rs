@@ -473,11 +473,11 @@ impl WebSocketService {
                                     | QueryValue::Boolean(b) => Value::Boolean(b),
                                     | QueryValue::Integer(i) => Value::Integer(i),
                                     | QueryValue::Float(f) => Value::Float(f),
-                                    | QueryValue::String(s) => Value::Text(s),
-                                    | QueryValue::Blob(b) => Value::Binary(b),
-                                    | QueryValue::DNASequence(s) => Value::Text(s),
+                                    | QueryValue::String(s) => Value::text(s),
+                                    | QueryValue::Blob(b) => Value::binary(b),
+                                    | QueryValue::DNASequence(s) => Value::text(s),
                                     | QueryValue::SynapticWeight(w) => Value::Float(f64::from(w)),
-                                    | QueryValue::QuantumState(s) => Value::Text(s),
+                                    | QueryValue::QuantumState(s) => Value::text(s),
                                 };
                                 fields.insert(key, converted_value);
                             }

@@ -25,7 +25,7 @@ fn create_mock_rows(count: usize) -> Vec<Row> {
             fields: {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i as i64));
-                fields.insert("name".to_string(), Value::Text(format!("item_{i}")));
+                fields.insert("name".to_string(), Value::text(format!("item_{i}")));
                 fields.insert("value".to_string(), Value::Float(i as f64 * 2.5));
                 fields.insert("active".to_string(), Value::Boolean(i % 2 == 0));
                 fields

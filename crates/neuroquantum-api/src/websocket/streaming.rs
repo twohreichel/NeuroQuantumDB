@@ -524,7 +524,7 @@ impl QueryStreamer {
                 fields: {
                     let mut fields = HashMap::new();
                     fields.insert("id".to_string(), Value::Integer(i as i64));
-                    fields.insert("name".to_string(), Value::Text(format!("Row {i}")));
+                    fields.insert("name".to_string(), Value::text(format!("Row {i}")));
                     fields.insert("value".to_string(), Value::Float(i as f64 * 1.5));
                     fields
                 },

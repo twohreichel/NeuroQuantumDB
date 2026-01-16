@@ -45,7 +45,7 @@ async fn test_complete_crud_workflow() -> anyhow::Result<()> {
         for i in 1..=3 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("name".to_string(), Value::Text(format!("Employee {i}")));
+            fields.insert("name".to_string(), Value::text(format!("Employee {i}")));
             fields.insert("salary".to_string(), Value::Integer(50000 + i * 10000));
 
             let row = Row {
@@ -235,7 +235,7 @@ async fn test_complex_queries() -> anyhow::Result<()> {
         for i in 1..=10 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("name".to_string(), Value::Text(format!("Product {i}")));
+            fields.insert("name".to_string(), Value::text(format!("Product {i}")));
             fields.insert("price".to_string(), Value::Integer(i * 100));
 
             let row = Row {
@@ -296,10 +296,7 @@ async fn test_persistence_across_restarts() -> anyhow::Result<()> {
 
         let mut fields = HashMap::new();
         fields.insert("id".to_string(), Value::Integer(1));
-        fields.insert(
-            "value".to_string(),
-            Value::Text("persistent_data".to_string()),
-        );
+        fields.insert("value".to_string(), Value::text("persistent_data"));
         let row = Row {
             id: 0,
             fields,
@@ -333,7 +330,7 @@ async fn test_persistence_across_restarts() -> anyhow::Result<()> {
         assert_eq!(rows.len(), 1, "Data should persist across restarts");
         assert_eq!(
             rows[0].fields.get("value"),
-            Some(&Value::Text("persistent_data".to_string()))
+            Some(&Value::text("persistent_data"))
         );
     }
 

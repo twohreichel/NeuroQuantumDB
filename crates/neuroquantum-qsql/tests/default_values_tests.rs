@@ -140,7 +140,7 @@ async fn test_execute_insert_with_missing_column_defaults() {
                 name: "status".to_string(),
                 data_type: DataType::Text,
                 nullable: true,
-                default_value: Some(Value::Text("active".to_string())),
+                default_value: Some(Value::text("active")),
                 auto_increment: false,
             },
             ColumnDefinition {
@@ -197,7 +197,7 @@ async fn test_execute_insert_with_missing_column_defaults() {
     // Check that status has default value 'active'
     assert_eq!(
         row.fields.get("status"),
-        Some(&Value::Text("active".to_string())),
+        Some(&Value::text("active")),
         "Expected default status 'active'"
     );
 
@@ -249,7 +249,7 @@ async fn test_execute_insert_with_explicit_default() {
                 name: "category".to_string(),
                 data_type: DataType::Text,
                 nullable: true,
-                default_value: Some(Value::Text("general".to_string())),
+                default_value: Some(Value::text("general")),
                 auto_increment: false,
             },
         ],
@@ -310,7 +310,7 @@ async fn test_execute_insert_with_explicit_default() {
     // Check that category is 'electronics' (explicit value, not default)
     assert_eq!(
         row.fields.get("category"),
-        Some(&Value::Text("electronics".to_string())),
+        Some(&Value::text("electronics")),
         "Expected category to be 'electronics' (explicit value)"
     );
 }
@@ -428,7 +428,7 @@ async fn test_multiple_inserts_with_defaults() {
                 name: "department".to_string(),
                 data_type: DataType::Text,
                 nullable: true,
-                default_value: Some(Value::Text("General".to_string())),
+                default_value: Some(Value::text("General")),
                 auto_increment: false,
             },
             ColumnDefinition {
@@ -494,44 +494,41 @@ async fn test_multiple_inserts_with_defaults() {
     // Check Alice (all defaults)
     let alice = rows
         .iter()
-        .find(|r| r.fields.get("name") == Some(&Value::Text("Alice".to_string())))
+        .find(|r| r.fields.get("name") == Some(&Value::text("Alice")))
         .unwrap();
     assert_eq!(
         alice.fields.get("department"),
-        Some(&Value::Text("General".to_string()))
+        Some(&Value::text("General"))
     );
     assert_eq!(alice.fields.get("salary"), Some(&Value::Integer(50000)));
 
     // Check Bob (custom department, default salary)
     let bob = rows
         .iter()
-        .find(|r| r.fields.get("name") == Some(&Value::Text("Bob".to_string())))
+        .find(|r| r.fields.get("name") == Some(&Value::text("Bob")))
         .unwrap();
     assert_eq!(
         bob.fields.get("department"),
-        Some(&Value::Text("Engineering".to_string()))
+        Some(&Value::text("Engineering"))
     );
     assert_eq!(bob.fields.get("salary"), Some(&Value::Integer(50000)));
 
     // Check Charlie (default department, custom salary)
     let charlie = rows
         .iter()
-        .find(|r| r.fields.get("name") == Some(&Value::Text("Charlie".to_string())))
+        .find(|r| r.fields.get("name") == Some(&Value::text("Charlie")))
         .unwrap();
     assert_eq!(
         charlie.fields.get("department"),
-        Some(&Value::Text("General".to_string()))
+        Some(&Value::text("General"))
     );
     assert_eq!(charlie.fields.get("salary"), Some(&Value::Integer(75000)));
 
     // Check Diana (both custom)
     let diana = rows
         .iter()
-        .find(|r| r.fields.get("name") == Some(&Value::Text("Diana".to_string())))
+        .find(|r| r.fields.get("name") == Some(&Value::text("Diana")))
         .unwrap();
-    assert_eq!(
-        diana.fields.get("department"),
-        Some(&Value::Text("Sales".to_string()))
-    );
+    assert_eq!(diana.fields.get("department"), Some(&Value::text("Sales")));
     assert_eq!(diana.fields.get("salary"), Some(&Value::Integer(60000)));
 }

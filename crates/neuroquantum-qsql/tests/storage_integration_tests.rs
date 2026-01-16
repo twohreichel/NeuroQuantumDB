@@ -96,13 +96,10 @@ async fn test_insert_with_dna_compression() {
     let storage_guard = storage_arc.read().await;
     let rows = storage_guard.select_rows(&query).await.unwrap();
     assert_eq!(rows.len(), 1);
-    assert_eq!(
-        rows[0].fields.get("name"),
-        Some(&Value::Text("John Doe".to_string()))
-    );
+    assert_eq!(rows[0].fields.get("name"), Some(&Value::text("John Doe")));
     assert_eq!(
         rows[0].fields.get("email"),
-        Some(&Value::Text("john@example.com".to_string()))
+        Some(&Value::text("john@example.com"))
     );
 
     println!("✅ INSERT with DNA compression: SUCCESS");
@@ -164,8 +161,7 @@ async fn test_select_with_dna_decompression() {
             updated_at: chrono::Utc::now(),
         };
         row.fields.insert("id".to_string(), Value::Integer(1));
-        row.fields
-            .insert("name".to_string(), Value::Text("Widget".to_string()));
+        row.fields.insert("name".to_string(), Value::text("Widget"));
         row.fields.insert("price".to_string(), Value::Float(19.99));
 
         storage_guard.insert_row("products", row).await.unwrap();
@@ -359,7 +355,7 @@ async fn test_delete_with_dna_cleanup() {
             };
             row.fields.insert("id".to_string(), Value::Integer(i));
             row.fields
-                .insert("message".to_string(), Value::Text(format!("Log entry {i}")));
+                .insert("message".to_string(), Value::text(format!("Log entry {i}")));
             storage_guard.insert_row("logs", row).await.unwrap();
         }
     }
@@ -457,7 +453,7 @@ async fn test_drop_table_removes_table() {
         };
         row.fields.insert("id".to_string(), Value::Integer(1));
         row.fields
-            .insert("data".to_string(), Value::Text("test data".to_string()));
+            .insert("data".to_string(), Value::text("test data"));
         storage_guard.insert_row("temp_table", row).await.unwrap();
     }
 
@@ -680,10 +676,9 @@ async fn test_cte_with_storage() {
             };
             row.fields
                 .insert("id".to_string(), Value::Integer((i + 1) as i64));
+            row.fields.insert("name".to_string(), Value::text(*name));
             row.fields
-                .insert("name".to_string(), Value::Text((*name).to_string()));
-            row.fields
-                .insert("status".to_string(), Value::Text((*status).to_string()));
+                .insert("status".to_string(), Value::text(*status));
             row.fields
                 .insert("age".to_string(), Value::Integer(i64::from(*age)));
 
@@ -796,7 +791,7 @@ async fn test_update_without_where_clause_affects_all_rows() {
             };
             row.fields.insert("id".to_string(), Value::Integer(i));
             row.fields
-                .insert("name".to_string(), Value::Text(format!("User{i}")));
+                .insert("name".to_string(), Value::text(format!("User{i}")));
             row.fields.insert("status".to_string(), Value::Integer(0));
             storage_guard.insert_row("users", row).await.unwrap();
         }
