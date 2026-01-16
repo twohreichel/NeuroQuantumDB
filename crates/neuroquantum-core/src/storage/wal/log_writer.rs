@@ -817,7 +817,7 @@ mod tests {
 
         // Write multiple records quickly
         let tx_id = Uuid::new_v4();
-        
+
         for i in 1..=50 {
             let record = WALRecord::new(
                 i,
@@ -830,14 +830,14 @@ mod tests {
             );
             writer.append_record(record).await.unwrap();
         }
-        
+
         // Force flush to ensure everything is written
         writer.flush().await.unwrap();
-        
+
         // Verify records were written
         let records = writer.read_records_from(1).await.unwrap();
         assert_eq!(records.len(), 50);
-        
+
         // Test passed - group commit successfully batched and wrote records
     }
 
@@ -851,7 +851,7 @@ mod tests {
             segment_size: 1024 * 1024,
             sync_on_write: true,
             buffer_size: 64 * 1024,
-            group_commit_delay_ms: 1000, // Long delay
+            group_commit_delay_ms: 1000,  // Long delay
             group_commit_max_records: 10, // Small limit to trigger immediate flush
             group_commit_max_bytes: 1024 * 1024,
         };
