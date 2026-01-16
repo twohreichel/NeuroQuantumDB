@@ -73,6 +73,9 @@ lru = "0.16.2"
 # IndexMap for O(1) LRU implementation
 indexmap = "2.7"
 
+# DashMap for lock-free concurrent hash maps
+dashmap = "6.1"
+
 # Prometheus metrics
 prometheus = { version = "0.14.0", features = ["process"] }
 axum = "0.8.8"
