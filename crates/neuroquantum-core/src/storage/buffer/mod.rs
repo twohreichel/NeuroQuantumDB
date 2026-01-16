@@ -27,6 +27,64 @@ pub use frame::{Frame, FrameError, FrameId};
 
 use super::pager::{Page, PageId, PageStorageManager};
 
+/// Access pattern detected by the pattern detector
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AccessPattern {
+    /// Sequential access pattern detected
+    Sequential,
+    /// Random access pattern
+    Random,
+}
+
+/// Detects access patterns for adaptive prefetching
+struct AccessPatternDetector {
+    /// Last accessed pages (ring buffer)
+    last_pages: VecDeque<PageId>,
+    /// Count of consecutive sequential accesses
+    sequential_count: u32,
+    /// Maximum size of the `last_pages` buffer
+    max_history: usize,
+}
+
+impl AccessPatternDetector {
+    /// Create a new access pattern detector
+    fn new() -> Self {
+        Self {
+            last_pages: VecDeque::with_capacity(10),
+            sequential_count: 0,
+            max_history: 10,
+        }
+    }
+
+    /// Record an access and detect the pattern
+    fn record_access(&mut self, page_id: PageId, threshold: u32) -> AccessPattern {
+        if let Some(&last) = self.last_pages.back() {
+            // Check if this is a sequential access (next page)
+            if page_id.0 == last.0 + 1 {
+                self.sequential_count += 1;
+                if self.sequential_count >= threshold {
+                    self.push_page(page_id);
+                    return AccessPattern::Sequential;
+                }
+            } else {
+                // Not sequential - reset counter
+                self.sequential_count = 0;
+            }
+        }
+
+        self.push_page(page_id);
+        AccessPattern::Random
+    }
+
+    /// Push a page to the history buffer
+    fn push_page(&mut self, page_id: PageId) {
+        if self.last_pages.len() >= self.max_history {
+            self.last_pages.pop_front();
+        }
+        self.last_pages.push_back(page_id);
+    }
+}
+
 /// Buffer pool configuration
 #[derive(Debug, Clone)]
 pub struct BufferPoolConfig {
@@ -40,6 +98,12 @@ pub struct BufferPoolConfig {
     pub flush_interval: Duration,
     /// Maximum dirty pages before forced flush
     pub max_dirty_pages: usize,
+    /// Enable read-ahead prefetching
+    pub prefetch_enabled: bool,
+    /// Number of pages to prefetch ahead
+    pub prefetch_depth: u32,
+    /// Number of sequential accesses before prefetching starts
+    pub prefetch_threshold: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,6 +120,9 @@ impl Default for BufferPoolConfig {
             enable_background_flush: true,
             flush_interval: Duration::from_secs(5),
             max_dirty_pages: 100,
+            prefetch_enabled: true,
+            prefetch_depth: 8,
+            prefetch_threshold: 3,
         }
     }
 }
@@ -103,6 +170,9 @@ impl BufferPoolConfig {
             enable_background_flush: true,
             flush_interval: Duration::from_secs(5),
             max_dirty_pages: (pool_size / 10).max(100), // 10% of pool size, min 100
+            prefetch_enabled: true,
+            prefetch_depth: 8,
+            prefetch_threshold: 3,
         }
     }
 
@@ -203,6 +273,9 @@ impl BufferPoolConfig {
             enable_background_flush: true,
             flush_interval: Duration::from_secs(5),
             max_dirty_pages: (pool_size / 10).max(100),
+            prefetch_enabled: true,
+            prefetch_depth: 8,
+            prefetch_threshold: 3,
         }
     }
 }
@@ -213,7 +286,7 @@ impl BufferPoolConfig {
 /// eviction policies, and dirty page tracking.
 pub struct BufferPoolManager {
     /// Configuration (stored for future use)
-    _config: BufferPoolConfig,
+    config: BufferPoolConfig,
     /// Page storage manager
     pager: Arc<PageStorageManager>,
     /// Frame pool
@@ -234,6 +307,8 @@ pub struct BufferPoolManager {
     cache_hits: AtomicU64,
     /// Cache miss counter (lock-free atomic)
     cache_misses: AtomicU64,
+    /// Access pattern detector for prefetching
+    access_detector: Arc<RwLock<AccessPatternDetector>>,
 }
 
 impl BufferPoolManager {
@@ -261,7 +336,7 @@ impl BufferPoolManager {
         };
 
         let manager = Self {
-            _config: config.clone(),
+            config: config.clone(),
             pager,
             frames: Arc::new(RwLock::new(frames)),
             page_table: Arc::new(DashMap::new()),
@@ -272,6 +347,7 @@ impl BufferPoolManager {
             flusher: None,
             cache_hits: AtomicU64::new(0),
             cache_misses: AtomicU64::new(0),
+            access_detector: Arc::new(RwLock::new(AccessPatternDetector::new())),
         };
 
         // Start background flusher if enabled
@@ -301,7 +377,24 @@ impl BufferPoolManager {
     ///
     /// If the page is not in the pool, it will be loaded from disk.
     /// The page is pinned and must be unpinned after use.
+    ///
+    /// This method implements adaptive read-ahead prefetching:
+    /// - Detects sequential access patterns
+    /// - Triggers asynchronous prefetching of subsequent pages
+    /// - Improves performance for full table scans and range queries
     pub async fn fetch_page(&self, page_id: PageId) -> Result<Arc<RwLock<Page>>> {
+        // Detect access pattern and trigger prefetching if enabled
+        if self.config.prefetch_enabled {
+            let mut detector = self.access_detector.write().await;
+            let pattern = detector.record_access(page_id, self.config.prefetch_threshold);
+            drop(detector);
+
+            if pattern == AccessPattern::Sequential {
+                // Spawn background prefetch tasks
+                self.trigger_prefetch(page_id).await;
+            }
+        }
+
         // Check if page is already in buffer (lock-free DashMap read)
         if let Some(frame_id_ref) = self.page_table.get(&page_id) {
             let frame_id = *frame_id_ref;
@@ -334,6 +427,102 @@ impl BufferPoolManager {
 
         // Page not in buffer - need to load it
         self.load_page(page_id).await
+    }
+
+    /// Trigger prefetching of subsequent pages
+    async fn trigger_prefetch(&self, page_id: PageId) {
+        let prefetch_depth = self.config.prefetch_depth;
+        debug!(
+            "🔮 Sequential pattern detected, prefetching {} pages ahead from {:?}",
+            prefetch_depth, page_id
+        );
+
+        for i in 1..=prefetch_depth {
+            let next_page = PageId(page_id.0 + u64::from(i));
+
+            // Skip if page is already in cache
+            if self.page_table.contains_key(&next_page) {
+                continue;
+            }
+
+            // Clone Arc references for the spawned task
+            let pool = Self {
+                config: self.config.clone(),
+                pager: self.pager.clone(),
+                frames: self.frames.clone(),
+                page_table: self.page_table.clone(),
+                free_list: self.free_list.clone(),
+                eviction: self.eviction.clone(),
+                dirty_pages: self.dirty_pages.clone(),
+                flush_semaphore: self.flush_semaphore.clone(),
+                flusher: self.flusher.clone(),
+                cache_hits: AtomicU64::new(0),
+                cache_misses: AtomicU64::new(0),
+                access_detector: self.access_detector.clone(),
+            };
+
+            // Spawn low-priority background prefetch
+            tokio::spawn(async move {
+                if let Err(e) = pool.prefetch_page(next_page).await {
+                    debug!("⚠️ Prefetch failed for page {:?}: {}", next_page, e);
+                }
+            });
+        }
+    }
+
+    /// Prefetch a page without pinning it
+    ///
+    /// This is a low-priority operation that only loads the page if:
+    /// - The page is not already in cache
+    /// - There are free frames available (won't evict)
+    async fn prefetch_page(&self, page_id: PageId) -> Result<()> {
+        // Check if page is already in buffer
+        if self.page_table.contains_key(&page_id) {
+            return Ok(());
+        }
+
+        // Only prefetch if we have free frames (don't evict for prefetching)
+        let free_list = self.free_list.read().await;
+        if free_list.is_empty() {
+            debug!(
+                "⚠️ No free frames for prefetch, skipping page {:?}",
+                page_id
+            );
+            return Ok(());
+        }
+        drop(free_list);
+
+        // Check if page exists before attempting to load
+        // This prevents errors when prefetching beyond the file end
+        match self.pager.read_page(page_id).await {
+            | Ok(page) => {
+                // Get a free frame
+                if let Ok(frame_id) = self.get_free_frame().await {
+                    let mut frames = self.frames.write().await;
+                    if let Some(frame) = frames.get_mut(&frame_id) {
+                        frame.set_page(page_id, page).await;
+                        // Note: Don't pin for prefetch - leave it unpinned
+                        drop(frames);
+
+                        // Update page table
+                        self.page_table.insert(page_id, frame_id);
+
+                        // Record access in eviction policy
+                        let mut eviction = self.eviction.write().await;
+                        eviction.record_access(frame_id);
+                        drop(eviction);
+
+                        debug!("✅ Prefetched page {:?} into frame {:?}", page_id, frame_id);
+                    }
+                }
+                Ok(())
+            },
+            | Err(_) => {
+                // Page doesn't exist (e.g., beyond file end) - this is expected
+                debug!("⚠️ Page {:?} doesn't exist, skipping prefetch", page_id);
+                Ok(())
+            },
+        }
     }
 
     /// Load a page from disk into the buffer pool
@@ -671,6 +860,7 @@ mod tests {
         let config = BufferPoolConfig {
             pool_size: 10,
             enable_background_flush: false,
+            prefetch_enabled: false, // Disable prefetching for predictable tests
             ..Default::default()
         };
 
