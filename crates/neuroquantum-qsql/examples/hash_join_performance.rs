@@ -167,9 +167,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Scenario 2: Large Dataset (100 customers, 5000 orders) ---");
     println!("Expected: Hash join (product = 500,000 > threshold)\n");
 
-    {
+    let hash_join_duration = {
         let config = ExecutorConfig::default(); // threshold = 1000
         let mut executor = QueryExecutor::with_storage(config, storage_arc.clone())?;
+        let parser = Parser::new();
 
         // Insert 100 customers
         println!("Inserting 100 customers...");
@@ -231,7 +232,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .unwrap_or_default(),
                 row.get("total")
                     .and_then(|v| {
-                        if let neuroquantum_qsql::QueryValue::Float(f) = v {
+                        if let neuroquantum_qsql::query_plan::QueryValue::Float(f) = v {
                             Some(*f)
                         } else {
                             None
@@ -242,7 +243,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!();
-    }
+        
+        hash_join_duration
+    };
 
     // Scenario 3: Force nested loop join for comparison
     println!("--- Scenario 3: Same Dataset with Forced Nested Loop Join ---");

@@ -145,23 +145,27 @@ fn bench_join_algorithms(c: &mut Criterion) {
             BenchmarkId::new("nested_loop", format!("{}x{}", num_customers, num_orders)),
             &(num_customers, num_orders),
             |b, _| {
-                b.to_async(&runtime).iter(|| {
+                b.iter_custom(|iters| {
                     let storage = storage_arc.clone();
-                    async move {
-                        let config = ExecutorConfig {
-                            hash_join_threshold: usize::MAX, // Force nested loop
-                            ..Default::default()
-                        };
-                        let mut executor = QueryExecutor::with_storage(config, storage).unwrap();
-                        let parser = Parser::new();
+                    runtime.block_on(async move {
+                        let start = std::time::Instant::now();
+                        for _i in 0..iters {
+                            let config = ExecutorConfig {
+                                hash_join_threshold: usize::MAX, // Force nested loop
+                                ..Default::default()
+                            };
+                            let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+                            let parser = Parser::new();
 
-                        let sql = "SELECT c.name, SUM(o.amount) as total \
-                                   FROM orders o \
-                                   INNER JOIN customers c ON o.customer_id = c.id \
-                                   GROUP BY c.name";
-                        let statement = parser.parse(sql).unwrap();
-                        black_box(executor.execute_statement(&statement).await.unwrap())
-                    }
+                            let sql = "SELECT c.name, SUM(o.amount) as total \
+                                       FROM orders o \
+                                       INNER JOIN customers c ON o.customer_id = c.id \
+                                       GROUP BY c.name";
+                            let statement = parser.parse(sql).unwrap();
+                            black_box(executor.execute_statement(&statement).await.unwrap());
+                        }
+                        start.elapsed()
+                    })
                 });
             },
         );
@@ -171,23 +175,27 @@ fn bench_join_algorithms(c: &mut Criterion) {
             BenchmarkId::new("hash_join", format!("{}x{}", num_customers, num_orders)),
             &(num_customers, num_orders),
             |b, _| {
-                b.to_async(&runtime).iter(|| {
+                b.iter_custom(|iters| {
                     let storage = storage_arc.clone();
-                    async move {
-                        let config = ExecutorConfig {
-                            hash_join_threshold: 0, // Force hash join
-                            ..Default::default()
-                        };
-                        let mut executor = QueryExecutor::with_storage(config, storage).unwrap();
-                        let parser = Parser::new();
+                    runtime.block_on(async move {
+                        let start = std::time::Instant::now();
+                        for _i in 0..iters {
+                            let config = ExecutorConfig {
+                                hash_join_threshold: 0, // Force hash join
+                                ..Default::default()
+                            };
+                            let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+                            let parser = Parser::new();
 
-                        let sql = "SELECT c.name, SUM(o.amount) as total \
-                                   FROM orders o \
-                                   INNER JOIN customers c ON o.customer_id = c.id \
-                                   GROUP BY c.name";
-                        let statement = parser.parse(sql).unwrap();
-                        black_box(executor.execute_statement(&statement).await.unwrap())
-                    }
+                            let sql = "SELECT c.name, SUM(o.amount) as total \
+                                       FROM orders o \
+                                       INNER JOIN customers c ON o.customer_id = c.id \
+                                       GROUP BY c.name";
+                            let statement = parser.parse(sql).unwrap();
+                            black_box(executor.execute_statement(&statement).await.unwrap());
+                        }
+                        start.elapsed()
+                    })
                 });
             },
         );
@@ -215,24 +223,28 @@ fn bench_hash_join_scalability(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}x{}", num_customers, num_orders)),
             &(num_customers, num_orders),
             |b, _| {
-                b.to_async(&runtime).iter(|| {
+                b.iter_custom(|iters| {
                     let storage = storage_arc.clone();
-                    async move {
-                        let config = ExecutorConfig {
-                            hash_join_threshold: 0, // Always use hash join
-                            ..Default::default()
-                        };
-                        let mut executor = QueryExecutor::with_storage(config, storage).unwrap();
-                        let parser = Parser::new();
+                    runtime.block_on(async move {
+                        let start = std::time::Instant::now();
+                        for _i in 0..iters {
+                            let config = ExecutorConfig {
+                                hash_join_threshold: 0, // Always use hash join
+                                ..Default::default()
+                            };
+                            let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+                            let parser = Parser::new();
 
-                        let sql =
-                            "SELECT c.name, COUNT(o.id) as order_count, SUM(o.amount) as total \
-                                   FROM customers c \
-                                   LEFT JOIN orders o ON c.id = o.customer_id \
-                                   GROUP BY c.name";
-                        let statement = parser.parse(sql).unwrap();
-                        black_box(executor.execute_statement(&statement).await.unwrap())
-                    }
+                            let sql =
+                                "SELECT c.name, COUNT(o.id) as order_count, SUM(o.amount) as total \
+                                       FROM customers c \
+                                       LEFT JOIN orders o ON c.id = o.customer_id \
+                                       GROUP BY c.name";
+                            let statement = parser.parse(sql).unwrap();
+                            black_box(executor.execute_statement(&statement).await.unwrap());
+                        }
+                        start.elapsed()
+                    })
                 });
             },
         );
