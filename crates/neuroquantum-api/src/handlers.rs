@@ -3263,11 +3263,11 @@ fn json_to_storage_value(
                 })
             }
         },
-        | serde_json::Value::String(s) => Ok(Value::Text(s.clone())),
+        | serde_json::Value::String(s) => Ok(Value::text(s.clone())),
         | serde_json::Value::Bool(b) => Ok(Value::Boolean(*b)),
         | serde_json::Value::Null => Ok(Value::Null),
         | serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
-            Ok(Value::Text(value.to_string()))
+            Ok(Value::text(value.to_string()))
         },
     }
 }
@@ -3279,12 +3279,12 @@ fn storage_value_to_json(value: &neuroquantum_core::storage::Value) -> serde_jso
         | Value::Integer(i) => serde_json::Value::Number((*i).into()),
         | Value::Float(f) => serde_json::Number::from_f64(*f)
             .map_or(serde_json::Value::Null, serde_json::Value::Number),
-        | Value::Text(s) => serde_json::Value::String(s.clone()),
+        | Value::Text(s) => serde_json::Value::String(s.as_ref().clone()),
         | Value::Boolean(b) => serde_json::Value::Bool(*b),
         | Value::Timestamp(ts) => serde_json::Value::String(ts.to_rfc3339()),
         | Value::Binary(b) => {
             use base64::Engine;
-            serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
+            serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b.as_ref()))
         },
         | Value::Null => serde_json::Value::Null,
     }
@@ -3335,7 +3335,7 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            | Value::Text(s) => assert_eq!(s, "hello world"),
+            | Value::Text(s) => assert_eq!(s.as_str(), "hello world"),
             | _ => panic!("Expected Text value"),
         }
     }
@@ -3379,7 +3379,7 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            | Value::Text(s) => assert!(s.contains("[1,2,3]")),
+            | Value::Text(s) => assert!(s.as_str().contains("[1,2,3]")),
             | _ => panic!("Expected Text value for array"),
         }
     }
@@ -3390,7 +3390,7 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            | Value::Text(s) => assert!(s.contains("key") && s.contains("value")),
+            | Value::Text(s) => assert!(s.as_str().contains("key") && s.as_str().contains("value")),
             | _ => panic!("Expected Text value for object"),
         }
     }
@@ -3435,7 +3435,7 @@ mod json_conversion_tests {
         let result = json_to_storage_value(&json, "test_field");
         assert!(result.is_ok());
         match result.unwrap() {
-            | Value::Text(s) => assert!(s.is_empty()),
+            | Value::Text(s) => assert!(s.as_str().is_empty()),
             | _ => panic!("Expected Text value"),
         }
     }

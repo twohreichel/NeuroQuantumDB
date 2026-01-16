@@ -83,10 +83,9 @@ async fn setup_test_db() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>>) {
             };
             row.fields
                 .insert("id".to_string(), Value::Integer((i + 1) as i64));
+            row.fields.insert("name".to_string(), Value::text(name));
             row.fields
-                .insert("name".to_string(), Value::Text(name.to_string()));
-            row.fields
-                .insert("department".to_string(), Value::Text(dept.to_string()));
+                .insert("department".to_string(), Value::text(dept));
             row.fields
                 .insert("salary".to_string(), Value::Integer(salary));
             storage_guard.insert_row("employees", row).await.unwrap();

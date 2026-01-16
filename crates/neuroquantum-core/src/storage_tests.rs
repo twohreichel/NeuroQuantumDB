@@ -94,11 +94,11 @@ async fn test_insert_and_select_rows() {
     // Verify data integrity
     assert_eq!(
         results[0].fields.get("name").unwrap(),
-        &Value::Text("Alice".to_string())
+        &Value::text("Alice")
     );
     assert_eq!(
         results[1].fields.get("name").unwrap(),
-        &Value::Text("Bob".to_string())
+        &Value::text("Bob")
     );
 }
 
@@ -155,7 +155,7 @@ async fn test_update_rows() {
 
     // Update the row
     let mut set_values = HashMap::new();
-    set_values.insert("name".to_string(), Value::Text("Updated Name".to_string()));
+    set_values.insert("name".to_string(), Value::text("Updated Name"));
 
     let where_clause = WhereClause {
         conditions: vec![Condition {
@@ -188,7 +188,7 @@ async fn test_update_rows() {
     assert_eq!(results.len(), 1);
     assert_eq!(
         results[0].fields.get("name").unwrap(),
-        &Value::Text("Updated Name".to_string())
+        &Value::text("Updated Name")
     );
 }
 
@@ -286,11 +286,11 @@ async fn test_order_by_and_limit() {
     // Verify ordering
     assert_eq!(
         results[0].fields.get("name").unwrap(),
-        &Value::Text("Alice".to_string())
+        &Value::text("Alice")
     );
     assert_eq!(
         results[1].fields.get("name").unwrap(),
-        &Value::Text("Bob".to_string())
+        &Value::text("Bob")
     );
 }
 
@@ -328,7 +328,7 @@ async fn test_persistence_across_restarts() {
         assert_eq!(results.len(), 1);
         assert_eq!(
             results[0].fields.get("name").unwrap(),
-            &Value::Text("Persistent Data".to_string())
+            &Value::text("Persistent Data")
         );
     }
 }
@@ -432,8 +432,8 @@ async fn test_schema_validation() {
 
     // Test inserting row with wrong data type
     let mut invalid_fields = HashMap::new();
-    invalid_fields.insert("id".to_string(), Value::Text("not_an_integer".to_string())); // Should be integer
-    invalid_fields.insert("name".to_string(), Value::Text("Valid Name".to_string()));
+    invalid_fields.insert("id".to_string(), Value::text("not_an_integer")); // Should be integer
+    invalid_fields.insert("name".to_string(), Value::text("Valid Name"));
     invalid_fields.insert(
         "created_at".to_string(),
         Value::Timestamp(chrono::Utc::now()),

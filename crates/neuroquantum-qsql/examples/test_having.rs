@@ -84,7 +84,7 @@ async fn main() {
             row.fields
                 .insert("id".to_string(), Value::Integer((i + 1) as i64));
             row.fields
-                .insert("category".to_string(), Value::Text((*category).to_string()));
+                .insert("category".to_string(), Value::text(*category));
             row.fields
                 .insert("amount".to_string(), Value::Float(*amount));
             storage_guard.insert_row("orders", row).await.unwrap();

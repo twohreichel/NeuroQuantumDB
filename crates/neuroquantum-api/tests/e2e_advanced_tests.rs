@@ -97,7 +97,7 @@ async fn insert_test_data(db: &Arc<RwLock<NeuroQuantumDB>>, table: &str, count: 
     for i in 0..count {
         let mut fields = HashMap::new();
         fields.insert("id".to_string(), Value::Integer(i as i64));
-        fields.insert("name".to_string(), Value::Text(format!("item_{i}")));
+        fields.insert("name".to_string(), Value::text(format!("item_{i}")));
         fields.insert("value".to_string(), Value::Integer((i * 10) as i64));
         fields.insert("active".to_string(), Value::Boolean(i % 2 == 0));
 
@@ -189,7 +189,7 @@ async fn test_complete_api_workflow_crud() {
 
         // Update a specific row using UpdateQuery
         let mut set_values = HashMap::new();
-        set_values.insert("name".to_string(), Value::Text("updated_item".to_string()));
+        set_values.insert("name".to_string(), Value::text("updated_item"));
         set_values.insert("value".to_string(), Value::Integer(999));
         set_values.insert("active".to_string(), Value::Boolean(false));
 
@@ -240,10 +240,7 @@ async fn test_complete_api_workflow_crud() {
         assert_eq!(rows.len(), 1, "Should find 1 updated row");
 
         let row = &rows[0];
-        assert_eq!(
-            row.fields.get("name"),
-            Some(&Value::Text("updated_item".to_string()))
-        );
+        assert_eq!(row.fields.get("name"), Some(&Value::text("updated_item")));
         assert_eq!(row.fields.get("value"), Some(&Value::Integer(999)));
     }
 
@@ -378,7 +375,7 @@ async fn test_complex_multi_table_workflow() {
         for i in 1..=10 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("username".to_string(), Value::Text(format!("user_{i}")));
+            fields.insert("username".to_string(), Value::text(format!("user_{i}")));
 
             let row = Row {
                 id: 0,
@@ -402,7 +399,7 @@ async fn test_complex_multi_table_workflow() {
             fields.insert("user_id".to_string(), Value::Integer((i % 10) + 1));
             fields.insert(
                 "content".to_string(),
-                Value::Text(format!("Post content {i}")),
+                Value::text(format!("Post content {i}")),
             );
 
             let row = Row {
@@ -474,7 +471,7 @@ async fn test_transaction_like_workflow() {
         for i in 0..5 {
             let mut fields = HashMap::new();
             fields.insert("id".to_string(), Value::Integer(i));
-            fields.insert("name".to_string(), Value::Text(format!("item_{i}")));
+            fields.insert("name".to_string(), Value::text(format!("item_{i}")));
             fields.insert("value".to_string(), Value::Integer(100));
             fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -654,7 +651,7 @@ async fn test_crash_recovery_wal_replay() {
             for i in 0..20 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert("name".to_string(), Value::Text(format!("pre_crash_{i}")));
+                fields.insert("name".to_string(), Value::text(format!("pre_crash_{i}")));
                 fields.insert("value".to_string(), Value::Integer(i * 10));
                 fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -703,7 +700,7 @@ async fn test_crash_recovery_wal_replay() {
             let expected_name = format!("pre_crash_{idx}");
             assert_eq!(
                 row.fields.get("name"),
-                Some(&Value::Text(expected_name)),
+                Some(&Value::text(expected_name)),
                 "Row {idx} should have correct name"
             );
         }
@@ -739,7 +736,7 @@ async fn test_backup_and_restore() {
             for i in 0..10 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert("name".to_string(), Value::Text(format!("backup_{i}")));
+                fields.insert("name".to_string(), Value::text(format!("backup_{i}")));
                 fields.insert("value".to_string(), Value::Integer(i * 100));
                 fields.insert("active".to_string(), Value::Boolean(true));
 
@@ -796,7 +793,7 @@ async fn test_backup_and_restore() {
             let expected_name = format!("backup_{idx}");
             assert_eq!(
                 row.fields.get("name"),
-                Some(&Value::Text(expected_name)),
+                Some(&Value::text(expected_name)),
                 "Restored row {idx} should have correct name"
             );
         }
@@ -877,7 +874,7 @@ async fn test_concurrent_recovery_operations() {
             for i in 0..50 {
                 let mut fields = HashMap::new();
                 fields.insert("id".to_string(), Value::Integer(i));
-                fields.insert("name".to_string(), Value::Text(format!("concurrent_{i}")));
+                fields.insert("name".to_string(), Value::text(format!("concurrent_{i}")));
                 fields.insert("value".to_string(), Value::Integer(i));
                 fields.insert("active".to_string(), Value::Boolean(true));
 

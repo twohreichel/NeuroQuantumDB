@@ -127,7 +127,11 @@ async fn test_alter_table_add_column() {
         if let Some(email_val) = row.fields.get("email") {
             match email_val {
                 | neuroquantum_core::storage::Value::Text(s) => {
-                    assert_eq!(s, "unknown@example.com", "Email should have default value");
+                    assert_eq!(
+                        s.as_str(),
+                        "unknown@example.com",
+                        "Email should have default value"
+                    );
                 },
                 | _ => panic!("Email should be Text type"),
             }

@@ -92,7 +92,7 @@ async fn insert_test_data(db: &Arc<RwLock<NeuroQuantumDB>>, table: &str, count: 
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text(format!("item_{i}")),
+            neuroquantum_core::storage::Value::text(format!("item_{i}")),
         );
         fields.insert(
             "value".to_string(),
@@ -325,7 +325,7 @@ async fn test_insert_single_record() {
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text("test_item".to_string()),
+            neuroquantum_core::storage::Value::text("test_item"),
         );
         fields.insert(
             "value".to_string(),
@@ -435,7 +435,7 @@ async fn test_insert_with_null_values() {
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text("nullable_item".to_string()),
+            neuroquantum_core::storage::Value::text("nullable_item"),
         );
         fields.insert("value".to_string(), neuroquantum_core::storage::Value::Null);
         fields.insert(
@@ -685,7 +685,7 @@ async fn test_update_single_record() {
         let mut set_values = HashMap::new();
         set_values.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text("updated_name".to_string()),
+            neuroquantum_core::storage::Value::text("updated_name"),
         );
         set_values.insert(
             "value".to_string(),
@@ -732,9 +732,7 @@ async fn test_update_single_record() {
         assert_eq!(rows.len(), 1);
         assert_eq!(
             rows[0].fields.get("name"),
-            Some(&neuroquantum_core::storage::Value::Text(
-                "updated_name".to_string()
-            ))
+            Some(&neuroquantum_core::storage::Value::text("updated_name"))
         );
         assert_eq!(
             rows[0].fields.get("value"),
@@ -1083,7 +1081,7 @@ async fn test_concurrent_read_write_operations() {
             );
             fields.insert(
                 "name".to_string(),
-                neuroquantum_core::storage::Value::Text(format!("concurrent_{i}")),
+                neuroquantum_core::storage::Value::text(format!("concurrent_{i}")),
             );
             fields.insert(
                 "value".to_string(),
@@ -1219,7 +1217,7 @@ async fn test_large_text_values() {
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text(large_text.clone()),
+            neuroquantum_core::storage::Value::text(large_text.clone()),
         );
         fields.insert(
             "value".to_string(),
@@ -1306,7 +1304,7 @@ async fn test_special_characters_in_text() {
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text((*text).to_string()),
+            neuroquantum_core::storage::Value::text(*text),
         );
         fields.insert(
             "value".to_string(),
@@ -1386,7 +1384,7 @@ async fn test_integer_boundary_values() {
         );
         fields.insert(
             "name".to_string(),
-            neuroquantum_core::storage::Value::Text(format!("value_{value}")),
+            neuroquantum_core::storage::Value::text(format!("value_{value}")),
         );
         fields.insert(
             "value".to_string(),
@@ -1484,7 +1482,7 @@ async fn test_insert_and_immediate_read() {
             );
             fields.insert(
                 "name".to_string(),
-                neuroquantum_core::storage::Value::Text(format!("item_{i}")),
+                neuroquantum_core::storage::Value::text(format!("item_{i}")),
             );
             fields.insert(
                 "value".to_string(),

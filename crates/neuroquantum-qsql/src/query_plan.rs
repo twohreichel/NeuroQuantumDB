@@ -1621,10 +1621,10 @@ impl QueryExecutor {
             | Expression::Literal(lit) => match lit {
                 | Literal::Integer(i) => Ok(Value::Integer(*i)),
                 | Literal::Float(f) => Ok(Value::Float(*f)),
-                | Literal::String(s) => Ok(Value::Text(s.clone())),
+                | Literal::String(s) => Ok(Value::text(s.clone())),
                 | Literal::Boolean(b) => Ok(Value::Boolean(*b)),
                 | Literal::Null => Ok(Value::Null),
-                | Literal::DNA(s) => Ok(Value::Text(s.clone())),
+                | Literal::DNA(s) => Ok(Value::text(s.clone())),
                 | Literal::QuantumBit(_, _) => Ok(Value::Null),
             },
             | Expression::BinaryOp {
@@ -1648,7 +1648,7 @@ impl QueryExecutor {
                             },
                             // String concatenation with || (treated as Add when both are strings)
                             | (Value::Text(a), Value::Text(b)) => {
-                                Ok(Value::Text(format!("{a}{b}")))
+                                Ok(Value::text(format!("{a}{b}")))
                             },
                             | _ => Ok(Value::Null),
                         }
@@ -1842,11 +1842,11 @@ impl QueryExecutor {
                     | QueryValue::Boolean(b) => Value::Boolean(*b),
                     | QueryValue::Integer(i) => Value::Integer(*i),
                     | QueryValue::Float(f) => Value::Float(*f),
-                    | QueryValue::String(s) => Value::Text(s.clone()),
-                    | QueryValue::Blob(b) => Value::Binary(b.clone()),
-                    | QueryValue::DNASequence(s) => Value::Text(s.clone()),
+                    | QueryValue::String(s) => Value::text(s.clone()),
+                    | QueryValue::Blob(b) => Value::binary(b.clone()),
+                    | QueryValue::DNASequence(s) => Value::text(s.clone()),
                     | QueryValue::SynapticWeight(w) => Value::Float(f64::from(*w)),
-                    | QueryValue::QuantumState(s) => Value::Text(s.clone()),
+                    | QueryValue::QuantumState(s) => Value::text(s.clone()),
                 };
                 fields.insert(col.clone(), value);
             }
@@ -2369,11 +2369,11 @@ impl QueryExecutor {
         match value {
             | Value::Integer(i) => i.to_string(),
             | Value::Float(f) => f.to_string(),
-            | Value::Text(s) => s.clone(),
+            | Value::Text(s) => s.as_ref().clone(),
             | Value::Boolean(b) => b.to_string(),
             | Value::Null => "NULL".to_string(),
             | Value::Timestamp(ts) => ts.to_rfc3339(),
-            | Value::Binary(b) => format!("{b:?}"),
+            | Value::Binary(b) => format!("{:?}", b.as_ref()),
         }
     }
 
@@ -3639,14 +3639,14 @@ impl QueryExecutor {
             | Expression::Literal(lit) => match lit {
                 | Literal::Integer(i) => Value::Integer(*i),
                 | Literal::Float(f) => Value::Float(*f),
-                | Literal::String(s) => Value::Text(s.clone()),
+                | Literal::String(s) => Value::text(s.clone()),
                 | Literal::Boolean(b) => Value::Boolean(*b),
                 | Literal::Null => Value::Null,
                 // For complex types, use Text representation
-                | _ => Value::Text(format!("{lit:?}")),
+                | _ => Value::text(format!("{lit:?}")),
             },
             // For non-literal expressions, use Text representation as fallback
-            | _ => Value::Text(format!("{expr:?}")),
+            | _ => Value::text(format!("{expr:?}")),
         }
     }
 
@@ -5233,20 +5233,20 @@ impl QueryExecutor {
                 match lit {
                     | Literal::Integer(i) => Ok(Value::Integer(*i)),
                     | Literal::Float(f) => Ok(Value::Float(*f)),
-                    | Literal::String(s) => Ok(Value::Text(s.clone())),
+                    | Literal::String(s) => Ok(Value::text(s.clone())),
                     | Literal::Boolean(b) => Ok(Value::Boolean(*b)),
                     | Literal::Null => Ok(Value::Null),
-                    | Literal::DNA(sequence) => Ok(Value::Text(sequence.clone())), // Store DNA as text
+                    | Literal::DNA(sequence) => Ok(Value::text(sequence.clone())), // Store DNA as text
                     | Literal::QuantumBit(state, amplitude) => {
                         // Store quantum bit as binary representation
                         let data = format!("QB:{state}:{amplitude}");
-                        Ok(Value::Text(data))
+                        Ok(Value::text(data))
                     },
                 }
             },
             | Expression::Identifier(name) => {
                 // For now, treat identifiers as text (could be enhanced later)
-                Ok(Value::Text(name.clone()))
+                Ok(Value::text(name.clone()))
             },
             | _ => Err(QSQLError::ExecutionError {
                 message: format!("Unsupported expression type in conversion: {expr:?}"),
@@ -8446,9 +8446,9 @@ impl QueryExecutor {
         match value {
             | Value::Integer(i) => i.to_string(),
             | Value::Float(f) => f.to_string(),
-            | Value::Text(s) => s.clone(),
+            | Value::Text(s) => s.as_ref().clone(),
             | Value::Boolean(b) => b.to_string(),
-            | Value::Binary(b) => format!("{b:?}"),
+            | Value::Binary(b) => format!("{:?}", b.as_ref()),
             | Value::Null => "NULL".to_string(),
             | Value::Timestamp(ts) => ts.to_rfc3339(),
         }
@@ -8469,9 +8469,9 @@ impl QueryExecutor {
         match value {
             | Value::Integer(i) => QueryValue::Integer(*i),
             | Value::Float(f) => QueryValue::Float(*f),
-            | Value::Text(s) => QueryValue::String(s.clone()),
+            | Value::Text(s) => QueryValue::String(s.as_ref().clone()),
             | Value::Boolean(b) => QueryValue::Boolean(*b),
-            | Value::Binary(b) => QueryValue::Blob(b.clone()),
+            | Value::Binary(b) => QueryValue::Blob(b.as_ref().clone()),
             | Value::Null => QueryValue::Null,
             | Value::Timestamp(ts) => QueryValue::String(ts.to_rfc3339()),
         }
@@ -8931,11 +8931,11 @@ impl QueryExecutor {
         match value {
             | Value::Integer(i) => Literal::Integer(i),
             | Value::Float(f) => Literal::Float(f),
-            | Value::Text(s) => Literal::String(s),
+            | Value::Text(s) => Literal::String(s.as_ref().clone()),
             | Value::Boolean(b) => Literal::Boolean(b),
             | Value::Null => Literal::Null,
             | Value::Timestamp(ts) => Literal::String(ts.to_rfc3339()),
-            | Value::Binary(b) => Literal::String(String::from_utf8_lossy(&b).to_string()),
+            | Value::Binary(b) => Literal::String(String::from_utf8_lossy(b.as_ref()).to_string()),
         }
     }
 }

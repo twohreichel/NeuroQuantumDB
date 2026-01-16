@@ -23,7 +23,7 @@ async fn test_apply_after_image_redo() {
         id: 1,
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(1)),
-            ("name".to_string(), Value::Text("Alice".to_string())),
+            ("name".to_string(), Value::text("Alice")),
             ("age".to_string(), Value::Integer(30)),
         ]),
         created_at: chrono::Utc::now(),
@@ -66,7 +66,7 @@ async fn test_apply_before_image_undo() {
         id: 1,
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(1)),
-            ("name".to_string(), Value::Text("Alice".to_string())),
+            ("name".to_string(), Value::text("Alice")),
             ("age".to_string(), Value::Integer(30)),
         ]),
         created_at: chrono::Utc::now(),
@@ -100,10 +100,7 @@ async fn test_apply_before_image_undo() {
     let rows = storage.select_rows(&select_query).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].id, 1);
-    assert_eq!(
-        rows[0].fields.get("name"),
-        Some(&Value::Text("Alice".to_string()))
-    );
+    assert_eq!(rows[0].fields.get("name"), Some(&Value::text("Alice")));
 }
 
 #[tokio::test]
@@ -123,7 +120,7 @@ async fn test_apply_before_image_undo_insert() {
         id: 1,
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(1)),
-            ("name".to_string(), Value::Text("Alice".to_string())),
+            ("name".to_string(), Value::text("Alice")),
             ("age".to_string(), Value::Integer(30)),
         ]),
         created_at: chrono::Utc::now(),
@@ -190,7 +187,7 @@ async fn test_perform_recovery_with_committed_transaction() {
         id: 1,
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(1)),
-            ("name".to_string(), Value::Text("Bob".to_string())),
+            ("name".to_string(), Value::text("Bob")),
         ]),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -258,7 +255,7 @@ async fn test_transactional_operations_with_rollback() {
         id: 0, // Will be overwritten by storage engine
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(100)),
-            ("name".to_string(), Value::Text("Temp User".to_string())),
+            ("name".to_string(), Value::text("Temp User")),
             ("age".to_string(), Value::Integer(25)),
         ]),
         created_at: chrono::Utc::now(),

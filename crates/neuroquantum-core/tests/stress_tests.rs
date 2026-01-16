@@ -67,7 +67,7 @@ fn create_test_row(id: i64, counter: i64, data: &str) -> Row {
         fields: HashMap::from([
             ("id".to_string(), Value::Integer(id)),
             ("counter".to_string(), Value::Integer(counter)),
-            ("data".to_string(), Value::Text(data.to_string())),
+            ("data".to_string(), Value::text(data)),
         ]),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -981,8 +981,8 @@ async fn test_no_dirty_reads_concurrent() {
                         // Detect inconsistency:
                         // - Initial value: counter=100, data="initial_value"
                         // - Updated values: counter=200+, data="updated_<counter>"
-                        let is_inconsistent = (*counter == 100 && data != "initial_value")
-                            || (*counter >= 200 && !data.contains(&counter.to_string()));
+                        let is_inconsistent = (*counter == 100 && data.as_str() != "initial_value")
+                            || (*counter >= 200 && !data.as_str().contains(&counter.to_string()));
 
                         if is_inconsistent {
                             inconsistent_counter.fetch_add(1, Ordering::SeqCst);

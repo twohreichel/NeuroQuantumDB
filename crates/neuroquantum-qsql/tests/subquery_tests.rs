@@ -146,8 +146,7 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
             updated_at: chrono::Utc::now(),
         };
         row.fields.insert("id".to_string(), Value::Integer(*id));
-        row.fields
-            .insert("name".to_string(), Value::Text((*name).to_string()));
+        row.fields.insert("name".to_string(), Value::text(*name));
         row.fields
             .insert("active".to_string(), Value::Boolean(*active));
         storage_guard.insert_row("departments", row).await.unwrap();
@@ -172,8 +171,7 @@ async fn setup_test_tables(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>)
             updated_at: chrono::Utc::now(),
         };
         row.fields.insert("id".to_string(), Value::Integer(*id));
-        row.fields
-            .insert("name".to_string(), Value::Text((*name).to_string()));
+        row.fields.insert("name".to_string(), Value::text(*name));
         row.fields.insert("age".to_string(), Value::Integer(*age));
         match dept_id {
             | Some(d) => row

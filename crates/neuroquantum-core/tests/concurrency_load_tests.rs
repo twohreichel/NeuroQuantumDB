@@ -120,7 +120,7 @@ fn create_load_test_row(id: i64, version: i64, worker_id: i64, payload: &str) ->
             ("id".to_string(), Value::Integer(id)),
             ("version".to_string(), Value::Integer(version)),
             ("worker_id".to_string(), Value::Integer(worker_id)),
-            ("payload".to_string(), Value::Text(payload.to_string())),
+            ("payload".to_string(), Value::text(payload)),
         ]),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
