@@ -3,6 +3,7 @@
 //! Diese Test-Suite validiert die vollständige SQL Engine Implementierung
 //! mit SELECT, INSERT, UPDATE, DELETE sowie neuromorphic und quantum features.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::ast::*;
@@ -367,7 +368,7 @@ fn demo_complete_sql_engine() {
 
 fn create_test_query_plan(statement: Statement) -> QueryPlan {
     QueryPlan {
-        statement,
+        statement: Arc::new(statement),
         execution_strategy: ExecutionStrategy::Sequential,
         synaptic_pathways: vec![],
         quantum_optimizations: vec![],
