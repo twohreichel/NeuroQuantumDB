@@ -1898,7 +1898,16 @@ impl QueryExecutor {
             );
 
         if should_use_hash_join {
-            // Use hash join for better performance on large tables
+            // Log hash join usage for performance monitoring
+            tracing::debug!(
+                "Using hash join: left_count={}, right_count={}, product={}, join_type={:?}",
+                left_count,
+                right_count,
+                product,
+                join_type
+            );
+
+            // Use hash join for better performance on large tables (O(n+m) instead of O(n*m))
             return self.perform_hash_join(
                 left_rows,
                 left_alias,
@@ -1908,6 +1917,22 @@ impl QueryExecutor {
                 condition,
             );
         }
+
+        // Log nested loop join usage
+        tracing::debug!(
+            "Using nested loop join: left_count={}, right_count={}, product={}, join_type={:?}, reason={}",
+            left_count,
+            right_count,
+            product,
+            join_type,
+            if product <= self.config.hash_join_threshold {
+                "small dataset"
+            } else if !Self::is_equi_join_condition(condition) {
+                "non-equi join"
+            } else {
+                "unsupported join type"
+            }
+        );
 
         // Fall back to nested loop join for small tables or complex conditions
         self.perform_nested_loop_join(
