@@ -10,8 +10,9 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
@@ -185,12 +186,12 @@ impl Transaction {
 
 /// Lock manager for concurrency control with deadlock detection
 pub struct LockManager {
-    /// Current locks held on resources
-    locks: Arc<RwLock<HashMap<ResourceId, Vec<Lock>>>>,
-    /// Wait-for graph for deadlock detection
-    wait_for: Arc<RwLock<HashMap<TransactionId, HashSet<TransactionId>>>>,
-    /// Transactions waiting for locks
-    waiting: Arc<RwLock<HashMap<TransactionId, ResourceId>>>,
+    /// Current locks held on resources - using `DashMap` for lock-free concurrent access
+    locks: DashMap<ResourceId, Vec<Lock>>,
+    /// Wait-for graph for deadlock detection - using `DashMap` for lock-free concurrent access
+    wait_for: DashMap<TransactionId, HashSet<TransactionId>>,
+    /// Transactions waiting for locks - using `DashMap` for lock-free concurrent access
+    waiting: DashMap<TransactionId, ResourceId>,
 }
 
 impl LockManager {
@@ -198,9 +199,9 @@ impl LockManager {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            locks: Arc::new(RwLock::new(HashMap::new())),
-            wait_for: Arc::new(RwLock::new(HashMap::new())),
-            waiting: Arc::new(RwLock::new(HashMap::new())),
+            locks: DashMap::new(),
+            wait_for: DashMap::new(),
+            waiting: DashMap::new(),
         }
     }
 
@@ -243,14 +244,10 @@ impl LockManager {
         resource_id: &ResourceId,
         lock_type: LockType,
     ) -> Result<bool, NeuroQuantumError> {
-        let locks = self
-            .locks
-            .read()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
-
-        if let Some(existing_locks) = locks.get(resource_id) {
+        // DashMap provides lock-free reads
+        if let Some(existing_locks) = self.locks.get(resource_id) {
             // Check compatibility with existing locks
-            for lock in existing_locks {
+            for lock in existing_locks.iter() {
                 if lock.transaction_id == *tx_id {
                     // Same transaction can always upgrade/re-acquire
                     continue;
@@ -281,11 +278,6 @@ impl LockManager {
         resource_id: ResourceId,
         lock_type: LockType,
     ) -> Result<(), NeuroQuantumError> {
-        let mut locks = self
-            .locks
-            .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
-
         let lock = Lock {
             transaction_id: tx_id,
             resource_id: resource_id.clone(),
@@ -293,17 +285,14 @@ impl LockManager {
             acquired_at: chrono::Utc::now(),
         };
 
-        locks
+        // DashMap provides lock-free concurrent access
+        self.locks
             .entry(resource_id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(lock);
 
-        // Remove from waiting list
-        let mut waiting = self
-            .waiting
-            .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
-        waiting.remove(&tx_id);
+        // Remove from waiting list - DashMap handles concurrent removal safely
+        self.waiting.remove(&tx_id);
 
         debug!(
             "Granted {:?} lock on {} to {:?}",
@@ -318,28 +307,26 @@ impl LockManager {
         tx_id: &TransactionId,
         resource_id: &ResourceId,
     ) -> Result<(), NeuroQuantumError> {
-        let locks = self
-            .locks
-            .read()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
-
-        // Build wait-for relationships
-        if let Some(existing_locks) = locks.get(resource_id) {
-            let mut wait_for = self
-                .wait_for
-                .write()
-                .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
-
+        // DashMap provides lock-free concurrent read access
+        if let Some(existing_locks) = self.locks.get(resource_id) {
             let waiting_for: HashSet<TransactionId> = existing_locks
                 .iter()
                 .filter(|lock| lock.transaction_id != *tx_id)
                 .map(|lock| lock.transaction_id)
                 .collect();
 
-            wait_for.insert(*tx_id, waiting_for);
+            // Update wait-for graph - DashMap handles concurrent insertion safely
+            self.wait_for.insert(*tx_id, waiting_for);
+
+            // Build a snapshot of the wait-for graph for cycle detection
+            let wait_for_snapshot: HashMap<TransactionId, HashSet<TransactionId>> = self
+                .wait_for
+                .iter()
+                .map(|entry| (*entry.key(), entry.value().clone()))
+                .collect();
 
             // Detect cycle using DFS
-            if self.has_cycle(&wait_for, tx_id)? {
+            if self.has_cycle(&wait_for_snapshot, tx_id)? {
                 error!("Deadlock detected involving transaction {:?}", tx_id);
                 return Err(NeuroQuantumError::DeadlockDetected(format!(
                     "Deadlock detected for transaction {tx_id:?}"
@@ -393,28 +380,26 @@ impl LockManager {
 
     /// Release all locks held by a transaction
     pub async fn release_locks(&self, tx_id: &TransactionId) -> Result<(), NeuroQuantumError> {
-        let mut locks = self
-            .locks
-            .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
+        // Collect all resource IDs first to avoid holding iterator while modifying
+        let resources_to_check: Vec<ResourceId> =
+            self.locks.iter().map(|entry| entry.key().clone()).collect();
 
-        let resources_to_remove: Vec<ResourceId> = locks.keys().cloned().collect();
-
-        for resource_id in resources_to_remove {
-            if let Some(resource_locks) = locks.get_mut(&resource_id) {
+        for resource_id in resources_to_check {
+            // Use DashMap's entry API for safe concurrent modification
+            if let Some(mut resource_locks) = self.locks.get_mut(&resource_id) {
                 resource_locks.retain(|lock| lock.transaction_id != *tx_id);
-                if resource_locks.is_empty() {
-                    locks.remove(&resource_id);
+                // If no locks remain for this resource, mark for removal
+                let should_remove = resource_locks.is_empty();
+                drop(resource_locks); // Release the mutable reference
+
+                if should_remove {
+                    self.locks.remove(&resource_id);
                 }
             }
         }
 
-        // Clean up wait-for graph
-        let mut wait_for = self
-            .wait_for
-            .write()
-            .map_err(|e| NeuroQuantumError::TransactionError(format!("Lock poisoned: {e}")))?;
-        wait_for.remove(tx_id);
+        // Clean up wait-for graph - DashMap handles concurrent removal safely
+        self.wait_for.remove(tx_id);
 
         debug!("Released all locks for transaction {:?}", tx_id);
         Ok(())
