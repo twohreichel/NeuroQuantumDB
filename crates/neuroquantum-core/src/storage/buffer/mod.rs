@@ -8,9 +8,11 @@
 //! - Memory limit enforcement
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
+use dashmap::DashMap;
 use tokio::sync::{RwLock, Semaphore};
 use tokio::time::Duration;
 use tracing::{debug, info};
@@ -216,8 +218,8 @@ pub struct BufferPoolManager {
     pager: Arc<PageStorageManager>,
     /// Frame pool
     frames: Arc<RwLock<HashMap<FrameId, Frame>>>,
-    /// Page ID to Frame ID mapping
-    page_table: Arc<RwLock<HashMap<PageId, FrameId>>>,
+    /// Page ID to Frame ID mapping (lock-free concurrent access)
+    page_table: Arc<DashMap<PageId, FrameId>>,
     /// Free frame list
     free_list: Arc<RwLock<VecDeque<FrameId>>>,
     /// Eviction policy
@@ -228,10 +230,10 @@ pub struct BufferPoolManager {
     flush_semaphore: Arc<Semaphore>,
     /// Background flusher (optional)
     flusher: Option<Arc<BackgroundFlusher>>,
-    /// Cache hit counter
-    cache_hits: Arc<RwLock<u64>>,
-    /// Cache miss counter
-    cache_misses: Arc<RwLock<u64>>,
+    /// Cache hit counter (lock-free atomic)
+    cache_hits: AtomicU64,
+    /// Cache miss counter (lock-free atomic)
+    cache_misses: AtomicU64,
 }
 
 impl BufferPoolManager {
@@ -262,14 +264,14 @@ impl BufferPoolManager {
             _config: config.clone(),
             pager,
             frames: Arc::new(RwLock::new(frames)),
-            page_table: Arc::new(RwLock::new(HashMap::new())),
+            page_table: Arc::new(DashMap::new()),
             free_list: Arc::new(RwLock::new(free_list)),
             eviction: Arc::new(RwLock::new(eviction)),
             dirty_pages: Arc::new(RwLock::new(HashMap::new())),
             flush_semaphore: Arc::new(Semaphore::new(10)), // Max 10 concurrent flushes
             flusher: None,
-            cache_hits: Arc::new(RwLock::new(0)),
-            cache_misses: Arc::new(RwLock::new(0)),
+            cache_hits: AtomicU64::new(0),
+            cache_misses: AtomicU64::new(0),
         };
 
         // Start background flusher if enabled
@@ -300,16 +302,12 @@ impl BufferPoolManager {
     /// If the page is not in the pool, it will be loaded from disk.
     /// The page is pinned and must be unpinned after use.
     pub async fn fetch_page(&self, page_id: PageId) -> Result<Arc<RwLock<Page>>> {
-        // Check if page is already in buffer
-        let page_table = self.page_table.read().await;
-        if let Some(&frame_id) = page_table.get(&page_id) {
-            drop(page_table);
+        // Check if page is already in buffer (lock-free DashMap read)
+        if let Some(frame_id_ref) = self.page_table.get(&page_id) {
+            let frame_id = *frame_id_ref;
 
-            // Record cache hit
-            {
-                let mut hits = self.cache_hits.write().await;
-                *hits += 1;
-            }
+            // Record cache hit (lock-free atomic increment)
+            self.cache_hits.fetch_add(1, Ordering::Relaxed);
 
             // Update access in eviction policy
             let mut eviction = self.eviction.write().await;
@@ -330,13 +328,9 @@ impl BufferPoolManager {
 
             return Ok(frame.page().await?);
         }
-        drop(page_table);
 
-        // Record cache miss
-        {
-            let mut misses = self.cache_misses.write().await;
-            *misses += 1;
-        }
+        // Record cache miss (lock-free atomic increment)
+        self.cache_misses.fetch_add(1, Ordering::Relaxed);
 
         // Page not in buffer - need to load it
         self.load_page(page_id).await
@@ -364,10 +358,8 @@ impl BufferPoolManager {
         let page_arc = frame.page().await?;
         drop(frames);
 
-        // Update page table
-        let mut page_table = self.page_table.write().await;
-        page_table.insert(page_id, frame_id);
-        drop(page_table);
+        // Update page table (lock-free DashMap insert)
+        self.page_table.insert(page_id, frame_id);
 
         // Record access in eviction policy
         let mut eviction = self.eviction.write().await;
@@ -433,10 +425,8 @@ impl BufferPoolManager {
                 .await?;
         }
 
-        // Remove from page table
-        let mut page_table = self.page_table.write().await;
-        page_table.remove(&victim_page_id);
-        drop(page_table);
+        // Remove from page table (lock-free DashMap remove)
+        self.page_table.remove(&victim_page_id);
 
         // Clear frame
         let mut frames = self.frames.write().await;
@@ -455,12 +445,12 @@ impl BufferPoolManager {
 
     /// Unpin a page, allowing it to be evicted
     pub async fn unpin_page(&self, page_id: PageId, is_dirty: bool) -> Result<()> {
-        let page_table = self.page_table.read().await;
-        let frame_id = page_table
+        // Get frame_id from page table (lock-free DashMap read)
+        let frame_id = self
+            .page_table
             .get(&page_id)
+            .map(|entry| *entry)
             .ok_or_else(|| anyhow!("Page not in buffer: {page_id:?}"))?;
-        let frame_id = *frame_id;
-        drop(page_table);
 
         let frames = self.frames.read().await;
         let frame = frames
@@ -491,12 +481,12 @@ impl BufferPoolManager {
 
     /// Flush a specific page to disk
     pub async fn flush_page(&self, page_id: PageId) -> Result<()> {
-        let page_table = self.page_table.read().await;
-        let frame_id = page_table
+        // Get frame_id from page table (lock-free DashMap read)
+        let frame_id = self
+            .page_table
             .get(&page_id)
+            .map(|entry| *entry)
             .ok_or_else(|| anyhow!("Page not in buffer: {page_id:?}"))?;
-        let frame_id = *frame_id;
-        drop(page_table);
 
         self.flush_page_internal(page_id, frame_id).await
     }
@@ -566,20 +556,19 @@ impl BufferPoolManager {
     /// Get buffer pool statistics
     pub async fn stats(&self) -> BufferPoolStats {
         let frames = self.frames.read().await;
-        let page_table = self.page_table.read().await;
         let free_list = self.free_list.read().await;
         let dirty_pages = self.dirty_pages.read().await;
 
         let total_frames = frames.len();
-        let used_frames = page_table.len();
+        let used_frames = self.page_table.len();
         let free_frames = free_list.len();
         let dirty_count = dirty_pages.len();
 
         let pinned_count = frames.values().filter(|f| f.is_pinned()).count();
 
-        // Calculate hit rate
-        let hits = *self.cache_hits.read().await;
-        let misses = *self.cache_misses.read().await;
+        // Calculate hit rate (lock-free atomic read)
+        let hits = self.cache_hits.load(Ordering::Relaxed);
+        let misses = self.cache_misses.load(Ordering::Relaxed);
         let total_accesses = hits + misses;
         let hit_rate = if total_accesses > 0 {
             hits as f64 / total_accesses as f64
@@ -599,17 +588,17 @@ impl BufferPoolManager {
 
     /// Reset cache statistics (useful for benchmarking)
     pub async fn reset_stats(&self) {
-        let mut hits = self.cache_hits.write().await;
-        let mut misses = self.cache_misses.write().await;
-        *hits = 0;
-        *misses = 0;
+        // Lock-free atomic reset
+        self.cache_hits.store(0, Ordering::Relaxed);
+        self.cache_misses.store(0, Ordering::Relaxed);
         debug!("🔄 Cache statistics reset");
     }
 
     /// Get detailed cache metrics
     pub async fn cache_metrics(&self) -> CacheMetrics {
-        let hits = *self.cache_hits.read().await;
-        let misses = *self.cache_misses.read().await;
+        // Lock-free atomic read
+        let hits = self.cache_hits.load(Ordering::Relaxed);
+        let misses = self.cache_misses.load(Ordering::Relaxed);
         let total_accesses = hits + misses;
         let hit_rate = if total_accesses > 0 {
             hits as f64 / total_accesses as f64

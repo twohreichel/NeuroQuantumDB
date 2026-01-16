@@ -3559,6 +3559,7 @@ dependencies = [
  "chrono",
  "crc32fast",
  "criterion 0.8.1",
+ "dashmap",
  "flate2",
  "futures",
  "hashbrown 0.16.1",
