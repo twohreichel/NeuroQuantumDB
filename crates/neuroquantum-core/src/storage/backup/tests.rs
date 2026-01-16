@@ -45,6 +45,9 @@ async fn setup_test_db() -> Result<(
         buffer_size: 64 * 1024,
         checkpoint_interval_secs: 60,
         min_segments_to_keep: 2,
+        group_commit_delay_ms: 0,
+        group_commit_max_records: 1000,
+        group_commit_max_bytes: 4 * 1024 * 1024,
     };
 
     // Create a separate pager instance for WAL

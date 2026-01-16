@@ -171,6 +171,12 @@ pub struct WALConfig {
     pub checkpoint_interval_secs: u64,
     /// Number of WAL segments to keep for recovery
     pub min_segments_to_keep: usize,
+    /// Group commit delay in milliseconds (0 to disable group commit)
+    pub group_commit_delay_ms: u64,
+    /// Maximum number of records per group commit batch
+    pub group_commit_max_records: usize,
+    /// Maximum bytes per group commit batch
+    pub group_commit_max_bytes: usize,
 }
 
 impl Default for WALConfig {
@@ -182,6 +188,9 @@ impl Default for WALConfig {
             buffer_size: 256 * 1024,       // 256 KB
             checkpoint_interval_secs: 300, // 5 minutes
             min_segments_to_keep: 3,
+            group_commit_delay_ms: 5, // 5ms default delay
+            group_commit_max_records: 1000,
+            group_commit_max_bytes: 4 * 1024 * 1024, // 4 MB
         }
     }
 }
@@ -430,6 +439,9 @@ impl WALManager {
             segment_size: config.segment_size,
             sync_on_write: config.sync_on_write,
             buffer_size: config.buffer_size,
+            group_commit_delay_ms: config.group_commit_delay_ms,
+            group_commit_max_records: config.group_commit_max_records,
+            group_commit_max_bytes: config.group_commit_max_bytes,
         };
         let log_writer = LogWriter::new(log_writer_config).await?;
 
@@ -1015,6 +1027,9 @@ mod tests {
             buffer_size: 64 * 1024,
             checkpoint_interval_secs: 60,
             min_segments_to_keep: 2,
+            group_commit_delay_ms: 0,
+            group_commit_max_records: 1000,
+            group_commit_max_bytes: 4 * 1024 * 1024,
         };
 
         let wal = WALManager::new(wal_config, Arc::clone(&pager))
