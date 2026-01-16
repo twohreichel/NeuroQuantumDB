@@ -4,7 +4,7 @@
 //! It creates two tables, populates them with data, and shows how JOIN
 //! operations benefit from automatic hash join selection.
 //!
-//! Run with: cargo run --example hash_join_performance
+//! Run with: cargo run --example `hash_join_performance`
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let parser = Parser::new();
-    let regions = vec!["North", "South", "East", "West"];
+    let regions = ["North", "South", "East", "West"];
 
     // Scenario 1: Small dataset - will use nested loop join
     println!("--- Scenario 1: Small Dataset (10 customers, 20 orders) ---");
@@ -131,7 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {})",
                 i,
                 customer_id,
-                i as f64 * 10.5
+                f64::from(i) * 10.5
             );
             let statement = parser.parse(&sql)?;
             executor.execute_statement(&statement).await?;
@@ -147,7 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let result = executor.execute_statement(&statement).await?;
         let duration = start.elapsed();
 
-        println!("✓ Query executed in {:?}", duration);
+        println!("✓ Query executed in {duration:?}");
         println!("✓ Result: {} rows\n", result.rows.len());
     }
 
@@ -193,7 +193,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {})",
                 i,
                 customer_id,
-                i as f64 * 10.5
+                f64::from(i) * 10.5
             );
             let statement = parser.parse(&sql)?;
             executor.execute_statement(&statement).await?;
@@ -214,7 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let result = executor.execute_statement(&statement).await?;
         let hash_join_duration = start.elapsed();
 
-        println!("✓ Hash join query executed in {:?}", hash_join_duration);
+        println!("✓ Hash join query executed in {hash_join_duration:?}");
         println!("✓ Top 10 customers by total spend:\n");
 
         for (idx, row) in result.rows.iter().enumerate() {
@@ -222,13 +222,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "  {}. {} ({}) - {} orders, ${:.2} total",
                 idx + 1,
                 row.get("name")
-                    .map(|v| format!("{:?}", v))
+                    .map(|v| format!("{v:?}"))
                     .unwrap_or_default(),
                 row.get("region")
-                    .map(|v| format!("{:?}", v))
+                    .map(|v| format!("{v:?}"))
                     .unwrap_or_default(),
                 row.get("order_count")
-                    .map(|v| format!("{:?}", v))
+                    .map(|v| format!("{v:?}"))
                     .unwrap_or_default(),
                 row.get("total")
                     .and_then(|v| {
@@ -243,7 +243,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!();
-        
+
         hash_join_duration
     };
 
@@ -270,18 +270,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let result = executor.execute_statement(&statement).await?;
         let nested_loop_duration = start.elapsed();
 
-        println!(
-            "✓ Nested loop join query executed in {:?}",
-            nested_loop_duration
-        );
+        println!("✓ Nested loop join query executed in {nested_loop_duration:?}");
         println!("✓ Result: {} rows\n", result.rows.len());
 
         // Calculate speedup
         let speedup = nested_loop_duration.as_secs_f64() / hash_join_duration.as_secs_f64();
         println!("=== Performance Summary ===");
-        println!("Hash Join:        {:?}", hash_join_duration);
-        println!("Nested Loop Join: {:?}", nested_loop_duration);
-        println!("Speedup:          {:.2}x faster with hash join!", speedup);
+        println!("Hash Join:        {hash_join_duration:?}");
+        println!("Nested Loop Join: {nested_loop_duration:?}");
+        println!("Speedup:          {speedup:.2}x faster with hash join!");
     }
 
     println!("\n✓ Hash join demonstration completed successfully!");

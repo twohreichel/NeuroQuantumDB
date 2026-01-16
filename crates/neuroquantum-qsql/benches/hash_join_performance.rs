@@ -92,10 +92,7 @@ async fn setup_test_data(
 
     // Insert customers
     for i in 0..num_customers {
-        let sql = format!(
-            "INSERT INTO customers (id, name) VALUES ({}, 'Customer {}')",
-            i, i
-        );
+        let sql = format!("INSERT INTO customers (id, name) VALUES ({i}, 'Customer {i}')");
         let mut executor =
             QueryExecutor::with_storage(ExecutorConfig::default(), storage_arc.clone()).unwrap();
         let statement = parser.parse(&sql).unwrap();
@@ -142,7 +139,7 @@ fn bench_join_algorithms(c: &mut Criterion) {
 
         // Benchmark nested loop join (high threshold to force nested loop)
         group.bench_with_input(
-            BenchmarkId::new("nested_loop", format!("{}x{}", num_customers, num_orders)),
+            BenchmarkId::new("nested_loop", format!("{num_customers}x{num_orders}")),
             &(num_customers, num_orders),
             |b, _| {
                 b.iter_custom(|iters| {
@@ -154,7 +151,8 @@ fn bench_join_algorithms(c: &mut Criterion) {
                                 hash_join_threshold: usize::MAX, // Force nested loop
                                 ..Default::default()
                             };
-                            let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+                            let mut executor =
+                                QueryExecutor::with_storage(config, storage.clone()).unwrap();
                             let parser = Parser::new();
 
                             let sql = "SELECT c.name, SUM(o.amount) as total \
@@ -172,7 +170,7 @@ fn bench_join_algorithms(c: &mut Criterion) {
 
         // Benchmark hash join (low threshold to force hash join)
         group.bench_with_input(
-            BenchmarkId::new("hash_join", format!("{}x{}", num_customers, num_orders)),
+            BenchmarkId::new("hash_join", format!("{num_customers}x{num_orders}")),
             &(num_customers, num_orders),
             |b, _| {
                 b.iter_custom(|iters| {
@@ -184,7 +182,8 @@ fn bench_join_algorithms(c: &mut Criterion) {
                                 hash_join_threshold: 0, // Force hash join
                                 ..Default::default()
                             };
-                            let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+                            let mut executor =
+                                QueryExecutor::with_storage(config, storage.clone()).unwrap();
                             let parser = Parser::new();
 
                             let sql = "SELECT c.name, SUM(o.amount) as total \
@@ -220,7 +219,7 @@ fn bench_hash_join_scalability(c: &mut Criterion) {
         let (_temp_dir, storage_arc) = runtime.block_on(setup_test_data(num_customers, num_orders));
 
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{}x{}", num_customers, num_orders)),
+            BenchmarkId::from_parameter(format!("{num_customers}x{num_orders}")),
             &(num_customers, num_orders),
             |b, _| {
                 b.iter_custom(|iters| {
@@ -232,7 +231,8 @@ fn bench_hash_join_scalability(c: &mut Criterion) {
                                 hash_join_threshold: 0, // Always use hash join
                                 ..Default::default()
                             };
-                            let mut executor = QueryExecutor::with_storage(config, storage.clone()).unwrap();
+                            let mut executor =
+                                QueryExecutor::with_storage(config, storage.clone()).unwrap();
                             let parser = Parser::new();
 
                             let sql =
