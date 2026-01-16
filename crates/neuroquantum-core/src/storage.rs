@@ -272,8 +272,9 @@ impl Clone for Value {
 
 /// Serde helper module for Arc<String>
 mod arc_string_serde {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::sync::Arc;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S>(value: &Arc<String>, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -293,8 +294,9 @@ mod arc_string_serde {
 
 /// Serde helper module for Arc<Vec<u8>>
 mod arc_vec_serde {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::sync::Arc;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S>(value: &Arc<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
     where
