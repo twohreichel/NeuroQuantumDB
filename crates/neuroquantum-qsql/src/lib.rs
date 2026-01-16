@@ -69,7 +69,7 @@ pub struct QSQLEngine {
 /// Cached query plan with execution statistics
 #[derive(Debug, Clone, Serialize)]
 pub struct CachedQueryPlan {
-    pub plan: QueryPlan,
+    pub plan: Arc<QueryPlan>,
     pub execution_count: u64,
     pub average_duration: Duration,
     pub synaptic_strength: f32,
@@ -92,7 +92,7 @@ impl<'de> Deserialize<'de> for CachedQueryPlan {
 
         let helper = CachedQueryPlanHelper::deserialize(deserializer)?;
         Ok(Self {
-            plan: helper.plan,
+            plan: Arc::new(helper.plan),
             execution_count: helper.execution_count,
             average_duration: helper.average_duration,
             synaptic_strength: helper.synaptic_strength,
@@ -106,8 +106,8 @@ impl Default for CachedQueryPlan {
         use ast::{SelectStatement, Statement};
 
         Self {
-            plan: QueryPlan {
-                statement: Statement::Select(SelectStatement {
+            plan: Arc::new(QueryPlan {
+                statement: Arc::new(Statement::Select(SelectStatement {
                     select_list: vec![],
                     from: None,
                     where_clause: None,
@@ -123,7 +123,7 @@ impl Default for CachedQueryPlan {
                     grover_iterations: None,
                     with_clause: None,
                     union_clause: None,
-                }),
+                })),
                 execution_strategy: ExecutionStrategy::Sequential,
                 synaptic_pathways: vec![],
                 quantum_optimizations: vec![],
@@ -135,7 +135,7 @@ impl Default for CachedQueryPlan {
                     synaptic_adaptations: 0,
                     quantum_optimizations_applied: 0,
                 },
-            },
+            }),
             execution_count: 0,
             average_duration: Duration::from_millis(0),
             synaptic_strength: 0.0,
@@ -283,8 +283,8 @@ impl QSQLEngine {
         self.index_advisor.track_query(&ast);
 
         // Create a simple query plan directly from AST (bypassing optimizer for now)
-        let plan = QueryPlan {
-            statement: ast,
+        let plan = Arc::new(QueryPlan {
+            statement: Arc::new(ast),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -296,7 +296,7 @@ impl QSQLEngine {
                 synaptic_adaptations: 0,
                 quantum_optimizations_applied: 0,
             },
-        };
+        });
 
         // Execute query
         let exec_start = Instant::now();
@@ -404,14 +404,14 @@ impl QSQLEngine {
 
     // Private helper methods
 
-    async fn execute_cached_plan(&mut self, plan: &QueryPlan) -> Result<QueryResult> {
+    async fn execute_cached_plan(&mut self, plan: &Arc<QueryPlan>) -> Result<QueryResult> {
         self.executor
             .execute(plan)
             .await
             .map_err(std::convert::Into::into)
     }
 
-    fn cache_plan(&mut self, query: String, plan: QueryPlan, duration: Duration) {
+    fn cache_plan(&mut self, query: String, plan: Arc<QueryPlan>, duration: Duration) {
         let cached = CachedQueryPlan {
             plan,
             execution_count: 1,

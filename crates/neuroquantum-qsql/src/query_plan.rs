@@ -398,7 +398,7 @@ impl QueryExecutor {
     pub async fn execute_statement(&mut self, statement: &Statement) -> QSQLResult<QueryResult> {
         // Create a basic QueryPlan from the statement
         let plan = QueryPlan {
-            statement: statement.clone(),
+            statement: Arc::new(statement.clone()),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -429,7 +429,7 @@ impl QueryExecutor {
 
         let start_time = std::time::Instant::now();
 
-        let result = match &plan.statement {
+        let result = match plan.statement.as_ref() {
             | Statement::Select(select) => self.execute_select(select, plan).await,
             | Statement::Insert(insert) => self.execute_insert(insert, plan).await,
             | Statement::Update(update) => self.execute_update(update, plan).await,
@@ -1147,7 +1147,7 @@ impl QueryExecutor {
 
                 // Execute the subquery
                 let subquery_plan = QueryPlan {
-                    statement: Statement::Select(subquery.as_ref().clone()),
+                    statement: Arc::new(Statement::Select(subquery.as_ref().clone())),
                     execution_strategy: ExecutionStrategy::Sequential,
                     synaptic_pathways: vec![],
                     quantum_optimizations: vec![],
@@ -1203,7 +1203,7 @@ impl QueryExecutor {
                 } else {
                     // Execute non-recursive CTE
                     let cte_plan = QueryPlan {
-                        statement: Statement::Select(cte_query),
+                        statement: Arc::new(Statement::Select(cte_query)),
                         execution_strategy: ExecutionStrategy::Sequential,
                         synaptic_pathways: vec![],
                         quantum_optimizations: vec![],
@@ -1332,7 +1332,7 @@ impl QueryExecutor {
 
         // Execute the anchor query
         let anchor_plan = QueryPlan {
-            statement: Statement::Select(anchor_query),
+            statement: Arc::new(Statement::Select(anchor_query)),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1726,7 +1726,7 @@ impl QueryExecutor {
 
                 // Execute the subquery
                 let subquery_plan = QueryPlan {
-                    statement: Statement::Select(subquery.as_ref().clone()),
+                    statement: Arc::new(Statement::Select(subquery.as_ref().clone())),
                     execution_strategy: ExecutionStrategy::Sequential,
                     synaptic_pathways: vec![],
                     quantum_optimizations: vec![],
@@ -3169,7 +3169,7 @@ impl QueryExecutor {
         // Create a query plan for the inner statement
         // For now, create a simple plan without full optimization
         let inner_plan = QueryPlan {
-            statement: (*explain.statement).clone(),
+            statement: Arc::new((*explain.statement).clone()),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -8964,7 +8964,7 @@ impl Default for QueryExecutor {
 /// Query execution plan with optimization metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryPlan {
-    pub statement: Statement,
+    pub statement: Arc<Statement>,
     pub execution_strategy: ExecutionStrategy,
     pub synaptic_pathways: Vec<SynapticPathway>,
     pub quantum_optimizations: Vec<QuantumOptimization>,
@@ -9042,7 +9042,7 @@ mod tests {
         };
 
         let plan = QueryPlan {
-            statement: Statement::Select(select),
+            statement: Arc::new(Statement::Select(select)),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -9079,7 +9079,7 @@ mod tests {
         };
 
         let plan = QueryPlan {
-            statement: Statement::NeuroMatch(neuromatch),
+            statement: Arc::new(Statement::NeuroMatch(neuromatch)),
             execution_strategy: ExecutionStrategy::SynapticPipeline,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -9115,7 +9115,7 @@ mod tests {
         };
 
         let plan = QueryPlan {
-            statement: Statement::QuantumSearch(quantum_search),
+            statement: Arc::new(Statement::QuantumSearch(quantum_search)),
             execution_strategy: ExecutionStrategy::QuantumInspired,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],

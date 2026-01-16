@@ -202,7 +202,7 @@ impl ExplainGenerator {
     fn build_plan_tree(&self, query_plan: &QueryPlan) -> QSQLResult<Vec<PlanNode>> {
         let mut nodes = Vec::new();
 
-        match &query_plan.statement {
+        match query_plan.statement.as_ref() {
             | Statement::Select(select) => {
                 let node = self.build_select_node(select, query_plan)?;
                 nodes.push(node);
@@ -520,7 +520,7 @@ impl ExplainGenerator {
         }
 
         if query_plan.quantum_optimizations.is_empty() {
-            if let Statement::Select(s) = &query_plan.statement {
+            if let Statement::Select(s) = query_plan.statement.as_ref() {
                 if s.from.is_some() {
                     suggestions
                         .push("Consider using QUANTUM_SEARCH for large datasets.".to_string());
@@ -747,7 +747,7 @@ mod tests {
         };
 
         let query_plan = QueryPlan {
-            statement: Statement::Select(select),
+            statement: Arc::new(Statement::Select(select)),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -801,7 +801,7 @@ mod tests {
         };
 
         let query_plan = QueryPlan {
-            statement: Statement::Select(select),
+            statement: Arc::new(Statement::Select(select)),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -839,7 +839,7 @@ mod tests {
         };
 
         let query_plan = QueryPlan {
-            statement: Statement::NeuroMatch(neuromatch),
+            statement: Arc::new(Statement::NeuroMatch(neuromatch)),
             execution_strategy: ExecutionStrategy::NeuromorphicOptimized,
             synaptic_pathways: vec![SynapticPathway {
                 pathway_id: "pathway_1".to_string(),
@@ -882,7 +882,7 @@ mod tests {
         };
 
         let query_plan = QueryPlan {
-            statement: Statement::QuantumSearch(quantum),
+            statement: Arc::new(Statement::QuantumSearch(quantum)),
             execution_strategy: ExecutionStrategy::QuantumInspired,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![QuantumOptimization {
@@ -935,7 +935,7 @@ mod tests {
         };
 
         let query_plan = QueryPlan {
-            statement: Statement::Select(select),
+            statement: Arc::new(Statement::Select(select)),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],

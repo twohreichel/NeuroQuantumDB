@@ -4,6 +4,7 @@
 //! with query plan caching for improved performance.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -23,7 +24,7 @@ pub struct PreparedStatement {
     /// The original SQL statement (with parameter placeholders)
     pub statement: Statement,
     /// Cached query plan (if available)
-    pub cached_plan: Option<QueryPlan>,
+    pub cached_plan: Option<Arc<QueryPlan>>,
     /// Number of parameters expected
     pub parameter_count: usize,
     /// Parameter names for named parameters

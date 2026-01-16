@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use neuroquantum_core::learning::HebbianLearningEngine;
@@ -66,7 +67,7 @@ pub struct QueryPattern {
     pub average_cost: f64,
     #[serde(with = "unix_timestamp")]
     pub last_optimization: SystemTime,
-    pub optimal_plan: Option<QueryPlan>,
+    pub optimal_plan: Option<Arc<QueryPlan>>,
 }
 
 /// Custom serialization for `SystemTime`
@@ -98,7 +99,7 @@ mod unix_timestamp {
 /// Query execution plan with neuromorphic optimizations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryPlan {
-    pub statement: Statement,
+    pub statement: Arc<Statement>,
     pub execution_strategy: ExecutionStrategy,
     pub synaptic_pathways: Vec<SynapticPathway>,
     pub quantum_optimizations: Vec<QuantumOptimization>,
@@ -247,7 +248,7 @@ impl NeuromorphicOptimizer {
 
     /// Optimize a query using neuromorphic intelligence
     #[instrument(skip(self, statement))]
-    pub fn optimize(&mut self, statement: Statement) -> QSQLResult<QueryPlan> {
+    pub fn optimize(&mut self, statement: Statement) -> QSQLResult<Arc<QueryPlan>> {
         debug!("Starting neuromorphic optimization");
 
         // Generate pattern hash for caching
@@ -258,7 +259,7 @@ impl NeuromorphicOptimizer {
             if let Some(plan) = &cached_pattern.optimal_plan {
                 self.optimization_stats.cache_hits += 1;
                 debug!("Using cached optimization pattern");
-                return Ok(plan.clone());
+                return Ok(Arc::clone(plan)); // Cheap Arc clone (just refcount)
             }
         }
 
@@ -276,7 +277,7 @@ impl NeuromorphicOptimizer {
         &mut self,
         statement: &Statement,
         pattern_hash: &str,
-    ) -> QSQLResult<QueryPlan> {
+    ) -> QSQLResult<Arc<QueryPlan>> {
         // Generate initial execution plan
         let mut plan = self.generate_initial_plan(statement)?;
 
@@ -295,7 +296,8 @@ impl NeuromorphicOptimizer {
             plan = self.apply_plasticity_adaptation(plan)?;
         }
 
-        // Cache the optimized pattern
+        // Wrap in Arc and cache the optimized pattern
+        let plan = Arc::new(plan);
         self.cache_optimization_pattern(pattern_hash.to_string(), &plan);
 
         Ok(plan)
@@ -307,7 +309,7 @@ impl NeuromorphicOptimizer {
         let estimated_cost = self.estimate_initial_cost(statement);
 
         Ok(QueryPlan {
-            statement: statement.clone(),
+            statement: Arc::new(statement.clone()),
             execution_strategy: strategy,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -628,14 +630,14 @@ impl NeuromorphicOptimizer {
     }
 
     /// Cache optimization pattern for future use
-    fn cache_optimization_pattern(&mut self, pattern_hash: String, plan: &QueryPlan) {
+    fn cache_optimization_pattern(&mut self, pattern_hash: String, plan: &Arc<QueryPlan>) {
         let pattern = QueryPattern {
             pattern_hash: pattern_hash.clone(),
             synaptic_strength: 0.5,
             execution_count: 1,
             average_cost: plan.estimated_cost,
             last_optimization: SystemTime::now(),
-            optimal_plan: Some(plan.clone()),
+            optimal_plan: Some(Arc::clone(plan)),
         };
 
         self.query_patterns.insert(pattern_hash, pattern);
@@ -688,7 +690,7 @@ impl NeuromorphicOptimizer {
     pub async fn optimize_with_neuromorphic_features(
         &mut self,
         ast: &Statement,
-    ) -> QSQLResult<QueryPlan> {
+    ) -> QSQLResult<Arc<QueryPlan>> {
         debug!("Optimizing with neuromorphic features");
 
         let mut plan = self.create_base_plan(ast)?;
@@ -721,7 +723,7 @@ impl NeuromorphicOptimizer {
         }
 
         self.optimization_stats.queries_optimized += 1;
-        Ok(plan)
+        Ok(Arc::new(plan))
     }
 
     /// Optimize query with quantum features
@@ -729,7 +731,7 @@ impl NeuromorphicOptimizer {
     pub async fn optimize_with_quantum_features(
         &mut self,
         ast: &Statement,
-    ) -> QSQLResult<QueryPlan> {
+    ) -> QSQLResult<Arc<QueryPlan>> {
         debug!("Optimizing with quantum features");
 
         let mut plan = self.create_base_plan(ast)?;
@@ -782,7 +784,7 @@ impl NeuromorphicOptimizer {
 
         plan.execution_strategy = ExecutionStrategy::HybridNeuralQuantum;
         self.optimization_stats.queries_optimized += 1;
-        Ok(plan)
+        Ok(Arc::new(plan))
     }
 
     /// Create base query plan
@@ -790,7 +792,7 @@ impl NeuromorphicOptimizer {
         let start_time = std::time::Instant::now();
 
         let plan = QueryPlan {
-            statement: ast.clone(),
+            statement: Arc::new(ast.clone()),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: Vec::new(),
             quantum_optimizations: Vec::new(),

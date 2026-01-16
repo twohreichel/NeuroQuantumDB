@@ -8,6 +8,7 @@
 //! - Error handling and edge cases
 //! - Performance benchmarks
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::ast::*;
@@ -1131,7 +1132,7 @@ mod executor_tests {
         let mut executor = QueryExecutor::with_config(ExecutorConfig::testing()).unwrap();
 
         let plan = QueryPlan {
-            statement: Statement::Select(SelectStatement {
+            statement: Arc::new(Statement::Select(SelectStatement {
                 select_list: vec![],
                 from: Some(FromClause {
                     relations: vec![TableReference {
@@ -1156,7 +1157,7 @@ mod executor_tests {
                 grover_iterations: None,
                 with_clause: None,
                 union_clause: None,
-            }),
+            })),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1180,7 +1181,7 @@ mod executor_tests {
 
         // Create an invalid operation that should fail gracefully
         let plan = QueryPlan {
-            statement: Statement::Select(SelectStatement {
+            statement: Arc::new(Statement::Select(SelectStatement {
                 select_list: vec![],
                 from: Some(FromClause {
                     relations: vec![TableReference {
@@ -1205,7 +1206,7 @@ mod executor_tests {
                 grover_iterations: None,
                 with_clause: None,
                 union_clause: None,
-            }),
+            })),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1229,7 +1230,7 @@ mod executor_tests {
         let mut executor = QueryExecutor::new().unwrap();
 
         let plan = QueryPlan {
-            statement: Statement::Select(SelectStatement {
+            statement: Arc::new(Statement::Select(SelectStatement {
                 select_list: vec![],
                 from: Some(FromClause {
                     relations: vec![TableReference {
@@ -1254,7 +1255,7 @@ mod executor_tests {
                 grover_iterations: None,
                 with_clause: None,
                 union_clause: None,
-            }),
+            })),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1284,7 +1285,7 @@ mod executor_tests {
             .expect("Failed to parse TRUNCATE TABLE");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1326,7 +1327,7 @@ mod executor_tests {
             .expect("Failed to parse TRUNCATE (short form)");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1688,7 +1689,7 @@ mod property_tests {
         let _optimizer = NeuromorphicOptimizer::new().unwrap();
 
         let plan = QueryPlan {
-            statement: Statement::Select(SelectStatement {
+            statement: Arc::new(Statement::Select(SelectStatement {
                 select_list: vec![],
                 from: Some(FromClause {
                     relations: vec![TableReference {
@@ -1713,7 +1714,7 @@ mod property_tests {
                 grover_iterations: None,
                 with_clause: None,
                 union_clause: None,
-            }),
+            })),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1901,7 +1902,7 @@ mod extract_function_tests {
         let stmt = parser.parse_query(sql).expect("Failed to parse query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1929,7 +1930,7 @@ mod extract_function_tests {
         let stmt = parser.parse_query(sql).expect("Failed to parse query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1957,7 +1958,7 @@ mod extract_function_tests {
         let stmt = parser.parse_query(sql).expect("Failed to parse query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -1985,7 +1986,7 @@ mod extract_function_tests {
         let stmt = parser.parse_query(sql).expect("Failed to parse query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -2013,7 +2014,7 @@ mod extract_function_tests {
         let stmt = parser.parse_query(sql).expect("Failed to parse query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -2041,7 +2042,7 @@ mod extract_function_tests {
         let stmt = parser.parse_query(sql).expect("Failed to parse query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -2076,7 +2077,7 @@ mod explain_execution_tests {
             .expect("Failed to parse EXPLAIN query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -2127,7 +2128,7 @@ mod explain_execution_tests {
             .expect("Failed to parse EXPLAIN ANALYZE query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],
@@ -2161,7 +2162,7 @@ mod explain_execution_tests {
             .expect("Failed to parse EXPLAIN FORMAT JSON query");
 
         let plan = QueryPlan {
-            statement: stmt,
+            statement: Arc::new(stmt),
             execution_strategy: ExecutionStrategy::Sequential,
             synaptic_pathways: vec![],
             quantum_optimizations: vec![],

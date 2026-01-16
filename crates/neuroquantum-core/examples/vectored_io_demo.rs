@@ -3,13 +3,12 @@
 //! This example shows the performance benefits of the optimized batch I/O
 //! implementation compared to sequential single-page operations.
 
-use anyhow::Result;
-use neuroquantum_core::storage::pager::{
-    io::PageIO,
-    page::{Page, PageId, PageType},
-    PagerConfig,
-};
 use std::time::Instant;
+
+use anyhow::Result;
+use neuroquantum_core::storage::pager::io::PageIO;
+use neuroquantum_core::storage::pager::page::{Page, PageId, PageType};
+use neuroquantum_core::storage::pager::PagerConfig;
 use tempfile::TempDir;
 use tokio::fs::OpenOptions;
 
