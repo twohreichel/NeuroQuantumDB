@@ -3562,6 +3562,7 @@ dependencies = [
  "flate2",
  "futures",
  "hashbrown 0.16.1",
+ "indexmap 2.13.0",
  "keyring",
  "lru 0.16.3",
  "lz4_flex",
