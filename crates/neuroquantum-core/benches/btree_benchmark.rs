@@ -226,6 +226,149 @@ fn btree_mixed_workload(c: &mut Criterion) {
     group.finish();
 }
 
+fn btree_compression_leaf_nodes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("btree_compression_leaf");
+
+    use neuroquantum_core::storage::btree::{CompressedLeafNode, LeafNode};
+
+    // Benchmark with different key patterns
+    let key_patterns = vec![
+        (
+            "uuid",
+            (0..100)
+                .map(|i| format!("550e8400-e29b-41d4-a716-{i:012}").into_bytes())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "timestamp",
+            (0..100)
+                .map(|i| format!("2024-01-01T12:00:{i:02}.000Z").into_bytes())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "url",
+            (0..100)
+                .map(|i| format!("https://example.com/api/v1/users/{i}").into_bytes())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "path",
+            (0..100)
+                .map(|i| format!("/home/user/documents/project/file_{i}.txt").into_bytes())
+                .collect::<Vec<_>>(),
+        ),
+    ];
+
+    for (pattern_name, keys) in key_patterns {
+        // Benchmark uncompressed insert
+        group.bench_function(format!("{pattern_name}_uncompressed_insert"), |b| {
+            b.iter(|| {
+                let mut leaf = LeafNode::new(128);
+                for (i, key) in keys.iter().enumerate() {
+                    leaf.insert(key.clone(), i as u64).unwrap();
+                }
+                black_box(leaf)
+            });
+        });
+
+        // Benchmark compressed insert
+        group.bench_function(format!("{pattern_name}_compressed_insert"), |b| {
+            b.iter(|| {
+                let mut leaf = CompressedLeafNode::new(128);
+                for (i, key) in keys.iter().enumerate() {
+                    leaf.insert(key.clone(), i as u64).unwrap();
+                }
+                black_box(leaf)
+            });
+        });
+
+        // Benchmark uncompressed search
+        let mut uncompressed = LeafNode::new(128);
+        for (i, key) in keys.iter().enumerate() {
+            uncompressed.insert(key.clone(), i as u64).unwrap();
+        }
+
+        group.bench_function(format!("{pattern_name}_uncompressed_search"), |b| {
+            let mut counter = 0;
+            b.iter(|| {
+                let key = &keys[counter % keys.len()];
+                counter += 1;
+                black_box(uncompressed.search(key))
+            });
+        });
+
+        // Benchmark compressed search
+        let mut compressed = CompressedLeafNode::new(128);
+        for (i, key) in keys.iter().enumerate() {
+            compressed.insert(key.clone(), i as u64).unwrap();
+        }
+
+        group.bench_function(format!("{pattern_name}_compressed_search"), |b| {
+            let mut counter = 0;
+            b.iter(|| {
+                let key = &keys[counter % keys.len()];
+                counter += 1;
+                black_box(compressed.search(key))
+            });
+        });
+    }
+
+    group.finish();
+}
+
+fn btree_compression_memory_usage(c: &mut Criterion) {
+    let mut group = c.benchmark_group("btree_compression_memory");
+
+    use neuroquantum_core::storage::btree::{BTreeNode, CompressedLeafNode, LeafNode};
+
+    // Test memory usage with UUIDs (very common in databases)
+    let keys: Vec<Vec<u8>> = (0..1000)
+        .map(|i| format!("550e8400-e29b-41d4-a716-{i:012}").into_bytes())
+        .collect();
+
+    group.bench_function("memory_uncompressed", |b| {
+        b.iter(|| {
+            let mut leaf = LeafNode::new(128);
+            for (i, key) in keys.iter().take(100).enumerate() {
+                leaf.insert(key.clone(), i as u64).unwrap();
+            }
+            let node = BTreeNode::Leaf(leaf);
+            black_box(node.memory_usage())
+        });
+    });
+
+    group.bench_function("memory_compressed", |b| {
+        b.iter(|| {
+            let mut leaf = CompressedLeafNode::new(128);
+            for (i, key) in keys.iter().take(100).enumerate() {
+                leaf.insert(key.clone(), i as u64).unwrap();
+            }
+            let node = BTreeNode::CompressedLeaf(leaf);
+            black_box(node.memory_usage())
+        });
+    });
+
+    // Benchmark conversion
+    let mut leaf = LeafNode::new(128);
+    for (i, key) in keys.iter().take(100).enumerate() {
+        leaf.insert(key.clone(), i as u64).unwrap();
+    }
+
+    group.bench_function("compress_conversion", |b| {
+        let leaf = leaf.clone();
+        b.iter(|| black_box(CompressedLeafNode::from_leaf_node(&leaf)));
+    });
+
+    let compressed = CompressedLeafNode::from_leaf_node(&leaf);
+
+    group.bench_function("decompress_conversion", |b| {
+        let compressed = compressed.clone();
+        b.iter(|| black_box(compressed.to_leaf_node()));
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     btree_insert_sequential,
@@ -233,7 +376,9 @@ criterion_group!(
     btree_search,
     btree_range_scan,
     btree_delete,
-    btree_mixed_workload
+    btree_mixed_workload,
+    btree_compression_leaf_nodes,
+    btree_compression_memory_usage
 );
 
 criterion_main!(benches);
