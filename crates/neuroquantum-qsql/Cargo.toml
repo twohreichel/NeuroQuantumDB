@@ -43,8 +43,17 @@ rand = "0.8"
 name = "transaction_control"
 path = "examples/transaction_control.rs"
 
+[[example]]
+name = "hash_join_performance"
+path = "examples/hash_join_performance.rs"
+
 [[bench]]
 name = "qsql_functions"
+harness = false
+required-features = ["benchmarks"]
+
+[[bench]]
+name = "hash_join_performance"
 harness = false
 required-features = ["benchmarks"]
 
