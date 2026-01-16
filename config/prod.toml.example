@@ -16,6 +16,21 @@ data_path = "/var/lib/neuroquantumdb/data"  # Production data path
 max_connections = 500  # Higher for production load
 connection_timeout_seconds = 30
 
+# Buffer Pool Configuration
+[buffer_pool]
+pool_size = 4096  # Number of page frames in buffer pool (larger for production)
+eviction_policy = "LRU"  # Options: "LRU" or "Clock"
+enable_background_flush = true
+flush_interval_seconds = 5
+max_dirty_pages = 400  # 10% of pool_size
+
+# Read-Ahead Prefetching Configuration
+# Improves performance for sequential scans (full table scans, range queries)
+# Typical speedup: 2-4x for sequential workloads, 8x on HDDs
+prefetch_enabled = true  # Enable adaptive prefetching
+prefetch_depth = 16  # Number of pages to prefetch ahead (higher for production SSDs/HDDs)
+prefetch_threshold = 3  # Sequential accesses needed before prefetching starts
+
 [jwt]
 # ⚠️  SECURITY CRITICAL: JWT secret MUST be provided via environment variable!
 # The secret is intentionally NOT stored in this file for security reasons.

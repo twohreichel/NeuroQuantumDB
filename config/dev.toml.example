@@ -15,6 +15,19 @@ data_path = "./neuroquantum_data"
 max_connections = 50  # Reduced for dev
 connection_timeout_seconds = 30
 
+# Buffer Pool Configuration
+[buffer_pool]
+pool_size = 1000  # Number of page frames in buffer pool
+eviction_policy = "LRU"  # Options: "LRU" or "Clock"
+enable_background_flush = true
+flush_interval_seconds = 5
+max_dirty_pages = 100
+
+# Read-Ahead Prefetching Configuration
+prefetch_enabled = true  # Enable adaptive prefetching for sequential scans
+prefetch_depth = 8  # Number of pages to prefetch ahead (recommended: 4-16)
+prefetch_threshold = 3  # Sequential accesses needed before prefetching starts
+
 [jwt]
 # DEV SECRET - DO NOT USE IN PRODUCTION!
 secret = "dev_secret_key_min_32_chars_1234567890abcdef"
