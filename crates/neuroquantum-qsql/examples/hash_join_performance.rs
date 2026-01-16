@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for i in 1..=20 {
             let customer_id = (i % 10) + 1;
             let sql = format!(
-                "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {}.0)",
+                "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {})",
                 i,
                 customer_id,
                 i as f64 * 10.5
@@ -190,7 +190,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for i in 1..=5000 {
             let customer_id = (i % 100) + 1;
             let sql = format!(
-                "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {}.0)",
+                "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {})",
                 i,
                 customer_id,
                 i as f64 * 10.5

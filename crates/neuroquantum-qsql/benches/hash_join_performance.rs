@@ -106,7 +106,7 @@ async fn setup_test_data(
     for i in 0..num_orders {
         let customer_id = i % num_customers.max(1);
         let sql = format!(
-            "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {}.0)",
+            "INSERT INTO orders (id, customer_id, amount) VALUES ({}, {}, {})",
             i,
             customer_id,
             (i as f64) * 10.5
