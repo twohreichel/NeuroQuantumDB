@@ -303,9 +303,8 @@ impl BufferPoolManager {
     /// The page is pinned and must be unpinned after use.
     pub async fn fetch_page(&self, page_id: PageId) -> Result<Arc<RwLock<Page>>> {
         // Check if page is already in buffer (lock-free DashMap read)
-        if let Some(frame_id) = self.page_table.get(&page_id) {
-            let frame_id = *frame_id;
-            drop(frame_id);
+        if let Some(frame_id_ref) = self.page_table.get(&page_id) {
+            let frame_id = *frame_id_ref;
 
             // Record cache hit (lock-free atomic increment)
             self.cache_hits.fetch_add(1, Ordering::Relaxed);
