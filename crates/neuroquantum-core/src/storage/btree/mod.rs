@@ -5,6 +5,7 @@
 //! - Disk-backed persistence with page-level storage
 //! - ACID-compliant operations
 //! - Concurrent access support
+//! - Optional prefix compression for memory efficiency (30-60% savings)
 
 use std::fmt;
 use std::path::Path;
@@ -13,13 +14,14 @@ use anyhow::{anyhow, Result};
 use tokio::fs;
 use tracing::{debug, info};
 
+pub mod compression;
 pub mod node;
 pub mod page;
 
 #[cfg(test)]
 mod tests;
 
-pub use node::{BTreeNode, InternalNode, LeafNode};
+pub use node::{BTreeNode, CompressedInternalNode, CompressedLeafNode, InternalNode, LeafNode};
 pub use page::{PageId, PageManager, PageSerializer};
 
 /// Default B+ Tree order (max children per internal node)
