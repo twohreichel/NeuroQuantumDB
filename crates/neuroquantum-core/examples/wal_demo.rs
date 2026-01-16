@@ -52,6 +52,9 @@ async fn main() -> anyhow::Result<()> {
         buffer_size: 256 * 1024, // 256KB buffer
         checkpoint_interval_secs: 300,
         min_segments_to_keep: 3,
+        group_commit_delay_ms: 5,
+        group_commit_max_records: 1000,
+        group_commit_max_bytes: 4 * 1024 * 1024,
     };
 
     let wal = WALManager::new(wal_config, Arc::clone(&pager)).await?;
