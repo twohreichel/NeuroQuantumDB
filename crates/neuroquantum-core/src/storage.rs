@@ -26,9 +26,10 @@ pub use buffer::{BufferPoolConfig, BufferPoolManager, BufferPoolStats, EvictionP
 pub use encryption::{EncryptedData, EncryptionManager};
 use lru::LruCache;
 pub use migration::{
-    Migration, MigrationConfig, MigrationDirection, MigrationExecutor, MigrationExecutorConfig,
-    MigrationHistory, MigrationParser, MigrationProgress, MigrationRecord, MigrationResult,
-    MigrationStatus, ProgressTracker, SafetyCheck, ValidationResult,
+    BoxedSqlExecutor, Migration, MigrationConfig, MigrationDirection, MigrationExecutor,
+    MigrationExecutorConfig, MigrationHistory, MigrationParser, MigrationProgress, MigrationRecord,
+    MigrationResult, MigrationStatus, ProgressTracker, SafetyCheck, SqlExecutionResult,
+    SqlExecutor, ValidationResult,
 };
 pub use pager::{PageStorageManager, PagerConfig, StorageStats, SyncMode};
 use serde::{Deserialize, Serialize};

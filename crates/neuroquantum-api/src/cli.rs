@@ -1,13 +1,48 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use base64::Engine;
 use clap::{Parser, Subcommand};
+use neuroquantum_core::storage::{SqlExecutionResult, SqlExecutor};
+use neuroquantum_qsql::QSQLEngine;
+use tokio::sync::Mutex;
 use tracing::warn;
 
 use crate::auth::AuthService;
+
+/// SQL Executor adapter that uses the QSQL engine to execute migration SQL.
+///
+/// This adapter bridges the gap between the migration executor in neuroquantum-core
+/// and the query engine in neuroquantum-qsql, allowing migrations to execute
+/// actual SQL statements against the database.
+struct QSQLSqlExecutor {
+    engine: Arc<Mutex<QSQLEngine>>,
+}
+
+impl QSQLSqlExecutor {
+    /// Create a new QSQL SQL executor adapter.
+    #[must_use]
+    const fn new(engine: Arc<Mutex<QSQLEngine>>) -> Self {
+        Self { engine }
+    }
+}
+
+#[async_trait]
+impl SqlExecutor for QSQLSqlExecutor {
+    async fn execute_sql(&self, sql: &str) -> anyhow::Result<SqlExecutionResult> {
+        let mut engine = self.engine.lock().await;
+        let result = engine.execute_query(sql).await?;
+
+        Ok(SqlExecutionResult {
+            rows_affected: result.rows_affected,
+            message: None,
+        })
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "neuroquantum-api")]
@@ -139,6 +174,10 @@ pub enum MigrateAction {
         #[arg(short, long, default_value = "migrations")]
         dir: PathBuf,
 
+        /// Database data directory
+        #[arg(long, default_value = "neuroquantum_data")]
+        data_dir: PathBuf,
+
         /// Dry run - don't actually apply changes
         #[arg(long)]
         dry_run: bool,
@@ -157,6 +196,10 @@ pub enum MigrateAction {
         /// Migrations directory
         #[arg(short = 'd', long, default_value = "migrations")]
         dir: PathBuf,
+
+        /// Database data directory
+        #[arg(long, default_value = "neuroquantum_data")]
+        data_dir: PathBuf,
 
         /// Dry run - don't actually apply changes
         #[arg(long)]
@@ -670,6 +713,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
     match action {
         | MigrateAction::Up {
             dir,
+            data_dir,
             dry_run,
             verbose,
         } => {
@@ -684,7 +728,22 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 verbose,
             };
 
-            let executor = MigrationExecutor::new(config);
+            // Create SQL executor if not in dry-run mode
+            let executor = if dry_run {
+                MigrationExecutor::new(config)
+            } else {
+                // Initialize storage engine and QSQL engine for real SQL execution
+                println!("📂 Opening database at {data_dir:?}...");
+                let storage_engine =
+                    neuroquantum_core::storage::StorageEngine::new(&data_dir).await?;
+                let storage_arc = Arc::new(tokio::sync::RwLock::new(storage_engine));
+                let qsql_engine = QSQLEngine::with_storage(storage_arc)?;
+                let qsql_arc = Arc::new(Mutex::new(qsql_engine));
+                let sql_executor = Arc::new(QSQLSqlExecutor::new(qsql_arc));
+
+                MigrationExecutor::with_executor(config, sql_executor)
+            };
+
             executor.initialize().await?;
 
             let results = executor.migrate_up().await?;
@@ -695,7 +754,12 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 println!("📊 Migration Results:\n");
                 for result in results {
                     if result.success {
-                        println!("  ✅ {} - {}ms", result.migration_id, result.duration_ms);
+                        println!(
+                            "  ✅ {} - {}ms ({} rows affected)",
+                            result.migration_id,
+                            result.duration_ms,
+                            result.rows_affected.unwrap_or(0)
+                        );
                     } else {
                         println!(
                             "  ❌ {} - Failed: {}",
@@ -710,6 +774,7 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
         | MigrateAction::Down {
             count,
             dir,
+            data_dir,
             dry_run,
             verbose,
         } => {
@@ -724,7 +789,22 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 verbose,
             };
 
-            let executor = MigrationExecutor::new(config);
+            // Create SQL executor if not in dry-run mode
+            let executor = if dry_run {
+                MigrationExecutor::new(config)
+            } else {
+                // Initialize storage engine and QSQL engine for real SQL execution
+                println!("📂 Opening database at {data_dir:?}...");
+                let storage_engine =
+                    neuroquantum_core::storage::StorageEngine::new(&data_dir).await?;
+                let storage_arc = Arc::new(tokio::sync::RwLock::new(storage_engine));
+                let qsql_engine = QSQLEngine::with_storage(storage_arc)?;
+                let qsql_arc = Arc::new(Mutex::new(qsql_engine));
+                let sql_executor = Arc::new(QSQLSqlExecutor::new(qsql_arc));
+
+                MigrationExecutor::with_executor(config, sql_executor)
+            };
+
             executor.initialize().await?;
 
             let results = executor.migrate_down(count).await?;
@@ -735,7 +815,12 @@ async fn handle_migrate_command(action: MigrateAction) -> Result<()> {
                 println!("📊 Rollback Results:\n");
                 for result in results {
                     if result.success {
-                        println!("  ✅ {} - {}ms", result.migration_id, result.duration_ms);
+                        println!(
+                            "  ✅ {} - {}ms ({} rows affected)",
+                            result.migration_id,
+                            result.duration_ms,
+                            result.rows_affected.unwrap_or(0)
+                        );
                     } else {
                         println!(
                             "  ❌ {} - Failed: {}",
