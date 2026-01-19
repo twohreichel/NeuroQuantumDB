@@ -11,7 +11,7 @@
 
 | # | Status | Issue | Beschreibung | Aufwand |
 |---|--------|-------|--------------|---------|
-| 1 | ⬜ | [ISSUE-005](issues/ISSUE-005-jwt-secret-validierung.md) | JWT-Secret Validierung | 30 Min |
+| 1 | ✅ | [ISSUE-005](issues/ISSUE-005-jwt-secret-validierung.md) | JWT-Secret Validierung | 30 Min |
 | 2 | ⬜ | [ISSUE-007](issues/ISSUE-007-pre-commit-hook-simd.md) | Pre-commit Hook für SIMD | 30 Min |
 
 ### Sprint 2: Security & API (4-6 Stunden)
@@ -70,13 +70,13 @@ Diese Tasks waren ursprünglich geplant, wurden aber bereits durch geschlossene 
 
 | Sprint | Tasks | Erledigt | Status |
 |--------|-------|----------|--------|
-| Sprint 1: Quick Wins | 2 | 0 | ⬜ |
+| Sprint 1: Quick Wins | 2 | 1 | 🔄 |
 | Sprint 2: Security | 2 | 0 | ⬜ |
 | Sprint 3: Bugs | 2 | 0 | ⬜ |
 | Sprint 4: SQL | 1 | 0 | ⬜ |
 | Sprint 5: Cluster | 2 | 0 | ⬜ |
 | Sprint 6: Optional | 4 | 0 | ⬜ |
-| **Gesamt** | **13** | **0** | **0%** |
+| **Gesamt** | **13** | **1** | **8%** |
 
 ---
 
