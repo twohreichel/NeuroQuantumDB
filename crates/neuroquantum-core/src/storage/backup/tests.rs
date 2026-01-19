@@ -1,5 +1,7 @@
 //! Comprehensive tests for Backup & Restore system
 
+#![allow(clippy::significant_drop_tightening)]
+
 use std::sync::Arc;
 
 use anyhow::Result;

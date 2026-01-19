@@ -6,6 +6,8 @@
 //! - Checkpointing
 //! - Crash recovery simulation
 
+#![allow(clippy::cast_possible_truncation)]
+
 use std::sync::Arc;
 
 use neuroquantum_core::storage::pager::{PageStorageManager, PageType, PagerConfig, SyncMode};

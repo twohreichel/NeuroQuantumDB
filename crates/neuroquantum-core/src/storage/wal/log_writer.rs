@@ -160,7 +160,7 @@ impl LogWriter {
 
         while let Some(entry) = entries.next_entry().await? {
             if let Some(filename) = entry.file_name().to_str() {
-                if filename.starts_with("wal-") && filename.ends_with(".log") {
+                if filename.starts_with("wal-") && filename.to_ascii_lowercase().ends_with(".log") {
                     if let Some(num_str) = filename
                         .strip_prefix("wal-")
                         .and_then(|s| s.strip_suffix(".log"))

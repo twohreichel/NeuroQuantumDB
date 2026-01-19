@@ -23,6 +23,13 @@
 //!
 //! ## Running
 //! ```bash
+
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::default_trait_access
+)]
 //! cargo run --example tfim_quantum_annealing_demo
 //! ```
 

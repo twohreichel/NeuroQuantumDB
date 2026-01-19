@@ -2951,7 +2951,6 @@ impl StorageEngine {
                         },
                         | Err(e) => {
                             debug!("Failed to decompress row: {}", e);
-                            continue;
                         },
                     }
                 },

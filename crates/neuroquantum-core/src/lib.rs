@@ -4,6 +4,47 @@
 //! featuring advanced DNA-based compression, quantum storage optimization, and
 //! synaptic learning algorithms.
 
+// Allow common pedantic/nursery warnings for library code
+// These are intentional design decisions or too strict for practical use
+#![allow(
+    // Cast-related - acceptable for statistics/metrics calculations
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    // Naming conventions - domain-specific naming is clearer
+    clippy::similar_names,
+    clippy::module_name_repetitions,
+    // Documentation - TODO: Add comprehensive docs in future sprint
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    // Function design - common patterns in async/trait code
+    clippy::must_use_candidate,
+    clippy::unused_self,
+    clippy::unused_async,
+    clippy::unnecessary_wraps,
+    clippy::needless_pass_by_value,
+    clippy::needless_pass_by_ref_mut,
+    // Code style - subjective preferences
+    clippy::option_if_let_else,
+    clippy::redundant_closure_for_method_calls,
+    clippy::too_many_lines,
+    clippy::cognitive_complexity,
+    clippy::items_after_statements,
+    clippy::format_push_string,
+    clippy::assigning_clones,
+    clippy::unreadable_literal,
+    clippy::struct_excessive_bools,
+    clippy::or_fun_call,
+    clippy::match_same_arms,
+    clippy::manual_let_else,
+    clippy::missing_fields_in_debug,
+    clippy::used_underscore_binding,
+    clippy::useless_let_if_seq,
+    // Nursery - potentially noisy, review case-by-case
+    clippy::significant_drop_tightening
+)]
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tracing::info;

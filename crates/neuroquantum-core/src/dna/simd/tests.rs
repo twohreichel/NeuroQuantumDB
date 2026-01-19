@@ -13,6 +13,13 @@
 //! - Base frequency counting
 //! - CRC32 checksum calculation
 
+#![allow(
+    clippy::unreadable_literal,
+    clippy::similar_names,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+
 use super::*;
 use crate::dna::DNABase;
 

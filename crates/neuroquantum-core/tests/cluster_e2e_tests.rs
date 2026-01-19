@@ -23,6 +23,8 @@
 //! ```
 //!
 //! Or run all tests including ignored:
+
+#![allow(clippy::cast_possible_truncation, clippy::unused_async)]
 //!
 //! ```bash
 //! cargo test --package neuroquantum-core --test cluster_e2e_tests -- --include-ignored --nocapture

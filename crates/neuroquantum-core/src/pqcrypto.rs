@@ -1,3 +1,5 @@
+#![allow(clippy::similar_names)]
+
 use std::sync::Arc;
 
 /// Post-Quantum Cryptography utilities for `NeuroQuantumDB`
@@ -50,6 +52,7 @@ pub enum PQCryptoError {
 /// ML-DSA-65 (pqcrypto implementation) for digital signatures.
 /// Both provide NIST Security Level 3.
 #[derive(Clone)]
+#[allow(clippy::struct_field_names)]
 pub struct PQCryptoManager {
     // ML-KEM (Kyber) keys for key encapsulation using RustCrypto ml-kem
     mlkem_encapsulation_key: Arc<MlKemEncapsulationKey>,

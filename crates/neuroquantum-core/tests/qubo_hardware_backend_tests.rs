@@ -12,6 +12,8 @@
 //! 5. Unified Solver Tests
 //! 6. QAOA Circuit Building Tests
 
+#![allow(clippy::float_cmp)]
+
 use nalgebra::DMatrix;
 use neuroquantum_core::quantum::qubo_hardware_backends::{
     DWaveConfig, DWaveQUBOSolver, HybridQUBOSolver, HybridSolverConfig, IBMConfig, IBMOptimizer,
