@@ -419,17 +419,12 @@ impl PlasticityMatrix {
     /// Find the best merge target for a node within its cluster
     fn find_merge_target(&self, node_id: u64, cluster_id: u32) -> Option<u64> {
         // Find nodes in the same cluster with higher plasticity scores
-        let candidates: Vec<_> = self
-            .cluster_assignments
+        // Return the node with highest plasticity score
+        self.cluster_assignments
             .iter()
             .filter(|(&id, &cid)| id != node_id && cid == cluster_id)
             .filter_map(|(&id, _)| self.plasticity_scores.get(&id).map(|&score| (id, score)))
             .filter(|(_id, score)| *score > self.capacity_config.min_consolidation_plasticity)
-            .collect();
-
-        // Return the node with highest plasticity score
-        candidates
-            .into_iter()
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(id, _)| id)
     }
@@ -930,6 +925,7 @@ impl PlasticityMatrix {
     }
 
     /// Apply decay to access patterns to forget old data
+    #[allow(clippy::cast_sign_loss)] // decay_rate is 0.0..=1.0, result is always non-negative
     fn apply_access_decay(&mut self) {
         // Decay access frequencies
         for frequency in self.access_patterns.node_access_frequency.values_mut() {
@@ -1014,6 +1010,7 @@ pub struct PlasticityStats {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 

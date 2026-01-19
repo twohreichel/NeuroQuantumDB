@@ -7,6 +7,8 @@
 //! - Persistence (save/load from disk)
 //! - Concurrent access
 
+#![allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
+
 use std::time::Instant;
 
 use tempfile::TempDir;
@@ -239,7 +241,7 @@ async fn test_duplicate_key_rejection() {
 
 /// BENCHMARK: 1M inserts should complete in < 30 seconds
 #[tokio::test]
-#[ignore] // Run with: cargo test --release -- --ignored --nocapture
+#[ignore = "Long-running benchmark - run with: cargo test --release -- --ignored --nocapture"]
 async fn benchmark_1m_inserts() {
     let temp_dir = TempDir::new().unwrap();
     let mut btree = BTree::new(temp_dir.path()).await.unwrap();
@@ -288,7 +290,7 @@ async fn benchmark_1m_inserts() {
 
 /// BENCHMARK: Point lookup should be < 1ms p99
 #[tokio::test]
-#[ignore]
+#[ignore = "Long-running benchmark"]
 async fn benchmark_point_lookup() {
     let temp_dir = TempDir::new().unwrap();
     let mut btree = BTree::new(temp_dir.path()).await.unwrap();
@@ -338,7 +340,7 @@ async fn benchmark_point_lookup() {
 
 /// BENCHMARK: Range scan 10K rows should complete in < 100ms
 #[tokio::test]
-#[ignore]
+#[ignore = "Long-running benchmark"]
 async fn benchmark_range_scan() {
     let temp_dir = TempDir::new().unwrap();
     let mut btree = BTree::new(temp_dir.path()).await.unwrap();

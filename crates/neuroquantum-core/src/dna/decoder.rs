@@ -230,17 +230,27 @@ impl QuaternaryDecoder {
         let mut i = 0;
 
         while i < data.len() {
-            if data[i] == 0xFF && i + 2 < data.len() {
-                // Dictionary reference: [0xFF][dict_id_high][dict_id_low]
-                let dict_id = (u16::from(data[i + 1]) << 8) | u16::from(data[i + 2]);
+            if data[i] == 0xFF && i + 1 < data.len() {
+                // Check for escape sequence: 0xFF 0xFF means literal 0xFF
+                if data[i + 1] == 0xFF {
+                    decompressed.push(0xFF);
+                    i += 2;
+                } else if i + 2 < data.len() {
+                    // Dictionary reference: [0xFF][dict_id_high][dict_id_low]
+                    let dict_id = (u16::from(data[i + 1]) << 8) | u16::from(data[i + 2]);
 
-                if let Some(pattern) = reverse_dict.get(&dict_id) {
-                    decompressed.extend_from_slice(pattern);
-                    i += 3;
+                    if let Some(pattern) = reverse_dict.get(&dict_id) {
+                        decompressed.extend_from_slice(pattern);
+                        i += 3;
+                    } else {
+                        return Err(DNAError::DecompressionFailed(format!(
+                            "Invalid dictionary reference: {dict_id}"
+                        )));
+                    }
                 } else {
-                    return Err(DNAError::DecompressionFailed(format!(
-                        "Invalid dictionary reference: {dict_id}"
-                    )));
+                    // Not enough bytes for dictionary reference, treat as literal
+                    decompressed.push(data[i]);
+                    i += 1;
                 }
             } else {
                 // Literal byte

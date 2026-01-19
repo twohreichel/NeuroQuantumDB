@@ -71,6 +71,7 @@ async fn test_neuromatch_returns_results() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {

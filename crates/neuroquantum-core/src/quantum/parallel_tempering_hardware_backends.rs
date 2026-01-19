@@ -1571,6 +1571,11 @@ pub struct PTMeasurementResult {
 // =============================================================================
 
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap
+)]
 mod tests {
     use nalgebra::DMatrix;
 

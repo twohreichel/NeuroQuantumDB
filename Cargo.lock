@@ -3467,6 +3467,7 @@ dependencies = [
  "actix-web-prom",
  "actix-ws",
  "anyhow",
+ "async-trait",
  "base64",
  "bcrypt",
  "chrono",

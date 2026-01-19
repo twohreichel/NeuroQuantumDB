@@ -62,6 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 version: 1,
                 auto_increment_columns: HashMap::new(),
                 id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+                foreign_keys: Vec::new(),
             })
             .await?;
 
@@ -97,6 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 version: 1,
                 auto_increment_columns: HashMap::new(),
                 id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+                foreign_keys: Vec::new(),
             })
             .await?;
     }

@@ -5,6 +5,8 @@
 //!
 //! Run with: `cargo run --example buffer_pool_auto_tuning`
 
+#![allow(clippy::cast_precision_loss)]
+
 use neuroquantum_core::storage::buffer::BufferPoolConfig;
 
 fn main() {

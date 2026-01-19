@@ -1517,6 +1517,7 @@ pub struct TransactionStatistics {
 }
 
 #[cfg(test)]
+#[allow(clippy::significant_drop_tightening)]
 mod tests {
     use tempfile::TempDir;
 

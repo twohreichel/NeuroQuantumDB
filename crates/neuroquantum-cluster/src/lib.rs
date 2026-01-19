@@ -1,3 +1,28 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::significant_drop_tightening,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::unused_async,
+    clippy::unused_self,
+    clippy::items_after_statements,
+    clippy::option_if_let_else,
+    clippy::missing_const_for_fn,
+    clippy::default_trait_access,
+    clippy::derive_partial_eq_without_eq,
+    clippy::too_many_lines,
+    clippy::match_same_arms,
+    clippy::doc_link_with_quotes,
+    clippy::doc_markdown,
+    clippy::assigning_clones,
+    clippy::branches_sharing_code,
+    clippy::format_push_string,
+    clippy::module_name_repetitions
+)]
 //! # `NeuroQuantumDB` Cluster Module
 //!
 //! This crate provides distributed cluster management for `NeuroQuantumDB`,

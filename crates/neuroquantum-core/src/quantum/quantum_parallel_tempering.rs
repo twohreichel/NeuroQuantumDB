@@ -1064,7 +1064,8 @@ impl QuantumParallelTempering {
             }
 
             // Ground state estimate from lowest temperature replica
-            if replica.temperature == self.config.min_temperature {
+            // Use approximate comparison for floating point temperatures
+            if (replica.temperature - self.config.min_temperature).abs() < f64::EPSILON {
                 ground_state_estimate = energy;
             }
 
@@ -1206,6 +1207,11 @@ pub fn create_quantum_ising_optimizer(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap
+)]
 mod tests {
     use super::*;
 

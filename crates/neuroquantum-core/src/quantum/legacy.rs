@@ -24,6 +24,8 @@
 //! While these are classical simulations, they are optimized for ARM64/NEON
 //! and `x86_64/AVX2` hardware acceleration to maximize performance.
 
+#![allow(clippy::cast_sign_loss)]
+
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::sync::Arc;

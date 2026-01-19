@@ -156,6 +156,7 @@ async fn test_execute_insert_with_missing_column_defaults() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {
@@ -258,6 +259,7 @@ async fn test_execute_insert_with_explicit_default() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {
@@ -357,6 +359,7 @@ async fn test_insert_null_for_nullable_without_default() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {
@@ -444,6 +447,7 @@ async fn test_multiple_inserts_with_defaults() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {

@@ -43,6 +43,7 @@ async fn setup_test_tables() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     // Create orders table
@@ -76,6 +77,7 @@ async fn setup_test_tables() -> (TempDir, Arc<tokio::sync::RwLock<StorageEngine>
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {

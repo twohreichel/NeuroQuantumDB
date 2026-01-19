@@ -773,7 +773,6 @@ impl NeuromorphicQueryProcessor {
 
         // Track fields that appear in conditions for index analysis
         let mut field_operators: HashMap<String, Vec<&str>> = HashMap::new();
-        let mut full_scan_fields: Vec<String> = Vec::new();
 
         // Analyze each condition for optimization opportunities
         for condition in &query.conditions {
@@ -781,11 +780,6 @@ impl NeuromorphicQueryProcessor {
                 .entry(condition.field.clone())
                 .or_default()
                 .push(&condition.operator);
-
-            // Check for potential full table scans
-            if self.is_full_scan_likely(&condition.field, &condition.operator) {
-                full_scan_fields.push(condition.field.clone());
-            }
         }
 
         // Generate index suggestions for frequently used fields
@@ -983,6 +977,7 @@ impl NeuromorphicQueryProcessor {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::unreadable_literal)]
 mod tests {
     use std::sync::{Arc, RwLock};
 

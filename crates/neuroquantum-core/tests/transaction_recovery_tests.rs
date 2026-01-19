@@ -324,5 +324,6 @@ fn create_test_table_schema() -> neuroquantum_core::storage::TableSchema {
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     }
 }

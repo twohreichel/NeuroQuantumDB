@@ -466,6 +466,14 @@ pub struct TrainNeuralNetworkResponse {
     pub network_id: String,
     pub training_status: TrainingStatus,
     pub initial_loss: Option<f32>,
+    /// Current loss value during training (updated periodically)
+    pub current_loss: Option<f32>,
+    /// Final loss value after training completion
+    pub final_loss: Option<f32>,
+    /// Number of completed epochs
+    pub epochs_completed: Option<u32>,
+    /// Total number of epochs to train
+    pub total_epochs: Option<u32>,
     pub training_started_at: String,
     pub estimated_completion: Option<String>,
 }
@@ -865,6 +873,8 @@ pub struct QuantumStats {
     pub num_gates: Option<u32>,
     /// Trotter steps used (for TFIM)
     pub trotter_steps: Option<u32>,
+    /// Theoretical quantum speedup factor (√N for Grover, varies for other algorithms)
+    pub quantum_speedup: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]

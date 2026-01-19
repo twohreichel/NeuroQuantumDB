@@ -69,6 +69,7 @@ async fn create_test_table(storage_arc: &Arc<tokio::sync::RwLock<StorageEngine>>
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     let mut storage = storage_arc.write().await;

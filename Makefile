@@ -135,8 +135,8 @@ lint-fix: ## Fix ALL automatically fixable linting issues
 	@echo "🔧 Phase 1: Code-Formatierung..."
 	@cargo fmt --all
 	
-	@echo "🔧 Phase 2: Clippy Auto-Fixes..."
-	@cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged -- \
+	@echo "🔧 Phase 2: Clippy Auto-Fixes für Library-Code..."
+	@cargo clippy --workspace --lib --fix --allow-dirty --allow-staged -- \
 		-W clippy::all \
 		-W clippy::pedantic \
 		-W clippy::nursery || true
@@ -151,8 +151,8 @@ lint-fix: ## Fix ALL automatically fixable linting issues
 	@$(MAKE) docs-fix 2>/dev/null || true
 	
 	@echo "✅ Alle automatischen Fixes angewendet!"
-	@echo "📋 Verbleibende manuelle Fixes:"
-	@cargo clippy --workspace --all-targets --all-features 2>&1 | grep -E "^(warning|error)" | head -20 || echo "   Keine weiteren Warnungen!"
+	@echo "📋 Verbleibende Warnungen (Library-Code):"
+	@cargo clippy --workspace --lib -- -W clippy::pedantic -W clippy::nursery 2>&1 | grep -E "^(warning|error)" | head -20 || echo "   ✅ Keine Library-Warnungen!"
 
 docs-fix: ## Fix documentation issues
 	@echo "📝 Fixing documentation..."

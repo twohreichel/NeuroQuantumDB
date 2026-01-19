@@ -462,6 +462,7 @@ impl BufferPoolManager {
             };
 
             // Spawn low-priority background prefetch
+            #[allow(clippy::large_futures)]
             tokio::spawn(async move {
                 if let Err(e) = pool.prefetch_page(next_page).await {
                     debug!("⚠️ Prefetch failed for page {:?}: {}", next_page, e);
@@ -841,6 +842,7 @@ pub struct BufferPoolStats {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use tempfile::TempDir;
 

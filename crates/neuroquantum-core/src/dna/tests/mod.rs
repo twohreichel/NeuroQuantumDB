@@ -3,6 +3,13 @@
 //! This module provides extensive testing including unit tests, property-based tests,
 //! integration tests, and correctness verification for the DNA compression system.
 
+#![allow(
+    clippy::unreadable_literal,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+
 use proptest::prelude::*;
 use rand::prelude::*;
 use rand::Rng;

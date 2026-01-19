@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss)]
 //! Quantum Extensions Demo
 //!
 //! Demonstrates QUBO, TFIM, and Quantum Parallel Tempering algorithms

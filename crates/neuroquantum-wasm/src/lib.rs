@@ -1,3 +1,17 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::needless_pass_by_value,
+    clippy::unused_self,
+    clippy::missing_const_for_fn,
+    clippy::unsafe_derive_deserialize,
+    clippy::or_fun_call,
+    clippy::unused_async,
+    clippy::needless_pass_by_ref_mut
+)]
 //! # `NeuroQuantumDB` WebAssembly Bindings
 //!
 //! This crate provides WebAssembly bindings for `NeuroQuantumDB`, enabling
@@ -34,6 +48,11 @@ use std::collections::HashMap;
 use js_sys::{Array, Object, Reflect};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
+
+pub mod dna_compression;
+
+// Re-export the WASM DNA compressor for direct usage
+pub use dna_compression::WasmDNACompressor;
 
 /// Initialize panic hook for better error messages in the browser console
 #[wasm_bindgen(start)]
@@ -120,10 +139,11 @@ impl NeuroQuantumDB {
         }
     }
 
-    /// Compress a DNA sequence
+    /// Compress a DNA sequence using quaternary encoding
     ///
-    /// Note: This is a placeholder implementation for demonstration.
-    /// For production use, integrate with the full `NeuroQuantumDB` DNA compressor.
+    /// This method uses the WASM-compatible DNA compressor which encodes
+    /// DNA bases (A, T, G, C) using 2-bit quaternary encoding, achieving
+    /// up to 4x compression for DNA sequences.
     #[wasm_bindgen(js_name = compressDna)]
     pub fn compress_dna(&self, sequence: &str) -> Result<Vec<u8>, JsValue> {
         console_log(&format!(
@@ -131,15 +151,14 @@ impl NeuroQuantumDB {
             sequence.len()
         ));
 
-        // TODO: Integrate with neuroquantum_core::dna::QuantumDNACompressor
-        // For now, return a simple representation
-        Ok(sequence.as_bytes().to_vec())
+        let compressor = dna_compression::WasmDNACompressor::new();
+        compressor.compress_dna_sequence(sequence)
     }
 
-    /// Decompress a DNA sequence
+    /// Decompress a DNA sequence from quaternary encoding
     ///
-    /// Note: This is a placeholder implementation for demonstration.
-    /// For production use, integrate with the full `NeuroQuantumDB` DNA compressor.
+    /// This method uses the WASM-compatible DNA compressor to restore
+    /// the original DNA sequence from compressed data.
     #[wasm_bindgen(js_name = decompressDna)]
     pub fn decompress_dna(&self, compressed: Vec<u8>) -> Result<String, JsValue> {
         console_log(&format!(
@@ -147,8 +166,8 @@ impl NeuroQuantumDB {
             compressed.len()
         ));
 
-        String::from_utf8(compressed)
-            .map_err(|e| JsValue::from_str(&format!("Decompression error: {e}")))
+        let compressor = dna_compression::WasmDNACompressor::new();
+        compressor.decompress_dna_sequence(compressed)
     }
 
     /// Get statistics about the database

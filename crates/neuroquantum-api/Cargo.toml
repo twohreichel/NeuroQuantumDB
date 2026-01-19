@@ -51,6 +51,9 @@ bcrypt = "0.17"
 jsonwebtoken = "9.3"
 validator = { version = "0.20", features = ["derive"] }
 
+# Async traits for SqlExecutor implementation
+async-trait = "0.1"
+
 # Post-quantum cryptography is provided by neuroquantum-core
 
 # API documentation and OpenAPI

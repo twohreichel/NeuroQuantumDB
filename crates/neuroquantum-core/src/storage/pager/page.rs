@@ -369,6 +369,7 @@ impl fmt::Debug for Page {
 }
 
 #[cfg(test)]
+#[allow(clippy::cast_possible_truncation)]
 mod tests {
     use super::*;
 

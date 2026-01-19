@@ -1,3 +1,8 @@
+#![allow(
+    clippy::significant_drop_tightening,
+    clippy::similar_names,
+    clippy::ignore_without_reason
+)]
 //! # Comprehensive Cluster E2E Tests for `NeuroQuantumDB`
 //!
 //! This module implements end-to-end tests for cluster mode functionality,
@@ -23,6 +28,8 @@
 //! ```
 //!
 //! Or run all tests including ignored:
+
+#![allow(clippy::cast_possible_truncation, clippy::unused_async)]
 //!
 //! ```bash
 //! cargo test --package neuroquantum-core --test cluster_e2e_tests -- --include-ignored --nocapture

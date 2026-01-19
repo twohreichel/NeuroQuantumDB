@@ -8,6 +8,13 @@
 //! These tests validate system behavior under extreme conditions and ensure
 //! ACID compliance in concurrent scenarios.
 
+#![allow(
+    clippy::cast_sign_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::significant_drop_tightening
+)]
+
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -57,6 +64,7 @@ fn create_test_table_schema() -> TableSchema {
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     }
 }
 

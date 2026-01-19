@@ -96,6 +96,7 @@ async fn test_execute_multi_row_insert() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {
@@ -160,12 +161,10 @@ async fn test_execute_multi_row_insert() {
 
 /// Test multi-row INSERT with auto-increment IDs
 ///
-/// NOTE: This test is currently ignored due to a bug in DNA compression
-/// that causes certain rows to fail decompression when reading back from disk.
-/// The issue appears to be related to how Float values are serialized/compressed.
-/// TODO: Investigate and fix the DNA compression issue in storage.rs/dna.rs
+/// This test validates that multi-row INSERT with Float values works correctly
+/// with DNA compression. Fixed by implementing proper 0xFF byte escaping in
+/// the dictionary compression encoder/decoder.
 #[tokio::test]
-#[ignore = "DNA compression bug causes row decompression failures - needs investigation"]
 async fn test_multi_row_insert_auto_increment() {
     let temp_dir = TempDir::new().unwrap();
     let storage_path = temp_dir.path();
@@ -204,6 +203,7 @@ async fn test_multi_row_insert_auto_increment() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {
@@ -290,6 +290,7 @@ async fn test_multi_row_insert_transaction() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {
@@ -369,6 +370,7 @@ async fn test_large_batch_insert() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {

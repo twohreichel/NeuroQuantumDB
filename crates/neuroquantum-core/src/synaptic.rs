@@ -1385,6 +1385,7 @@ pub struct NetworkStats {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::significant_drop_tightening)]
 mod tests {
     use super::*;
 

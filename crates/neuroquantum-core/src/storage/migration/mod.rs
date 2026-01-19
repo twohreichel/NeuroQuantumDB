@@ -9,12 +9,70 @@ mod parser;
 mod progress;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
+use async_trait::async_trait;
 pub use executor::{MigrationExecutor, MigrationExecutorConfig};
 pub use history::{MigrationHistory, MigrationRecord, MigrationStatus};
 pub use parser::{Migration, MigrationDirection, MigrationParser};
 pub use progress::{MigrationProgress, ProgressTracker};
 use serde::{Deserialize, Serialize};
+
+/// Result of executing a SQL statement
+#[derive(Debug, Clone)]
+pub struct SqlExecutionResult {
+    /// Number of rows affected by the statement
+    pub rows_affected: u64,
+    /// Optional message from the execution
+    pub message: Option<String>,
+}
+
+/// Trait for executing SQL statements during migrations.
+///
+/// This trait allows the migration executor to execute SQL statements
+/// against the database without depending on the query engine crate directly.
+/// Implementations of this trait can be injected from higher-level crates
+/// like `neuroquantum-api` that have access to the full query engine.
+///
+/// # Example
+///
+/// ```ignore
+/// use std::sync::Arc;
+/// use neuroquantum_core::storage::migration::{SqlExecutor, SqlExecutionResult};
+///
+/// struct QSQLExecutor {
+///     engine: Arc<tokio::sync::Mutex<neuroquantum_qsql::QSQLEngine>>,
+/// }
+///
+/// #[async_trait::async_trait]
+/// impl SqlExecutor for QSQLExecutor {
+///     async fn execute_sql(&self, sql: &str) -> anyhow::Result<SqlExecutionResult> {
+///         let mut engine = self.engine.lock().await;
+///         let result = engine.execute_query(sql).await?;
+///         Ok(SqlExecutionResult {
+///             rows_affected: result.rows_affected,
+///             message: None,
+///         })
+///     }
+/// }
+/// ```
+#[async_trait]
+pub trait SqlExecutor: Send + Sync {
+    /// Execute a SQL statement and return the result.
+    ///
+    /// # Arguments
+    ///
+    /// * `sql` - The SQL statement to execute
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(SqlExecutionResult)` - The execution result with rows affected
+    /// * `Err(anyhow::Error)` - If the execution fails
+    async fn execute_sql(&self, sql: &str) -> anyhow::Result<SqlExecutionResult>;
+}
+
+/// Type alias for a boxed SQL executor
+pub type BoxedSqlExecutor = Arc<dyn SqlExecutor>;
 
 /// Migration identifier
 pub type MigrationId = String;

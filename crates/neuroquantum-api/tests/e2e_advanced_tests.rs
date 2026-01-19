@@ -86,6 +86,7 @@ fn create_test_schema(table_name: &str) -> TableSchema {
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     }
 }
 
@@ -328,6 +329,7 @@ async fn test_complex_multi_table_workflow() {
             version: 1,
             auto_increment_columns: std::collections::HashMap::new(),
             id_strategy: IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Vec::new(),
         };
 
         // Posts table
@@ -361,6 +363,7 @@ async fn test_complex_multi_table_workflow() {
             version: 1,
             auto_increment_columns: std::collections::HashMap::new(),
             id_strategy: IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Vec::new(),
         };
 
         storage.create_table(users_schema).await.unwrap();

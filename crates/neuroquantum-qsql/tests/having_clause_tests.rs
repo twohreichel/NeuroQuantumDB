@@ -44,6 +44,7 @@ async fn setup_orders_table(storage_arc: Arc<tokio::sync::RwLock<StorageEngine>>
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     let mut storage_guard = storage_arc.write().await;

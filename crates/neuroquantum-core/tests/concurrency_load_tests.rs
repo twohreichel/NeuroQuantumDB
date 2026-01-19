@@ -1,3 +1,12 @@
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    clippy::significant_drop_tightening,
+    clippy::too_many_lines,
+    clippy::ignore_without_reason
+)]
 //! # Concurrency Load Testing Suite for `NeuroQuantumDB`
 //!
 //! This module provides comprehensive load tests for concurrent database operations,
@@ -109,6 +118,7 @@ fn create_load_test_schema(name: &str) -> TableSchema {
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     }
 }
 

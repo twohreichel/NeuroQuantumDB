@@ -337,13 +337,13 @@ impl PageIO {
 
     /// Reorder pages to match the original request order
     fn reorder_pages(
-        mut sorted_pages: Vec<Page>,
+        sorted_pages: Vec<Page>,
         original_order: &[(usize, PageId)],
     ) -> Result<Vec<Page>> {
         // Create a map from PageId to Page
         use std::collections::HashMap;
         let mut page_map: HashMap<PageId, Page> =
-            sorted_pages.drain(..).map(|p| (p.id(), p)).collect();
+            sorted_pages.into_iter().map(|p| (p.id(), p)).collect();
 
         // Build result in original order
         let mut result = Vec::with_capacity(original_order.len());

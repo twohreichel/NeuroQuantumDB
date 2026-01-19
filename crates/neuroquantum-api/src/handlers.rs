@@ -503,6 +503,7 @@ pub async fn create_table(
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     // Create table in database
@@ -1006,6 +1007,10 @@ pub async fn train_neural_network(
         network_id,
         training_status: TrainingStatus::Queued,
         initial_loss: Some(0.85),
+        current_loss: None, // Will be updated during training
+        final_loss: None,   // Will be set upon completion
+        epochs_completed: Some(0),
+        total_epochs: Some(train_req.config.epochs),
         training_started_at: chrono::Utc::now().to_rfc3339(),
         estimated_completion: Some(
             (chrono::Utc::now() + chrono::Duration::minutes(30)).to_rfc3339(),
@@ -1048,11 +1053,16 @@ pub async fn get_training_status(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    // Simulate status retrieval
+    // Simulate status retrieval with training progress
+    // In a real implementation, this would query the training job state
     let response = TrainNeuralNetworkResponse {
         network_id,
         training_status: TrainingStatus::Running,
         initial_loss: Some(0.85),
+        current_loss: Some(0.42), // Simulated current loss during training
+        final_loss: None,         // Not yet completed
+        epochs_completed: Some(47),
+        total_epochs: Some(100),
         training_started_at: chrono::Utc::now().to_rfc3339(),
         estimated_completion: Some(
             (chrono::Utc::now() + chrono::Duration::minutes(15)).to_rfc3339(),
@@ -1321,6 +1331,21 @@ pub async fn quantum_search(
         (None, None, None)
     };
 
+    // Calculate quantum speedup based on the search space and algorithm used
+    // For Grover's algorithm: √N speedup over classical search
+    // For TFIM/QUBO: polynomial speedup depending on problem structure
+    let quantum_speedup = if search_req.use_grover {
+        grover_results.as_ref().map(|g| g.quantum_speedup)
+    } else {
+        // Default quantum speedup estimation based on search space size
+        let n = search_req.query_vector.len() as f64;
+        if n > 1.0 {
+            Some(n.sqrt())
+        } else {
+            Some(1.0)
+        }
+    };
+
     let quantum_stats = QuantumStats {
         coherence_time_used_ms: start
             .elapsed()
@@ -1332,6 +1357,7 @@ pub async fn quantum_search(
         circuit_depth,
         num_gates,
         trotter_steps: trotter_steps_used,
+        quantum_speedup,
     };
 
     let response = QuantumSearchResponse {
@@ -2414,19 +2440,23 @@ pub struct EEGAuthResponse {
 pub async fn eeg_enroll(
     req: HttpRequest,
     body: web::Json<EEGEnrollRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
     // Check permissions - require admin for enrollment
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required for EEG enrollment".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required for EEG enrollment".to_string(),
+            ));
+        }
     }
 
     // Validate request
@@ -2435,12 +2465,8 @@ pub async fn eeg_enroll(
         message: format!("Invalid enrollment request: {e}"),
     })?;
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let mut eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let mut eeg_service = app_state.eeg_service.write().await;
 
     // Enroll user
     let signature = eeg_service
@@ -2484,6 +2510,7 @@ pub async fn eeg_enroll(
 pub async fn eeg_authenticate(
     _req: HttpRequest,
     body: web::Json<EEGAuthRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
@@ -2493,12 +2520,8 @@ pub async fn eeg_authenticate(
         message: format!("Invalid auth request: {e}"),
     })?;
 
-    // Create EEG auth service (in production, this would be shared state)
-    use crate::biometric_auth::EEGAuthService;
-    let eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let eeg_service = app_state.eeg_service.read().await;
 
     // Authenticate user
     let auth_result = eeg_service
@@ -2546,19 +2569,22 @@ pub async fn eeg_authenticate(
 pub async fn eeg_update_signature(
     req: HttpRequest,
     body: web::Json<EEGAuthRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required to update EEG signature".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required to update EEG signature".to_string(),
+            ));
+        }
     }
 
     // Validate request
@@ -2567,12 +2593,8 @@ pub async fn eeg_update_signature(
         message: format!("Invalid update request: {e}"),
     })?;
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let mut eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let mut eeg_service = app_state.eeg_service.write().await;
 
     // Update signature
     eeg_service
@@ -2597,26 +2619,28 @@ pub async fn eeg_update_signature(
     ),
     tag = "Biometric Authentication"
 )]
-pub async fn eeg_list_users(req: HttpRequest) -> ActixResult<HttpResponse, ApiError> {
+pub async fn eeg_list_users(
+    req: HttpRequest,
+    app_state: web::Data<crate::AppState>,
+) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required to list EEG users".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required to list EEG users".to_string(),
+            ));
+        }
     }
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let eeg_service = EEGAuthService::new(256.0).map_err(|e| ApiError::InternalServerError {
-        message: format!("Failed to initialize EEG service: {e}"),
-    })?;
+    // Use shared EEG auth service from AppState
+    let eeg_service = app_state.eeg_service.read().await;
 
     let users = eeg_service.list_users();
 
@@ -2712,19 +2736,23 @@ pub struct BiometricVerifyResponse {
 pub async fn biometric_enroll(
     req: HttpRequest,
     body: web::Json<BiometricEnrollRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
     // Check permissions - require admin for enrollment
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required for biometric enrollment".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required for biometric enrollment".to_string(),
+            ));
+        }
     }
 
     // Validate request
@@ -2740,12 +2768,8 @@ pub async fn biometric_enroll(
         ));
     }
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let mut eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let mut eeg_service = app_state.eeg_service.write().await;
 
     // Process each sample and build enrollment template
     let mut total_quality = 0.0f32;
@@ -2821,6 +2845,7 @@ pub async fn biometric_enroll(
 pub async fn biometric_verify(
     _req: HttpRequest,
     body: web::Json<BiometricVerifyRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
@@ -2837,14 +2862,8 @@ pub async fn biometric_verify(
         ));
     }
 
-    let sampling_rate = body.sampling_rate.unwrap_or(256.0);
-
-    // Create EEG auth service (in production, this would be shared state with persistent storage)
-    use crate::biometric_auth::EEGAuthService;
-    let eeg_service =
-        EEGAuthService::new(sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let eeg_service = app_state.eeg_service.read().await;
 
     // Authenticate user
     let auth_result = eeg_service

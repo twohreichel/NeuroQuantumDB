@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss)]
 //! Quantum Annealing Benchmarks
 //!
 //! Benchmarks for QUBO, TFIM, and Quantum Parallel Tempering algorithms

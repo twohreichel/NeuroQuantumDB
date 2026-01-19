@@ -313,6 +313,40 @@ pub struct DropIndexStatement {
     pub concurrently: bool,
 }
 
+/// Referential action for foreign key constraints
+/// Specifies what action to take when the referenced row is updated or deleted
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ReferentialAction {
+    /// Reject the delete or update operation (default)
+    /// Raises an error if any referencing rows exist
+    #[default]
+    Restrict,
+    /// Automatically delete or update the referencing rows
+    /// Propagates the operation to dependent tables
+    Cascade,
+    /// Set the foreign key column(s) to NULL
+    /// Requires the column(s) to be nullable
+    SetNull,
+    /// Set the foreign key column(s) to their default values
+    /// Requires the column(s) to have default values defined
+    SetDefault,
+    /// Similar to RESTRICT but checked at end of transaction
+    /// Allows deferred constraint checking
+    NoAction,
+}
+
+impl std::fmt::Display for ReferentialAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            | Self::Restrict => write!(f, "RESTRICT"),
+            | Self::Cascade => write!(f, "CASCADE"),
+            | Self::SetNull => write!(f, "SET NULL"),
+            | Self::SetDefault => write!(f, "SET DEFAULT"),
+            | Self::NoAction => write!(f, "NO ACTION"),
+        }
+    }
+}
+
 /// CASCADE/RESTRICT behavior for TRUNCATE TABLE
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum TruncateBehavior {
@@ -720,9 +754,17 @@ pub enum ColumnConstraint {
     NotNull,
     Unique,
     PrimaryKey,
+    /// Foreign key constraint referencing another table
+    /// Syntax: REFERENCES table(column) [ON DELETE action] [ON UPDATE action]
     ForeignKey {
+        /// The referenced table name
         table: String,
+        /// The referenced column name
         column: String,
+        /// Action to take when referenced row is deleted
+        on_delete: ReferentialAction,
+        /// Action to take when referenced row is updated
+        on_update: ReferentialAction,
     },
     Check(Expression),
     Default(Expression),
@@ -752,9 +794,18 @@ pub enum ColumnConstraint {
 pub enum TableConstraint {
     PrimaryKey(Vec<String>),
     ForeignKey {
+        /// Optional constraint name for identification
+        name: Option<String>,
+        /// Column(s) in this table that reference another table
         columns: Vec<String>,
+        /// The table being referenced
         referenced_table: String,
+        /// Column(s) in the referenced table
         referenced_columns: Vec<String>,
+        /// Action to take when referenced row is deleted
+        on_delete: ReferentialAction,
+        /// Action to take when referenced row is updated
+        on_update: ReferentialAction,
     },
     Unique(Vec<String>),
     Check(Expression),

@@ -882,6 +882,7 @@ pub type QUBOSolution = QuantumGroverResult;
 pub type QUBOSolver = QuantumGroverSolver;
 
 #[cfg(test)]
+#[allow(clippy::needless_collect)]
 mod tests {
     use super::*;
 

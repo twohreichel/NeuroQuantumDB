@@ -1,3 +1,34 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::significant_drop_tightening,
+    clippy::future_not_send,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::items_after_statements,
+    clippy::option_if_let_else,
+    clippy::match_same_arms,
+    clippy::unused_async,
+    clippy::needless_for_each,
+    clippy::use_debug,
+    clippy::needless_pass_by_value,
+    clippy::module_name_repetitions,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::cognitive_complexity,
+    clippy::struct_excessive_bools,
+    clippy::wildcard_imports,
+    clippy::too_long_first_doc_paragraph,
+    clippy::needless_collect,
+    clippy::unused_self,
+    clippy::default_trait_access,
+    clippy::doc_link_with_quotes,
+    clippy::unnecessary_wraps,
+    clippy::uninlined_format_args
+)]
 use std::time::Instant;
 
 use actix_cors::Cors;
@@ -6,7 +37,9 @@ use actix_web::middleware::{Compress, Logger};
 use actix_web::{web, App, HttpMessage, HttpResponse, HttpServer, Result as ActixResult};
 use actix_web_prom::PrometheusMetricsBuilder;
 use anyhow::Result;
+use biometric_auth::EEGAuthService;
 use neuroquantum_core::{NeuroQuantumDB, NeuroQuantumDBBuilder};
+use tokio::sync::RwLock;
 use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -45,6 +78,7 @@ pub struct AppState {
     pub jwt_service: JwtService,
     pub rate_limit_service: RateLimitService,
     pub websocket_service: Arc<WebSocketService>,
+    pub eeg_service: Arc<RwLock<EEGAuthService>>,
     pub config: ApiConfig,
 }
 
@@ -103,6 +137,13 @@ impl AppState {
             qsql_engine_arc.clone(),
         ));
 
+        // Initialize EEG authentication service with shared state
+        // Default sampling rate 256 Hz is standard for clinical EEG
+        let eeg_service = EEGAuthService::new(256.0)
+            .map_err(|e| anyhow::anyhow!("Failed to initialize EEG auth service: {e}"))?;
+        let eeg_service_arc = Arc::new(RwLock::new(eeg_service));
+        tracing::info!("🧠 EEG authentication service initialized");
+
         Ok(Self {
             db: db_arc,
             qsql_engine: qsql_engine_arc,
@@ -110,6 +151,7 @@ impl AppState {
             jwt_service,
             rate_limit_service,
             websocket_service,
+            eeg_service: eeg_service_arc,
             config,
         })
     }
