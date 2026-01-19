@@ -25,7 +25,7 @@
 
 | # | Status | Issue | Beschreibung | Aufwand |
 |---|--------|-------|--------------|---------|
-| 5 | ⬜ | [ISSUE-002](issues/ISSUE-002-dna-compression-float-bug.md) | DNA Compression Float-Bug | 8-16 Std |
+| 5 | ✅ | [ISSUE-002](issues/ISSUE-002-dna-compression-float-bug.md) | DNA Compression Float-Bug | 8-16 Std |
 | 6 | ⬜ | [ISSUE-001](issues/ISSUE-001-migration-executor.md) | Migration Executor implementieren | 8-16 Std |
 
 ### Sprint 4: SQL-Funktionalität (4-8 Stunden)
@@ -72,11 +72,11 @@ Diese Tasks waren ursprünglich geplant, wurden aber bereits durch geschlossene 
 |--------|-------|----------|--------|
 | Sprint 1: Quick Wins | 2 | 2 | ✅ |
 | Sprint 2: Security | 2 | 2 | ✅ |
-| Sprint 3: Bugs | 2 | 0 | ⬜ |
+| Sprint 3: Bugs | 2 | 1 | 🔄 |
 | Sprint 4: SQL | 1 | 0 | ⬜ |
 | Sprint 5: Cluster | 2 | 0 | ⬜ |
 | Sprint 6: Optional | 4 | 0 | ⬜ |
-| **Gesamt** | **13** | **4** | **31%** |
+| **Gesamt** | **13** | **5** | **38%** |
 
 ---
 

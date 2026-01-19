@@ -2315,7 +2315,9 @@ impl StorageEngine {
             data.clone()
         } else {
             // Compress the row if not already compressed
-            let serialized = serde_json::to_vec(row)?;
+            // Use bincode for consistency with compress_row() and decompress_row()
+            let serialized =
+                bincode::serialize(row).map_err(|e| anyhow!("Failed to serialize row: {e}"))?;
             let compressed = self.dna_compressor.compress(&serialized).await?;
             self.compressed_blocks.insert(row.id, compressed.clone());
             compressed
@@ -2409,7 +2411,9 @@ impl StorageEngine {
                 data.clone()
             } else {
                 // Compress the row if not already compressed
-                let serialized = serde_json::to_vec(row_to_write)?;
+                // Use bincode for consistency with compress_row() and decompress_row()
+                let serialized = bincode::serialize(row_to_write)
+                    .map_err(|e| anyhow!("Failed to serialize row: {e}"))?;
                 let compressed = self.dna_compressor.compress(&serialized).await?;
                 self.compressed_blocks
                     .insert(row_to_write.id, compressed.clone());
@@ -2484,7 +2488,9 @@ impl StorageEngine {
                     data.clone()
                 } else {
                     // Compress the row if not already compressed
-                    let serialized = serde_json::to_vec(&row)?;
+                    // Use bincode for consistency with compress_row() and decompress_row()
+                    let serialized = bincode::serialize(&row)
+                        .map_err(|e| anyhow!("Failed to serialize row: {e}"))?;
                     let compressed = self.dna_compressor.compress(&serialized).await?;
                     self.compressed_blocks.insert(row.id, compressed.clone());
                     compressed

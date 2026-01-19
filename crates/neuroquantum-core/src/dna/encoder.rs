@@ -68,14 +68,17 @@ impl QuaternaryEncoder {
         });
 
         // Build dictionary (limited size)
+        // Dictionary IDs start at 256 and must not have high-byte 0xFF (reserved for escaping)
+        // Valid range: 256 (0x0100) to 65278 (0xFEFF), excluding 0xFF00-0xFFFF
         let mut dictionary = HashMap::new();
         let mut dict_id = 256u16; // Start after single-byte values
+        let max_dict_id = 0xFEFFu16; // Avoid 0xFF00-0xFFFF range (used for escape sequence)
 
         for (pattern, _) in frequent_patterns
             .iter()
             .take(self.config.max_dictionary_size / 32)
         {
-            if dictionary.len() >= (u16::MAX as usize - 256) {
+            if dict_id > max_dict_id {
                 break;
             }
             dictionary.insert(pattern.clone(), dict_id);
@@ -112,8 +115,14 @@ impl QuaternaryEncoder {
             }
 
             if !matched {
-                // Copy literal byte
-                compressed.push(data[i]);
+                // Copy literal byte, but escape 0xFF to avoid confusion with dictionary references
+                // 0xFF followed by 0xFF means a literal 0xFF byte
+                if data[i] == 0xFF {
+                    compressed.push(0xFF);
+                    compressed.push(0xFF);
+                } else {
+                    compressed.push(data[i]);
+                }
                 i += 1;
             }
         }
