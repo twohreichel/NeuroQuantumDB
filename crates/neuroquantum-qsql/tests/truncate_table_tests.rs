@@ -7,9 +7,12 @@
 //! - TRUNCATE TABLE RESTART IDENTITY
 //! - TRUNCATE TABLE CONTINUE IDENTITY
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use neuroquantum_core::storage::{ColumnDefinition, DataType, StorageEngine, TableSchema};
+use neuroquantum_core::storage::{
+    AutoIncrementConfig, ColumnDefinition, DataType, StorageEngine, TableSchema,
+};
 use neuroquantum_qsql::{ExecutorConfig, Parser, QueryExecutor};
 use tempfile::TempDir;
 
@@ -208,6 +211,188 @@ async fn test_truncate_table_restart_identity() {
         0,
         "Table should be empty after TRUNCATE RESTART IDENTITY"
     );
+}
+
+/// Helper to create a test environment with a BIGSERIAL auto-increment column
+async fn setup_serial_test_env() -> (
+    TempDir,
+    Arc<tokio::sync::RwLock<StorageEngine>>,
+    QueryExecutor,
+) {
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path();
+
+    // Initialize storage engine
+    let storage = StorageEngine::new(storage_path).await.unwrap();
+    let storage_arc = Arc::new(tokio::sync::RwLock::new(storage));
+
+    // Create test table with BIGSERIAL for id column
+    let mut auto_increment_columns = HashMap::new();
+    auto_increment_columns.insert("id".to_string(), AutoIncrementConfig::new("id"));
+
+    let schema = TableSchema {
+        name: "serial_users".to_string(),
+        columns: vec![
+            ColumnDefinition {
+                name: "id".to_string(),
+                data_type: DataType::BigSerial,
+                nullable: false,
+                default_value: None,
+                auto_increment: true,
+            },
+            ColumnDefinition {
+                name: "name".to_string(),
+                data_type: DataType::Text,
+                nullable: false,
+                default_value: None,
+                auto_increment: false,
+            },
+        ],
+        primary_key: "id".to_string(),
+        created_at: chrono::Utc::now(),
+        version: 1,
+        auto_increment_columns,
+        id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+    };
+
+    {
+        let mut storage_guard = storage_arc.write().await;
+        storage_guard.create_table(schema).await.unwrap();
+    }
+
+    let config = ExecutorConfig {
+        enable_neuromorphic_learning: true,
+        enable_synaptic_optimization: true,
+        enable_dna_compression: true,
+        ..Default::default()
+    };
+    let executor = QueryExecutor::with_storage(config, storage_arc.clone()).unwrap();
+
+    (temp_dir, storage_arc, executor)
+}
+
+#[tokio::test]
+async fn test_truncate_restart_identity_resets_auto_increment() {
+    let (_temp_dir, storage_arc, mut executor) = setup_serial_test_env().await;
+    let parser = Parser::new();
+
+    // Insert rows (id will be auto-generated)
+    for i in 1..=5 {
+        let sql = format!("INSERT INTO serial_users (id, name) VALUES ({i}, 'User {i}')");
+        let statement = parser.parse(&sql).unwrap();
+        executor.execute_statement(&statement).await.unwrap();
+    }
+
+    // Update the auto-increment counter to simulate what would happen after inserts
+    {
+        let mut storage_guard = storage_arc.write().await;
+        if let Some(schema) = storage_guard.get_table_schema_mut("serial_users") {
+            if let Some(config) = schema.auto_increment_columns.get_mut("id") {
+                config.next_value = 6; // Simulate counter after 5 inserts
+            }
+        }
+        storage_guard.save_metadata().await.unwrap();
+    }
+
+    // Verify auto-increment counter is at 6
+    {
+        let storage_guard = storage_arc.read().await;
+        let schema = storage_guard.get_table_schema("serial_users").unwrap();
+        let config = schema.auto_increment_columns.get("id").unwrap();
+        assert_eq!(
+            config.next_value, 6,
+            "Auto-increment should be at 6 before TRUNCATE"
+        );
+    }
+
+    // Execute TRUNCATE TABLE with RESTART IDENTITY
+    let truncate_sql = "TRUNCATE TABLE serial_users RESTART IDENTITY";
+    let statement = parser.parse(truncate_sql).unwrap();
+    let result = executor.execute_statement(&statement).await;
+    assert!(
+        result.is_ok(),
+        "TRUNCATE TABLE RESTART IDENTITY should succeed: {:?}",
+        result.err()
+    );
+
+    // Verify auto-increment counter was reset to 1
+    {
+        let storage_guard = storage_arc.read().await;
+        let schema = storage_guard.get_table_schema("serial_users").unwrap();
+        let config = schema.auto_increment_columns.get("id").unwrap();
+        assert_eq!(
+            config.next_value, 1,
+            "Auto-increment should be reset to 1 after TRUNCATE RESTART IDENTITY"
+        );
+    }
+
+    // Verify table is empty
+    let select_sql = "SELECT * FROM serial_users";
+    let statement = parser.parse(select_sql).unwrap();
+    let result = executor.execute_statement(&statement).await.unwrap();
+    assert_eq!(result.rows.len(), 0, "Table should be empty after TRUNCATE");
+}
+
+#[tokio::test]
+async fn test_truncate_continue_identity_preserves_auto_increment() {
+    let (_temp_dir, storage_arc, mut executor) = setup_serial_test_env().await;
+    let parser = Parser::new();
+
+    // Insert rows
+    for i in 1..=5 {
+        let sql = format!("INSERT INTO serial_users (id, name) VALUES ({i}, 'User {i}')");
+        let statement = parser.parse(&sql).unwrap();
+        executor.execute_statement(&statement).await.unwrap();
+    }
+
+    // Update the auto-increment counter to simulate what would happen after inserts
+    {
+        let mut storage_guard = storage_arc.write().await;
+        if let Some(schema) = storage_guard.get_table_schema_mut("serial_users") {
+            if let Some(config) = schema.auto_increment_columns.get_mut("id") {
+                config.next_value = 6; // Simulate counter after 5 inserts
+            }
+        }
+        storage_guard.save_metadata().await.unwrap();
+    }
+
+    // Verify auto-increment counter is at 6
+    {
+        let storage_guard = storage_arc.read().await;
+        let schema = storage_guard.get_table_schema("serial_users").unwrap();
+        let config = schema.auto_increment_columns.get("id").unwrap();
+        assert_eq!(
+            config.next_value, 6,
+            "Auto-increment should be at 6 before TRUNCATE"
+        );
+    }
+
+    // Execute TRUNCATE TABLE with CONTINUE IDENTITY (default behavior)
+    let truncate_sql = "TRUNCATE TABLE serial_users CONTINUE IDENTITY";
+    let statement = parser.parse(truncate_sql).unwrap();
+    let result = executor.execute_statement(&statement).await;
+    assert!(
+        result.is_ok(),
+        "TRUNCATE TABLE CONTINUE IDENTITY should succeed: {:?}",
+        result.err()
+    );
+
+    // Verify auto-increment counter is still at 6 (not reset)
+    {
+        let storage_guard = storage_arc.read().await;
+        let schema = storage_guard.get_table_schema("serial_users").unwrap();
+        let config = schema.auto_increment_columns.get("id").unwrap();
+        assert_eq!(
+            config.next_value, 6,
+            "Auto-increment should remain at 6 after TRUNCATE CONTINUE IDENTITY"
+        );
+    }
+
+    // Verify table is empty
+    let select_sql = "SELECT * FROM serial_users";
+    let statement = parser.parse(select_sql).unwrap();
+    let result = executor.execute_statement(&statement).await.unwrap();
+    assert_eq!(result.rows.len(), 0, "Table should be empty after TRUNCATE");
 }
 
 #[tokio::test]

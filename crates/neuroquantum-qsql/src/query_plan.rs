@@ -3753,9 +3753,17 @@ impl QueryExecutor {
 
         // Handle RESTART IDENTITY if requested
         if truncate.restart_identity {
-            // TODO: Reset identity/serial columns when auto-increment tracking is implemented
+            storage
+                .reset_auto_increment(&truncate.table_name)
+                .await
+                .map_err(|e| QSQLError::ExecutionError {
+                    message: format!(
+                        "Failed to reset auto-increment for table '{}': {}",
+                        truncate.table_name, e
+                    ),
+                })?;
             tracing::debug!(
-                "TRUNCATE TABLE {} RESTART IDENTITY - identity reset not yet implemented",
+                "TRUNCATE TABLE {} RESTART IDENTITY - identity counters reset",
                 truncate.table_name
             );
         }

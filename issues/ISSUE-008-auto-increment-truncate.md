@@ -2,8 +2,9 @@
 
 **Priorität:** 🟡 MITTEL  
 **Aufwand:** 2-4 Stunden  
-**Status:** ⬜ Offen  
-**Sprint:** 2 (Security & API)
+**Status:** ✅ Abgeschlossen  
+**Sprint:** 2 (Security & API)  
+**Abgeschlossen:** 19. Januar 2026
 
 ---
 
@@ -14,31 +15,27 @@ Das Zurücksetzen von Identity/Serial-Spalten bei TRUNCATE TABLE ist nicht imple
 ## Betroffene Dateien
 
 - `crates/neuroquantum-qsql/src/query_plan.rs` (Zeile ~3756)
+- `crates/neuroquantum-core/src/storage.rs`
 
-## Aktueller Code
+## Implementierte Lösung
 
-```rust
-// TODO: Reset identity/serial columns
-```
+### Änderungen in `storage.rs`:
+1. Neue Methode `reset_auto_increment(&mut self, table_name: &str)` hinzugefügt
+2. Neue Methode `get_table_schema_mut(&mut self, table_name: &str)` hinzugefügt
+3. `save_metadata` öffentlich gemacht für Tests
+
+### Änderungen in `query_plan.rs`:
+1. TRUNCATE TABLE ruft jetzt `reset_auto_increment` auf, wenn `restart_identity = true`
+
+### Neue Tests in `truncate_table_tests.rs`:
+1. `test_truncate_restart_identity_resets_auto_increment` - Prüft, dass Auto-Increment auf 1 zurückgesetzt wird
+2. `test_truncate_continue_identity_preserves_auto_increment` - Prüft, dass Counter bei CONTINUE IDENTITY erhalten bleibt
 
 ## Impact
 
-- TRUNCATE TABLE setzt Auto-Increment nicht zurück
-- Mögliche ID-Lücken nach Datenbereinigungen
-
----
-
-## Lösungsschritte
-
-### Schritt 1: TODO finden
-```bash
-grep -n "identity\|serial\|auto_increment\|TRUNCATE" crates/neuroquantum-qsql/src/query_plan.rs | head -20
-```
-
-### Schritt 2: Implementation
-1. Counter-State für Auto-Increment-Spalten persistieren
-2. Reset-Logik bei TRUNCATE implementieren
-3. Optional: `ALTER TABLE ... RESTART IDENTITY` unterstützen
+- ✅ TRUNCATE TABLE RESTART IDENTITY setzt Auto-Increment korrekt zurück
+- ✅ TRUNCATE TABLE CONTINUE IDENTITY behält Counter bei (Standard-Verhalten)
+- ✅ Counter-State wird korrekt persistiert
 
 ---
 
@@ -50,6 +47,6 @@ cargo test -p neuroquantum-qsql truncate -- --nocapture
 
 ## Akzeptanzkriterium
 
-- [ ] TRUNCATE setzt Auto-Increment auf 1 zurück
-- [ ] Counter-State wird korrekt persistiert
-- [ ] Alle TRUNCATE-Tests bestehen
+- [x] TRUNCATE setzt Auto-Increment auf 1 zurück
+- [x] Counter-State wird korrekt persistiert
+- [x] Alle TRUNCATE-Tests bestehen (21 Tests)

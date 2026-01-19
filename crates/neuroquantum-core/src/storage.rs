@@ -1206,6 +1206,65 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Reset auto-increment counters for a table
+    ///
+    /// This is typically called during TRUNCATE TABLE with RESTART IDENTITY.
+    /// It resets all identity/serial columns back to their initial values.
+    ///
+    /// # Arguments
+    /// * `table_name` - Name of the table to reset
+    ///
+    /// # Returns
+    /// * `Ok(())` - If successful
+    /// * `Err` - If table doesn't exist
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Reset auto-increment counters after TRUNCATE
+    /// storage.reset_auto_increment("users").await?;
+    /// ```
+    pub async fn reset_auto_increment(&mut self, table_name: &str) -> Result<()> {
+        debug!(
+            "🔄 Resetting auto-increment counters for table: {}",
+            table_name
+        );
+
+        // Get table schema
+        let schema = self
+            .metadata
+            .tables
+            .get_mut(table_name)
+            .ok_or_else(|| anyhow!("Table '{table_name}' does not exist"))?;
+
+        // Reset all auto-increment column counters
+        let mut reset_count = 0;
+        for config in schema.auto_increment_columns.values_mut() {
+            let old_value = config.next_value;
+            config.next_value = config.min_value;
+            debug!(
+                "Reset auto-increment for column '{}': {} -> {}",
+                config.column_name, old_value, config.next_value
+            );
+            reset_count += 1;
+        }
+
+        if reset_count > 0 {
+            // Save updated metadata
+            self.save_metadata().await?;
+            info!(
+                "✅ Reset {} auto-increment counter(s) for table '{}'",
+                reset_count, table_name
+            );
+        } else {
+            debug!(
+                "Table '{}' has no auto-increment columns to reset",
+                table_name
+            );
+        }
+
+        Ok(())
+    }
+
     /// Rewrite the entire table file with current data from `compressed_blocks`
     async fn rewrite_table_file(&mut self, table_name: &str) -> Result<()> {
         let table_path = self
@@ -1597,6 +1656,14 @@ impl StorageEngine {
     #[must_use]
     pub fn get_table_schema(&self, table_name: &str) -> Option<&TableSchema> {
         self.metadata.tables.get(table_name)
+    }
+
+    /// Get a mutable reference to the schema for a specific table
+    ///
+    /// Returns the table schema if it exists, or None if the table doesn't exist.
+    /// This is useful for modifying auto-increment configurations.
+    pub fn get_table_schema_mut(&mut self, table_name: &str) -> Option<&mut TableSchema> {
+        self.metadata.tables.get_mut(table_name)
     }
 
     /// Update rows matching the given query
@@ -2505,7 +2572,10 @@ impl StorageEngine {
     }
 
     /// Save metadata to disk
-    async fn save_metadata(&mut self) -> Result<()> {
+    ///
+    /// Persists the current database metadata including table schemas,
+    /// auto-increment counters, and row/LSN counters.
+    pub async fn save_metadata(&mut self) -> Result<()> {
         self.metadata.next_row_id = self.next_row_id;
         self.metadata.next_lsn = self.next_lsn;
 
