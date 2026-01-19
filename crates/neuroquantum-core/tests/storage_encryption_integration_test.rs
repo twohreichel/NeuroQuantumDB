@@ -52,6 +52,7 @@ async fn test_dna_compression_and_encryption_roundtrip() {
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     storage
@@ -182,6 +183,7 @@ async fn test_compression_ratio_with_encryption() {
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     storage.create_table(schema).await.unwrap();

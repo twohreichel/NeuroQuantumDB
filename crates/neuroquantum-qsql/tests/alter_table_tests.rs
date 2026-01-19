@@ -56,6 +56,7 @@ async fn setup_test_env() -> (
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {

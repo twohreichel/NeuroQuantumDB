@@ -207,6 +207,62 @@ pub struct TableSchema {
     /// ID generation strategy for internal row IDs
     #[serde(default)]
     pub id_strategy: IdGenerationStrategy,
+    /// Foreign key constraints defined on this table
+    #[serde(default)]
+    pub foreign_keys: Vec<ForeignKeyConstraint>,
+}
+
+/// Foreign key constraint definition
+/// Represents a relationship between tables where the foreign key column(s)
+/// in this table reference primary/unique key column(s) in another table
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ForeignKeyConstraint {
+    /// Optional constraint name for identification and error messages
+    pub name: Option<String>,
+    /// Column(s) in this table that reference another table
+    pub columns: Vec<String>,
+    /// The table being referenced
+    pub referenced_table: String,
+    /// Column(s) in the referenced table
+    pub referenced_columns: Vec<String>,
+    /// Action to take when referenced row is deleted
+    pub on_delete: ReferentialAction,
+    /// Action to take when referenced row is updated
+    pub on_update: ReferentialAction,
+}
+
+/// Referential action for foreign key constraints
+/// Specifies what action to take when the referenced row is updated or deleted
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ReferentialAction {
+    /// Reject the delete or update operation (default)
+    /// Raises an error if any referencing rows exist
+    #[default]
+    Restrict,
+    /// Automatically delete or update the referencing rows
+    /// Propagates the operation to dependent tables
+    Cascade,
+    /// Set the foreign key column(s) to NULL
+    /// Requires the column(s) to be nullable
+    SetNull,
+    /// Set the foreign key column(s) to their default values
+    /// Requires the column(s) to have default values defined
+    SetDefault,
+    /// Similar to RESTRICT but checked at end of transaction
+    /// Allows deferred constraint checking
+    NoAction,
+}
+
+impl std::fmt::Display for ReferentialAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            | Self::Restrict => write!(f, "RESTRICT"),
+            | Self::Cascade => write!(f, "CASCADE"),
+            | Self::SetNull => write!(f, "SET NULL"),
+            | Self::SetDefault => write!(f, "SET DEFAULT"),
+            | Self::NoAction => write!(f, "NO ACTION"),
+        }
+    }
 }
 
 /// Column definition in table schema
@@ -1445,6 +1501,9 @@ impl StorageEngine {
         // Validate row against schema
         self.validate_row(&schema, &row)?;
 
+        // Validate foreign key constraints
+        self.validate_foreign_key_constraints(&schema, &row).await?;
+
         // Compress row data using DNA compression
         let compressed_data = self.compress_row(&row).await?;
 
@@ -1668,6 +1727,10 @@ impl StorageEngine {
     }
 
     /// Update rows matching the given query
+    ///
+    /// Handles foreign key constraints:
+    /// - Validates that new FK values exist in referenced tables
+    /// - Applies ON UPDATE actions for tables referencing updated PK values
     #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn update_rows(&mut self, query: &UpdateQuery) -> Result<u64> {
         debug!("✏️ Updating rows in table: {}", query.table);
@@ -1686,6 +1749,16 @@ impl StorageEngine {
         let mut updated_count = 0;
         let mut updated_rows = Vec::new();
 
+        // Clone schema for FK validation
+        let schema = self
+            .metadata
+            .tables
+            .get(&query.table)
+            .ok_or_else(|| {
+                CoreError::invalid_operation(&format!("Table '{}' schema not found", query.table))
+            })?
+            .clone();
+
         for mut row in existing_rows {
             let old_row = row.clone();
 
@@ -1696,10 +1769,14 @@ impl StorageEngine {
             row.updated_at = chrono::Utc::now();
 
             // Validate updated row
-            let schema = self.metadata.tables.get(&query.table).ok_or_else(|| {
-                CoreError::invalid_operation(&format!("Table '{}' schema not found", query.table))
-            })?;
-            self.validate_row(schema, &row)?;
+            self.validate_row(&schema, &row)?;
+
+            // Validate foreign key constraints for the updated row
+            self.validate_foreign_key_constraints(&schema, &row).await?;
+
+            // Handle ON UPDATE actions for tables referencing this table's PK
+            self.handle_update_foreign_key_constraints(&query.table, &old_row, &row)
+                .await?;
 
             // Update compressed data
             let compressed_data = self.compress_row(&row).await?;
@@ -1733,7 +1810,212 @@ impl StorageEngine {
         Ok(updated_count)
     }
 
+    /// Handle foreign key constraints when updating a row (ON UPDATE actions)
+    async fn handle_update_foreign_key_constraints(
+        &mut self,
+        table_name: &str,
+        old_row: &Row,
+        new_row: &Row,
+    ) -> Result<()> {
+        // Get the schema of the table being updated
+        let table_schema = self
+            .metadata
+            .tables
+            .get(table_name)
+            .ok_or_else(|| anyhow!("Table '{table_name}' not found"))?
+            .clone();
+
+        // Check if any primary key or unique key columns are being changed
+        let pk_changed = old_row.fields.get(&table_schema.primary_key)
+            != new_row.fields.get(&table_schema.primary_key);
+
+        if !pk_changed {
+            // No PK change, no need to check ON UPDATE actions
+            return Ok(());
+        }
+
+        // Find all tables that reference this table
+        let referencing_tables: Vec<_> = self
+            .metadata
+            .tables
+            .iter()
+            .filter_map(|(name, schema)| {
+                let referencing_fks: Vec<_> = schema
+                    .foreign_keys
+                    .iter()
+                    .filter(|fk| fk.referenced_table == table_name)
+                    .cloned()
+                    .collect();
+
+                if referencing_fks.is_empty() {
+                    None
+                } else {
+                    Some((name.clone(), referencing_fks))
+                }
+            })
+            .collect();
+
+        for (ref_table_name, foreign_keys) in referencing_tables {
+            for fk in foreign_keys {
+                self.apply_update_action(&ref_table_name, &fk, &table_schema, old_row, new_row)
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply the ON UPDATE action for a foreign key constraint
+    async fn apply_update_action(
+        &mut self,
+        referencing_table: &str,
+        fk: &ForeignKeyConstraint,
+        _referenced_schema: &TableSchema,
+        old_row: &Row,
+        new_row: &Row,
+    ) -> Result<()> {
+        // Build the WHERE clause to find referencing rows
+        let mut conditions = Vec::new();
+        for (i, ref_column) in fk.referenced_columns.iter().enumerate() {
+            if let Some(old_value) = old_row.fields.get(ref_column) {
+                let fk_column = fk
+                    .columns
+                    .get(i)
+                    .ok_or_else(|| anyhow!("Foreign key column count mismatch"))?;
+                conditions.push(Condition {
+                    field: fk_column.clone(),
+                    operator: ComparisonOperator::Equal,
+                    value: old_value.clone(),
+                });
+            }
+        }
+
+        if conditions.is_empty() {
+            return Ok(());
+        }
+
+        // Find referencing rows
+        let select_query = SelectQuery {
+            table: referencing_table.to_string(),
+            columns: vec!["*".to_string()],
+            where_clause: Some(WhereClause { conditions }),
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+
+        let referencing_rows = self.select_rows(&select_query).await?;
+
+        if referencing_rows.is_empty() {
+            return Ok(());
+        }
+
+        // Apply the appropriate action
+        match fk.on_update {
+            | ReferentialAction::Restrict | ReferentialAction::NoAction => {
+                let constraint_name = fk
+                    .name
+                    .as_ref()
+                    .map(|n| format!(" (constraint '{n}')"))
+                    .unwrap_or_default();
+                return Err(anyhow!(
+                    "Foreign key violation{}: cannot update primary key in '{}' because {} row(s) in '{}' reference this row",
+                    constraint_name,
+                    _referenced_schema.name,
+                    referencing_rows.len(),
+                    referencing_table
+                ));
+            },
+            | ReferentialAction::Cascade => {
+                // Update the foreign key columns in referencing rows to match the new PK
+                for ref_row in &referencing_rows {
+                    let mut updated_fields = ref_row.fields.clone();
+                    for (i, ref_column) in fk.referenced_columns.iter().enumerate() {
+                        if let Some(new_value) = new_row.fields.get(ref_column) {
+                            let fk_column = fk
+                                .columns
+                                .get(i)
+                                .ok_or_else(|| anyhow!("Foreign key column count mismatch"))?;
+                            updated_fields.insert(fk_column.clone(), new_value.clone());
+                        }
+                    }
+
+                    let updated_row = Row {
+                        id: ref_row.id,
+                        fields: updated_fields,
+                        created_at: ref_row.created_at,
+                        updated_at: chrono::Utc::now(),
+                    };
+
+                    self.update_row_internal(referencing_table, &updated_row)
+                        .await?;
+                }
+            },
+            | ReferentialAction::SetNull => {
+                // Set the foreign key columns to NULL
+                for ref_row in &referencing_rows {
+                    let mut updated_fields = ref_row.fields.clone();
+                    for fk_column in &fk.columns {
+                        updated_fields.insert(fk_column.clone(), Value::Null);
+                    }
+
+                    let updated_row = Row {
+                        id: ref_row.id,
+                        fields: updated_fields,
+                        created_at: ref_row.created_at,
+                        updated_at: chrono::Utc::now(),
+                    };
+
+                    self.update_row_internal(referencing_table, &updated_row)
+                        .await?;
+                }
+            },
+            | ReferentialAction::SetDefault => {
+                // Set the foreign key columns to their default values
+                let ref_schema = self
+                    .metadata
+                    .tables
+                    .get(referencing_table)
+                    .ok_or_else(|| anyhow!("Table '{referencing_table}' not found"))?
+                    .clone();
+
+                for ref_row in &referencing_rows {
+                    let mut updated_fields = ref_row.fields.clone();
+                    for fk_column in &fk.columns {
+                        let default_value = ref_schema
+                            .columns
+                            .iter()
+                            .find(|c| c.name == *fk_column)
+                            .and_then(|c| c.default_value.clone())
+                            .unwrap_or(Value::Null);
+
+                        updated_fields.insert(fk_column.clone(), default_value);
+                    }
+
+                    let updated_row = Row {
+                        id: ref_row.id,
+                        fields: updated_fields,
+                        created_at: ref_row.created_at,
+                        updated_at: chrono::Utc::now(),
+                    };
+
+                    self.update_row_internal(referencing_table, &updated_row)
+                        .await?;
+                }
+            },
+        }
+
+        Ok(())
+    }
+
     /// Delete rows matching the given query
+    ///
+    /// Handles foreign key constraints according to their ON DELETE actions:
+    /// - RESTRICT: Error if rows are referenced by other tables
+    /// - CASCADE: Delete referencing rows in dependent tables
+    /// - SET NULL: Set foreign key columns to NULL in referencing rows
+    /// - SET DEFAULT: Set foreign key columns to default values
+    /// - NO ACTION: Same as RESTRICT (checked at end of statement)
     #[instrument(level = "debug", skip(self, query), fields(table = %query.table))]
     pub async fn delete_rows(&mut self, query: &DeleteQuery) -> Result<u64> {
         debug!("🗑️ Deleting rows from table: {}", query.table);
@@ -1751,6 +2033,12 @@ impl StorageEngine {
         let rows_to_delete = self.select_rows(&select_query).await?;
         let deleted_count = rows_to_delete.len();
         let mut deleted_row_ids = Vec::new();
+
+        // Handle foreign key constraints for rows to be deleted
+        for row in &rows_to_delete {
+            self.handle_delete_foreign_key_constraints(&query.table, row)
+                .await?;
+        }
 
         for row in rows_to_delete {
             // Keep track of deleted row IDs
@@ -1793,6 +2081,303 @@ impl StorageEngine {
 
         debug!("✅ Deleted {} rows", deleted_count);
         Ok(deleted_count as u64)
+    }
+
+    /// Internal delete method for CASCADE operations
+    /// This is a separate method to avoid async recursion issues with the #[instrument] macro
+    fn delete_rows_internal<'a>(
+        &'a mut self,
+        query: &'a DeleteQuery,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64>> + Send + 'a>> {
+        Box::pin(async move {
+            // Get existing rows that match the condition
+            let select_query = SelectQuery {
+                table: query.table.clone(),
+                columns: vec!["*".to_string()],
+                where_clause: query.where_clause.clone(),
+                order_by: None,
+                limit: None,
+                offset: None,
+            };
+
+            let rows_to_delete = self.select_rows(&select_query).await?;
+            let deleted_count = rows_to_delete.len();
+            let mut deleted_row_ids = Vec::new();
+
+            // Handle foreign key constraints for rows to be deleted
+            for row in &rows_to_delete {
+                self.handle_delete_foreign_key_constraints(&query.table, row)
+                    .await?;
+            }
+
+            for row in rows_to_delete {
+                // Keep track of deleted row IDs
+                deleted_row_ids.push(row.id);
+
+                // Remove from compressed blocks
+                self.compressed_blocks.remove(&row.id);
+
+                // Remove from LRU cache
+                self.row_cache.pop(&row.id);
+
+                // Update indexes - clone schema to avoid borrow checker issues
+                let schema = self
+                    .metadata
+                    .tables
+                    .get(&query.table)
+                    .ok_or_else(|| {
+                        CoreError::invalid_operation(&format!(
+                            "Table '{}' schema not found",
+                            query.table
+                        ))
+                    })?
+                    .clone();
+                self.update_indexes_for_delete(&schema, &row)?;
+
+                // Log operation
+                let operation = Operation::Delete {
+                    table: query.table.clone(),
+                    row_id: row.id,
+                    data: row,
+                };
+                self.log_operation(operation).await?;
+            }
+
+            // Rewrite table file without deleted rows
+            if deleted_count > 0 {
+                self.rewrite_table_file_with_deletions(&query.table, &deleted_row_ids)
+                    .await?;
+            }
+
+            Ok(deleted_count as u64)
+        })
+    }
+
+    /// Handle foreign key constraints when deleting a row
+    ///
+    /// Finds all tables that reference this table and applies the ON DELETE action
+    async fn handle_delete_foreign_key_constraints(
+        &mut self,
+        table_name: &str,
+        row: &Row,
+    ) -> Result<()> {
+        // Get the schema of the table being deleted from
+        let table_schema = self
+            .metadata
+            .tables
+            .get(table_name)
+            .ok_or_else(|| anyhow!("Table '{table_name}' not found"))?
+            .clone();
+
+        // Find all tables that reference this table
+        let referencing_tables: Vec<_> = self
+            .metadata
+            .tables
+            .iter()
+            .filter_map(|(name, schema)| {
+                let referencing_fks: Vec<_> = schema
+                    .foreign_keys
+                    .iter()
+                    .filter(|fk| fk.referenced_table == table_name)
+                    .cloned()
+                    .collect();
+
+                if referencing_fks.is_empty() {
+                    None
+                } else {
+                    Some((name.clone(), referencing_fks))
+                }
+            })
+            .collect();
+
+        for (ref_table_name, foreign_keys) in referencing_tables {
+            for fk in foreign_keys {
+                // For each foreign key that references this table, apply the ON DELETE action
+                self.apply_delete_action(&ref_table_name, &fk, &table_schema, row)
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply the ON DELETE action for a foreign key constraint
+    async fn apply_delete_action(
+        &mut self,
+        referencing_table: &str,
+        fk: &ForeignKeyConstraint,
+        _referenced_schema: &TableSchema,
+        deleted_row: &Row,
+    ) -> Result<()> {
+        // Build the WHERE clause to find referencing rows
+        let mut conditions = Vec::new();
+        for (i, ref_column) in fk.referenced_columns.iter().enumerate() {
+            if let Some(deleted_value) = deleted_row.fields.get(ref_column) {
+                let fk_column = fk
+                    .columns
+                    .get(i)
+                    .ok_or_else(|| anyhow!("Foreign key column count mismatch"))?;
+                conditions.push(Condition {
+                    field: fk_column.clone(),
+                    operator: ComparisonOperator::Equal,
+                    value: deleted_value.clone(),
+                });
+            }
+        }
+
+        if conditions.is_empty() {
+            return Ok(()); // No matching columns to check
+        }
+
+        // Find referencing rows
+        let select_query = SelectQuery {
+            table: referencing_table.to_string(),
+            columns: vec!["*".to_string()],
+            where_clause: Some(WhereClause { conditions }),
+            order_by: None,
+            limit: None,
+            offset: None,
+        };
+
+        let referencing_rows = self.select_rows(&select_query).await?;
+
+        if referencing_rows.is_empty() {
+            return Ok(()); // No referencing rows, nothing to do
+        }
+
+        // Apply the appropriate action
+        match fk.on_delete {
+            | ReferentialAction::Restrict | ReferentialAction::NoAction => {
+                let constraint_name = fk
+                    .name
+                    .as_ref()
+                    .map(|n| format!(" (constraint '{n}')"))
+                    .unwrap_or_default();
+                return Err(anyhow!(
+                    "Foreign key violation{}: cannot delete from '{}' because {} row(s) in '{}' reference this row",
+                    constraint_name,
+                    _referenced_schema.name,
+                    referencing_rows.len(),
+                    referencing_table
+                ));
+            },
+            | ReferentialAction::Cascade => {
+                // Delete all referencing rows (this may trigger further cascades)
+                let mut cascade_conditions = Vec::new();
+                for (i, ref_column) in fk.referenced_columns.iter().enumerate() {
+                    if let Some(deleted_value) = deleted_row.fields.get(ref_column) {
+                        let fk_column = fk
+                            .columns
+                            .get(i)
+                            .ok_or_else(|| anyhow!("Foreign key column count mismatch"))?;
+                        cascade_conditions.push(Condition {
+                            field: fk_column.clone(),
+                            operator: ComparisonOperator::Equal,
+                            value: deleted_value.clone(),
+                        });
+                    }
+                }
+
+                let cascade_delete = DeleteQuery {
+                    table: referencing_table.to_string(),
+                    where_clause: Some(WhereClause {
+                        conditions: cascade_conditions,
+                    }),
+                };
+
+                // Recursive delete (handles further cascades)
+                // Use Box::pin for async recursion
+                Box::pin(self.delete_rows_internal(&cascade_delete)).await?;
+            },
+            | ReferentialAction::SetNull => {
+                // Set the foreign key columns to NULL in referencing rows
+                for ref_row in &referencing_rows {
+                    let mut updated_fields = ref_row.fields.clone();
+                    for fk_column in &fk.columns {
+                        updated_fields.insert(fk_column.clone(), Value::Null);
+                    }
+
+                    let updated_row = Row {
+                        id: ref_row.id,
+                        fields: updated_fields,
+                        created_at: ref_row.created_at,
+                        updated_at: chrono::Utc::now(),
+                    };
+
+                    self.update_row_internal(referencing_table, &updated_row)
+                        .await?;
+                }
+            },
+            | ReferentialAction::SetDefault => {
+                // Set the foreign key columns to their default values
+                let ref_schema = self
+                    .metadata
+                    .tables
+                    .get(referencing_table)
+                    .ok_or_else(|| anyhow!("Table '{referencing_table}' not found"))?
+                    .clone();
+
+                for ref_row in &referencing_rows {
+                    let mut updated_fields = ref_row.fields.clone();
+                    for fk_column in &fk.columns {
+                        // Find the default value for this column
+                        let default_value = ref_schema
+                            .columns
+                            .iter()
+                            .find(|c| c.name == *fk_column)
+                            .and_then(|c| c.default_value.clone())
+                            .unwrap_or(Value::Null);
+
+                        updated_fields.insert(fk_column.clone(), default_value);
+                    }
+
+                    let updated_row = Row {
+                        id: ref_row.id,
+                        fields: updated_fields,
+                        created_at: ref_row.created_at,
+                        updated_at: chrono::Utc::now(),
+                    };
+
+                    self.update_row_internal(referencing_table, &updated_row)
+                        .await?;
+                }
+            },
+        }
+
+        Ok(())
+    }
+
+    /// Internal method to update a row (used by FK constraint handling)
+    async fn update_row_internal(&mut self, table: &str, row: &Row) -> Result<()> {
+        // Compress and store the updated row
+        let compressed_data = self.compress_row(row).await?;
+        self.compressed_blocks.insert(row.id, compressed_data);
+
+        // Update cache
+        self.row_cache.put(row.id, row.clone());
+
+        // Rewrite the row in the table file
+        // For simplicity, we'll reload all rows and rewrite
+        let file_path = self.data_dir.join("tables").join(format!("{table}.dat"));
+        if file_path.exists() {
+            let content = fs::read_to_string(&file_path).await?;
+            let mut rows: Vec<Row> = if content.trim().is_empty() {
+                Vec::new()
+            } else {
+                serde_json::from_str(&content)?
+            };
+
+            // Find and update the row
+            if let Some(existing) = rows.iter_mut().find(|r| r.id == row.id) {
+                *existing = row.clone();
+            }
+
+            // Write back
+            let content = serde_json::to_string_pretty(&rows)?;
+            fs::write(&file_path, content).await?;
+        }
+
+        Ok(())
     }
 
     /// Flush all pending changes to disk
@@ -1883,6 +2468,7 @@ impl StorageEngine {
                 version: 1,
                 auto_increment_columns: HashMap::new(),
                 id_strategy: IdGenerationStrategy::AutoIncrement,
+                foreign_keys: Vec::new(),
             };
             self.create_table(schema).await?;
         }
@@ -1983,6 +2569,92 @@ impl StorageEngine {
         }
 
         Ok(())
+    }
+
+    /// Validate foreign key constraints for an INSERT operation
+    ///
+    /// Checks that all foreign key values reference existing rows in the referenced tables.
+    /// Returns an error if any foreign key constraint is violated.
+    async fn validate_foreign_key_constraints(
+        &self,
+        schema: &TableSchema,
+        row: &Row,
+    ) -> Result<()> {
+        for fk in &schema.foreign_keys {
+            // For each foreign key constraint, check if the referenced value exists
+            for (i, fk_column) in fk.columns.iter().enumerate() {
+                if let Some(fk_value) = row.fields.get(fk_column) {
+                    // Skip NULL values (they don't need to reference anything)
+                    if *fk_value == Value::Null {
+                        continue;
+                    }
+
+                    // Get the referenced column name
+                    let ref_column = fk
+                        .referenced_columns
+                        .get(i)
+                        .ok_or_else(|| anyhow!("Foreign key column count mismatch"))?;
+
+                    // Check if the referenced table exists
+                    let ref_schema =
+                        self.metadata
+                            .tables
+                            .get(&fk.referenced_table)
+                            .ok_or_else(|| {
+                                anyhow!(
+                                    "Foreign key references non-existent table '{}'",
+                                    fk.referenced_table
+                                )
+                            })?;
+
+                    // Check if the referenced value exists
+                    let exists = self
+                        .check_value_exists(&ref_schema.name, ref_column, fk_value)
+                        .await?;
+
+                    if !exists {
+                        let constraint_name = fk
+                            .name
+                            .as_ref()
+                            .map(|n| format!(" (constraint '{n}')"))
+                            .unwrap_or_default();
+                        return Err(anyhow!(
+                            "Foreign key violation{}: value {} in column '{}' does not exist in {}.{}",
+                            constraint_name,
+                            fk_value,
+                            fk_column,
+                            fk.referenced_table,
+                            ref_column
+                        ));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check if a specific value exists in a table column
+    ///
+    /// Used for foreign key constraint validation
+    async fn check_value_exists(&self, table: &str, column: &str, value: &Value) -> Result<bool> {
+        let query = SelectQuery {
+            table: table.to_string(),
+            columns: vec![column.to_string()],
+            where_clause: Some(WhereClause {
+                conditions: vec![Condition {
+                    field: column.to_string(),
+                    operator: ComparisonOperator::Equal,
+                    value: value.clone(),
+                }],
+            }),
+            order_by: None,
+            limit: Some(1),
+            offset: None,
+        };
+
+        let rows = self.select_rows(&query).await?;
+        Ok(!rows.is_empty())
     }
 
     /// Compress row data using DNA compression
@@ -3442,6 +4114,7 @@ pub fn create_test_schema(name: &str) -> TableSchema {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     }
 }
 
@@ -3517,6 +4190,7 @@ impl TableSchema {
             version: 1,
             auto_increment_columns: HashMap::new(),
             id_strategy: IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Vec::new(),
         }
     }
 
@@ -3634,6 +4308,7 @@ mod auto_increment_tests {
             version: 1,
             auto_increment_columns: HashMap::new(),
             id_strategy: IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Vec::new(),
         };
 
         // Verify id column is marked as auto_increment

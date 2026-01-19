@@ -69,6 +69,7 @@ async fn test_complete_workflow_with_query_statistics() {
             version: 1,
             auto_increment_columns: std::collections::HashMap::new(),
             id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Vec::new(),
         };
 
         storage
@@ -223,6 +224,7 @@ async fn test_concurrent_operations() {
             version: 1,
             auto_increment_columns: std::collections::HashMap::new(),
             id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Vec::new(),
         };
 
         storage
@@ -295,6 +297,7 @@ async fn test_query_statistics_accuracy() {
             version: 1,
             auto_increment_columns: std::collections::HashMap::new(),
             id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Vec::new(),
         };
 
         storage.create_table(schema).await.unwrap();

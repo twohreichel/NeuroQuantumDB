@@ -503,6 +503,7 @@ pub async fn create_table(
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     // Create table in database

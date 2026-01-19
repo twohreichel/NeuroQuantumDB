@@ -32,6 +32,7 @@ async fn test_simple_insert() {
         version: 1,
         auto_increment_columns: HashMap::new(),
         id_strategy: IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     println!("Creating table...");

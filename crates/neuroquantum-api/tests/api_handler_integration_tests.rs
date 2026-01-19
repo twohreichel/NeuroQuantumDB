@@ -76,6 +76,7 @@ fn create_test_schema(table_name: &str) -> neuroquantum_core::storage::TableSche
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     }
 }
 
@@ -282,6 +283,7 @@ async fn test_create_table_with_various_column_types() {
         version: 1,
         auto_increment_columns: std::collections::HashMap::new(),
         id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+        foreign_keys: Vec::new(),
     };
 
     {

@@ -15,9 +15,9 @@ use crate::ast::{
     DeallocateStatement, DeleteStatement, DropIndexStatement, DropTableStatement, ExecuteStatement,
     Expression, FromClause, InsertStatement, JoinClause, JoinType, LearnPatternStatement, Literal,
     NeuroMatchClause, NeuroMatchStatement, OrderByItem, ParameterRef, PrepareStatement,
-    QuantumJoinStatement, QuantumSearchStatement, SelectItem, SelectStatement, Statement,
-    TableConstraint, TableReference, TruncateBehavior, TruncateTableStatement, UnaryOperator,
-    UpdateStatement, WindowFunctionType, WindowSpec, WithClause,
+    QuantumJoinStatement, QuantumSearchStatement, ReferentialAction, SelectItem, SelectStatement,
+    Statement, TableConstraint, TableReference, TruncateBehavior, TruncateTableStatement,
+    UnaryOperator, UpdateStatement, WindowFunctionType, WindowSpec, WithClause,
 };
 use crate::error::{QSQLError, QSQLResult};
 
@@ -188,6 +188,8 @@ pub enum TokenType {
     Generated,
     Always,
     Identity,
+    Foreign,
+    Constraint,
 
     // Date/Time keywords
     Interval,
@@ -278,6 +280,11 @@ pub enum TokenType {
     Restrict,
     Restart,
     Continue,
+
+    // Foreign key referential action keywords
+    Set,
+    Action,
+    No,
 
     // Operators and punctuation
     Equal,
@@ -2085,7 +2092,10 @@ impl QSQLParser {
 
         // Parse SET clause
         if i < tokens.len() {
-            if let TokenType::Identifier(ref name) = tokens[i] {
+            if matches!(tokens[i], TokenType::Set) {
+                // SET is now a keyword token
+                i += 1;
+            } else if let TokenType::Identifier(ref name) = tokens[i] {
                 if name.to_uppercase() == "SET" {
                     i += 1;
                 } else {
@@ -3068,7 +3078,10 @@ impl QSQLParser {
 
         while i < tokens.len() && !matches!(tokens[i], TokenType::RightParen) {
             // Check if this is a table constraint
-            if matches!(tokens[i], TokenType::Primary | TokenType::Unique) {
+            if matches!(
+                tokens[i],
+                TokenType::Primary | TokenType::Unique | TokenType::Foreign
+            ) {
                 // Parse table constraint
                 let constraint = self.parse_table_constraint(tokens, &mut i)?;
                 constraints.push(constraint);
@@ -3208,7 +3221,41 @@ impl QSQLParser {
                     }
                     *i += 1;
 
-                    ColumnConstraint::ForeignKey { table, column }
+                    // Parse optional ON DELETE and ON UPDATE actions
+                    let mut on_delete = ReferentialAction::Restrict;
+                    let mut on_update = ReferentialAction::Restrict;
+
+                    // Parse ON DELETE/ON UPDATE in any order
+                    for _ in 0..2 {
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::On) {
+                            *i += 1;
+                            if *i >= tokens.len() {
+                                break;
+                            }
+                            match &tokens[*i] {
+                                | TokenType::Delete => {
+                                    *i += 1;
+                                    on_delete = self.parse_referential_action(tokens, i)?;
+                                },
+                                | TokenType::Update => {
+                                    *i += 1;
+                                    on_update = self.parse_referential_action(tokens, i)?;
+                                },
+                                | _ => {
+                                    // Not DELETE or UPDATE, backtrack
+                                    *i -= 1;
+                                    break;
+                                },
+                            }
+                        }
+                    }
+
+                    ColumnConstraint::ForeignKey {
+                        table,
+                        column,
+                        on_delete,
+                        on_update,
+                    }
                 },
                 | _ => break,
             };
@@ -3221,6 +3268,73 @@ impl QSQLParser {
             constraints,
             synaptic_properties: None,
         })
+    }
+
+    /// Parse referential action for foreign key constraints
+    /// Parses: CASCADE | RESTRICT | SET NULL | SET DEFAULT | NO ACTION
+    fn parse_referential_action(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<ReferentialAction> {
+        if *i >= tokens.len() {
+            return Err(QSQLError::ParseError {
+                message: "Expected referential action (CASCADE, RESTRICT, SET NULL, SET DEFAULT, or NO ACTION)".to_string(),
+                position: *i,
+            });
+        }
+
+        match &tokens[*i] {
+            | TokenType::Cascade => {
+                *i += 1;
+                Ok(ReferentialAction::Cascade)
+            },
+            | TokenType::Restrict => {
+                *i += 1;
+                Ok(ReferentialAction::Restrict)
+            },
+            | TokenType::Set => {
+                *i += 1;
+                if *i >= tokens.len() {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected NULL or DEFAULT after SET".to_string(),
+                        position: *i,
+                    });
+                }
+                match &tokens[*i] {
+                    | TokenType::Null => {
+                        *i += 1;
+                        Ok(ReferentialAction::SetNull)
+                    },
+                    | TokenType::Default => {
+                        *i += 1;
+                        Ok(ReferentialAction::SetDefault)
+                    },
+                    | _ => Err(QSQLError::ParseError {
+                        message: "Expected NULL or DEFAULT after SET".to_string(),
+                        position: *i,
+                    }),
+                }
+            },
+            | TokenType::No => {
+                *i += 1;
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Action) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected ACTION after NO".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+                Ok(ReferentialAction::NoAction)
+            },
+            | _ => Err(QSQLError::ParseError {
+                message: format!(
+                    "Expected referential action (CASCADE, RESTRICT, SET NULL, SET DEFAULT, or NO ACTION), found {:?}",
+                    tokens[*i]
+                ),
+                position: *i,
+            }),
+        }
     }
 
     /// Parse data type
@@ -3443,6 +3557,149 @@ impl QSQLParser {
                 *i += 1;
 
                 Ok(TableConstraint::Unique(columns))
+            },
+            | TokenType::Foreign => {
+                // FOREIGN KEY (columns) REFERENCES table(columns) [ON DELETE action] [ON UPDATE action]
+                *i += 1;
+
+                // Expect KEY
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::Key) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected KEY after FOREIGN".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Expect '('
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected '(' after FOREIGN KEY".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Parse column list
+                let mut columns = Vec::new();
+                while *i < tokens.len() && !matches!(tokens[*i], TokenType::RightParen) {
+                    if let TokenType::Identifier(col) = &tokens[*i] {
+                        columns.push(col.clone());
+                        *i += 1;
+
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                            *i += 1;
+                        }
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in FOREIGN KEY".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+
+                // Expect ')'
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected ')' after FOREIGN KEY columns".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Expect REFERENCES
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::References) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected REFERENCES after FOREIGN KEY columns".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Parse referenced table name
+                let referenced_table = if let TokenType::Identifier(t) = &tokens[*i] {
+                    *i += 1;
+                    t.clone()
+                } else {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected table name after REFERENCES".to_string(),
+                        position: *i,
+                    });
+                };
+
+                // Expect '('
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::LeftParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected '(' after referenced table".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Parse referenced column list
+                let mut referenced_columns = Vec::new();
+                while *i < tokens.len() && !matches!(tokens[*i], TokenType::RightParen) {
+                    if let TokenType::Identifier(col) = &tokens[*i] {
+                        referenced_columns.push(col.clone());
+                        *i += 1;
+
+                        if *i < tokens.len() && matches!(tokens[*i], TokenType::Comma) {
+                            *i += 1;
+                        }
+                    } else {
+                        return Err(QSQLError::ParseError {
+                            message: "Expected column name in REFERENCES".to_string(),
+                            position: *i,
+                        });
+                    }
+                }
+
+                // Expect ')'
+                if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                    return Err(QSQLError::ParseError {
+                        message: "Expected ')' after referenced columns".to_string(),
+                        position: *i,
+                    });
+                }
+                *i += 1;
+
+                // Parse optional ON DELETE and ON UPDATE actions
+                let mut on_delete = ReferentialAction::Restrict;
+                let mut on_update = ReferentialAction::Restrict;
+
+                // Parse ON DELETE/ON UPDATE in any order
+                for _ in 0..2 {
+                    if *i < tokens.len() && matches!(tokens[*i], TokenType::On) {
+                        *i += 1;
+                        if *i >= tokens.len() {
+                            break;
+                        }
+                        match &tokens[*i] {
+                            | TokenType::Delete => {
+                                *i += 1;
+                                on_delete = self.parse_referential_action(tokens, i)?;
+                            },
+                            | TokenType::Update => {
+                                *i += 1;
+                                on_update = self.parse_referential_action(tokens, i)?;
+                            },
+                            | _ => {
+                                // Not DELETE or UPDATE, backtrack
+                                *i -= 1;
+                                break;
+                            },
+                        }
+                    }
+                }
+
+                Ok(TableConstraint::ForeignKey {
+                    name: None, // Constraint name is parsed separately if CONSTRAINT keyword is used
+                    columns,
+                    referenced_table,
+                    referenced_columns,
+                    on_delete,
+                    on_update,
+                })
             },
             | _ => Err(QSQLError::ParseError {
                 message: format!("Unexpected constraint token: {:?}", tokens[*i]),
@@ -4471,7 +4728,6 @@ impl QSQLParser {
             TokenType::Identifier("VALUES".to_string()),
         );
         keywords.insert("UPDATE".to_string(), TokenType::Update);
-        keywords.insert("SET".to_string(), TokenType::Identifier("SET".to_string()));
         keywords.insert("DELETE".to_string(), TokenType::Delete);
 
         // DDL keywords
@@ -4503,6 +4759,8 @@ impl QSQLParser {
         keywords.insert("GENERATED".to_string(), TokenType::Generated);
         keywords.insert("ALWAYS".to_string(), TokenType::Always);
         keywords.insert("IDENTITY".to_string(), TokenType::Identity);
+        keywords.insert("FOREIGN".to_string(), TokenType::Foreign);
+        keywords.insert("CONSTRAINT".to_string(), TokenType::Constraint);
 
         // Date/Time keywords
         keywords.insert("INTERVAL".to_string(), TokenType::Interval);
@@ -4625,6 +4883,11 @@ impl QSQLParser {
         keywords.insert("RESTRICT".to_string(), TokenType::Restrict);
         keywords.insert("RESTART".to_string(), TokenType::Restart);
         keywords.insert("CONTINUE".to_string(), TokenType::Continue);
+
+        // Foreign key referential action keywords
+        keywords.insert("SET".to_string(), TokenType::Set);
+        keywords.insert("ACTION".to_string(), TokenType::Action);
+        keywords.insert("NO".to_string(), TokenType::No);
     }
 
     /// Initialize operator mappings with precedence for Pratt parsing

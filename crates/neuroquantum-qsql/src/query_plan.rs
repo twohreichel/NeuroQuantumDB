@@ -3432,6 +3432,7 @@ impl QueryExecutor {
             version: 1,
             auto_increment_columns: std::collections::HashMap::new(),
             id_strategy: neuroquantum_core::storage::IdGenerationStrategy::AutoIncrement,
+            foreign_keys: Self::extract_foreign_keys(create),
         };
 
         // Try to create table
@@ -5265,6 +5266,83 @@ impl QueryExecutor {
             | _ => Err(QSQLError::ExecutionError {
                 message: format!("Unsupported expression type in conversion: {expr:?}"),
             }),
+        }
+    }
+
+    /// Extract foreign key constraints from a CREATE TABLE statement
+    /// Processes both column-level and table-level foreign key definitions
+    fn extract_foreign_keys(
+        create: &CreateTableStatement,
+    ) -> Vec<neuroquantum_core::storage::ForeignKeyConstraint> {
+        let mut foreign_keys = Vec::new();
+
+        // Extract column-level foreign keys (REFERENCES syntax)
+        for column in &create.columns {
+            for constraint in &column.constraints {
+                if let ColumnConstraint::ForeignKey {
+                    table,
+                    column: ref_column,
+                    on_delete,
+                    on_update,
+                } = constraint
+                {
+                    foreign_keys.push(neuroquantum_core::storage::ForeignKeyConstraint {
+                        name: None,
+                        columns: vec![column.name.clone()],
+                        referenced_table: table.clone(),
+                        referenced_columns: vec![ref_column.clone()],
+                        on_delete: Self::convert_referential_action(*on_delete),
+                        on_update: Self::convert_referential_action(*on_update),
+                    });
+                }
+            }
+        }
+
+        // Extract table-level foreign keys (FOREIGN KEY syntax)
+        for constraint in &create.constraints {
+            if let TableConstraint::ForeignKey {
+                name,
+                columns,
+                referenced_table,
+                referenced_columns,
+                on_delete,
+                on_update,
+            } = constraint
+            {
+                foreign_keys.push(neuroquantum_core::storage::ForeignKeyConstraint {
+                    name: name.clone(),
+                    columns: columns.clone(),
+                    referenced_table: referenced_table.clone(),
+                    referenced_columns: referenced_columns.clone(),
+                    on_delete: Self::convert_referential_action(*on_delete),
+                    on_update: Self::convert_referential_action(*on_update),
+                });
+            }
+        }
+
+        foreign_keys
+    }
+
+    /// Convert AST `ReferentialAction` to storage `ReferentialAction`
+    const fn convert_referential_action(
+        action: crate::ast::ReferentialAction,
+    ) -> neuroquantum_core::storage::ReferentialAction {
+        match action {
+            | crate::ast::ReferentialAction::Restrict => {
+                neuroquantum_core::storage::ReferentialAction::Restrict
+            },
+            | crate::ast::ReferentialAction::Cascade => {
+                neuroquantum_core::storage::ReferentialAction::Cascade
+            },
+            | crate::ast::ReferentialAction::SetNull => {
+                neuroquantum_core::storage::ReferentialAction::SetNull
+            },
+            | crate::ast::ReferentialAction::SetDefault => {
+                neuroquantum_core::storage::ReferentialAction::SetDefault
+            },
+            | crate::ast::ReferentialAction::NoAction => {
+                neuroquantum_core::storage::ReferentialAction::NoAction
+            },
         }
     }
 
