@@ -2414,19 +2414,23 @@ pub struct EEGAuthResponse {
 pub async fn eeg_enroll(
     req: HttpRequest,
     body: web::Json<EEGEnrollRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
     // Check permissions - require admin for enrollment
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required for EEG enrollment".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required for EEG enrollment".to_string(),
+            ));
+        }
     }
 
     // Validate request
@@ -2435,12 +2439,8 @@ pub async fn eeg_enroll(
         message: format!("Invalid enrollment request: {e}"),
     })?;
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let mut eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let mut eeg_service = app_state.eeg_service.write().await;
 
     // Enroll user
     let signature = eeg_service
@@ -2484,6 +2484,7 @@ pub async fn eeg_enroll(
 pub async fn eeg_authenticate(
     _req: HttpRequest,
     body: web::Json<EEGAuthRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
@@ -2493,12 +2494,8 @@ pub async fn eeg_authenticate(
         message: format!("Invalid auth request: {e}"),
     })?;
 
-    // Create EEG auth service (in production, this would be shared state)
-    use crate::biometric_auth::EEGAuthService;
-    let eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let eeg_service = app_state.eeg_service.read().await;
 
     // Authenticate user
     let auth_result = eeg_service
@@ -2546,19 +2543,22 @@ pub async fn eeg_authenticate(
 pub async fn eeg_update_signature(
     req: HttpRequest,
     body: web::Json<EEGAuthRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required to update EEG signature".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required to update EEG signature".to_string(),
+            ));
+        }
     }
 
     // Validate request
@@ -2567,12 +2567,8 @@ pub async fn eeg_update_signature(
         message: format!("Invalid update request: {e}"),
     })?;
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let mut eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let mut eeg_service = app_state.eeg_service.write().await;
 
     // Update signature
     eeg_service
@@ -2597,26 +2593,28 @@ pub async fn eeg_update_signature(
     ),
     tag = "Biometric Authentication"
 )]
-pub async fn eeg_list_users(req: HttpRequest) -> ActixResult<HttpResponse, ApiError> {
+pub async fn eeg_list_users(
+    req: HttpRequest,
+    app_state: web::Data<crate::AppState>,
+) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
-    // Check permissions
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Check permissions - use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required to list EEG users".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required to list EEG users".to_string(),
+            ));
+        }
     }
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let eeg_service = EEGAuthService::new(256.0).map_err(|e| ApiError::InternalServerError {
-        message: format!("Failed to initialize EEG service: {e}"),
-    })?;
+    // Use shared EEG auth service from AppState
+    let eeg_service = app_state.eeg_service.read().await;
 
     let users = eeg_service.list_users();
 
@@ -2712,19 +2710,23 @@ pub struct BiometricVerifyResponse {
 pub async fn biometric_enroll(
     req: HttpRequest,
     body: web::Json<BiometricEnrollRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
     // Check permissions - require admin for enrollment
-    let extensions = req.extensions();
-    let api_key = extensions
-        .get::<ApiKey>()
-        .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
+    // Use block to drop RefCell reference before await
+    {
+        let extensions = req.extensions();
+        let api_key = extensions
+            .get::<ApiKey>()
+            .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    if !api_key.permissions.contains(&"admin".to_string()) {
-        return Err(ApiError::Forbidden(
-            "Admin permission required for biometric enrollment".to_string(),
-        ));
+        if !api_key.permissions.contains(&"admin".to_string()) {
+            return Err(ApiError::Forbidden(
+                "Admin permission required for biometric enrollment".to_string(),
+            ));
+        }
     }
 
     // Validate request
@@ -2740,12 +2742,8 @@ pub async fn biometric_enroll(
         ));
     }
 
-    // Create EEG auth service
-    use crate::biometric_auth::EEGAuthService;
-    let mut eeg_service =
-        EEGAuthService::new(body.sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let mut eeg_service = app_state.eeg_service.write().await;
 
     // Process each sample and build enrollment template
     let mut total_quality = 0.0f32;
@@ -2821,6 +2819,7 @@ pub async fn biometric_enroll(
 pub async fn biometric_verify(
     _req: HttpRequest,
     body: web::Json<BiometricVerifyRequest>,
+    app_state: web::Data<crate::AppState>,
 ) -> ActixResult<HttpResponse, ApiError> {
     let start = Instant::now();
 
@@ -2837,14 +2836,8 @@ pub async fn biometric_verify(
         ));
     }
 
-    let sampling_rate = body.sampling_rate.unwrap_or(256.0);
-
-    // Create EEG auth service (in production, this would be shared state with persistent storage)
-    use crate::biometric_auth::EEGAuthService;
-    let eeg_service =
-        EEGAuthService::new(sampling_rate).map_err(|e| ApiError::InternalServerError {
-            message: format!("Failed to initialize EEG service: {e}"),
-        })?;
+    // Use shared EEG auth service from AppState
+    let eeg_service = app_state.eeg_service.read().await;
 
     // Authenticate user
     let auth_result = eeg_service

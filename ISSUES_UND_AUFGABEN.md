@@ -18,7 +18,7 @@
 
 | # | Status | Issue | Beschreibung | Aufwand |
 |---|--------|-------|--------------|---------|
-| 3 | ⬜ | [ISSUE-004](issues/ISSUE-004-eeg-authservice-persistenz.md) | EEG-AuthService Persistenz | 2-4 Std |
+| 3 | ✅ | [ISSUE-004](issues/ISSUE-004-eeg-authservice-persistenz.md) | EEG-AuthService Persistenz | 2-4 Std |
 | 4 | ⬜ | [ISSUE-008](issues/ISSUE-008-auto-increment-truncate.md) | Auto-Increment Reset bei TRUNCATE | 2-4 Std |
 
 ### Sprint 3: Kritische Bugs (8-16 Stunden)
@@ -71,12 +71,12 @@ Diese Tasks waren ursprünglich geplant, wurden aber bereits durch geschlossene 
 | Sprint | Tasks | Erledigt | Status |
 |--------|-------|----------|--------|
 | Sprint 1: Quick Wins | 2 | 2 | ✅ |
-| Sprint 2: Security | 2 | 0 | ⬜ |
+| Sprint 2: Security | 2 | 1 | 🔄 |
 | Sprint 3: Bugs | 2 | 0 | ⬜ |
 | Sprint 4: SQL | 1 | 0 | ⬜ |
 | Sprint 5: Cluster | 2 | 0 | ⬜ |
 | Sprint 6: Optional | 4 | 0 | ⬜ |
-| **Gesamt** | **13** | **2** | **15%** |
+| **Gesamt** | **13** | **3** | **23%** |
 
 ---
 

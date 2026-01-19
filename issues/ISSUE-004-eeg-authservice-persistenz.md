@@ -2,12 +2,24 @@
 
 **Priorität:** 🟠 HOCH  
 **Aufwand:** 2-4 Stunden  
-**Status:** ⬜ Offen  
-**Sprint:** 2 (Security & API)
+**Status:** ✅ Erledigt  
+**Sprint:** 2 (Security & API)  
+**Abgeschlossen:** 19. Januar 2026
 
 ---
 
-## Problembeschreibung
+## Lösung
+
+Der `EEGAuthService` wurde als shared state in `AppState` integriert:
+
+1. **lib.rs**: `EEGAuthService` als `Arc<RwLock<EEGAuthService>>` zu `AppState` hinzugefügt
+2. **handlers.rs**: Alle 6 EEG-Handler (`eeg_enroll`, `eeg_authenticate`, `eeg_update_signature`, `eeg_list_users`, `biometric_enroll`, `biometric_verify`) nutzen jetzt den shared state aus `AppState`
+
+Die EEG-Signaturen persistieren nun zwischen Requests im Speicher.
+
+---
+
+## Problembeschreibung (Original)
 
 Der `EEGAuthService` wird bei jedem HTTP-Request neu instanziiert. Dadurch gehen registrierte EEG-Signaturen zwischen Enroll und Verify verloren.
 
