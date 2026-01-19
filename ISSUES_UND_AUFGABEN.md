@@ -34,13 +34,6 @@
 |---|--------|-------|--------------|---------|
 | 7 | ✅ | [ISSUE-009](issues/ISSUE-009-neuromatch-joins.md) | NEUROMATCH in JOINs fixen | 4-8 Std |
 
-### Sprint 5: Cluster-Stabilität (32-56 Stunden)
-
-| # | Status | Issue | Beschreibung | Aufwand |
-|---|--------|-------|--------------|---------|
-| 8 | ⬜ | [ISSUE-003](issues/ISSUE-003-cluster-rollback.md) | Cluster Rollback implementieren | 16-32 Std |
-| 9 | ⬜ | [ISSUE-006](issues/ISSUE-006-anti-entropy-repair.md) | Anti-Entropy Repair | 16-24 Std |
-
 ### Sprint 6: Nice-to-Have (Optional)
 
 | # | Status | Issue | Beschreibung | Aufwand |
@@ -52,20 +45,6 @@
 
 ---
 
-## ✅ Bereits erledigt (GitHub Issues geschlossen)
-
-Diese Tasks waren ursprünglich geplant, wurden aber bereits durch geschlossene GitHub Issues abgedeckt:
-
-| Issue | Beschreibung | GitHub Issue |
-|-------|--------------|--------------|
-| ~~UPDATE ohne WHERE~~ | Fehlermeldung verbessern | [#128](https://github.com/issues/128) CLOSED |
-| ~~Datum/Zeit-Funktionen~~ | CURRENT_DATE, NOW(), etc. | [#202](https://github.com/issues/202) CLOSED |
-| ~~Rekursive CTEs~~ | WITH RECURSIVE | [#127](https://github.com/issues/127), [#201](https://github.com/issues/201) CLOSED |
-| ~~Correlated Subqueries~~ | Subqueries mit Korrelation | [#192](https://github.com/issues/192) CLOSED |
-| ~~Dead Code bereinigen~~ | Cluster-Module | [#314](https://github.com/issues/314) CLOSED |
-
----
-
 ## 📊 Fortschritt
 
 | Sprint | Tasks | Erledigt | Status |
@@ -74,34 +53,8 @@ Diese Tasks waren ursprünglich geplant, wurden aber bereits durch geschlossene 
 | Sprint 2: Security | 2 | 2 | ✅ |
 | Sprint 3: Bugs | 2 | 2 | ✅ |
 | Sprint 4: SQL | 1 | 1 | ✅ |
-| Sprint 5: Cluster | 2 | 0 | ⬜ |
-| Sprint 6: Optional | 4 | 0 | ⬜ |
+| Sprint 5: Optional | 4 | 0 | ⬜ |
 | **Gesamt** | **13** | **7** | **54%** |
-
----
-
-## 🔗 Offene GitHub Issues (Cluster-Features)
-
-Diese existieren bereits als GitHub Issues und sollten dort bearbeitet werden:
-
-| GitHub # | Titel |
-|----------|-------|
-| #288 | Multi-Node Cluster-Core Storage Engine Integration |
-| #289 | Distributed Query Routing for Multi-Node QSQL |
-| #290 | Distributed Transactions with 2PC |
-| #291 | Read Replica Support |
-| #292 | Cluster-wide Backup |
-| #293 | Multi-Datacenter Geo-Replication |
-| #294 | Cluster-aware Connection Pooling |
-| #295 | Distributed Lock Manager |
-| #296 | Automatic Node Failure Detection |
-| #297 | Cluster Monitoring Dashboard |
-| #298 | REST API Cluster Integration |
-| #299 | Cluster-wide Schema Synchronization |
-| #308 | Connection Pooling im Cluster |
-| #311 | Doppelte Serialisierung |
-| #74 | rkyv vulnerability |
-| #75 | paste dependency unmaintained |
 
 ---
 
@@ -115,7 +68,6 @@ cargo test --all
 cargo test -p neuroquantum-core
 cargo test -p neuroquantum-qsql
 cargo test -p neuroquantum-api
-cargo test -p neuroquantum-cluster
 
 # Build
 cargo build --release
