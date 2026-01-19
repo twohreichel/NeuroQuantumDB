@@ -100,14 +100,24 @@ else
     # Don't fail the commit for unused dependencies, just warn
 fi
 
-# 6. Check for unsafe code blocks
+# 6. Check for unsafe code blocks (SIMD files are excluded)
 print_status "Checking for unsafe code..."
-if grep -r "unsafe" crates/ --include="*.rs" > /dev/null 2>&1; then
-    print_error "Unsafe code detected! Remove all unsafe blocks before committing."
-    grep -r "unsafe" crates/ --include="*.rs"
+# SIMD files that are allowed to contain unsafe code (documented and necessary)
+SIMD_EXCLUDE_PATTERN="simd/|neon_optimization\.rs"
+
+# Find all .rs files with actual unsafe blocks (not comments), excluding SIMD-related files
+# Pattern matches: "unsafe {", "unsafe fn", "unsafe impl", "unsafe trait" but not "// ... unsafe" comments
+UNSAFE_FILES=$(grep -rE "^\s*(pub\s+)?(unsafe\s+(fn|impl|trait|\{))|[^/]\s+unsafe\s+\{" crates/ --include="*.rs" -l 2>/dev/null | grep -vE "$SIMD_EXCLUDE_PATTERN" || true)
+
+if [ -n "$UNSAFE_FILES" ]; then
+    print_error "Unsafe code detected in non-SIMD files! Remove all unsafe blocks before committing."
+    for file in $UNSAFE_FILES; do
+        echo "  - $file"
+        grep -nE "unsafe\s+(fn|impl|trait|\{)" "$file" | grep -v "^\s*//" | head -5
+    done
     exit 1
 else
-    print_success "No unsafe code found"
+    print_success "No unsafe code found (SIMD files excluded)"
 fi
 
 # 7. Run tests (quick subset)
