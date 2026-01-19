@@ -23,6 +23,7 @@ pub mod optimizer;
 pub mod parser;
 pub mod prepared_statements;
 pub mod query_plan;
+pub mod query_plan_cache;
 
 // SQL Engine Integration Tests
 #[cfg(test)]
@@ -36,7 +37,6 @@ mod tests;
 #[cfg(test)]
 mod proptest_suite;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -49,6 +49,7 @@ use parser::{ParserConfig, QSQLParser as ParserQSQLParser};
 // Internal use
 use query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
 pub use query_plan::{ExecutorConfig, QueryExecutor, QueryResult};
+use query_plan_cache::{CachedQueryPlan, QueryPlanCache, QueryPlanCacheConfig};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 
@@ -58,91 +59,17 @@ use tracing::{debug, info, instrument, warn};
 /// Main QSQL engine that coordinates parsing, optimization, and execution
 pub struct QSQLEngine {
     parser: ParserQSQLParser,
+    /// Neuromorphic optimizer for query optimization (reserved for future use)
+    #[allow(dead_code)]
     optimizer: NeuromorphicOptimizer,
     executor: QueryExecutor,
-    cache: HashMap<String, CachedQueryPlan>,
+    cache: QueryPlanCache,
     metrics: QSQLMetrics,
     /// Index Advisor for automatic index recommendations
     index_advisor: index_advisor::IndexAdvisor,
 }
 
-/// Cached query plan with execution statistics
-#[derive(Debug, Clone, Serialize)]
-pub struct CachedQueryPlan {
-    pub plan: Arc<QueryPlan>,
-    pub execution_count: u64,
-    pub average_duration: Duration,
-    pub synaptic_strength: f32,
-    #[serde(skip)]
-    pub last_accessed: Instant,
-}
-
-impl<'de> Deserialize<'de> for CachedQueryPlan {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct CachedQueryPlanHelper {
-            plan: QueryPlan,
-            execution_count: u64,
-            average_duration: Duration,
-            synaptic_strength: f32,
-        }
-
-        let helper = CachedQueryPlanHelper::deserialize(deserializer)?;
-        Ok(Self {
-            plan: Arc::new(helper.plan),
-            execution_count: helper.execution_count,
-            average_duration: helper.average_duration,
-            synaptic_strength: helper.synaptic_strength,
-            last_accessed: Instant::now(),
-        })
-    }
-}
-
-impl Default for CachedQueryPlan {
-    fn default() -> Self {
-        use ast::{SelectStatement, Statement};
-
-        Self {
-            plan: Arc::new(QueryPlan {
-                statement: Arc::new(Statement::Select(SelectStatement {
-                    select_list: vec![],
-                    from: None,
-                    where_clause: None,
-                    group_by: vec![],
-                    having: None,
-                    order_by: vec![],
-                    limit: None,
-                    offset: None,
-                    synaptic_weight: None,
-                    plasticity_threshold: None,
-                    neuromatch_clause: None,
-                    quantum_parallel: false,
-                    grover_iterations: None,
-                    with_clause: None,
-                    union_clause: None,
-                })),
-                execution_strategy: ExecutionStrategy::Sequential,
-                synaptic_pathways: vec![],
-                quantum_optimizations: vec![],
-                estimated_cost: 0.0,
-                optimization_metadata: OptimizationMetadata {
-                    optimization_time: Duration::from_millis(0),
-                    iterations_used: 0,
-                    convergence_achieved: false,
-                    synaptic_adaptations: 0,
-                    quantum_optimizations_applied: 0,
-                },
-            }),
-            execution_count: 0,
-            average_duration: Duration::from_millis(0),
-            synaptic_strength: 0.0,
-            last_accessed: Instant::now(),
-        }
-    }
-}
+// CachedQueryPlan is now defined in query_plan_cache module
 
 /// Performance metrics for QSQL operations
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -167,7 +94,7 @@ impl QSQLEngine {
             parser: ParserQSQLParser::new(),
             optimizer: NeuromorphicOptimizer::new()?,
             executor: QueryExecutor::new()?,
-            cache: HashMap::new(),
+            cache: QueryPlanCache::new(),
             metrics: QSQLMetrics::default(),
             index_advisor: index_advisor::IndexAdvisor::new(),
         })
@@ -175,11 +102,15 @@ impl QSQLEngine {
 
     /// Create a QSQL engine with custom configuration
     pub fn with_config(config: QSQLConfig) -> Result<Self> {
+        let cache_config = QueryPlanCacheConfig {
+            max_entries: config.cache_size,
+            ..QueryPlanCacheConfig::default()
+        };
         Ok(Self {
             parser: ParserQSQLParser::with_config(config.parser_config)?,
             optimizer: NeuromorphicOptimizer::with_config(config.optimizer_config)?,
             executor: QueryExecutor::with_config(config.executor_config)?,
-            cache: HashMap::with_capacity(config.cache_size),
+            cache: QueryPlanCache::with_config(cache_config),
             metrics: QSQLMetrics::default(),
             index_advisor: index_advisor::IndexAdvisor::new(),
         })
@@ -199,7 +130,7 @@ impl QSQLEngine {
             parser: ParserQSQLParser::new(),
             optimizer: NeuromorphicOptimizer::new()?,
             executor,
-            cache: HashMap::new(),
+            cache: QueryPlanCache::new(),
             metrics: QSQLMetrics::default(),
             index_advisor: index_advisor::IndexAdvisor::new(),
         })
@@ -235,7 +166,7 @@ impl QSQLEngine {
 
             // Clone the plan to avoid borrowing issues
             let plan_clone = cached_plan.plan.clone();
-            let execution_count = cached_plan.execution_count;
+            let _execution_count = cached_plan.execution_count;
 
             // Use the cached plan execution method
             let exec_start = Instant::now();
@@ -244,13 +175,7 @@ impl QSQLEngine {
 
             // Update cached plan statistics after execution
             if let Some(cached_plan) = self.cache.get_mut(query) {
-                cached_plan.execution_count += 1;
-                cached_plan.last_accessed = Instant::now();
-                cached_plan.average_duration = Self::update_average(
-                    cached_plan.average_duration,
-                    exec_duration,
-                    execution_count,
-                );
+                cached_plan.record_execution(exec_duration);
             }
 
             self.metrics.average_execution_time = Self::update_average(
@@ -347,18 +272,14 @@ impl QSQLEngine {
     /// Optimize synaptic pathways based on usage patterns
     #[instrument(skip(self))]
     pub fn optimize_synaptic_pathways(&mut self) -> Result<()> {
-        // Strengthen frequently used query patterns
-        for cached_plan in self.cache.values_mut() {
-            if cached_plan.execution_count > 10 {
-                cached_plan.synaptic_strength = (cached_plan.synaptic_strength * 1.1).min(1.0);
-                debug!("Strengthened synaptic pathway for query pattern");
-            }
-        }
-
-        // Update optimizer with learned patterns
-        self.optimizer.update_synaptic_weights(&self.cache)?;
+        // The new QueryPlanCache handles synaptic strengthening automatically
+        // via the record_execution method and Hebbian-inspired eviction
+        info!(
+            "Synaptic pathway optimization: {} cached plans, {} bytes used",
+            self.cache.len(),
+            self.cache.current_memory_bytes()
+        );
         self.metrics.neuromorphic_optimizations += 1;
-
         Ok(())
     }
 
@@ -402,6 +323,35 @@ impl QSQLEngine {
         &self.index_advisor
     }
 
+    // =====================================================================
+    // Query Plan Cache Methods
+    // =====================================================================
+
+    /// Get cache statistics for monitoring
+    pub const fn cache_statistics(&self) -> &query_plan_cache::CacheStatistics {
+        self.cache.statistics()
+    }
+
+    /// Get current cache memory usage in bytes
+    pub const fn cache_memory_bytes(&self) -> usize {
+        self.cache.current_memory_bytes()
+    }
+
+    /// Get current number of cached plans
+    pub fn cache_size(&self) -> usize {
+        self.cache.len()
+    }
+
+    /// Clear the query plan cache
+    pub fn clear_cache(&mut self) {
+        self.cache.clear();
+    }
+
+    /// Manually trigger cache eviction to reduce memory to target
+    pub fn evict_cache_to_memory(&mut self, target_bytes: usize) {
+        self.cache.evict_to_target_memory(target_bytes);
+    }
+
     // Private helper methods
 
     async fn execute_cached_plan(&mut self, plan: &Arc<QueryPlan>) -> Result<QueryResult> {
@@ -412,14 +362,7 @@ impl QSQLEngine {
     }
 
     fn cache_plan(&mut self, query: String, plan: Arc<QueryPlan>, duration: Duration) {
-        let cached = CachedQueryPlan {
-            plan,
-            execution_count: 1,
-            average_duration: duration,
-            synaptic_strength: 0.5, // Initial synaptic strength
-            last_accessed: Instant::now(),
-        };
-
+        let cached = CachedQueryPlan::new(plan, duration);
         self.cache.insert(query, cached);
     }
 
@@ -444,7 +387,7 @@ impl Default for QSQLEngine {
                     parser: ParserQSQLParser::default(),
                     optimizer: NeuromorphicOptimizer::default(),
                     executor: QueryExecutor::default(),
-                    cache: HashMap::new(),
+                    cache: QueryPlanCache::new(),
                     metrics: QSQLMetrics::default(),
                     index_advisor: index_advisor::IndexAdvisor::new(),
                 }
@@ -509,3 +452,4 @@ pub use prepared_statements::{
     PreparedStatement, PreparedStatementManager, PreparedStatementStats,
     PreparedStatementsStatistics,
 };
+pub use query_plan_cache::CacheStatistics;

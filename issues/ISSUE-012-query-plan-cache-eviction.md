@@ -2,8 +2,9 @@
 
 **Priorität:** 🟢 NIEDRIG  
 **Aufwand:** 4-6 Stunden  
-**Status:** ⬜ Offen  
-**Sprint:** 6 (Nice-to-Have)
+**Status:** ✅ Erledigt  
+**Sprint:** 6 (Nice-to-Have)  
+**Abgeschlossen:** 19. Januar 2026
 
 ---
 
@@ -66,6 +67,27 @@ cargo test -p neuroquantum-qsql cache -- --nocapture
 
 ## Akzeptanzkriterium
 
-- [ ] Memory-Limit konfigurierbar
-- [ ] LRU-Eviction implementiert
-- [ ] Cache wächst nicht unbegrenzt
+- [x] Memory-Limit konfigurierbar
+- [x] LRU-Eviction implementiert
+- [x] Cache wächst nicht unbegrenzt
+
+---
+
+## Lösung
+
+Neue Datei `crates/neuroquantum-qsql/src/query_plan_cache.rs` mit:
+
+- `QueryPlanCache` - Vollständige Cache-Implementierung mit LRU-Eviction
+- `QueryPlanCacheConfig` - Konfigurierbare Limits (max_entries, max_memory_bytes, etc.)
+- `CachedQueryPlan` - Erweiterte Struktur mit Memory-Tracking und synaptic_strength
+- `CacheStatistics` - Statistiken für Monitoring (hits, misses, evictions, etc.)
+
+### Features:
+- **Konfigurierbares Memory-Limit** (Standard: 64 MB)
+- **LRU-Eviction** basierend auf `last_accessed`
+- **Hebbian-inspirierte Priorisierung**: Häufig genutzte Queries haben höhere `synaptic_strength`
+- **Synaptic Decay**: Optionaler Verfall der Stärke über Zeit
+- **Batch-Eviction**: Effiziente Eviction bei Speicherdruck
+
+### Tests:
+8 Unit-Tests für alle Cache-Funktionalitäten implementiert.

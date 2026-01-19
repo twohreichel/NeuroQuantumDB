@@ -407,17 +407,12 @@ mod storage_integration_tests {
             .parse("INSERT INTO orders (id, customer_id) VALUES (2, 999)")
             .unwrap();
         let result = executor.execute_statement(&stmt).await;
-        assert!(
-            result.is_err(),
-            "Invalid FK insert should fail: {:?}",
-            result
-        );
+        assert!(result.is_err(), "Invalid FK insert should fail: {result:?}");
         let err = result.unwrap_err();
         assert!(
             err.to_string().contains("Foreign key violation")
                 || err.to_string().contains("does not exist"),
-            "Error message should mention foreign key violation: {}",
-            err
+            "Error message should mention foreign key violation: {err}"
         );
     }
 
