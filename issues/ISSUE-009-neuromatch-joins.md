@@ -2,7 +2,7 @@
 
 **Priorität:** 🟡 MITTEL  
 **Aufwand:** 4-8 Stunden  
-**Status:** ⬜ Offen  
+**Status:** ✅ Erledigt (19. Januar 2026)  
 **Sprint:** 4 (SQL-Funktionalität)
 
 ---
@@ -69,6 +69,29 @@ cargo test -p neuroquantum-qsql neuromatch.*join -- --nocapture
 
 ## Akzeptanzkriterium
 
-- [ ] NEUROMATCH funktioniert in JOIN WHERE-Klauseln
-- [ ] Kein Workaround mit Subquery nötig
-- [ ] Alle QSQL-JOIN-Tests bestehen
+- [x] NEUROMATCH funktioniert in JOIN WHERE-Klauseln
+- [x] Kein Workaround mit Subquery nötig
+- [x] Alle QSQL-JOIN-Tests bestehen
+
+## Lösung (implementiert am 19.01.2026)
+
+### Problem
+Die `evaluate_where_expression` Funktion in `query_plan.rs` konnte nur einfache `Identifier`-Expressions auf der linken Seite eines Vergleichs verarbeiten. Funktionsaufrufe wie `NEUROMATCH(u.name, 'Test')` wurden nicht unterstützt und führten zu einem stillen Fehler.
+
+### Änderungen
+1. **NEUROMATCH als Scalar Function hinzugefügt** (`evaluate_scalar_function`):
+   - Implementierung der NEUROMATCH-Funktion mit 2 Argumenten
+   - Nutzt die bestehende `calculate_neuromatch_similarity` Methode
+
+2. **evaluate_where_expression erweitert**:
+   - Neue Behandlung für `Expression::FunctionCall` in BinaryOp-Vergleichen
+   - Ermöglicht Ausdrücke wie `NEUROMATCH(col, 'pattern') > 0.3`
+
+3. **Statische Hilfsfunktion hinzugefügt** (`evaluate_function_call_static`):
+   - Evaluiert Funktionsaufrufe im WHERE-Kontext
+   - Unterstützt NEUROMATCH, SYNAPTIC_WEIGHT, UPPER, LOWER, LENGTH
+
+4. **Tests hinzugefügt**:
+   - `test_parser_neuromatch_function_in_join_where`
+   - `test_parser_neuromatch_with_left_join`
+   - `test_parser_neuromatch_qualified_column`

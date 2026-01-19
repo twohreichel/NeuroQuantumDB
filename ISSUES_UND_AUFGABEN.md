@@ -32,7 +32,7 @@
 
 | # | Status | Issue | Beschreibung | Aufwand |
 |---|--------|-------|--------------|---------|
-| 7 | ⬜ | [ISSUE-009](issues/ISSUE-009-neuromatch-joins.md) | NEUROMATCH in JOINs fixen | 4-8 Std |
+| 7 | ✅ | [ISSUE-009](issues/ISSUE-009-neuromatch-joins.md) | NEUROMATCH in JOINs fixen | 4-8 Std |
 
 ### Sprint 5: Cluster-Stabilität (32-56 Stunden)
 
@@ -73,10 +73,10 @@ Diese Tasks waren ursprünglich geplant, wurden aber bereits durch geschlossene 
 | Sprint 1: Quick Wins | 2 | 2 | ✅ |
 | Sprint 2: Security | 2 | 2 | ✅ |
 | Sprint 3: Bugs | 2 | 2 | ✅ |
-| Sprint 4: SQL | 1 | 0 | ⬜ |
+| Sprint 4: SQL | 1 | 1 | ✅ |
 | Sprint 5: Cluster | 2 | 0 | ⬜ |
 | Sprint 6: Optional | 4 | 0 | ⬜ |
-| **Gesamt** | **13** | **6** | **46%** |
+| **Gesamt** | **13** | **7** | **54%** |
 
 ---
 

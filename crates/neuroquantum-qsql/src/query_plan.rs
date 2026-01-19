@@ -4877,6 +4877,12 @@ impl QueryExecutor {
                                 },
                                 | None => Ok(false),
                             }
+                        } else if let Expression::FunctionCall { name, args } = left.as_ref() {
+                            // Handle function calls like NEUROMATCH(column, 'pattern') > 0.3
+                            // This enables neuromorphic functions in WHERE clauses with JOINs
+                            let func_result = Self::evaluate_function_call_static(name, args, row)?;
+                            let compare_value = Self::convert_expression_to_value_static(right)?;
+                            Self::evaluate_comparison(&func_result, operator, &compare_value)
                         } else {
                             Ok(true) // Default to true for unsupported patterns
                         }
@@ -5260,6 +5266,196 @@ impl QueryExecutor {
                 message: format!("Unsupported expression type in conversion: {expr:?}"),
             }),
         }
+    }
+
+    /// Evaluate function call expressions statically (for WHERE clause evaluation)
+    /// This enables neuromorphic functions like NEUROMATCH to work in JOINs and complex WHERE clauses
+    fn evaluate_function_call_static(
+        name: &str,
+        args: &[Expression],
+        row: &Row,
+    ) -> QSQLResult<Value> {
+        let upper_name = name.to_uppercase();
+
+        // Helper to get string value from expression
+        let get_string_arg = |idx: usize| -> QSQLResult<String> {
+            if idx >= args.len() {
+                return Err(QSQLError::ExecutionError {
+                    message: format!("Function {name} requires more arguments"),
+                });
+            }
+            match &args[idx] {
+                | Expression::Identifier(col_name) => {
+                    // Get column value from row
+                    if let Some(value) = row.fields.get(col_name) {
+                        match value {
+                            | Value::Text(s) => Ok(s.to_string()),
+                            | Value::Integer(i) => Ok(i.to_string()),
+                            | Value::Float(f) => Ok(f.to_string()),
+                            | Value::Boolean(b) => Ok(b.to_string()),
+                            | Value::Null => Ok(String::new()),
+                            | _ => Ok(String::new()),
+                        }
+                    } else {
+                        // Try qualified column name (table.column)
+                        for (key, value) in &row.fields {
+                            if key.ends_with(&format!(".{col_name}")) || key == col_name {
+                                match value {
+                                    | Value::Text(s) => return Ok(s.to_string()),
+                                    | Value::Integer(i) => return Ok(i.to_string()),
+                                    | Value::Float(f) => return Ok(f.to_string()),
+                                    | Value::Boolean(b) => return Ok(b.to_string()),
+                                    | Value::Null => return Ok(String::new()),
+                                    | _ => return Ok(String::new()),
+                                }
+                            }
+                        }
+                        Ok(String::new())
+                    }
+                },
+                | Expression::Literal(lit) => match lit {
+                    | Literal::String(s) => Ok(s.clone()),
+                    | Literal::Integer(i) => Ok(i.to_string()),
+                    | Literal::Float(f) => Ok(f.to_string()),
+                    | Literal::Boolean(b) => Ok(b.to_string()),
+                    | Literal::Null => Ok(String::new()),
+                    | Literal::DNA(s) => Ok(s.clone()),
+                    | Literal::QuantumBit(state, amp) => Ok(format!("{state}:{amp}")),
+                },
+                | _ => Err(QSQLError::ExecutionError {
+                    message: format!("Unsupported argument type in function {name}"),
+                }),
+            }
+        };
+
+        match upper_name.as_str() {
+            | "NEUROMATCH" => {
+                if args.len() != 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message:
+                            "NEUROMATCH requires exactly 2 arguments: NEUROMATCH(column, 'pattern')"
+                                .to_string(),
+                    });
+                }
+
+                let val1 = get_string_arg(0)?;
+                let val2 = get_string_arg(1)?;
+
+                // Use the neuromorphic similarity algorithm (static version)
+                let similarity = Self::calculate_neuromatch_similarity_static(&val1, &val2);
+
+                Ok(Value::Float(f64::from(similarity)))
+            },
+            | "SYNAPTIC_WEIGHT" => {
+                if args.is_empty() || args.len() > 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message: "SYNAPTIC_WEIGHT requires 1 or 2 arguments".to_string(),
+                    });
+                }
+
+                let val1 = get_string_arg(0)?;
+
+                let weight = if args.len() == 1 {
+                    // Single argument: return normalized activity level
+                    Self::calculate_synaptic_activity_static(&val1)
+                } else {
+                    // Two arguments: calculate similarity between values
+                    let val2 = get_string_arg(1)?;
+                    Self::calculate_neuromatch_similarity_static(&val1, &val2)
+                };
+
+                Ok(Value::Float(f64::from(weight)))
+            },
+            | "UPPER" => {
+                let s = get_string_arg(0)?;
+                Ok(Value::text(s.to_uppercase()))
+            },
+            | "LOWER" => {
+                let s = get_string_arg(0)?;
+                Ok(Value::text(s.to_lowercase()))
+            },
+            | "LENGTH" | "LEN" => {
+                let s = get_string_arg(0)?;
+                Ok(Value::Integer(s.len() as i64))
+            },
+            | _ => Err(QSQLError::ExecutionError {
+                message: format!("Function {name} not supported in WHERE clause context"),
+            }),
+        }
+    }
+
+    /// Static version of `calculate_neuromatch_similarity` for use in WHERE evaluation
+    fn calculate_neuromatch_similarity_static(value: &str, pattern: &str) -> f32 {
+        // Normalize inputs for comparison
+        let value_lower = value.to_lowercase();
+        let pattern_lower = pattern.to_lowercase();
+
+        // Exact match check for the full pattern
+        if value_lower.contains(&pattern_lower) {
+            return 1.0;
+        }
+
+        // Word-based matching
+        let pattern_words: Vec<&str> = pattern_lower.split_whitespace().collect();
+        let value_words: Vec<&str> = value_lower.split_whitespace().collect();
+
+        if pattern_words.is_empty() || value_words.is_empty() {
+            return 0.0;
+        }
+
+        // Calculate word-based similarity
+        let mut matching_words = 0;
+        let mut total_word_score = 0.0f32;
+
+        for pattern_word in &pattern_words {
+            let mut best_match_for_word = 0.0f32;
+
+            for value_word in &value_words {
+                if value_word.contains(pattern_word) || pattern_word.contains(value_word) {
+                    best_match_for_word = 1.0;
+                    break;
+                }
+
+                let distance = Self::levenshtein_distance(value_word, pattern_word);
+                let max_len = value_word.len().max(pattern_word.len());
+
+                if max_len > 0 {
+                    let word_similarity = 1.0 - (distance as f32 / max_len as f32);
+                    if word_similarity > best_match_for_word {
+                        best_match_for_word = word_similarity;
+                    }
+                }
+            }
+
+            if best_match_for_word > 0.7 {
+                matching_words += 1;
+            }
+
+            total_word_score += best_match_for_word;
+        }
+
+        let word_ratio = matching_words as f32 / pattern_words.len() as f32;
+        let avg_quality = total_word_score / pattern_words.len() as f32;
+
+        // Combine scores
+        (word_ratio * 0.6 + avg_quality * 0.4).clamp(0.0, 1.0)
+    }
+
+    /// Static version of synaptic activity calculation
+    fn calculate_synaptic_activity_static(value: &str) -> f32 {
+        if value.is_empty() {
+            return 0.0;
+        }
+
+        // Normalize based on string properties
+        let len_factor = (value.len() as f32 / 100.0).clamp(0.0, 1.0);
+        let char_diversity = value
+            .chars()
+            .collect::<std::collections::HashSet<_>>()
+            .len() as f32
+            / value.len() as f32;
+
+        (len_factor * 0.5 + char_diversity * 0.5).clamp(0.0, 1.0)
     }
 
     /// Convert Expression to WHERE clause (static)
@@ -7566,6 +7762,29 @@ impl QueryExecutor {
                 Ok(QueryValue::SynapticWeight(weight))
             },
 
+            // Neuromorphic function: NEUROMATCH
+            // Calculate neuromorphic pattern similarity between a column value and a pattern
+            // This enables brain-inspired fuzzy matching in WHERE clauses and JOINs
+            // Syntax: NEUROMATCH(column, 'pattern') returns similarity score 0.0-1.0
+            | "NEUROMATCH" => {
+                if args.len() != 2 {
+                    return Err(QSQLError::ExecutionError {
+                        message:
+                            "NEUROMATCH requires exactly 2 arguments: NEUROMATCH(column, 'pattern')"
+                                .to_string(),
+                    });
+                }
+
+                let val1 = get_string_arg(0)?;
+                let val2 = get_string_arg(1)?;
+
+                // Use the neuromorphic similarity algorithm
+                let similarity = self.calculate_neuromatch_similarity(&val1, &val2);
+
+                // Return as SynapticWeight which is a float-like type
+                Ok(QueryValue::SynapticWeight(similarity))
+            },
+
             | _ => Err(QSQLError::ExecutionError {
                 message: format!("Unknown scalar function: {func_name}"),
             }),
@@ -7822,7 +8041,7 @@ impl QueryExecutor {
             | "SIGN" | "TRUNCATE" | "TRUNC" | "EXP" | "LN" | "LOG" | "LOG10" | "LOG2" | "PI"
             | "RANDOM" | "RAND" => DataType::Double,
             // Neuromorphic functions
-            | "SYNAPTIC_WEIGHT" | "HEBBIAN_LEARNING" => DataType::SynapticWeight,
+            | "SYNAPTIC_WEIGHT" | "HEBBIAN_LEARNING" | "NEUROMATCH" => DataType::SynapticWeight,
             | _ => DataType::Text,
         }
     }

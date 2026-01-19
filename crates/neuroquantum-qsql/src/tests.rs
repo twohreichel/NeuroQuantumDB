@@ -271,6 +271,72 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_neuromatch_function_in_join_where() {
+        // Test NEUROMATCH function in WHERE clause with JOINs (ISSUE-009 fix)
+        // This was the problematic query that failed before the fix
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT u.name, o.amount FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE NEUROMATCH(u.name, 'Test') > 0.3";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH in JOIN WHERE clause should parse: {result:?}"
+        );
+
+        // Verify the parsed structure contains JOIN and WHERE with NEUROMATCH
+        match result.unwrap() {
+            | Statement::Select(select) => {
+                // Verify FROM clause with JOIN is present
+                assert!(select.from.is_some(), "FROM clause should be present");
+                let from = select.from.as_ref().unwrap();
+                assert!(
+                    !from.joins.is_empty(),
+                    "JOIN should be present in FROM clause"
+                );
+
+                // Verify WHERE clause contains NEUROMATCH
+                assert!(
+                    select.where_clause.is_some(),
+                    "WHERE clause should be present"
+                );
+                let where_str = format!("{:?}", select.where_clause);
+                assert!(
+                    where_str.contains("NEUROMATCH"),
+                    "WHERE clause should contain NEUROMATCH function: {:?}",
+                    select.where_clause
+                );
+            },
+            | _ => panic!("Expected SELECT statement"),
+        }
+    }
+
+    #[test]
+    fn test_parser_neuromatch_with_left_join() {
+        // Test NEUROMATCH function with LEFT JOIN (ISSUE-009 extended test)
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT c.name, p.title FROM customers c LEFT JOIN purchases p ON c.id = p.customer_id WHERE NEUROMATCH(c.name, 'Smith') > 0.5";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH with LEFT JOIN should parse: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_parser_neuromatch_qualified_column() {
+        // Test NEUROMATCH with table-qualified column names (u.name instead of name)
+        let parser = QSQLParser::new();
+
+        let sql = "SELECT * FROM users u WHERE NEUROMATCH(u.email, 'example.com') > 0.7";
+        let result = parser.parse_query(sql);
+        assert!(
+            result.is_ok(),
+            "NEUROMATCH with qualified column should parse: {result:?}"
+        );
+    }
+
+    #[test]
     fn test_parser_quantum_search_comparison() {
         // Test QUANTUM_SEARCH function with comparison
         let parser = QSQLParser::new();
