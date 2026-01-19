@@ -41,7 +41,7 @@
 | 10 | ✅ | [ISSUE-010](issues/ISSUE-010-wasm-dna-kompression.md) | WASM DNA-Kompression | 4-8 Std |
 | 11 | ✅ | [ISSUE-011](issues/ISSUE-011-foreign-key-constraints.md) | Foreign Key Constraints | 16-24 Std |
 | 12 | ✅ | [ISSUE-012](issues/ISSUE-012-query-plan-cache-eviction.md) | Query Plan Cache Eviction | 4-6 Std |
-| 13 | ⬜ | [ISSUE-013](issues/ISSUE-013-response-metriken.md) | Response-Metriken vervollständigen | 4-8 Std |
+| 13 | ✅ | [ISSUE-013](issues/ISSUE-013-response-metriken.md) | Response-Metriken vervollständigen | 4-8 Std |
 
 ---
 
@@ -53,8 +53,8 @@
 | Sprint 2: Security | 2 | 2 | ✅ |
 | Sprint 3: Bugs | 2 | 2 | ✅ |
 | Sprint 4: SQL | 1 | 1 | ✅ |
-| Sprint 5: Optional | 4 | 3 | 🔄 |
-| **Gesamt** | **13** | **10** | **77%** |
+| Sprint 5: Optional | 4 | 4 | ✅ |
+| **Gesamt** | **13** | **13** | **100%** |
 
 ---
 

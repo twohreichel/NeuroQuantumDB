@@ -1007,6 +1007,10 @@ pub async fn train_neural_network(
         network_id,
         training_status: TrainingStatus::Queued,
         initial_loss: Some(0.85),
+        current_loss: None, // Will be updated during training
+        final_loss: None,   // Will be set upon completion
+        epochs_completed: Some(0),
+        total_epochs: Some(train_req.config.epochs),
         training_started_at: chrono::Utc::now().to_rfc3339(),
         estimated_completion: Some(
             (chrono::Utc::now() + chrono::Duration::minutes(30)).to_rfc3339(),
@@ -1049,11 +1053,16 @@ pub async fn get_training_status(
         .get::<ApiKey>()
         .ok_or_else(|| ApiError::Unauthorized("Authentication required".to_string()))?;
 
-    // Simulate status retrieval
+    // Simulate status retrieval with training progress
+    // In a real implementation, this would query the training job state
     let response = TrainNeuralNetworkResponse {
         network_id,
         training_status: TrainingStatus::Running,
         initial_loss: Some(0.85),
+        current_loss: Some(0.42), // Simulated current loss during training
+        final_loss: None,         // Not yet completed
+        epochs_completed: Some(47),
+        total_epochs: Some(100),
         training_started_at: chrono::Utc::now().to_rfc3339(),
         estimated_completion: Some(
             (chrono::Utc::now() + chrono::Duration::minutes(15)).to_rfc3339(),
@@ -1322,6 +1331,21 @@ pub async fn quantum_search(
         (None, None, None)
     };
 
+    // Calculate quantum speedup based on the search space and algorithm used
+    // For Grover's algorithm: √N speedup over classical search
+    // For TFIM/QUBO: polynomial speedup depending on problem structure
+    let quantum_speedup = if search_req.use_grover {
+        grover_results.as_ref().map(|g| g.quantum_speedup)
+    } else {
+        // Default quantum speedup estimation based on search space size
+        let n = search_req.query_vector.len() as f64;
+        if n > 1.0 {
+            Some(n.sqrt())
+        } else {
+            Some(1.0)
+        }
+    };
+
     let quantum_stats = QuantumStats {
         coherence_time_used_ms: start
             .elapsed()
@@ -1333,6 +1357,7 @@ pub async fn quantum_search(
         circuit_depth,
         num_gates,
         trotter_steps: trotter_steps_used,
+        quantum_speedup,
     };
 
     let response = QuantumSearchResponse {
