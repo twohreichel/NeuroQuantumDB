@@ -1,3 +1,34 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::significant_drop_tightening,
+    clippy::future_not_send,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::items_after_statements,
+    clippy::option_if_let_else,
+    clippy::match_same_arms,
+    clippy::unused_async,
+    clippy::needless_for_each,
+    clippy::use_debug,
+    clippy::needless_pass_by_value,
+    clippy::module_name_repetitions,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::cognitive_complexity,
+    clippy::struct_excessive_bools,
+    clippy::wildcard_imports,
+    clippy::too_long_first_doc_paragraph,
+    clippy::needless_collect,
+    clippy::unused_self,
+    clippy::default_trait_access,
+    clippy::doc_link_with_quotes,
+    clippy::unnecessary_wraps,
+    clippy::uninlined_format_args
+)]
 use std::time::Instant;
 
 use actix_cors::Cors;

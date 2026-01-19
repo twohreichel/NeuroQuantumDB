@@ -4,7 +4,8 @@
     clippy::cast_possible_wrap,
     clippy::cast_sign_loss,
     clippy::significant_drop_tightening,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::ignore_without_reason
 )]
 //! # Concurrency Load Testing Suite for `NeuroQuantumDB`
 //!

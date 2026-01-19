@@ -1,3 +1,4 @@
+#![allow(clippy::uninlined_format_args, clippy::unnecessary_debug_formatting)]
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
