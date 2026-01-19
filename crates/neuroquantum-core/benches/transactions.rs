@@ -1,3 +1,4 @@
+#![allow(clippy::cast_sign_loss)]
 //! Transaction Performance Benchmarks
 //!
 //! This module benchmarks transaction operations including concurrent transactions,

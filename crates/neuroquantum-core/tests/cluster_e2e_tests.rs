@@ -1,3 +1,8 @@
+#![allow(
+    clippy::significant_drop_tightening,
+    clippy::similar_names,
+    clippy::ignore_without_reason
+)]
 //! # Comprehensive Cluster E2E Tests for `NeuroQuantumDB`
 //!
 //! This module implements end-to-end tests for cluster mode functionality,

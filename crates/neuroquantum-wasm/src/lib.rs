@@ -1,3 +1,17 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::needless_pass_by_value,
+    clippy::unused_self,
+    clippy::missing_const_for_fn,
+    clippy::unsafe_derive_deserialize,
+    clippy::or_fun_call,
+    clippy::unused_async,
+    clippy::needless_pass_by_ref_mut
+)]
 //! # `NeuroQuantumDB` WebAssembly Bindings
 //!
 //! This crate provides WebAssembly bindings for `NeuroQuantumDB`, enabling

@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Example demonstrating vectored I/O performance improvements
 //!
 //! This example shows the performance benefits of the optimized batch I/O

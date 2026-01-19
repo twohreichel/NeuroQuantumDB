@@ -1,3 +1,12 @@
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::needless_pass_by_value,
+    clippy::unused_self,
+    clippy::missing_const_for_fn
+)]
 //! WASM-compatible DNA Compression Module
 //!
 //! This module provides a browser-compatible DNA compression implementation

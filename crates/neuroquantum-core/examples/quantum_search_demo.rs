@@ -1,3 +1,9 @@
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::unnecessary_wraps
+)]
 //! Quantum Search Demo - Grover's Algorithm
 //!
 //! This example demonstrates the real quantum state vector simulator
