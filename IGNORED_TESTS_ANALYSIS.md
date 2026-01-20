@@ -28,7 +28,7 @@
 | T17 | ⬜ TODO | `test_repeated_crash_recovery_cycles` | Chaos Engineering | Sehr lang-laufender Test | 🟢 Niedrig |
 | T18 | ⬜ TODO | `test_chaos_random_node_kills` | Cluster E2E | Lang-laufender Test | 🟢 Niedrig |
 | T19 | ⬜ TODO | `test_chaos_concurrent_load_with_failures` | Cluster E2E | Lang-laufender Test | 🟢 Niedrig |
-| D01 | ⬜ TODO | Doc-Test: `permissions.rs` line 8 | Doc-Tests | Fehlender Import/Modul-Struktur | 🟠 Mittel |
+| D01 | ✅ DONE | Doc-Test: `permissions.rs` line 8 | Doc-Tests | Kompilierbarer Doc-Test | 🟠 Mittel |
 | D02 | ⬜ TODO | Doc-Test: `lib.rs` line 113 | Doc-Tests | Async/Storage-Kontext fehlt | 🟠 Mittel |
 | D03 | ⬜ TODO | Doc-Test: `concurrency.rs` lines 64,84,100,219,245 | Doc-Tests | Async/Kontext-Probleme | 🟠 Mittel |
 | D04 | ⬜ TODO | Doc-Test: `quantum/mod.rs` lines 65,89,119 | Doc-Tests | Async/Kontext-Probleme | 🟠 Mittel |
@@ -356,22 +356,19 @@ Cluster unter Last mit periodischen Failures. Testet Resilienz unter realem Work
 
 ---
 
-### D01: Doc-Test `permissions.rs` line 8
+### D01: Doc-Test `permissions.rs` line 8 ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-api/src/permissions.rs:8`
 
-**Ignore-Grund:** `rust,ignore` - Doc-Beispiel kompiliert nicht standalone
+**Lösung implementiert:**
+1. `rust,ignore` zu `rust` geändert (normaler Doc-Test)
+2. Asserts hinzugefügt um die Funktionalität zu verifizieren
+3. Doc-Test läuft erfolgreich durch
 
-**Beschreibung:**  
-Das Beispiel verwendet `use neuroquantum_api::permissions::*` was im Doc-Test-Kontext nicht funktioniert.
-
-**Lösung:**  
-Doc-Test mit `no_run` markieren oder vollständige Imports hinzufügen:
-```rust
-/// ```rust,no_run
-/// use neuroquantum_api::permissions::{Permission, ADMIN, READ, WRITE};
-/// ```
-```
+**Betroffene Dateien:**
+- `crates/neuroquantum-api/src/permissions.rs` - Doc-Comment korrigiert
 
 ---
 
