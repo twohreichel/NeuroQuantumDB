@@ -17,8 +17,8 @@
 | T06 | ✅ DONE | `test_recursive_cte_with_column_list` | Parser | Recursive CTE implementiert | 🔴 Hoch |
 | T07 | ✅ DONE | `test_recursive_cte_with_multiple_ctes` | Parser | Recursive CTE implementiert | 🔴 Hoch |
 | T08 | ✅ DONE | `benchmark_1m_inserts` | Performance | Optimiert: 21.5s statt 37s (Ziel <30s) | 🟠 Mittel |
-| T09 | ⬜ TODO | `benchmark_point_lookup` | Performance | Lang-laufender Benchmark | 🟢 Niedrig |
-| T10 | ⬜ TODO | `benchmark_range_scan` | Performance | Lang-laufender Benchmark | 🟢 Niedrig |
+| T09 | ✅ DONE | `benchmark_point_lookup` | Performance | Verifiziert: P99=18µs (Ziel <1000µs) | 🟢 Niedrig |
+| T10 | ✅ DONE | `benchmark_range_scan` | Performance | Verifiziert: <1ms für 10k Rows (Ziel <100ms) | 🟢 Niedrig |
 | T11 | ⬜ TODO | `test_read_throughput_scaling` | Load Tests | Lang-laufender Load-Test | 🟢 Niedrig |
 | T12 | ⬜ TODO | `test_write_throughput_scaling` | Load Tests | Lang-laufender Load-Test | 🟢 Niedrig |
 | T13 | ⬜ TODO | `test_sustained_load_stability` | Load Tests | Lang-laufender Load-Test | 🟢 Niedrig |
@@ -179,31 +179,43 @@
 
 ---
 
-### T09: `benchmark_point_lookup`
+### T09: `benchmark_point_lookup` ✅ VERIFIZIERT
+
+**Status:** ✅ Verifiziert und funktional
 
 **Datei:** `crates/neuroquantum-core/src/storage/btree/tests.rs:293`
 
-**Ignore-Grund:** `Long-running benchmark`
+**Ignore-Grund:** `Long-running benchmark` (designbedingt ignoriert)
 
 **Beschreibung:**  
 Benchmark für Punkt-Lookups. Ziel: <1ms p99 Latenz. Fügt 100k Keys ein und führt Lookups durch.
 
-**Status:** Funktioniert, aber ignoriert wegen Laufzeit (~Sekunden)
+**Testergebnis (20. Januar 2026):**
+- P99 Latenz: **18µs** (Ziel: <1000µs) - **55x besser als erforderlich!**
+- P95 Latenz: 14µs
+- P50 Latenz: 13µs
+- Durchschnitt: 13µs
+- Gesamtlaufzeit: 3.13s
 
 **Maßnahme:** Behalten als ignorierter Benchmark, bei Bedarf manuell ausführen
 
 ---
 
-### T10: `benchmark_range_scan`
+### T10: `benchmark_range_scan` ✅ VERIFIZIERT
+
+**Status:** ✅ Verifiziert und funktional
 
 **Datei:** `crates/neuroquantum-core/src/storage/btree/tests.rs:343`
 
-**Ignore-Grund:** `Long-running benchmark`
+**Ignore-Grund:** `Long-running benchmark` (designbedingt ignoriert)
 
 **Beschreibung:**  
 Benchmark für Range-Scans. Ziel: 10k Zeilen in <100ms. Testet B+-Tree Leaf-Traversierung.
 
-**Status:** Funktioniert, aber ignoriert wegen Laufzeit
+**Testergebnis (20. Januar 2026):**
+- Range-Scan: **10.001 Rows in <1ms** (Ziel: <100ms) - **100x+ besser als erforderlich!**
+- Scan-Rate: Praktisch unbegrenzt (inf rows/ms)
+- Gesamtlaufzeit: 1.76s
 
 **Maßnahme:** Behalten als ignorierter Benchmark, bei Bedarf manuell ausführen
 
