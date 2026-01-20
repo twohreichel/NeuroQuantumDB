@@ -31,11 +31,13 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust,ignore
+//! ```ignore
 //! use neuroquantum_core::quantum::grover_hardware_backends::{
 //!     IBMGroverSolver, IBMGroverConfig, GroverHardwareBackend
 //! };
+//! use neuroquantum_core::quantum::grover_quantum::QuantumOracle;
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! // Create IBM solver
 //! let config = IBMGroverConfig {
 //!     api_token: std::env::var("IBM_QUANTUM_API_KEY").ok(),
@@ -45,9 +47,11 @@
 //! };
 //! let solver = IBMGroverSolver::new(config);
 //!
-//! // Execute Grover's search
+//! // Execute Grover's search (requires num_shots parameter)
 //! let oracle = QuantumOracle::new(3, vec![5]);
-//! let result = solver.search(&oracle).await?;
+//! let result = solver.search(&oracle, 1024).await?;
+//! # Ok(())
+//! # }
 //! ```
 
 use std::time::Instant;

@@ -25,8 +25,8 @@
 //!
 //! ## Configuration
 //!
-//! ```rust,ignore
-//! use neuroquantum_core::quantum::backends::ionq::{IonQBackend, IonQConfig};
+//! ```no_run
+//! use neuroquantum_core::quantum::backends::ionq::{IonQBackend, IonQConfig, IonQTarget};
 //!
 //! // From environment (recommended)
 //! let backend = IonQBackend::from_env();
@@ -153,12 +153,13 @@ impl IonQTarget {
 ///
 /// ## Example
 ///
-/// ```rust,ignore
+/// ```no_run
 /// use neuroquantum_core::quantum::backends::ionq::IonQBackend;
+/// use neuroquantum_core::quantum::backends::QuantumBackendInfo;
 ///
 /// let backend = IonQBackend::from_env();
 /// if backend.is_available() {
-///     println!("IonQ {} ready", backend.target());
+///     println!("IonQ {} ready", backend.name());
 /// }
 /// ```
 pub struct IonQBackend {

@@ -36,21 +36,18 @@ pub struct SqlExecutionResult {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
 /// use std::sync::Arc;
 /// use neuroquantum_core::storage::migration::{SqlExecutor, SqlExecutionResult};
 ///
-/// struct QSQLExecutor {
-///     engine: Arc<tokio::sync::Mutex<neuroquantum_qsql::QSQLEngine>>,
-/// }
+/// struct MyQSQLExecutor;
 ///
 /// #[async_trait::async_trait]
-/// impl SqlExecutor for QSQLExecutor {
+/// impl SqlExecutor for MyQSQLExecutor {
 ///     async fn execute_sql(&self, sql: &str) -> anyhow::Result<SqlExecutionResult> {
-///         let mut engine = self.engine.lock().await;
-///         let result = engine.execute_query(sql).await?;
+///         // Execute the SQL statement
 ///         Ok(SqlExecutionResult {
-///             rows_affected: result.rows_affected,
+///             rows_affected: 0,
 ///             message: None,
 ///         })
 ///     }

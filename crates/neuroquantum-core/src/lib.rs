@@ -110,15 +110,19 @@ const MIN_QUANTUM_SPEEDUP: f32 = 1.01;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
 /// use std::sync::Arc;
 /// use tokio::sync::RwLock;
+/// use neuroquantum_core::NeuroQuantumDBBuilder;
 ///
+/// # async fn example() -> anyhow::Result<()> {
 /// let db = NeuroQuantumDBBuilder::new().build().await?;
 /// let shared_db = Arc::new(RwLock::new(db));
 ///
 /// // Clone the Arc for sharing, not the database itself
 /// let db_clone = shared_db.clone();
+/// # Ok(())
+/// # }
 /// ```
 pub struct NeuroQuantumDB {
     storage: std::sync::Arc<tokio::sync::RwLock<storage::StorageEngine>>,

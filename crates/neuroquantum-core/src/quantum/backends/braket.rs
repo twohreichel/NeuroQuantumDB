@@ -20,7 +20,7 @@
 //!
 //! ## Configuration
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use neuroquantum_core::quantum::backends::braket::{BraketBackend, BraketConfig};
 //!
 //! // From environment (uses AWS credential chain)
@@ -129,12 +129,13 @@ impl Default for BraketConfig {
 ///
 /// ## Example
 ///
-/// ```rust,ignore
+/// ```no_run
 /// use neuroquantum_core::quantum::backends::braket::BraketBackend;
+/// use neuroquantum_core::quantum::backends::QuantumBackendInfo;
 ///
 /// let backend = BraketBackend::from_env();
 /// if backend.is_available() {
-///     println!("AWS Braket ready: {}", backend.device_type());
+///     println!("AWS Braket ready: {}", backend.name());
 /// }
 /// ```
 pub struct BraketBackend {

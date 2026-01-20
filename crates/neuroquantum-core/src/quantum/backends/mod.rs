@@ -40,12 +40,11 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use neuroquantum_core::quantum::backends::{
 //!     ibm::IBMQuantumBackend,
 //!     dwave::DWaveBackend,
-//!     braket::BraketBackend,
-//!     QuantumBackendConfig,
+//!     ibm::IBMQuantumConfig,
 //! };
 //!
 //! // Auto-detect from environment

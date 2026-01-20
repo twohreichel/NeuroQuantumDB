@@ -32,11 +32,13 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust,ignore
+//! ```ignore
 //! use neuroquantum_core::quantum::qubo_hardware_backends::{
 //!     DWaveQUBOSolver, DWaveConfig, QUBOSolverBackend
 //! };
+//! use neuroquantum_core::quantum::qubo_quantum::QUBOProblem;
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! // Create D-Wave solver
 //! let config = DWaveConfig {
 //!     api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -46,8 +48,11 @@
 //! };
 //! let solver = DWaveQUBOSolver::new(config);
 //!
-//! // Solve QUBO problem
+//! // Solve QUBO problem (see QUBOProblem for construction)
+//! let problem = QUBOProblem::new(/* ... */);
 //! let solution = solver.solve(&problem).await?;
+//! # Ok(())
+//! # }
 //! ```
 
 use std::collections::HashMap;

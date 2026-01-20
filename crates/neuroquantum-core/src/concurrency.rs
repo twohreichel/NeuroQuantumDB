@@ -61,7 +61,7 @@
 //! - Database and storage engine wrappers
 //!
 //! **Example:**
-//! ```ignore
+//! ```text
 //! let db = Arc::new(tokio::sync::RwLock::new(NeuroQuantumDB::new()));
 //!
 //! // Read access (multiple readers allowed)
@@ -81,7 +81,7 @@
 //! - State machines with mostly write operations
 //!
 //! **Example:**
-//! ```ignore
+//! ```text
 //! let engine = Arc::new(tokio::sync::Mutex::new(QSQLEngine::new()));
 //! let mut guard = engine.lock().await;
 //! ```
@@ -97,7 +97,7 @@
 //! - Configuration that is set once and read many times
 //!
 //! **Warning:**
-//! ```ignore
+//! ```text
 //! // ❌ WRONG: Don't hold std::sync locks across .await
 //! let guard = std_rwlock.read().unwrap();
 //! some_async_function().await;  // DEADLOCK RISK!
@@ -216,7 +216,7 @@
 //!
 //! ## Example: Correct Lock Acquisition Order
 //!
-//! ```ignore
+//! ```text
 //! async fn execute_query_with_storage(
 //!     db: Arc<tokio::sync::RwLock<NeuroQuantumDB>>,
 //!     engine: Arc<tokio::sync::Mutex<QSQLEngine>>,
@@ -242,7 +242,7 @@
 //!
 //! ## Example: Incorrect Lock Acquisition (DON'T DO THIS)
 //!
-//! ```ignore
+//! ```text
 //! async fn bad_lock_order(
 //!     storage: Arc<tokio::sync::RwLock<StorageEngine>>,
 //!     db: Arc<tokio::sync::RwLock<NeuroQuantumDB>>,

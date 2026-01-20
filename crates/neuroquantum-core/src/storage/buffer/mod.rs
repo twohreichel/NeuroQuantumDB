@@ -235,7 +235,8 @@ impl BufferPoolConfig {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// use neuroquantum_core::storage::buffer::BufferPoolConfig;
     /// // Dedicated database server - allocate 80% RAM
     /// let config = BufferPoolConfig::with_ram_percentage(0.8);
     /// ```

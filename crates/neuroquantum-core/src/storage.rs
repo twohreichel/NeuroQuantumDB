@@ -893,12 +893,17 @@ impl StorageEngine {
     /// * `if_exists` - If true, don't return an error if the table doesn't exist
     ///
     /// # Example
-    /// ```rust,ignore
+    /// ```no_run
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # use neuroquantum_core::storage::StorageEngine;
+    /// # let mut storage = StorageEngine::new("./data").await?;
     /// // Drop a table
     /// storage.drop_table("users", false).await?;
     ///
     /// // Drop a table if it exists (won't error if table doesn't exist)
     /// storage.drop_table("maybe_exists", true).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn drop_table(&mut self, table_name: &str, if_exists: bool) -> Result<()> {
         info!("🗑️ Dropping table: {}", table_name);
@@ -1031,11 +1036,16 @@ impl StorageEngine {
     /// - MODIFY COLUMN: Change the data type of a column
     ///
     /// # Example
-    /// ```rust,ignore
+    /// ```no_run
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # use neuroquantum_core::storage::{StorageEngine, AlterTableOp, ColumnDefinition, DataType};
+    /// # let mut storage = StorageEngine::new("./data").await?;
     /// // Add a new column
     /// storage.alter_table("users", AlterTableOp::AddColumn {
-    ///     column: ColumnDefinition { ... }
+    ///     column: ColumnDefinition::new("email", DataType::Text),
     /// }).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn alter_table(&mut self, table_name: &str, operation: AlterTableOp) -> Result<()> {
         info!("🔧 Altering table: {} ({:?})", table_name, operation);
@@ -1276,9 +1286,14 @@ impl StorageEngine {
     /// * `Err` - If table doesn't exist
     ///
     /// # Example
-    /// ```rust,ignore
+    /// ```no_run
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # use neuroquantum_core::storage::StorageEngine;
+    /// # let mut storage = StorageEngine::new("./data").await?;
     /// // Reset auto-increment counters after TRUNCATE
     /// storage.reset_auto_increment("users").await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn reset_auto_increment(&mut self, table_name: &str) -> Result<()> {
         debug!(
@@ -1469,12 +1484,17 @@ impl StorageEngine {
     /// - Timestamp fields (`created_at`, `updated_at`)
     ///
     /// # Example
-    /// ```rust,ignore
+    /// ```ignore
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # use neuroquantum_core::storage::{StorageEngine, Row, Value};
+    /// # let mut storage = StorageEngine::new("./data").await?;
     /// // ID is automatically generated - no need to specify it!
     /// let mut row = Row::new();
-    /// row.set("name", Value::Text("Alice".to_string()));
-    /// row.set("email", Value::Text("alice@example.com".to_string()));
+    /// row.set("name", Value::Text("Alice".to_string().into()));
+    /// row.set("email", Value::Text("alice@example.com".to_string().into()));
     /// let id = storage.insert_row("users", row).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[instrument(level = "debug", skip(self, row), fields(table = %table))]
     pub async fn insert_row(&mut self, table: &str, mut row: Row) -> Result<RowId> {

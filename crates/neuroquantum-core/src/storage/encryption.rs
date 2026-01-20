@@ -148,16 +148,21 @@ impl EncryptionManager {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```no_run
+    /// # async fn example() -> anyhow::Result<()> {
+    /// use std::path::Path;
     /// use neuroquantum_core::storage::encryption::{EncryptionManager, EncryptionConfig, KeyStorageStrategy};
     ///
+    /// let data_dir = Path::new("./data");
     /// let config = EncryptionConfig {
     ///     strategy: KeyStorageStrategy::KeychainWithFileFallback,
     ///     forbid_file_fallback: true,  // Fail if keychain unavailable
     ///     production_mode: true,
     /// };
     ///
-    /// let manager = EncryptionManager::with_config(&data_dir, config).await?;
+    /// let manager = EncryptionManager::with_config(data_dir, config).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Errors

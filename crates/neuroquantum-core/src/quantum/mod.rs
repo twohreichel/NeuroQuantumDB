@@ -62,17 +62,20 @@
 //!
 //! ### TFIM Configuration Example
 //!
-//! ```rust,ignore
+//! ```ignore
 //! use neuroquantum_core::quantum::{UnifiedTFIMAnnealingSolver, TFIMProblem};
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! // Auto-detect available backends from environment
 //! let solver = UnifiedTFIMAnnealingSolver::from_env();
 //!
 //! // Create TFIM problem
-//! let problem = TFIMProblem { /* ... */ };
+//! let problem = TFIMProblem::new(/* ... */);
 //!
 //! // Execute on best available backend (D-Wave, Braket, or classical)
 //! let result = solver.solve(&problem).await?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Quantum Backends for Grover's Search
@@ -86,9 +89,10 @@
 //!
 //! ### Configuration Example
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use neuroquantum_core::quantum::{UnifiedGroverSolver, QuantumOracle};
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! // Auto-detect available backends from environment
 //! let solver = UnifiedGroverSolver::from_env();
 //!
@@ -97,6 +101,8 @@
 //!
 //! // Execute on best available backend
 //! let result = solver.search(&oracle, 1024).await?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Quantum Backends for Parallel Tempering (NEW!)
@@ -116,15 +122,16 @@
 //!
 //! ### Parallel Tempering Configuration Example
 //!
-//! ```rust,ignore
+//! ```ignore
 //! use neuroquantum_core::quantum::{
 //!     UnifiedPTSolver, IsingHamiltonian, QuantumParallelTemperingConfig
 //! };
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! // Auto-detect available backends from environment
 //! let solver = UnifiedPTSolver::from_env();
 //!
-//! // Create Ising Hamiltonian
+//! // Create Ising Hamiltonian (see IsingHamiltonian::new for parameter details)
 //! let hamiltonian = IsingHamiltonian::new(num_spins, couplings, fields, transverse_field);
 //!
 //! // Configure parallel tempering
@@ -137,6 +144,8 @@
 //!
 //! // Execute on best available backend (D-Wave, IBM, Braket, IonQ, or classical)
 //! let result = solver.optimize(&hamiltonian, &initial_config, &config).await?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Performance Notes

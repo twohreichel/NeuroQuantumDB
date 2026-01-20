@@ -38,19 +38,23 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust,ignore
+//! ```ignore
 //! use neuroquantum_core::quantum::parallel_tempering_hardware_backends::{
 //!     UnifiedPTSolver, UnifiedPTConfig, PTHardwareBackend
 //! };
+//! use neuroquantum_core::quantum::quantum_parallel_tempering::IsingHamiltonian;
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! // Auto-detect available backends from environment
 //! let solver = UnifiedPTSolver::from_env();
 //!
-//! // Create Ising problem
+//! // Create Ising problem (see IsingHamiltonian::new for parameter details)
 //! let hamiltonian = IsingHamiltonian::new(num_spins, couplings, fields, transverse_field);
 //!
 //! // Execute on best available backend
-//! let result = solver.solve(&hamiltonian, &initial_config).await?;
+//! let result = solver.optimize(&hamiltonian, &initial_config, &config).await?;
+//! # Ok(())
+//! # }
 //! ```
 
 use std::time::Instant;
