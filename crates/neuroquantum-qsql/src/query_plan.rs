@@ -1348,8 +1348,25 @@ impl QueryExecutor {
 
         let anchor_result = self.execute(&anchor_plan).await?;
         let mut all_rows = self.query_result_to_storage_rows(&anchor_result.rows)?;
+
         // Clone the rows to create a working set
         let mut working_rows: Vec<Row> = all_rows.clone();
+
+        // Extract anchor column names from the SELECT list to use as template
+        // This preserves the correct order of columns for recursive iterations
+        let anchor_column_names: Vec<String> = cte_query
+            .select_list
+            .iter()
+            .filter_map(|item| match item {
+                | SelectItem::Expression { expr, alias } => {
+                    Some(alias.clone().unwrap_or_else(|| {
+                        // For identifiers, use the base column name (without table prefix)
+                        Self::expression_to_string_static(expr)
+                    }))
+                },
+                | SelectItem::Wildcard => None, // Wildcards can't provide stable column names
+            })
+            .collect();
 
         // Get the recursive query
         let recursive_query = &union_clause.select;
@@ -1368,7 +1385,12 @@ impl QueryExecutor {
             // Execute the recursive query with current working rows
             // We need to make the working rows available as the CTE reference
             let new_rows = self
-                .execute_recursive_iteration(cte_name, recursive_query, &working_rows)
+                .execute_recursive_iteration(
+                    cte_name,
+                    recursive_query,
+                    &working_rows,
+                    &anchor_column_names,
+                )
                 .await?;
 
             if new_rows.is_empty() {
@@ -1414,6 +1436,7 @@ impl QueryExecutor {
         cte_name: &str,
         recursive_query: &SelectStatement,
         working_rows: &[Row],
+        anchor_column_names: &[String],
     ) -> QSQLResult<Vec<Row>> {
         // For recursive CTEs, we need to:
         // 1. Find references to the CTE in the FROM clause
@@ -1503,9 +1526,12 @@ impl QueryExecutor {
                 joined_rows
             };
 
-            // Project the selected columns
-            let result_rows =
-                self.project_recursive_cte_rows(&filtered_rows, &recursive_query.select_list)?;
+            // Project the selected columns using anchor column names as template
+            let result_rows = self.project_recursive_cte_rows(
+                &filtered_rows,
+                &recursive_query.select_list,
+                anchor_column_names,
+            )?;
 
             Ok(result_rows)
         } else if from_clause.relations.iter().any(|r| r.name == cte_name) {
@@ -1520,7 +1546,11 @@ impl QueryExecutor {
                 aliased_rows
             };
 
-            Ok(filtered_rows)
+            // Use anchor column names for projection
+            Ok(Self::rename_rows_to_anchor_columns(
+                filtered_rows,
+                anchor_column_names,
+            ))
         } else {
             Err(QSQLError::ExecutionError {
                 message: format!(
@@ -1531,15 +1561,19 @@ impl QueryExecutor {
     }
 
     /// Project rows to match the SELECT list in a recursive CTE
+    /// Uses anchor_column_names as template for output column names to ensure
+    /// consistency across recursive iterations
     fn project_recursive_cte_rows(
         &self,
         rows: &[Row],
         select_list: &[SelectItem],
+        anchor_column_names: &[String],
     ) -> QSQLResult<Vec<Row>> {
         let mut result_rows = Vec::with_capacity(rows.len());
 
         for (idx, row) in rows.iter().enumerate() {
             let mut fields = HashMap::new();
+            let mut col_index = 0;
 
             for item in select_list {
                 match item {
@@ -1577,10 +1611,16 @@ impl QueryExecutor {
                     | SelectItem::Expression { expr, alias } => {
                         // Evaluate the expression
                         let value = Self::evaluate_expression_for_row(expr, row)?;
-                        let col_name = alias
-                            .clone()
-                            .unwrap_or_else(|| Self::expression_to_string_static(expr));
+                        // Use anchor column name if available, otherwise fall back to alias or expression
+                        let col_name = if col_index < anchor_column_names.len() {
+                            anchor_column_names[col_index].clone()
+                        } else {
+                            alias
+                                .clone()
+                                .unwrap_or_else(|| Self::expression_to_string_static(expr))
+                        };
                         fields.insert(col_name, value);
+                        col_index += 1;
                     },
                 }
             }
@@ -1594,6 +1634,30 @@ impl QueryExecutor {
         }
 
         Ok(result_rows)
+    }
+
+    /// Rename rows to use anchor column names (for recursive CTEs)
+    fn rename_rows_to_anchor_columns(rows: Vec<Row>, anchor_column_names: &[String]) -> Vec<Row> {
+        if anchor_column_names.is_empty() {
+            return rows;
+        }
+        rows.into_iter()
+            .map(|row| {
+                let mut new_fields = HashMap::new();
+                // Keep unqualified column names that match anchor columns
+                for col_name in anchor_column_names {
+                    if let Some(val) = row.fields.get(col_name) {
+                        new_fields.insert(col_name.clone(), val.clone());
+                    }
+                }
+                Row {
+                    id: row.id,
+                    fields: new_fields,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                }
+            })
+            .collect()
     }
 
     /// Evaluate an expression against a row (for projection in recursive CTEs)
@@ -4573,6 +4637,23 @@ impl QueryExecutor {
         })
     }
 
+    /// Check if select list contains expressions that need evaluation (literals, binary ops, etc.)
+    /// This is used to determine if we need to evaluate the SELECT list rather than just
+    /// returning storage column values directly.
+    fn needs_select_list_evaluation(select_list: &[SelectItem]) -> bool {
+        select_list.iter().any(|item| {
+            match item {
+                | SelectItem::Wildcard => false,
+                | SelectItem::Expression { expr, alias } => {
+                    // Need evaluation if:
+                    // 1. Expression is NOT a simple identifier (literals, binary ops, etc.)
+                    // 2. Or if there's an alias (need to rename the column)
+                    !matches!(expr, Expression::Identifier(_)) || alias.is_some()
+                },
+            }
+        })
+    }
+
     /// Check if select list contains scalar subqueries
     fn has_scalar_subqueries(select_list: &[SelectItem]) -> bool {
         select_list.iter().any(|item| {
@@ -5186,9 +5267,17 @@ impl QueryExecutor {
 
         let has_scalar_funcs = Self::has_scalar_functions(&select.select_list);
 
+        // Check if any expression has an alias (needs post-processing for renaming)
+        let has_aliases = select
+            .select_list
+            .iter()
+            .any(|item| matches!(item, SelectItem::Expression { alias: Some(_), .. }));
+
         let columns = if Self::has_aggregate_functions(&select.select_list)
             || has_scalar_funcs
             || needs_post_filter
+            || has_aliases
+        // If there are aliases, we need to fetch all columns and rename
         {
             vec!["*".to_string()]
         } else {
@@ -5540,6 +5629,27 @@ impl QueryExecutor {
     fn convert_expression_to_where_clause_static(expr: &Expression) -> QSQLResult<WhereClause> {
         let mut conditions = Vec::new();
 
+        // Handle IS NULL / IS NOT NULL expressions
+        if let Expression::IsNull {
+            expr: inner,
+            negated,
+        } = expr
+        {
+            if let Expression::Identifier(field) = inner.as_ref() {
+                let op = if *negated {
+                    ComparisonOperator::NotEqual
+                } else {
+                    ComparisonOperator::Equal
+                };
+                conditions.push(Condition {
+                    field: field.clone(),
+                    operator: op,
+                    value: Value::Null,
+                });
+                return Ok(WhereClause { conditions });
+            }
+        }
+
         // Handle binary operations
         if let Expression::BinaryOp {
             left,
@@ -5610,7 +5720,17 @@ impl QueryExecutor {
         let has_scalar_functions = Self::has_scalar_functions(&select.select_list);
 
         if has_scalar_functions {
-            // Process scalar functions
+            // Process scalar functions (also handles other expressions)
+            return self.execute_scalar_functions(&storage_rows, &select.select_list);
+        }
+
+        // Check if we have expressions that need evaluation (literals, binary ops, etc.)
+        // This handles cases like "SELECT 1 as level, ..." where the expression is not
+        // a simple column reference but a computed value
+        let needs_expr_eval = Self::needs_select_list_evaluation(&select.select_list);
+
+        if needs_expr_eval {
+            // Use scalar functions path which properly evaluates all expressions
             return self.execute_scalar_functions(&storage_rows, &select.select_list);
         }
 
@@ -8815,12 +8935,33 @@ impl QueryExecutor {
     /// Convert expression to string (helper, static)
     fn expression_to_string_static(expr: &Expression) -> String {
         match expr {
-            | Expression::Identifier(name) => name.clone(),
+            | Expression::Identifier(name) => {
+                // For qualified identifiers like "table.column", return just the column name
+                // This is especially important for recursive CTEs where the working rows
+                // need consistent column names across iterations
+                if let Some((_table, col)) = name.rsplit_once('.') {
+                    col.to_string()
+                } else {
+                    name.clone()
+                }
+            },
             | Expression::Literal(lit) => format!("{lit:?}"),
             | Expression::FunctionCall { name, args } => {
                 let args_str: Vec<String> =
                     args.iter().map(Self::expression_to_string_static).collect();
                 format!("{}({})", name, args_str.join(", "))
+            },
+            | Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => {
+                // For binary operations in recursive CTEs, try to derive a meaningful name
+                // from the left operand (e.g., "s.level + 1" -> "level")
+                // This helps maintain column name consistency across iterations
+                let left_name = Self::expression_to_string_static(left);
+                let right_name = Self::expression_to_string_static(right);
+                format!("{left_name} {operator:?} {right_name}")
             },
             | Expression::Case { .. } => "CASE".to_string(),
             | _ => "unknown".to_string(),

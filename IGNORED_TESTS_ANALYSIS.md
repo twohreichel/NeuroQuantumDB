@@ -9,13 +9,13 @@
 
 | ID | Status | Test | Kategorie | Grund | Priorität |
 |----|--------|------|-----------|-------|-----------|
-| T01 | ⬜ TODO | `test_recursive_cte_employee_hierarchy` | Parser | Recursive CTE nicht implementiert | 🔴 Hoch |
-| T02 | ⬜ TODO | `test_recursive_cte_generate_series` | Parser | Recursive CTE nicht implementiert | 🔴 Hoch |
-| T03 | ⬜ TODO | `test_recursive_cte_graph_traversal` | Parser | Recursive CTE nicht implementiert | 🔴 Hoch |
-| T04 | ⬜ TODO | `test_recursive_cte_union_semantics` | Parser | Recursive CTE nicht implementiert | 🔴 Hoch |
-| T05 | ⬜ TODO | `test_recursive_cte_depth_limit` | Parser | Recursive CTE nicht implementiert | 🔴 Hoch |
-| T06 | ⬜ TODO | `test_recursive_cte_with_column_list` | Parser | Recursive CTE nicht implementiert | 🔴 Hoch |
-| T07 | ⬜ TODO | `test_recursive_cte_with_multiple_ctes` | Parser | Recursive CTE nicht implementiert | 🔴 Hoch |
+| T01 | ✅ DONE | `test_recursive_cte_employee_hierarchy` | Parser | Recursive CTE implementiert | 🔴 Hoch |
+| T02 | ✅ DONE | `test_recursive_cte_generate_series` | Parser | Recursive CTE implementiert | 🔴 Hoch |
+| T03 | ✅ DONE | `test_recursive_cte_graph_traversal` | Parser | Recursive CTE implementiert | 🔴 Hoch |
+| T04 | ✅ DONE | `test_recursive_cte_union_semantics` | Parser | Recursive CTE implementiert | 🔴 Hoch |
+| T05 | ✅ DONE | `test_recursive_cte_depth_limit` | Parser | Recursive CTE implementiert | 🔴 Hoch |
+| T06 | ✅ DONE | `test_recursive_cte_with_column_list` | Parser | Recursive CTE implementiert | 🔴 Hoch |
+| T07 | ✅ DONE | `test_recursive_cte_with_multiple_ctes` | Parser | Recursive CTE implementiert | 🔴 Hoch |
 | T08 | ⬜ TODO | `benchmark_1m_inserts` | Performance | Benchmark überschreitet Zeitlimit (37s > 30s) | 🟠 Mittel |
 | T09 | ⬜ TODO | `benchmark_point_lookup` | Performance | Lang-laufender Benchmark | 🟢 Niedrig |
 | T10 | ⬜ TODO | `benchmark_range_scan` | Performance | Lang-laufender Benchmark | 🟢 Niedrig |
@@ -57,120 +57,99 @@
 
 ---
 
-### T01: `test_recursive_cte_employee_hierarchy`
+### T01: `test_recursive_cte_employee_hierarchy` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-qsql/tests/recursive_cte_tests.rs:45`
 
-**Ignore-Grund:** `Recursive CTE (WITH RECURSIVE) not yet supported in parser`
-
-**Beschreibung:**  
-Testet rekursive CTEs für hierarchische Mitarbeiter-Manager-Beziehungen. Verwendet eine `employees`-Tabelle mit `id`, `name` und `manager_id`. Die rekursive Abfrage soll alle Untergebenen eines Managers finden.
-
-**Erforderliche Änderungen:**
-1. Parser erweitern um `WITH RECURSIVE` Syntax zu unterstützen
-2. `is_recursive` Flag im CTE-AST korrekt setzen
-3. Executor implementieren für rekursive CTE-Ausführung mit UNION/UNION ALL
+**Lösung implementiert:**
+1. Parser erweitert um `WITH RECURSIVE` Syntax zu unterstützen
+2. `is_recursive` Flag im CTE-AST korrekt gesetzt
+3. Executor implementiert für rekursive CTE-Ausführung mit UNION/UNION ALL
+4. Spezielle Behandlung für `level` Keyword als Spaltenname
+5. IS NULL WHERE-Klausel Unterstützung hinzugefügt
+6. Literal-Expression-Evaluierung (z.B. `1 as level`) implementiert
 
 **Betroffene Dateien:**
 - `crates/neuroquantum-qsql/src/parser.rs` - Parser-Erweiterung
-- `crates/neuroquantum-qsql/src/ast.rs` - AST-Strukturen
 - `crates/neuroquantum-qsql/src/query_plan.rs` - Ausführungsplan
 
 ---
 
-### T02: `test_recursive_cte_generate_series`
+### T02: `test_recursive_cte_generate_series` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-qsql/tests/recursive_cte_tests.rs:150`
 
-**Ignore-Grund:** `Recursive CTE (WITH RECURSIVE) not yet supported in parser`
-
-**Beschreibung:**  
-Testet die Generierung von Serien via rekursive CTEs (ähnlich PostgreSQL `generate_series`). Erzeugt Zahlenreihen durch rekursive Selbst-Referenz mit Abbruchbedingung.
-
-**Erforderliche Änderungen:**
-- Gleiche Parser/Executor-Änderungen wie T01
-- Spezielle Behandlung für numerische Iteration
-- Terminierungsbedingung korrekt evaluieren
+**Lösung implementiert:**
+- Parser/Executor-Änderungen wie T01
+- Numerische Iteration funktioniert korrekt
+- Terminierungsbedingung wird korrekt evaluiert
 
 ---
 
-### T03: `test_recursive_cte_graph_traversal`
+### T03: `test_recursive_cte_graph_traversal` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-qsql/tests/recursive_cte_tests.rs:208`
 
-**Ignore-Grund:** `Recursive CTE (WITH RECURSIVE) not yet supported in parser`
-
-**Beschreibung:**  
-Testet Graph-Traversierung (z.B. kürzeste Pfade, verbundene Komponenten) mittels rekursiver CTEs. Wichtig für Beziehungsgraphen und Netzwerkanalysen.
-
-**Erforderliche Änderungen:**
+**Lösung implementiert:**
 - Parser/Executor wie T01
-- Zykluserkennung implementieren
-- Pfad-Tracking für Graph-Traversierung
+- Parenthesierte Ausdrücke in SELECT-Liste (z.B. `(n + 1)`) korrekt geparst
+- Alias-Handling für Spalten (z.B. `to_node as node`) korrigiert
+- UNION-Semantik für Duplikat-Eliminierung implementiert
 
 ---
 
-### T04: `test_recursive_cte_union_semantics`
+### T04: `test_recursive_cte_union_semantics` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-qsql/tests/recursive_cte_tests.rs:235`
 
-**Ignore-Grund:** `Recursive CTE (WITH RECURSIVE) not yet supported in parser`
-
-**Beschreibung:**  
-Testet den Unterschied zwischen UNION (dedupliziert) und UNION ALL (alle Zeilen) in rekursiven CTEs. UNION verhindert Endlosschleifen durch Duplikat-Eliminierung.
-
-**Erforderliche Änderungen:**
-- Parser/Executor wie T01
-- UNION-Semantik: Duplikat-Tracking implementieren
-- UNION ALL-Semantik: Direktes Append ohne Prüfung
+**Lösung implementiert:**
+- UNION-Semantik mit Duplikat-Tracking implementiert
+- UNION ALL-Semantik mit direktem Append ohne Prüfung
 
 ---
 
-### T05: `test_recursive_cte_depth_limit`
+### T05: `test_recursive_cte_depth_limit` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-qsql/tests/recursive_cte_tests.rs:305`
 
-**Ignore-Grund:** `Recursive CTE (WITH RECURSIVE) not yet supported in parser`
-
-**Beschreibung:**  
-Testet Rekursionstiefenlimit um Endlosschleifen zu verhindern. Standard: 100 Iterationen, konfigurierbar via Executor-Config.
-
-**Erforderliche Änderungen:**
-- Parser/Executor wie T01
-- `max_recursion_depth` Config-Option
+**Lösung implementiert:**
+- `max_recursion_depth` Limit bei 100 Iterationen
 - Fehlerbehandlung bei Limit-Überschreitung
 
 ---
 
-### T06: `test_recursive_cte_with_column_list`
+### T06: `test_recursive_cte_with_column_list` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-qsql/tests/recursive_cte_tests.rs:385`
 
-**Ignore-Grund:** `Recursive CTE (WITH RECURSIVE) not yet supported in parser`
-
-**Beschreibung:**  
-Testet rekursive CTEs mit expliziter Spaltenliste: `WITH RECURSIVE cte(col1, col2) AS (...)`. Spalten müssen korrekt gemappt werden.
-
-**Erforderliche Änderungen:**
+**Lösung implementiert:**
 - Parser: Spaltenlistenunterstützung in CTE-Definition
 - AST: `column_list: Option<Vec<String>>` im CTE-Struct
-- Executor: Spalten-Aliasing
+- Executor: Spalten-Aliasing und korrektes Mapping
 
 ---
 
-### T07: `test_recursive_cte_with_multiple_ctes`
+### T07: `test_recursive_cte_with_multiple_ctes` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert
 
 **Datei:** `crates/neuroquantum-qsql/tests/recursive_cte_tests.rs:510`
 
-**Ignore-Grund:** `Recursive CTE (WITH RECURSIVE) not yet supported in parser`
-
-**Beschreibung:**  
-Testet mehrere CTEs in einer Abfrage, wobei mindestens eine rekursiv ist. CTEs können aufeinander verweisen.
-
-**Erforderliche Änderungen:**
-- Parser/Executor wie T01
-- CTE-Abhängigkeitsauflösung
-- Topologische Sortierung für CTE-Ausführungsreihenfolge
+**Lösung implementiert:**
+- Mehrere CTEs in einer Abfrage werden unterstützt
+- CTE-Abhängigkeitsauflösung funktioniert korrekt
 
 ---
 

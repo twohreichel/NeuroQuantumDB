@@ -778,6 +778,99 @@ mod parser_tests {
     }
 
     #[test]
+    fn test_parser_recursive_cte_with_level_expression() {
+        let parser = QSQLParser::new();
+
+        // Step 0: Test without "1 as level"
+        let sql0 = r"
+            WITH RECURSIVE test AS (
+                SELECT id FROM employees WHERE id = 1
+                UNION ALL
+                SELECT e.id FROM employees e JOIN test t ON e.parent_id = t.id
+            )
+            SELECT * FROM test
+        ";
+
+        let result0 = parser.parse_query(sql0);
+        assert!(
+            result0.is_ok(),
+            "STEP 0 FAILED - simple CTE without level: {:?}",
+            result0.err()
+        );
+
+        // Verify the outer SELECT has a FROM clause
+        match result0.unwrap() {
+            | Statement::Select(select) => {
+                assert!(select.from.is_some(), "Outer SELECT must have FROM clause!");
+                let from = select.from.as_ref().unwrap();
+                assert_eq!(from.relations.len(), 1, "Should have one relation");
+                assert_eq!(
+                    from.relations[0].name, "test",
+                    "FROM should be the CTE 'test'"
+                );
+            },
+            | _ => panic!("Expected SELECT statement"),
+        }
+
+        // Step 1: Test with just "1 as level"
+        let sql1 = r"
+            WITH RECURSIVE test AS (
+                SELECT id, 1 as level FROM employees WHERE id = 1
+                UNION ALL
+                SELECT e.id, t.level FROM employees e JOIN test t ON e.parent_id = t.id
+            )
+            SELECT * FROM test
+        ";
+
+        let result1 = parser.parse_query(sql1);
+        assert!(
+            result1.is_ok(),
+            "STEP 1 FAILED - '1 as level': {:?}",
+            result1.err()
+        );
+
+        // Step 2: Test with "s.level + 1"
+        let sql2 = r"
+            WITH RECURSIVE test AS (
+                SELECT id, name FROM employees WHERE id = 1
+                UNION ALL
+                SELECT e.id, t.level + 1 FROM employees e JOIN test t ON e.parent_id = t.id
+            )
+            SELECT * FROM test
+        ";
+
+        let result2 = parser.parse_query(sql2);
+        assert!(
+            result2.is_ok(),
+            "STEP 2 FAILED - 't.level + 1': {:?}",
+            result2.err()
+        );
+
+        // Step 3: Test with both
+        let sql3 = r"
+            WITH RECURSIVE subordinates AS (
+                SELECT id, name, manager_id, 1 as level
+                FROM employees
+                WHERE manager_id IS NULL
+                
+                UNION ALL
+                
+                SELECT e.id, e.name, e.manager_id, s.level + 1
+                FROM employees e
+                INNER JOIN subordinates s ON e.manager_id = s.id
+            )
+            SELECT id, name, level FROM subordinates ORDER BY level, id
+        ";
+
+        let result3 = parser.parse_query(sql3);
+        assert!(
+            result3.is_ok(),
+            "STEP 3 FAILED - full query: {:?}",
+            result3.err()
+        );
+    }
+
+    #[test]
     fn test_parser_explain_select() {
         let parser = QSQLParser::new();
 

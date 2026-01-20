@@ -751,6 +751,105 @@ impl QSQLParser {
         }
     }
 
+    /// Try to extract an alias name from the current token.
+    /// Accepts both identifiers and certain keywords that can be used as aliases.
+    /// Returns the alias name if found, None otherwise.
+    fn try_parse_alias_name(&self, token: &TokenType) -> Option<String> {
+        match token {
+            | TokenType::Identifier(name) => Some(name.clone()),
+            // Keywords that are commonly used as aliases in SQL
+            | TokenType::Level => Some("level".to_string()),
+            | TokenType::Read => Some("read".to_string()),
+            | TokenType::Write => Some("write".to_string()),
+            | TokenType::Begin => Some("begin".to_string()),
+            | TokenType::End => Some("end".to_string()),
+            | TokenType::Key => Some("key".to_string()),
+            | TokenType::Index => Some("index".to_string()),
+            | TokenType::Column => Some("column".to_string()),
+            | TokenType::Table => Some("table".to_string()),
+            | TokenType::Start => Some("start".to_string()),
+            | TokenType::Transaction => Some("transaction".to_string()),
+            | TokenType::Rank => Some("rank".to_string()),
+            | TokenType::Partition => Some("partition".to_string()),
+            | TokenType::Interval => Some("interval".to_string()),
+            | TokenType::Action => Some("action".to_string()),
+            | TokenType::Set => Some("set".to_string()),
+            | TokenType::Cascade => Some("cascade".to_string()),
+            | TokenType::Restrict => Some("restrict".to_string()),
+            | TokenType::Commit => Some("commit".to_string()),
+            | TokenType::Rollback => Some("rollback".to_string()),
+            | TokenType::Format => Some("format".to_string()),
+            | TokenType::Rule => Some("rule".to_string()),
+            | TokenType::Pattern => Some("pattern".to_string()),
+            | TokenType::Isolation => Some("isolation".to_string()),
+            | TokenType::Serializable => Some("serializable".to_string()),
+            | TokenType::Repeatable => Some("repeatable".to_string()),
+            | TokenType::Committed => Some("committed".to_string()),
+            | TokenType::Uncommitted => Some("uncommitted".to_string()),
+            | TokenType::Primary => Some("primary".to_string()),
+            | TokenType::Unique => Some("unique".to_string()),
+            | TokenType::Default => Some("default".to_string()),
+            | TokenType::Foreign => Some("foreign".to_string()),
+            | TokenType::Constraint => Some("constraint".to_string()),
+            | TokenType::Algorithm => Some("algorithm".to_string()),
+            | TokenType::Weights => Some("weights".to_string()),
+            | TokenType::Features => Some("features".to_string()),
+            | TokenType::Epochs => Some("epochs".to_string()),
+            | TokenType::Coherence => Some("coherence".to_string()),
+            | TokenType::Superposition => Some("superposition".to_string()),
+            | _ => None,
+        }
+    }
+
+    /// Convert a keyword token to its identifier name.
+    /// Used when keywords appear in contexts where identifiers are expected.
+    fn token_to_identifier_name(&self, token: &TokenType) -> String {
+        match token {
+            | TokenType::Identifier(name) => name.clone(),
+            | TokenType::Level => "level".to_string(),
+            | TokenType::Read => "read".to_string(),
+            | TokenType::Write => "write".to_string(),
+            | TokenType::Commit => "commit".to_string(),
+            | TokenType::Key => "key".to_string(),
+            | TokenType::Action => "action".to_string(),
+            | TokenType::Begin => "begin".to_string(),
+            | TokenType::End => "end".to_string(),
+            | TokenType::Index => "index".to_string(),
+            | TokenType::Column => "column".to_string(),
+            | TokenType::Table => "table".to_string(),
+            | TokenType::Start => "start".to_string(),
+            | TokenType::Transaction => "transaction".to_string(),
+            | TokenType::Rank => "rank".to_string(),
+            | TokenType::Partition => "partition".to_string(),
+            | TokenType::Interval => "interval".to_string(),
+            | TokenType::Set => "set".to_string(),
+            | TokenType::Cascade => "cascade".to_string(),
+            | TokenType::Restrict => "restrict".to_string(),
+            | TokenType::Rollback => "rollback".to_string(),
+            | TokenType::Format => "format".to_string(),
+            | TokenType::Rule => "rule".to_string(),
+            | TokenType::Pattern => "pattern".to_string(),
+            | TokenType::Isolation => "isolation".to_string(),
+            | TokenType::Serializable => "serializable".to_string(),
+            | TokenType::Repeatable => "repeatable".to_string(),
+            | TokenType::Committed => "committed".to_string(),
+            | TokenType::Uncommitted => "uncommitted".to_string(),
+            | TokenType::Primary => "primary".to_string(),
+            | TokenType::Unique => "unique".to_string(),
+            | TokenType::Default => "default".to_string(),
+            | TokenType::Foreign => "foreign".to_string(),
+            | TokenType::Constraint => "constraint".to_string(),
+            | TokenType::Algorithm => "algorithm".to_string(),
+            | TokenType::Weights => "weights".to_string(),
+            | TokenType::Features => "features".to_string(),
+            | TokenType::Epochs => "epochs".to_string(),
+            | TokenType::Coherence => "coherence".to_string(),
+            | TokenType::Superposition => "superposition".to_string(),
+            // For any other token, return a placeholder (should not happen in practice)
+            | _ => format!("{token:?}"),
+        }
+    }
+
     /// Parse SELECT statement with proper SQL parsing
     fn parse_select_statement(&self, tokens: &[TokenType]) -> QSQLResult<Statement> {
         let mut select_list = Vec::new();
@@ -978,7 +1077,9 @@ impl QSQLParser {
                     select_list.push(SelectItem::Expression { expr, alias });
                 },
                 | TokenType::LeftParen => {
-                    // Scalar subquery in SELECT list: (SELECT ...)
+                    // Could be either:
+                    // 1. Scalar subquery in SELECT list: (SELECT ...)
+                    // 2. Parenthesized expression: (n + 1), (a * b)
                     i += 1; // consume '('
 
                     // Check if this is a scalar subquery (starts with SELECT)
@@ -1019,11 +1120,42 @@ impl QSQLParser {
                             alias,
                         });
                     } else {
-                        return Err(QSQLError::ParseError {
-                            message: "Expected SELECT after '(' in SELECT list for scalar subquery"
-                                .to_string(),
-                            position: i,
-                        });
+                        // Parse as a parenthesized expression (e.g., (n + 1))
+                        let inner_expr = self.parse_expression(tokens, &mut i)?;
+
+                        // Expect closing parenthesis
+                        if i >= tokens.len() || !matches!(tokens[i], TokenType::RightParen) {
+                            return Err(QSQLError::ParseError {
+                                message:
+                                    "Expected ')' after parenthesized expression in SELECT list"
+                                        .to_string(),
+                                position: i,
+                            });
+                        }
+                        i += 1; // consume ')'
+
+                        // Check for continuation (e.g., (n + 1) * (n + 1))
+                        let expr =
+                            self.parse_select_list_continuation(tokens, &mut i, inner_expr)?;
+
+                        // Check for optional AS alias
+                        let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                            i += 1;
+                            if i < tokens.len() {
+                                if let Some(alias_name) = self.try_parse_alias_name(&tokens[i]) {
+                                    i += 1;
+                                    Some(alias_name)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression { expr, alias });
                     }
                 },
                 // Integer literal in SELECT list (e.g., SELECT 1 FROM ...)
@@ -1100,6 +1232,71 @@ impl QSQLParser {
                 },
                 | TokenType::Comma => {
                     i += 1; // Skip comma and continue
+                },
+                // Handle keywords that can be used as column names in SELECT list
+                | TokenType::Level
+                | TokenType::Read
+                | TokenType::Write
+                | TokenType::Commit
+                | TokenType::Key
+                | TokenType::Action
+                | TokenType::Begin
+                | TokenType::End
+                | TokenType::Index
+                | TokenType::Column
+                | TokenType::Table
+                | TokenType::Start
+                | TokenType::Transaction
+                | TokenType::Partition
+                | TokenType::Interval
+                | TokenType::Set
+                | TokenType::Cascade
+                | TokenType::Restrict
+                | TokenType::Rollback
+                | TokenType::Format
+                | TokenType::Rule
+                | TokenType::Pattern
+                | TokenType::Isolation
+                | TokenType::Serializable
+                | TokenType::Repeatable
+                | TokenType::Committed
+                | TokenType::Uncommitted
+                | TokenType::Primary
+                | TokenType::Unique
+                | TokenType::Default
+                | TokenType::Foreign
+                | TokenType::Constraint
+                | TokenType::Algorithm
+                | TokenType::Weights
+                | TokenType::Features
+                | TokenType::Epochs
+                | TokenType::Coherence
+                | TokenType::Superposition => {
+                    // Treat these keywords as identifiers (column names)
+                    let col_name = self.token_to_identifier_name(&tokens[i]);
+                    i += 1;
+
+                    // Check for optional AS alias
+                    let alias = if i < tokens.len() && matches!(tokens[i], TokenType::As) {
+                        i += 1;
+                        if i < tokens.len() {
+                            if let Some(alias_name) = self.try_parse_alias_name(&tokens[i]) {
+                                i += 1;
+                                Some(alias_name)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    select_list.push(SelectItem::Expression {
+                        expr: Expression::Identifier(col_name),
+                        alias,
+                    });
                 },
                 | _ => break,
             }
@@ -1319,12 +1516,20 @@ impl QSQLParser {
                     let mut full_name = name.clone();
                     *i += 1;
 
-                    // Check for qualified name (e.g., u.id, table.column)
+                    // Check for qualified name (e.g., u.id, table.column, t.level)
+                    // Accept both identifiers and keywords after dot
                     while *i + 1 < tokens.len() && matches!(tokens[*i], TokenType::Dot) {
                         if let TokenType::Identifier(next_part) = &tokens[*i + 1] {
                             full_name.push('.');
                             full_name.push_str(next_part);
                             *i += 2; // consume '.' and identifier
+                        } else if let Some(keyword_name) =
+                            self.try_parse_alias_name(&tokens[*i + 1])
+                        {
+                            // Accept keywords like 'level' as part of qualified names
+                            full_name.push('.');
+                            full_name.push_str(&keyword_name);
+                            *i += 2; // consume '.' and keyword
                         } else {
                             break;
                         }
@@ -1333,6 +1538,9 @@ impl QSQLParser {
                     // Check if this is a function call (next token is '(')
                     if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
                         let expr = self.parse_function_call(tokens, i, full_name)?;
+
+                        // Check for arithmetic operator after function call
+                        let expr = self.parse_select_list_continuation(tokens, i, expr)?;
 
                         // Check for optional AS alias
                         let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
@@ -1353,6 +1561,11 @@ impl QSQLParser {
 
                         select_list.push(SelectItem::Expression { expr, alias });
                     } else {
+                        // Check if there's an arithmetic operator after the identifier
+                        // (e.g., s.level + 1)
+                        let expr = Expression::Identifier(full_name);
+                        let expr = self.parse_select_list_continuation(tokens, i, expr)?;
+
                         // Check for optional AS alias
                         let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
                             *i += 1;
@@ -1370,10 +1583,7 @@ impl QSQLParser {
                             None
                         };
 
-                        select_list.push(SelectItem::Expression {
-                            expr: Expression::Identifier(full_name),
-                            alias,
-                        });
+                        select_list.push(SelectItem::Expression { expr, alias });
                     }
                 },
                 | TokenType::Multiply => {
@@ -1500,7 +1710,9 @@ impl QSQLParser {
                     select_list.push(SelectItem::Expression { expr, alias });
                 },
                 | TokenType::LeftParen => {
-                    // Scalar subquery in SELECT list: (SELECT ...)
+                    // Could be either:
+                    // 1. Scalar subquery in SELECT list: (SELECT ...)
+                    // 2. Parenthesized expression: (n + 1), (a * b)
                     *i += 1; // consume '('
 
                     // Check if this is a scalar subquery (starts with SELECT)
@@ -1541,25 +1753,58 @@ impl QSQLParser {
                             alias,
                         });
                     } else {
-                        return Err(QSQLError::ParseError {
-                            message: "Expected SELECT after '(' in SELECT list for scalar subquery"
-                                .to_string(),
-                            position: *i,
-                        });
+                        // Parse as a parenthesized expression (e.g., (n + 1))
+                        let inner_expr = self.parse_expression(tokens, i)?;
+
+                        // Expect closing parenthesis
+                        if *i >= tokens.len() || !matches!(tokens[*i], TokenType::RightParen) {
+                            return Err(QSQLError::ParseError {
+                                message:
+                                    "Expected ')' after parenthesized expression in SELECT list"
+                                        .to_string(),
+                                position: *i,
+                            });
+                        }
+                        *i += 1; // consume ')'
+
+                        // Check for continuation (e.g., (n + 1) * (n + 1))
+                        let expr = self.parse_select_list_continuation(tokens, i, inner_expr)?;
+
+                        // Check for optional AS alias
+                        let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
+                            *i += 1;
+                            if *i < tokens.len() {
+                                if let Some(alias_name) = self.try_parse_alias_name(&tokens[*i]) {
+                                    *i += 1;
+                                    Some(alias_name)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        select_list.push(SelectItem::Expression { expr, alias });
                     }
                 },
-                // Integer literal in SELECT list (e.g., SELECT 1 FROM ...)
+                // Integer literal in SELECT list (e.g., SELECT 1 FROM ..., SELECT 1 as level ...)
                 | TokenType::IntegerLiteral(n) => {
                     let expr = Expression::Literal(Literal::Integer(*n));
                     *i += 1;
 
-                    // Check for optional AS alias
+                    // Check for arithmetic operator after literal (e.g., 1 + 2)
+                    let expr = self.parse_select_list_continuation(tokens, i, expr)?;
+
+                    // Check for optional AS alias (accepts keywords like 'level' as alias names)
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
                         *i += 1;
                         if *i < tokens.len() {
-                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                            if let Some(alias_name) = self.try_parse_alias_name(&tokens[*i]) {
                                 *i += 1;
-                                Some(alias_name.clone())
+                                Some(alias_name)
                             } else {
                                 None
                             }
@@ -1577,13 +1822,13 @@ impl QSQLParser {
                     let expr = Expression::Literal(Literal::Float(*f));
                     *i += 1;
 
-                    // Check for optional AS alias
+                    // Check for optional AS alias (accepts keywords like 'level' as alias names)
                     let alias = if *i < tokens.len() && matches!(tokens[*i], TokenType::As) {
                         *i += 1;
                         if *i < tokens.len() {
-                            if let TokenType::Identifier(alias_name) = &tokens[*i] {
+                            if let Some(alias_name) = self.try_parse_alias_name(&tokens[*i]) {
                                 *i += 1;
-                                Some(alias_name.clone())
+                                Some(alias_name)
                             } else {
                                 None
                             }
@@ -1812,6 +2057,180 @@ impl QSQLParser {
         self.parse_subquery_expression_with_precedence(tokens, i, Precedence::None)
     }
 
+    /// Parse continuation of expression in SELECT list
+    /// This handles arithmetic operators after identifiers/literals in SELECT lists
+    /// e.g., "s.level + 1" where we've already parsed "s.level"
+    ///
+    /// Stops at: AS, Comma, FROM, RightParen, UNION, ORDER, GROUP, HAVING, LIMIT
+    fn parse_select_list_continuation(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+        left: Expression,
+    ) -> QSQLResult<Expression> {
+        let mut result = left;
+
+        // Continue parsing while we have arithmetic operators
+        while *i < tokens.len() {
+            // Stop at tokens that indicate end of expression
+            if matches!(
+                tokens[*i],
+                TokenType::As
+                    | TokenType::Comma
+                    | TokenType::From
+                    | TokenType::RightParen
+                    | TokenType::Union
+                    | TokenType::OrderBy
+                    | TokenType::GroupBy
+                    | TokenType::Having
+                    | TokenType::Limit
+                    | TokenType::EOF
+            ) {
+                break;
+            }
+
+            // Check for arithmetic operators
+            let op_info = match self.get_operator_info(&tokens[*i]) {
+                | Some(info) => info,
+                | None => break, // Not an operator, stop parsing
+            };
+
+            // Consume the operator
+            *i += 1;
+
+            // Parse the right-hand side (a single term, not a full expression)
+            let right = self.parse_select_list_term(tokens, i)?;
+
+            // Build the binary expression
+            result = Expression::BinaryOp {
+                left: Box::new(result),
+                operator: op_info.operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(result)
+    }
+
+    /// Parse a single term in a SELECT list expression
+    /// This parses identifiers, literals, and function calls
+    fn parse_select_list_term(
+        &self,
+        tokens: &[TokenType],
+        i: &mut usize,
+    ) -> QSQLResult<Expression> {
+        if *i >= tokens.len() {
+            return Err(QSQLError::ParseError {
+                message: "Expected expression term".to_string(),
+                position: *i,
+            });
+        }
+
+        match &tokens[*i] {
+            | TokenType::IntegerLiteral(n) => {
+                let val = *n;
+                *i += 1;
+                Ok(Expression::Literal(Literal::Integer(val)))
+            },
+            | TokenType::FloatLiteral(f) => {
+                let val = *f;
+                *i += 1;
+                Ok(Expression::Literal(Literal::Float(val)))
+            },
+            | TokenType::StringLiteral(s) => {
+                let val = s.clone();
+                *i += 1;
+                Ok(Expression::Literal(Literal::String(val)))
+            },
+            | TokenType::Identifier(name) => {
+                let mut full_name = name.clone();
+                *i += 1;
+
+                // Check for qualified name (e.g., table.column, t.level)
+                // Accept both identifiers and keywords after dot
+                while *i + 1 < tokens.len() && matches!(tokens[*i], TokenType::Dot) {
+                    if let TokenType::Identifier(next_part) = &tokens[*i + 1] {
+                        full_name.push('.');
+                        full_name.push_str(next_part);
+                        *i += 2;
+                    } else if let Some(keyword_name) = self.try_parse_alias_name(&tokens[*i + 1]) {
+                        // Accept keywords like 'level' as part of qualified names
+                        full_name.push('.');
+                        full_name.push_str(&keyword_name);
+                        *i += 2;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Check for function call
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::LeftParen) {
+                    self.parse_function_call(tokens, i, full_name)
+                } else {
+                    Ok(Expression::Identifier(full_name))
+                }
+            },
+            | TokenType::LeftParen => {
+                // Parenthesized expression
+                *i += 1; // consume '('
+                let inner_term = self.parse_select_list_term(tokens, i)?;
+                let expr = self.parse_select_list_continuation(tokens, i, inner_term)?;
+                if *i < tokens.len() && matches!(tokens[*i], TokenType::RightParen) {
+                    *i += 1; // consume ')'
+                }
+                Ok(expr)
+            },
+            // Handle keywords that can be used as column names
+            | TokenType::Level
+            | TokenType::Read
+            | TokenType::Write
+            | TokenType::Commit
+            | TokenType::Key
+            | TokenType::Action
+            | TokenType::Begin
+            | TokenType::End
+            | TokenType::Index
+            | TokenType::Column
+            | TokenType::Table
+            | TokenType::Start
+            | TokenType::Transaction
+            | TokenType::Partition
+            | TokenType::Interval
+            | TokenType::Set
+            | TokenType::Cascade
+            | TokenType::Restrict
+            | TokenType::Rollback
+            | TokenType::Format
+            | TokenType::Rule
+            | TokenType::Pattern
+            | TokenType::Isolation
+            | TokenType::Serializable
+            | TokenType::Repeatable
+            | TokenType::Committed
+            | TokenType::Uncommitted
+            | TokenType::Primary
+            | TokenType::Unique
+            | TokenType::Default
+            | TokenType::Foreign
+            | TokenType::Constraint
+            | TokenType::Algorithm
+            | TokenType::Weights
+            | TokenType::Features
+            | TokenType::Epochs
+            | TokenType::Coherence
+            | TokenType::Superposition => {
+                // Treat keyword as identifier
+                let name = self.token_to_identifier_name(&tokens[*i]);
+                *i += 1;
+                Ok(Expression::Identifier(name))
+            },
+            | _ => Err(QSQLError::ParseError {
+                message: format!("Unexpected token in expression: {:?}", tokens[*i]),
+                position: *i,
+            }),
+        }
+    }
+
     /// Parse expression for subqueries, stopping at `RightParen`
     fn parse_subquery_expression_with_precedence(
         &self,
@@ -1824,8 +2243,16 @@ impl QSQLParser {
 
         // Then, handle infix operators using precedence climbing
         while *i < tokens.len() {
-            // Stop at RightParen for subqueries
-            if matches!(tokens[*i], TokenType::RightParen) {
+            // Stop at RightParen for subqueries or at UNION for CTE compound queries
+            if matches!(
+                tokens[*i],
+                TokenType::RightParen
+                    | TokenType::Union
+                    | TokenType::OrderBy
+                    | TokenType::GroupBy
+                    | TokenType::Having
+                    | TokenType::Limit
+            ) {
                 break;
             }
 
@@ -5720,6 +6147,51 @@ impl QSQLParser {
             | TokenType::Default => {
                 *i += 1;
                 Ok(Expression::Default)
+            },
+
+            // Handle keywords that can be used as column names in expressions
+            // This is needed for ORDER BY, GROUP BY, WHERE clauses, etc.
+            | TokenType::Level
+            | TokenType::Read
+            | TokenType::Write
+            | TokenType::Commit
+            | TokenType::Key
+            | TokenType::Action
+            | TokenType::Begin
+            | TokenType::End
+            | TokenType::Index
+            | TokenType::Column
+            | TokenType::Table
+            | TokenType::Start
+            | TokenType::Transaction
+            | TokenType::Partition
+            | TokenType::Interval
+            | TokenType::Set
+            | TokenType::Cascade
+            | TokenType::Restrict
+            | TokenType::Rollback
+            | TokenType::Format
+            | TokenType::Rule
+            | TokenType::Pattern
+            | TokenType::Isolation
+            | TokenType::Serializable
+            | TokenType::Repeatable
+            | TokenType::Committed
+            | TokenType::Uncommitted
+            | TokenType::Primary
+            | TokenType::Unique
+            | TokenType::Foreign
+            | TokenType::Constraint
+            | TokenType::Algorithm
+            | TokenType::Weights
+            | TokenType::Features
+            | TokenType::Epochs
+            | TokenType::Coherence
+            | TokenType::Superposition => {
+                // Treat keyword as identifier (column name)
+                let name = self.token_to_identifier_name(&tokens[*i]);
+                *i += 1;
+                Ok(Expression::Identifier(name))
             },
 
             | _ => Err(QSQLError::ParseError {
