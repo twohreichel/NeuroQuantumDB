@@ -16,7 +16,7 @@
 | T05 | ✅ DONE | `test_recursive_cte_depth_limit` | Parser | Recursive CTE implementiert | 🔴 Hoch |
 | T06 | ✅ DONE | `test_recursive_cte_with_column_list` | Parser | Recursive CTE implementiert | 🔴 Hoch |
 | T07 | ✅ DONE | `test_recursive_cte_with_multiple_ctes` | Parser | Recursive CTE implementiert | 🔴 Hoch |
-| T08 | ⬜ TODO | `benchmark_1m_inserts` | Performance | Benchmark überschreitet Zeitlimit (37s > 30s) | 🟠 Mittel |
+| T08 | ✅ DONE | `benchmark_1m_inserts` | Performance | Optimiert: 21.5s statt 37s (Ziel <30s) | 🟠 Mittel |
 | T09 | ⬜ TODO | `benchmark_point_lookup` | Performance | Lang-laufender Benchmark | 🟢 Niedrig |
 | T10 | ⬜ TODO | `benchmark_range_scan` | Performance | Lang-laufender Benchmark | 🟢 Niedrig |
 | T11 | ⬜ TODO | `test_read_throughput_scaling` | Load Tests | Lang-laufender Load-Test | 🟢 Niedrig |
@@ -153,27 +153,29 @@
 
 ---
 
-### T08: `benchmark_1m_inserts`
+### T08: `benchmark_1m_inserts` ✅ ERLEDIGT
+
+**Status:** ✅ Performance-Optimierung erfolgreich
 
 **Datei:** `crates/neuroquantum-core/src/storage/btree/tests.rs:245`
 
 **Ignore-Grund:** `Long-running benchmark - run with: cargo test --release -- --ignored --nocapture`
 
-**Problem:** Benchmark schlägt fehl - 36.97s statt <30s Zielzeit
+**Problem (behoben):** Benchmark schlug fehl - 36.97s statt <30s Zielzeit
 
-**Beschreibung:**  
-Performance-Benchmark für 1 Million B+-Tree Inserts. Aktuell ~27.000 Inserts/Sekunde, benötigt ~33.000/Sekunde für das 30s-Ziel.
+**Lösung implementiert:**
+1. `allocate_page()` von async zu sync umgestellt (kein I/O mehr bei jeder Seitenallokation)
+2. Metadaten-Speicherung nur noch beim `flush()` statt bei jeder Allokation
+3. Cache-Limit von 1000 auf 10000 Seiten erhöht (~40MB statt ~4MB)
 
-**Erforderliche Optimierungen:**
-1. B+-Tree Bulk-Loading optimieren
-2. Page-Splitting effizienter gestalten
-3. Write-Batching implementieren
-4. Async I/O-Optimierung prüfen
-5. Alternativ: Zeitlimit auf 40s erhöhen wenn Hardware-abhängig
+**Ergebnis:**
+- **Vorher:** 36.97s (~27.000 inserts/sec)
+- **Nachher:** 21.50s (~46.500 inserts/sec)
+- **Verbesserung:** ~72% schneller, deutlich unter dem 30s-Ziel
 
 **Betroffene Dateien:**
-- `crates/neuroquantum-core/src/storage/btree/mod.rs`
-- `crates/neuroquantum-core/src/storage/btree/node.rs`
+- `crates/neuroquantum-core/src/storage/btree/mod.rs` - allocate_page()-Aufrufe angepasst
+- `crates/neuroquantum-core/src/storage/btree/page.rs` - allocate_page() und Cache-Limit optimiert
 
 ---
 
@@ -399,10 +401,10 @@ Diese Doc-Tests verwenden:
 ## 🔧 Priorisierte Aktionsplan
 
 ### Phase 1: Kritische Features (Prio 🔴)
-- [ ] T01-T07: Recursive CTE Parser-Implementation
+- [x] T01-T07: Recursive CTE Parser-Implementation ✅
 
 ### Phase 2: Performance-Fixes (Prio 🟠)  
-- [ ] T08: B+-Tree Insert-Performance optimieren
+- [x] T08: B+-Tree Insert-Performance optimieren ✅
 - [ ] D01-D22: Doc-Tests auf `no_run` umstellen
 
 ### Phase 3: Wartung (Prio 🟢)
@@ -415,7 +417,7 @@ Diese Doc-Tests verwenden:
 
 - **Gesamt ignorierte Unit-Tests:** 19
 - **Gesamt ignorierte Doc-Tests:** 31
-- **Fehlgeschlagene Tests bei `--ignored`:** 1 (benchmark_1m_inserts)
-- **Feature-blockierend (Parser):** 7
-- **Performance-relevant:** 3
+- **Fehlgeschlagene Tests bei `--ignored`:** 0 ✅
+- **Feature-blockierend (Parser):** 7 (alle erledigt ✅)
+- **Performance-relevant:** 3 (T08 erledigt ✅)
 - **Designbedingt ignoriert (Load/Chaos):** 9
