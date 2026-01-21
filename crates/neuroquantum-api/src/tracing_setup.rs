@@ -217,12 +217,12 @@ pub fn create_sampler(sampling_rate: f64) -> SamplerType {
     }
 }
 
-/// Convert SamplerType to OpenTelemetry Sampler
-fn sampler_type_to_otel(sampler_type: SamplerType) -> Sampler {
+/// Convert `SamplerType` to OpenTelemetry Sampler
+const fn sampler_type_to_otel(sampler_type: SamplerType) -> Sampler {
     match sampler_type {
-        SamplerType::AlwaysOn => Sampler::AlwaysOn,
-        SamplerType::AlwaysOff => Sampler::AlwaysOff,
-        SamplerType::TraceIdRatioBased(rate) => Sampler::TraceIdRatioBased(rate),
+        | SamplerType::AlwaysOn => Sampler::AlwaysOn,
+        | SamplerType::AlwaysOff => Sampler::AlwaysOff,
+        | SamplerType::TraceIdRatioBased(rate) => Sampler::TraceIdRatioBased(rate),
     }
 }
 

@@ -3,8 +3,8 @@
 //! Tests for the biologically accurate Izhikevich spiking neural network implementation.
 
 use neuroquantum_core::spiking::{
-    IzhikevichNeuron, IzhikevichNeuronType, IzhikevichParameters, STDPRule,
-    SpikingNeuralNetwork, SpikingSynapse,
+    IzhikevichNeuron, IzhikevichNeuronType, IzhikevichParameters, STDPRule, SpikingNeuralNetwork,
+    SpikingSynapse,
 };
 
 #[test]

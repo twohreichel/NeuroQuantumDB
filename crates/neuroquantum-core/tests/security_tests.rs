@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use neuroquantum_core::security::{
     constant_time_compare, constant_time_compare_str, constant_time_threshold_check,
     AccessControlConfig, AuditConfig, AuditEventType, AuditLogger, AuditResult, AuthResult,
-    BiometricAuth, BiometricAuthConfig, BiometricFeatureMethod, QuantumCrypto,
-    QuantumEncryptionConfig, RBACManager, Role, Permission,
+    BiometricAuth, BiometricAuthConfig, BiometricFeatureMethod, Permission, QuantumCrypto,
+    QuantumEncryptionConfig, RBACManager, Role,
 };
 
 #[tokio::test]

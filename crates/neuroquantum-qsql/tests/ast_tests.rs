@@ -54,8 +54,8 @@ fn test_synaptic_expression() {
     };
 
     match synaptic_expr {
-        Expression::SynapticMatch { weight, .. } => assert_eq!(weight, 0.75),
-        _ => panic!("Expected SynapticMatch expression"),
+        | Expression::SynapticMatch { weight, .. } => assert_eq!(weight, 0.75),
+        | _ => panic!("Expected SynapticMatch expression"),
     }
 }
 
@@ -69,7 +69,7 @@ fn test_quantum_superposition() {
     };
 
     match superposition {
-        Expression::QuantumSuperposition { states } => assert_eq!(states.len(), 2),
-        _ => panic!("Expected QuantumSuperposition expression"),
+        | Expression::QuantumSuperposition { states } => assert_eq!(states.len(), 2),
+        | _ => panic!("Expected QuantumSuperposition expression"),
     }
 }

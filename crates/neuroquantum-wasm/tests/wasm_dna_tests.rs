@@ -7,9 +7,8 @@
 //! - Compression ratio verification
 //! - Error handling for invalid input
 
-use wasm_bindgen_test::*;
-
 use neuroquantum_wasm::dna_compression::{CompressedDNA, DNABase, WasmDNACompressor};
+use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 

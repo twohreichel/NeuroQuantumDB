@@ -22,10 +22,10 @@ fn test_neuromorphic_error_conversion() {
     let qsql_error: QSQLError = neuro_error.into();
 
     match qsql_error {
-        QSQLError::NeuromorphicError { message } => {
+        | QSQLError::NeuromorphicError { message } => {
             assert!(message.contains("Invalid synaptic weight"));
-        }
-        _ => panic!("Expected NeuromorphicError"),
+        },
+        | _ => panic!("Expected NeuromorphicError"),
     }
 }
 
@@ -37,10 +37,10 @@ fn test_quantum_error_conversion() {
     let qsql_error: QSQLError = quantum_error.into();
 
     match qsql_error {
-        QSQLError::QuantumError { message } => {
+        | QSQLError::QuantumError { message } => {
             assert!(message.contains("Quantum coherence lost"));
-        }
-        _ => panic!("Expected QuantumError"),
+        },
+        | _ => panic!("Expected QuantumError"),
     }
 }
 

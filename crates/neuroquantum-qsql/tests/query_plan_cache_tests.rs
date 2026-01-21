@@ -5,11 +5,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use neuroquantum_qsql::query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
-use neuroquantum_qsql::query_plan_cache::{
-    CachedQueryPlan, QueryPlanCache, QueryPlanCacheConfig,
-};
 use neuroquantum_qsql::ast::{SelectStatement, Statement};
+use neuroquantum_qsql::query_plan::{ExecutionStrategy, OptimizationMetadata, QueryPlan};
+use neuroquantum_qsql::query_plan_cache::{CachedQueryPlan, QueryPlanCache, QueryPlanCacheConfig};
 
 fn create_test_plan() -> Arc<QueryPlan> {
     Arc::new(QueryPlan {

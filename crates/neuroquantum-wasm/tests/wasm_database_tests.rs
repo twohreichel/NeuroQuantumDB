@@ -6,9 +6,8 @@
 //! - Insert operations
 //! - Query operations
 
-use wasm_bindgen_test::*;
-
 use neuroquantum_wasm::NeuroQuantumDB;
+use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 

@@ -15,8 +15,8 @@ use neuroquantum_qsql::ast::{
 };
 use neuroquantum_qsql::explain::{ExplainConfig, ExplainGenerator, NodeType};
 use neuroquantum_qsql::query_plan::{
-    ExecutionStrategy, OptimizationMetadata, QueryPlan, QuantumOptimization,
-    QuantumOptimizationType, SynapticPathway,
+    ExecutionStrategy, OptimizationMetadata, QuantumOptimization, QuantumOptimizationType,
+    QueryPlan, SynapticPathway,
 };
 
 #[test]

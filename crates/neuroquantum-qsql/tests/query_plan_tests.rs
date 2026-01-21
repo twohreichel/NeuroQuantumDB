@@ -24,10 +24,10 @@ fn test_extract_year_parsing() {
         assert_eq!(select.select_list.len(), 1);
         if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
             match expr {
-                Expression::Extract { field, .. } => {
+                | Expression::Extract { field, .. } => {
                     assert_eq!(field, "YEAR");
-                }
-                _ => panic!("Expected Extract expression"),
+                },
+                | _ => panic!("Expected Extract expression"),
             }
         }
     } else {
