@@ -364,15 +364,13 @@ fn test_max_cut_cycle_graph() {
 }
 
 /// Test Max-Cut on complete graph K4
-/// Note: This test is currently ignored due to issues with the SQA solver
-/// consistently converging to trivial solutions (all 0 or all 1) for this
-/// specific QUBO formulation. This needs investigation of the solver's
-/// initialization and annealing schedule.
-/// TODO: Fix QUBO formulation or solver initialization for Max-Cut problems
+///
+/// K4 is a complete graph with 4 vertices and 6 edges.
+/// The optimal max-cut partitions the vertices into two groups of 2,
+/// cutting exactly 4 edges. Any non-trivial partition cuts at least 3 edges.
 #[test]
-#[ignore = "SQA solver converges to trivial solutions - needs investigation"]
 fn test_max_cut_complete_graph() {
-    // Complete graph K4: all pairs connected
+    // Complete graph K4: all pairs connected with weight 1.0
     let mut edges = Vec::new();
     for i in 0..4 {
         for j in (i + 1)..4 {
@@ -380,28 +378,37 @@ fn test_max_cut_complete_graph() {
         }
     }
 
+    // Build QUBO matrix for Max-Cut
+    // For each edge (i,j) with weight w:
+    //   If x_i = x_j: contribute 0 to cut
+    //   If x_i != x_j: contribute w to cut
+    // Maximize: sum of w * (x_i + x_j - 2*x_i*x_j)
+    // Minimize: -sum of w * (x_i + x_j - 2*x_i*x_j)
+    // QUBO form: Q_ii = -w (for each edge containing i)
+    //            Q_ij = 2w (for each edge (i,j))
     let mut q = DMatrix::zeros(4, 4);
     for &(i, j, w) in &edges {
-        q[(i, i)] += w;
-        q[(j, j)] += w;
-        q[(i, j)] -= 2.0 * w;
-        q[(j, i)] -= 2.0 * w;
+        q[(i, i)] -= w;
+        q[(j, j)] -= w;
+        q[(i, j)] += 2.0 * w;
+        q[(j, i)] += 2.0 * w;
     }
 
     // Run multiple attempts to handle stochastic nature
     let mut best_cut_value: f64 = 0.0;
-    for attempt in 0..5 {
+    for attempt in 0..3 {
         let config = QuantumQuboConfig {
             backend: QuboQuantumBackend::SimulatedQuantumAnnealing,
-            max_iterations: 1000 + attempt * 500, // Increase iterations per attempt
-            trotter_slices: 32,
+            max_iterations: 500 + attempt * 200,
+            trotter_slices: 16,
+            annealing_schedule: AnnealingSchedule::Optimized,
             ..Default::default()
         };
 
         let solver = QuantumQuboSolver::with_config(config);
         let solution = solver.solve(&q, "max-cut-k4").unwrap();
 
-        // K4 optimal max-cut is 4 edges (2-2 partition)
+        // Calculate cut value
         let cut_value: f64 = edges
             .iter()
             .map(|&(i, j, w)| {
@@ -415,16 +422,16 @@ fn test_max_cut_complete_graph() {
 
         best_cut_value = best_cut_value.max(cut_value);
 
-        if best_cut_value >= 3.0 {
-            break; // Found good solution
+        if best_cut_value >= 4.0 {
+            break; // Found optimal solution
         }
     }
 
     // K4 has 6 edges total, optimal cut is 4
-    // With multiple attempts, we should find at least a reasonable cut
+    // With the improved SQA solver, we should reliably find cuts of at least 3 edges
     assert!(
-        best_cut_value >= 1.0,
-        "Should cut at least 1 edge for K4 after multiple attempts (got {best_cut_value})"
+        best_cut_value >= 3.0,
+        "Should cut at least 3 edges for K4 (got {best_cut_value})"
     );
 }
 

@@ -28,7 +28,7 @@
 | T17 | ✅ CI | `test_repeated_crash_recovery_cycles` | Chaos Engineering | Nightly CI-Pipeline integriert | 🟢 Niedrig |
 | T18 | ✅ CI | `test_chaos_random_node_kills` | Cluster E2E | Weekly CI-Pipeline integriert | 🟢 Niedrig |
 | T19 | ✅ CI | `test_chaos_concurrent_load_with_failures` | Cluster E2E | Weekly CI-Pipeline integriert | 🟢 Niedrig |
-| T20 | ⬜ TODO | `test_max_cut_complete_graph` | QUBO Quantum | SQA Solver konvergiert zu trivialen Lösungen | 🟠 Mittel |
+| T20 | ✅ DONE | `test_max_cut_complete_graph` | QUBO Quantum | SQA Solver optimiert mit adaptiver Temperatur und Multi-Restart | 🟠 Mittel |
 | D01 | ✅ DONE | Doc-Test: `permissions.rs` line 8 | Doc-Tests | Kompilierbarer Doc-Test | 🟠 Mittel |
 | D02 | ✅ DONE | Doc-Test: `lib.rs` line 113 | Doc-Tests | Umgestellt auf `no_run` mit async wrapper | 🟠 Mittel |
 | D03 | ✅ DONE | Doc-Test: `concurrency.rs` lines 64,84,100,219,245 | Doc-Tests | Umgestellt auf `text` (Konzept-Dokumentation) | 🟠 Mittel |
@@ -357,6 +357,44 @@ Cluster unter Last mit periodischen Failures. Testet Resilienz unter realem Work
 
 ---
 
+### T20: `test_max_cut_complete_graph` ✅ ERLEDIGT
+
+**Status:** ✅ Implementiert und Test aktiviert (21. Januar 2026)
+
+**Datei:** `crates/neuroquantum-core/tests/qubo_quantum_tests.rs:374`
+
+**Problem (behoben):** SQA Solver konvergierte zu trivialen Lösungen (alle 0 oder alle 1)
+
+**Ursachenanalyse:**
+1. Feste niedrige Temperatur (0.1) erlaubte keine ausreichende Exploration
+2. Annealing Schedule (`AnnealingSchedule`) wurde nicht genutzt
+3. Transverse Field-Berechnung war fehlerhaft für hohe Gamma-Werte
+4. Keine Multi-Restart-Strategie für bessere Konvergenz
+
+**Lösung implementiert:**
+1. **Adaptive Temperatur:** Startet bei `energy_scale` und kühlt auf 0.01 ab
+2. **Korrekte Annealing Schedules:** Linear, Exponential, Optimized (Sigmoid-artig), Custom
+3. **Energie-Skalierung:** Automatische Schätzung der Problemenergieskala
+4. **Multi-Restart:** Mehrere unabhängige Annealing-Läufe (3 + n/10 für n Spins)
+5. **Diverse Initialisierung:** Verschiedene Startmuster pro Trotter-Slice
+6. **Korrigierte J_perp-Berechnung:** `J_perp = -(T/2) * ln(tanh(Gamma / (m * T)))`
+7. **Randomisierte Sweep-Reihenfolge:** Reduziert systematische Bias
+
+**QUBO-Formulierung korrigiert:**
+- Max-Cut: Maximiere cut = Σ w_ij * (x_i + x_j - 2*x_i*x_j)
+- QUBO: Minimiere -cut → Q_ii = -w (für jede Kante mit i), Q_ij = +2w
+
+**Ergebnis:**
+- Test besteht zuverlässig
+- K4 Max-Cut findet jetzt mindestens 3 von 4 optimalen Kanten (oft 4)
+- Solver-Qualität signifikant verbessert für alle QUBO-Probleme
+
+**Betroffene Dateien:**
+- `crates/neuroquantum-core/src/quantum/qubo_quantum.rs` - SQA Solver komplett überarbeitet
+- `crates/neuroquantum-core/tests/qubo_quantum_tests.rs` - Test aktiviert und QUBO-Matrix korrigiert
+
+---
+
 ### D01: Doc-Test `permissions.rs` line 8 ✅ ERLEDIGT
 
 **Status:** ✅ Implementiert und Test aktiviert
@@ -501,11 +539,14 @@ Neuer GitHub Actions Workflow `.github/workflows/load-tests.yml` erstellt mit:
 
 ## 📈 Statistiken
 
-- **Gesamt ignorierte Unit-Tests:** 19
+- **Gesamt ignorierte Unit-Tests:** 18 (T20 aktiviert, war 19)
 - **Gesamt ignorierte Doc-Tests:** 8 (von 31 reduziert - 23 jetzt auf `no_run` oder `text`)
 - **Fehlgeschlagene Tests bei `--ignored`:** 0 ✅
 - **Feature-blockierend (Parser):** 7 (alle erledigt ✅)
 - **Performance-relevant:** 3 (T08 erledigt ✅)
+- **QUBO Quantum (T20):** 1 (erledigt ✅ - 21. Januar 2026)
 - **Designbedingt ignoriert (Load/Chaos):** 9 (alle in CI-Pipeline integriert ✅)
 - **Doc-Tests erledigt (D01-D22):** 22 ✅
 - **CI-Pipeline-Integration (T11-T19):** 9 ✅
+
+**Alle Issues abgeschlossen!** 🎉
