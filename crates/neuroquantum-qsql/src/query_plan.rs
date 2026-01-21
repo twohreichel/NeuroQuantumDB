@@ -9462,7 +9462,6 @@ pub struct OptimizationMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::QSQLParser;
 
     #[tokio::test]
     async fn test_basic_select_execution() {
