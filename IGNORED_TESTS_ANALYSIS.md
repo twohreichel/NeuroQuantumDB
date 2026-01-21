@@ -19,15 +19,15 @@
 | T08 | ✅ DONE | `benchmark_1m_inserts` | Performance | Optimiert: 21.5s statt 37s (Ziel <30s) | 🟠 Mittel |
 | T09 | ✅ DONE | `benchmark_point_lookup` | Performance | Verifiziert: P99=18µs (Ziel <1000µs) | 🟢 Niedrig |
 | T10 | ✅ DONE | `benchmark_range_scan` | Performance | Verifiziert: <1ms für 10k Rows (Ziel <100ms) | 🟢 Niedrig |
-| T11 | ⬜ TODO | `test_read_throughput_scaling` | Load Tests | Lang-laufender Load-Test | 🟢 Niedrig |
-| T12 | ⬜ TODO | `test_write_throughput_scaling` | Load Tests | Lang-laufender Load-Test | 🟢 Niedrig |
-| T13 | ⬜ TODO | `test_sustained_load_stability` | Load Tests | Lang-laufender Load-Test | 🟢 Niedrig |
-| T14 | ⬜ TODO | `test_load_test_summary` | Load Tests | Zusammenfassungstest | 🟢 Niedrig |
-| T15 | ⬜ TODO | `test_concurrent_transactions_crash` | Chaos Engineering | Lang-laufender Test | 🟢 Niedrig |
-| T16 | ⬜ TODO | `test_acid_properties_after_crash` | Chaos Engineering | Lang-laufender Test | 🟢 Niedrig |
-| T17 | ⬜ TODO | `test_repeated_crash_recovery_cycles` | Chaos Engineering | Sehr lang-laufender Test | 🟢 Niedrig |
-| T18 | ⬜ TODO | `test_chaos_random_node_kills` | Cluster E2E | Lang-laufender Test | 🟢 Niedrig |
-| T19 | ⬜ TODO | `test_chaos_concurrent_load_with_failures` | Cluster E2E | Lang-laufender Test | 🟢 Niedrig |
+| T11 | ✅ CI | `test_read_throughput_scaling` | Load Tests | Nightly CI-Pipeline integriert | 🟢 Niedrig |
+| T12 | ✅ CI | `test_write_throughput_scaling` | Load Tests | Nightly CI-Pipeline integriert | 🟢 Niedrig |
+| T13 | ✅ CI | `test_sustained_load_stability` | Load Tests | Nightly CI-Pipeline integriert | 🟢 Niedrig |
+| T14 | ✅ CI | `test_load_test_summary` | Load Tests | Nightly CI-Pipeline integriert | 🟢 Niedrig |
+| T15 | ✅ CI | `test_concurrent_transactions_crash` | Chaos Engineering | Nightly CI-Pipeline integriert | 🟢 Niedrig |
+| T16 | ✅ CI | `test_acid_properties_after_crash` | Chaos Engineering | Nightly CI-Pipeline integriert | 🟢 Niedrig |
+| T17 | ✅ CI | `test_repeated_crash_recovery_cycles` | Chaos Engineering | Nightly CI-Pipeline integriert | 🟢 Niedrig |
+| T18 | ✅ CI | `test_chaos_random_node_kills` | Cluster E2E | Weekly CI-Pipeline integriert | 🟢 Niedrig |
+| T19 | ✅ CI | `test_chaos_concurrent_load_with_failures` | Cluster E2E | Weekly CI-Pipeline integriert | 🟢 Niedrig |
 | T20 | ⬜ TODO | `test_max_cut_complete_graph` | QUBO Quantum | SQA Solver konvergiert zu trivialen Lösungen | 🟠 Mittel |
 | D01 | ✅ DONE | Doc-Test: `permissions.rs` line 8 | Doc-Tests | Kompilierbarer Doc-Test | 🟠 Mittel |
 | D02 | ✅ DONE | Doc-Test: `lib.rs` line 113 | Doc-Tests | Umgestellt auf `no_run` mit async wrapper | 🟠 Mittel |
@@ -487,8 +487,15 @@ Diese Doc-Tests verwendeten:
 - [x] D01-D22: Doc-Tests auf `no_run` umstellen ✅
 
 ### Phase 3: Wartung (Prio 🟢)
-- [ ] CI-Pipeline für ignorierte Tests konfigurieren
-- [ ] T09-T19: In nightly/weekly CI-Jobs integrieren
+- [x] CI-Pipeline für ignorierte Tests konfigurieren ✅
+- [x] T09-T19: In nightly/weekly CI-Jobs integrieren ✅
+
+**CI-Pipeline implementiert (21. Januar 2026):**
+Neuer GitHub Actions Workflow `.github/workflows/load-tests.yml` erstellt mit:
+- **Nightly (Mo-Fr 02:00 UTC):** Load Tests (T11-T14) und Chaos Engineering Tests (T15-T17)
+- **Weekly (So 03:00 UTC):** Cluster E2E Tests (T18-T19)
+- Automatische Issue-Erstellung bei Fehlern
+- Workflow-Dispatch für manuelle Ausführung mit Test-Kategorieauswahl
 
 ---
 
@@ -499,5 +506,6 @@ Diese Doc-Tests verwendeten:
 - **Fehlgeschlagene Tests bei `--ignored`:** 0 ✅
 - **Feature-blockierend (Parser):** 7 (alle erledigt ✅)
 - **Performance-relevant:** 3 (T08 erledigt ✅)
-- **Designbedingt ignoriert (Load/Chaos):** 9
+- **Designbedingt ignoriert (Load/Chaos):** 9 (alle in CI-Pipeline integriert ✅)
 - **Doc-Tests erledigt (D01-D22):** 22 ✅
+- **CI-Pipeline-Integration (T11-T19):** 9 ✅
