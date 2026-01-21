@@ -28,6 +28,7 @@
 | T17 | ⬜ TODO | `test_repeated_crash_recovery_cycles` | Chaos Engineering | Sehr lang-laufender Test | 🟢 Niedrig |
 | T18 | ⬜ TODO | `test_chaos_random_node_kills` | Cluster E2E | Lang-laufender Test | 🟢 Niedrig |
 | T19 | ⬜ TODO | `test_chaos_concurrent_load_with_failures` | Cluster E2E | Lang-laufender Test | 🟢 Niedrig |
+| T20 | ⬜ TODO | `test_max_cut_complete_graph` | QUBO Quantum | SQA Solver konvergiert zu trivialen Lösungen | 🟠 Mittel |
 | D01 | ✅ DONE | Doc-Test: `permissions.rs` line 8 | Doc-Tests | Kompilierbarer Doc-Test | 🟠 Mittel |
 | D02 | ✅ DONE | Doc-Test: `lib.rs` line 113 | Doc-Tests | Umgestellt auf `no_run` mit async wrapper | 🟠 Mittel |
 | D03 | ✅ DONE | Doc-Test: `concurrency.rs` lines 64,84,100,219,245 | Doc-Tests | Umgestellt auf `text` (Konzept-Dokumentation) | 🟠 Mittel |
