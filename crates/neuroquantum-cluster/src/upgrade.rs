@@ -98,6 +98,13 @@ impl UpgradeCoordinator {
         *self.status.read().await
     }
 
+    /// Set the upgrade status (for testing purposes).
+    #[doc(hidden)]
+    pub async fn set_status(&self, status: UpgradeStatus) {
+        let mut current = self.status.write().await;
+        *current = status;
+    }
+
     /// Get the current upgrade progress.
     pub async fn progress(&self) -> UpgradeProgress {
         self.progress.read().await.clone()
@@ -379,41 +386,4 @@ pub async fn canary_upgrade(
 
     info!("Canary upgrade successful, safe to proceed with remaining nodes");
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_upgrade_coordinator_creation() {
-        let coordinator = UpgradeCoordinator::new(3);
-        assert_eq!(coordinator.status().await, UpgradeStatus::Idle);
-
-        let progress = coordinator.progress().await;
-        assert_eq!(progress.total_nodes, 3);
-        assert_eq!(progress.upgraded_nodes, 0);
-    }
-
-    #[tokio::test]
-    async fn test_upgrade_status_display() {
-        assert_eq!(format!("{}", UpgradeStatus::Idle), "Idle");
-        assert_eq!(format!("{}", UpgradeStatus::Preparing), "Preparing");
-        assert_eq!(format!("{}", UpgradeStatus::Completed), "Completed");
-        assert_eq!(format!("{}", UpgradeStatus::Failed), "Failed");
-    }
-
-    #[tokio::test]
-    async fn test_coordinator_reset() {
-        let coordinator = UpgradeCoordinator::new(3);
-
-        // Simulate upgrade in progress
-        {
-            let mut status = coordinator.status.write().await;
-            *status = UpgradeStatus::Preparing;
-        }
-
-        coordinator.reset().await;
-        assert_eq!(coordinator.status().await, UpgradeStatus::Idle);
-    }
 }
