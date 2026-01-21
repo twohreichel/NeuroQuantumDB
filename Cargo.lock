@@ -3518,7 +3518,6 @@ dependencies = [
  "bytes",
  "chrono",
  "etcd-client",
- "futures",
  "hashring",
  "hickory-resolver",
  "neuroquantum-core",

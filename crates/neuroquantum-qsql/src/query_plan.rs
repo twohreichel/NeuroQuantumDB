@@ -9462,7 +9462,6 @@ pub struct OptimizationMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::QSQLParser;
 
     #[tokio::test]
     async fn test_basic_select_execution() {
@@ -9583,62 +9582,5 @@ mod tests {
         assert!(query_result.execution_time < Duration::from_millis(1));
     }
 
-    #[test]
-    fn test_extract_year_parsing() {
-        let parser = QSQLParser::new();
-        let sql = "SELECT EXTRACT(YEAR FROM '2025-12-23')";
-        let result = parser.parse_query(sql);
-
-        if let Err(e) = &result {
-            eprintln!("Parse error: {e:?}");
-        }
-
-        assert!(result.is_ok(), "Failed to parse EXTRACT(YEAR FROM date)");
-
-        let stmt = result.unwrap();
-        if let Statement::Select(select) = stmt {
-            assert_eq!(select.select_list.len(), 1);
-            if let SelectItem::Expression { expr, .. } = &select.select_list[0] {
-                match expr {
-                    | Expression::Extract { field, .. } => {
-                        assert_eq!(field, "YEAR");
-                    },
-                    | _ => panic!("Expected Extract expression"),
-                }
-            }
-        } else {
-            panic!("Expected SELECT statement");
-        }
-    }
-
-    #[test]
-    fn test_extract_all_fields() {
-        let parser = QSQLParser::new();
-        let fields = vec![
-            "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND", "DOW", "DOY", "WEEK", "QUARTER",
-            "EPOCH",
-        ];
-
-        for field in fields {
-            let sql = format!("SELECT EXTRACT({field} FROM '2025-12-23 14:30:45')");
-            let result = parser.parse_query(&sql);
-            assert!(result.is_ok(), "Failed to parse EXTRACT({field} FROM date)");
-        }
-    }
-
-    #[test]
-    fn test_extract_in_where_clause() {
-        let parser = QSQLParser::new();
-        let sql = "SELECT * FROM events WHERE EXTRACT(YEAR FROM created_at) = 2025";
-        let result = parser.parse_query(sql);
-        assert!(result.is_ok(), "Failed to parse EXTRACT in WHERE clause");
-    }
-
-    #[test]
-    fn test_extract_missing_from_keyword() {
-        let parser = QSQLParser::new();
-        let sql = "SELECT EXTRACT(YEAR '2025-12-23')";
-        let result = parser.parse_query(sql);
-        assert!(result.is_err(), "Should fail without FROM keyword");
-    }
+    // Parser-related tests (test_extract_*) have been extracted to tests/query_plan_tests.rs
 }

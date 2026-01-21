@@ -405,30 +405,3 @@ fn setup_panic_handler() {
         std::process::exit(1);
     }));
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_environment_validation() {
-        let config = ApiConfig::development();
-        // This should not panic in test environment
-        let result = std::panic::catch_unwind(|| {
-            tokio::runtime::Runtime::new()
-                .unwrap()
-                .block_on(async { validate_environment(&config) })
-        });
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_logging_initialization() {
-        // Test that logging can be initialized without panicking
-        std::env::set_var("NEUROQUANTUM_LOG_LEVEL", "debug");
-        std::env::set_var("NEUROQUANTUM_LOG_FORMAT", "plain");
-
-        let result = init_logging();
-        assert!(result.is_ok());
-    }
-}

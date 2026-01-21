@@ -195,12 +195,24 @@ impl NeuroQuantumDB {
         console_log("Clearing all database data");
         self.tables.clear();
     }
+
+    /// Get the number of tables in the database
+    #[wasm_bindgen]
+    pub fn table_count(&self) -> usize {
+        self.tables.len()
+    }
+
+    /// Check if a table exists
+    #[wasm_bindgen]
+    pub fn has_table(&self, name: &str) -> bool {
+        self.tables.contains_key(name)
+    }
 }
 
-// Internal implementation methods
+// Internal implementation methods (public for testing)
 impl NeuroQuantumDB {
     /// Internal SQL execution logic
-    fn execute_internal(&mut self, sql: &str) -> Result<u32, String> {
+    pub fn execute_internal(&mut self, sql: &str) -> Result<u32, String> {
         let sql_upper = sql.trim().to_uppercase();
 
         // Parse CREATE TABLE
@@ -229,7 +241,10 @@ impl NeuroQuantumDB {
     }
 
     /// Internal query logic
-    fn query_internal(&self, sql: &str) -> Result<Vec<HashMap<String, serde_json::Value>>, String> {
+    pub fn query_internal(
+        &self,
+        sql: &str,
+    ) -> Result<Vec<HashMap<String, serde_json::Value>>, String> {
         let sql_upper = sql.trim().to_uppercase();
 
         if !sql_upper.starts_with("SELECT") {
@@ -367,49 +382,4 @@ extern "C" {
 /// Helper function to log messages
 fn console_log(s: &str) {
     log(s);
-}
-
-#[cfg(test)]
-mod tests {
-    use wasm_bindgen_test::*;
-
-    use super::*;
-
-    #[wasm_bindgen_test]
-    fn test_create_db() {
-        let db = NeuroQuantumDB::new().unwrap();
-        assert_eq!(db.tables.len(), 0);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_create_table() {
-        let mut db = NeuroQuantumDB::new().unwrap();
-        let result = db.execute_internal("CREATE TABLE users (id INTEGER, name TEXT)");
-        assert!(result.is_ok());
-        assert!(db.tables.contains_key("USERS"));
-    }
-
-    #[wasm_bindgen_test]
-    fn test_insert() {
-        let mut db = NeuroQuantumDB::new().unwrap();
-        db.execute_internal("CREATE TABLE users (id INTEGER, name TEXT)")
-            .unwrap();
-        let result = db.execute_internal("INSERT INTO users (id, name) VALUES (1, 'Alice')");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 1);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_query() {
-        let mut db = NeuroQuantumDB::new().unwrap();
-        db.execute_internal("CREATE TABLE users (id INTEGER, name TEXT)")
-            .unwrap();
-        db.execute_internal("INSERT INTO users (id, name) VALUES (1, 'Alice')")
-            .unwrap();
-
-        let results = db.query_internal("SELECT * FROM users");
-        assert!(results.is_ok());
-        let rows = results.unwrap();
-        assert_eq!(rows.len(), 1);
-    }
 }
