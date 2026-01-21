@@ -327,7 +327,7 @@ impl Clone for Value {
     }
 }
 
-/// Serde helper module for Arc<String>
+/// Serde helper module for `Arc<String>`
 mod arc_string_serde {
     use std::sync::Arc;
 
@@ -349,7 +349,7 @@ mod arc_string_serde {
     }
 }
 
-/// Serde helper module for Arc<Vec<u8>>
+/// Serde helper module for `Arc<Vec<u8>>`
 mod arc_vec_serde {
     use std::sync::Arc;
 
