@@ -1,0 +1,62 @@
+{
+    "name": "neuroquantum/php-driver",
+    "description": "Official PHP driver for NeuroQuantumDB - A neuromorphic and quantum-inspired database",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "database",
+        "driver",
+        "neuroquantum",
+        "quantum",
+        "neural",
+        "sql"
+    ],
+    "authors": [
+        {
+            "name": "NeuroQuantumDB Team",
+            "email": "team@neuroquantumdb.io"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "guzzlehttp/guzzle": "^7.8",
+        "psr/http-client": "^1.0",
+        "psr/log": "^3.0"
+    },
+    "require-dev": {
+        "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^1.10",
+        "phpstan/phpstan-mockery": "^1.1",
+        "phpunit/phpunit": "^10.5",
+        "squizlabs/php_codesniffer": "^3.8",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "NeuroQuantum\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NeuroQuantum\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-html coverage",
+        "analyse": "phpstan analyse src tests --level=8",
+        "cs": "phpcs --standard=PSR12 src tests",
+        "cs:fix": "phpcbf --standard=PSR12 src tests",
+        "check": [
+            "@cs",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

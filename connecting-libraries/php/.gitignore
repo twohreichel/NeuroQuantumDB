@@ -1,0 +1,27 @@
+# Dependencies
+/vendor/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PHPUnit
+.phpunit.cache/
+.phpunit.result.cache
+coverage/
+
+# PHPStan
+phpstan.cache/
+
+# Composer
+composer.lock
+
+# OS files
+.DS_Store
+Thumbs.db
