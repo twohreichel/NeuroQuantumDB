@@ -19,7 +19,7 @@
 //!
 //! ## Configuration
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use neuroquantum_core::quantum::backends::dwave::{DWaveBackend, DWaveConfig};
 //!
 //! // From environment (recommended)
@@ -146,8 +146,9 @@ pub enum DWavePostprocessing {
 ///
 /// ## Example
 ///
-/// ```rust,ignore
+/// ```no_run
 /// use neuroquantum_core::quantum::backends::dwave::DWaveBackend;
+/// use neuroquantum_core::quantum::backends::QuantumBackendInfo;
 ///
 /// let backend = DWaveBackend::from_env();
 /// if backend.is_available() {

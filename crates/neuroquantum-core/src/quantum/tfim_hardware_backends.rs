@@ -32,11 +32,13 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust,ignore
+//! ```ignore
 //! use neuroquantum_core::quantum::tfim_hardware_backends::{
 //!     DWaveTFIMSolver, DWaveTFIMConfig, AnnealingBackend
 //! };
+//! use neuroquantum_core::quantum::tfim::TFIMProblem;
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! // Create D-Wave solver
 //! let config = DWaveTFIMConfig {
 //!     api_token: std::env::var("DWAVE_API_TOKEN").ok(),
@@ -46,8 +48,11 @@
 //! };
 //! let solver = DWaveTFIMSolver::new(config);
 //!
-//! // Solve TFIM problem
+//! // Solve TFIM problem (see TFIMProblem for construction)
+//! let problem = TFIMProblem::new(/* ... */);
 //! let solution = solver.solve(&problem).await?;
+//! # Ok(())
+//! # }
 //! ```
 
 use std::collections::HashMap;

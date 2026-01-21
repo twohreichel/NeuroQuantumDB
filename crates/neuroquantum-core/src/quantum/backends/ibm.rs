@@ -18,7 +18,7 @@
 //!
 //! ## Configuration
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use neuroquantum_core::quantum::backends::ibm::{IBMQuantumBackend, IBMQuantumConfig};
 //!
 //! // From environment (recommended)
@@ -114,8 +114,9 @@ impl Default for IBMQuantumConfig {
 ///
 /// ## Example
 ///
-/// ```rust,ignore
+/// ```no_run
 /// use neuroquantum_core::quantum::backends::ibm::IBMQuantumBackend;
+/// use neuroquantum_core::quantum::backends::QuantumBackendInfo;
 ///
 /// let backend = IBMQuantumBackend::from_env();
 /// if backend.is_available() {

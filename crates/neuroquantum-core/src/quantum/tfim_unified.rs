@@ -6,11 +6,13 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust,ignore
-//! use neuroquantum_core::quantum::{UnifiedTFIMSolver, UnifiedTFIMConfig};
+//! ```ignore
+//! use neuroquantum_core::quantum::tfim_unified::{UnifiedTFIMSolver, UnifiedTFIMConfig};
+//! use neuroquantum_core::quantum::tfim::TFIMProblem;
 //!
 //! let config = UnifiedTFIMConfig::default();
 //! let solver = UnifiedTFIMSolver::new(config);
+//! let problem = TFIMProblem::new(/* ... */);
 //! let result = solver.solve(&problem)?;
 //! ```
 

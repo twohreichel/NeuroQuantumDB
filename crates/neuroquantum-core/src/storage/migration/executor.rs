@@ -61,16 +61,27 @@ impl MigrationExecutor {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
     /// use std::sync::Arc;
     /// use neuroquantum_core::storage::migration::{
-    ///     MigrationExecutor, MigrationExecutorConfig, SqlExecutor
+    ///     MigrationExecutor, MigrationExecutorConfig, SqlExecutor, SqlExecutionResult, BoxedSqlExecutor,
     /// };
     ///
+    /// # struct MySqlExecutor;
+    /// # #[async_trait::async_trait]
+    /// # impl SqlExecutor for MySqlExecutor {
+    /// #     async fn execute_sql(&self, _sql: &str) -> anyhow::Result<SqlExecutionResult> {
+    /// #         Ok(SqlExecutionResult { rows_affected: 0, message: None })
+    /// #     }
+    /// # }
+    /// # fn example() {
+    /// # let my_sql_executor = MySqlExecutor;
+    /// # let config = MigrationExecutorConfig::default();
     /// let executor = MigrationExecutor::with_executor(
     ///     config,
-    ///     Arc::new(my_sql_executor),
+    ///     Arc::new(my_sql_executor) as BoxedSqlExecutor,
     /// );
+    /// # }
     /// ```
     #[must_use]
     pub fn with_executor(config: MigrationExecutorConfig, sql_executor: BoxedSqlExecutor) -> Self {

@@ -652,6 +652,11 @@ impl QuantumQuboSolver {
     }
 
     /// Solve using Simulated Quantum Annealing (Path Integral Monte Carlo)
+    ///
+    /// This implementation uses the Suzuki-Trotter decomposition to simulate
+    /// quantum annealing on a classical computer. The transverse field (quantum
+    /// fluctuations) is gradually reduced while temperature is also lowered,
+    /// allowing the system to settle into low-energy configurations.
     fn solve_sqa(
         &self,
         ising: &IsingModel,
@@ -661,72 +666,152 @@ impl QuantumQuboSolver {
         let m = self.config.trotter_slices;
         let mut rng = rand::thread_rng();
 
-        // Initialize Trotter slices (imaginary time replicas)
-        let mut slices: Vec<Vec<i8>> = (0..m)
-            .map(|_| {
-                (0..n)
-                    .map(|_| if rng.gen::<bool>() { 1 } else { -1 })
-                    .collect()
-            })
-            .collect();
+        // Scale parameters based on problem size and energy scale
+        let energy_scale = self.estimate_energy_scale(ising);
 
-        let temperature = 0.1; // Low temperature for ground state
-        let beta = 1.0 / temperature;
-        let beta_trotter = beta / m as f64;
+        // Initial transverse field - should be large enough to allow exploration
+        // but scaled appropriately to the problem's energy scale
+        let gamma_initial = energy_scale.max(1.0) * 2.0;
+        let gamma_final = 0.01;
+
+        // Temperature schedule: start high for exploration, end low for precision
+        let temp_initial = energy_scale.max(1.0);
+        let temp_final = 0.01;
 
         let total_steps = self.config.max_iterations;
         let mut best_energy = f64::INFINITY;
-        let mut best_spins = slices[0].clone();
+        let mut best_spins = vec![1i8; n];
 
-        for step in 0..total_steps {
-            // Transverse field schedule (linear decrease)
-            let s = step as f64 / total_steps as f64;
-            let gamma = self.config.annealing_time * (1.0 - s); // Transverse field strength
-            let j_perp = -0.5 * (2.0 * beta_trotter * gamma).tanh().recip().ln();
+        // Run multiple independent annealing chains for better exploration
+        let num_restarts = 3.max(1 + n / 10); // More restarts for larger problems
 
-            // Monte Carlo sweep over all spins in all slices
-            for slice_idx in 0..m {
-                for spin_idx in 0..n {
-                    // Calculate energy change for flipping this spin
+        for _restart in 0..num_restarts {
+            // Initialize Trotter slices (imaginary time replicas) with diverse initial states
+            let mut slices: Vec<Vec<i8>> = (0..m)
+                .map(|slice_idx| {
+                    (0..n)
+                        .map(|spin_idx| {
+                            // Diverse initialization: alternate patterns across slices
+                            if slice_idx % 3 == 0 {
+                                if rng.gen::<bool>() {
+                                    1
+                                } else {
+                                    -1
+                                }
+                            } else if slice_idx % 3 == 1 {
+                                // Alternating pattern
+                                if (spin_idx + slice_idx) % 2 == 0 {
+                                    1
+                                } else {
+                                    -1
+                                }
+                            } else {
+                                // Complement of first slice pattern
+                                if rng.gen::<bool>() {
+                                    -1
+                                } else {
+                                    1
+                                }
+                            }
+                        })
+                        .collect()
+                })
+                .collect();
 
-                    // Intra-slice (classical) energy contribution
-                    let mut delta_e_classical =
-                        2.0 * f64::from(slices[slice_idx][spin_idx]) * ising.local_fields[spin_idx];
+            for step in 0..total_steps {
+                // Annealing progress (0 to 1)
+                let s = step as f64 / total_steps as f64;
 
-                    for j in 0..n {
-                        if j != spin_idx {
-                            delta_e_classical += 2.0
-                                * f64::from(slices[slice_idx][spin_idx])
-                                * ising.couplings[(spin_idx, j)]
-                                * f64::from(slices[slice_idx][j]);
+                // Apply configured annealing schedule
+                let schedule_factor = match &self.config.annealing_schedule {
+                    | AnnealingSchedule::Linear => s,
+                    | AnnealingSchedule::Exponential => 1.0 - (-3.0 * s).exp(),
+                    | AnnealingSchedule::Optimized => {
+                        // Slow start, fast middle, slow end (sigmoid-like)
+                        1.0 / (1.0 + (-10.0 * (s - 0.5)).exp())
+                    },
+                    | AnnealingSchedule::Custom(schedule) => {
+                        // Interpolate custom schedule
+                        self.interpolate_schedule(schedule, s)
+                    },
+                };
+
+                // Temperature decreases according to schedule
+                let temperature =
+                    temp_initial * (1.0 - schedule_factor) + temp_final * schedule_factor;
+                let beta = 1.0 / temperature.max(1e-10);
+                let beta_trotter = beta / m as f64;
+
+                // Transverse field decreases according to schedule
+                let gamma = gamma_initial * (1.0 - schedule_factor) + gamma_final * schedule_factor;
+
+                // Calculate inter-slice coupling strength
+                // J_perp = -(T/2) * ln(tanh(Gamma / (m * T)))
+                let arg = (gamma / (m as f64 * temperature)).min(20.0); // Prevent overflow
+                let j_perp = if arg > 1e-10 {
+                    -0.5 * temperature * arg.tanh().ln().abs()
+                } else {
+                    0.0
+                };
+
+                // Monte Carlo sweeps with random order to reduce bias
+                let mut spin_order: Vec<usize> = (0..n).collect();
+                let mut slice_order: Vec<usize> = (0..m).collect();
+
+                // Shuffle orders for unbiased sampling
+                for i in (1..n).rev() {
+                    spin_order.swap(i, rng.gen_range(0..=i));
+                }
+                for i in (1..m).rev() {
+                    slice_order.swap(i, rng.gen_range(0..=i));
+                }
+
+                for &slice_idx in &slice_order {
+                    for &spin_idx in &spin_order {
+                        // Calculate energy change for flipping this spin
+
+                        // Intra-slice (classical) energy contribution
+                        let mut delta_e_classical = 2.0
+                            * f64::from(slices[slice_idx][spin_idx])
+                            * ising.local_fields[spin_idx];
+
+                        for j in 0..n {
+                            if j != spin_idx {
+                                delta_e_classical += 2.0
+                                    * f64::from(slices[slice_idx][spin_idx])
+                                    * ising.couplings[(spin_idx, j)]
+                                    * f64::from(slices[slice_idx][j]);
+                            }
+                        }
+
+                        // Inter-slice (quantum) coupling - periodic boundary conditions
+                        let prev_slice = if slice_idx == 0 { m - 1 } else { slice_idx - 1 };
+                        let next_slice = if slice_idx == m - 1 { 0 } else { slice_idx + 1 };
+
+                        let neighbor_sum = f64::from(slices[prev_slice][spin_idx])
+                            + f64::from(slices[next_slice][spin_idx]);
+                        let delta_e_quantum =
+                            2.0 * j_perp * f64::from(slices[slice_idx][spin_idx]) * neighbor_sum;
+
+                        // Total energy change (scale classical part by beta_trotter)
+                        let delta_e_total = beta_trotter * delta_e_classical + delta_e_quantum;
+
+                        // Metropolis-Hastings acceptance
+                        if delta_e_total <= 0.0 || rng.gen::<f64>() < (-delta_e_total).exp() {
+                            slices[slice_idx][spin_idx] *= -1;
                         }
                     }
-
-                    // Inter-slice (quantum) coupling
-                    let prev_slice = if slice_idx == 0 { m - 1 } else { slice_idx - 1 };
-                    let next_slice = if slice_idx == m - 1 { 0 } else { slice_idx + 1 };
-
-                    let delta_e_quantum = 2.0
-                        * j_perp
-                        * f64::from(slices[slice_idx][spin_idx])
-                        * (f64::from(slices[prev_slice][spin_idx])
-                            + f64::from(slices[next_slice][spin_idx]));
-
-                    let delta_e_total = beta_trotter * delta_e_classical + delta_e_quantum;
-
-                    // Metropolis acceptance
-                    if delta_e_total < 0.0 || rng.gen::<f64>() < (-delta_e_total).exp() {
-                        slices[slice_idx][spin_idx] *= -1;
-                    }
                 }
-            }
 
-            // Track best solution across all slices
-            for slice in &slices {
-                let energy = ising.evaluate(slice);
-                if energy < best_energy {
-                    best_energy = energy;
-                    best_spins = slice.clone();
+                // Track best solution - check all slices periodically
+                if step % 10 == 0 || step == total_steps - 1 {
+                    for slice in &slices {
+                        let energy = ising.evaluate(slice);
+                        if energy < best_energy {
+                            best_energy = energy;
+                            best_spins = slice.clone();
+                        }
+                    }
                 }
             }
         }
@@ -740,12 +825,65 @@ impl QuantumQuboSolver {
             ising_energy: best_energy,
             quality: self.calculate_quality(q_matrix, qubo_energy),
             backend_used: QuboQuantumBackend::SimulatedQuantumAnnealing,
-            quantum_evaluations: total_steps * m,
-            iterations: total_steps,
+            quantum_evaluations: total_steps * m * num_restarts,
+            iterations: total_steps * num_restarts,
             converged: true,
             computation_time_ms: 0.0,
             measurement_stats: None,
         })
+    }
+
+    /// Estimate the energy scale of the Ising problem for adaptive annealing parameters
+    fn estimate_energy_scale(&self, ising: &IsingModel) -> f64 {
+        let n = ising.num_spins;
+        if n == 0 {
+            return 1.0;
+        }
+
+        // Estimate based on maximum absolute values in the problem
+        let max_coupling = ising
+            .couplings
+            .iter()
+            .map(|c| c.abs())
+            .fold(0.0_f64, f64::max);
+        let max_field = ising
+            .local_fields
+            .iter()
+            .map(|h| h.abs())
+            .fold(0.0_f64, f64::max);
+
+        // Energy scale is roughly the largest possible energy change
+        max_coupling.mul_add(n as f64, max_field).max(1.0)
+    }
+
+    /// Interpolate a custom annealing schedule
+    fn interpolate_schedule(&self, schedule: &[(f64, f64)], s: f64) -> f64 {
+        if schedule.is_empty() {
+            return s; // Default to linear
+        }
+        if schedule.len() == 1 {
+            return schedule[0].1;
+        }
+
+        // Find surrounding points
+        let mut prev = schedule[0];
+        let mut next = schedule[schedule.len() - 1];
+
+        for window in schedule.windows(2) {
+            if window[0].0 <= s && s <= window[1].0 {
+                prev = window[0];
+                next = window[1];
+                break;
+            }
+        }
+
+        // Linear interpolation
+        if (next.0 - prev.0).abs() < 1e-10 {
+            return prev.1;
+        }
+
+        let t = (s - prev.0) / (next.0 - prev.0);
+        prev.1.mul_add(1.0 - t, next.1 * t)
     }
 
     /// Classical simulated annealing fallback

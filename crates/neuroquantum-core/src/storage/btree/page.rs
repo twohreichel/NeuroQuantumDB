@@ -247,15 +247,17 @@ impl PageManager {
             data_dir,
             next_page_id: AtomicU64::new(next_page_id),
             page_cache: HashMap::new(),
-            cache_limit: 1000, // Cache up to 1000 pages (~4MB)
+            cache_limit: 10000, // Cache up to 10000 pages (~40MB) for better bulk insert performance
             dirty_pages: HashMap::new(),
         })
     }
 
     /// Allocate a new page ID
-    pub async fn allocate_page(&mut self) -> Result<PageId> {
+    ///
+    /// This operation is now synchronous and does not persist metadata to disk.
+    /// Metadata is saved during `flush()` to improve performance for bulk inserts.
+    pub fn allocate_page(&mut self) -> Result<PageId> {
         let page_id = self.next_page_id.fetch_add(1, Ordering::SeqCst);
-        self.save_metadata().await?;
         Ok(page_id)
     }
 
@@ -454,10 +456,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let mut pm = PageManager::new(temp_dir.path()).await.unwrap();
 
-        let page_id = pm.allocate_page().await.unwrap();
+        let page_id = pm.allocate_page().unwrap();
         assert_eq!(page_id, 1);
 
-        let page_id2 = pm.allocate_page().await.unwrap();
+        let page_id2 = pm.allocate_page().unwrap();
         assert_eq!(page_id2, 2);
     }
 
@@ -466,7 +468,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let mut pm = PageManager::new(temp_dir.path()).await.unwrap();
 
-        let page_id = pm.allocate_page().await.unwrap();
+        let page_id = pm.allocate_page().unwrap();
 
         // Create and write a leaf node
         let mut leaf = LeafNode::new(128);
@@ -488,7 +490,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let mut pm = PageManager::new(temp_dir.path()).await.unwrap();
 
-        let page_id = pm.allocate_page().await.unwrap();
+        let page_id = pm.allocate_page().unwrap();
 
         // Create and write an internal node
         let mut internal = InternalNode::new(128);

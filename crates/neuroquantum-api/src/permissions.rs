@@ -5,14 +5,16 @@
 //!
 //! # Usage
 //!
-//! ```rust,ignore
+//! ```rust
 //! use neuroquantum_api::permissions::{Permission, ADMIN, READ, WRITE};
 //!
 //! // Using constants directly
 //! let perms = Permission::admin_permissions();
+//! assert!(perms.contains(&ADMIN.to_string()));
 //!
 //! // Or using individual constants
 //! let read_only = vec![READ.to_string()];
+//! assert_eq!(read_only.len(), 1);
 //! ```
 
 /// Permission for administrative operations

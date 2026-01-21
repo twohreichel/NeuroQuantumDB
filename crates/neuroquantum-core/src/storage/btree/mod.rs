@@ -132,7 +132,7 @@ impl BTree {
             let mut root_leaf = LeafNode::new(self.config.order);
             root_leaf.insert(key, value)?;
 
-            let root_page_id = self.page_manager.allocate_page().await?;
+            let root_page_id = self.page_manager.allocate_page()?;
             self.page_manager
                 .write_leaf_node(root_page_id, &root_leaf)
                 .await?;
@@ -157,7 +157,7 @@ impl BTree {
             new_root.children.push(root_page_id);
             new_root.children.push(new_page_id);
 
-            let new_root_page_id = self.page_manager.allocate_page().await?;
+            let new_root_page_id = self.page_manager.allocate_page()?;
             self.page_manager
                 .write_internal_node(new_root_page_id, &new_root)
                 .await?;
@@ -187,7 +187,7 @@ impl BTree {
             let mut root_leaf = LeafNode::new(self.config.order);
             root_leaf.upsert(key, value)?;
 
-            let root_page_id = self.page_manager.allocate_page().await?;
+            let root_page_id = self.page_manager.allocate_page()?;
             self.page_manager
                 .write_leaf_node(root_page_id, &root_leaf)
                 .await?;
@@ -212,7 +212,7 @@ impl BTree {
             new_root.children.push(root_page_id);
             new_root.children.push(new_page_id);
 
-            let new_root_page_id = self.page_manager.allocate_page().await?;
+            let new_root_page_id = self.page_manager.allocate_page()?;
             self.page_manager
                 .write_internal_node(new_root_page_id, &new_root)
                 .await?;
@@ -334,7 +334,7 @@ impl BTree {
                     // Check if internal node needs to split
                     if internal_node.is_full() {
                         let (split_key, new_node) = internal_node.split();
-                        let new_page_id = self.page_manager.allocate_page().await?;
+                        let new_page_id = self.page_manager.allocate_page()?;
 
                         self.page_manager
                             .write_internal_node(page_id, &internal_node)
@@ -361,7 +361,7 @@ impl BTree {
                 // Check if leaf needs to split
                 if leaf_node.is_full() {
                     let (split_key, mut new_leaf) = leaf_node.split();
-                    let new_page_id = self.page_manager.allocate_page().await?;
+                    let new_page_id = self.page_manager.allocate_page()?;
 
                     // Update sibling pointers
                     new_leaf.next_leaf = leaf_node.next_leaf;
@@ -406,7 +406,7 @@ impl BTree {
                     // Check if internal node needs to split
                     if internal_node.is_full() {
                         let (split_key, new_node) = internal_node.split();
-                        let new_page_id = self.page_manager.allocate_page().await?;
+                        let new_page_id = self.page_manager.allocate_page()?;
 
                         self.page_manager
                             .write_internal_node(page_id, &internal_node)
@@ -433,7 +433,7 @@ impl BTree {
                 // Check if leaf needs to split
                 if leaf_node.is_full() {
                     let (split_key, mut new_leaf) = leaf_node.split();
-                    let new_page_id = self.page_manager.allocate_page().await?;
+                    let new_page_id = self.page_manager.allocate_page()?;
 
                     // Update sibling pointers
                     new_leaf.next_leaf = leaf_node.next_leaf;
