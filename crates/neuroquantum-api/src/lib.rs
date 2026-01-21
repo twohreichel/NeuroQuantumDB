@@ -65,6 +65,7 @@ use auth::AuthService;
 pub use config::ApiConfig;
 pub use error::{ApiError, ApiResponse, ResponseMetadata};
 use handlers::ApiDoc;
+pub use handlers::json_to_storage_value;
 use jwt::JwtService;
 use rate_limit::{RateLimitConfig, RateLimitService};
 use websocket::{ConnectionConfig, ConnectionManager, PubSubManager, WebSocketService};
@@ -452,31 +453,3 @@ pub async fn start_server(config: ApiConfig) -> Result<()> {
 // Property-based tests for API robustness
 #[cfg(test)]
 mod proptest_suite;
-
-#[cfg(test)]
-mod tests {
-    use actix_web::{test, web, App};
-
-    use super::*;
-
-    #[actix_web::test]
-    async fn test_health_check() {
-        let app =
-            test::init_service(App::new().route("/health", web::get().to(health_check))).await;
-
-        let req = test::TestRequest::get().uri("/health").to_request();
-        let resp = test::call_service(&app, req).await;
-
-        assert!(resp.status().is_success());
-    }
-
-    #[actix_web::test]
-    async fn test_metrics_endpoint() {
-        let app = test::init_service(App::new().route("/metrics", web::get().to(metrics))).await;
-
-        let req = test::TestRequest::get().uri("/metrics").to_request();
-        let resp = test::call_service(&app, req).await;
-
-        assert!(resp.status().is_success());
-    }
-}

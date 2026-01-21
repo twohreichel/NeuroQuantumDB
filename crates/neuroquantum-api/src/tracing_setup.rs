@@ -90,7 +90,8 @@ fn create_jaeger_tracer(config: &TracingConfig) -> Result<Tracer> {
     let resource = create_resource(config);
 
     // Create sampler based on sampling rate
-    let sampler = create_sampler(config.sampling_rate);
+    let sampler_type = create_sampler(config.sampling_rate);
+    let sampler = sampler_type_to_otel(sampler_type);
 
     // Build OTLP exporter targeting Jaeger
     let exporter = opentelemetry_otlp::SpanExporter::builder()
@@ -121,7 +122,8 @@ fn create_otlp_tracer(config: &TracingConfig) -> Result<Tracer> {
     let resource = create_resource(config);
 
     // Create sampler based on sampling rate
-    let sampler = create_sampler(config.sampling_rate);
+    let sampler_type = create_sampler(config.sampling_rate);
+    let sampler = sampler_type_to_otel(sampler_type);
 
     // Build OTLP exporter
     let exporter = opentelemetry_otlp::SpanExporter::builder()
@@ -152,7 +154,8 @@ fn create_console_tracer(config: &TracingConfig) -> Result<Tracer> {
     let resource = create_resource(config);
 
     // Create sampler based on sampling rate
-    let sampler = create_sampler(config.sampling_rate);
+    let sampler_type = create_sampler(config.sampling_rate);
+    let sampler = sampler_type_to_otel(sampler_type);
 
     // Build console/stdout pipeline
     let provider = opentelemetry_sdk::trace::TracerProvider::builder()
@@ -169,7 +172,7 @@ fn create_console_tracer(config: &TracingConfig) -> Result<Tracer> {
 }
 
 /// Create OpenTelemetry resource with service information
-fn create_resource(config: &TracingConfig) -> Resource {
+pub fn create_resource(config: &TracingConfig) -> Resource {
     let mut attributes = vec![
         KeyValue::new(SERVICE_NAME, config.service_name.clone()),
         KeyValue::new(SERVICE_VERSION, env!("CARGO_PKG_VERSION")),
@@ -186,20 +189,40 @@ fn create_resource(config: &TracingConfig) -> Resource {
     Resource::new(attributes)
 }
 
-/// Create sampler based on sampling rate
-fn create_sampler(sampling_rate: f64) -> Sampler {
+/// Wrapper type for sampler configuration (for testing purposes)
+#[derive(Debug, Clone, PartialEq)]
+pub enum SamplerType {
+    /// Always sample all traces
+    AlwaysOn,
+    /// Never sample any traces
+    AlwaysOff,
+    /// Sample traces based on a ratio
+    TraceIdRatioBased(f64),
+}
+
+/// Create sampler based on sampling rate (returns wrapper type for testing)
+pub fn create_sampler(sampling_rate: f64) -> SamplerType {
     // Clamp sampling rate between 0.0 and 1.0
     let rate = sampling_rate.clamp(0.0, 1.0);
 
     if rate >= 1.0 {
         // Always sample
-        Sampler::AlwaysOn
+        SamplerType::AlwaysOn
     } else if rate <= 0.0 {
         // Never sample
-        Sampler::AlwaysOff
+        SamplerType::AlwaysOff
     } else {
         // Probabilistic sampling
-        Sampler::TraceIdRatioBased(rate)
+        SamplerType::TraceIdRatioBased(rate)
+    }
+}
+
+/// Convert SamplerType to OpenTelemetry Sampler
+fn sampler_type_to_otel(sampler_type: SamplerType) -> Sampler {
+    match sampler_type {
+        SamplerType::AlwaysOn => Sampler::AlwaysOn,
+        SamplerType::AlwaysOff => Sampler::AlwaysOff,
+        SamplerType::TraceIdRatioBased(rate) => Sampler::TraceIdRatioBased(rate),
     }
 }
 
@@ -207,49 +230,4 @@ fn create_sampler(sampling_rate: f64) -> Sampler {
 pub fn shutdown_tracing() {
     info!("📊 Shutting down OpenTelemetry tracing");
     global::shutdown_tracer_provider();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_create_sampler_always_on() {
-        let sampler = create_sampler(1.0);
-        assert!(matches!(sampler, Sampler::AlwaysOn));
-    }
-
-    #[test]
-    fn test_create_sampler_always_off() {
-        let sampler = create_sampler(0.0);
-        assert!(matches!(sampler, Sampler::AlwaysOff));
-    }
-
-    #[test]
-    fn test_create_sampler_probabilistic() {
-        let sampler = create_sampler(0.5);
-        assert!(matches!(sampler, Sampler::TraceIdRatioBased(_)));
-    }
-
-    #[test]
-    fn test_create_sampler_clamps_high() {
-        let sampler = create_sampler(2.0);
-        assert!(matches!(sampler, Sampler::AlwaysOn));
-    }
-
-    #[test]
-    fn test_create_sampler_clamps_low() {
-        let sampler = create_sampler(-1.0);
-        assert!(matches!(sampler, Sampler::AlwaysOff));
-    }
-
-    #[test]
-    fn test_create_resource() {
-        let config = TracingConfig::default();
-        let resource = create_resource(&config);
-
-        // Check that resource has required attributes
-        let attrs: Vec<_> = resource.iter().collect();
-        assert!(!attrs.is_empty());
-    }
 }

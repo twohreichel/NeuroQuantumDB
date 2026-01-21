@@ -387,23 +387,3 @@ pub enum ConnectionError {
     #[error("Connection closed")]
     ConnectionClosed,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_connection_config_default() {
-        let config = ConnectionConfig::default();
-        assert_eq!(config.max_connections, 10_000);
-        assert_eq!(config.heartbeat_interval, Duration::from_secs(30));
-        assert_eq!(config.heartbeat_timeout, Duration::from_secs(90));
-        assert!(config.enable_heartbeat_monitor);
-    }
-
-    #[test]
-    fn test_connection_error_display() {
-        let err = ConnectionError::MaxConnectionsReached;
-        assert_eq!(err.to_string(), "Maximum number of connections reached");
-    }
-}
