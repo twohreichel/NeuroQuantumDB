@@ -88,7 +88,12 @@ admin_ip_whitelist = [
 ]
 ```
 
-📖 **Full Documentation:** See [SECURITY_HARDENING.md](./SECURITY_HARDENING.md) for complete security guide.
+---
+
+### Libraries
+In the following folders, you can find the latest libraries for interacting the database in a programming program of your choice. These have also been stored as tags and can be installed via the most common:
+
+* connecting-libraries/php/
 
 ---
 
