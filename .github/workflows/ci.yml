@@ -19,6 +19,9 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
   RUSTUP_MAX_RETRIES: 10
+  # Limit codegen units to reduce memory usage during linking
+  CARGO_PROFILE_DEV_CODEGEN_UNITS: 1
+  CARGO_PROFILE_TEST_CODEGEN_UNITS: 1
 
 jobs:
   # NOTE: Lint and security checks are now handled by the dedicated lint.yml workflow
@@ -54,6 +57,9 @@ jobs:
 
       - name: Run tests
         run: cargo test --workspace --all-features --verbose
+        env:
+          # Reduce parallel test threads to limit memory usage
+          RUST_TEST_THREADS: 2
 
       - name: Run doc tests
         run: cargo test --workspace --doc
