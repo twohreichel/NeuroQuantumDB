@@ -1,10 +1,11 @@
 [package]
 name = "neuroquantum-wasm"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "WebAssembly bindings for NeuroQuantumDB - run neuromorphic database in the browser"
-license = "MIT"
-repository = "https://github.com/neuroquantumdb/neuroquantumdb"
 keywords = ["wasm", "webassembly", "database", "neuromorphic", "quantum"]
 
 [lib]
