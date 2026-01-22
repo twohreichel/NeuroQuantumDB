@@ -71,10 +71,10 @@ jobs:
         with:
           shared-key: "lint"
           cache-targets: false
-      - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+      - name: Install security tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
       - name: Run cargo-deny
         run: cargo deny check
       - name: Run cargo-audit
@@ -111,7 +111,9 @@ jobs:
           shared-key: "lint"
           cache-targets: false
       - name: Install cargo-machete
-        run: cargo install cargo-machete --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
       - name: Check unused dependencies
         run: cargo machete
       - name: Post dependency issues
@@ -140,25 +142,12 @@ jobs:
           toolchain: "1.91.1"
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "docs"
+          shared-key: "lint"
           cache-targets: false
-      - name: Clean build artifacts
-        run: cargo clean
       - name: Check documentation
         env:
           RUSTDOCFLAGS: "-D warnings"
         run: cargo doc --no-deps --all-features --workspace
-      - name: Post documentation issues
-        if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '📚 Documentation build failed. Please fix doc comments and warnings.'
-            })
 
   lint-complete:
     name: All Lints Passed
