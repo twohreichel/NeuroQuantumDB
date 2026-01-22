@@ -90,8 +90,10 @@ jobs:
       - name: Run cargo-deny
         run: cargo deny check
       - name: Run cargo-audit
-        # Match local Makefile ignores
-        run: cargo audit --ignore RUSTSEC-2020-0168 --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2024-0436 --ignore RUSTSEC-2021-0141 --ignore RUSTSEC-2025-0010 --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0001
+        # Clear stale advisory-db to avoid git clone errors, then run with Makefile ignores
+        run: |
+          rm -rf ~/.cargo/advisory-db
+          cargo audit --ignore RUSTSEC-2020-0168 --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2024-0436 --ignore RUSTSEC-2021-0141 --ignore RUSTSEC-2025-0010 --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0001
       - name: Post security issues
         if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
