@@ -1,9 +1,11 @@
 [package]
 name = "neuroquantum-qsql"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "QSQL language implementation for NeuroQuantumDB with neuromorphic and quantum extensions"
-license = "MIT"
 
 [dependencies]
 # Core neuroquantum crate

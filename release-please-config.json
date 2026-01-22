@@ -11,14 +11,7 @@
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
-      "extra-files": [
-        "crates/neuroquantum-core/Cargo.toml",
-        "crates/neuroquantum-qsql/Cargo.toml",
-        "crates/neuroquantum-api/Cargo.toml",
-        "crates/neuroquantum-cluster/Cargo.toml",
-        "crates/neuroquantum-wasm/Cargo.toml"
-      ]
+      "bump-patch-for-minor-pre-major": false
     },
     "connecting-libraries/php": {
       "release-type": "php",
