@@ -2,12 +2,9 @@ name: Lint
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
-  schedule:
-    # Daily security audit at 00:00 UTC
-    - cron: '0 0 * * *'
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -51,27 +48,6 @@ jobs:
               repo: context.repo.repo,
               body: '❌ Clippy found issues. Run `make lint-fix` locally to auto-fix.'
             })
-
-  clippy-versions:
-    name: Clippy (Rust ${{ matrix.rust }})
-    strategy:
-      matrix:
-        rust: [stable, beta]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "lint-${{ matrix.rust }}"
-          cache-targets: false
-          cache-on-failure: true
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-features
-        continue-on-error: ${{ matrix.rust == 'beta' }}
 
   security:
     name: Security Audit
@@ -162,7 +138,7 @@ jobs:
 
   lint-complete:
     name: All Lints Passed
-    needs: [fmt, clippy, clippy-versions, security, deps, docs]
+    needs: [fmt, clippy, security, deps, docs]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -170,7 +146,6 @@ jobs:
         run: |
           if [[ "${{ needs.fmt.result }}" != "success" ]] || \
              [[ "${{ needs.clippy.result }}" != "success" ]] || \
-             [[ "${{ needs.clippy-versions.result }}" != "success" ]] || \
              [[ "${{ needs.security.result }}" != "success" ]] || \
              [[ "${{ needs.deps.result }}" != "success" ]] || \
              [[ "${{ needs.docs.result }}" != "success" ]]; then

@@ -404,7 +404,7 @@ pub fn detect_avx2_capabilities() -> Avx2Capabilities {
 /// AVX2 feature detection and capability reporting (non-x86_64 fallback)
 #[must_use]
 #[cfg(not(target_arch = "x86_64"))]
-pub fn detect_avx2_capabilities() -> Avx2Capabilities {
+pub const fn detect_avx2_capabilities() -> Avx2Capabilities {
     Avx2Capabilities {
         has_avx2: false,
         has_avx: false,
