@@ -91,7 +91,7 @@ admin_ip_whitelist = [
 ---
 
 ### Libraries
-In the following folders, you can find the latest libraries for interacting the database in a programming program of your choice. These have also been stored as tags and can be installed via the most common:
+In the following folders, you can find the latest libraries for interacting with the database in a programming language of your choice. These have also been stored as tags and can be installed via the most common providers (as example packagist, GitHub, Maven, PiPy):
 
 * connecting-libraries/php/
 
