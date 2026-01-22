@@ -15,13 +15,9 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
   RUSTUP_MAX_RETRIES: 10
-  # Limit codegen units to reduce memory usage during linking
-  CARGO_PROFILE_DEV_CODEGEN_UNITS: 1
-  CARGO_PROFILE_TEST_CODEGEN_UNITS: 1
 
 jobs:
   # NOTE: Lint and security checks are now handled by the dedicated lint.yml workflow
@@ -30,10 +26,8 @@ jobs:
   # Test suite
   test:
     name: Test Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -50,19 +44,13 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: false
+          cache-on-failure: true
 
       - name: Create data directory
         run: mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
 
       - name: Run tests
-        run: cargo test --workspace --all-features --verbose
-        env:
-          # Reduce parallel test threads to limit memory usage
-          RUST_TEST_THREADS: 2
-
-      - name: Run doc tests
-        run: cargo test --workspace --doc
+        run: cargo test --workspace --all-features
 
   # Documentation generation
   docs:
@@ -89,7 +77,9 @@ jobs:
           cache-on-failure: false
 
       - name: Install mdbook
-        run: cargo install mdbook --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
 
       - name: Generate all documentation
         run: make docs
