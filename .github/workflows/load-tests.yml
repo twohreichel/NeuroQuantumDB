@@ -1,14 +1,8 @@
 name: Load & Chaos Tests
 
-# Schedule:
-# - Nightly: Load Tests (T11-T14) und Chaos Engineering Tests (T15-T17)
-# - Weekly: Cluster E2E Tests (T18-T19)
 on:
-  schedule:
-    # Nightly at 02:00 UTC (Monday-Friday)
-    - cron: '0 2 * * 1-5'
-    # Weekly on Sunday at 03:00 UTC
-    - cron: '0 3 * * 0'
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       test_category:

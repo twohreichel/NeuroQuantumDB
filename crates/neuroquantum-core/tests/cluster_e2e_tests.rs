@@ -1034,7 +1034,7 @@ async fn test_chaos_random_node_kills() {
         let running = cluster.get_running_nodes().await;
         if running.len() > cluster.quorum_size().await {
             // Kill a random node
-            let victim_idx = (cycle % running.len()) as usize;
+            let victim_idx = cycle % running.len();
             if victim_idx < running.len() {
                 running[victim_idx].stop().await;
             }

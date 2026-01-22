@@ -14,9 +14,6 @@ on:
       - 'fuzz/**'
       - 'crates/**'
       - '.github/workflows/fuzzing.yml'
-  schedule:
-    # Run nightly fuzzing at 2 AM UTC
-    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       fuzz_duration:
