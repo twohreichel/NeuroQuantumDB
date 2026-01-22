@@ -1,29 +1,69 @@
 #!/bin/bash
 # Commit message hook for NeuroQuantumDB
 # This script validates commit message format according to conventional commits
+# Compatible with release-please
 
-commit_regex='^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,50}'
+set -e
 
-error_msg="Aborting commit. Your commit message is malformed.
-Commit message format should be:
-<type>[optional scope]: <description>
+# Read commit message
+commit_msg=$(cat "$1")
+first_line=$(echo "$commit_msg" | head -n1)
 
-Example: feat(core): add quantum optimization algorithm
+# Skip validation for merge commits and rebase commits
+if echo "$first_line" | grep -qE '^Merge (branch|pull request|remote-tracking)'; then
+    exit 0
+fi
 
-Types:
-- feat: A new feature
-- fix: A bug fix
-- docs: Documentation only changes
-- style: Changes that do not affect the meaning of the code
-- refactor: A code change that neither fixes a bug nor adds a feature
-- test: Adding missing tests or correcting existing tests
-- chore: Changes to the build process or auxiliary tools
-- perf: A code change that improves performance
-- ci: Changes to CI configuration files and scripts
-- build: Changes that affect the build system or dependencies
-- revert: Reverts a previous commit"
+if echo "$first_line" | grep -qE '^Revert "'; then
+    exit 0
+fi
 
-if ! grep -qE "$commit_regex" "$1"; then
+if echo "$first_line" | grep -qE '^(fixup|squash)!'; then
+    exit 0
+fi
+
+# Conventional Commits regex with optional ! for breaking changes
+# Format: type(scope)!: description or type!: description or type: description
+commit_regex='^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\([a-zA-Z0-9_-]+\))?!?: .{1,72}$'
+
+error_msg="❌ Aborting commit. Your commit message does not follow Conventional Commits format.
+
+Your message: \"$first_line\"
+
+Expected format:
+  <type>[optional scope][!]: <description>
+
+Examples:
+  feat: add quantum optimization algorithm
+  feat(core): add quantum optimization algorithm
+  fix(api)!: change authentication endpoint (BREAKING CHANGE)
+  refactor: simplify buffer pool logic
+
+Allowed types:
+  feat     → A new feature (triggers MINOR version bump)
+  fix      → A bug fix (triggers PATCH version bump)
+  docs     → Documentation only changes
+  style    → Formatting, missing semicolons, etc.
+  refactor → Code change that neither fixes a bug nor adds a feature
+  test     → Adding or correcting tests
+  chore    → Maintenance tasks, dependency updates
+  perf     → Performance improvements
+  ci       → CI/CD configuration changes
+  build    → Build system or dependency changes
+  revert   → Reverts a previous commit
+
+Breaking Changes:
+  Add ! after type/scope: feat!: or feat(api)!:
+  This triggers a MAJOR version bump.
+
+Tips:
+  - Keep the first line under 72 characters
+  - Use imperative mood: \"add feature\" not \"added feature\"
+  - Don't end with a period"
+
+if ! echo "$first_line" | grep -qE "$commit_regex"; then
     echo "$error_msg" >&2
     exit 1
 fi
+
+echo "✅ Commit message follows Conventional Commits format"
