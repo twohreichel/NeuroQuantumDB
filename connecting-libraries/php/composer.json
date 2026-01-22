@@ -1,5 +1,6 @@
 {
     "name": "neuroquantum/php-driver",
+    "version": "0.1.0",
     "description": "Official PHP driver for NeuroQuantumDB - A neuromorphic and quantum-inspired database",
     "type": "library",
     "license": "MIT",

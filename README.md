@@ -222,3 +222,97 @@ Comprehensive documentation is available for developers and users:
 ---
 
 Have a look at the [Wiki](https://twoh-me.github.io/NeuroQuantumDB/) for more information.
+
+---
+
+## 🚀 Release Process & Contributing
+
+This repository uses a **monorepo structure** with automated releases via [release-please](https://github.com/googleapis/release-please).
+
+### Conventional Commits
+
+All commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification. This enables automatic versioning and changelog generation.
+
+**Commit Format:**
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:**
+| Type | Description | Version Bump |
+|------|-------------|--------------|
+| `feat` | New feature | Minor |
+| `fix` | Bug fix | Patch |
+| `feat!` or `BREAKING CHANGE:` | Breaking change | Major (v1.0.0) |
+| `perf` | Performance improvement | Patch |
+| `docs` | Documentation only | None |
+| `refactor` | Code refactoring | None |
+| `test` | Adding tests | None |
+| `ci` | CI/CD changes | None |
+| `chore` | Maintenance | None |
+
+### Scope Mapping
+
+Scopes route commits to the correct package for versioning:
+
+| Scope | Target Package | Example |
+|-------|---------------|---------|
+| `api`, `core`, `cluster`, `qsql`, `wasm` | NeuroQuantumDB (main) | `feat(api): add batch endpoint` |
+| `php` | PHP-Driver | `fix(php): connection timeout` |
+| (no scope) | NeuroQuantumDB (main) | `feat: improve query parser` |
+
+### Release Tags
+
+| Component | Tag Format | Example |
+|-----------|------------|---------|
+| NeuroQuantumDB | `v{version}` | `v1.0.0`, `v1.1.0` |
+| PHP-Driver | `php-driver/v{version}` | `php-driver/v1.0.0` |
+
+### Release Artifacts
+
+When a NeuroQuantumDB release is created:
+- **Multi-platform binaries**: Linux x86_64, macOS arm64, macOS x86_64, Windows x86_64
+- **WASM package**: npm tarball for browser integration
+- **crates.io**: All 5 crates published in dependency order
+
+### Setup Prerequisites (for Maintainers)
+
+To enable automatic publishing, add the following repository secret:
+
+| Secret | Purpose | How to Obtain |
+|--------|---------|---------------|
+| `CARGO_REGISTRY_TOKEN` | Publish crates to crates.io | Generate at https://crates.io/settings/tokens |
+
+**Setup Steps:**
+1. Go to Repository → Settings → Secrets and variables → Actions
+2. Add `CARGO_REGISTRY_TOKEN` as a repository secret
+3. Ensure GitHub Actions has write permissions (Settings → Actions → General → Workflow permissions → Read and write permissions)
+
+### Adding New Connecting Libraries
+
+When adding a new library (e.g., Python, Node.js):
+
+1. **Add to `release-please-config.json`:**
+   ```json
+   "connecting-libraries/python": {
+     "release-type": "python",
+     "component": "python-driver",
+     "include-component-in-tag": true,
+     "bump-minor-pre-major": false
+   }
+   ```
+
+2. **Add to `.release-please-manifest.json`:**
+   ```json
+   "connecting-libraries/python": "0.1.0"
+   ```
+
+3. **Add scope mapping** (document in this README under Scope Mapping)
+
+4. **Create `connecting-libraries/<library>/CHANGELOG.md`**
+
+5. **Add publish job** to `.github/workflows/release.yml` if needed (e.g., PyPI, npm)
