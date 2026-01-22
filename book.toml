@@ -3,7 +3,6 @@ title = "NeuroQuantumDB Documentation"
 description = "Comprehensive documentation for NeuroQuantumDB - Ultra-efficient neuromorphic database for edge computing"
 authors = ["NeuroQuantumDB Team"]
 language = "de"
-multilingual = false
 src = "docs"
 
 [build]

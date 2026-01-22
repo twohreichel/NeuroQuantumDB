@@ -21,6 +21,10 @@ RUST_BACKTRACE = { value = "1", force = false }
 # Use parallel compilation for faster builds
 jobs = 4
 
+# Limit linker parallelism to prevent OOM on CI runners
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-Wl,--threads=1"]
+
 [profile.test]
 # Optimize tests slightly for faster execution
 opt-level = 1
