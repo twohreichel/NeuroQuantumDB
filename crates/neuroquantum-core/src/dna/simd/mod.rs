@@ -7,6 +7,7 @@ use crate::dna::{DNABase, DNAError};
 
 #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
 pub mod arm64_neon;
+#[cfg(target_arch = "x86_64")]
 pub mod x86_avx2;
 
 #[cfg(test)]
@@ -455,7 +456,11 @@ impl SimdPatternMatcher {
 
 /// SIMD utilities and helper functions
 pub mod utils {
-    use super::{arm64_neon, DNABase, DNAError, SimdCapabilities};
+    #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+    use super::arm64_neon;
+    #[cfg(target_arch = "x86_64")]
+    use super::x86_avx2;
+    use super::{DNABase, DNAError, SimdCapabilities};
 
     /// Convert DNA bases to packed binary representation for SIMD processing
     #[must_use]
