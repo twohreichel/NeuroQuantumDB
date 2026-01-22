@@ -360,7 +360,8 @@ pub fn get_uptime_seconds() -> f64 {
 
 /// Get system temperature in Celsius (Linux-specific, returns None on other platforms)
 #[must_use]
-pub const fn get_system_temperature() -> Option<f32> {
+#[allow(clippy::missing_const_for_fn)] // Cannot be const: performs I/O operations
+pub fn get_system_temperature() -> Option<f32> {
     #[cfg(target_os = "linux")]
     {
         std::fs::read_to_string("/sys/class/thermal/thermal_zone0/temp")
