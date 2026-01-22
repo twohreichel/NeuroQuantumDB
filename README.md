@@ -6,10 +6,17 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![ARM64](https://img.shields.io/badge/platform-ARM64-orange)](https://www.raspberrypi.org)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED)](https://hub.docker.com)
+[![Status](https://img.shields.io/badge/status-BETA-yellow)](https://github.com/neuroquantumdb/neuroquantumdb)
 
 *Revolutionary database architecture combining neuromorphic computing, quantum-inspired algorithms, and DNA-storage principles for ultra-efficient edge computing applications on Raspberry Pi 4*
 
 </div>
+
+---
+
+> ⚠️ **BETA SOFTWARE - NOT FOR PRODUCTION USE**
+>
+> This project is currently in **beta testing phase**. It is under active development and may contain bugs, incomplete features, or breaking changes. **Do not use this software in production environments.** Use at your own risk for testing and evaluation purposes only.
 
 ---
 
