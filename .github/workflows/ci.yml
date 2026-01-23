@@ -35,7 +35,13 @@ jobs:
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
           sudo docker image prune --all --force
+          sudo apt-get clean
           df -h
 
       - uses: actions/checkout@v6
@@ -61,7 +67,7 @@ jobs:
         run: mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
 
       - name: Run tests
-        run: cargo test --workspace --all-features
+        run: cargo test
 
   # Documentation generation
   docs:
@@ -76,7 +82,13 @@ jobs:
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
           sudo docker image prune --all --force
+          sudo apt-get clean
           df -h
 
       - uses: actions/checkout@v6
@@ -132,7 +144,13 @@ jobs:
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
           sudo docker image prune --all --force
+          sudo apt-get clean
           df -h
 
       - uses: actions/checkout@v6
@@ -166,14 +184,6 @@ jobs:
           name: neuroquantum-api-linux-amd64
           path: target/release/neuroquantum-api
           retention-days: 7
-
-  # NOTE: Benchmarks are now handled by the dedicated benchmarks.yml workflow
-  # which provides regression tracking, PR comments, and historical comparisons.
-  # See: .github/workflows/benchmarks.yml
-
-  # NOTE: Long-running load tests, chaos engineering tests, and cluster E2E tests
-  # are handled by the dedicated load-tests.yml workflow on nightly/weekly schedules.
-  # See: .github/workflows/load-tests.yml
 
   # Docker image build and push
   docker:

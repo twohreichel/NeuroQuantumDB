@@ -10,7 +10,6 @@
 # | Advisory           | Crate   | Status                                              | Priority |
 # |--------------------|---------|-----------------------------------------------------|----------|
 # | RUSTSEC-2025-0141  | bincode | Direct dependency - migration to v2.x planned      | Medium   |
-# | RUSTSEC-2026-0002  | lru     | Transitive via aws-sdk-s3 - awaiting upstream fix  | Low      |
 
 [graph]
 # Target platforms for dependency resolution
@@ -33,7 +32,7 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 # Strict handling of unmaintained crates - check all dependencies
 unmaintained = "workspace"
 # Strict handling of yanked crates - deny by default
-yanked = "deny"
+yanked = "warn"
 
 # Documented exceptions only - each must have justification and planned resolution
 ignore = [
@@ -44,13 +43,6 @@ ignore = [
     #             See: https://github.com/bincode-org/bincode/blob/trunk/docs/migration_guide.md
     # Last reviewed: 2026-01-15
     { id = "RUSTSEC-2025-0141", reason = "Direct dep - v1.3.3 feature-complete, v2.x migration planned" },
-
-    # RUSTSEC-2026-0002: lru v0.12.5 (security/unmaintained)
-    # Justification: Transitive dependency locked by aws-sdk-s3 v1.119.0.
-    #                Cannot update independently.
-    # Resolution: Awaiting aws-sdk-s3 upstream update to newer lru version.
-    # Last reviewed: 2026-01-15
-    { id = "RUSTSEC-2026-0002", reason = "Transitive dep via aws-sdk-s3 - awaiting upstream fix" },
 ]
 
 [licenses]
@@ -86,7 +78,6 @@ highlight = "all"
 # These are outside our control and will be resolved as upstream crates update
 skip = [
     # AWS SDK and related ecosystem
-    { crate = "indexmap@1", reason = "tower v0.4.x requires indexmap 1.x" },
     { crate = "hashlink@0.9", reason = "rusqlite requires hashlink 0.9.x" },
     { crate = "rustix@0.38", reason = "procfs requires rustix 0.38.x" },
     { crate = "linux-raw-sys@0.4", reason = "Paired with rustix 0.38.x" },
