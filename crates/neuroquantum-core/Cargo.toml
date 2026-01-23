@@ -58,7 +58,7 @@ futures = "0.3"
 
 # AWS SDK for S3 backups
 aws-config = "1.8.12"
-aws-sdk-s3 = "1.119.0"
+aws-sdk-s3 = "1.120.0"
 
 # Compression algorithms for comparison
 flate2 = "1.1"

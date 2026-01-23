@@ -38,7 +38,7 @@ jobs:
           sudo docker image prune --all --force
           df -h
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -79,7 +79,7 @@ jobs:
           sudo docker image prune --all --force
           df -h
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -135,7 +135,7 @@ jobs:
           sudo docker image prune --all --force
           df -h
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -185,7 +185,7 @@ jobs:
       packages: write
       id-token: write  # For provenance attestation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -214,7 +214,7 @@ jobs:
 
       - name: Build and push
         id: build-push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64

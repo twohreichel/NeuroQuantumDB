@@ -60,7 +60,7 @@ jobs:
           df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -182,7 +182,7 @@ jobs:
           df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -292,7 +292,7 @@ jobs:
           df -h
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -378,7 +378,7 @@ jobs:
     if: always()
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: all-results
         continue-on-error: true
@@ -417,7 +417,7 @@ jobs:
 
       - name: Create Issue on Failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const date = new Date().toISOString().split('T')[0];
