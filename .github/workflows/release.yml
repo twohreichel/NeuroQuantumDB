@@ -304,9 +304,26 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release-please.outputs.php_tag_name }}
+          name: "PHP Driver v${{ needs.release-please.outputs.php_version }}"
           files: |
             php-driver-${{ needs.release-please.outputs.php_version }}.zip
             php-driver-${{ needs.release-please.outputs.php_version }}.tar.gz
+          body: |
+            ## PHP Driver for NeuroQuantumDB v${{ needs.release-please.outputs.php_version }}
+            
+            > **Note:** The automatically generated "Source code" archives below contain the entire NeuroQuantumDB repository. 
+            > Please use the `php-driver-*.zip` or `php-driver-*.tar.gz` files above for the PHP driver only.
+            
+            ### Installation
+            ```bash
+            composer require neuroquantum/php-driver:^${{ needs.release-please.outputs.php_version }}
+            ```
+            
+            ### Downloads
+            - `php-driver-${{ needs.release-please.outputs.php_version }}.zip` - PHP Driver ZIP archive
+            - `php-driver-${{ needs.release-please.outputs.php_version }}.tar.gz` - PHP Driver Tarball
+            
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ needs.release-please.outputs.php_tag_name }}/connecting-libraries/php/CHANGELOG.md) for details.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

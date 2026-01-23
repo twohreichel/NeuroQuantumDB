@@ -26,6 +26,47 @@
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": true,
       "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false,
+      "skip-github-release": false
+    },
+    "crates/neuroquantum-core": {
+      "release-type": "rust",
+      "component": "neuroquantum-core",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": true,
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "crates/neuroquantum-qsql": {
+      "release-type": "rust",
+      "component": "neuroquantum-qsql",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": true,
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "crates/neuroquantum-cluster": {
+      "release-type": "rust",
+      "component": "neuroquantum-cluster",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": true,
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "crates/neuroquantum-api": {
+      "release-type": "rust",
+      "component": "neuroquantum-api",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": true,
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false
+    },
+    "crates/neuroquantum-wasm": {
+      "release-type": "rust",
+      "component": "neuroquantum-wasm",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": true,
+      "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": false
     }
   },
@@ -49,8 +90,19 @@
   "plugins": [
     {
       "type": "linked-versions",
-      "groupName": "neuroquantumdb",
-      "components": ["neuroquantumdb"]
+      "groupName": "neuroquantumdb-crates",
+      "components": [
+        "neuroquantumdb",
+        "neuroquantum-core",
+        "neuroquantum-qsql",
+        "neuroquantum-cluster",
+        "neuroquantum-api",
+        "neuroquantum-wasm"
+      ]
+    },
+    {
+      "type": "cargo-workspace",
+      "merge": false
     }
   ]
 }
