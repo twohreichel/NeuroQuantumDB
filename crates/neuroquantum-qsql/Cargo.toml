@@ -26,7 +26,7 @@ regex = "1.12"
 
 # Error handling
 anyhow = "1.0.100"
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 
 # Logging
 tracing = "0.1.44"
