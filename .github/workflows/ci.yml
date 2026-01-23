@@ -185,14 +185,6 @@ jobs:
           path: target/release/neuroquantum-api
           retention-days: 7
 
-  # NOTE: Benchmarks are now handled by the dedicated benchmarks.yml workflow
-  # which provides regression tracking, PR comments, and historical comparisons.
-  # See: .github/workflows/benchmarks.yml
-
-  # NOTE: Long-running load tests, chaos engineering tests, and cluster E2E tests
-  # are handled by the dedicated load-tests.yml workflow on nightly/weekly schedules.
-  # See: .github/workflows/load-tests.yml
-
   # Docker image build and push
   docker:
     name: Build Docker Image
