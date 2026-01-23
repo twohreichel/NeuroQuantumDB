@@ -29,6 +29,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - uses: actions/checkout@v4
 
       - name: Install protoc
@@ -45,6 +54,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          cache-all-crates: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Create data directory
         run: mkdir -p neuroquantum_data/{tables,indexes,logs,quantum}
@@ -59,6 +70,15 @@ jobs:
     permissions:
       contents: write  # Required for GitHub Pages deployment
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - uses: actions/checkout@v4
 
       - name: Install protoc
@@ -75,6 +95,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: false
+          cache-all-crates: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install mdbook
         uses: taiki-e/install-action@v2
@@ -104,6 +126,15 @@ jobs:
     name: Build Release Binary
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - uses: actions/checkout@v4
 
       - name: Install protoc
@@ -120,6 +151,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: false
+          cache-all-crates: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build release binary
         run: cargo build --release --bin neuroquantum-api

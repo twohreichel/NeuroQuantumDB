@@ -27,6 +27,15 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - uses: actions/checkout@v4
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -41,6 +50,7 @@ jobs:
           shared-key: "lint"
           cache-targets: false
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Post Clippy suggestions
@@ -59,6 +69,15 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - uses: actions/checkout@v4
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -71,6 +90,7 @@ jobs:
         with:
           shared-key: "lint"
           cache-targets: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install security tools
         uses: taiki-e/install-action@v2
         with:
@@ -98,6 +118,15 @@ jobs:
     name: Dependency Check
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - uses: actions/checkout@v4
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -110,6 +139,7 @@ jobs:
         with:
           shared-key: "lint"
           cache-targets: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install cargo-machete
         uses: taiki-e/install-action@v2
         with:
@@ -132,6 +162,15 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - uses: actions/checkout@v4
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -144,6 +183,7 @@ jobs:
         with:
           shared-key: "lint"
           cache-targets: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check documentation
         env:
           RUSTDOCFLAGS: "-D warnings"
