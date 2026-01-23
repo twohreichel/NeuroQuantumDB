@@ -64,6 +64,16 @@ jobs:
             cross: false
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Free up disk space (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -83,6 +93,7 @@ jobs:
         with:
           cache-on-failure: false
           key: ${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build release binary
         run: cargo build --release -p neuroquantum-api --target ${{ matrix.target }}
@@ -121,6 +132,15 @@ jobs:
     if: needs.release-please.outputs.neuroquantumdb_release_created == 'true'
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -142,6 +162,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build WASM package
         working-directory: crates/neuroquantum-wasm
@@ -198,6 +219,15 @@ jobs:
     if: needs.release-please.outputs.neuroquantumdb_release_created == 'true'
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -210,6 +240,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # Publish crates in dependency order
       - name: Publish neuroquantum-core
