@@ -235,10 +235,17 @@ ci: ## Run all CI checks
 	@echo "✅ CI pipeline completed successfully!"
 
 # Production targets
-build: ## Build optimized release for ARM64 (Raspberry Pi 4)
+build: ## Build optimized release (native on macOS, ARM64 cross-compile on Linux)
+ifeq ($(shell uname -s),Darwin)
+	@echo "🚀 Building NeuroQuantumDB for native platform (macOS)..."
+	@echo "   Note: For ARM64 Linux builds, use 'make docker-build'"
+	cargo build --profile $(PROFILE) --features $(FEATURES)
+	@echo "✅ Build complete. Binary size: $$(du -h target/$(PROFILE)/neuroquantum-api 2>/dev/null | cut -f1 || echo 'N/A')"
+else
 	@echo "🚀 Building NeuroQuantumDB for production (ARM64)..."
 	RUSTFLAGS="$(RUSTFLAGS)" cargo build $(CARGO_FLAGS)
-	@echo "✅ Build complete. Binary size: $$(du -h target/$(TARGET)/$(PROFILE)/neuroquantum-core | cut -f1)"
+	@echo "✅ Build complete. Binary size: $$(du -h target/$(TARGET)/$(PROFILE)/neuroquantum-api | cut -f1)"
+endif
 
 build-release: build ## Alias for release build
 

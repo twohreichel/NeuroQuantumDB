@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 description = "Distributed cluster management for NeuroQuantumDB with Raft consensus"
 keywords = ["database", "distributed", "raft", "consensus", "cluster"]
+categories = ["database", "network-programming"]
 
 [package.metadata.cargo-machete]
 # These dependencies are used conditionally or reserved for future features

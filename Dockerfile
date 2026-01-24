@@ -46,7 +46,6 @@ COPY Cargo.lock ./Cargo.lock
 COPY crates/neuroquantum-core/Cargo.toml crates/neuroquantum-core/Cargo.toml
 COPY crates/neuroquantum-qsql/Cargo.toml crates/neuroquantum-qsql/Cargo.toml
 COPY crates/neuroquantum-api/Cargo.toml crates/neuroquantum-api/Cargo.toml
-COPY neuroquantum_data /neuroquantum_data
 
 # Create production Cargo.toml without tests, scripts, cluster, and wasm workspace members
 RUN sed -e '/^[[:space:]]*"tests"/d' \
@@ -101,22 +100,19 @@ COPY --from=rust-builder --chown=nonroot:nonroot \
     /app/target/aarch64-unknown-linux-gnu/release/neuroquantum-api \
     /usr/local/bin/neuroquantum-api
 
-# Configuration can be provided in multiple ways (in order of precedence):
-# 1. Volume mount: -v /path/to/config.toml:/etc/neuroquantumdb/config.toml:ro
-# 2. Build-time: docker build --build-arg CONFIG_FILE=path/to/custom.toml
-# 3. Default: Uses the bundled prod.toml configuration
+# Configuration MUST be provided at runtime via volume mount:
+#   docker run -v /path/to/config.toml:/etc/neuroquantumdb/config.toml:ro neuroquantumdb:latest
+#
+# No default configuration is bundled in the image - this ensures:
+# - Environment-specific configs are never accidentally baked into the image
+# - Secrets and credentials are managed externally
+# - Configuration changes don't require image rebuilds
 #
 # Example usage:
-#   docker run -v $(pwd)/myconfig.toml:/etc/neuroquantumdb/config.toml:ro neuroquantumdb:latest
+#   docker run -v $(pwd)/config/prod.toml:/etc/neuroquantumdb/config.toml:ro neuroquantumdb:latest
 #   docker run -e NEUROQUANTUM_CONFIG=/custom/path.toml -v ./config:/custom neuroquantumdb:latest
 
-# Build arg for custom configuration file (default: config/prod.toml)
-ARG CONFIG_FILE=config/prod.toml
-
-# Copy configuration (can be overridden by volume mount at runtime)
-COPY --chown=nonroot:nonroot ${CONFIG_FILE} /etc/neuroquantumdb/config.toml
-
-# Define volumes for persistent data and optional config override
+# Define volumes for persistent data and config
 VOLUME ["/data", "/etc/neuroquantumdb"]
 
 # Health check endpoint

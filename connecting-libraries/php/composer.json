@@ -4,6 +4,7 @@
     "description": "Official PHP driver for NeuroQuantumDB - A neuromorphic and quantum-inspired database",
     "type": "library",
     "license": "MIT",
+    "minimum-stability": "stable",
     "keywords": [
         "database",
         "driver",

@@ -1,0 +1,123 @@
+#!/bin/bash
+# Pre-push hook for NeuroQuantumDB
+# This script runs comprehensive checks before allowing a push
+
+set -e
+
+echo "🚀 Running pre-push checks..."
+
+# Check if we're in a Git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "❌ Not in a git repository"
+    exit 1
+fi
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if cargo is installed
+if ! command -v cargo &> /dev/null; then
+    print_error "Cargo is not installed. Please install Rust and Cargo."
+    exit 1
+fi
+
+# Check if required tools are installed
+check_tool() {
+    if ! command -v "$1" &> /dev/null; then
+        print_warning "$1 is not installed. Installing..."
+        cargo install "$1"
+    fi
+}
+
+print_status "Checking required tools..."
+check_tool "cargo-audit"
+check_tool "cargo-deny"
+check_tool "cargo-machete"
+
+# 1. Clippy linting
+print_status "Running Clippy analysis..."
+if cargo clippy --workspace --all-targets --all-features -- -D warnings; then
+    print_success "Clippy analysis passed"
+else
+    print_error "Clippy analysis failed. Fix the warnings and try again."
+    exit 1
+fi
+
+# 2. Security audit
+print_status "Running security audit..."
+if cargo audit; then
+    print_success "Security audit passed"
+else
+    print_error "Security audit failed. Check for vulnerabilities."
+    exit 1
+fi
+
+# 3. License and dependency checks
+print_status "Running dependency checks..."
+if cargo deny check; then
+    print_success "Dependency checks passed"
+else
+    print_error "Dependency checks failed. Review deny.toml configuration."
+    exit 1
+fi
+
+# 4. Check for unused dependencies
+print_status "Checking for unused dependencies..."
+if cargo machete; then
+    print_success "No unused dependencies found"
+else
+    print_warning "Unused dependencies detected. Consider removing them."
+    # Don't fail the push for unused dependencies, just warn
+fi
+
+# 5. Check for unsafe code blocks (SIMD files are excluded)
+print_status "Checking for unsafe code..."
+# SIMD files that are allowed to contain unsafe code (documented and necessary)
+SIMD_EXCLUDE_PATTERN="simd/|neon_optimization\.rs"
+
+# Find all .rs files with actual unsafe blocks (not comments), excluding SIMD-related files
+UNSAFE_FILES=$(grep -rE "^\s*(pub\s+)?(unsafe\s+(fn|impl|trait|\{))|[^/]\s+unsafe\s+\{" crates/ --include="*.rs" -l 2>/dev/null | grep -vE "$SIMD_EXCLUDE_PATTERN" || true)
+
+if [ -n "$UNSAFE_FILES" ]; then
+    print_error "Unsafe code detected in non-SIMD files! Remove all unsafe blocks before pushing."
+    for file in $UNSAFE_FILES; do
+        echo "  - $file"
+        grep -nE "unsafe\s+(fn|impl|trait|\{)" "$file" | grep -v "^\s*//" | head -5
+    done
+    exit 1
+else
+    print_success "No unsafe code found (SIMD files excluded)"
+fi
+
+# 6. Run tests
+print_status "Running test suite..."
+if cargo test --workspace --lib --bins; then
+    print_success "Tests passed"
+else
+    print_error "Tests failed. Fix failing tests before pushing."
+    exit 1
+fi
+
+print_success "All pre-push checks passed! 🎉"
+print_status "Pushing changes..."

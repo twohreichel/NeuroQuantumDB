@@ -6,6 +6,8 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "QSQL language implementation for NeuroQuantumDB with neuromorphic and quantum extensions"
+keywords = ["sql", "query-language", "database", "neuromorphic", "quantum"]
+categories = ["database", "parser-implementations"]
 
 [dependencies]
 # Core neuroquantum crate
