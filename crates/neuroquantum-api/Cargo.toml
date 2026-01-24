@@ -6,6 +6,8 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "NeuroQuantumDB REST API Server"
+keywords = ["api", "rest", "server", "database", "neuroquantum"]
+categories = ["database", "web-programming::http-server"]
 
 [dependencies]
 # Local dependencies

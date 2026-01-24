@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 description = "WebAssembly bindings for NeuroQuantumDB - run neuromorphic database in the browser"
 keywords = ["wasm", "webassembly", "database", "neuromorphic", "quantum"]
+categories = ["wasm", "database"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]

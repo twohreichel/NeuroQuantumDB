@@ -1,10 +1,11 @@
 #!/bin/bash
 # Pre-commit hook for NeuroQuantumDB
-# This script runs all linting checks before allowing a commit
+# This script runs FAST linting checks before allowing a commit
+# Slow checks (clippy, audit, tests) are in pre-push hook
 
 set -e
 
-echo "🚀 Running pre-commit linting checks..."
+echo "🚀 Running pre-commit checks (fast)..."
 
 # Check if we're in a Git repository
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -42,20 +43,7 @@ if ! command -v cargo &> /dev/null; then
     exit 1
 fi
 
-# Check if required tools are installed
-check_tool() {
-    if ! command -v "$1" &> /dev/null; then
-        print_warning "$1 is not installed. Installing..."
-        cargo install "$1"
-    fi
-}
-
-print_status "Checking required tools..."
-check_tool "cargo-audit"
-check_tool "cargo-deny"
-check_tool "cargo-machete"
-
-# 1. Code formatting check
+# 1. Code formatting check (FAST - ~2s)
 print_status "Checking code formatting..."
 if cargo fmt --all -- --check; then
     print_success "Code formatting check passed"
@@ -64,70 +52,5 @@ else
     exit 1
 fi
 
-# 2. Clippy linting
-print_status "Running Clippy analysis..."
-if cargo clippy --workspace --all-targets --all-features -- -D warnings; then
-    print_success "Clippy analysis passed"
-else
-    print_error "Clippy analysis failed. Fix the warnings and try again."
-    exit 1
-fi
-
-# 3. Security audit
-print_status "Running security audit..."
-if cargo audit; then
-    print_success "Security audit passed"
-else
-    print_error "Security audit failed. Check for vulnerabilities."
-    exit 1
-fi
-
-# 4. License and dependency checks
-print_status "Running dependency checks..."
-if cargo deny check; then
-    print_success "Dependency checks passed"
-else
-    print_error "Dependency checks failed. Review deny.toml configuration."
-    exit 1
-fi
-
-# 5. Check for unused dependencies
-print_status "Checking for unused dependencies..."
-if cargo machete; then
-    print_success "No unused dependencies found"
-else
-    print_warning "Unused dependencies detected. Consider removing them."
-    # Don't fail the commit for unused dependencies, just warn
-fi
-
-# 6. Check for unsafe code blocks (SIMD files are excluded)
-print_status "Checking for unsafe code..."
-# SIMD files that are allowed to contain unsafe code (documented and necessary)
-SIMD_EXCLUDE_PATTERN="simd/|neon_optimization\.rs"
-
-# Find all .rs files with actual unsafe blocks (not comments), excluding SIMD-related files
-# Pattern matches: "unsafe {", "unsafe fn", "unsafe impl", "unsafe trait" but not "// ... unsafe" comments
-UNSAFE_FILES=$(grep -rE "^\s*(pub\s+)?(unsafe\s+(fn|impl|trait|\{))|[^/]\s+unsafe\s+\{" crates/ --include="*.rs" -l 2>/dev/null | grep -vE "$SIMD_EXCLUDE_PATTERN" || true)
-
-if [ -n "$UNSAFE_FILES" ]; then
-    print_error "Unsafe code detected in non-SIMD files! Remove all unsafe blocks before committing."
-    for file in $UNSAFE_FILES; do
-        echo "  - $file"
-        grep -nE "unsafe\s+(fn|impl|trait|\{)" "$file" | grep -v "^\s*//" | head -5
-    done
-    exit 1
-else
-    print_success "No unsafe code found (SIMD files excluded)"
-fi
-
-# 7. Run tests (quick subset)
-print_status "Running quick test subset..."
-if cargo test --workspace --lib --bins; then
-    print_success "Quick tests passed"
-else
-    print_error "Quick tests failed. Fix failing tests before committing."
-    exit 1
-fi
-
-print_success "All pre-commit checks passed! 🎉"
-print_status "You can now commit your changes."
+print_success "Pre-commit checks passed! 🎉"
+print_status "Note: Full checks (clippy, tests, audit) run on push."
