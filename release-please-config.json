@@ -70,9 +70,9 @@
       "bump-patch-for-minor-pre-major": false
     }
   },
-  "separate-pull-requests": true,
+  "separate-pull-requests": false,
   "tag-separator": "/",
-  "sequential-calls": true,
+  "sequential-calls": false,
   "group-pull-request-title-pattern": "chore(main): release ${component} ${version}",
   "pull-request-title-pattern": "chore(main): release ${component} ${version}",
   "changelog-sections": [
@@ -89,20 +89,9 @@
   "commit-search-depth": 500,
   "plugins": [
     {
-      "type": "linked-versions",
-      "groupName": "neuroquantumdb-crates",
-      "components": [
-        "neuroquantumdb",
-        "neuroquantum-core",
-        "neuroquantum-qsql",
-        "neuroquantum-cluster",
-        "neuroquantum-api",
-        "neuroquantum-wasm"
-      ]
-    },
-    {
       "type": "cargo-workspace",
-      "merge": false
+      "merge": true,
+      "considerAllArtifacts": true
     }
   ]
 }
