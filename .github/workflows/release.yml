@@ -23,12 +23,34 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
+      # Root package
       neuroquantumdb_release_created: ${{ steps.release.outputs['.--release_created'] }}
       neuroquantumdb_tag_name: ${{ steps.release.outputs['.--tag_name'] }}
       neuroquantumdb_version: ${{ steps.release.outputs['.--version'] }}
+      # PHP driver
       php_release_created: ${{ steps.release.outputs['connecting-libraries/php--release_created'] }}
       php_tag_name: ${{ steps.release.outputs['connecting-libraries/php--tag_name'] }}
       php_version: ${{ steps.release.outputs['connecting-libraries/php--version'] }}
+      # neuroquantum-core
+      core_release_created: ${{ steps.release.outputs['crates/neuroquantum-core--release_created'] }}
+      core_tag_name: ${{ steps.release.outputs['crates/neuroquantum-core--tag_name'] }}
+      core_version: ${{ steps.release.outputs['crates/neuroquantum-core--version'] }}
+      # neuroquantum-qsql
+      qsql_release_created: ${{ steps.release.outputs['crates/neuroquantum-qsql--release_created'] }}
+      qsql_tag_name: ${{ steps.release.outputs['crates/neuroquantum-qsql--tag_name'] }}
+      qsql_version: ${{ steps.release.outputs['crates/neuroquantum-qsql--version'] }}
+      # neuroquantum-cluster
+      cluster_release_created: ${{ steps.release.outputs['crates/neuroquantum-cluster--release_created'] }}
+      cluster_tag_name: ${{ steps.release.outputs['crates/neuroquantum-cluster--tag_name'] }}
+      cluster_version: ${{ steps.release.outputs['crates/neuroquantum-cluster--version'] }}
+      # neuroquantum-api
+      api_release_created: ${{ steps.release.outputs['crates/neuroquantum-api--release_created'] }}
+      api_tag_name: ${{ steps.release.outputs['crates/neuroquantum-api--tag_name'] }}
+      api_version: ${{ steps.release.outputs['crates/neuroquantum-api--version'] }}
+      # neuroquantum-wasm
+      wasm_release_created: ${{ steps.release.outputs['crates/neuroquantum-wasm--release_created'] }}
+      wasm_tag_name: ${{ steps.release.outputs['crates/neuroquantum-wasm--tag_name'] }}
+      wasm_version: ${{ steps.release.outputs['crates/neuroquantum-wasm--version'] }}
     steps:
       - name: Run Release Please
         id: release
