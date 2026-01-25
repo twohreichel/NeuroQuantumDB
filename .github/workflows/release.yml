@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
-      # Root package
-      neuroquantumdb_release_created: ${{ steps.release.outputs['.--release_created'] }}
-      neuroquantumdb_tag_name: ${{ steps.release.outputs['.--tag_name'] }}
-      neuroquantumdb_version: ${{ steps.release.outputs['.--version'] }}
+      # Root package (use direct outputs for root component)
+      neuroquantumdb_release_created: ${{ steps.release.outputs.release_created }}
+      neuroquantumdb_tag_name: ${{ steps.release.outputs.tag_name }}
+      neuroquantumdb_version: ${{ steps.release.outputs.version }}
       # PHP driver
       php_release_created: ${{ steps.release.outputs['connecting-libraries/php--release_created'] }}
       php_tag_name: ${{ steps.release.outputs['connecting-libraries/php--tag_name'] }}
