@@ -1,6 +1,6 @@
 [package]
 name = "neuroquantum-core"
-version = "0.2.0" # x-release-please-version
+version = "0.0.0" # x-release-please-version
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -83,7 +83,7 @@ axum = "0.8.8"
 
 # Post-quantum cryptography and security
 # ML-KEM (Kyber): Using RustCrypto implementation for proper serialization support
-ml-kem = "0.2.1"
+ml-kem = "0.2.2"
 # ML-DSA (Dilithium): Using pqcrypto for digital signatures
 pqcrypto-mldsa = "0.1"
 pqcrypto-traits = "0.3.5"
@@ -110,7 +110,7 @@ rand.workspace = true
 tempfile = "3.23"
 tokio-test = "0.4"
 futures = "0.3"
-uuid = { version = "1.0", features = ["v4"] }
+uuid = { version = "1.20", features = ["v4"] }
 
 [features]
 default = ["simd"]

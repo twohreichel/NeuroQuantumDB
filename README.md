@@ -38,7 +38,7 @@ After cloning the repository, simply run:
 
 ```bash
 # Clone repository
-git clone https://github.com/neuroquantumdb/neuroquantumdb.git
+git clone git@github.com:twohreichel/NeuroQuantumDB.git
 cd neuroquantumdb
 ```
 
