@@ -42,7 +42,7 @@ opentelemetry-semantic-conventions = "0.27.0"
 tracing-opentelemetry = "0.28.0"
 
 # UUID and time handling
-uuid = { version = "1.19.0", features = ["v4", "serde"] }
+uuid = { version = "1.20.0", features = ["v4", "serde"] }
 chrono = { version = "0.4.43", features = ["serde"] }
 
 # Configuration
