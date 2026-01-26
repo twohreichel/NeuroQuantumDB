@@ -1,11 +1,11 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-0.3.45/src/format_description/parse/format_item.rs`."><title>format_item.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="time" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://avatars0.githubusercontent.com/u/55999857"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">time/format_description/parse/</div>format_item.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Typed, validated representation of a parsed format description.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-0.3.46/src/format_description/parse/format_item.rs`."><title>format_item.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="time" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://avatars0.githubusercontent.com/u/55999857"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">time/format_description/parse/</div>format_item.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Typed, validated representation of a parsed format description.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>alloc::boxed::Box;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>alloc::string::String;
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>core::num::NonZero;
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>core::str::{<span class="self">self</span>, FromStr};
 <a href=#7 id=7 data-nosnippet>7</a>
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use super</span>::{ast, unused, Error, Span, Spanned};
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use super</span>::{Error, Span, Spanned, ast, unused};
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::internal_macros::bug;
 <a href=#10 id=10 data-nosnippet>10</a>
 <a href=#11 id=11 data-nosnippet>11</a><span class="doccomment">/// Parse an AST iterator into a sequence of format items.
@@ -544,16 +544,19 @@
 <a href=#544 id=544 data-nosnippet>544</a>
 <a href=#545 id=545 data-nosnippet>545</a><span class="doccomment">/// Parse a modifier value using `FromStr`. Requires the modifier value to be valid UTF-8.
 <a href=#546 id=546 data-nosnippet>546</a></span><span class="attr">#[inline]
-<a href=#547 id=547 data-nosnippet>547</a></span><span class="kw">fn </span>parse_from_modifier_value&lt;T: FromStr&gt;(value: <span class="kw-2">&amp;</span>Spanned&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T&gt;, Error&gt; {
-<a href=#548 id=548 data-nosnippet>548</a>    str::from_utf8(value)
-<a href=#549 id=549 data-nosnippet>549</a>        .ok()
-<a href=#550 id=550 data-nosnippet>550</a>        .and_then(|val| val.parse::&lt;T&gt;().ok())
-<a href=#551 id=551 data-nosnippet>551</a>        .map(|val| <span class="prelude-val">Some</span>(val))
-<a href=#552 id=552 data-nosnippet>552</a>        .ok_or_else(|| Error {
-<a href=#553 id=553 data-nosnippet>553</a>            _inner: unused(value.span.error(<span class="string">"invalid modifier value"</span>)),
-<a href=#554 id=554 data-nosnippet>554</a>            public: <span class="kw">crate</span>::error::InvalidFormatDescription::InvalidModifier {
-<a href=#555 id=555 data-nosnippet>555</a>                value: String::from_utf8_lossy(value).into_owned(),
-<a href=#556 id=556 data-nosnippet>556</a>                index: value.span.start.byte <span class="kw">as </span>usize,
-<a href=#557 id=557 data-nosnippet>557</a>            },
-<a href=#558 id=558 data-nosnippet>558</a>        })
-<a href=#559 id=559 data-nosnippet>559</a>}</code></pre></div></section></main></body></html>
+<a href=#547 id=547 data-nosnippet>547</a></span><span class="kw">fn </span>parse_from_modifier_value&lt;T&gt;(value: <span class="kw-2">&amp;</span>Spanned&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T&gt;, Error&gt;
+<a href=#548 id=548 data-nosnippet>548</a><span class="kw">where
+<a href=#549 id=549 data-nosnippet>549</a>    </span>T: FromStr,
+<a href=#550 id=550 data-nosnippet>550</a>{
+<a href=#551 id=551 data-nosnippet>551</a>    str::from_utf8(value)
+<a href=#552 id=552 data-nosnippet>552</a>        .ok()
+<a href=#553 id=553 data-nosnippet>553</a>        .and_then(|val| val.parse::&lt;T&gt;().ok())
+<a href=#554 id=554 data-nosnippet>554</a>        .map(|val| <span class="prelude-val">Some</span>(val))
+<a href=#555 id=555 data-nosnippet>555</a>        .ok_or_else(|| Error {
+<a href=#556 id=556 data-nosnippet>556</a>            _inner: unused(value.span.error(<span class="string">"invalid modifier value"</span>)),
+<a href=#557 id=557 data-nosnippet>557</a>            public: <span class="kw">crate</span>::error::InvalidFormatDescription::InvalidModifier {
+<a href=#558 id=558 data-nosnippet>558</a>                value: String::from_utf8_lossy(value).into_owned(),
+<a href=#559 id=559 data-nosnippet>559</a>                index: value.span.start.byte <span class="kw">as </span>usize,
+<a href=#560 id=560 data-nosnippet>560</a>            },
+<a href=#561 id=561 data-nosnippet>561</a>        })
+<a href=#562 id=562 data-nosnippet>562</a>}</code></pre></div></section></main></body></html>
