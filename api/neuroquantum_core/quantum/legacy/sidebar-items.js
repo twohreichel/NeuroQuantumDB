@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["QuantumError"],"struct":["GroverSearch","OptimizedIndex","QuantumConfig","QuantumProcessor","QuantumQueryResults","QuantumSearchResult","QuantumStatistics"],"trait":["QuantumSearch"]};

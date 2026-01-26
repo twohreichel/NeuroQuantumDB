@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketNotificationConfigurationError"],"mod":["builders"],"struct":["GetBucketNotificationConfiguration","GetBucketNotificationConfigurationInput","GetBucketNotificationConfigurationOutput"]};

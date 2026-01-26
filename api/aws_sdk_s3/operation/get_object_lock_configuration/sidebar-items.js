@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetObjectLockConfigurationError"],"mod":["builders"],"struct":["GetObjectLockConfiguration","GetObjectLockConfigurationInput","GetObjectLockConfigurationOutput"]};

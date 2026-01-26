@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="RustCrypto: ML-KEM"><title>ml_kem - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ml_kem" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://raw.githubusercontent.com/RustCrypto/meta/master/logo.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate ml_kem</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../ml_kem/index.html"><img src="https://raw.githubusercontent.com/RustCrypto/meta/master/logo.svg" alt="logo"></a><h2><a href="../ml_kem/index.html">ml_kem</a><span class="version">0.2.2</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#rustcrypto-ml-kem" title="RustCrypto: ML-KEM">RustCrypto: ML-KEM</a><ul><li><a href="#about" title="About">About</a></li><li><a href="#-security-warning" title="⚠️ Security Warning">⚠️ Security Warning</a></li><li><a href="#minimum-supported-rust-version" title="Minimum Supported Rust Version">Minimum Supported Rust Version</a></li><li><a href="#license" title="License">License</a></li></ul></li><li><a href="#usage" title="Usage">Usage</a></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>ml_kem</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ml_kem/lib.rs.html#1-231">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="rustcrypto-ml-kem"><a class="doc-anchor" href="#rustcrypto-ml-kem">§</a><a href="https://github.com/rustcrypto">RustCrypto</a>: ML-KEM</h2>
+<p><a href="https://crates.io/crates/ml-kem"><img src="https://buildstats.info/crate/ml-kem" alt="crate" /></a>
+<a href="https://docs.rs/ml-kem/"><img src="https://docs.rs/ml-kem/badge.svg" alt="Docs" /></a>
+<a href="https://github.com/RustCrypto/KEMs/actions/workflows/ml-kem.yml"><img src="https://github.com/RustCrypto/KEMs/actions/workflows/ml-kem.yml/badge.svg" alt="Build Status" /></a>
+<img src="https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg" alt="Apache2/MIT licensed" />
+<img src="https://img.shields.io/badge/rustc-1.74+-blue.svg" alt="Rust Version" />
+<a href="https://rustcrypto.zulipchat.com/#narrow/stream/406484-KEMs"><img src="https://img.shields.io/badge/zulip-join_chat-blue.svg" alt="Project Chat" /></a></p>
+<p>Pure Rust implementation of the Module-Lattice-Based Key-Encapsulation Mechanism Standard
+(formerly known as Kyber) as described in <a href="https://csrc.nist.gov/pubs/fips/203/final">FIPS 203</a>.</p>
+<p><a href="https://docs.rs/ml-kem/">Documentation</a></p>
+<h3 id="about"><a class="doc-anchor" href="#about">§</a>About</h3>
+<p>ML-KEM is a cutting-edge post-quantum secure key encapsulation mechanism (KEM). KEMs play a vital
+role in modern cryptographic systems by securely exchanging keys between parties, ensuring
+confidential communication over insecure channels.</p>
+<p>Originally developed as Kyber, ML-KEM inherits the foundation of its predecessor while introducing
+refinements and optimizations to enhance its security and efficiency. ML-KEM and Kyber are
+intimately related, with ML-KEM representing a refined and evolved version of the original Kyber
+algorithm. While Kyber pioneered lattice-based cryptography and provided a reliable framework for
+secure key exchange, ML-KEM builds upon this foundation, incorporating advancements in
+cryptographic research and addressing potential vulnerabilities.</p>
+<p>In summary, ML-KEM stands at the forefront of post-quantum cryptography, offering enhanced security
+and efficiency in key encapsulation mechanisms to safeguard sensitive communications in an era where
+quantum computers potentially pose a looming threat.</p>
+<h3 id="-security-warning"><a class="doc-anchor" href="#-security-warning">§</a>⚠️ Security Warning</h3>
+<p>The implementation contained in this crate has never been independently audited!</p>
+<p>USE AT YOUR OWN RISK!</p>
+<h3 id="minimum-supported-rust-version"><a class="doc-anchor" href="#minimum-supported-rust-version">§</a>Minimum Supported Rust Version</h3>
+<p>This crate requires <strong>Rust 1.74</strong> at a minimum.</p>
+<p>We may change the MSRV in the future, but it will be accompanied by a minor
+version bump.</p>
+<h3 id="license"><a class="doc-anchor" href="#license">§</a>License</h3>
+<p>Licensed under either of:</p>
+<ul>
+<li><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a></li>
+<li><a href="http://opensource.org/licenses/MIT">MIT license</a></li>
+</ul>
+<p>at your option.</p>
+<h4 id="contribution"><a class="doc-anchor" href="#contribution">§</a>Contribution</h4>
+<p>Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.</p>
+<h2 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h2>
+<p>This crate implements the Module-Latice-based Key Encapsulation Method (ML-KEM) algorithm
+being standardized by NIST in FIPS 203.  ML-KEM is a KEM in the sense that it creates an
+(decapsulation key, encapsulation key) pair, such that anyone can use the encapsulation key to
+establish a shared key with the holder of the decapsulation key.  ML-KEM is the first KEM
+algorithm standardized by NIST that is designed to be resistant to attacks using quantum
+computers.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
+
+<span class="comment">// Generate a (decapsulation key, encapsulation key) pair
+</span><span class="kw">let </span>(dk, ek) = MlKem768::generate(<span class="kw-2">&amp;mut </span>rng);
+
+<span class="comment">// Encapsulate a shared key to the holder of the decapsulation key, receive the shared
+// secret `k_send` and the encapsulated form `ct`.
+</span><span class="kw">let </span>(ct, k_send) = ek.encapsulate(<span class="kw-2">&amp;mut </span>rng).unwrap();
+
+<span class="comment">// Decapsulate the shared key and verify that it was faithfully received.
+</span><span class="kw">let </span>k_recv = dk.decapsulate(<span class="kw-2">&amp;</span>ct).unwrap();
+<span class="macro">assert_eq!</span>(k_send, k_recv);</code></pre></div></div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.array"><code>pub use <a class="mod" href="../hybrid_array/index.html" title="mod hybrid_array">hybrid_array</a> as array;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="kem/index.html" title="mod ml_kem::kem">kem</a></dt><dd>Section 6. The ML-KEM Key-Encapsulation Mechanism</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.MlKem512Params.html" title="struct ml_kem::MlKem512Params">MlKem512<wbr>Params</a></dt><dd><code>MlKem512</code> is the parameter set for security category 1, corresponding to key search on a block
+cipher with a 128-bit key.</dd><dt><a class="struct" href="struct.MlKem768Params.html" title="struct ml_kem::MlKem768Params">MlKem768<wbr>Params</a></dt><dd><code>MlKem768</code> is the parameter set for security category 3, corresponding to key search on a block
+cipher with a 192-bit key.</dd><dt><a class="struct" href="struct.MlKem1024Params.html" title="struct ml_kem::MlKem1024Params">MlKem1024<wbr>Params</a></dt><dd><code>MlKem1024</code> is the parameter set for security category 5, corresponding to key search on a block
+cipher with a 256-bit key.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.ArraySize.html" title="trait ml_kem::ArraySize">Array<wbr>Size</a></dt><dd>An array length with other useful properties</dd><dt><a class="trait" href="trait.EncodedSizeUser.html" title="trait ml_kem::EncodedSizeUser">Encoded<wbr>Size<wbr>User</a></dt><dd>An object that knows what size it is</dd><dt><a class="trait" href="trait.KemCore.html" title="trait ml_kem::KemCore">KemCore</a></dt><dd>A generic interface to a Key Encapsulation Method</dd><dt><a class="trait" href="trait.ParameterSet.html" title="trait ml_kem::ParameterSet">Parameter<wbr>Set</a></dt><dd>A <code>ParameterSet</code> captures the parameters that describe a particular instance of ML-KEM.  There
+are three variants, corresponding to three different security levels.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Ciphertext.html" title="type ml_kem::Ciphertext">Ciphertext</a></dt><dd>A ciphertext produced by the KEM <code>K</code></dd><dt><a class="type" href="type.Encoded.html" title="type ml_kem::Encoded">Encoded</a></dt><dd>A byte array encoding a value the indicated size</dd><dt><a class="type" href="type.MlKem512.html" title="type ml_kem::MlKem512">MlKem512</a></dt><dd>ML-KEM with the parameter set for security category 1, corresponding to key search on a block
+cipher with a 128-bit key.</dd><dt><a class="type" href="type.MlKem768.html" title="type ml_kem::MlKem768">MlKem768</a></dt><dd>ML-KEM with the parameter set for security category 3, corresponding to key search on a block
+cipher with a 192-bit key.</dd><dt><a class="type" href="type.MlKem1024.html" title="type ml_kem::MlKem1024">MlKem1024</a></dt><dd>ML-KEM with the parameter set for security category 5, corresponding to key search on a block
+cipher with a 256-bit key.</dd><dt><a class="type" href="type.SharedKey.html" title="type ml_kem::SharedKey">Shared<wbr>Key</a></dt><dd>A shared key produced by the KEM <code>K</code></dd></dl></section></div></main></body></html>

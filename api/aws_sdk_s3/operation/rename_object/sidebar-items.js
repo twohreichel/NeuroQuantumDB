@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RenameObjectError"],"mod":["builders"],"struct":["RenameObject","RenameObjectInput","RenameObjectOutput"]};

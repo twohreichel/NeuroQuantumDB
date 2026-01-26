@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Dynamic Membership"><title>openraft::docs::cluster_control::dynamic_membership - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module dynamic_membership</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module dynamic_<wbr>membership</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#dynamic-membership" title="Dynamic Membership">Dynamic Membership</a><ul><li><a href="#membership-api" title="Membership API">Membership API</a></li><li><a href="#add-a-new-node-as-a-voter" title="Add a new node as a `Voter`">Add a new node as a <code>Voter</code></a></li><li><a href="#remove-a-voter-node" title="Remove a voter node">Remove a voter node</a></li><li><a href="#update-node" title="Update Node">Update Node</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>cluster_<wbr>control</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">cluster_control</a></div><h1>Module <span>dynamic_<wbr>membership</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/cluster_control/mod.rs.html#7">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="dynamic-membership"><a class="doc-anchor" href="#dynamic-membership">§</a>Dynamic Membership</h2>
+<p>In contrast to the original raft, openraft considers all memberships as <strong>joint</strong> memberships.
+A uniform config is simply a specific case of joint: the combination of only one config.</p>
+<p>Openraft provides the following mechanisms for managing member node lifecycles:</p>
+<h3 id="membership-api"><a class="doc-anchor" href="#membership-api">§</a>Membership API</h3><h4 id="raftadd_learnernode_id-node-blocking"><a class="doc-anchor" href="#raftadd_learnernode_id-node-blocking">§</a><a href="../../../raft/struct.Raft.html#method.add_learner" title="method openraft::raft::Raft::add_learner"><code>Raft::add_learner(node_id, node, blocking)</code></a></h4>
+<p>This method adds a learner to the cluster,
+and immediately starts synchronizing logs from the leader.</p>
+<ul>
+<li>A <strong>Learner</strong> does not vote for leadership.</li>
+</ul>
+<h4 id="raftchange_membershipmembers-retain"><a class="doc-anchor" href="#raftchange_membershipmembers-retain">§</a><a href="../../../raft/struct.Raft.html#method.change_membership" title="method openraft::raft::Raft::change_membership"><code>Raft::change_membership(members, retain)</code></a></h4>
+<p>This method initiates a membership change and returns when the proposed
+membership is effective and committed.</p>
+<p>If there are nodes in the given membership that are not <code>Learners</code>, this method will fail.
+Therefore, the application should always call <a href="../../../raft/struct.Raft.html#method.add_learner" title="method openraft::raft::Raft::add_learner"><code>Raft::add_learner()</code></a> first.</p>
+<p>Once the new membership is committed, a <code>Voter</code> not in the new config is removed if <code>retain=false</code>,
+otherwise, it is converted to a <code>Learner</code> if <code>retain=true</code>.</p>
+<h5 id="example-of-using-retain"><a class="doc-anchor" href="#example-of-using-retain">§</a>Example of using <code>retain</code></h5>
+<p>Given the original membership as <code>{"members":{1,2,3}, "learners":{}}</code>,
+call <code>change_membership</code> with <code>members={3,4,5}</code>, then:</p>
+<ul>
+<li>If <code>retain=true</code>,  the new membership is <code>{"members":{3,4,5}, "learners":{1,2}}</code>.</li>
+<li>If <code>retain=false</code>, the new membership is <code>{"members":{3,4,5}, "learners":{}}</code>.</li>
+</ul>
+<h3 id="add-a-new-node-as-a-voter"><a class="doc-anchor" href="#add-a-new-node-as-a-voter">§</a>Add a new node as a <code>Voter</code></h3>
+<p>To add a new node as a <code>Voter</code>:</p>
+<ul>
+<li>First, add it as a <code>Learner</code>(non-voter) with <a href="../../../raft/struct.Raft.html#method.add_learner" title="method openraft::raft::Raft::add_learner"><code>Raft::add_learner()</code></a>.
+In this step, the leader sets up replication to the new node, but it cannot vote yet.</li>
+<li>Then, convert it into a <code>Voter</code> with <a href="../../../raft/struct.Raft.html#method.change_membership" title="method openraft::raft::Raft::change_membership"><code>Raft::change_membership()</code></a>.</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>client = ExampleClient::new(<span class="number">1</span>, get_addr(<span class="number">1</span>)<span class="question-mark">?</span>);
+
+client.add_learner((<span class="number">2</span>, get_addr(<span class="number">2</span>)<span class="question-mark">?</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
+client.add_learner((<span class="number">3</span>, get_addr(<span class="number">3</span>)<span class="question-mark">?</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
+client.change_membership(<span class="kw-2">&amp;</span><span class="macro">btreeset!</span> {<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>}, <span class="bool-val">true</span>).<span class="kw">await</span><span class="question-mark">?</span>;</code></pre></div>
+<p>A complete snippet of adding voters can be found in <a href="https://github.com/datafuselabs/openraft/blob/d041202a9f30b704116c324a6adc4f2ec28029fa/examples/raft-kv-memstore/tests/cluster/test_cluster.rs#L75-L103">Mem KV cluster example</a>.</p>
+<h3 id="remove-a-voter-node"><a class="doc-anchor" href="#remove-a-voter-node">§</a>Remove a voter node</h3>
+<ul>
+<li>
+<p>Call <code>Raft::change_membership()</code> on the leader to initiate a two-phase
+membership config change, e.g., the leader will propose two config logs:
+joint config log: <code>[{1, 2, 3}, {3, 4, 5}]</code> and then the uniform config log:
+<code>{3, 4, 5}</code>.</p>
+</li>
+<li>
+<p>As soon as the leader commits the second config log, the node to remove can
+be safely terminated.</p>
+</li>
+</ul>
+<p><strong>Note that</strong> An application does not have to wait for the config log to be
+replicated to the node to remove. Because a distributed consensus protocol
+tolerates a minority member crash.</p>
+<p>To read more about Openraft’s <a href="../../data/extended_membership/index.html" title="mod openraft::docs::data::extended_membership">Extended Membership Algorithm</a>.</p>
+<h3 id="update-node"><a class="doc-anchor" href="#update-node">§</a>Update Node</h3>
+<p>To update a node, such as altering its network address,
+the application calls <a href="../../../raft/struct.Raft.html#method.change_membership" title="method openraft::raft::Raft::change_membership"><code>Raft::change_membership()</code></a>.
+The initial argument should be set to <a href="../../../enum.ChangeMembers.html#variant.SetNodes" title="variant openraft::ChangeMembers::SetNodes"><code>ChangeMembers::SetNodes(BTreeMap&lt;NodeId,Node&gt;)</code></a>.</p>
+<p><strong>Warning: Misusing <code>SetNodes</code> could lead to a split-brain situation</strong>:</p>
+<h4 id="brain-split"><a class="doc-anchor" href="#brain-split">§</a>Brain split</h4>
+<p>When updating node network addresses,
+brain split could occur if the new address belongs to another node,
+leading to two elected leaders.</p>
+<p>Consider a 3-node cluster (<code>a, b, c</code>, with addresses <code>x, y, z</code>) and an
+uninitialized node <code>d</code> with address <code>w</code>:</p>
+<div class="example-wrap"><pre class="language-text"><code>a: x
+b: y
+c: z
+
+d: w</code></pre></div>
+<p>Mistakenly updating <code>b</code>’s address from <code>y</code> to <code>w</code> would enable both <code>x, y</code> and <code>z, w</code> to form quorums and elect leaders:</p>
+<ul>
+<li>
+<p><code>c</code> proposes ChangeMembership: <code>{a:x, b:w, c:z}</code>;</p>
+</li>
+<li>
+<p><code>c, d</code> grant <code>c</code>;</p>
+</li>
+<li>
+<p><code>c</code> elects itself as leader</p>
+</li>
+<li>
+<p><code>c, d</code> confirm <code>c</code> as leader</p>
+</li>
+<li>
+<p><code>a</code> elects itself as leader</p>
+</li>
+<li>
+<p><code>a, b</code> confirm <code>a</code> as leader</p>
+</li>
+</ul>
+<p>Directly updating node addresses with <code>ChangeMembers::SetNodes</code>
+should be replaced with <code>ChangeMembers::RemoveNodes</code> and <code>Raft::add_learner</code> whenever possible.</p>
+<p>Do not use <code>ChangeMembers::SetNodes</code> unless you know what you are doing.</p>
+<h4 id="ensure-connection-to-the-correct-node"><a class="doc-anchor" href="#ensure-connection-to-the-correct-node">§</a>Ensure connection to the correct node</h4>
+<p>Ensure that a connection to the right node is the responsibility
+of the <a href="../../../network/trait.RaftNetworkFactory.html" title="trait openraft::network::RaftNetworkFactory"><code>RaftNetworkFactory</code></a> and the <a href="../../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> implementation.</p>
+<p>Connecting to a wrong node can lead to data inconsistency and even data loss.
+See: <a href="index.html#brain-split" title="mod openraft::docs::cluster_control::dynamic_membership">brain split caused by wrong node address</a>.</p>
+<p>Notably, the implementation should exercise additional care if one of the following conditions is met:</p>
+<ul>
+<li>
+<p>There is a chance that two cluster nodes have conflicting Node metadata.
+For example, two nodes with the same hostname are added,
+or one node is migrated to have the same hostname as another</p>
+</li>
+<li>
+<p>The network cannot be trusted.
+For example, a network adversary is present that might reroute Raft messages intended for one node to another.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

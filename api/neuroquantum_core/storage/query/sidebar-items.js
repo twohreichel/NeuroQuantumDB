@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AlterTableOp","ComparisonOperator","SortDirection"],"struct":["Condition","DeleteQuery","InsertQuery","OrderBy","SelectQuery","UpdateQuery","WhereClause"]};

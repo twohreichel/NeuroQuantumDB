@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetObjectRetentionError"],"mod":["builders"],"struct":["GetObjectRetention","GetObjectRetentionInput","GetObjectRetentionOutput"]};

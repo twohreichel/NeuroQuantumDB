@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IBMOptimizer","QAOAGate"],"struct":["DWaveConfig","DWaveQUBOSolver","DWaveTiming","HybridQUBOSolver","HybridSolverConfig","IBMConfig","IBMQUBOSolver","QAOACircuit","SimulatedAnnealingConfig","SimulatedAnnealingQUBOSolver","UnifiedQUBOConfig","UnifiedQUBOSolver"],"trait":["QUBOSolverBackend"]};

@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Leader Lease"><title>openraft::docs::data::leader_lease - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module leader_lease</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module leader_<wbr>lease</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#leader-lease" title="Leader Lease">Leader Lease</a><ul><li><a href="#leader-lease-for-follower-nodes" title="Leader Lease for Follower Nodes">Leader Lease for Follower Nodes</a></li><li><a href="#leader-lease-for-leader-nodes" title="Leader Lease for Leader Nodes">Leader Lease for Leader Nodes</a></li><li><a href="#leader-lease-example" title="Leader Lease Example">Leader Lease Example</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>data</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">data</a></div><h1>Module <span>leader_<wbr>lease</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/data/mod.rs.html#15">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="leader-lease"><a class="doc-anchor" href="#leader-lease">§</a>Leader Lease</h2>
+<p>Leader lease is a key concept in maintaining consistency and coordination among
+nodes in distributed systems. It defines a time period during which nodes
+believe that no other Leader will emerge in the cluster. Leader lease has
+different meanings and roles for Follower and Leader nodes.</p>
+<h3 id="leader-lease-for-follower-nodes"><a class="doc-anchor" href="#leader-lease-for-follower-nodes">§</a>Leader Lease for Follower Nodes</h3>
+<p>For Follower nodes, Leader lease means:</p>
+<ol>
+<li>During the valid period of the Leader lease, Follower nodes will not initiate
+a new Leader election.</li>
+<li>When a Follower node receives an AppendEntries request from the Leader, it
+refreshes its Leader lease.</li>
+</ol>
+<p>It is important to note that receiving a RequestVote request does not trigger
+the refresh of the Leader lease because Follower nodes do not consider a
+RequestVote request to indicate that a Leader has been established.</p>
+<h3 id="leader-lease-for-leader-nodes"><a class="doc-anchor" href="#leader-lease-for-leader-nodes">§</a>Leader Lease for Leader Nodes</h3>
+<p>For Leader nodes, Leader lease has the following implications:</p>
+<ol>
+<li>During the valid period of the Leader lease, the Leader node is confident
+that there are no other Leaders in the cluster.</li>
+<li>When the Leader node receives acknowledgments for the AppendEntries request
+from a quorum (majority) of Follower nodes, it refreshes its own Leader
+lease.</li>
+</ol>
+<p>Note that the starting time for the Leader node to refresh its lease is the time
+when the AppendEntries request is sent, not the time when the response is
+received. This is because if the Leader uses the time when the response is
+received as the starting time, due to network latency and clock differences,
+there may be significant differences in the lease duration between the Leader
+and Follower nodes. This could cause Follower nodes to prematurely consider the
+Leader’s lease to have expired, triggering unnecessary Leader elections.</p>
+<p>It is also for this reason that a newly elected Leader has a lease of 0 before
+it sends any AppendEntries requests. Additionally, the lease duration stored on
+the Leader node is usually shorter than the lease duration stored on Follower
+nodes.</p>
+<h3 id="leader-lease-example"><a class="doc-anchor" href="#leader-lease-example">§</a>Leader Lease Example</h3>
+<p>The following diagram illustrates the different handling of Leader lease for
+Leader and Follower nodes in the Raft consensus algorithm.</p>
+<ol>
+<li>
+<p>At time point t0, Node 1, as a Candidate, sends RequestVote requests to other
+nodes.</p>
+</li>
+<li>
+<p>At time points t1 and t2, Node 2 and Node 3 reply with RequestVote responses,
+respectively, but they do not update their own Leader leases.</p>
+</li>
+<li>
+<p>At time point t3, Node 1 receives enough votes to become the Leader. It
+starts sending AppendEntries requests to Follower nodes (Node 3 and Node 4).</p>
+</li>
+<li>
+<p>At time point t4, after receiving the AppendEntries request, Node 4
+immediately updates its own Leader lease, with a lease duration of
+<code>config.lease</code>. Node 3 behaves similarly.</p>
+</li>
+<li>
+<p>At time point t5, the Leader (Node 1) updates its own Leader lease only after
+receiving AppendEntries responses from a Quorum of all Follower nodes (3/4,
+including Node 1 itself). However, it is worth noting that:</p>
+<ul>
+<li>
+<p>Before time t5, the Leader lease on Node 1 is 0 because before t5, Node 1
+cannot ensure that there are no other nodes that can be elected as Leader
+in the cluster.</p>
+</li>
+<li>
+<p>The starting time for the Leader’s lease is calculated from the time point
+t3 when it sends the AppendEntries requests, not from the time point t5
+when it receives the responses. This is because at time t5, Node 1 can only
+guarantee that there are no other Leaders in the cluster during the time
+period <code>[t3, t3 + config.lease)</code>.</p>
+</li>
+<li>
+<p>Similarly, it can also be inferred that the lease duration on the Leader is
+shorter than that on the Follower nodes.</p>
+</li>
+</ul>
+</li>
+</ol>
+<div class="example-wrap"><pre class="language-text"><code>                                 [------------- leader lease -------------)
+                                 *------------- config.lease -------------*
+N4 -------------------------+----+---------------------------------------------------------&gt;
+                            ^    |              [------------- leader lease -------------)
+                            |    &#39;----------.   *------------- config.lease -------------*
+N3 ---+------------+------+-|---------------|---+------------------------------------------&gt;
+      ^            |      ^ |               |   |
+      |            |      | |               |   &#39;--.
+N2 -+-|------------|--+---|-|---------------|------|---------------------------------------&gt;
+    ^ |            |  |   | |               |      |
+    | |RequestVote |  |   | |AppendEntries  |      |
+    |/             v  v   |/                v      v
+N1 -+--------------+--+---+-----------------+------+---------------------------------------&gt;
+    |                                              [- leader lease-)
+    |                     .------------------------&#39;
+    |                     v
+    |                     *------------- config.lease -------------*
+    |                     |
+    Candidate             Leader established
+
+----+--------------+--+---+------+-----------------+---------------------------------------&gt;
+    t0             t1 t2  t3     t4                t5                                   time</code></pre></div></div></details></section></div></main></body></html>

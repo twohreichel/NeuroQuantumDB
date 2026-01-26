@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketVersioningError"],"mod":["builders"],"struct":["GetBucketVersioning","GetBucketVersioningInput","GetBucketVersioningOutput"]};

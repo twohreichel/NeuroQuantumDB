@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UpdateBucketMetadataInventoryTableConfigurationError"],"mod":["builders"],"struct":["UpdateBucketMetadataInventoryTableConfiguration","UpdateBucketMetadataInventoryTableConfigurationInput","UpdateBucketMetadataInventoryTableConfigurationOutput"]};

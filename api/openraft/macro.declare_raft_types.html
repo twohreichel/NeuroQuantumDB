@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Define types for a Raft type configuration."><title>declare_raft_types in openraft - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">declare_raft_types</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">openraft</a></div><h1>Macro <span class="macro">declare_<wbr>raft_<wbr>types</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/openraft/raft/mod.rs.html#144-179">Source</a> </span></div><pre class="rust item-decl"><code>macro_rules! declare_raft_types {
+    ($(#[$outer:meta])* $visibility:vis $id:ident) =&gt; { ... };
+    ($(#[$outer:meta])* $visibility:vis $id:ident: $($(#[$inner:meta])* $type_id:ident = $type:ty),* $(,)? ) =&gt; { ... };
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Define types for a Raft type configuration.</p>
+<p>Since Rust has some limitations when deriving traits for types with generic arguments
+and most types are parameterized by <a href="type_config/trait.RaftTypeConfig.html" title="trait openraft::type_config::RaftTypeConfig"><code>RaftTypeConfig</code></a>, we need to add supertraits to
+a type implementing <a href="type_config/trait.RaftTypeConfig.html" title="trait openraft::type_config::RaftTypeConfig"><code>RaftTypeConfig</code></a>.</p>
+<p>This macro does exactly that.</p>
+<p>Example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">openraft::declare_raft_types!</span>(
+   <span class="kw">pub </span>TypeConfig:
+       D            = ClientRequest,
+       R            = ClientResponse,
+       NodeId       = u64,
+       Node         = openraft::BasicNode,
+       Entry        = openraft::Entry&lt;TypeConfig&gt;,
+       SnapshotData = Cursor&lt;Vec&lt;u8&gt;&gt;,
+       Responder    = openraft::impls::OneshotResponder&lt;TypeConfig&gt;,
+       AsyncRuntime = openraft::TokioRuntime,
+);</code></pre></div>
+<p>Types can be omitted, and the following default type will be used:</p>
+<ul>
+<li><code>D</code>:            <code>String</code></li>
+<li><code>R</code>:            <code>String</code></li>
+<li><code>NodeId</code>:       <code>u64</code></li>
+<li><code>Node</code>:         <code>::openraft::impls::BasicNode</code></li>
+<li><code>Entry</code>:        <code>::openraft::impls::Entry&lt;Self&gt;</code></li>
+<li><code>SnapshotData</code>: <code>Cursor&lt;Vec&lt;u8&gt;&gt;</code></li>
+<li><code>Responder</code>:    <code>::openraft::impls::OneshotResponder&lt;Self&gt;</code></li>
+<li><code>AsyncRuntime</code>: <code>::openraft::impls::TokioRuntime</code></li>
+</ul>
+<p>For example, to declare with only <code>D</code> and <code>R</code> types:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">openraft::declare_raft_types!</span>(
+   <span class="kw">pub </span>TypeConfig:
+       D = ClientRequest,
+       R = ClientResponse,
+);</code></pre></div>
+<p>Or just use the default type config:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">openraft::declare_raft_types!</span>(<span class="kw">pub </span>TypeConfig);</code></pre></div></div></details></section></div></main></body></html>

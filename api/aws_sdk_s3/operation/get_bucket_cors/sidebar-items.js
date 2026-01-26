@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketCorsError"],"mod":["builders"],"struct":["GetBucketCors","GetBucketCorsInput","GetBucketCorsOutput"]};

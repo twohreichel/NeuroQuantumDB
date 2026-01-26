@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketPolicyError"],"mod":["builders"],"struct":["PutBucketPolicy","PutBucketPolicyInput","PutBucketPolicyOutput"]};

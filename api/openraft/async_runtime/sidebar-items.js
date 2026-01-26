@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["TokioOneShotSender","TokioRuntime"],"trait":["AsyncOneshotSendExt","AsyncRuntime"]};

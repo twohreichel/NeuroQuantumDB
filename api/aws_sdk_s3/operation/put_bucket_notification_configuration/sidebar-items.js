@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketNotificationConfigurationError"],"mod":["builders"],"struct":["PutBucketNotificationConfiguration","PutBucketNotificationConfigurationInput","PutBucketNotificationConfigurationOutput"]};

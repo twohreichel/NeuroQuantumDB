@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DNABase","DNAError"],"mod":["benchmarks","compression","decoder","encoder","error_correction","simd"],"struct":["CompressedDNA","CompressionMetadata","CompressionMetrics","DNACompressionConfig","DNASequence","QuantumDNACompressor"],"trait":["DNACompressor"],"type":["EncodedData"]};

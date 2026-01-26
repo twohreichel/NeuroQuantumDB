@@ -1,0 +1,1936 @@
+<!DOCTYPE HTML>
+<html lang="de" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>🧠 Complete Feature Guide (DE) - NeuroQuantumDB Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Comprehensive documentation for NeuroQuantumDB - Ultra-efficient neuromorphic database for edge computing">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-5286ab13.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-4f2988c5.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">NeuroQuantumDB Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/neuroquantumdb/neuroquantumdb" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/neuroquantumdb/neuroquantumdb/edit/main/docs/docs/user-guide/NEUROQUANTUM_FEATURES_GUIDE.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="-neuroquantumdb-feature-guide"><a class="header" href="#-neuroquantumdb-feature-guide">🧠 NeuroQuantumDB Feature Guide</a></h1>
+<h2 id="quantum-search-neuronale-endpunkte--dna-kompression"><a class="header" href="#quantum-search-neuronale-endpunkte--dna-kompression">Quantum Search, Neuronale Endpunkte &amp; DNA Kompression</a></h2>
+<blockquote>
+<p><em>“Eine Datenbank, die atmet, lernt und sich weiterentwickelt”</em></p>
+</blockquote>
+<hr>
+<h2 id="-inhaltsverzeichnis"><a class="header" href="#-inhaltsverzeichnis">📚 Inhaltsverzeichnis</a></h2>
+<ol>
+<li><a href="#-übersicht">Übersicht</a></li>
+<li><a href="#-dna-kompression">DNA Kompression</a></li>
+<li><a href="#-quantum-search">Quantum Search</a></li>
+<li><a href="#-neuronale-endpunkte">Neuronale Endpunkte</a></li>
+<li><a href="#-qsql-neuromorphe-erweiterungen">QSQL Neuromorphe Erweiterungen</a></li>
+<li><a href="#-biometrische-authentifizierung">Biometrische Authentifizierung</a></li>
+<li><a href="#-praktische-anwendungsfälle">Praktische Anwendungsfälle</a></li>
+<li><a href="#-api-referenz">API Referenz</a></li>
+<li><a href="#-vollständiges-bibliotheks-beispiel">Vollständiges Bibliotheks-Beispiel</a></li>
+</ol>
+<hr>
+<h2 id="-übersicht"><a class="header" href="#-übersicht">🌟 Übersicht</a></h2>
+<h3 id="was-ist-neuroquantumdb---erklärt-für-jedermann"><a class="header" href="#was-ist-neuroquantumdb---erklärt-für-jedermann">Was ist NeuroQuantumDB? - Erklärt für Jedermann</a></h3>
+<p><strong>Stell dir vor</strong>, du hast eine riesige Bibliothek mit Millionen von Büchern. Eine normale Datenbank ist wie ein Bibliothekar, der jedes Buch einzeln durchsuchen muss, um das richtige zu finden. Das dauert sehr lange!</p>
+<p><strong>NeuroQuantumDB ist anders.</strong> Es ist wie ein magischer Bibliothekar, der:</p>
+<ol>
+<li>
+<p><strong>🧬 Bücher kleiner machen kann</strong> (DNA Kompression) - Stell dir vor, du könntest 4 Bücher in den Platz von einem einzigen quetschen, ohne dass etwas verloren geht!</p>
+</li>
+<li>
+<p><strong>⚛️ An vielen Orten gleichzeitig suchen kann</strong> (Quantum Search) - Anstatt ein Regal nach dem anderen zu durchsuchen, schaut er sich ALLE Regale gleichzeitig an. Das ist wie Magie!</p>
+</li>
+<li>
+<p><strong>🧠 Aus Erfahrung lernt</strong> (Neuronale Netzwerke) - Je öfter du nach bestimmten Büchern fragst, desto besser wird er darin, sie zu finden. Wie ein Hund, der lernt, wo sein Spielzeug versteckt ist!</p>
+</li>
+</ol>
+<h3 id="warum-ist-das-wichtig"><a class="header" href="#warum-ist-das-wichtig">Warum ist das wichtig?</a></h3>
+<p>In unserer digitalen Welt haben wir UNGLAUBLICH viele Daten:</p>
+<ul>
+<li>Jede Sekunde werden Millionen von Fotos hochgeladen</li>
+<li>Online-Shops haben Millionen von Produkten</li>
+<li>Krankenhäuser speichern Gesundheitsdaten von Milliarden Menschen</li>
+</ul>
+<p><strong>Das Problem:</strong> Normale Datenbanken sind zu langsam und brauchen zu viel Speicherplatz.</p>
+<p><strong>Die Lösung:</strong> NeuroQuantumDB nutzt Tricks aus der Natur (DNA) und der Quantenphysik, um schneller und effizienter zu sein!</p>
+<p>NeuroQuantumDB vereint drei revolutionäre Technologien in einer Datenbank:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                     NeuroQuantumDB Features                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  🧬 DNA KOMPRESSION        ⚛️ QUANTUM SEARCH       🧠 NEURAL NETWORK │
+│  ─────────────────        ────────────────        ──────────────── │
+│  • 4:1 Kompression        • Grover's Algorithmus  • Hebbian Learning │
+│  • Quaternäre Kodierung   • QUBO Optimierung      • STDP Plastizität │
+│  • SIMD Beschleunigung    • TFIM Berechnung       • Pattern Matching │
+│  • Fehlerkorrektur        • Parallel Tempering    • Adaptive Gewichte │
+│                                                                      │
+│  ════════════════════════════════════════════════════════════════   │
+│                                                                      │
+│  🔐 BIOMETRIC AUTH         📊 QSQL ERWEITERUNGEN                    │
+│  ─────────────────         ─────────────────────                    │
+│  • EEG-basiert            • NEUROMATCH Funktion                     │
+│  • Multi-Channel          • SYNAPTIC_WEIGHT                         │
+│  • Echtzeit-Verifikation  • QUANTUM_SEARCH                          │
+│  • Liveness Detection     • HEBBIAN_LEARNING                        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h2 id="-dna-kompression"><a class="header" href="#-dna-kompression">🧬 DNA Kompression</a></h2>
+<h3 id="was-ist-dna-kompression---erklärt-für-jedermann"><a class="header" href="#was-ist-dna-kompression---erklärt-für-jedermann">Was ist DNA Kompression? - Erklärt für Jedermann</a></h3>
+<p><strong>Stell dir vor</strong>, du hast einen Koffer und möchtest 100 T-Shirts mitnehmen, aber nur 25 passen hinein. Was tust du? Du rollst die T-Shirts ganz fest zusammen! Am Ende passen alle 100 hinein, und wenn du sie wieder ausrollst, sind sie genauso wie vorher.</p>
+<p><strong>DNA Kompression funktioniert genauso</strong>, nur mit Computerdaten!</p>
+<h4 id="warum-dna"><a class="header" href="#warum-dna">Warum “DNA”?</a></h4>
+<p>In deinem Körper gibt es DNA - das ist wie ein riesiges Rezeptbuch, das erklärt, wie DU gebaut bist. Dieses Rezeptbuch benutzt nur 4 “Buchstaben”:</p>
+<ul>
+<li><strong>A</strong> (Adenin) - wie die Farbe ROT 🔴</li>
+<li><strong>C</strong> (Cytosin) - wie die Farbe BLAU 🔵</li>
+<li><strong>G</strong> (Guanin) - wie die Farbe GRÜN 🟢</li>
+<li><strong>T</strong> (Thymin) - wie die Farbe GELB 🟡</li>
+</ul>
+<p>Computer benutzen normalerweise nur 0 und 1 (an/aus, wie ein Lichtschalter). Aber mit 4 “Farben” können wir VIEL mehr Information in weniger Platz speichern!</p>
+<h4 id="ein-einfaches-beispiel"><a class="header" href="#ein-einfaches-beispiel">Ein einfaches Beispiel:</a></h4>
+<pre><code>MIT NORMALER SPEICHERUNG:          MIT DNA KOMPRESSION:
+┌─────────────────────┐            ┌──────────────┐
+│ 0 1 0 0 1 0 0 0     │            │              │
+│ 0 1 1 0 0 1 0 1     │    ───▶    │  A C G T     │
+│ 0 1 1 0 1 1 0 0     │            │  A T G C     │
+│ 0 1 1 0 1 1 1 1     │            │              │
+└─────────────────────┘            └──────────────┘
+     32 Zeichen                       8 Zeichen
+                                   
+     Das ist wie:                  Das ist wie:
+     ████████████████              ████
+     
+     4x MEHR PLATZ!                4x WENIGER PLATZ!
+</code></pre>
+<h4 id="warum-ist-das-toll"><a class="header" href="#warum-ist-das-toll">Warum ist das toll?</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Vorher</th><th>Nachher</th><th>Was bedeutet das?</th></tr>
+</thead>
+<tbody>
+<tr><td>4 GB Festplatte voll</td><td>Nur 1 GB belegt</td><td>Du kannst 4x mehr Fotos speichern!</td></tr>
+<tr><td>Backup dauert 4 Stunden</td><td>Nur 1 Stunde</td><td>Mehr Zeit zum Spielen!</td></tr>
+<tr><td>Server kostet 400€/Monat</td><td>Nur 100€/Monat</td><td>Papa spart Geld!</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="technische-details"><a class="header" href="#technische-details">Technische Details</a></h3>
+<p>DNA-inspirierte quaternäre Kodierung für ultra-effiziente Speicherung. Binäre Daten werden in DNA-Basenpaare umgewandelt:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    DNA Kompression Prozess                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   BINÄR                QUATERNÄR               KOMPRIMIERT           │
+│   ──────               ─────────               ────────────          │
+│                                                                      │
+│   01001000  ────▶      A  C  G  T     ────▶    ~75% kleiner         │
+│   01100101             A  T  G  C                                   │
+│   01101100             ────────────                                  │
+│   01101100              DNA Basen                                    │
+│   01101111                                                           │
+│                                                                      │
+│   ┌──────────────────────────────────────────────────────────────┐  │
+│   │  Binär    │  DNA Base  │  Bedeutung                          │  │
+│   ├──────────────────────────────────────────────────────────────┤  │
+│   │   00      │     A      │  Adenin                             │  │
+│   │   01      │     C      │  Cytosin                            │  │
+│   │   10      │     G      │  Guanin                             │  │
+│   │   11      │     T      │  Thymin                             │  │
+│   └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="performance"><a class="header" href="#performance">Performance</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Datengröße</th><th>Kompressionszeit</th><th>Verhältnis</th></tr>
+</thead>
+<tbody>
+<tr><td>1 KB</td><td>&lt; 0.1 ms</td><td>4:1</td></tr>
+<tr><td>1 MB</td><td>&lt; 2 ms</td><td>4:1</td></tr>
+<tr><td>100 MB</td><td>&lt; 200 ms</td><td>4:1</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="simd-beschleunigung"><a class="header" href="#simd-beschleunigung">SIMD Beschleunigung</a></h3>
+<h4 id="was-ist-simd---erklärt-für-jedermann"><a class="header" href="#was-ist-simd---erklärt-für-jedermann">Was ist SIMD? - Erklärt für Jedermann</a></h4>
+<p><strong>Stell dir vor</strong>, du musst 100 Äpfel schälen. Normalerweise schälst du einen nach dem anderen. Das dauert ewig!</p>
+<p><strong>SIMD</strong> ist wie wenn du plötzlich 4 oder 8 Hände hättest und 4-8 Äpfel GLEICHZEITIG schälen könntest!</p>
+<p>Computer-Chips haben diese “Superhände” eingebaut:</p>
+<ul>
+<li><strong>ARM64 NEON</strong> (in Handys, Raspberry Pi): 4 Äpfel gleichzeitig! 🍎🍎🍎🍎</li>
+<li><strong>x86_64 AVX2</strong> (in Laptops, PCs): 8 Äpfel gleichzeitig! 🍎🍎🍎🍎🍎🍎🍎🍎</li>
+</ul>
+<p>NeuroQuantumDB erkennt automatisch, welche “Superhände” dein Computer hat und benutzt sie!</p>
+<h4 id="technische-details-1"><a class="header" href="#technische-details-1">Technische Details</a></h4>
+<p>Automatische Hardware-Beschleunigung:</p>
+<ul>
+<li><strong>ARM64 NEON</strong>: 4x schneller auf Raspberry Pi</li>
+<li><strong>x86_64 AVX2</strong>: 8x schneller auf Intel/AMD</li>
+</ul>
+<h3 id="api-endpunkte"><a class="header" href="#api-endpunkte">API Endpunkte</a></h3>
+<h4 id="-dna-komprimieren"><a class="header" href="#-dna-komprimieren">🔹 DNA Komprimieren</a></h4>
+<pre><code class="language-bash">POST /api/v1/dna/compress
+</code></pre>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "sequences": [
+    "ATCGATCGATCG",
+    "GCTAGCTAGCTA"
+  ],
+  "algorithm": "KmerBased",
+  "compression_level": 5
+}
+</code></pre>
+<p><strong>Algorithmus-Optionen:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Algorithmus</th><th>Beschreibung</th><th>Anwendungsfall</th></tr>
+</thead>
+<tbody>
+<tr><td><code>KmerBased</code></td><td>K-mer basierte Kompression</td><td>Standard, schnell</td></tr>
+<tr><td><code>NeuralNetwork</code></td><td>Neuronale Netzwerk Kompression</td><td>Muster-basierte Daten</td></tr>
+<tr><td><code>QuantumInspired</code></td><td>Quantum-inspirierte Kompression</td><td>Komplexe Strukturen</td></tr>
+<tr><td><code>Hybrid</code></td><td>Hybrid-Ansatz</td><td>Beste Kompression</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "compressed_sequences": [
+      {
+        "original_length": 12,
+        "compressed_data": "base64_encoded_data",
+        "compression_ratio": 2.5,
+        "checksum": "abc123"
+      }
+    ],
+    "compression_stats": {
+      "total_input_size": 24,
+      "total_compressed_size": 10,
+      "average_compression_ratio": 2.4,
+      "compression_time_ms": 15.2
+    }
+  }
+}
+</code></pre>
+<h4 id="-dna-dekomprimieren"><a class="header" href="#-dna-dekomprimieren">🔹 DNA Dekomprimieren</a></h4>
+<pre><code class="language-bash">POST /api/v1/dna/decompress
+</code></pre>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "compressed_data": [
+    "base64_encoded_data1",
+    "base64_encoded_data2"
+  ]
+}
+</code></pre>
+<h3 id="qsql-syntax"><a class="header" href="#qsql-syntax">QSQL Syntax</a></h3>
+<pre><code class="language-sql">-- Tabelle komprimieren
+COMPRESS TABLE logs USING DNA;
+
+-- Kompressionsstatistiken anzeigen
+SHOW COMPRESSION STATS FOR logs;
+
+-- Dekomprimieren
+DECOMPRESS TABLE logs;
+</code></pre>
+<h3 id="-anwendungsfälle-für-entwickler--kunden"><a class="header" href="#-anwendungsfälle-für-entwickler--kunden">💡 Anwendungsfälle für Entwickler &amp; Kunden</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Szenario</th><th>Nutzen</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Log-Archivierung</strong></td><td>75% Speicherersparnis bei historischen Logs</td></tr>
+<tr><td><strong>IoT Sensordaten</strong></td><td>Effiziente Speicherung auf Edge-Devices</td></tr>
+<tr><td><strong>Backup-Systeme</strong></td><td>Schnellere Backups durch kleinere Datenmengen</td></tr>
+<tr><td><strong>Genomik-Daten</strong></td><td>Native DNA-Sequenz Speicherung</td></tr>
+<tr><td><strong>Cold Storage</strong></td><td>Langzeit-Archivierung mit minimalen Kosten</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-quantum-search"><a class="header" href="#-quantum-search">⚛️ Quantum Search</a></h2>
+<h3 id="was-ist-quantum-search---erklärt-für-jedermann"><a class="header" href="#was-ist-quantum-search---erklärt-für-jedermann">Was ist Quantum Search? - Erklärt für Jedermann</a></h3>
+<p><strong>Stell dir vor</strong>, du suchst dein Lieblingsspielzeug in einem riesigen Spielzeugladen mit 1 Million Spielzeugen!</p>
+<h4 id="normale-suche-klassisch"><a class="header" href="#normale-suche-klassisch">Normale Suche (Klassisch):</a></h4>
+<p>Du gehst durch jeden Gang, schaust in jedes Regal, eins nach dem anderen…</p>
+<ul>
+<li>Gang 1… nein 😕</li>
+<li>Gang 2… nein 😕</li>
+<li>Gang 3… nein 😕</li>
+<li>… (1 Million Mal schauen!)</li>
+</ul>
+<p><strong>Das dauert EWIG!</strong> ⏰</p>
+<h4 id="quantum-suche-magisch"><a class="header" href="#quantum-suche-magisch">Quantum Suche (Magisch):</a></h4>
+<p>Stell dir vor, du könntest dich KLONEN und plötzlich gibt es 1000 von dir! Jeder Klon schaut in einem anderen Gang nach. Dann “verschmelzen” alle Klone wieder zu dir, und du weißt sofort, wo das Spielzeug ist!</p>
+<p><strong>Das ist wie Zauberei!</strong> ✨</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    Der Unterschied                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  NORMALE SUCHE:        Du allein, ein Regal nach dem anderen        │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ 👤➡️📦➡️📦➡️📦➡️📦➡️📦➡️📦➡️📦➡️📦➡️📦➡️📦➡️...         │    │
+│  │                                                             │    │
+│  │ Bei 1.000.000 Regalen: 1.000.000 Schritte! 😫               │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  QUANTUM SUCHE:        Du bist überall gleichzeitig!                │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │         👤 👤 👤 👤 👤 👤 👤 👤 👤 👤                       │    │
+│  │         ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓                        │    │
+│  │         📦 📦 📦 📦 📦 📦 📦 📦 📦 📦                       │    │
+│  │                                                             │    │
+│  │ Bei 1.000.000 Regalen: Nur ~1.000 Schritte! 🎉              │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  ⚡ Das ist 1000x SCHNELLER!                                        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="die-magie-dahinter-grovers-algorithmus"><a class="header" href="#die-magie-dahinter-grovers-algorithmus">Die Magie dahinter: Grover’s Algorithmus</a></h4>
+<p>Ein sehr schlauer Mensch namens <strong>Lov Grover</strong> hat 1996 herausgefunden, wie man diese Quantenmagie für die Suche nutzen kann. Sein Trick:</p>
+<ol>
+<li><strong>Superposition</strong>: Dein Quantum-Computer schaut sich ALLE Möglichkeiten gleichzeitig an (wie die Klone!)</li>
+<li><strong>Amplitude Amplification</strong>: Die richtige Antwort wird “lauter” gemacht, wie wenn dein Lieblingslied im Radio lauter gedreht wird</li>
+<li><strong>Messung</strong>: Am Ende “hörst” du nur noch die richtige Antwort!</li>
+</ol>
+<h4 id="verschiedene-quantum-modi-erklärt"><a class="header" href="#verschiedene-quantum-modi-erklärt">Verschiedene Quantum-Modi erklärt</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Modus</th><th>Wie ein Kind es verstehen würde</th><th>Wofür ist es gut?</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Grover’s</strong></td><td>“Finde die Nadel im Heuhaufen, aber schau dir den ganzen Haufen gleichzeitig an!”</td><td>Schnelles Suchen</td></tr>
+<tr><td><strong>TFIM</strong></td><td>“Finde die Position, wo Magnete am ruhigsten sind”</td><td>Energie-Probleme lösen</td></tr>
+<tr><td><strong>QUBO</strong></td><td>“Finde den besten Weg, 100 Aufgaben zu erledigen, wenn du nur 10 Stunden hast”</td><td>Optimierung</td></tr>
+<tr><td><strong>Parallel Tempering</strong></td><td>“Teste viele Lösungen bei verschiedenen ‘Temperaturen’ und behalte die beste”</td><td>Globale Optimum finden</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="technische-details-2"><a class="header" href="#technische-details-2">Technische Details</a></h3>
+<p>Quantum-inspirierte Algorithmen für dramatisch schnellere Suche in unstrukturierten Daten:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    Quantum Speedup Visualisierung                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Klassische Suche:  O(N) Operationen                                │
+│  Quantum Suche:     O(√N) Operationen                               │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │  N = 1.000.000 Datensätze                                      │ │
+│  │                                                                 │ │
+│  │  Klassisch: █████████████████████████████████ 1.000.000        │ │
+│  │  Quantum:   █                                ~1.000            │ │
+│  │                                                                 │ │
+│  │  ⚡ 1000x schneller!                                           │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="verfügbare-quantum-modi"><a class="header" href="#verfügbare-quantum-modi">Verfügbare Quantum Modi</a></h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    Quantum Search Modi                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
+│  │   GROVER'S   │  │    TFIM      │  │    QUBO      │              │
+│  │  ALGORITHM   │  │  (Ising)     │  │ Optimization │              │
+│  ├──────────────┤  ├──────────────┤  ├──────────────┤              │
+│  │ • O(√N) Suche│  │ • Energie-   │  │ • Quadratische│             │
+│  │ • Amplitude  │  │   minimierung│  │   Optimierung│              │
+│  │   Verstärkung│  │ • Magnetische│  │ • Constraint │              │
+│  │ • Pattern    │  │   Systeme    │  │   Solving    │              │
+│  │   Matching   │  │ • Phase      │  │ • Max-Cut    │              │
+│  │              │  │   Transition │  │   Problems   │              │
+│  └──────────────┘  └──────────────┘  └──────────────┘              │
+│                                                                      │
+│  ┌──────────────┐                                                   │
+│  │  PARALLEL    │                                                   │
+│  │  TEMPERING   │                                                   │
+│  ├──────────────┤                                                   │
+│  │ • Monte Carlo│                                                   │
+│  │ • Temperatur-│                                                   │
+│  │   Replikas   │                                                   │
+│  │ • Global     │                                                   │
+│  │   Optimum    │                                                   │
+│  └──────────────┘                                                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="api-endpunkt"><a class="header" href="#api-endpunkt">API Endpunkt</a></h3>
+<pre><code class="language-bash">POST /api/v1/quantum/search
+</code></pre>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "table_name": "users",
+  "query_vector": [0.1, 0.5, 0.8, 0.3],
+  "similarity_threshold": 0.7,
+  "max_results": 10,
+  "entanglement_boost": 1.2,
+  "use_tfim": true,
+  "use_qubo": false,
+  "use_parallel_tempering": false,
+  "use_grover": true,
+  "grover_config": {
+    "backend": "simulator",
+    "num_shots": 1024,
+    "error_mitigation": true,
+    "success_threshold": 0.5
+  }
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "record": {
+          "id": 1,
+          "name": "Alice",
+          "features": [0.15, 0.52, 0.79, 0.28]
+        },
+        "similarity_score": 0.95,
+        "quantum_probability": 0.88,
+        "entanglement_strength": 0.72
+      }
+    ],
+    "quantum_stats": {
+      "coherence_time_used_ms": 2.5,
+      "superposition_states": 16,
+      "measurement_collapses": 4,
+      "entanglement_operations": 8,
+      "circuit_depth": 12,
+      "num_gates": 48
+    },
+    "grover_results": {
+      "found_indices": [42, 137, 891],
+      "probabilities": [0.92, 0.85, 0.71],
+      "iterations": 31,
+      "optimal_iterations": 31,
+      "quantum_speedup": 31.62,
+      "computation_time_ms": 12.4
+    }
+  }
+}
+</code></pre>
+<h3 id="qubo-backends"><a class="header" href="#qubo-backends">QUBO Backends</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Backend</th><th>Beschreibung</th><th>Anwendung</th></tr>
+</thead>
+<tbody>
+<tr><td><code>VQE</code></td><td>Variational Quantum Eigensolver</td><td>Energie-Probleme</td></tr>
+<tr><td><code>QAOA</code></td><td>Quantum Approximate Optimization</td><td>Kombinatorik</td></tr>
+<tr><td><code>QA</code></td><td>Quantum Annealing (D-Wave style)</td><td>Global Optima</td></tr>
+<tr><td><code>SQA</code></td><td>Simulated Quantum Annealing</td><td>Default, robust</td></tr>
+<tr><td><code>CLASSICAL</code></td><td>Klassischer Fallback</td><td>Debugging</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="qsql-syntax-1"><a class="header" href="#qsql-syntax-1">QSQL Syntax</a></h3>
+<pre><code class="language-sql">-- Basis Quantum Suche
+QUANTUM SEARCH users WHERE age &gt; 30;
+
+-- Mit Iterationslimit
+QUANTUM SEARCH products 
+  WHERE price &lt; 100 
+  WITH ITERATIONS 50;
+
+-- QUBO Optimierung
+OPTIMIZE QUBO
+  MINIMIZE 3*x1 + 2*x2 - x1*x2
+  SUBJECT TO x1 + x2 &lt;= 1
+  BACKEND SQA;
+</code></pre>
+<h3 id="-anwendungsfälle-für-entwickler--kunden-1"><a class="header" href="#-anwendungsfälle-für-entwickler--kunden-1">💡 Anwendungsfälle für Entwickler &amp; Kunden</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Szenario</th><th>Nutzen</th><th>Speedup</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Ähnlichkeitssuche</strong></td><td>Produkt-Empfehlungen, Content-Matching</td><td>√N</td></tr>
+<tr><td><strong>Anomalie-Erkennung</strong></td><td>Fraud Detection, Security Monitoring</td><td>√N</td></tr>
+<tr><td><strong>Graph-Optimierung</strong></td><td>Routing, Netzwerk-Planung</td><td>Exponentiell</td></tr>
+<tr><td><strong>Portfolio-Optimierung</strong></td><td>Finanz-Strategien</td><td>QUBO</td></tr>
+<tr><td><strong>Scheduling</strong></td><td>Ressourcen-Allokation</td><td>QUBO</td></tr>
+<tr><td><strong>Machine Learning</strong></td><td>Feature-Selection</td><td>Quantum-Enhanced</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-neuronale-endpunkte"><a class="header" href="#-neuronale-endpunkte">🧠 Neuronale Endpunkte</a></h2>
+<h3 id="was-sind-neuronale-endpunkte---erklärt-für-jedermann"><a class="header" href="#was-sind-neuronale-endpunkte---erklärt-für-jedermann">Was sind Neuronale Endpunkte? - Erklärt für Jedermann</a></h3>
+<p><strong>Stell dir vor</strong>, du hast einen Roboter-Hund als Haustier. Am Anfang weiß er nichts - er weiß nicht, wo sein Napf ist, nicht wo sein Körbchen ist, nicht einmal seinen Namen!</p>
+<p>Aber jeden Tag lernst du ihm etwas Neues:</p>
+<ul>
+<li>“Wenn ich ‘Futter!’ rufe, geh zum Napf” 🍖</li>
+<li>“Wenn ich ‘Schlafenszeit!’ sage, geh ins Körbchen” 🛏️</li>
+<li>“Wenn die Türklingel läutet, belle!” 🔔</li>
+</ul>
+<p>Nach einer Weile wird dein Roboter-Hund richtig SCHLAU! Er kann sogar neue Situationen verstehen, die du ihm nie beigebracht hast!</p>
+<p><strong>Neuronale Netzwerke in NeuroQuantumDB funktionieren genauso!</strong></p>
+<h4 id="wie-funktioniert-das-lernen"><a class="header" href="#wie-funktioniert-das-lernen">Wie funktioniert das Lernen?</a></h4>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    Wie ein Gehirn lernt                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   DEIN GEHIRN:                    NEUROQUANTUMDB:                   │
+│                                                                      │
+│   🧠 Neuronen (Gehirnzellen)      🔵 Künstliche Neuronen            │
+│      ↓                               ↓                               │
+│   🔗 Synapsen (Verbindungen)      🔗 Gewichte (Zahlen)              │
+│      ↓                               ↓                               │
+│   📚 Lernen durch Wiederholung    📊 Lernen durch Daten             │
+│                                                                      │
+│   ┌─────────────────────────────────────────────────────────────┐   │
+│   │                                                             │   │
+│   │    Eingabe        Verarbeitung         Ausgabe              │   │
+│   │                                                             │   │
+│   │    👀 Ich sehe    🧠 Hmm, das sieht    🗣️ "Das ist         │   │
+│   │    etwas Rotes    aus wie...            ein Apfel!"         │   │
+│   │    und Rundes                                               │   │
+│   │                                                             │   │
+│   │    [0.9, 0.1]  →  ⚙️⚙️⚙️⚙️  →  "Apfel" (95% sicher)       │   │
+│   │    (rot, rund)    (Neuronen)                                │   │
+│   │                                                             │   │
+│   └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="die-wichtigsten-lernregeln-erklärt"><a class="header" href="#die-wichtigsten-lernregeln-erklärt">Die wichtigsten Lernregeln erklärt</a></h4>
+<p><strong>1. Hebbian Learning (Hebb’sches Lernen)</strong></p>
+<blockquote>
+<p>“Neuronen, die zusammen feuern, verdrahten sich zusammen”</p>
+</blockquote>
+<p><strong>Beispiel für Kinder:</strong>
+Stell dir vor, jedes Mal wenn du “Eis” hörst, denkst du an “Sommer”. Je öfter das passiert, desto stärker wird die Verbindung in deinem Kopf!</p>
+<pre><code>🍦 "Eis"  ←──────────────→  ☀️ "Sommer"
+          (wird immer stärker!)
+</code></pre>
+<p><strong>2. STDP (Spike-Timing Dependent Plasticity)</strong></p>
+<p><strong>Beispiel für Kinder:</strong></p>
+<ul>
+<li>Wenn du ERST die Türklingel hörst und DANN Besuch siehst → Du lernst: “Klingel = Besuch kommt!” ✅</li>
+<li>Wenn du ERST Besuch siehst und DANN die Klingel hörst → Das ergibt keinen Sinn! ❌</li>
+</ul>
+<p>Die REIHENFOLGE ist wichtig!</p>
+<p><strong>3. Lateral Inhibition (Seitliche Hemmung)</strong></p>
+<p><strong>Beispiel für Kinder:</strong>
+Stell dir einen Wettbewerb vor. Wenn du der Schnellste bist, schreist du “ICH!” und alle anderen müssen still sein. Nur der Gewinner darf sprechen!</p>
+<h3 id="technische-details-3"><a class="header" href="#technische-details-3">Technische Details</a></h3>
+<p>Neuromorphes Computing - NeuroQuantumDB implementiert biologisch-inspirierte Lernmechanismen:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    Neuronale Lernprinzipien                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  HEBBIAN LEARNING                    STDP (Spike-Timing)            │
+│  ─────────────────                   ──────────────────             │
+│                                                                      │
+│  "Neurons that fire                       Δw                        │
+│   together, wire                           │    ╱                   │
+│   together"                                │   ╱  LTP               │
+│                                            │  ╱                     │
+│  Δw = η × pre × post               ────────┼────── Δt              │
+│                                            │╲                       │
+│  ┌─────────────────┐                      │ ╲  LTD                 │
+│  │ ●───●───●       │                      │  ╲                     │
+│  │   ╲ │ ╱         │                                               │
+│  │    ●───●        │              pre before post → Verstärkung    │
+│  │   ╱     ╲       │              post before pre → Abschwächung   │
+│  │ ●─────────●     │                                               │
+│  └─────────────────┘                                               │
+│                                                                      │
+│  LATERAL INHIBITION                  PLASTICITY MATRIX              │
+│  ──────────────────                  ─────────────────              │
+│                                                                      │
+│  Winner-takes-all                    Adaptive Gewichtungs-          │
+│  Mechanismus                         Reorganisation                  │
+│                                                                      │
+│  Nur stärkste Aktivierung           Kontinuierliche Anpassung       │
+│  bleibt erhalten                    an Datenmuster                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="api-endpunkte-1"><a class="header" href="#api-endpunkte-1">API Endpunkte</a></h3>
+<h4 id="-neuronales-netzwerk-trainieren"><a class="header" href="#-neuronales-netzwerk-trainieren">🔹 Neuronales Netzwerk Trainieren</a></h4>
+<pre><code class="language-bash">POST /api/v1/neural/train
+</code></pre>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "network_name": "user_classifier",
+  "training_data": [
+    {
+      "input": [0.1, 0.5, 0.8],
+      "target": [1.0, 0.0],
+      "weight": 1.0
+    },
+    {
+      "input": [0.9, 0.2, 0.1],
+      "target": [0.0, 1.0],
+      "weight": 1.0
+    }
+  ],
+  "config": {
+    "layers": [
+      {
+        "layer_type": "Dense",
+        "size": 64,
+        "activation": "ReLU",
+        "dropout": 0.2
+      },
+      {
+        "layer_type": "Neuromorphic",
+        "size": 32,
+        "activation": "SpikingNeuron",
+        "dropout": null
+      }
+    ],
+    "learning_rate": 0.001,
+    "epochs": 100,
+    "batch_size": 32,
+    "optimizer": "NeuromorphicSTDP",
+    "loss_function": "SpikeTimingLoss"
+  },
+  "validation_split": 0.2
+}
+</code></pre>
+<h4 id="layer-typen"><a class="header" href="#layer-typen">Layer-Typen</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Typ</th><th>Beschreibung</th><th>Anwendung</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Dense</code></td><td>Vollverbundene Schicht</td><td>Standard</td></tr>
+<tr><td><code>Convolutional</code></td><td>Faltungsschicht</td><td>Bildverarbeitung</td></tr>
+<tr><td><code>Recurrent</code></td><td>Rekurrente Schicht</td><td>Sequenzen</td></tr>
+<tr><td><code>Attention</code></td><td>Attention-Mechanismus</td><td>Transformer</td></tr>
+<tr><td><code>Neuromorphic</code></td><td>Biologisch-inspiriert</td><td>Energy-Efficient</td></tr>
+</tbody>
+</table>
+</div>
+<h4 id="aktivierungsfunktionen"><a class="header" href="#aktivierungsfunktionen">Aktivierungsfunktionen</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Funktion</th><th>Beschreibung</th></tr>
+</thead>
+<tbody>
+<tr><td><code>ReLU</code></td><td>Rectified Linear Unit</td></tr>
+<tr><td><code>Sigmoid</code></td><td>Sigmoid-Funktion</td></tr>
+<tr><td><code>Tanh</code></td><td>Tangens Hyperbolicus</td></tr>
+<tr><td><code>Softmax</code></td><td>Wahrscheinlichkeitsverteilung</td></tr>
+<tr><td><code>Swish</code></td><td>Self-gated Activation</td></tr>
+<tr><td><code>SpikingNeuron</code></td><td>Biologische Spike-Aktivierung</td></tr>
+</tbody>
+</table>
+</div>
+<h4 id="optimizer"><a class="header" href="#optimizer">Optimizer</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Optimizer</th><th>Beschreibung</th></tr>
+</thead>
+<tbody>
+<tr><td><code>SGD</code></td><td>Stochastic Gradient Descent</td></tr>
+<tr><td><code>Adam</code></td><td>Adaptive Moment Estimation</td></tr>
+<tr><td><code>AdaGrad</code></td><td>Adaptive Gradient</td></tr>
+<tr><td><code>RMSprop</code></td><td>Root Mean Square Propagation</td></tr>
+<tr><td><code>NeuromorphicSTDP</code></td><td>Spike-Timing Dependent Plasticity</td></tr>
+</tbody>
+</table>
+</div>
+<h4 id="-training-status-abfragen"><a class="header" href="#-training-status-abfragen">🔹 Training-Status Abfragen</a></h4>
+<pre><code class="language-bash">GET /api/v1/neural/train/{network_id}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "network_id": "abc123",
+    "training_status": "Running",
+    "current_epoch": 45,
+    "total_epochs": 100,
+    "current_loss": 0.0234,
+    "validation_loss": 0.0312,
+    "estimated_completion": "2026-01-09T15:30:00Z"
+  }
+}
+</code></pre>
+<h3 id="-anwendungsfälle-für-entwickler--kunden-2"><a class="header" href="#-anwendungsfälle-für-entwickler--kunden-2">💡 Anwendungsfälle für Entwickler &amp; Kunden</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Szenario</th><th>Nutzen</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Muster-Erkennung</strong></td><td>Automatische Klassifikation von Daten</td></tr>
+<tr><td><strong>Empfehlungssysteme</strong></td><td>Personalisierte Produktvorschläge</td></tr>
+<tr><td><strong>Anomalie-Erkennung</strong></td><td>Erkennung ungewöhnlicher Muster</td></tr>
+<tr><td><strong>Selbstlernende Queries</strong></td><td>Optimierung basierend auf Nutzungsmustern</td></tr>
+<tr><td><strong>Adaptive Indizierung</strong></td><td>Automatische Index-Optimierung</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-qsql-neuromorphe-erweiterungen"><a class="header" href="#-qsql-neuromorphe-erweiterungen">📊 QSQL Neuromorphe Erweiterungen</a></h2>
+<h3 id="was-ist-qsql---erklärt-für-jedermann"><a class="header" href="#was-ist-qsql---erklärt-für-jedermann">Was ist QSQL? - Erklärt für Jedermann</a></h3>
+<p><strong>SQL</strong> ist die “Sprache”, mit der Computer mit Datenbanken sprechen. Es ist wie wenn du dem Bibliothekar sagst: “Gib mir alle Bücher über Dinosaurier!”</p>
+<p><strong>QSQL</strong> ist SQL mit Superkräften! Es ist wie wenn du dem Bibliothekar sagen könntest:</p>
+<ul>
+<li>“Gib mir alle Bücher, die ÄHNLICH wie Dinosaurier sind!” (auch Bücher über Drachen oder Godzilla!)</li>
+<li>“Finde das Buch mit QUANTUM-GESCHWINDIGKEIT!”</li>
+<li>“LERNE, welche Bücher ich mag!”</li>
+</ul>
+<h4 id="die-magischen-qsql-funktionen-erklärt"><a class="header" href="#die-magischen-qsql-funktionen-erklärt">Die magischen QSQL-Funktionen erklärt</a></h4>
+<p><strong>1. NEUROMATCH - Das “Ähnlich-wie” Finder</strong></p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    NEUROMATCH erklärt                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  NORMALE SUCHE (LIKE):           NEUROMATCH:                        │
+│                                                                      │
+│  "Finde 'Kopfhörer'"             "Finde alles wie 'Kopfhörer'"      │
+│        ↓                                ↓                            │
+│  ✅ Kopfhörer                    ✅ Kopfhörer                       │
+│  ❌ Headphones                   ✅ Headphones (englisch!)          │
+│  ❌ Ohrhörer                     ✅ Ohrhörer (ähnlich!)             │
+│  ❌ Bluetooth Earbuds            ✅ Bluetooth Earbuds (auch Musik!) │
+│  ❌ Headset                      ✅ Headset (hört man auch!)        │
+│                                                                      │
+│  NEUROMATCH versteht BEDEUTUNG, nicht nur Buchstaben!               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Beispiel für Kinder:</strong></p>
+<ul>
+<li>LIKE ist wie: “Zeig mir alle roten Legosteine” → Du bekommst NUR rote Steine</li>
+<li>NEUROMATCH ist wie: “Zeig mir Steine, die zu meinem roten Feuerwehrauto passen” → Du bekommst rote, orange, und vielleicht auch gelbe Steine für die Lichter!</li>
+</ul>
+<p><strong>2. SYNAPTIC_WEIGHT - Der “Wie-ähnlich-ist-das?” Messer</strong></p>
+<p>Diese Funktion gibt dir eine Zahl zwischen 0 und 1:</p>
+<ul>
+<li><strong>1.0</strong> = Perfekt gleich! 🎯</li>
+<li><strong>0.5</strong> = Halb ähnlich 🤔</li>
+<li><strong>0.0</strong> = Komplett anders ❌</li>
+</ul>
+<p><strong>Beispiel für Kinder:</strong></p>
+<pre><code>SYNAPTIC_WEIGHT("Hund", "Hund")     = 1.0  ← Genau gleich!
+SYNAPTIC_WEIGHT("Hund", "Wolf")     = 0.8  ← Sehr ähnlich (beides Tiere mit Fell!)
+SYNAPTIC_WEIGHT("Hund", "Katze")    = 0.5  ← Bisschen ähnlich (beide Haustiere)
+SYNAPTIC_WEIGHT("Hund", "Banane")   = 0.1  ← Fast gar nicht ähnlich!
+</code></pre>
+<p><strong>3. QUANTUM_SEARCH - Der “Überall-gleichzeitig” Sucher</strong></p>
+<p>Normale Suche: Schaut ein Ergebnis nach dem anderen an 🚶
+QUANTUM_SEARCH: Schaut ALLE Ergebnisse gleichzeitig an 🏃💨💨💨</p>
+<p><strong>4. HEBBIAN_LEARNING - Der “Ich-werde-schlauer” Rechner</strong></p>
+<p>Je öfter du etwas fragst, desto besser wird die Datenbank darin, es zu finden!</p>
+<h3 id="technische-details-4"><a class="header" href="#technische-details-4">Technische Details</a></h3>
+<p>NEUROMATCH - Semantische Ähnlichkeitssuche basierend auf synaptischen Gewichten:</p>
+<pre><code class="language-sql">-- Basis NEUROMATCH
+SELECT * FROM products 
+NEUROMATCH 'wireless headphones' 
+STRENGTH &gt; 0.7;
+
+-- Mit Lernrate
+SELECT id, content, timestamp
+FROM memories 
+NEUROMATCH 'happy childhood vacation' 
+STRENGTH &gt; 0.6
+LEARNING_RATE 0.01
+HEBBIAN_STRENGTHENING true;
+
+-- Mit Aktivierungsschwelle
+SELECT user_id, username, profile_bio
+FROM users
+NEUROMATCH 'software engineer python machine learning'
+STRENGTH &gt; 0.5
+ACTIVATION_THRESHOLD 0.8;
+</code></pre>
+<h3 id="synaptic_weight-funktion"><a class="header" href="#synaptic_weight-funktion">SYNAPTIC_WEIGHT Funktion</a></h3>
+<p>Berechnet neuromorphe Ähnlichkeit zwischen Werten:</p>
+<pre><code class="language-sql">-- Basis Verwendung
+SELECT name, SYNAPTIC_WEIGHT(name, 'John') AS weight 
+FROM users;
+
+-- Mit Sortierung
+SELECT name, email, SYNAPTIC_WEIGHT(name, 'Smith') AS similarity
+FROM customers
+WHERE SYNAPTIC_WEIGHT(name, 'Smith') &gt; 0.3
+ORDER BY similarity DESC;
+</code></pre>
+<h3 id="quantum_search-in-qsql"><a class="header" href="#quantum_search-in-qsql">QUANTUM_SEARCH in QSQL</a></h3>
+<pre><code class="language-sql">-- Grover's Algorithmus Suche
+QUANTUM SEARCH users 
+WHERE age &gt; 30 AND city = 'Berlin';
+
+-- Mit Iterationen
+QUANTUM SEARCH products
+WHERE category = 'electronics' AND price &lt; 500
+WITH ITERATIONS 100;
+
+-- Mit Oracle-Funktion
+QUANTUM SEARCH logs
+WHERE severity = 'error'
+WITH ORACLE 'custom_error_detector'
+AMPLITUDE_AMPLIFICATION true;
+</code></pre>
+<h3 id="hebbian_learning-funktion"><a class="header" href="#hebbian_learning-funktion">HEBBIAN_LEARNING Funktion</a></h3>
+<pre><code class="language-sql">-- Hebbian Lernwert berechnen
+SELECT HEBBIAN_LEARNING(age) as hebbian 
+FROM users 
+LIMIT 5;
+</code></pre>
+<h3 id="hybrid-queries"><a class="header" href="#hybrid-queries">Hybrid Queries</a></h3>
+<p>Kombination von Quantum und Neural für maximale Effizienz:</p>
+<pre><code class="language-sql">-- Quantum-Neural Hybrid Query
+WITH quantum_results AS (
+    QUANTUM SEARCH products
+    WHERE category = 'electronics'
+    WITH ITERATIONS 80
+)
+SELECT 
+    p.*,
+    similarity_score
+FROM quantum_results qr
+JOIN products p ON qr.id = p.id
+WHERE NEUROMATCH p.description 'high quality premium' STRENGTH &gt; 0.7
+ORDER BY similarity_score DESC
+LIMIT 10;
+</code></pre>
+<h3 id="vergleich-like-vs-neuromatch"><a class="header" href="#vergleich-like-vs-neuromatch">Vergleich: LIKE vs NEUROMATCH</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Aspekt</th><th>LIKE</th><th>NEUROMATCH</th></tr>
+</thead>
+<tbody>
+<tr><td>Matching</td><td>Exakt</td><td>Semantisch</td></tr>
+<tr><td>Wildcards</td><td><code>%</code>, <code>_</code></td><td>Nicht nötig</td></tr>
+<tr><td>Synonyme</td><td>❌</td><td>✅</td></tr>
+<tr><td>Lernfähig</td><td>❌</td><td>✅</td></tr>
+<tr><td>Performance</td><td>O(N)</td><td>O(√N) mit Quantum</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-biometrische-authentifizierung"><a class="header" href="#-biometrische-authentifizierung">🔐 Biometrische Authentifizierung</a></h2>
+<h3 id="was-ist-biometrische-authentifizierung---erklärt-für-jedermann"><a class="header" href="#was-ist-biometrische-authentifizierung---erklärt-für-jedermann">Was ist Biometrische Authentifizierung? - Erklärt für Jedermann</a></h3>
+<p><strong>Stell dir vor</strong>, du hast eine geheime Schatzkiste. Wie verhinderst du, dass andere sie öffnen?</p>
+<p><strong>Normales Passwort:</strong></p>
+<ul>
+<li>Du sagst ein geheimes Wort (“Spaghetti123”)</li>
+<li>Problem: Jemand könnte es hören und nachmachen! 😰</li>
+</ul>
+<p><strong>Fingerabdruck:</strong></p>
+<ul>
+<li>Du legst deinen Finger auf einen Scanner</li>
+<li>Problem: Jemand könnte deinen Fingerabdruck kopieren! 😰</li>
+</ul>
+<p><strong>EEG-basierte Authentifizierung (NeuroQuantumDB):</strong></p>
+<ul>
+<li>Du trägst ein Band auf dem Kopf, das deine GEHIRNWELLEN liest</li>
+<li>Das ist wie dein persönliches Gedanken-Passwort!</li>
+<li>Problem? KEINS! Niemand kann deine Gedanken kopieren! 🎉</li>
+</ul>
+<h4 id="wie-funktioniert-das"><a class="header" href="#wie-funktioniert-das">Wie funktioniert das?</a></h4>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    EEG Authentifizierung                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  1. DU TRÄGST EIN HEADSET:                                          │
+│                                                                      │
+│        🧠 ← Gehirnwellen                                            │
+│       ╱▔▔╲                                                          │
+│      ╱ 😊 ╲ ← Sensoren lesen elektrische Signale                    │
+│     ╱──────╲                                                         │
+│                                                                      │
+│  2. DEIN GEHIRN MACHT WELLEN:                                       │
+│                                                                      │
+│     ∿∿∿∿∿ Delta (0.5-4 Hz) - Wenn du tief schläfst                 │
+│     ⌇⌇⌇⌇⌇ Theta (4-8 Hz)  - Wenn du träumst                        │
+│     ∼∼∼∼∼ Alpha (8-13 Hz) - Wenn du entspannt bist                 │
+│     ≋≋≋≋≋ Beta (13-30 Hz) - Wenn du nachdenkst                     │
+│     ≈≈≈≈≈ Gamma (30-100+ Hz) - Wenn du hart arbeitest              │
+│                                                                      │
+│  3. DEIN MUSTER IST EINZIGARTIG:                                    │
+│                                                                      │
+│     👤 Max:  ∿∿⌇⌇∼∼≋≋≈≈                                            │
+│     👤 Lisa: ∿⌇⌇∼∼∼≋≋≋≈                                            │
+│     👤 Tom:  ∿∿∿⌇∼≋≋≋≋≈≈≈                                           │
+│                                                                      │
+│     Wie ein Fingerabdruck - aber im Gehirn!                         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="warum-ist-das-sicher"><a class="header" href="#warum-ist-das-sicher">Warum ist das sicher?</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Angriff</th><th>Passwort</th><th>Fingerabdruck</th><th>EEG (Gehirnwellen)</th></tr>
+</thead>
+<tbody>
+<tr><td>Erraten</td><td>⚠️ Möglich</td><td>❌ Schwer</td><td>❌ Unmöglich</td></tr>
+<tr><td>Stehlen</td><td>⚠️ Möglich</td><td>⚠️ Möglich (Foto)</td><td>❌ Unmöglich</td></tr>
+<tr><td>Kopieren</td><td>⚠️ Möglich</td><td>⚠️ Möglich (3D-Druck)</td><td>❌ Unmöglich</td></tr>
+<tr><td>Zwingen</td><td>⚠️ Du könntest es verraten</td><td>⚠️ Finger kann erzwungen werden</td><td>❌ Angst verändert die Wellen!</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Das Geniale:</strong> Wenn du Angst hast oder unter Druck stehst, ändern sich deine Gehirnwellen! Das System erkennt das und verweigert den Zugang. 🛡️</p>
+<h3 id="technische-details-5"><a class="header" href="#technische-details-5">Technische Details</a></h3>
+<p>EEG-basierte Authentifizierung - Hochsichere Authentifizierung durch Gehirnwellen-Muster:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    EEG Authentifizierungs-Pipeline                   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────────┐    │
+│    │   EEG   │───▶│ Digital │───▶│ Feature │───▶│ Verification│    │
+│    │ Signal  │    │ Filter  │    │Extraction│   │   Match     │    │
+│    └─────────┘    └─────────┘    └─────────┘    └─────────────┘    │
+│                                                                      │
+│    EEG Frequenzbänder:                                              │
+│    ┌────────────────────────────────────────────────────────────┐   │
+│    │ Band    │ Frequenz    │ Verwendung                        │   │
+│    ├────────────────────────────────────────────────────────────┤   │
+│    │ Delta   │ 0.5-4 Hz    │ Tiefe Muster                      │   │
+│    │ Theta   │ 4-8 Hz      │ Gedächtnismuster                  │   │
+│    │ Alpha   │ 8-13 Hz     │ Entspannter Zustand               │   │
+│    │ Beta    │ 13-30 Hz    │ Aktives Denken                    │   │
+│    │ Gamma   │ 30-100 Hz   │ Kognitive Verarbeitung            │   │
+│    └────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="api-endpunkte-2"><a class="header" href="#api-endpunkte-2">API Endpunkte</a></h3>
+<h4 id="-benutzer-registrieren"><a class="header" href="#-benutzer-registrieren">🔹 Benutzer Registrieren</a></h4>
+<pre><code class="language-bash">POST /api/v1/biometric/enroll
+</code></pre>
+<pre><code class="language-json">{
+  "user_id": "user123",
+  "eeg_samples": [...],
+  "sampling_rate": 256
+}
+</code></pre>
+<h4 id="-benutzer-verifizieren"><a class="header" href="#-benutzer-verifizieren">🔹 Benutzer Verifizieren</a></h4>
+<pre><code class="language-bash">POST /api/v1/biometric/verify
+</code></pre>
+<pre><code class="language-json">{
+  "user_id": "user123",
+  "eeg_sample": [...]
+}
+</code></pre>
+<h4 id="-registrierte-benutzer-auflisten"><a class="header" href="#-registrierte-benutzer-auflisten">🔹 Registrierte Benutzer Auflisten</a></h4>
+<pre><code class="language-bash">GET /api/v1/biometric/eeg/users
+</code></pre>
+<h3 id="sicherheitsfeatures"><a class="header" href="#sicherheitsfeatures">Sicherheitsfeatures</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Implementierung</th></tr>
+</thead>
+<tbody>
+<tr><td>Signal-Verschlüsselung</td><td>AES-256-GCM</td></tr>
+<tr><td>Template-Speicherung</td><td>Gehasht + Gesalzen</td></tr>
+<tr><td>Replay-Schutz</td><td>Zeitstempel-Validierung</td></tr>
+<tr><td>Liveness Detection</td><td>Muster-Analyse</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-praktische-anwendungsfälle"><a class="header" href="#-praktische-anwendungsfälle">📈 Praktische Anwendungsfälle</a></h2>
+<h3 id="wer-benutzt-das-und-warum---erklärt-für-jedermann"><a class="header" href="#wer-benutzt-das-und-warum---erklärt-für-jedermann">Wer benutzt das und warum? - Erklärt für Jedermann</a></h3>
+<h4 id="für-entwickler-die-leute-die-apps-und-websites-bauen"><a class="header" href="#für-entwickler-die-leute-die-apps-und-websites-bauen">Für Entwickler (die Leute, die Apps und Websites bauen)</a></h4>
+<p><strong>🔍 Problem:</strong> “Ich muss in Millionen von Zeilen Code nach einem Bug suchen!”</p>
+<p><strong>Lösung mit NeuroQuantumDB:</strong></p>
+<pre><code>NORMALE DATENBANK:                  NEUROQUANTUMDB:
+─────────────────                   ──────────────
+Suche: "NullPointerException"       Suche: "Programmabsturz"
+       ↓                                   ↓
+Findet: 5 Treffer                   Findet: 127 Treffer!
+                                    (auch "crash", "error", "null", 
+                                     "undefined", "exception"...)
+
+Zeit: 30 Sekunden                   Zeit: 0.3 Sekunden ⚡
+</code></pre>
+<h4 id="für-online-shops"><a class="header" href="#für-online-shops">Für Online-Shops</a></h4>
+<p><strong>🛒 Problem:</strong> “Ein Kunde sucht ‘Winterjacke’, aber wir haben sie als ‘Parka’ gespeichert!”</p>
+<p><strong>Lösung mit NeuroQuantumDB:</strong></p>
+<pre><code class="language-sql">-- Mit NEUROMATCH findet der Shop:
+SELECT * FROM produkte 
+NEUROMATCH 'Winterjacke' 
+STRENGTH &gt; 0.6;
+
+-- Ergebnis:
+-- ✅ Winterjacke        (100% Match)
+-- ✅ Parka              (85% Match - warm!)
+-- ✅ Daunenjacke        (80% Match - auch für Winter!)
+-- ✅ Ski-Jacke          (75% Match - Winter + Jacke!)
+-- ❌ Badehose           (5% Match - ignoriert)
+</code></pre>
+<p><strong>Ergebnis:</strong> Mehr Verkäufe, glücklichere Kunden! 🎉</p>
+<h4 id="für-krankenhäuser"><a class="header" href="#für-krankenhäuser">Für Krankenhäuser</a></h4>
+<p><strong>🏥 Problem:</strong> “Wir haben Genomdaten von 1 Million Patienten. Die Festplatten sind voll!”</p>
+<p><strong>Lösung mit NeuroQuantumDB:</strong></p>
+<pre><code>VORHER:                              NACHHER (DNA Kompression):
+───────                              ────────────────────────
+📁 Patient_001.dna → 4 GB           📁 Patient_001.dna → 1 GB
+📁 Patient_002.dna → 4 GB           📁 Patient_002.dna → 1 GB
+...                                  ...
+📁 Patient_1M.dna → 4 GB            📁 Patient_1M.dna → 1 GB
+═════════════════════════           ═════════════════════════
+💾 Gesamt: 4.000.000 GB             💾 Gesamt: 1.000.000 GB
+   (4 Petabyte!)                       (1 Petabyte!)
+   
+💰 Kosten: 40.000€/Monat            💰 Kosten: 10.000€/Monat
+                                    
+                                    💵 Ersparnis: 30.000€/Monat!
+</code></pre>
+<h4 id="für-banken"><a class="header" href="#für-banken">Für Banken</a></h4>
+<p><strong>🏦 Problem:</strong> “Wir müssen Betrug in Millisekunden erkennen!”</p>
+<p><strong>Lösung mit NeuroQuantumDB:</strong></p>
+<pre><code>Normale Transaktion:                Verdächtige Transaktion:
+────────────────────                ─────────────────────────
+👤 Max kauft Kaffee (3€)           👤 Max kauft Ferrari (300.000€)
+📍 München, 8:00 Uhr               📍 Nigeria, 8:05 Uhr
+                                    
+NEUROQUANTUMDB:                     NEUROQUANTUMDB:
+"Das passt zu Max' Muster ✅"        "ALARM! 🚨
+                                     - Ort: 5000km entfernt
+                                     - Zeit: Unmöglich!
+                                     - Betrag: 100.000x normal
+                                     
+                                     Neuronales Netz sagt:
+                                     99.7% BETRUGSWAHRSCHEINLICHKEIT
+                                     
+                                     → Transaktion BLOCKIERT 🛑"
+</code></pre>
+<h3 id="technische-use-cases"><a class="header" href="#technische-use-cases">Technische Use Cases</a></h3>
+<p>Für Entwickler</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    Entwickler Use Cases                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  🔍 INTELLIGENTE SUCHE                                              │
+│  ─────────────────────                                              │
+│  • Semantische Code-Suche mit NEUROMATCH                            │
+│  • Ähnlichkeitsbasierte Bug-Erkennung                               │
+│  • Pattern-basierte Log-Analyse                                      │
+│                                                                      │
+│  📊 DATEN-OPTIMIERUNG                                               │
+│  ────────────────────                                               │
+│  • Automatische Query-Optimierung durch neuronales Lernen           │
+│  • Adaptive Index-Strategien                                        │
+│  • Intelligentes Caching basierend auf Nutzungsmustern              │
+│                                                                      │
+│  🔒 SICHERHEIT                                                      │
+│  ────────────                                                       │
+│  • Multi-Faktor mit EEG-Biometrie                                   │
+│  • Anomalie-Erkennung in Echtzeit                                   │
+│  • Post-Quantum Kryptografie                                        │
+│                                                                      │
+│  💾 SPEICHER-EFFIZIENZ                                              │
+│  ─────────────────────                                              │
+│  • DNA-Kompression für Archivdaten                                  │
+│  • Automatische Kompression für Cold Storage                        │
+│  • Effiziente Edge-Device Speicherung                               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="für-kundenendbenutzer"><a class="header" href="#für-kundenendbenutzer">Für Kunden/Endbenutzer</a></h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    Kunden Use Cases                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  🛒 E-COMMERCE                                                      │
+│  ─────────────                                                      │
+│  • "Finde ähnliche Produkte" mit Quantum Search                     │
+│  • Personalisierte Empfehlungen durch Neural Networks               │
+│  • Schnelle Suche auch bei Millionen Produkten                      │
+│                                                                      │
+│  🏥 HEALTHCARE                                                      │
+│  ────────────                                                       │
+│  • Genomdaten mit DNA-Kompression speichern                         │
+│  • EEG-basierte Patienten-Authentifizierung                        │
+│  • Pattern-Matching für Diagnose-Unterstützung                      │
+│                                                                      │
+│  🏦 FINANCE                                                         │
+│  ──────────                                                         │
+│  • Fraud Detection mit Anomalie-Erkennung                           │
+│  • Portfolio-Optimierung mit QUBO                                   │
+│  • Hochsichere Authentifizierung                                    │
+│                                                                      │
+│  🎮 GAMING/ENTERTAINMENT                                            │
+│  ──────────────────────                                             │
+│  • Spieler-Matching basierend auf Spielstil                         │
+│  • Content-Empfehlungen                                             │
+│  • Anti-Cheat durch Pattern-Analyse                                 │
+│                                                                      │
+│  🏭 INDUSTRIE 4.0                                                   │
+│  ──────────────                                                     │
+│  • IoT-Daten effizient speichern (DNA-Kompression)                  │
+│  • Predictive Maintenance mit Neural Networks                       │
+│  • Scheduling-Optimierung mit QUBO                                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h2 id="-api-referenz"><a class="header" href="#-api-referenz">📖 API Referenz</a></h2>
+<h3 id="vollständige-endpunkt-übersicht"><a class="header" href="#vollständige-endpunkt-übersicht">Vollständige Endpunkt-Übersicht</a></h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    API Endpunkte Übersicht                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  🧬 DNA KOMPRESSION                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ POST /api/v1/dna/compress      Daten komprimieren           │    │
+│  │ POST /api/v1/dna/decompress    Daten dekomprimieren         │    │
+│  │ GET  /api/v1/dna/stats         Kompressionsstatistiken      │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  ⚛️ QUANTUM OPERATIONEN                                             │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ POST /api/v1/quantum/search    Quantum Ähnlichkeitssuche    │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  🧠 NEURAL OPERATIONEN                                              │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ POST /api/v1/neural/train      Netzwerk trainieren          │    │
+│  │ GET  /api/v1/neural/train/{id} Training-Status abfragen     │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  🔐 BIOMETRIE                                                       │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ POST /api/v1/biometric/enroll  Benutzer registrieren        │    │
+│  │ POST /api/v1/biometric/verify  Benutzer verifizieren        │    │
+│  │ GET  /api/v1/biometric/eeg/users Benutzer auflisten         │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  📊 QSQL QUERY                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ POST /api/v1/query             QSQL Query ausführen         │    │
+│  │ POST /api/v1/query/stream      Ergebnisse streamen          │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  🛠️ SYSTEM                                                          │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ GET  /health                   Health Check                 │    │
+│  │ GET  /metrics                  Prometheus Metriken          │    │
+│  │ GET  /api/v1/stats             Datenbank Statistiken        │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="berechtigungen"><a class="header" href="#berechtigungen">Berechtigungen</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Endpunkt-Gruppe</th><th>Erforderliche Berechtigung</th></tr>
+</thead>
+<tbody>
+<tr><td>DNA Kompression</td><td><code>dna</code> oder <code>admin</code></td></tr>
+<tr><td>Quantum Search</td><td><code>quantum</code> oder <code>admin</code></td></tr>
+<tr><td>Neural Training</td><td><code>neuromorphic</code> oder <code>admin</code></td></tr>
+<tr><td>Biometrie</td><td><code>admin</code></td></tr>
+<tr><td>Query</td><td><code>read</code> oder <code>write</code></td></tr>
+<tr><td>System</td><td>Public (Health), <code>admin</code> (Stats)</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-schnellstart-beispiele"><a class="header" href="#-schnellstart-beispiele">🚀 Schnellstart-Beispiele</a></h2>
+<h3 id="1-dna-kompression-nutzen"><a class="header" href="#1-dna-kompression-nutzen">1. DNA Kompression nutzen</a></h3>
+<pre><code class="language-bash"># Daten komprimieren
+curl -X POST http://localhost:8080/api/v1/dna/compress \
+  -H "X-API-Key: your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sequences": ["ATCGATCGATCG"],
+    "algorithm": "KmerBased"
+  }'
+</code></pre>
+<h3 id="2-quantum-suche-durchführen"><a class="header" href="#2-quantum-suche-durchführen">2. Quantum Suche durchführen</a></h3>
+<pre><code class="language-bash"># Ähnlichkeitssuche mit Quantum
+curl -X POST http://localhost:8080/api/v1/quantum/search \
+  -H "X-API-Key: your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "table_name": "products",
+    "query_vector": [0.5, 0.3, 0.2],
+    "similarity_threshold": 0.7,
+    "use_grover": true
+  }'
+</code></pre>
+<h3 id="3-neuronales-netzwerk-trainieren"><a class="header" href="#3-neuronales-netzwerk-trainieren">3. Neuronales Netzwerk trainieren</a></h3>
+<pre><code class="language-bash"># Netzwerk erstellen und trainieren
+curl -X POST http://localhost:8080/api/v1/neural/train \
+  -H "X-API-Key: your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_name": "recommender",
+    "training_data": [
+      {"input": [0.1, 0.5], "target": [1.0]},
+      {"input": [0.9, 0.2], "target": [0.0]}
+    ],
+    "config": {
+      "layers": [{"layer_type": "Dense", "size": 32, "activation": "ReLU"}],
+      "learning_rate": 0.01,
+      "epochs": 50,
+      "batch_size": 16,
+      "optimizer": "Adam",
+      "loss_function": "MeanSquaredError"
+    }
+  }'
+</code></pre>
+<h3 id="4-qsql-mit-neuromorphen-features"><a class="header" href="#4-qsql-mit-neuromorphen-features">4. QSQL mit neuromorphen Features</a></h3>
+<pre><code class="language-sql">-- Semantische Produktsuche
+SELECT 
+    id, name, price,
+    SYNAPTIC_WEIGHT(description, 'premium wireless headphones') as relevance
+FROM products
+WHERE SYNAPTIC_WEIGHT(description, 'premium wireless headphones') &gt; 0.6
+ORDER BY relevance DESC
+LIMIT 10;
+
+-- Quantum-beschleunigte Suche
+QUANTUM SEARCH orders
+WHERE total &gt; 1000 AND status = 'pending'
+WITH ITERATIONS 100;
+</code></pre>
+<hr>
+<h2 id="-weiterführende-dokumentation"><a class="header" href="#-weiterführende-dokumentation">📚 Weiterführende Dokumentation</a></h2>
+<ul>
+<li><a href="rest-api.html">REST API Referenz</a></li>
+<li><a href="qsql.html">QSQL Syntax Guide</a></li>
+<li><a href="qsql-examples.html">QSQL Beispiele</a></li>
+<li><a href="features/auto-increment.html">Feature: Auto-Increment</a></li>
+<li><a href="features/dna-compression.html">Feature: DNA Compression</a></li>
+<li><a href="features/quantum-search.html">Feature: Quantum Search</a></li>
+<li><a href="features/neural-networks.html">Feature: Neural Networks</a></li>
+<li><a href="features/biometric-auth.html">Feature: Biometric Auth</a></li>
+<li><a href="#-vollständiges-bibliotheks-beispiel">Vollständiges Bibliotheks-Beispiel</a></li>
+</ul>
+<hr>
+<h2 id="-vollständiges-bibliotheks-beispiel"><a class="header" href="#-vollständiges-bibliotheks-beispiel">📖 Vollständiges Bibliotheks-Beispiel</a></h2>
+<h3 id="das-szenario-die-quantum-bibliothek"><a class="header" href="#das-szenario-die-quantum-bibliothek">Das Szenario: Die Quantum-Bibliothek</a></h3>
+<p>Stell dir vor, du betreibst die <strong>“Quantum-Bibliothek”</strong> - eine riesige digitale Bibliothek mit <strong>10 Millionen Büchern</strong>. Hier zeigen wir dir Schritt für Schritt, wie NeuroQuantumDB alle Features kombiniert, um diese Bibliothek ultraschnell und intelligent zu machen.</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    🏛️ DIE QUANTUM-BIBLIOTHEK                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   📚 10 Millionen Bücher    👥 1 Million Benutzer                   │
+│   📁 500 TB Metadaten       🔍 10.000 Suchanfragen/Sekunde          │
+│                                                                      │
+│   Herausforderungen:                                                 │
+│   ─────────────────                                                  │
+│   1. 🗄️  Speicherplatz sparen (DNA Kompression)                     │
+│   2. ⚡  Blitzschnelle Suche (Quantum Search)                        │
+│   3. 🧠  Intelligente Empfehlungen (Neural Networks)                │
+│   4. 🔐  Sichere Bibliothekars-Anmeldung (Biometrie)                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h3 id="-ausführungsreihenfolge-schritt-für-schritt"><a class="header" href="#-ausführungsreihenfolge-schritt-für-schritt">🔄 Ausführungsreihenfolge: Schritt für Schritt</a></h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│              WORKFLOW: Von der Einrichtung zur Suche                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐  │
+│   │ SCHRITT 1│────▶│ SCHRITT 2│────▶│ SCHRITT 3│────▶│ SCHRITT 4│  │
+│   │  Setup   │     │Kompression│    │ Training │     │Biometrie │  │
+│   └──────────┘     └──────────┘     └──────────┘     └──────────┘  │
+│        │                │                │                │         │
+│        ▼                ▼                ▼                ▼         │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐  │
+│   │ SCHRITT 5│────▶│ SCHRITT 6│────▶│ SCHRITT 7│────▶│ SCHRITT 8│  │
+│   │  Login   │     │  Suche   │     │Empfehlung│     │ Analyse  │  │
+│   └──────────┘     └──────────┘     └──────────┘     └──────────┘  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h3 id="-schritt-1-datenbank-und-tabellen-einrichten"><a class="header" href="#-schritt-1-datenbank-und-tabellen-einrichten">📋 Schritt 1: Datenbank und Tabellen einrichten</a></h3>
+<p><strong>Ziel:</strong> Erstelle die Grundstruktur für unsere Bibliothek.</p>
+<pre><code class="language-bash"># Health-Check: Ist die Datenbank bereit?
+curl -X GET http://localhost:8080/health
+</code></pre>
+<pre><code class="language-sql">-- Bücher-Tabelle erstellen
+CREATE TABLE books (
+    id AUTO_INCREMENT PRIMARY KEY,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL,
+    isbn TEXT,
+    description TEXT,
+    genre TEXT,
+    publication_year INT,
+    content BLOB,  -- Der vollständige Buchinhalt
+    embedding VECTOR(768),  -- Für semantische Suche
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Benutzer-Tabelle erstellen
+CREATE TABLE library_users (
+    id AUTO_INCREMENT PRIMARY KEY,
+    username TEXT NOT NULL,
+    email TEXT,
+    preferences TEXT,
+    reading_history TEXT,
+    eeg_template BLOB  -- Für biometrische Authentifizierung
+);
+
+-- Such-Historie für Lernalgorithmen
+CREATE TABLE search_history (
+    id AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    search_query TEXT,
+    results_clicked TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+</code></pre>
+<hr>
+<h3 id="-schritt-2-buchinhalte-mit-dna-kompression-speichern"><a class="header" href="#-schritt-2-buchinhalte-mit-dna-kompression-speichern">📋 Schritt 2: Buchinhalte mit DNA-Kompression speichern</a></h3>
+<p><strong>Ziel:</strong> Speichere 10 Millionen Bücher mit 75% weniger Speicherplatz.</p>
+<pre><code class="language-bash"># Buchinhalt komprimieren bevor es gespeichert wird
+curl -X POST http://localhost:8080/api/v1/dna/compress \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sequences": [
+      "Es war einmal vor langer Zeit in einer weit entfernten Galaxie..."
+    ],
+    "algorithm": "Hybrid",
+    "compression_level": 7
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "compressed_data": [
+    {
+      "original_size": 65536,
+      "compressed_size": 16384,
+      "compression_ratio": 4.0,
+      "dna_sequence": "ACGTACGT..."
+    }
+  ],
+  "statistics": {
+    "total_original_size": 65536,
+    "total_compressed_size": 16384,
+    "overall_ratio": 4.0,
+    "algorithm_used": "Hybrid"
+  }
+}
+</code></pre>
+<pre><code class="language-sql">-- Alle alten Bücher komprimieren (Batch-Operation)
+COMPRESS TABLE books USING DNA;
+
+-- Kompressionsstatistiken anzeigen
+SHOW COMPRESSION STATS FOR books;
+
+-- Ergebnis:
+-- ┌────────────────────┬───────────────┐
+-- │ original_size      │ 500 TB        │
+-- │ compressed_size    │ 125 TB        │
+-- │ compression_ratio  │ 4:1           │
+-- │ space_saved        │ 375 TB        │
+-- │ monthly_savings    │ €15.000       │
+-- └────────────────────┴───────────────┘
+</code></pre>
+<hr>
+<h3 id="-schritt-3-neuronales-netzwerk-für-empfehlungen-trainieren"><a class="header" href="#-schritt-3-neuronales-netzwerk-für-empfehlungen-trainieren">📋 Schritt 3: Neuronales Netzwerk für Empfehlungen trainieren</a></h3>
+<p><strong>Ziel:</strong> Trainiere ein Netzwerk, das lernt, welche Bücher Benutzern gefallen könnten.</p>
+<pre><code class="language-bash"># Empfehlungssystem trainieren
+curl -X POST http://localhost:8080/api/v1/neural/train \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "network_name": "book_recommender",
+    "training_data": [
+      {
+        "input": [0.9, 0.1, 0.8, 0.2],
+        "target": [1.0],
+        "metadata": {"user": "fantasy_lover", "book": "Der Herr der Ringe"}
+      },
+      {
+        "input": [0.1, 0.9, 0.2, 0.8],
+        "target": [1.0],
+        "metadata": {"user": "scifi_fan", "book": "Dune"}
+      },
+      {
+        "input": [0.9, 0.1, 0.8, 0.2],
+        "target": [0.1],
+        "metadata": {"user": "fantasy_lover", "book": "Quantenphysik für Anfänger"}
+      }
+    ],
+    "config": {
+      "layers": [
+        {"layer_type": "Dense", "size": 64, "activation": "ReLU"},
+        {"layer_type": "Dense", "size": 32, "activation": "ReLU"},
+        {"layer_type": "Neuromorphic", "size": 16, "activation": "SpikingNeuron"},
+        {"layer_type": "Dense", "size": 1, "activation": "Sigmoid"}
+      ],
+      "learning_rate": 0.001,
+      "epochs": 100,
+      "batch_size": 32,
+      "optimizer": "NeuromorphicSTDP",
+      "loss_function": "BinaryCrossEntropy",
+      "hebbian_learning": true
+    },
+    "validation_split": 0.2
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "network_id": "nn_book_recommender_20260109",
+  "status": "training",
+  "estimated_completion": "2026-01-09T15:30:00Z"
+}
+</code></pre>
+<pre><code class="language-bash"># Training-Status überprüfen
+curl -X GET http://localhost:8080/api/v1/neural/train/nn_book_recommender_20260109 \
+  -H "X-API-Key: library_admin_key"
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "network_id": "nn_book_recommender_20260109",
+  "status": "completed",
+  "metrics": {
+    "accuracy": 0.94,
+    "loss": 0.08,
+    "epochs_completed": 100,
+    "training_time_seconds": 45.2
+  }
+}
+</code></pre>
+<hr>
+<h3 id="-schritt-4-bibliothekar-mit-eeg-biometrie-registrieren"><a class="header" href="#-schritt-4-bibliothekar-mit-eeg-biometrie-registrieren">📋 Schritt 4: Bibliothekar mit EEG-Biometrie registrieren</a></h3>
+<p><strong>Ziel:</strong> Höchste Sicherheit für Bibliothekare, die auf sensible Daten zugreifen.</p>
+<pre><code class="language-bash"># Bibliothekar für biometrische Authentifizierung registrieren
+curl -X POST http://localhost:8080/api/v1/biometric/enroll \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "librarian_mueller",
+    "eeg_samples": [
+      [0.1, 0.2, 0.15, 0.3, 0.25, 0.1, 0.2, 0.15],
+      [0.12, 0.18, 0.14, 0.32, 0.23, 0.11, 0.19, 0.16],
+      [0.09, 0.22, 0.16, 0.28, 0.27, 0.09, 0.21, 0.14]
+    ],
+    "sampling_rate": 256,
+    "channels": ["F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"]
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "user_id": "librarian_mueller",
+  "enrollment_status": "completed",
+  "template_quality": 0.95,
+  "message": "EEG-Muster erfolgreich registriert"
+}
+</code></pre>
+<hr>
+<h3 id="-schritt-5-bibliothekar-login-mit-gehirnwellen"><a class="header" href="#-schritt-5-bibliothekar-login-mit-gehirnwellen">📋 Schritt 5: Bibliothekar-Login mit Gehirnwellen</a></h3>
+<p><strong>Ziel:</strong> Sichere Anmeldung ohne Passwort.</p>
+<pre><code class="language-bash"># Bibliothekar verifizieren
+curl -X POST http://localhost:8080/api/v1/biometric/verify \
+  -H "X-API-Key: library_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "librarian_mueller",
+    "eeg_sample": [0.11, 0.21, 0.15, 0.29, 0.24, 0.10, 0.20, 0.15]
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "verified": true,
+  "confidence": 0.97,
+  "liveness_detected": true,
+  "session_token": "eyJhbGciOiJIUzI1NiIs..."
+}
+</code></pre>
+<hr>
+<h3 id="-schritt-6-quantum-suche-nach-büchern"><a class="header" href="#-schritt-6-quantum-suche-nach-büchern">📋 Schritt 6: Quantum-Suche nach Büchern</a></h3>
+<p><strong>Ziel:</strong> Finde das richtige Buch in Millisekunden statt Sekunden.</p>
+<h4 id="6a-einfache-quantum-suche"><a class="header" href="#6a-einfache-quantum-suche">6a. Einfache Quantum-Suche</a></h4>
+<pre><code class="language-bash"># Quantum-beschleunigte Suche
+curl -X POST http://localhost:8080/api/v1/quantum/search \
+  -H "X-API-Key: library_admin_key" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "table_name": "books",
+    "query_vector": [0.8, 0.2, 0.9, 0.1, 0.7, 0.3],
+    "similarity_threshold": 0.7,
+    "use_grover": true,
+    "grover_iterations": 100,
+    "max_results": 10
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "search_mode": "grover",
+  "results": [
+    {
+      "id": 42,
+      "title": "Der Herr der Ringe",
+      "author": "J.R.R. Tolkien",
+      "similarity_score": 0.95,
+      "quantum_speedup": "1000x"
+    },
+    {
+      "id": 1337,
+      "title": "Der Hobbit",
+      "author": "J.R.R. Tolkien",
+      "similarity_score": 0.89
+    }
+  ],
+  "metrics": {
+    "search_time_ms": 2.3,
+    "classical_estimate_ms": 2300,
+    "records_searched": 10000000,
+    "grover_iterations": 100
+  }
+}
+</code></pre>
+<h4 id="6b-semantische-suche-mit-neuromatch"><a class="header" href="#6b-semantische-suche-mit-neuromatch">6b. Semantische Suche mit NEUROMATCH</a></h4>
+<pre><code class="language-sql">-- Benutzer sucht: "Bücher über Zauberer in einer Schule"
+SELECT 
+    id, 
+    title, 
+    author,
+    SYNAPTIC_WEIGHT(description, 'Zauberer Schule Magie lernen Abenteuer') AS relevanz
+FROM books
+NEUROMATCH 'Zauberer Schule Magie lernen Abenteuer'
+STRENGTH &gt; 0.6
+HEBBIAN_STRENGTHENING true
+ORDER BY relevanz DESC
+LIMIT 10;
+</code></pre>
+<p><strong>Ergebnis:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>id</th><th>title</th><th>author</th><th>relevanz</th></tr>
+</thead>
+<tbody>
+<tr><td>101</td><td>Harry Potter und der Stein der Weisen</td><td>J.K. Rowling</td><td>0.98</td></tr>
+<tr><td>102</td><td>Harry Potter und die Kammer des Schreckens</td><td>J.K. Rowling</td><td>0.96</td></tr>
+<tr><td>203</td><td>Der Name des Windes</td><td>Patrick Rothfuss</td><td>0.85</td></tr>
+<tr><td>304</td><td>Die Magier</td><td>Lev Grossman</td><td>0.82</td></tr>
+<tr><td>405</td><td>Der Zauberlehrling (Goethe)</td><td>J.W. Goethe</td><td>0.78</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h3 id="-schritt-7-personalisierte-buchempfehlungen"><a class="header" href="#-schritt-7-personalisierte-buchempfehlungen">📋 Schritt 7: Personalisierte Buchempfehlungen</a></h3>
+<p><strong>Ziel:</strong> Nutze das trainierte neuronale Netzwerk für Empfehlungen.</p>
+<pre><code class="language-sql">-- Kombiniere Benutzerhistorie mit Hebbian Learning
+WITH user_profile AS (
+    SELECT 
+        u.id,
+        u.preferences,
+        HEBBIAN_LEARNING(u.reading_history) as learned_preferences
+    FROM library_users u
+    WHERE u.username = 'max_mustermann'
+)
+SELECT 
+    b.id,
+    b.title,
+    b.author,
+    b.genre,
+    SYNAPTIC_WEIGHT(b.description, up.learned_preferences) AS empfehlungswert
+FROM books b, user_profile up
+WHERE b.id NOT IN (
+    SELECT DISTINCT book_id FROM reading_history WHERE user_id = up.id
+)
+NEUROMATCH up.learned_preferences
+STRENGTH &gt; 0.7
+ACTIVATION_THRESHOLD 0.8
+ORDER BY empfehlungswert DESC
+LIMIT 5;
+</code></pre>
+<p><strong>Ergebnis:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>id</th><th>title</th><th>author</th><th>genre</th><th>empfehlungswert</th></tr>
+</thead>
+<tbody>
+<tr><td>5001</td><td>Eragon</td><td>Christopher Paolini</td><td>Fantasy</td><td>0.94</td></tr>
+<tr><td>5002</td><td>Mistborn</td><td>Brandon Sanderson</td><td>Fantasy</td><td>0.91</td></tr>
+<tr><td>5003</td><td>Die Zwerge</td><td>Markus Heitz</td><td>Fantasy</td><td>0.88</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h3 id="-schritt-8-hybrid-query-für-komplexe-analysen"><a class="header" href="#-schritt-8-hybrid-query-für-komplexe-analysen">📋 Schritt 8: Hybrid-Query für komplexe Analysen</a></h3>
+<p><strong>Ziel:</strong> Kombiniere ALLE NeuroQuantumDB-Features in einer Abfrage.</p>
+<pre><code class="language-sql">-- 🚀 Die ultimative Bibliotheks-Query
+-- Kombiniert: Quantum Search + Neural Networks + NEUROMATCH + Hebbian Learning
+
+WITH 
+-- Schritt 1: Quantum-Suche für schnelle Vorfilterung
+quantum_candidates AS (
+    QUANTUM SEARCH books
+    WHERE genre IN ('Fantasy', 'Science-Fiction', 'Abenteuer')
+    WITH ITERATIONS 50
+    LIMIT 1000
+),
+
+-- Schritt 2: Benutzer-Profil mit Hebbian Learning
+user_neural_profile AS (
+    SELECT 
+        u.id as user_id,
+        HEBBIAN_LEARNING(sh.search_query) as learned_interests
+    FROM library_users u
+    JOIN search_history sh ON u.id = sh.user_id
+    WHERE u.username = 'max_mustermann'
+    GROUP BY u.id
+)
+
+-- Schritt 3: Finale Empfehlung mit NEUROMATCH
+SELECT 
+    b.id,
+    b.title,
+    b.author,
+    b.genre,
+    b.publication_year,
+    SYNAPTIC_WEIGHT(b.description, unp.learned_interests) AS neural_score,
+    qc.similarity_score AS quantum_score,
+    (SYNAPTIC_WEIGHT(b.description, unp.learned_interests) * 0.6 + 
+     qc.similarity_score * 0.4) AS combined_score
+FROM quantum_candidates qc
+JOIN books b ON qc.id = b.id
+CROSS JOIN user_neural_profile unp
+WHERE SYNAPTIC_WEIGHT(b.description, unp.learned_interests) &gt; 0.5
+ORDER BY combined_score DESC
+LIMIT 10;
+</code></pre>
+<p><strong>Ergebnis:</strong></p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    📊 EMPFEHLUNGSERGEBNIS                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  🥇 Platz 1: "Der Name des Windes" (Patrick Rothfuss)               │
+│     ├── Neural Score:    0.94                                       │
+│     ├── Quantum Score:   0.91                                       │
+│     └── Combined Score:  0.928                                      │
+│                                                                      │
+│  🥈 Platz 2: "Mistborn: Das letzte Imperium" (Brandon Sanderson)   │
+│     ├── Neural Score:    0.89                                       │
+│     ├── Quantum Score:   0.93                                       │
+│     └── Combined Score:  0.906                                      │
+│                                                                      │
+│  🥉 Platz 3: "Die Lügen des Locke Lamora" (Scott Lynch)            │
+│     ├── Neural Score:    0.91                                       │
+│     ├── Quantum Score:   0.85                                       │
+│     └── Combined Score:  0.886                                      │
+│                                                                      │
+│  ⏱️ Ausführungszeit: 15ms (statt 45 Sekunden klassisch)             │
+│  📈 Speedup: 3000x                                                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h3 id="-zusammenfassung-alle-endpunkte-auf-einen-blick"><a class="header" href="#-zusammenfassung-alle-endpunkte-auf-einen-blick">📊 Zusammenfassung: Alle Endpunkte auf einen Blick</a></h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│         🏛️ QUANTUM-BIBLIOTHEK: ENDPUNKT-ÜBERSICHT                   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  PHASE 1: SETUP                                                      │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ GET  /health                    → System-Check                  │
+│  ✅ POST /api/v1/query              → Tabellen erstellen            │
+│                                                                      │
+│  PHASE 2: DATEN OPTIMIEREN                                          │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/dna/compress       → Bücher komprimieren           │
+│  ✅ GET  /api/v1/dna/stats          → Kompression prüfen            │
+│                                                                      │
+│  PHASE 3: INTELLIGENZ TRAINIEREN                                    │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/neural/train       → Empfehlungssystem trainieren  │
+│  ✅ GET  /api/v1/neural/train/{id}  → Training-Status prüfen        │
+│                                                                      │
+│  PHASE 4: SICHERHEIT EINRICHTEN                                     │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/biometric/enroll   → Bibliothekar registrieren     │
+│  ✅ POST /api/v1/biometric/verify   → Login mit Gehirnwellen        │
+│                                                                      │
+│  PHASE 5: SUCHEN &amp; EMPFEHLEN                                        │
+│  ─────────────────────────────────────────────────────────────────  │
+│  ✅ POST /api/v1/quantum/search     → Quantum-Suche                 │
+│  ✅ POST /api/v1/query              → QSQL mit NEUROMATCH           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h3 id="-tipps-für-die-praxis"><a class="header" href="#-tipps-für-die-praxis">💡 Tipps für die Praxis</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Schritt</th><th>Tipp</th></tr>
+</thead>
+<tbody>
+<tr><td>DNA-Kompression</td><td>Nutze <code>Hybrid</code> für beste Kompression, <code>KmerBased</code> für Geschwindigkeit</td></tr>
+<tr><td>Neural Training</td><td>Starte mit wenigen Epochen (50), erhöhe bei Bedarf</td></tr>
+<tr><td>Biometrie</td><td>Sammle mindestens 3 EEG-Samples für zuverlässige Erkennung</td></tr>
+<tr><td>Quantum Search</td><td>Mehr Iterationen = höhere Genauigkeit, aber längere Zeit</td></tr>
+<tr><td>NEUROMATCH</td><td>Kombiniere mit <code>HEBBIAN_STRENGTHENING</code> für lernende Suche</td></tr>
+<tr><td>Hybrid Queries</td><td>Nutze CTEs (WITH) für bessere Lesbarkeit</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<p><em>Mit diesem vollständigen Beispiel bist du bereit, deine eigene Quantum-Bibliothek zu bauen!</em> 🚀📚</p>
+<hr>
+<p><em>NeuroQuantumDB - Die Datenbank der Zukunft, heute verfügbar</em> 🚀</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../user-guide/features/biometric-auth.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../user-guide/NEUROQUANTUM_FEATURES_GUIDE_EN.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../user-guide/features/biometric-auth.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../user-guide/NEUROQUANTUM_FEATURES_GUIDE_EN.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

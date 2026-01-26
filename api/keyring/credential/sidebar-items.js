@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CredentialPersistence"],"trait":["CredentialApi","CredentialBuilderApi"],"type":["Credential","CredentialBuilder"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TFIMBackendPreference","VarType"],"struct":["BinaryQuadraticModel","BraketTFIMConfig","BraketTFIMSolver","DWaveTFIMConfig","DWaveTFIMSolver","UnifiedTFIMAnnealingConfig","UnifiedTFIMAnnealingSolver"],"trait":["AnnealingBackend"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutObjectTaggingError"],"mod":["builders"],"struct":["PutObjectTagging","PutObjectTaggingInput","PutObjectTaggingOutput"]};

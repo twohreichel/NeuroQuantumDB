@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Aggregation","InstrumentKind","MetricError","Temporality"],"mod":["data","exporter","reader"],"struct":["ManualReader","ManualReaderBuilder","MeterProviderBuilder","PeriodicReader","PeriodicReaderBuilder","SdkMeterProvider"],"type":["MetricResult"]};

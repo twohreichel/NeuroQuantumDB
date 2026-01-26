@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DiscoveryMethod"],"struct":["ClusterConfig","ClusterConfigBuilder","ClusterManagerConfig","ConsulConfig","DiscoveryConfig","DnsConfig","EtcdConfig","NetworkConfig","RaftConfig","ShardingConfig","UpgradeConfig"]};

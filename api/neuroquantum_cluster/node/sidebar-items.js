@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["NodeRole","NodeState"],"struct":["ClusterHealth","ClusterNode","PeerInfo"],"type":["NodeId"]};

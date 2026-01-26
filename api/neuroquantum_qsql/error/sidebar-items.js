@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["NLPError","NeuromorphicError","OptimizationError","ParseError","QSQLError","QuantumError"],"struct":["ErrorContext"],"trait":["WithContext"],"type":["QSQLResult"]};

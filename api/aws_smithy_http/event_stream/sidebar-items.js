@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InitialMessageType"],"struct":["EventStreamSender","MessageStreamAdapter","MessageStreamError","Receiver","ReceiverError"],"type":["BoxError"]};

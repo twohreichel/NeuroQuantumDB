@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["detect_neon_capabilities","safe_decode_chunk_avx2","safe_encode_chunk_avx2"],"mod":["utils","x86_avx2"],"struct":["NeonCapabilities","SimdCapabilities","SimdDecoder","SimdEncoder","SimdPatternMatcher"]};

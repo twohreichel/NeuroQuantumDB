@@ -1,0 +1,106 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Obsolete: blank log heartbeat"><title>openraft::docs::obsolete::heartbeat - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module heartbeat</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module heartbeat</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#obsolete-blank-log-heartbeat" title="Obsolete: blank log heartbeat">Obsolete: blank log heartbeat</a></li><li><a href="#why-it-is-bad" title="Why it is bad">Why it is bad</a></li><li><a href="#heartbeat-in-openraft" title="Heartbeat in openraft">Heartbeat in openraft</a><ul><li><a href="#heartbeat-in-standard-raft" title="Heartbeat in standard raft">Heartbeat in standard raft</a></li><li><a href="#openraft-heartbeat-is-a-blank-log" title="Openraft heartbeat is a blank log">Openraft heartbeat is a blank log</a></li><li><a href="#why-blank-log-heartbeat" title="Why blank log heartbeat?">Why blank log heartbeat?</a></li><li><a href="#concerns" title="Concerns">Concerns</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>obsolete</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">obsolete</a></div><h1>Module <span>heartbeat</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/obsolete/mod.rs.html#8">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="obsolete-blank-log-heartbeat"><a class="doc-anchor" href="#obsolete-blank-log-heartbeat">§</a>Obsolete: blank log heartbeat</h2>
+<p><a href="https://github.com/datafuselabs/openraft/issues/698">Issue-698</a></p>
+<p>The original design of using a blank log as a heartbeat message is described in the following chapter.</p>
+<h2 id="why-it-is-bad"><a class="doc-anchor" href="#why-it-is-bad">§</a>Why it is bad</h2>
+<p>This design has two problems:</p>
+<ul>
+<li>
+<p>The heartbeat that sends a blank log introduces additional I/O, as a follower has to persist every log to maintain correctness.</p>
+</li>
+<li>
+<p>Although <code>(term, log_index)</code> serves as a pseudo time in Raft, measuring whether a node has caught up with the leader and is capable of becoming a new leader, leadership is not solely determined by this pseudo time.
+Wall clock time is also taken into account.</p>
+<p>There may be a case where the pseudo time is not upto date but the clock time is, and the node should not become the leader.
+For example, in a cluster of three nodes, if the leader (node-1) is busy sending a snapshot to node-2(it has not yet replicated the latest logs to a quorum, but node-2 received message from the leader(node-1), thus it knew there is an active leader), node-3 should not seize leadership from node-1.
+This is why there needs to be two types of time, pseudo time <code>(term, log_index)</code> and wall clock time, to protect leadership.</p>
+<p>In the follow graph:</p>
+<ul>
+<li>node-1 is the leader, has 4 log entries, and is sending a snapshot to
+node-2,</li>
+<li>node-2 received several chunks of snapshot, and it perceived an active
+leader thus extended leader lease.</li>
+<li>node-3 tried to send vote request to node-2, although node-2 do not have
+as many logs as node-3, it should still reject node-3’s vote request
+because the leader lease has not yet expired.</li>
+</ul>
+<p>In the obsolete design, extending pseudo time <code>(term, index)</code> with a
+<code>tick</code>, in this case node-3 will seize the leadership from node-2.</p>
+<div class="example-wrap"><pre class="language-text"><code>Ni: Node i
+Ei: log entry i
+
+N1 E1 E2 E3 E4
+      |
+      v
+N2    snapshot
+      +-----------------+
+               ^        |
+               |        leader lease
+               |
+N3 E1 E2 E3    | vote-request
+---------------+----------------------------&gt; clock time
+               now
+</code></pre></div></li>
+</ul>
+<p>The original document is presented below for reference.</p>
+<h2 id="heartbeat-in-openraft"><a class="doc-anchor" href="#heartbeat-in-openraft">§</a>Heartbeat in openraft</h2><h3 id="heartbeat-in-standard-raft"><a class="doc-anchor" href="#heartbeat-in-standard-raft">§</a>Heartbeat in standard raft</h3>
+<p>Heartbeat in standard raft is the way for a leader to assert it is still alive:</p>
+<ul>
+<li>A leader send heartbeat at a regular interval.</li>
+<li>A follower that receives a heartbeat believes there is an active leader thus it rejects election request(<code>send_vote</code>) from another node unreachable to the leader, for a short period.</li>
+</ul>
+<h3 id="openraft-heartbeat-is-a-blank-log"><a class="doc-anchor" href="#openraft-heartbeat-is-a-blank-log">§</a>Openraft heartbeat is a blank log</h3>
+<p>Such a heartbeat mechanism depends on clock time.
+But raft as a distributed consensus already has its own <strong>pseudo time</strong> defined very well.
+Raft, or other consensus protocol has its own <strong>pseudo time</strong> defined internally:</p>
+<ul>
+<li>In <a href="https://en.wikipedia.org/wiki/Paxos_(computer_science)">paxos</a> it is <code>round_number</code>(AKA ballot number in some paper).</li>
+<li>In the standard raft it is <code>(term, voted_for, last_log_index)</code>(because in standard raft there is only one leader in every term, <code>voted_for</code> can be removed: <code>(term, last_log_index)</code>).</li>
+</ul>
+<p>The <strong>pseudo time</strong> in openraft is a tuple <code>(vote, last_log_id)</code>, compared in dictionary order(<code>vote</code> is equivalent concept as round number in Paxos).</p>
+<h4 id="why-it-works"><a class="doc-anchor" href="#why-it-works">§</a>Why it works</h4>
+<p>To refuse the election by a node that does not receive recent messages from the current leader,
+just let the active leader send a <strong>blank log</strong> to increase the <strong>pseudo time</strong> on a quorum.</p>
+<p>Because the leader must have the greatest <strong>pseudo time</strong>,
+thus by comparing the <strong>pseudo time</strong>, a follower automatically refuse election request from a node unreachable to the leader.</p>
+<p>And comparing the <strong>pseudo time</strong> is already done by <code>handle_vote_request()</code>,
+there is no need to add another timer for the active leader.</p>
+<p>Thus making heartbeat request a blank log is the simplest way.</p>
+<h3 id="why-blank-log-heartbeat"><a class="doc-anchor" href="#why-blank-log-heartbeat">§</a>Why blank log heartbeat?</h3>
+<ul>
+<li>
+<p>Simple, get rid of a timer.</p>
+<p>Without heartbeat log(the way standard raft does), when handling a vote
+request, except <code>vote</code> itself, it has to examine two values to determine if
+the vote request is valid:</p>
+<ul>
+<li>Whether the last heartbeat has expired by clock time.</li>
+<li>Whether the <code>(last_term, last_log_index)</code> in the request is greater or equal to the local value. This is the pseudo time Raft defines.</li>
+</ul>
+<p>With heartbeat log(the way openraft does), when handling a vote request, it only needs to examine one value: the raft time: <code>(last_term, last_log_index)</code>. This makes the logic simpler and the test easier to write.</p>
+</li>
+<li>
+<p>Easy to prove, and reduce code complexity.</p>
+</li>
+</ul>
+<h3 id="concerns"><a class="doc-anchor" href="#concerns">§</a>Concerns</h3>
+<ul>
+<li>
+<p><strong>More raft logs are generated</strong>.
+This requires to <em>persist</em> the blank entry in the log (or at least the incremented index).
+E.g., doing that every 50ms for 100 consensus domains on one machine will require 2000 IOPS alone for that.</p>
+<p><strong>Why it is not a problem</strong>:</p>
+<ol>
+<li>
+<p>Assume that most consensus domains are busy, and as a domain is busy, it is possible to merge multiple <code>append-entry</code> calls into one call to the storage layer.
+Thus if a domain swallows <code>10</code> business log entries per <code>50 ms</code>, it’s likely to merge these 10 entries into one or a few IO calls.
+The IO amplification should be smaller as IOPS gets more.</p>
+<p>Merging entries into one IO call is naturally done on followers(because the leader sends entries in a batch).
+On the leader, it’s not done yet(2022 Sep 13). It can be done when the Engine oriented refactoring is ready: (.</p>
+</li>
+<li>
+<p>If a consensus domain swallows <code>1</code> business log entry per <code>50 ms</code>. It does not need another heartbeat. A normal append-entry can be considered a heartbeat.</p>
+</li>
+</ol>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

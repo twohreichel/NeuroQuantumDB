@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ADMIN","ALL_PERMISSIONS","DNA","NEUROMORPHIC","QUANTUM","QUANTUM_AUTHENTICATED","READ","WRITE"],"struct":["Permission"]};

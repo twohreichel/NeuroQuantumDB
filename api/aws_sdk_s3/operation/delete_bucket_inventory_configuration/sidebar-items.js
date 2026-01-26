@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeleteBucketInventoryConfigurationError"],"mod":["builders"],"struct":["DeleteBucketInventoryConfiguration","DeleteBucketInventoryConfigurationInput","DeleteBucketInventoryConfigurationOutput"]};

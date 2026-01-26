@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait that allows OpenApi modification at runtime."><title>Modify in utoipa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Modify</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa/index.html">utoipa</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Modify</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#examples" title="Examples">Examples</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.modify" title="modify">modify</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa</a></div><h1>Trait <span class="trait">Modify</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa/lib.rs.html#1038-1045">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Modify {
+    // Required method
+    fn <a href="#tymethod.modify" class="fn">modify</a>(&amp;self, openapi: &amp;mut <a class="struct" href="openapi/struct.OpenApi.html" title="struct utoipa::openapi::OpenApi">OpenApi</a>);
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait that allows OpenApi modification at runtime.</p>
+<p>Implement this trait if you wish to modify the OpenApi at runtime before it is being consumed
+<em>(Before <code>utoipa::OpenApi::openapi()</code> function returns)</em>.
+This is trait can be used to add or change already generated OpenApi spec to alter the generated
+specification by user defined condition. For example you can add definitions that should be loaded
+from some configuration at runtime what may not be available during compile time.</p>
+<p>See more about <a href="derive.OpenApi.html"><code>OpenApi</code></a> derive at <a href="derive.OpenApi.html">derive documentation</a>.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p>Add custom JWT <a href="openapi/security/enum.SecurityScheme.html"><code>SecurityScheme</code></a> to <a href="openapi/struct.OpenApi.html" title="struct utoipa::openapi::OpenApi"><code>OpenApi</code></a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(OpenApi)]
+#[openapi(modifiers(<span class="kw-2">&amp;</span>SecurityAddon))]
+</span><span class="kw">struct </span>ApiDoc;
+
+<span class="kw">struct </span>SecurityAddon;
+
+<span class="kw">impl </span>Modify <span class="kw">for </span>SecurityAddon {
+    <span class="kw">fn </span>modify(<span class="kw-2">&amp;</span><span class="self">self</span>, openapi: <span class="kw-2">&amp;mut </span>utoipa::openapi::OpenApi) {
+         openapi.components = <span class="prelude-val">Some</span>(
+             utoipa::openapi::ComponentsBuilder::new()
+                 .security_scheme(
+                     <span class="string">"api_jwt_token"</span>,
+                     SecurityScheme::Http(
+                         HttpBuilder::new()
+                             .scheme(HttpAuthScheme::Bearer)
+                             .bearer_format(<span class="string">"JWT"</span>)
+                             .build(),
+                     ),
+                 )
+                 .build(),
+         )
+     }
+}</code></pre></div>
+<p>Add <a href="https://spec.openapis.org/oas/latest.html#server-object">OpenAPI Server Object</a> to alter the target server url. This can be used to give context
+path for api operations.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(OpenApi)]
+#[openapi(modifiers(<span class="kw-2">&amp;</span>ServerAddon))]
+</span><span class="kw">struct </span>ApiDoc;
+
+<span class="kw">struct </span>ServerAddon;
+
+<span class="kw">impl </span>Modify <span class="kw">for </span>ServerAddon {
+    <span class="kw">fn </span>modify(<span class="kw-2">&amp;</span><span class="self">self</span>, openapi: <span class="kw-2">&amp;mut </span>utoipa::openapi::OpenApi) {
+        openapi.servers = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Server::new(<span class="string">"/api"</span>)])
+    }
+}</code></pre></div></div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.modify" class="method"><a class="src rightside" href="../src/utoipa/lib.rs.html#1044">Source</a><h4 class="code-header">fn <a href="#tymethod.modify" class="fn">modify</a>(&amp;self, openapi: &amp;mut <a class="struct" href="openapi/struct.OpenApi.html" title="struct utoipa::openapi::OpenApi">OpenApi</a>)</h4></section></summary><div class="docblock"><p>Apply mutation for <a href="openapi/struct.OpenApi.html" title="struct utoipa::openapi::OpenApi"><code>openapi::OpenApi</code></a> instance before it is returned by
+<a href="openapi/struct.OpenApi.html#structfield.openapi" title="field utoipa::openapi::OpenApi::openapi"><code>openapi::OpenApi::openapi</code></a> method call.</p>
+<p>This function allows users to run arbitrary code to change the generated
+<a href="trait.OpenApi.html" title="trait utoipa::OpenApi"><code>utoipa::OpenApi</code></a> before it is served.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/utoipa/trait.Modify.js" async></script></section></div></main></body></html>

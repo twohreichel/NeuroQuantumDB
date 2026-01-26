@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketInventoryConfigurationError"],"mod":["builders"],"struct":["PutBucketInventoryConfiguration","PutBucketInventoryConfigurationInput","PutBucketInventoryConfigurationOutput"]};

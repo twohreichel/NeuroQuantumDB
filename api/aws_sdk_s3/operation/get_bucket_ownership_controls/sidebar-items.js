@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketOwnershipControlsError"],"mod":["builders"],"struct":["GetBucketOwnershipControls","GetBucketOwnershipControlsInput","GetBucketOwnershipControlsOutput"]};

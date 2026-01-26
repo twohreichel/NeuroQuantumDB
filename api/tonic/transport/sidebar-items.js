@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["channel","server"],"struct":["Channel","Endpoint","Error","Server","Uri"],"trait":["Body"]};

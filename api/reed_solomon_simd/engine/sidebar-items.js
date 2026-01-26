@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CANTOR_BASIS","GF_BITS","GF_MODULUS","GF_ORDER","GF_POLYNOMIAL"],"mod":["tables","utils"],"struct":["Avx2","DefaultEngine","Naive","NoSimd","ShardsRefMut","Ssse3"],"trait":["Engine"],"type":["GfElement"]};

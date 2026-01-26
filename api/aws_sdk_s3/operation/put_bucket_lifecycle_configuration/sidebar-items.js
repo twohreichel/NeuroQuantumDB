@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketLifecycleConfigurationError"],"mod":["builders"],"struct":["PutBucketLifecycleConfiguration","PutBucketLifecycleConfigurationInput","PutBucketLifecycleConfigurationOutput"]};

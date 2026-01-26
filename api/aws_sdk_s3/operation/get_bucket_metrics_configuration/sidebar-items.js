@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketMetricsConfigurationError"],"mod":["builders"],"struct":["GetBucketMetricsConfiguration","GetBucketMetricsConfigurationInput","GetBucketMetricsConfigurationOutput"]};

@@ -1,0 +1,508 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/utoipa-gen-5.4.0/src/component/into_params.rs`."><title>into_params.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="utoipa_gen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">utoipa_gen/component/</div>into_params.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::borrow::Cow;
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>proc_macro2::TokenStream;
+<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>quote::{quote, quote_spanned, ToTokens};
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>syn::{
+<a href=#6 id=6 data-nosnippet>6</a>    parse::Parse, punctuated::Punctuated, spanned::Spanned, token::Comma, Attribute, Data, Field,
+<a href=#7 id=7 data-nosnippet>7</a>    Generics, Ident,
+<a href=#8 id=8 data-nosnippet>8</a>};
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use crate</span>::{
+<a href=#11 id=11 data-nosnippet>11</a>    component::{
+<a href=#12 id=12 data-nosnippet>12</a>        <span class="self">self</span>,
+<a href=#13 id=13 data-nosnippet>13</a>        features::{
+<a href=#14 id=14 data-nosnippet>14</a>            <span class="self">self</span>,
+<a href=#15 id=15 data-nosnippet>15</a>            attributes::{
+<a href=#16 id=16 data-nosnippet>16</a>                AdditionalProperties, AllowReserved, Example, Explode, Format, Ignore, Inline,
+<a href=#17 id=17 data-nosnippet>17</a>                IntoParamsNames, Nullable, ReadOnly, Rename, RenameAll, SchemaWith, Style,
+<a href=#18 id=18 data-nosnippet>18</a>                WriteOnly, XmlAttr,
+<a href=#19 id=19 data-nosnippet>19</a>            },
+<a href=#20 id=20 data-nosnippet>20</a>            validation::{
+<a href=#21 id=21 data-nosnippet>21</a>                ExclusiveMaximum, ExclusiveMinimum, MaxItems, MaxLength, Maximum, MinItems,
+<a href=#22 id=22 data-nosnippet>22</a>                MinLength, Minimum, MultipleOf, Pattern,
+<a href=#23 id=23 data-nosnippet>23</a>            },
+<a href=#24 id=24 data-nosnippet>24</a>        },
+<a href=#25 id=25 data-nosnippet>25</a>        FieldRename,
+<a href=#26 id=26 data-nosnippet>26</a>    },
+<a href=#27 id=27 data-nosnippet>27</a>    doc_comment::CommentAttributes,
+<a href=#28 id=28 data-nosnippet>28</a>    parse_utils::LitBoolOrExprPath,
+<a href=#29 id=29 data-nosnippet>29</a>    Array, Diagnostics, OptionExt, Required, ToTokensDiagnostics,
+<a href=#30 id=30 data-nosnippet>30</a>};
+<a href=#31 id=31 data-nosnippet>31</a>
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use super</span>::{
+<a href=#33 id=33 data-nosnippet>33</a>    features::{
+<a href=#34 id=34 data-nosnippet>34</a>        impl_into_inner, impl_merge, parse_features, pop_feature, Feature, FeaturesExt, IntoInner,
+<a href=#35 id=35 data-nosnippet>35</a>        Merge, ToTokensExt,
+<a href=#36 id=36 data-nosnippet>36</a>    },
+<a href=#37 id=37 data-nosnippet>37</a>    serde::{<span class="self">self</span>, SerdeContainer, SerdeValue},
+<a href=#38 id=38 data-nosnippet>38</a>    ComponentSchema, Container, TypeTree,
+<a href=#39 id=39 data-nosnippet>39</a>};
+<a href=#40 id=40 data-nosnippet>40</a>
+<a href=#41 id=41 data-nosnippet>41</a><span class="macro">impl_merge!</span>(IntoParamsFeatures, FieldFeatures);
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a><span class="doccomment">/// Container attribute `#[into_params(...)]`.
+<a href=#44 id=44 data-nosnippet>44</a></span><span class="kw">pub struct </span>IntoParamsFeatures(Vec&lt;Feature&gt;);
+<a href=#45 id=45 data-nosnippet>45</a>
+<a href=#46 id=46 data-nosnippet>46</a><span class="kw">impl </span>Parse <span class="kw">for </span>IntoParamsFeatures {
+<a href=#47 id=47 data-nosnippet>47</a>    <span class="kw">fn </span>parse(input: syn::parse::ParseStream) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+<a href=#48 id=48 data-nosnippet>48</a>        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="macro">parse_features!</span>(
+<a href=#49 id=49 data-nosnippet>49</a>            input <span class="kw">as </span>Style,
+<a href=#50 id=50 data-nosnippet>50</a>            features::attributes::ParameterIn,
+<a href=#51 id=51 data-nosnippet>51</a>            IntoParamsNames,
+<a href=#52 id=52 data-nosnippet>52</a>            RenameAll
+<a href=#53 id=53 data-nosnippet>53</a>        )))
+<a href=#54 id=54 data-nosnippet>54</a>    }
+<a href=#55 id=55 data-nosnippet>55</a>}
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a><span class="macro">impl_into_inner!</span>(IntoParamsFeatures);
+<a href=#58 id=58 data-nosnippet>58</a>
+<a href=#59 id=59 data-nosnippet>59</a><span class="attr">#[cfg_attr(feature = <span class="string">"debug"</span>, derive(Debug))]
+<a href=#60 id=60 data-nosnippet>60</a></span><span class="kw">pub struct </span>IntoParams {
+<a href=#61 id=61 data-nosnippet>61</a>    <span class="doccomment">/// Attributes tagged on the whole struct or enum.
+<a href=#62 id=62 data-nosnippet>62</a>    </span><span class="kw">pub </span>attrs: Vec&lt;Attribute&gt;,
+<a href=#63 id=63 data-nosnippet>63</a>    <span class="doccomment">/// Generics required to complete the definition.
+<a href=#64 id=64 data-nosnippet>64</a>    </span><span class="kw">pub </span>generics: Generics,
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="doccomment">/// Data within the struct or enum.
+<a href=#66 id=66 data-nosnippet>66</a>    </span><span class="kw">pub </span>data: Data,
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="doccomment">/// Name of the struct or enum.
+<a href=#68 id=68 data-nosnippet>68</a>    </span><span class="kw">pub </span>ident: Ident,
+<a href=#69 id=69 data-nosnippet>69</a>}
+<a href=#70 id=70 data-nosnippet>70</a>
+<a href=#71 id=71 data-nosnippet>71</a><span class="kw">impl </span>ToTokensDiagnostics <span class="kw">for </span>IntoParams {
+<a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">fn </span>to_tokens(<span class="kw-2">&amp;</span><span class="self">self</span>, tokens: <span class="kw-2">&amp;mut </span>proc_macro2::TokenStream) -&gt; <span class="prelude-ty">Result</span>&lt;(), Diagnostics&gt; {
+<a href=#73 id=73 data-nosnippet>73</a>        <span class="kw">let </span>ident = <span class="kw-2">&amp;</span><span class="self">self</span>.ident;
+<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">let </span>(impl_generics, ty_generics, where_clause) = <span class="self">self</span>.generics.split_for_impl();
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">let </span><span class="kw-2">mut </span>into_params_features = <span class="self">self
+<a href=#77 id=77 data-nosnippet>77</a>            </span>.attrs
+<a href=#78 id=78 data-nosnippet>78</a>            .iter()
+<a href=#79 id=79 data-nosnippet>79</a>            .filter(|attr| attr.path().is_ident(<span class="string">"into_params"</span>))
+<a href=#80 id=80 data-nosnippet>80</a>            .map(|attribute| {
+<a href=#81 id=81 data-nosnippet>81</a>                attribute
+<a href=#82 id=82 data-nosnippet>82</a>                    .parse_args::&lt;IntoParamsFeatures&gt;()
+<a href=#83 id=83 data-nosnippet>83</a>                    .map(IntoParamsFeatures::into_inner)
+<a href=#84 id=84 data-nosnippet>84</a>                    .map_err(Diagnostics::from)
+<a href=#85 id=85 data-nosnippet>85</a>            })
+<a href=#86 id=86 data-nosnippet>86</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, Diagnostics&gt;&gt;()<span class="question-mark">?
+<a href=#87 id=87 data-nosnippet>87</a>            </span>.into_iter()
+<a href=#88 id=88 data-nosnippet>88</a>            .reduce(|acc, item| acc.merge(item));
+<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">let </span>serde_container = serde::parse_container(<span class="kw-2">&amp;</span><span class="self">self</span>.attrs)<span class="question-mark">?</span>;
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a>        <span class="comment">// #[param] is only supported over fields
+<a href=#92 id=92 data-nosnippet>92</a>        </span><span class="kw">if </span><span class="self">self</span>.attrs.iter().any(|attr| attr.path().is_ident(<span class="string">"param"</span>)) {
+<a href=#93 id=93 data-nosnippet>93</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Diagnostics::with_span(
+<a href=#94 id=94 data-nosnippet>94</a>                ident.span(),
+<a href=#95 id=95 data-nosnippet>95</a>                <span class="string">"found `param` attribute in unsupported context"</span>,
+<a href=#96 id=96 data-nosnippet>96</a>            )
+<a href=#97 id=97 data-nosnippet>97</a>            .help(<span class="string">"Did you mean `into_params`?"</span>));
+<a href=#98 id=98 data-nosnippet>98</a>        }
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span>names = into_params_features.as_mut().and_then(|features| {
+<a href=#101 id=101 data-nosnippet>101</a>            <span class="kw">let </span>into_params_names = <span class="macro">pop_feature!</span>(features =&gt; Feature::IntoParamsNames(<span class="kw">_</span>));
+<a href=#102 id=102 data-nosnippet>102</a>            IntoInner::&lt;<span class="prelude-ty">Option</span>&lt;IntoParamsNames&gt;&gt;::into_inner(into_params_names)
+<a href=#103 id=103 data-nosnippet>103</a>                .map(|names| names.into_values())
+<a href=#104 id=104 data-nosnippet>104</a>        });
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span>style = <span class="macro">pop_feature!</span>(into_params_features =&gt; Feature::Style(<span class="kw">_</span>));
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">let </span>parameter_in = <span class="macro">pop_feature!</span>(into_params_features =&gt; Feature::ParameterIn(<span class="kw">_</span>));
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">let </span>rename_all = <span class="macro">pop_feature!</span>(into_params_features =&gt; Feature::RenameAll(<span class="kw">_</span>));
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">let </span>params = <span class="self">self
+<a href=#111 id=111 data-nosnippet>111</a>            </span>.get_struct_fields(<span class="kw-2">&amp;</span>names.as_ref())<span class="question-mark">?
+<a href=#112 id=112 data-nosnippet>112</a>            </span>.enumerate()
+<a href=#113 id=113 data-nosnippet>113</a>            .map(|(index, field)| {
+<a href=#114 id=114 data-nosnippet>114</a>                <span class="kw">let </span>field_features = <span class="kw">match </span>parse_field_features(field) {
+<a href=#115 id=115 data-nosnippet>115</a>                    <span class="prelude-val">Ok</span>(features) =&gt; features,
+<a href=#116 id=116 data-nosnippet>116</a>                    <span class="prelude-val">Err</span>(error) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(error),
+<a href=#117 id=117 data-nosnippet>117</a>                };
+<a href=#118 id=118 data-nosnippet>118</a>                <span class="kw">match </span>serde::parse_value(<span class="kw-2">&amp;</span>field.attrs) {
+<a href=#119 id=119 data-nosnippet>119</a>                    <span class="prelude-val">Ok</span>(serde_value) =&gt; <span class="prelude-val">Ok</span>((index, field, serde_value, field_features)),
+<a href=#120 id=120 data-nosnippet>120</a>                    <span class="prelude-val">Err</span>(diagnostics) =&gt; <span class="prelude-val">Err</span>(diagnostics)
+<a href=#121 id=121 data-nosnippet>121</a>                }
+<a href=#122 id=122 data-nosnippet>122</a>            })
+<a href=#123 id=123 data-nosnippet>123</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, Diagnostics&gt;&gt;()<span class="question-mark">?
+<a href=#124 id=124 data-nosnippet>124</a>            </span>.into_iter()
+<a href=#125 id=125 data-nosnippet>125</a>            .filter_map(|(index, field, field_serde_params, field_features)| {
+<a href=#126 id=126 data-nosnippet>126</a>                <span class="kw">if </span>field_serde_params.skip {
+<a href=#127 id=127 data-nosnippet>127</a>                    <span class="prelude-val">None
+<a href=#128 id=128 data-nosnippet>128</a>                </span>} <span class="kw">else </span>{
+<a href=#129 id=129 data-nosnippet>129</a>                    <span class="prelude-val">Some</span>((index, field, field_serde_params, field_features))
+<a href=#130 id=130 data-nosnippet>130</a>                }
+<a href=#131 id=131 data-nosnippet>131</a>            })
+<a href=#132 id=132 data-nosnippet>132</a>            .map(|(index, field, field_serde_params, field_features)| {
+<a href=#133 id=133 data-nosnippet>133</a>                <span class="kw">let </span>name = names.as_ref()
+<a href=#134 id=134 data-nosnippet>134</a>                    .map_try(|names| names.get(index).ok_or_else(|| Diagnostics::with_span(
+<a href=#135 id=135 data-nosnippet>135</a>                        ident.span(),
+<a href=#136 id=136 data-nosnippet>136</a>                        <span class="macro">format!</span>(<span class="string">"There is no name specified in the names(...) container attribute for tuple struct field {}"</span>, index),
+<a href=#137 id=137 data-nosnippet>137</a>                    )));
+<a href=#138 id=138 data-nosnippet>138</a>                <span class="kw">let </span>name = <span class="kw">match </span>name {
+<a href=#139 id=139 data-nosnippet>139</a>                    <span class="prelude-val">Ok</span>(name) =&gt; name,
+<a href=#140 id=140 data-nosnippet>140</a>                    <span class="prelude-val">Err</span>(diagnostics) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(diagnostics)
+<a href=#141 id=141 data-nosnippet>141</a>                };
+<a href=#142 id=142 data-nosnippet>142</a>                <span class="kw">let </span>param = Param::new(field, field_serde_params, field_features, FieldParamContainerAttributes {
+<a href=#143 id=143 data-nosnippet>143</a>                        rename_all: rename_all.as_ref().and_then(|feature| {
+<a href=#144 id=144 data-nosnippet>144</a>                            <span class="kw">match </span>feature {
+<a href=#145 id=145 data-nosnippet>145</a>                                Feature::RenameAll(rename_all) =&gt; <span class="prelude-val">Some</span>(rename_all),
+<a href=#146 id=146 data-nosnippet>146</a>                                <span class="kw">_ </span>=&gt; <span class="prelude-val">None
+<a href=#147 id=147 data-nosnippet>147</a>                            </span>}
+<a href=#148 id=148 data-nosnippet>148</a>                        }),
+<a href=#149 id=149 data-nosnippet>149</a>                        style: <span class="kw-2">&amp;</span>style,
+<a href=#150 id=150 data-nosnippet>150</a>                        parameter_in: <span class="kw-2">&amp;</span>parameter_in,
+<a href=#151 id=151 data-nosnippet>151</a>                        name,
+<a href=#152 id=152 data-nosnippet>152</a>                    }, <span class="kw-2">&amp;</span>serde_container, <span class="kw-2">&amp;</span><span class="self">self</span>.generics)<span class="question-mark">?</span>;
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a>                <span class="prelude-val">Ok</span>(param.to_token_stream())
+<a href=#156 id=156 data-nosnippet>156</a>            })
+<a href=#157 id=157 data-nosnippet>157</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Array&lt;TokenStream&gt;, Diagnostics&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>        tokens.extend(<span class="macro">quote!</span> {
+<a href=#160 id=160 data-nosnippet>160</a>            <span class="kw">impl </span>#impl_generics utoipa::IntoParams <span class="kw">for </span>#ident #ty_generics #where_clause {
+<a href=#161 id=161 data-nosnippet>161</a>                <span class="kw">fn </span>into_params(parameter_in_provider: <span class="kw">impl </span>Fn() -&gt; <span class="prelude-ty">Option</span>&lt;utoipa::openapi::path::ParameterIn&gt;) -&gt; Vec&lt;utoipa::openapi::path::Parameter&gt; {
+<a href=#162 id=162 data-nosnippet>162</a>                    #params.into_iter().filter(Option::is_some).flatten().collect()
+<a href=#163 id=163 data-nosnippet>163</a>                }
+<a href=#164 id=164 data-nosnippet>164</a>            }
+<a href=#165 id=165 data-nosnippet>165</a>        });
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="prelude-val">Ok</span>(())
+<a href=#168 id=168 data-nosnippet>168</a>    }
+<a href=#169 id=169 data-nosnippet>169</a>}
+<a href=#170 id=170 data-nosnippet>170</a>
+<a href=#171 id=171 data-nosnippet>171</a><span class="kw">fn </span>parse_field_features(field: <span class="kw-2">&amp;</span>Field) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Feature&gt;, Diagnostics&gt; {
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="prelude-val">Ok</span>(field
+<a href=#173 id=173 data-nosnippet>173</a>        .attrs
+<a href=#174 id=174 data-nosnippet>174</a>        .iter()
+<a href=#175 id=175 data-nosnippet>175</a>        .filter(|attribute| attribute.path().is_ident(<span class="string">"param"</span>))
+<a href=#176 id=176 data-nosnippet>176</a>        .map(|attribute| {
+<a href=#177 id=177 data-nosnippet>177</a>            attribute
+<a href=#178 id=178 data-nosnippet>178</a>                .parse_args::&lt;FieldFeatures&gt;()
+<a href=#179 id=179 data-nosnippet>179</a>                .map(FieldFeatures::into_inner)
+<a href=#180 id=180 data-nosnippet>180</a>        })
+<a href=#181 id=181 data-nosnippet>181</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, syn::Error&gt;&gt;()<span class="question-mark">?
+<a href=#182 id=182 data-nosnippet>182</a>        </span>.into_iter()
+<a href=#183 id=183 data-nosnippet>183</a>        .reduce(|acc, item| acc.merge(item))
+<a href=#184 id=184 data-nosnippet>184</a>        .unwrap_or_default())
+<a href=#185 id=185 data-nosnippet>185</a>}
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a><span class="kw">impl </span>IntoParams {
+<a href=#188 id=188 data-nosnippet>188</a>    <span class="kw">fn </span>get_struct_fields(
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#190 id=190 data-nosnippet>190</a>        field_names: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;String&gt;&gt;,
+<a href=#191 id=191 data-nosnippet>191</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>Field&gt;, Diagnostics&gt; {
+<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">let </span>ident = <span class="kw-2">&amp;</span><span class="self">self</span>.ident;
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.data {
+<a href=#194 id=194 data-nosnippet>194</a>            Data::Struct(data_struct) =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>data_struct.fields {
+<a href=#195 id=195 data-nosnippet>195</a>                syn::Fields::Named(named_fields) =&gt; {
+<a href=#196 id=196 data-nosnippet>196</a>                    <span class="kw">if </span>field_names.is_some() {
+<a href=#197 id=197 data-nosnippet>197</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(Diagnostics::with_span(
+<a href=#198 id=198 data-nosnippet>198</a>                            ident.span(),
+<a href=#199 id=199 data-nosnippet>199</a>                            <span class="string">"`#[into_params(names(...))]` is not supported attribute on a struct with named fields"</span>)
+<a href=#200 id=200 data-nosnippet>200</a>                        );
+<a href=#201 id=201 data-nosnippet>201</a>                    }
+<a href=#202 id=202 data-nosnippet>202</a>                    <span class="prelude-val">Ok</span>(named_fields.named.iter())
+<a href=#203 id=203 data-nosnippet>203</a>                }
+<a href=#204 id=204 data-nosnippet>204</a>                syn::Fields::Unnamed(unnamed_fields) =&gt; {
+<a href=#205 id=205 data-nosnippet>205</a>                    <span class="kw">match </span><span class="self">self</span>.validate_unnamed_field_names(<span class="kw-2">&amp;</span>unnamed_fields.unnamed, field_names) {
+<a href=#206 id=206 data-nosnippet>206</a>                        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(unnamed_fields.unnamed.iter()),
+<a href=#207 id=207 data-nosnippet>207</a>                        <span class="prelude-val">Some</span>(diagnostics) =&gt; <span class="prelude-val">Err</span>(diagnostics),
+<a href=#208 id=208 data-nosnippet>208</a>                    }
+<a href=#209 id=209 data-nosnippet>209</a>                }
+<a href=#210 id=210 data-nosnippet>210</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Diagnostics::with_span(
+<a href=#211 id=211 data-nosnippet>211</a>                    ident.span(),
+<a href=#212 id=212 data-nosnippet>212</a>                    <span class="string">"Unit type struct is not supported"</span>,
+<a href=#213 id=213 data-nosnippet>213</a>                )),
+<a href=#214 id=214 data-nosnippet>214</a>            },
+<a href=#215 id=215 data-nosnippet>215</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Diagnostics::with_span(
+<a href=#216 id=216 data-nosnippet>216</a>                ident.span(),
+<a href=#217 id=217 data-nosnippet>217</a>                <span class="string">"Only struct type is supported"</span>,
+<a href=#218 id=218 data-nosnippet>218</a>            )),
+<a href=#219 id=219 data-nosnippet>219</a>        }
+<a href=#220 id=220 data-nosnippet>220</a>    }
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a>    <span class="kw">fn </span>validate_unnamed_field_names(
+<a href=#223 id=223 data-nosnippet>223</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#224 id=224 data-nosnippet>224</a>        unnamed_fields: <span class="kw-2">&amp;</span>Punctuated&lt;Field, Comma&gt;,
+<a href=#225 id=225 data-nosnippet>225</a>        field_names: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;String&gt;&gt;,
+<a href=#226 id=226 data-nosnippet>226</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;Diagnostics&gt; {
+<a href=#227 id=227 data-nosnippet>227</a>        <span class="kw">let </span>ident = <span class="kw-2">&amp;</span><span class="self">self</span>.ident;
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="kw">match </span>field_names {
+<a href=#229 id=229 data-nosnippet>229</a>            <span class="prelude-val">Some</span>(names) =&gt; {
+<a href=#230 id=230 data-nosnippet>230</a>                <span class="kw">if </span>names.len() != unnamed_fields.len() {
+<a href=#231 id=231 data-nosnippet>231</a>                    <span class="prelude-val">Some</span>(Diagnostics::with_span(
+<a href=#232 id=232 data-nosnippet>232</a>                        ident.span(),
+<a href=#233 id=233 data-nosnippet>233</a>                        <span class="macro">format!</span>(<span class="string">"declared names amount '{}' does not match to the unnamed fields amount '{}' in type: {}"</span>, 
+<a href=#234 id=234 data-nosnippet>234</a>                            names.len(), unnamed_fields.len(), ident)
+<a href=#235 id=235 data-nosnippet>235</a>                    )
+<a href=#236 id=236 data-nosnippet>236</a>                        .help(<span class="string">r#"Did you forget to add a field name to `#[into_params(names(... , "field_name"))]`"#</span>)
+<a href=#237 id=237 data-nosnippet>237</a>                        .help(<span class="string">"Or have you added extra name but haven't defined a type?"</span>)
+<a href=#238 id=238 data-nosnippet>238</a>                    )
+<a href=#239 id=239 data-nosnippet>239</a>                } <span class="kw">else </span>{
+<a href=#240 id=240 data-nosnippet>240</a>                    <span class="prelude-val">None
+<a href=#241 id=241 data-nosnippet>241</a>                </span>}
+<a href=#242 id=242 data-nosnippet>242</a>            }
+<a href=#243 id=243 data-nosnippet>243</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(
+<a href=#244 id=244 data-nosnippet>244</a>                Diagnostics::with_span(
+<a href=#245 id=245 data-nosnippet>245</a>                    ident.span(),
+<a href=#246 id=246 data-nosnippet>246</a>                    <span class="string">"struct with unnamed fields must have explicit name declarations."</span>,
+<a href=#247 id=247 data-nosnippet>247</a>                )
+<a href=#248 id=248 data-nosnippet>248</a>                .help(<span class="macro">format!</span>(
+<a href=#249 id=249 data-nosnippet>249</a>                    <span class="string">"Try defining `#[into_params(names(...))]` over your type: {}"</span>,
+<a href=#250 id=250 data-nosnippet>250</a>                    ident
+<a href=#251 id=251 data-nosnippet>251</a>                )),
+<a href=#252 id=252 data-nosnippet>252</a>            ),
+<a href=#253 id=253 data-nosnippet>253</a>        }
+<a href=#254 id=254 data-nosnippet>254</a>    }
+<a href=#255 id=255 data-nosnippet>255</a>}
+<a href=#256 id=256 data-nosnippet>256</a>
+<a href=#257 id=257 data-nosnippet>257</a><span class="attr">#[cfg_attr(feature = <span class="string">"debug"</span>, derive(Debug))]
+<a href=#258 id=258 data-nosnippet>258</a></span><span class="kw">pub struct </span>FieldParamContainerAttributes&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#259 id=259 data-nosnippet>259</a>    <span class="doccomment">/// See [`IntoParamsAttr::style`].
+<a href=#260 id=260 data-nosnippet>260</a>    </span>style: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="prelude-ty">Option</span>&lt;Feature&gt;,
+<a href=#261 id=261 data-nosnippet>261</a>    <span class="doccomment">/// See [`IntoParamsAttr::names`]. The name that applies to this field.
+<a href=#262 id=262 data-nosnippet>262</a>    </span>name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>String&gt;,
+<a href=#263 id=263 data-nosnippet>263</a>    <span class="doccomment">/// See [`IntoParamsAttr::parameter_in`].
+<a href=#264 id=264 data-nosnippet>264</a>    </span>parameter_in: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="prelude-ty">Option</span>&lt;Feature&gt;,
+<a href=#265 id=265 data-nosnippet>265</a>    <span class="doccomment">/// Custom rename all if serde attribute is not present.
+<a href=#266 id=266 data-nosnippet>266</a>    </span>rename_all: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>RenameAll&gt;,
+<a href=#267 id=267 data-nosnippet>267</a>}
+<a href=#268 id=268 data-nosnippet>268</a>
+<a href=#269 id=269 data-nosnippet>269</a><span class="kw">struct </span>FieldFeatures(Vec&lt;Feature&gt;);
+<a href=#270 id=270 data-nosnippet>270</a>
+<a href=#271 id=271 data-nosnippet>271</a><span class="macro">impl_into_inner!</span>(FieldFeatures);
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a><span class="kw">impl </span>Parse <span class="kw">for </span>FieldFeatures {
+<a href=#274 id=274 data-nosnippet>274</a>    <span class="kw">fn </span>parse(input: syn::parse::ParseStream) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+<a href=#275 id=275 data-nosnippet>275</a>        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="macro">parse_features!</span>(
+<a href=#276 id=276 data-nosnippet>276</a>            <span class="comment">// param features
+<a href=#277 id=277 data-nosnippet>277</a>            </span>input <span class="kw">as </span>component::features::attributes::ValueType,
+<a href=#278 id=278 data-nosnippet>278</a>            Rename,
+<a href=#279 id=279 data-nosnippet>279</a>            Style,
+<a href=#280 id=280 data-nosnippet>280</a>            AllowReserved,
+<a href=#281 id=281 data-nosnippet>281</a>            Example,
+<a href=#282 id=282 data-nosnippet>282</a>            Explode,
+<a href=#283 id=283 data-nosnippet>283</a>            SchemaWith,
+<a href=#284 id=284 data-nosnippet>284</a>            component::features::attributes::Required,
+<a href=#285 id=285 data-nosnippet>285</a>            <span class="comment">// param schema features
+<a href=#286 id=286 data-nosnippet>286</a>            </span>Inline,
+<a href=#287 id=287 data-nosnippet>287</a>            Format,
+<a href=#288 id=288 data-nosnippet>288</a>            component::features::attributes::Default,
+<a href=#289 id=289 data-nosnippet>289</a>            WriteOnly,
+<a href=#290 id=290 data-nosnippet>290</a>            ReadOnly,
+<a href=#291 id=291 data-nosnippet>291</a>            Nullable,
+<a href=#292 id=292 data-nosnippet>292</a>            XmlAttr,
+<a href=#293 id=293 data-nosnippet>293</a>            MultipleOf,
+<a href=#294 id=294 data-nosnippet>294</a>            Maximum,
+<a href=#295 id=295 data-nosnippet>295</a>            Minimum,
+<a href=#296 id=296 data-nosnippet>296</a>            ExclusiveMaximum,
+<a href=#297 id=297 data-nosnippet>297</a>            ExclusiveMinimum,
+<a href=#298 id=298 data-nosnippet>298</a>            MaxLength,
+<a href=#299 id=299 data-nosnippet>299</a>            MinLength,
+<a href=#300 id=300 data-nosnippet>300</a>            Pattern,
+<a href=#301 id=301 data-nosnippet>301</a>            MaxItems,
+<a href=#302 id=302 data-nosnippet>302</a>            MinItems,
+<a href=#303 id=303 data-nosnippet>303</a>            AdditionalProperties,
+<a href=#304 id=304 data-nosnippet>304</a>            Ignore
+<a href=#305 id=305 data-nosnippet>305</a>        )))
+<a href=#306 id=306 data-nosnippet>306</a>    }
+<a href=#307 id=307 data-nosnippet>307</a>}
+<a href=#308 id=308 data-nosnippet>308</a>
+<a href=#309 id=309 data-nosnippet>309</a><span class="attr">#[cfg_attr(feature = <span class="string">"debug"</span>, derive(Debug))]
+<a href=#310 id=310 data-nosnippet>310</a></span><span class="kw">struct </span>Param {
+<a href=#311 id=311 data-nosnippet>311</a>    tokens: TokenStream,
+<a href=#312 id=312 data-nosnippet>312</a>}
+<a href=#313 id=313 data-nosnippet>313</a>
+<a href=#314 id=314 data-nosnippet>314</a><span class="kw">impl </span>Param {
+<a href=#315 id=315 data-nosnippet>315</a>    <span class="kw">fn </span>new(
+<a href=#316 id=316 data-nosnippet>316</a>        field: <span class="kw-2">&amp;</span>Field,
+<a href=#317 id=317 data-nosnippet>317</a>        field_serde_params: SerdeValue,
+<a href=#318 id=318 data-nosnippet>318</a>        field_features: Vec&lt;Feature&gt;,
+<a href=#319 id=319 data-nosnippet>319</a>        container_attributes: FieldParamContainerAttributes&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#320 id=320 data-nosnippet>320</a>        serde_container: <span class="kw-2">&amp;</span>SerdeContainer,
+<a href=#321 id=321 data-nosnippet>321</a>        generics: <span class="kw-2">&amp;</span>Generics,
+<a href=#322 id=322 data-nosnippet>322</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Diagnostics&gt; {
+<a href=#323 id=323 data-nosnippet>323</a>        <span class="kw">let </span><span class="kw-2">mut </span>tokens = TokenStream::new();
+<a href=#324 id=324 data-nosnippet>324</a>        <span class="kw">let </span>field_serde_params = <span class="kw-2">&amp;</span>field_serde_params;
+<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">let </span>ident = <span class="kw-2">&amp;</span>field.ident;
+<a href=#326 id=326 data-nosnippet>326</a>        <span class="kw">let </span><span class="kw-2">mut </span>name = <span class="kw-2">&amp;*</span>ident
+<a href=#327 id=327 data-nosnippet>327</a>            .as_ref()
+<a href=#328 id=328 data-nosnippet>328</a>            .map(|ident| ident.to_string())
+<a href=#329 id=329 data-nosnippet>329</a>            .or_else(|| container_attributes.name.cloned())
+<a href=#330 id=330 data-nosnippet>330</a>            .ok_or_else(||
+<a href=#331 id=331 data-nosnippet>331</a>                Diagnostics::with_span(field.span(), <span class="string">"No name specified for unnamed field."</span>)
+<a href=#332 id=332 data-nosnippet>332</a>                    .help(<span class="string">"Try adding #[into_params(names(...))] container attribute to specify the name for this field"</span>)
+<a href=#333 id=333 data-nosnippet>333</a>            )<span class="question-mark">?</span>;
+<a href=#334 id=334 data-nosnippet>334</a>
+<a href=#335 id=335 data-nosnippet>335</a>        <span class="kw">if </span>name.starts_with(<span class="string">"r#"</span>) {
+<a href=#336 id=336 data-nosnippet>336</a>            name = <span class="kw-2">&amp;</span>name[<span class="number">2</span>..];
+<a href=#337 id=337 data-nosnippet>337</a>        }
+<a href=#338 id=338 data-nosnippet>338</a>
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="kw">let </span>(schema_features, <span class="kw-2">mut </span>param_features) =
+<a href=#340 id=340 data-nosnippet>340</a>            Param::resolve_field_features(field_features, <span class="kw-2">&amp;</span>container_attributes)
+<a href=#341 id=341 data-nosnippet>341</a>                .map_err(Diagnostics::from)<span class="question-mark">?</span>;
+<a href=#342 id=342 data-nosnippet>342</a>
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="kw">let </span>ignore = <span class="macro">pop_feature!</span>(param_features =&gt; Feature::Ignore(<span class="kw">_</span>));
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">let </span>rename = <span class="macro">pop_feature!</span>(param_features =&gt; Feature::Rename(<span class="kw">_</span>) <span class="kw">as </span><span class="prelude-ty">Option</span>&lt;Rename&gt;)
+<a href=#345 id=345 data-nosnippet>345</a>            .map(|rename| rename.into_value());
+<a href=#346 id=346 data-nosnippet>346</a>        <span class="kw">let </span>rename_to = field_serde_params
+<a href=#347 id=347 data-nosnippet>347</a>            .rename
+<a href=#348 id=348 data-nosnippet>348</a>            .as_deref()
+<a href=#349 id=349 data-nosnippet>349</a>            .map(Cow::Borrowed)
+<a href=#350 id=350 data-nosnippet>350</a>            .or(rename.map(Cow::Owned));
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">let </span>rename_all = serde_container.rename_all.as_ref().or(container_attributes
+<a href=#352 id=352 data-nosnippet>352</a>            .rename_all
+<a href=#353 id=353 data-nosnippet>353</a>            .map(|rename_all| rename_all.as_rename_rule()));
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">let </span>name = <span class="kw">super</span>::rename::&lt;FieldRename&gt;(name, rename_to, rename_all)
+<a href=#355 id=355 data-nosnippet>355</a>            .unwrap_or(Cow::Borrowed(name));
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw">let </span>type_tree = TypeTree::from_type(<span class="kw-2">&amp;</span>field.ty)<span class="question-mark">?</span>;
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a>        tokens.extend(<span class="macro">quote!</span> { utoipa::openapi::path::ParameterBuilder::new()
+<a href=#359 id=359 data-nosnippet>359</a>            .name(#name)
+<a href=#360 id=360 data-nosnippet>360</a>        });
+<a href=#361 id=361 data-nosnippet>361</a>        tokens.extend(
+<a href=#362 id=362 data-nosnippet>362</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>parameter_in) = <span class="kw-2">&amp;</span>container_attributes.parameter_in {
+<a href=#363 id=363 data-nosnippet>363</a>                parameter_in.to_token_stream()
+<a href=#364 id=364 data-nosnippet>364</a>            } <span class="kw">else </span>{
+<a href=#365 id=365 data-nosnippet>365</a>                <span class="macro">quote!</span> {
+<a href=#366 id=366 data-nosnippet>366</a>                    .parameter_in(parameter_in_provider().unwrap_or_default())
+<a href=#367 id=367 data-nosnippet>367</a>                }
+<a href=#368 id=368 data-nosnippet>368</a>            },
+<a href=#369 id=369 data-nosnippet>369</a>        );
+<a href=#370 id=370 data-nosnippet>370</a>
+<a href=#371 id=371 data-nosnippet>371</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(deprecated) = <span class="kw">super</span>::get_deprecated(<span class="kw-2">&amp;</span>field.attrs) {
+<a href=#372 id=372 data-nosnippet>372</a>            tokens.extend(<span class="macro">quote!</span> { .deprecated(<span class="prelude-val">Some</span>(#deprecated)) });
+<a href=#373 id=373 data-nosnippet>373</a>        }
+<a href=#374 id=374 data-nosnippet>374</a>
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="kw">let </span>schema_with = <span class="macro">pop_feature!</span>(param_features =&gt; Feature::SchemaWith(<span class="kw">_</span>));
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(schema_with) = schema_with {
+<a href=#377 id=377 data-nosnippet>377</a>            <span class="kw">let </span>schema_with = <span class="macro">crate::as_tokens_or_diagnostics!</span>(<span class="kw-2">&amp;</span>schema_with);
+<a href=#378 id=378 data-nosnippet>378</a>            tokens.extend(<span class="macro">quote!</span> { .schema(<span class="prelude-val">Some</span>(#schema_with)).build() });
+<a href=#379 id=379 data-nosnippet>379</a>        } <span class="kw">else </span>{
+<a href=#380 id=380 data-nosnippet>380</a>            <span class="kw">let </span>description =
+<a href=#381 id=381 data-nosnippet>381</a>                CommentAttributes::from_attributes(<span class="kw-2">&amp;</span>field.attrs).as_formatted_string();
+<a href=#382 id=382 data-nosnippet>382</a>            <span class="kw">if </span>!description.is_empty() {
+<a href=#383 id=383 data-nosnippet>383</a>                tokens.extend(<span class="macro">quote!</span> { .description(<span class="prelude-val">Some</span>(#description))})
+<a href=#384 id=384 data-nosnippet>384</a>            }
+<a href=#385 id=385 data-nosnippet>385</a>
+<a href=#386 id=386 data-nosnippet>386</a>            <span class="kw">let </span>value_type = <span class="macro">pop_feature!</span>(param_features =&gt; Feature::ValueType(<span class="kw">_</span>) <span class="kw">as </span><span class="prelude-ty">Option</span>&lt;features::attributes::ValueType&gt;);
+<a href=#387 id=387 data-nosnippet>387</a>            <span class="kw">let </span>component = value_type
+<a href=#388 id=388 data-nosnippet>388</a>                .as_ref()
+<a href=#389 id=389 data-nosnippet>389</a>                .map_try(|value_type| value_type.as_type_tree())<span class="question-mark">?
+<a href=#390 id=390 data-nosnippet>390</a>                </span>.unwrap_or(type_tree);
+<a href=#391 id=391 data-nosnippet>391</a>            <span class="kw">let </span>alias_type = component.get_alias_type()<span class="question-mark">?</span>;
+<a href=#392 id=392 data-nosnippet>392</a>            <span class="kw">let </span>alias_type_tree = alias_type.as_ref().map_try(TypeTree::from_type)<span class="question-mark">?</span>;
+<a href=#393 id=393 data-nosnippet>393</a>            <span class="kw">let </span>component = alias_type_tree.as_ref().unwrap_or(<span class="kw-2">&amp;</span>component);
+<a href=#394 id=394 data-nosnippet>394</a>
+<a href=#395 id=395 data-nosnippet>395</a>            <span class="kw">let </span>required: <span class="prelude-ty">Option</span>&lt;features::attributes::Required&gt; =
+<a href=#396 id=396 data-nosnippet>396</a>                <span class="macro">pop_feature!</span>(param_features =&gt; Feature::Required(<span class="kw">_</span>)).into_inner();
+<a href=#397 id=397 data-nosnippet>397</a>            <span class="kw">let </span>component_required =
+<a href=#398 id=398 data-nosnippet>398</a>                !component.is_option() &amp;&amp; <span class="kw">super</span>::is_required(field_serde_params, serde_container);
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>            <span class="kw">let </span>required = <span class="kw">match </span>(required, component_required) {
+<a href=#401 id=401 data-nosnippet>401</a>                (<span class="prelude-val">Some</span>(required_feature), <span class="kw">_</span>) =&gt; Into::&lt;Required&gt;::into(required_feature.is_true()),
+<a href=#402 id=402 data-nosnippet>402</a>                (<span class="prelude-val">None</span>, component_required) =&gt; Into::&lt;Required&gt;::into(component_required),
+<a href=#403 id=403 data-nosnippet>403</a>            };
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>            tokens.extend(<span class="macro">quote!</span> {
+<a href=#406 id=406 data-nosnippet>406</a>                .required(#required)
+<a href=#407 id=407 data-nosnippet>407</a>            });
+<a href=#408 id=408 data-nosnippet>408</a>            tokens.extend(param_features.to_token_stream()<span class="question-mark">?</span>);
+<a href=#409 id=409 data-nosnippet>409</a>
+<a href=#410 id=410 data-nosnippet>410</a>            <span class="kw">let </span>is_query = <span class="macro">matches!</span>(container_attributes.parameter_in, <span class="prelude-val">Some</span>(Feature::ParameterIn(p)) <span class="kw">if </span>p.is_query());
+<a href=#411 id=411 data-nosnippet>411</a>            <span class="kw">let </span>option_is_nullable = !is_query;
+<a href=#412 id=412 data-nosnippet>412</a>
+<a href=#413 id=413 data-nosnippet>413</a>            <span class="kw">let </span>schema = ComponentSchema::for_params(
+<a href=#414 id=414 data-nosnippet>414</a>                component::ComponentSchemaProps {
+<a href=#415 id=415 data-nosnippet>415</a>                    type_tree: component,
+<a href=#416 id=416 data-nosnippet>416</a>                    features: schema_features,
+<a href=#417 id=417 data-nosnippet>417</a>                    description: <span class="prelude-val">None</span>,
+<a href=#418 id=418 data-nosnippet>418</a>                    container: <span class="kw-2">&amp;</span>Container { generics },
+<a href=#419 id=419 data-nosnippet>419</a>                },
+<a href=#420 id=420 data-nosnippet>420</a>                option_is_nullable,
+<a href=#421 id=421 data-nosnippet>421</a>            )<span class="question-mark">?</span>;
+<a href=#422 id=422 data-nosnippet>422</a>            <span class="kw">let </span>schema_tokens = schema.to_token_stream();
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>            tokens.extend(<span class="macro">quote!</span> { .schema(<span class="prelude-val">Some</span>(#schema_tokens)).build() });
+<a href=#425 id=425 data-nosnippet>425</a>        }
+<a href=#426 id=426 data-nosnippet>426</a>
+<a href=#427 id=427 data-nosnippet>427</a>        <span class="kw">let </span>tokens = <span class="kw">match </span>ignore {
+<a href=#428 id=428 data-nosnippet>428</a>            <span class="prelude-val">Some</span>(Feature::Ignore(Ignore(LitBoolOrExprPath::LitBool(bool)))) =&gt; {
+<a href=#429 id=429 data-nosnippet>429</a>                <span class="macro">quote_spanned!</span> {
+<a href=#430 id=430 data-nosnippet>430</a>                    bool.span() =&gt; <span class="kw">if </span>#bool {
+<a href=#431 id=431 data-nosnippet>431</a>                        <span class="prelude-val">None
+<a href=#432 id=432 data-nosnippet>432</a>                    </span>} <span class="kw">else </span>{
+<a href=#433 id=433 data-nosnippet>433</a>                        <span class="prelude-val">Some</span>(#tokens)
+<a href=#434 id=434 data-nosnippet>434</a>                    }
+<a href=#435 id=435 data-nosnippet>435</a>                }
+<a href=#436 id=436 data-nosnippet>436</a>            }
+<a href=#437 id=437 data-nosnippet>437</a>            <span class="prelude-val">Some</span>(Feature::Ignore(Ignore(LitBoolOrExprPath::ExprPath(path)))) =&gt; {
+<a href=#438 id=438 data-nosnippet>438</a>                <span class="macro">quote_spanned!</span> {
+<a href=#439 id=439 data-nosnippet>439</a>                    path.span() =&gt; <span class="kw">if </span>#path() {
+<a href=#440 id=440 data-nosnippet>440</a>                        <span class="prelude-val">None
+<a href=#441 id=441 data-nosnippet>441</a>                    </span>} <span class="kw">else </span>{
+<a href=#442 id=442 data-nosnippet>442</a>                        <span class="prelude-val">Some</span>(#tokens)
+<a href=#443 id=443 data-nosnippet>443</a>                    }
+<a href=#444 id=444 data-nosnippet>444</a>                }
+<a href=#445 id=445 data-nosnippet>445</a>            }
+<a href=#446 id=446 data-nosnippet>446</a>            <span class="kw">_ </span>=&gt; <span class="macro">quote!</span> { <span class="prelude-val">Some</span>(#tokens) },
+<a href=#447 id=447 data-nosnippet>447</a>        };
+<a href=#448 id=448 data-nosnippet>448</a>
+<a href=#449 id=449 data-nosnippet>449</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ tokens })
+<a href=#450 id=450 data-nosnippet>450</a>    }
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>    <span class="doccomment">/// Resolve [`Param`] features and split features into two [`Vec`]s. Features are split by
+<a href=#453 id=453 data-nosnippet>453</a>    /// whether they should be rendered in [`Param`] itself or in [`Param`]s schema.
+<a href=#454 id=454 data-nosnippet>454</a>    ///
+<a href=#455 id=455 data-nosnippet>455</a>    /// Method returns a tuple containing two [`Vec`]s of [`Feature`].
+<a href=#456 id=456 data-nosnippet>456</a>    </span><span class="kw">fn </span>resolve_field_features(
+<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw-2">mut </span>field_features: Vec&lt;Feature&gt;,
+<a href=#458 id=458 data-nosnippet>458</a>        container_attributes: <span class="kw-2">&amp;</span>FieldParamContainerAttributes&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#459 id=459 data-nosnippet>459</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Feature&gt;, Vec&lt;Feature&gt;), syn::Error&gt; {
+<a href=#460 id=460 data-nosnippet>460</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>style) = container_attributes.style {
+<a href=#461 id=461 data-nosnippet>461</a>            <span class="kw">if </span>!field_features
+<a href=#462 id=462 data-nosnippet>462</a>                .iter()
+<a href=#463 id=463 data-nosnippet>463</a>                .any(|feature| <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>feature, Feature::Style(<span class="kw">_</span>)))
+<a href=#464 id=464 data-nosnippet>464</a>            {
+<a href=#465 id=465 data-nosnippet>465</a>                field_features.push(style.clone()); <span class="comment">// could try to use cow to avoid cloning
+<a href=#466 id=466 data-nosnippet>466</a>            </span>};
+<a href=#467 id=467 data-nosnippet>467</a>        }
+<a href=#468 id=468 data-nosnippet>468</a>
+<a href=#469 id=469 data-nosnippet>469</a>        <span class="prelude-val">Ok</span>(field_features.into_iter().fold(
+<a href=#470 id=470 data-nosnippet>470</a>            (Vec::&lt;Feature&gt;::new(), Vec::&lt;Feature&gt;::new()),
+<a href=#471 id=471 data-nosnippet>471</a>            |(<span class="kw-2">mut </span>schema_features, <span class="kw-2">mut </span>param_features), feature| {
+<a href=#472 id=472 data-nosnippet>472</a>                <span class="kw">match </span>feature {
+<a href=#473 id=473 data-nosnippet>473</a>                    Feature::Inline(<span class="kw">_</span>)
+<a href=#474 id=474 data-nosnippet>474</a>                    | Feature::Format(<span class="kw">_</span>)
+<a href=#475 id=475 data-nosnippet>475</a>                    | Feature::Default(<span class="kw">_</span>)
+<a href=#476 id=476 data-nosnippet>476</a>                    | Feature::WriteOnly(<span class="kw">_</span>)
+<a href=#477 id=477 data-nosnippet>477</a>                    | Feature::ReadOnly(<span class="kw">_</span>)
+<a href=#478 id=478 data-nosnippet>478</a>                    | Feature::Nullable(<span class="kw">_</span>)
+<a href=#479 id=479 data-nosnippet>479</a>                    | Feature::XmlAttr(<span class="kw">_</span>)
+<a href=#480 id=480 data-nosnippet>480</a>                    | Feature::MultipleOf(<span class="kw">_</span>)
+<a href=#481 id=481 data-nosnippet>481</a>                    | Feature::Maximum(<span class="kw">_</span>)
+<a href=#482 id=482 data-nosnippet>482</a>                    | Feature::Minimum(<span class="kw">_</span>)
+<a href=#483 id=483 data-nosnippet>483</a>                    | Feature::ExclusiveMaximum(<span class="kw">_</span>)
+<a href=#484 id=484 data-nosnippet>484</a>                    | Feature::ExclusiveMinimum(<span class="kw">_</span>)
+<a href=#485 id=485 data-nosnippet>485</a>                    | Feature::MaxLength(<span class="kw">_</span>)
+<a href=#486 id=486 data-nosnippet>486</a>                    | Feature::MinLength(<span class="kw">_</span>)
+<a href=#487 id=487 data-nosnippet>487</a>                    | Feature::Pattern(<span class="kw">_</span>)
+<a href=#488 id=488 data-nosnippet>488</a>                    | Feature::MaxItems(<span class="kw">_</span>)
+<a href=#489 id=489 data-nosnippet>489</a>                    | Feature::MinItems(<span class="kw">_</span>)
+<a href=#490 id=490 data-nosnippet>490</a>                    | Feature::AdditionalProperties(<span class="kw">_</span>) =&gt; {
+<a href=#491 id=491 data-nosnippet>491</a>                        schema_features.push(feature);
+<a href=#492 id=492 data-nosnippet>492</a>                    }
+<a href=#493 id=493 data-nosnippet>493</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#494 id=494 data-nosnippet>494</a>                        param_features.push(feature);
+<a href=#495 id=495 data-nosnippet>495</a>                    }
+<a href=#496 id=496 data-nosnippet>496</a>                };
+<a href=#497 id=497 data-nosnippet>497</a>
+<a href=#498 id=498 data-nosnippet>498</a>                (schema_features, param_features)
+<a href=#499 id=499 data-nosnippet>499</a>            },
+<a href=#500 id=500 data-nosnippet>500</a>        ))
+<a href=#501 id=501 data-nosnippet>501</a>    }
+<a href=#502 id=502 data-nosnippet>502</a>}
+<a href=#503 id=503 data-nosnippet>503</a>
+<a href=#504 id=504 data-nosnippet>504</a><span class="kw">impl </span>ToTokens <span class="kw">for </span>Param {
+<a href=#505 id=505 data-nosnippet>505</a>    <span class="kw">fn </span>to_tokens(<span class="kw-2">&amp;</span><span class="self">self</span>, tokens: <span class="kw-2">&amp;mut </span>TokenStream) {
+<a href=#506 id=506 data-nosnippet>506</a>        <span class="self">self</span>.tokens.to_tokens(tokens)
+<a href=#507 id=507 data-nosnippet>507</a>    }
+<a href=#508 id=508 data-nosnippet>508</a>}</code></pre></div></section></main></body></html>

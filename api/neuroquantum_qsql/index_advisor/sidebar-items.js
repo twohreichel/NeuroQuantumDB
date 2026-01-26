@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IndexType","RecommendationPriority"],"struct":["ColumnStats","IndexAdvisor","IndexAdvisorConfig","IndexAdvisorStatistics","IndexRecommendation","TableStats"]};

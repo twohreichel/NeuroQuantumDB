@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["QuantumProvider"],"mod":["braket","dwave","ibm","ionq"],"struct":["QuantumBackendConfig","QuantumBackendFactory","QuantumExecutionResult"],"trait":["QuantumBackendInfo"]};

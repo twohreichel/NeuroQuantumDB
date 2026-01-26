@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LockType"],"struct":["AdvancedQueryMetrics","ContentionSummary","ExecutionSummary","IndexUsageEntry","IndexUsageStats","LockContentionEvent","LockContentionTracker","MonitoringConfig","QueryExecutionParams","QueryExecutionStats","QueryHistogram","SlowQueryEntry","SlowQueryLog"]};

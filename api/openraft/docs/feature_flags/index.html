@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Feature flags"><title>openraft::docs::feature_flags - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module feature_flags</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module feature_<wbr>flags</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#feature-flags" title="Feature flags">Feature flags</a><ul><li><a href="#feature-flag-bench" title="feature-flag `bench`">feature-flag <code>bench</code></a></li><li><a href="#feature-flag-bt" title="feature-flag `bt`">feature-flag <code>bt</code></a></li><li><a href="#feature-flag-compat" title="feature-flag `compat`">feature-flag <code>compat</code></a></li><li><a href="#feature-flag-generic-snapshot-data" title="feature-flag `generic-snapshot-data`">feature-flag <code>generic-snapshot-data</code></a></li><li><a href="#feature-flag-loosen-follower-log-revert" title="feature-flag `loosen-follower-log-revert`">feature-flag <code>loosen-follower-log-revert</code></a></li><li><a href="#feature-flag-serde" title="feature-flag `serde`">feature-flag <code>serde</code></a></li><li><a href="#feature-flag-single-term-leader" title="feature-flag `single-term-leader`">feature-flag <code>single-term-leader</code></a></li><li><a href="#feature-flag-singlethreaded" title="feature-flag `singlethreaded`">feature-flag <code>singlethreaded</code></a></li><li><a href="#feature-flag-storage-v2" title="feature-flag `storage-v2`">feature-flag <code>storage-v2</code></a></li><li><a href="#feature-flag-tracing-log" title="feature-flag `tracing-log`">feature-flag <code>tracing-log</code></a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">openraft</a>::<wbr><a href="../index.html">docs</a></div><h1>Module <span>feature_<wbr>flags</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/openraft/docs/feature_flags/mod.rs.html#1-5">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="feature-flags"><a class="doc-anchor" href="#feature-flags">§</a>Feature flags</h2>
+<ul>
+<li><a href="#feature-flag-bench">feature-flag <code>bench</code></a></li>
+<li><a href="#feature-flag-bt">feature-flag <code>bt</code></a></li>
+<li><a href="#feature-flag-compat">feature-flag <code>compat</code></a></li>
+<li><a href="#feature-flag-generic-snapshot-data">feature-flag <code>generic-snapshot-data</code></a></li>
+<li><a href="#feature-flag-loosen-follower-log-revert">feature-flag <code>loosen-follower-log-revert</code></a></li>
+<li><a href="#feature-flag-serde">feature-flag <code>serde</code></a></li>
+<li><a href="#feature-flag-single-term-leader">feature-flag <code>single-term-leader</code></a></li>
+<li><a href="#feature-flag-singlethreaded">feature-flag <code>singlethreaded</code></a></li>
+<li><a href="#feature-flag-storage-v2">feature-flag <code>storage-v2</code></a></li>
+<li><a href="#feature-flag-tracing-log">feature-flag <code>tracing-log</code></a>
+By default openraft enables no features.</li>
+</ul>
+<h3 id="feature-flag-bench"><a class="doc-anchor" href="#feature-flag-bench">§</a>feature-flag <code>bench</code></h3>
+<p>Enables benchmarks in unittest. Benchmark in openraft depends on the unstable feature
+<code>test</code> thus it can not be used with stable rust. In order to run the benchmark with stable
+toolchain, the unstable features have to be enabled explicitly with environment variable
+<code>RUSTC_BOOTSTRAP=1</code>.</p>
+<h3 id="feature-flag-bt"><a class="doc-anchor" href="#feature-flag-bt">§</a>feature-flag <code>bt</code></h3>
+<p>attaches backtrace to generated errors.
+This feature works ONLY with nightly rust, because it requires unstable feature <code>error_generic_member_access</code>.</p>
+<h3 id="feature-flag-compat"><a class="doc-anchor" href="#feature-flag-compat">§</a>feature-flag <code>compat</code></h3>
+<p>Enables compatibility supporting types.</p>
+<h3 id="feature-flag-generic-snapshot-data"><a class="doc-anchor" href="#feature-flag-generic-snapshot-data">§</a>feature-flag <code>generic-snapshot-data</code></h3>
+<p>Enable this feature flag
+to eliminate the <code>AsyncRead + AsyncWrite + AsyncSeek + Unpin</code> bound
+from <a href="../../type_config/trait.RaftTypeConfig.html#associatedtype.SnapshotData" title="associated type openraft::type_config::RaftTypeConfig::SnapshotData"><code>RaftTypeConfig::SnapshotData</code></a>
+Enabling this feature allows applications to use a custom snapshot data format and transport fragmentation,
+diverging from the default implementation which typically relies on a single-file structure.</p>
+<p>By default, it is off.
+This feature is introduced in 0.9.0</p>
+<p>On the sending end (leader that sends snapshot to follower):</p>
+<ul>
+<li>
+<p>Without <code>generic-snapshot-data</code>: <a href="../../network/trait.RaftNetwork.html#method.full_snapshot" title="method openraft::network::RaftNetwork::full_snapshot"><code>RaftNetwork::full_snapshot()</code></a>
+provides a default implementation that invokes the chunk-based API
+<a href="../../network/trait.RaftNetwork.html#tymethod.install_snapshot" title="method openraft::network::RaftNetwork::install_snapshot"><code>RaftNetwork::install_snapshot()</code></a> for transmit.</p>
+</li>
+<li>
+<p>With <code>generic-snapshot-data</code> enabled: <a href="../../network/trait.RaftNetwork.html#method.full_snapshot" title="method openraft::network::RaftNetwork::full_snapshot"><code>RaftNetwork::full_snapshot()</code></a>
+must be implemented to provide application customized snapshot transmission.
+Application does not need to implement <a href="../../network/trait.RaftNetwork.html#tymethod.install_snapshot" title="method openraft::network::RaftNetwork::install_snapshot"><code>RaftNetwork::install_snapshot()</code></a>.</p>
+</li>
+</ul>
+<p>On the receiving end(follower):</p>
+<ul>
+<li><code>Raft::install_snapshot()</code> is available only when <code>generic-snapshot-data</code> is disabled.</li>
+</ul>
+<p>Refer to example <code>examples/raft-kv-memstore-generic-snapshot-data</code> with <code>generic-snapshot-data</code> enabled.</p>
+<h3 id="feature-flag-loosen-follower-log-revert"><a class="doc-anchor" href="#feature-flag-loosen-follower-log-revert">§</a>feature-flag <code>loosen-follower-log-revert</code></h3>
+<p>Permit the follower’s log to roll back to an earlier state without causing the leader to panic.
+Although log state reversion is typically seen as a bug, enabling it can be useful for testing or other special scenarios.
+For instance, in an even number nodes cluster,
+erasing a node’s data and then rebooting it(log reverts to empty) will not result in data loss.</p>
+<p><strong>Do not use it unless you know what you are doing</strong>.</p>
+<h3 id="feature-flag-serde"><a class="doc-anchor" href="#feature-flag-serde">§</a>feature-flag <code>serde</code></h3>
+<p>Derives <code>serde::Serialize, serde::Deserialize</code> for type that are used
+in storage and network, such as <code>Vote</code> or <code>AppendEntriesRequest</code>.</p>
+<h3 id="feature-flag-single-term-leader"><a class="doc-anchor" href="#feature-flag-single-term-leader">§</a>feature-flag <code>single-term-leader</code></h3>
+<p>Allows only one leader to be elected in each <code>term</code>.
+This is the standard raft policy, which increases election conflict rate
+but reduce <code>LogId</code> size(<code>(term, node_id, index)</code> to <code>(term, index)</code>).</p>
+<p>Read more about how it is implemented in:
+<a href="../data/leader_id/index.html" title="mod openraft::docs::data::leader_id"><code>leader_id</code></a>
+and <a href="../data/vote/index.html" title="mod openraft::docs::data::vote"><code>vote</code></a>.</p>
+<h3 id="feature-flag-singlethreaded"><a class="doc-anchor" href="#feature-flag-singlethreaded">§</a>feature-flag <code>singlethreaded</code></h3>
+<p>Removes <code>Send</code> and <code>Sync</code> bounds from <code>AppData</code>, <code>AppDataResponse</code>, <code>RaftEntry</code>, <code>SnapshotData</code>
+and other types to force the  asynchronous runtime to spawn any tasks in the current thread.
+This is for any single-threaded application that never allows a raft instance to be shared among multiple threads.
+This feature relies on the <code>async_fn_in_trait</code> language feature that is officially supported from Rust 1.75.0.
+If the feature is enabled, affected asynchronous trait methods will not require <code>Send</code> bounds.
+In order to use the feature, <code>AsyncRuntime::spawn</code> should invoke <code>tokio::task::spawn_local</code> or equivalents.</p>
+<h3 id="feature-flag-storage-v2"><a class="doc-anchor" href="#feature-flag-storage-v2">§</a>feature-flag <code>storage-v2</code></h3>
+<p>Enables <code>RaftLogStorage</code> and <code>RaftStateMachine</code> as the v2 storage
+This is a temporary feature flag, and will be removed in the future, when v2 storage is stable.
+This feature disables <code>Adapter</code>, which is for v1 storage to be used as v2.
+V2 storage separates log store and state machine store so that log IO and state machine IO can be parallelized naturally.</p>
+<h3 id="feature-flag-tracing-log"><a class="doc-anchor" href="#feature-flag-tracing-log">§</a>feature-flag <code>tracing-log</code></h3>
+<p>Enables “log” feature in <code>tracing</code> crate, to let tracing events
+emit log record.
+See: <a href="https://docs.rs/tracing/latest/tracing/#emitting-log-records">tracing doc: emitting-log-records</a></p>
+</div></details></section></div></main></body></html>

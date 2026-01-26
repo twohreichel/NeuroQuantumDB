@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketInventoryConfigurationError"],"mod":["builders"],"struct":["GetBucketInventoryConfiguration","GetBucketInventoryConfigurationInput","GetBucketInventoryConfigurationOutput"]};

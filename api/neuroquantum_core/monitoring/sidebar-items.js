@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["prometheus","query_metrics"]};

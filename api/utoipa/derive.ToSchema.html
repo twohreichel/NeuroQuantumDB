@@ -1,0 +1,822 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate reusable OpenAPI schema to be used together with `OpenApi`."><title>ToSchema in utoipa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">ToSchema</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa/index.html">utoipa</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">ToSchema</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#named-field-struct-optional-configuration-options-for-schema" title="Named Field Struct Optional Configuration Options for `#[schema(...)]`">Named Field Struct Optional Configuration Options for <code>#[schema(...)]</code></a><ul><li><a href="#named-fields-optional-configuration-options-for-schema" title="Named Fields Optional Configuration Options for `#[schema(...)]`">Named Fields Optional Configuration Options for <code>#[schema(...)]</code></a></li><li><a href="#xml-attribute-configuration-options" title="Xml attribute Configuration Options">Xml attribute Configuration Options</a></li></ul></li><li><a href="#unnamed-field-struct-optional-configuration-options-for-schema" title="Unnamed Field Struct Optional Configuration Options for `#[schema(...)]`">Unnamed Field Struct Optional Configuration Options for <code>#[schema(...)]</code></a></li><li><a href="#enum-optional-configuration-options-for-schema" title="Enum Optional Configuration Options for `#[schema(...)]`">Enum Optional Configuration Options for <code>#[schema(...)]</code></a><ul><li><a href="#plain-enum-having-only-unit-variants-optional-configuration-options-for-schema" title="Plain Enum having only `Unit` variants Optional Configuration Options for `#[schema(...)]`">Plain Enum having only <code>Unit</code> variants Optional Configuration Options for <code>#[schema(...)]</code></a></li><li><a href="#mixed-enum-optional-configuration-options-for-schema" title="Mixed Enum Optional Configuration Options for `#[schema(...)]`">Mixed Enum Optional Configuration Options for <code>#[schema(...)]</code></a></li><li><a href="#mixed-enum-unnamed-field-variant-optional-configuration-options-for-serdeschema" title="Mixed Enum Unnamed Field Variant Optional Configuration Options for `#[serde(schema)]`">Mixed Enum Unnamed Field Variant Optional Configuration Options for <code>#[serde(schema)]</code></a></li><li><a href="#mixed-enum-unit-field-variant-optional-configuration-options-for-serdeschema" title="Mixed Enum Unit Field Variant Optional Configuration Options for `#[serde(schema)]`">Mixed Enum Unit Field Variant Optional Configuration Options for <code>#[serde(schema)]</code></a></li></ul></li><li><a href="#partial-serde-attributes-support" title="Partial `#[serde(...)]` attributes support">Partial <code>#[serde(...)]</code> attributes support</a></li><li><a href="#repr-attribute-support" title="`#[repr(...)]` attribute support"><code>#[repr(...)]</code> attribute support</a></li><li><a href="#generic-schemas" title="Generic schemas">Generic schemas</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa</a></div><h1>Derive Macro <span class="derive">ToSchema</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa_gen/lib.rs.html#957">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(ToSchema)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[schema]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate reusable OpenAPI schema to be used
+together with <a href="derive.OpenApi.html"><code>OpenApi</code></a>.</p>
+<p>This is <code>#[derive]</code> implementation for <a href="trait.ToSchema.html"><code>ToSchema</code></a> trait. The macro accepts one
+<code>schema</code>
+attribute optionally which can be used to enhance generated documentation. The attribute can be placed
+at item level or field and variant levels in structs and enum.</p>
+<p>You can use the Rust’s own <code>#[deprecated]</code> attribute on any struct, enum or field to mark it as deprecated and it will
+reflect to the generated OpenAPI spec.</p>
+<p><code>#[deprecated]</code> attribute supports adding additional details such as a reason and or since version but this is is not supported in
+OpenAPI. OpenAPI has only a boolean flag to determine deprecation. While it is totally okay to declare deprecated with reason
+<code>#[deprecated  = "There is better way to do this"]</code> the reason would not render in OpenAPI spec.</p>
+<p>Doc comments on fields will resolve to field descriptions in generated OpenAPI doc. On struct
+level doc comments will resolve to object descriptions.</p>
+<p>Schemas derived with <code>ToSchema</code> will be automatically collected from usage. In case of looping
+schema tree <em><code>no_recursion</code></em> attribute must be used to break from recurring into infinite loop.
+See <a href="derive.ToSchema.html#examples" title="derive utoipa::ToSchema">more details from example</a>. All arguments of generic schemas
+must implement <code>ToSchema</code> trait.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="doccomment">/// This is a pet
+</span><span class="attr">#[derive(utoipa::ToSchema)]
+</span><span class="kw">struct </span>Pet {
+    <span class="doccomment">/// Name for your pet
+    </span>name: String,
+}</code></pre></div><h2 id="named-field-struct-optional-configuration-options-for-schema"><a class="doc-anchor" href="#named-field-struct-optional-configuration-options-for-schema">§</a>Named Field Struct Optional Configuration Options for <code>#[schema(...)]</code></h2>
+<ul>
+<li><code>description = ...</code> Can be literal string or Rust expression e.g. <em><code>const</code></em> reference or
+<code>include_str!(...)</code> statement. This can be used to override <strong>default</strong> description what is
+resolved from doc comments of the type.</li>
+<li><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></li>
+<li><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each
+<em><code>example</code></em> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>xml(...)</code> Can be used to define <a href="openapi/xml/struct.Xml.html"><code>Xml</code></a> object properties applicable to Structs.</li>
+<li><code>title = ...</code> Literal string value. Can be used to define title for struct in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+struct.</li>
+<li><code>rename_all = ...</code> Supports same syntax as <em>serde</em> <em><code>rename_all</code></em> attribute. Will rename all fields
+of the structs accordingly. If both <em>serde</em> <code>rename_all</code> and <em>schema</em> <em><code>rename_all</code></em> are defined
+<strong>serde</strong> will take precedence.</li>
+<li><code>as = ...</code> Can be used to define alternative path and name for the schema what will be used in
+the OpenAPI. E.g <em><code>as = path::to::Pet</code></em>. This would make the schema appear in the generated
+OpenAPI spec as <em><code>path.to.Pet</code></em>. This same name will be used throughout the OpenAPI generated
+with <code>utoipa</code> when the type is being referenced in <a href="derive.OpenApi.html"><code>OpenApi</code></a> derive macro
+or in <a href="attr.path.html" title="attr utoipa::path"><code>utoipa::path(...)</code></a> macro.</li>
+<li><code>bound = ...</code> Can be used to override default trait bounds on generated <code>impl</code>s.
+See <a href="#generic-schemas">Generic schemas section</a> below for more details.</li>
+<li><code>default</code> Can be used to populate default values on all fields using the struct’s
+[<code>Default</code>] implementation.</li>
+<li><code>deprecated</code> Can be used to mark all fields as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the fields as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</li>
+<li><code>max_properties = ...</code> Can be used to define maximum number of properties this struct can
+contain. Value must be a number.</li>
+<li><code>min_properties = ...</code> Can be used to define minimum number of properties this struct can
+contain. Value must be a number.</li>
+<li><code>no_recursion</code> Is used to break from recursion in case of looping schema tree e.g. <code>Pet</code> -&gt;
+<code>Owner</code> -&gt; <code>Pet</code>. <em><code>no_recursion</code></em> attribute must be used within <code>Ower</code> type not to allow
+recurring into <code>Pet</code>. Failing to do so will cause infinite loop and runtime <strong>panic</strong>. On
+struct level the <em><code>no_recursion</code></em> rule will be applied to all of its fields.</li>
+</ul>
+<h3 id="named-fields-optional-configuration-options-for-schema"><a class="doc-anchor" href="#named-fields-optional-configuration-options-for-schema">§</a>Named Fields Optional Configuration Options for <code>#[schema(...)]</code></h3>
+<ul>
+<li>
+<p><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></p>
+</li>
+<li>
+<p><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each
+<em><code>example</code></em> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</p>
+</li>
+<li>
+<p><code>default = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</p>
+</li>
+<li>
+<p><code>format = ...</code> May either be variant of the <a href="openapi/schema/enum.KnownFormat.html"><code>KnownFormat</code></a> enum, or otherwise
+an open value as a string. By default the format is derived from the type of the property
+according OpenApi spec.</p>
+</li>
+<li>
+<p><code>write_only</code> Defines property is only used in <strong>write</strong> operations <em>POST,PUT,PATCH</em> but not in <em>GET</em></p>
+</li>
+<li>
+<p><code>read_only</code> Defines property is only used in <strong>read</strong> operations <em>GET</em> but not in <em>POST,PUT,PATCH</em></p>
+</li>
+<li>
+<p><code>xml(...)</code> Can be used to define <a href="openapi/xml/struct.Xml.html"><code>Xml</code></a> object properties applicable to named fields.
+See configuration options at xml attributes of <a href="derive.ToSchema.html#xml-attribute-configuration-options" title="derive utoipa::ToSchema"><code>ToSchema</code></a></p>
+</li>
+<li>
+<p><code>value_type = ...</code> Can be used to override default type derived from type of the field used in OpenAPI spec.
+This is useful in cases where the default type does not correspond to the actual type e.g. when
+any third-party types are used which are not <a href="trait.ToSchema.html"><code>ToSchema</code></a>s nor <a href="https://doc.rust-lang.org/std/primitive/index.html"><code>primitive</code> types</a>.
+The value can be any Rust type what normally could be used to serialize to JSON, or either virtual type <em><code>Object</code></em>
+or <em><code>Value</code></em>.
+<em><code>Object</code></em> will be rendered as generic OpenAPI object <em>(<code>type: object</code>)</em>.
+<em><code>Value</code></em> will be rendered as any OpenAPI value (i.e. no <code>type</code> restriction).</p>
+</li>
+<li>
+<p><code>inline</code> If the type of this field implements <a href="trait.ToSchema.html"><code>ToSchema</code></a>, then the schema definition
+will be inlined. <strong>warning:</strong> Don’t use this for recursive data types!</p>
+<p><strong>Note!</strong><br>Using <code>inline</code> with generic arguments might lead to incorrect spec generation.
+This is due to the fact that during compilation we cannot know how to treat the generic
+argument and there is difference whether it is a primitive type or another generic type.</p>
+</li>
+<li>
+<p><code>required = ...</code> Can be used to enforce required status for the field. <a href="derive.ToSchema.html#field-nullability-and-required-rules" title="derive utoipa::ToSchema">See
+rules</a></p>
+</li>
+<li>
+<p><code>nullable</code> Defines property is nullable (note this is different to non-required).</p>
+</li>
+<li>
+<p><code>rename = ...</code> Supports same syntax as <em>serde</em> <em><code>rename</code></em> attribute. Will rename field
+accordingly. If both <em>serde</em> <code>rename</code> and <em>schema</em> <em><code>rename</code></em> are defined <strong>serde</strong> will take
+precedence.</p>
+</li>
+<li>
+<p><code>multiple_of = ...</code> Can be used to define multiplier for a value. Value is considered valid
+division will result an <code>integer</code>. Value must be strictly above <em><code>0</code></em>.</p>
+</li>
+<li>
+<p><code>maximum = ...</code> Can be used to define inclusive upper bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>minimum = ...</code> Can be used to define inclusive lower bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>exclusive_maximum = ...</code> Can be used to define exclusive upper bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>exclusive_minimum = ...</code> Can be used to define exclusive lower bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>max_length = ...</code> Can be used to define maximum length for <code>string</code> types.</p>
+</li>
+<li>
+<p><code>min_length = ...</code> Can be used to define minimum length for <code>string</code> types.</p>
+</li>
+<li>
+<p><code>pattern = ...</code> Can be used to define valid regular expression in <em>ECMA-262</em> dialect the field value must match.</p>
+</li>
+<li>
+<p><code>max_items = ...</code> Can be used to define maximum items allowed for <code>array</code> fields. Value must
+be non-negative integer.</p>
+</li>
+<li>
+<p><code>min_items = ...</code> Can be used to define minimum items allowed for <code>array</code> fields. Value must
+be non-negative integer.</p>
+</li>
+<li>
+<p><code>schema_with = ...</code> Use <em><code>schema</code></em> created by provided function reference instead of the
+default derived <em><code>schema</code></em>. The function must match to <code>fn() -&gt; Into&lt;RefOr&lt;Schema&gt;&gt;</code>. It does
+not accept arguments and must return anything that can be converted into <code>RefOr&lt;Schema&gt;</code>.</p>
+</li>
+<li>
+<p><code>additional_properties = ...</code> Can be used to define free form types for maps such as
+<a href="std::collections::HashMap"><code>HashMap</code></a> and <a href="std::collections::BTreeMap"><code>BTreeMap</code></a>.
+Free form type enables use of arbitrary types within map values.
+Supports formats <em><code>additional_properties</code></em> and <em><code>additional_properties = true</code></em>.</p>
+</li>
+<li>
+<p><code>deprecated</code> Can be used to mark the field as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the field as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</p>
+</li>
+<li>
+<p><code>content_encoding = ...</code> Can be used to define content encoding used for underlying schema object.
+See <a href="openapi/schema/struct.Object.html#structfield.content_encoding"><code>Object::content_encoding</code></a></p>
+</li>
+<li>
+<p><code>content_media_type = ...</code> Can be used to define MIME type of a string for underlying schema object.
+See <a href="openapi/schema/struct.Object.html#structfield.content_media_type"><code>Object::content_media_type</code></a></p>
+</li>
+<li>
+<p><code>ignore</code> or <code>ignore = ...</code> Can be used to skip the field from being serialized to OpenAPI schema. It accepts either a literal <code>bool</code> value
+or a path to a function that returns <code>bool</code> (<code>Fn() -&gt; bool</code>).</p>
+</li>
+<li>
+<p><code>no_recursion</code> Is used to break from recursion in case of looping schema tree e.g. <code>Pet</code> -&gt;
+<code>Owner</code> -&gt; <code>Pet</code>. <em><code>no_recursion</code></em> attribute must be used within <code>Ower</code> type not to allow
+recurring into <code>Pet</code>. Failing to do so will cause infinite loop and runtime <strong>panic</strong>.</p>
+</li>
+</ul>
+<h5 id="field-nullability-and-required-rules"><a class="doc-anchor" href="#field-nullability-and-required-rules">§</a>Field nullability and required rules</h5>
+<p>Field is considered <em><code>required</code></em> if</p>
+<ul>
+<li>it is not <code>Option</code> field</li>
+<li>and it does not have <em><code>skip_serializing_if</code></em> property</li>
+<li>and it does not have <em><code>serde_with</code></em> <em><a href="https://docs.rs/serde_with/latest/serde_with/rust/double_option/index.html"><code>double_option</code></a></em></li>
+<li>and it does not have default value provided with serde <em><code>default</code></em>
+attribute</li>
+</ul>
+<p>Field is considered <em><code>nullable</code></em> when field type is <em><code>Option</code></em>.</p>
+<h3 id="xml-attribute-configuration-options"><a class="doc-anchor" href="#xml-attribute-configuration-options">§</a>Xml attribute Configuration Options</h3>
+<ul>
+<li><code>xml(name = "...")</code> Will set name for property or type.</li>
+<li><code>xml(namespace = "...")</code> Will set namespace for xml element which needs to be valid uri.</li>
+<li><code>xml(prefix = "...")</code> Will set prefix for name.</li>
+<li><code>xml(attribute)</code> Will translate property to xml attribute instead of xml element.</li>
+<li><code>xml(wrapped)</code> Will make wrapped xml element.</li>
+<li><code>xml(wrapped(name = "wrap_name"))</code> Will override the wrapper elements name.</li>
+</ul>
+<p>See <a href="openapi/xml/struct.Xml.html"><code>Xml</code></a> for more details.</p>
+<h2 id="unnamed-field-struct-optional-configuration-options-for-schema"><a class="doc-anchor" href="#unnamed-field-struct-optional-configuration-options-for-schema">§</a>Unnamed Field Struct Optional Configuration Options for <code>#[schema(...)]</code></h2>
+<ul>
+<li><code>description = ...</code> Can be literal string or Rust expression e.g. <a href="https://doc.rust-lang.org/std/keyword.const.html"><em><code>const</code></em></a> reference or
+<code>include_str!(...)</code> statement. This can be used to override <strong>default</strong> description what is
+resolved from doc comments of the type.</li>
+<li><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></li>
+<li><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each
+<em><code>example</code></em> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>default = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>. If no value
+is specified, and the struct has only one field, the field’s default value in the schema will be
+set from the struct’s [<code>Default</code>] implementation.</li>
+<li><code>format = ...</code> May either be variant of the <a href="openapi/schema/enum.KnownFormat.html"><code>KnownFormat</code></a> enum, or otherwise
+an open value as a string. By default the format is derived from the type of the property
+according OpenApi spec.</li>
+<li><code>value_type = ...</code> Can be used to override default type derived from type of the field used in OpenAPI spec.
+This is useful in cases where the default type does not correspond to the actual type e.g. when
+any third-party types are used which are not <a href="trait.ToSchema.html"><code>ToSchema</code></a>s nor <a href="https://doc.rust-lang.org/std/primitive/index.html"><code>primitive</code> types</a>.
+The value can be any Rust type what normally could be used to serialize to JSON or either virtual type <em><code>Object</code></em>
+or <em><code>Value</code></em>.
+<em><code>Object</code></em> will be rendered as generic OpenAPI object <em>(<code>type: object</code>)</em>.
+<em><code>Value</code></em> will be rendered as any OpenAPI value (i.e. no <code>type</code> restriction).</li>
+<li><code>title = ...</code> Literal string value. Can be used to define title for struct in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+struct.</li>
+<li><code>as = ...</code> Can be used to define alternative path and name for the schema what will be used in
+the OpenAPI. E.g <em><code>as = path::to::Pet</code></em>. This would make the schema appear in the generated
+OpenAPI spec as <em><code>path.to.Pet</code></em>. This same name will be used throughout the OpenAPI generated
+with <code>utoipa</code> when the type is being referenced in <a href="derive.OpenApi.html"><code>OpenApi</code></a> derive macro
+or in <a href="attr.path.html" title="attr utoipa::path"><code>utoipa::path(...)</code></a> macro.</li>
+<li><code>bound = ...</code> Can be used to override default trait bounds on generated <code>impl</code>s.
+See <a href="#generic-schemas">Generic schemas section</a> below for more details.</li>
+<li><code>deprecated</code> Can be used to mark the field as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the field as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</li>
+<li><code>content_encoding = ...</code> Can be used to define content encoding used for underlying schema object.
+See <a href="openapi/schema/struct.Object.html#structfield.content_encoding"><code>Object::content_encoding</code></a></li>
+<li><code>content_media_type = ...</code> Can be used to define MIME type of a string for underlying schema object.
+See <a href="openapi/schema/struct.Object.html#structfield.content_media_type"><code>Object::content_media_type</code></a></li>
+<li><code>no_recursion</code> Is used to break from recursion in case of looping schema tree e.g. <code>Pet</code> -&gt;
+<code>Owner</code> -&gt; <code>Pet</code>. <em><code>no_recursion</code></em> attribute must be used within <code>Ower</code> type not to allow
+recurring into <code>Pet</code>. Failing to do so will cause infinite loop and runtime <strong>panic</strong>.</li>
+</ul>
+<h2 id="enum-optional-configuration-options-for-schema"><a class="doc-anchor" href="#enum-optional-configuration-options-for-schema">§</a>Enum Optional Configuration Options for <code>#[schema(...)]</code></h2><h3 id="plain-enum-having-only-unit-variants-optional-configuration-options-for-schema"><a class="doc-anchor" href="#plain-enum-having-only-unit-variants-optional-configuration-options-for-schema">§</a>Plain Enum having only <code>Unit</code> variants Optional Configuration Options for <code>#[schema(...)]</code></h3>
+<ul>
+<li><code>description = ...</code> Can be literal string or Rust expression e.g. <a href="https://doc.rust-lang.org/std/keyword.const.html"><em><code>const</code></em></a> reference or
+<code>include_str!(...)</code> statement. This can be used to override <strong>default</strong> description what is
+resolved from doc comments of the type.</li>
+<li><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></li>
+<li><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each
+<em><code>example</code></em> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>default = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>title = ...</code> Literal string value. Can be used to define title for enum in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+enum.</li>
+<li><code>rename_all = ...</code> Supports same syntax as <em>serde</em> <em><code>rename_all</code></em> attribute. Will rename all
+variants of the enum accordingly. If both <em>serde</em> <code>rename_all</code> and <em>schema</em> <em><code>rename_all</code></em>
+are defined <strong>serde</strong> will take precedence.</li>
+<li><code>as = ...</code> Can be used to define alternative path and name for the schema what will be used in
+the OpenAPI. E.g <em><code>as = path::to::Pet</code></em>. This would make the schema appear in the generated
+OpenAPI spec as <em><code>path.to.Pet</code></em>. This same name will be used throughout the OpenAPI generated
+with <code>utoipa</code> when the type is being referenced in <a href="derive.OpenApi.html"><code>OpenApi</code></a> derive macro
+or in <a href="attr.path.html" title="attr utoipa::path"><code>utoipa::path(...)</code></a> macro.</li>
+<li><code>bound = ...</code> Can be used to override default trait bounds on generated <code>impl</code>s.
+See <a href="#generic-schemas">Generic schemas section</a> below for more details.</li>
+<li><code>deprecated</code> Can be used to mark the enum as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the enum as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</li>
+</ul>
+<h4 id="plain-enum-variant-optional-configuration-options-for-schema"><a class="doc-anchor" href="#plain-enum-variant-optional-configuration-options-for-schema">§</a>Plain Enum Variant Optional Configuration Options for <code>#[schema(...)]</code></h4>
+<ul>
+<li><code>rename = ...</code> Supports same syntax as <em>serde</em> <em><code>rename</code></em> attribute. Will rename variant
+accordingly. If both <em>serde</em> <code>rename</code> and <em>schema</em> <em><code>rename</code></em> are defined <strong>serde</strong> will take
+precedence. <strong>Note!</strong> <a href="derive.ToSchema.html#repr-attribute-support" title="derive utoipa::ToSchema"><code>Repr enum</code></a> variant does not
+support <em><code>rename</code></em>.</li>
+</ul>
+<h3 id="mixed-enum-optional-configuration-options-for-schema"><a class="doc-anchor" href="#mixed-enum-optional-configuration-options-for-schema">§</a>Mixed Enum Optional Configuration Options for <code>#[schema(...)]</code></h3>
+<ul>
+<li>
+<p><code>description = ...</code> Can be literal string or Rust expression e.g. <a href="https://doc.rust-lang.org/std/keyword.const.html"><em><code>const</code></em></a> reference or
+<code>include_str!(...)</code> statement. This can be used to override <strong>default</strong> description what is
+resolved from doc comments of the type.</p>
+</li>
+<li>
+<p><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></p>
+</li>
+<li>
+<p><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each</p>
+</li>
+<li>
+<p><code>default = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</p>
+</li>
+<li>
+<p><code>title = ...</code> Literal string value. Can be used to define title for enum in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+enum.</p>
+</li>
+<li>
+<p><code>rename_all = ...</code> Supports same syntax as <em>serde</em> <em><code>rename_all</code></em> attribute. Will rename all
+variants of the enum accordingly. If both <em>serde</em> <code>rename_all</code> and <em>schema</em> <em><code>rename_all</code></em>
+are defined <strong>serde</strong> will take precedence.</p>
+</li>
+<li>
+<p><code>as = ...</code> Can be used to define alternative path and name for the schema what will be used in
+the OpenAPI. E.g <em><code>as = path::to::Pet</code></em>. This would make the schema appear in the generated
+OpenAPI spec as <em><code>path.to.Pet</code></em>. This same name will be used throughout the OpenAPI generated
+with <code>utoipa</code> when the type is being referenced in <a href="derive.OpenApi.html"><code>OpenApi</code></a> derive macro
+or in <a href="attr.path.html" title="attr utoipa::path"><code>utoipa::path(...)</code></a> macro.</p>
+</li>
+<li>
+<p><code>bound = ...</code> Can be used to override default trait bounds on generated <code>impl</code>s.
+See <a href="#generic-schemas">Generic schemas section</a> below for more details.</p>
+</li>
+<li>
+<p><code>deprecated</code> Can be used to mark the enum as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the enum as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</p>
+</li>
+<li>
+<p><code>discriminator = ...</code> or <code>discriminator(...)</code> Can be used to define OpenAPI discriminator
+field for enums with single unnamed <em><code>ToSchema</code></em> reference field. See the <a href="derive.ToSchema.html#schemadiscriminator-syntax" title="derive utoipa::ToSchema">discriminator
+syntax</a>.</p>
+</li>
+<li>
+<p><code>no_recursion</code> Is used to break from recursion in case of looping schema tree e.g. <code>Pet</code> -&gt;
+<code>Owner</code> -&gt; <code>Pet</code>. <em><code>no_recursion</code></em> attribute must be used within <code>Ower</code> type not to allow
+recurring into <code>Pet</code>. Failing to do so will cause infinite loop and runtime <strong>panic</strong>. On
+enum level the <em><code>no_recursion</code></em> rule will be applied to all of its variants.</p>
+<h4 id="schemadiscriminator-syntax"><a class="doc-anchor" href="#schemadiscriminator-syntax">§</a><code>#[schema(discriminator)]</code> syntax</h4>
+<p>Discriminator can <strong>only</strong> be used with enums having <strong><code>#[serde(untagged)]</code></strong> attribute and
+each variant must have only one unnamed field schema reference to type implementing
+<em><code>ToSchema</code></em>.</p>
+<p><strong>Simple form <code>discriminator = ...</code></strong></p>
+<p>Can be literal string or expression e.g. <a href="https://doc.rust-lang.org/std/keyword.const.html"><em><code>const</code></em></a> reference. It can be defined as
+<em><code>discriminator = "value"</code></em> where the assigned value is the
+discriminator field that must exists in each variant referencing schema.</p>
+</li>
+</ul>
+<p><strong>Complex form <code>discriminator(...)</code></strong></p>
+<ul>
+<li><code>property_name = ...</code> Can be literal string or expression e.g. <a href="https://doc.rust-lang.org/std/keyword.const.html"><em><code>const</code></em></a> reference.</li>
+<li>mapping <code>key</code> Can be literal string or expression e.g. <a href="https://doc.rust-lang.org/std/keyword.const.html"><em><code>const</code></em></a> reference.</li>
+<li>mapping <code>value</code> Can be literal string or expression e.g. <a href="https://doc.rust-lang.org/std/keyword.const.html"><em><code>const</code></em></a> reference.</li>
+</ul>
+<p>Additionally discriminator can be defined with custom mappings as show below. The <em><code>mapping</code></em>
+values defines <em><strong>key = value</strong></em> pairs where <em><strong>key</strong></em> is the expected value for <em><strong>property_name</strong></em> field
+and <em><strong>value</strong></em> is schema to map.</p>
+<div class="example-wrap"><pre class="language-text"><code>discriminator(property_name = &quot;my_field&quot;, mapping(
+     (&quot;value&quot; = &quot;#/components/schemas/Schema1&quot;),
+     (&quot;value2&quot; = &quot;#/components/schemas/Schema2&quot;)
+))</code></pre></div><h4 id="mixed-enum-named-field-variant-optional-configuration-options-for-serdeschema"><a class="doc-anchor" href="#mixed-enum-named-field-variant-optional-configuration-options-for-serdeschema">§</a>Mixed Enum Named Field Variant Optional Configuration Options for <code>#[serde(schema)]</code></h4>
+<ul>
+<li><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></li>
+<li><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each</li>
+<li><code>default = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>title = ...</code> Literal string value. Can be used to define title for enum variant in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+enum.</li>
+<li><code>xml(...)</code> Can be used to define <a href="openapi/xml/struct.Xml.html"><code>Xml</code></a> object properties applicable to Structs.</li>
+<li><code>rename = ...</code> Supports same syntax as <em>serde</em> <em><code>rename</code></em> attribute. Will rename variant
+accordingly. If both <em>serde</em> <code>rename</code> and <em>schema</em> <em><code>rename</code></em> are defined <strong>serde</strong> will take
+precedence.</li>
+<li><code>rename_all = ...</code> Supports same syntax as <em>serde</em> <em><code>rename_all</code></em> attribute. Will rename all
+variant fields accordingly. If both <em>serde</em> <code>rename_all</code> and <em>schema</em> <em><code>rename_all</code></em>
+are defined <strong>serde</strong> will take precedence.</li>
+<li><code>deprecated</code> Can be used to mark the enum as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the enum as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</li>
+<li><code>max_properties = ...</code> Can be used to define maximum number of properties this struct can
+contain. Value must be a number.</li>
+<li><code>min_properties = ...</code> Can be used to define minimum number of properties this struct can
+contain. Value must be a number.</li>
+<li><code>no_recursion</code> Is used to break from recursion in case of looping schema tree e.g. <code>Pet</code> -&gt;
+<code>Owner</code> -&gt; <code>Pet</code>. <em><code>no_recursion</code></em> attribute must be used within <code>Ower</code> type not to allow
+recurring into <code>Pet</code>. Failing to do so will cause infinite loop and runtime <strong>panic</strong>. On
+named field variant level the <em><code>no_recursion</code></em> rule will be applied to all of its fields.</li>
+</ul>
+<h3 id="mixed-enum-unnamed-field-variant-optional-configuration-options-for-serdeschema"><a class="doc-anchor" href="#mixed-enum-unnamed-field-variant-optional-configuration-options-for-serdeschema">§</a>Mixed Enum Unnamed Field Variant Optional Configuration Options for <code>#[serde(schema)]</code></h3>
+<ul>
+<li><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></li>
+<li><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each
+<em><code>example</code></em> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>default = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>title = ...</code> Literal string value. Can be used to define title for enum variant in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+struct.</li>
+<li><code>rename = ...</code> Supports same syntax as <em>serde</em> <em><code>rename</code></em> attribute. Will rename variant
+accordingly. If both <em>serde</em> <code>rename</code> and <em>schema</em> <em><code>rename</code></em> are defined <strong>serde</strong> will take
+precedence.</li>
+<li><code>format = ...</code> May either be variant of the <a href="openapi/schema/enum.KnownFormat.html"><code>KnownFormat</code></a> enum, or otherwise
+an open value as a string. By default the format is derived from the type of the property
+according OpenApi spec.</li>
+<li><code>value_type = ...</code> Can be used to override default type derived from type of the field used in OpenAPI spec.
+This is useful in cases where the default type does not correspond to the actual type e.g. when
+any third-party types are used which are not <a href="trait.ToSchema.html"><code>ToSchema</code></a>s nor <a href="https://doc.rust-lang.org/std/primitive/index.html"><code>primitive</code> types</a>.
+The value can be any Rust type what normally could be used to serialize to JSON or either virtual type <em><code>Object</code></em>
+or <em><code>Value</code></em>.
+<em><code>Object</code></em> will be rendered as generic OpenAPI object <em>(<code>type: object</code>)</em>.
+<em><code>Value</code></em> will be rendered as any OpenAPI value (i.e. no <code>type</code> restriction).</li>
+<li><code>deprecated</code> Can be used to mark the field as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the field as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</li>
+<li><code>no_recursion</code> Is used to break from recursion in case of looping schema tree e.g. <code>Pet</code> -&gt;
+<code>Owner</code> -&gt; <code>Pet</code>. <em><code>no_recursion</code></em> attribute must be used within <code>Ower</code> type not to allow
+recurring into <code>Pet</code>. Failing to do so will cause infinite loop and runtime <strong>panic</strong>.</li>
+</ul>
+<h5 id="mixed-enum-unnamed-field-variants-field-configuration-options"><a class="doc-anchor" href="#mixed-enum-unnamed-field-variants-field-configuration-options">§</a>Mixed Enum Unnamed Field Variant’s Field Configuration Options</h5>
+<ul>
+<li>
+<p><code>inline</code> If the type of this field implements <a href="trait.ToSchema.html"><code>ToSchema</code></a>, then the schema definition
+will be inlined. <strong>warning:</strong> Don’t use this for recursive data types!</p>
+<p><strong>Note!</strong><br>Using <code>inline</code> with generic arguments might lead to incorrect spec generation.
+This is due to the fact that during compilation we cannot know how to treat the generic
+argument and there is difference whether it is a primitive type or another generic type.</p>
+<p><em><strong>Inline unnamed field variant schemas.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[derive(ToSchema)]
+ </span><span class="kw">enum </span>Card {
+     Number(<span class="attr">#[schema(inline)] </span>Number),
+     Color(<span class="attr">#[schema(inline)] </span>Color),
+ }</code></pre></div></li>
+</ul>
+<h3 id="mixed-enum-unit-field-variant-optional-configuration-options-for-serdeschema"><a class="doc-anchor" href="#mixed-enum-unit-field-variant-optional-configuration-options-for-serdeschema">§</a>Mixed Enum Unit Field Variant Optional Configuration Options for <code>#[serde(schema)]</code></h3>
+<ul>
+<li><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></li>
+<li><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each
+<em><code>example</code></em> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>title = ...</code> Literal string value. Can be used to define title for enum variant in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+struct.</li>
+<li><code>rename = ...</code> Supports same syntax as <em>serde</em> <em><code>rename</code></em> attribute. Will rename variant
+accordingly. If both <em>serde</em> <code>rename</code> and <em>schema</em> <em><code>rename</code></em> are defined <strong>serde</strong> will take
+precedence.</li>
+<li><code>deprecated</code> Can be used to mark the field as deprecated in the generated OpenAPI spec but
+not in the code. If you’d like to mark the field as deprecated in the code as well use
+Rust’s own <code>#[deprecated]</code> attribute instead.</li>
+</ul>
+<h2 id="partial-serde-attributes-support"><a class="doc-anchor" href="#partial-serde-attributes-support">§</a>Partial <code>#[serde(...)]</code> attributes support</h2>
+<p>ToSchema derive has partial support for <a href="https://serde.rs/attributes.html">serde attributes</a>. These supported attributes will reflect to the
+generated OpenAPI doc. For example if <em><code>#[serde(skip)]</code></em> is defined the attribute will not show up in the OpenAPI spec at all since it will not never
+be serialized anyway. Similarly the <em><code>rename</code></em> and <em><code>rename_all</code></em> will reflect to the generated OpenAPI doc.</p>
+<ul>
+<li><code>rename_all = "..."</code> Supported at the container level.</li>
+<li><code>rename = "..."</code> Supported <strong>only</strong> at the field or variant level.</li>
+<li><code>skip = "..."</code> Supported  <strong>only</strong> at the field or variant level.</li>
+<li><code>skip_serializing = "..."</code> Supported  <strong>only</strong> at the field or variant level.</li>
+<li><code>skip_deserializing = "..."</code> Supported  <strong>only</strong> at the field or variant level.</li>
+<li><code>skip_serializing_if = "..."</code> Supported  <strong>only</strong> at the field level.</li>
+<li><code>with = ...</code> Supported <strong>only at field level.</strong></li>
+<li><code>tag = "..."</code> Supported at the container level.</li>
+<li><code>content = "..."</code> Supported at the container level, allows <a href="https://serde.rs/enum-representations.html#adjacently-tagged">adjacently-tagged enums</a>.
+This attribute requires that a <code>tag</code> is present, otherwise serde will trigger a compile-time
+failure.</li>
+<li><code>untagged</code> Supported at the container level. Allows <a href="https://serde.rs/enum-representations.html#untagged">untagged
+enum representation</a>.</li>
+<li><code>default</code> Supported at the container level and field level according to <a href="https://serde.rs/attributes.html">serde attributes</a>.</li>
+<li><code>deny_unknown_fields</code> Supported at the container level.</li>
+<li><code>flatten</code> Supported at the field level.</li>
+</ul>
+<p>Other <em><code>serde</code></em> attributes works as is but does not have any effect on the generated OpenAPI doc.</p>
+<p><strong>Note!</strong> <code>tag</code> attribute has some limitations like it cannot be used with <strong>tuple types</strong>. See more at
+<a href="https://serde.rs/enum-representations.html">enum representation docs</a>.</p>
+<p><strong>Note!</strong> <code>with</code> attribute is used in tandem with <a href="https://github.com/jonasbb/serde_with">serde_with</a> to recognize
+<em><a href="https://docs.rs/serde_with/latest/serde_with/rust/double_option/index.html"><code>double_option</code></a></em> from <strong>field value</strong>.
+<em><code>double_option</code></em> is <strong>only</strong> supported attribute from <em><code>serde_with</code></em> crate.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Serialize, ToSchema)]
+</span><span class="kw">struct </span>Foo(String);
+
+<span class="attr">#[derive(Serialize, ToSchema)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+</span><span class="kw">enum </span>Bar {
+    UnitValue,
+    <span class="attr">#[serde(rename_all = <span class="string">"camelCase"</span>)]
+    </span>NamedFields {
+        <span class="attr">#[serde(rename = <span class="string">"id"</span>)]
+        </span>named_id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+        name_list: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;
+    },
+    UnnamedFields(Foo),
+    <span class="attr">#[serde(skip)]
+    </span>SkipMe,
+}</code></pre></div>
+<p><em><strong>Add custom <code>tag</code> to change JSON representation to be internally tagged.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Serialize, ToSchema)]
+</span><span class="kw">struct </span>Foo(String);
+
+<span class="attr">#[derive(Serialize, ToSchema)]
+#[serde(tag = <span class="string">"tag"</span>)]
+</span><span class="kw">enum </span>Bar {
+    UnitValue,
+    NamedFields {
+        id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+        names: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;
+    },
+}</code></pre></div>
+<p><em><strong>Add serde <code>default</code> attribute for MyValue struct. Similarly <code>default</code> could be added to
+individual fields as well. If <code>default</code> is given the field’s affected will be treated
+as optional.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[derive(utoipa::ToSchema, serde::Deserialize, Default)]
+ #[serde(default)]
+ </span><span class="kw">struct </span>MyValue {
+     field: String
+ }</code></pre></div><h2 id="repr-attribute-support"><a class="doc-anchor" href="#repr-attribute-support">§</a><code>#[repr(...)]</code> attribute support</h2>
+<p><a href="https://github.com/dtolnay/serde-repr">Serde repr</a> allows field-less enums be represented by
+their numeric value.</p>
+<ul>
+<li><code>repr(u*)</code> for unsigned integer.</li>
+<li><code>repr(i*)</code> for signed integer.</li>
+</ul>
+<p><strong>Supported schema attributes</strong></p>
+<ul>
+<li><code>example = ...</code> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.
+<strong>Deprecated since OpenAPI 3.0, using <code>examples</code> is preferred instead.</strong></li>
+<li><code>examples(..., ...)</code> Comma separated list defining multiple <em><code>examples</code></em> for the schema. Each
+<em><code>example</code></em> Can be any value e.g. literal, method reference or <em><code>json!(...)</code></em>.</li>
+<li><code>title = ...</code> Literal string value. Can be used to define title for enum in OpenAPI
+document. Some OpenAPI code generation libraries also use this field as a name for the
+struct.</li>
+<li><code>as = ...</code> Can be used to define alternative path and name for the schema what will be used in
+the OpenAPI. E.g <em><code>as = path::to::Pet</code></em>. This would make the schema appear in the generated
+OpenAPI spec as <em><code>path.to.Pet</code></em>. This same name will be used throughout the OpenAPI generated
+with <code>utoipa</code> when the type is being referenced in <a href="derive.OpenApi.html"><code>OpenApi</code></a> derive macro
+or in <a href="attr.path.html" title="attr utoipa::path"><code>utoipa::path(...)</code></a> macro.</li>
+</ul>
+<p><em><strong>Create enum with numeric values.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+#[repr(u8)]
+#[schema(default = default_value, example = <span class="number">2</span>)]
+</span><span class="kw">enum </span>Mode {
+    One = <span class="number">1</span>,
+    Two,
+ }
+
+<span class="kw">fn </span>default_value() -&gt; u8 {
+    <span class="number">1
+</span>}</code></pre></div>
+<p><em><strong>You can use <code>skip</code> and <code>tag</code> attributes from serde.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema, serde::Serialize)]
+#[repr(i8)]
+#[serde(tag = <span class="string">"code"</span>)]
+</span><span class="kw">enum </span>ExitCode {
+    Error = -<span class="number">1</span>,
+    <span class="attr">#[serde(skip)]
+    </span>Unknown = <span class="number">0</span>,
+    <span class="prelude-val">Ok </span>= <span class="number">1</span>,
+ }</code></pre></div><h2 id="generic-schemas"><a class="doc-anchor" href="#generic-schemas">§</a>Generic schemas</h2>
+<p>Utoipa supports full set of deeply nested generics as shown below. The type will implement
+<a href="trait.ToSchema.html"><code>ToSchema</code></a> if and only if all the generic types implement <code>ToSchema</code> by default.
+That is in Rust <code>impl&lt;T&gt; ToSchema for MyType&lt;T&gt; where T: Schema { ... }</code>.
+You can also specify <code>bound = ...</code> on the item to override the default auto bounds.</p>
+<p>The <em><code>as = ...</code></em> attribute is used to define the prefixed or alternative name for the component
+in question. This same name will be used throughout the OpenAPI generated with <code>utoipa</code> when
+the type is being referenced in <a href="derive.OpenApi.html"><code>OpenApi</code></a> derive macro or in <a href="attr.path.html" title="attr utoipa::path"><code>utoipa::path(...)</code></a> macro.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[derive(ToSchema)]
+ #[schema(<span class="kw">as </span>= path::MyType&lt;T&gt;)]
+ </span><span class="kw">struct </span>Type&lt;T&gt; {
+     t: T,
+ }
+
+ <span class="attr">#[derive(ToSchema)]
+ </span><span class="kw">struct </span>Person&lt;<span class="lifetime">'p</span>, T: Sized, P&gt; {
+     id: usize,
+     name: <span class="prelude-ty">Option</span>&lt;Cow&lt;<span class="lifetime">'p</span>, str&gt;&gt;,
+     field: T,
+     t: P,
+ }
+
+ <span class="attr">#[derive(ToSchema)]
+ #[schema(<span class="kw">as </span>= path::to::PageList)]
+ </span><span class="kw">struct </span>Page&lt;T&gt; {
+     total: usize,
+     page: usize,
+     pages: usize,
+     items: Vec&lt;T&gt;,
+ }
+
+ <span class="attr">#[derive(ToSchema)]
+ #[schema(<span class="kw">as </span>= path::to::Element&lt;T&gt;)]
+ </span><span class="kw">enum </span>E&lt;T&gt; {
+     One(T),
+     Many(Vec&lt;T&gt;),
+ }</code></pre></div>
+<p>When generic types are registered to the <code>OpenApi</code> the full type declaration must be provided.
+See the full example in test <a href="https://github.com/juhaku/utoipa/blob/master/utoipa-gen/tests/schema_generics.rs">schema_generics.rs</a></p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p><em><strong>Simple example of a Pet with descriptions and object level example.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="doccomment">/// This is a pet.
+</span><span class="attr">#[derive(ToSchema)]
+#[schema(example = <span class="macro">json!</span>({<span class="string">"name"</span>: <span class="string">"bob the cat"</span>, <span class="string">"id"</span>: <span class="number">0</span>}))]
+</span><span class="kw">struct </span>Pet {
+    <span class="doccomment">/// Unique id of a pet.
+    </span>id: u64,
+    <span class="doccomment">/// Name of a pet.
+    </span>name: String,
+    <span class="doccomment">/// Age of a pet if known.
+    </span>age: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+}</code></pre></div>
+<p><em><strong>The <code>schema</code> attribute can also be placed at field level as follows.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">struct </span>Pet {
+    <span class="attr">#[schema(example = <span class="number">1</span>, default = <span class="number">0</span>)]
+    </span>id: u64,
+    name: String,
+    age: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+}</code></pre></div>
+<p><em><strong>You can also use method reference for attribute values.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">struct </span>Pet {
+    <span class="attr">#[schema(example = u64::default, default = u64::default)]
+    </span>id: u64,
+    <span class="attr">#[schema(default = default_name)]
+    </span>name: String,
+    age: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+}
+
+<span class="kw">fn </span>default_name() -&gt; String {
+    <span class="string">"bob"</span>.to_string()
+}</code></pre></div>
+<p><em><strong>For enums and unnamed field structs you can define <code>schema</code> at type level.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+#[schema(example = <span class="string">"Bus"</span>)]
+</span><span class="kw">enum </span>VehicleType {
+    Rocket, Car, Bus, Submarine
+}</code></pre></div>
+<p><em><strong>Also you write mixed enum combining all above types.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">enum </span>ErrorResponse {
+    InvalidCredentials,
+    <span class="attr">#[schema(default = String::default, example = <span class="string">"Pet not found"</span>)]
+    </span>NotFound(String),
+    System {
+        <span class="attr">#[schema(example = <span class="string">"Unknown system failure"</span>)]
+        </span>details: String,
+    }
+}</code></pre></div>
+<p><em><strong>It is possible to specify the title of each variant to help generators create named structures.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">enum </span>ErrorResponse {
+    <span class="attr">#[schema(title = <span class="string">"InvalidCredentials"</span>)]
+    </span>InvalidCredentials,
+    <span class="attr">#[schema(title = <span class="string">"NotFound"</span>)]
+    </span>NotFound(String),
+}</code></pre></div>
+<p><em><strong>Use <code>xml</code> attribute to manipulate xml output.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+#[schema(xml(name = <span class="string">"user"</span>, prefix = <span class="string">"u"</span>, namespace = <span class="string">"https://user.xml.schema.test"</span>))]
+</span><span class="kw">struct </span>User {
+    <span class="attr">#[schema(xml(attribute, prefix = <span class="string">"u"</span>))]
+    </span>id: i64,
+    <span class="attr">#[schema(xml(name = <span class="string">"user_name"</span>, prefix = <span class="string">"u"</span>))]
+    </span>username: String,
+    <span class="attr">#[schema(xml(wrapped(name = <span class="string">"linkList"</span>), name = <span class="string">"link"</span>))]
+    </span>links: Vec&lt;String&gt;,
+    <span class="attr">#[schema(xml(wrapped, name = <span class="string">"photo_url"</span>))]
+    </span>photos_urls: Vec&lt;String&gt;
+}</code></pre></div>
+<p><em><strong>Use of Rust’s own <code>#[deprecated]</code> attribute will reflect to generated OpenAPI spec.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+#[deprecated]
+</span><span class="kw">struct </span>User {
+    id: i64,
+    username: String,
+    links: Vec&lt;String&gt;,
+    <span class="attr">#[deprecated]
+    </span>photos_urls: Vec&lt;String&gt;
+}</code></pre></div>
+<p><em><strong>Enforce type being used in OpenAPI spec to [<code>String</code>] with <code>value_type</code> and set format to octet stream
+with <a href="openapi/schema/enum.KnownFormat.html#variant.Binary"><code>SchemaFormat::KnownFormat(KnownFormat::Binary)</code></a>.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">struct </span>Post {
+    id: i32,
+    <span class="attr">#[schema(value_type = String, format = Binary)]
+    </span>value: Vec&lt;u8&gt;,
+}</code></pre></div>
+<p><em><strong>Enforce type being used in OpenAPI spec to [<code>String</code>] with <code>value_type</code> option.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+#[schema(value_type = String)]
+</span><span class="kw">struct </span>Value(i64);</code></pre></div>
+<p><em><strong>Override the <code>Bar</code> reference with a <code>custom::NewBar</code> reference.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">struct </span>Value {
+    <span class="attr">#[schema(value_type = custom::NewBar)]
+    </span>field: Bar,
+};</code></pre></div>
+<p><em><strong>Use a virtual <code>Object</code> type to render generic <code>object</code> <em>(<code>type: object</code>)</em> in OpenAPI spec.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">struct </span>Value {
+    <span class="attr">#[schema(value_type = Object)]
+    </span>field: Bar,
+};</code></pre></div>
+<p>More examples for <em><code>value_type</code></em> in <a href="derive.IntoParams.html"><code>IntoParams</code> derive docs</a>.</p>
+<p><em><strong>Serde <code>rename</code> / <code>rename_all</code> will take precedence over schema <code>rename</code> / <code>rename_all</code>.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToSchema, serde::Deserialize)]
+#[serde(rename_all = <span class="string">"lowercase"</span>)]
+#[schema(rename_all = <span class="string">"UPPERCASE"</span>)]
+</span><span class="kw">enum </span>Random {
+    <span class="attr">#[serde(rename = <span class="string">"string_value"</span>)]
+    #[schema(rename = <span class="string">"custom_value"</span>)]
+    </span>String(String),
+
+    Number {
+        id: i32,
+    }
+}</code></pre></div>
+<p><em><strong>Add <code>title</code> to the enum.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToSchema)]
+#[schema(title = <span class="string">"UserType"</span>)]
+</span><span class="kw">enum </span>UserType {
+    Admin,
+    Moderator,
+    User,
+}</code></pre></div>
+<p><em><strong>Example with validation attributes.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToSchema)]
+</span><span class="kw">struct </span>Item {
+    <span class="attr">#[schema(maximum = <span class="number">10</span>, minimum = <span class="number">5</span>, multiple_of = <span class="number">2.5</span>)]
+    </span>id: i32,
+    <span class="attr">#[schema(max_length = <span class="number">10</span>, min_length = <span class="number">5</span>, pattern = <span class="string">"[a-z]*"</span>)]
+    </span>value: String,
+    <span class="attr">#[schema(max_items = <span class="number">5</span>, min_items = <span class="number">1</span>)]
+    </span>items: Vec&lt;String&gt;,
+}</code></pre></div>
+<p><em><strong>Use <code>schema_with</code> to manually implement schema for a field.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>custom_type() -&gt; Object {
+    ObjectBuilder::new()
+        .schema_type(utoipa::openapi::schema::Type::String)
+        .format(<span class="prelude-val">Some</span>(utoipa::openapi::SchemaFormat::Custom(
+            <span class="string">"email"</span>.to_string(),
+        )))
+        .description(<span class="prelude-val">Some</span>(<span class="string">"this is the description"</span>))
+        .build()
+}
+
+<span class="attr">#[derive(utoipa::ToSchema)]
+</span><span class="kw">struct </span>Value {
+    <span class="attr">#[schema(schema_with = custom_type)]
+    </span>id: String,
+}</code></pre></div>
+<p><em><strong>Use <code>as</code> attribute to change the name and the path of the schema in the generated OpenAPI
+spec.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[derive(utoipa::ToSchema)]
+ #[schema(<span class="kw">as </span>= api::models::person::Person)]
+ </span><span class="kw">struct </span>Person {
+     name: String,
+ }</code></pre></div>
+<p><em><strong>Use <code>bound</code> attribute to override the default impl bounds.</strong></em></p>
+<p><code>bound = ...</code> accepts a string containing zero or more where-predicates separated by comma, as
+the similar syntax to <a href="https://serde.rs/container-attrs.html#bound"><code>serde(bound = ...)</code></a>.
+If <code>bound = ...</code> exists, the default auto bounds (requiring all generic types to implement
+<code>ToSchema</code>) will not be applied anymore, and only the specified predicates are added to the
+<code>where</code> clause of generated <code>impl</code> blocks.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Override the default bounds to only require `T: ToSchema`, ignoring unused `U`.
+</span><span class="attr">#[derive(utoipa::ToSchema, serde::Serialize)]
+#[schema(bound = <span class="string">"T: utoipa::ToSchema"</span>)]
+</span><span class="kw">struct </span>Partial&lt;T, U&gt; {
+    used_in_api: T,
+    <span class="attr">#[serde(skip)]
+    </span>not_in_api: std::marker::PhantomData&lt;U&gt;,
+}
+
+<span class="comment">// Just remove the auto-bounds. So we got `Unused&lt;T&gt;: ToSchema` for any `T`.
+</span><span class="attr">#[derive(utoipa::ToSchema, serde::Serialize)]
+#[schema(bound = <span class="string">""</span>)]
+</span><span class="kw">struct </span>Unused&lt;T&gt; {
+    <span class="attr">#[serde(skip)]
+    </span>_marker: std::marker::PhantomData&lt;T&gt;,
+}</code></pre></div>
+<p><em><strong>Use <code>no_recursion</code> attribute to break from looping schema tree e.g. <code>Pet</code> -&gt; <code>Owner</code> -&gt;
+<code>Pet</code>.</strong></em></p>
+<p><code>no_recursion</code> attribute can be provided on named field of a struct, on unnamed struct or unnamed
+enum variant. It must be provided in case of looping schema tree in order to stop recursion.
+Failing to do so will cause runtime <strong>panic</strong>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">pub struct </span>Pet {
+    name: String,
+    owner: Owner,
+}
+
+<span class="attr">#[derive(ToSchema)]
+</span><span class="kw">pub struct </span>Owner {
+    name: String,
+    <span class="attr">#[schema(no_recursion)]
+    </span>pets: Vec&lt;Pet&gt;,
+}</code></pre></div></div></details></section></div></main></body></html>

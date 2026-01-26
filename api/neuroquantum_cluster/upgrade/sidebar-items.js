@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UpgradeStatus"],"fn":["canary_upgrade"],"struct":["UpgradeCoordinator","UpgradeProgress"]};

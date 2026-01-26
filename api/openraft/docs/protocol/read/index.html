@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Read Operations"><title>openraft::docs::protocol::read - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module read</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module read</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#read-operations" title="Read Operations">Read Operations</a><ul><li><a href="#ensuring-linearizability" title="Ensuring linearizability">Ensuring linearizability</a></li><li><a href="#examples" title="Examples">Examples</a></li><li><a href="#ensuring-linearizability-with-read_log_id" title="Ensuring Linearizability with `read_log_id`">Ensuring Linearizability with <code>read_log_id</code></a></li><li><a href="#ensuring-linearizability-with-read_index" title="Ensuring Linearizability with `read_index`">Ensuring Linearizability with <code>read_index</code></a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>protocol</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">protocol</a></div><h1>Module <span>read</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/protocol/mod.rs.html#3">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="read-operations"><a class="doc-anchor" href="#read-operations">§</a>Read Operations</h2>
+<p>Read operations within a Raft cluster are guaranteed to be linearizable.</p>
+<p>This ensures that for any two read operations,
+<code>A</code> and <code>B</code>, if <code>B</code> occurs after <code>A</code> by wall clock time,
+then <code>B</code> will observe the same state as <code>A</code> or any subsequent state changes made by <code>A</code>,
+regardless of which node within the cluster each operation is performed on.</p>
+<p>In Openraft <code>read_index</code> is the same as the <code>read_index</code> in the original raft paper.
+Openraft also use <code>read_log_id</code> instead of <code>read_index</code>.</p>
+<h3 id="ensuring-linearizability"><a class="doc-anchor" href="#ensuring-linearizability">§</a>Ensuring linearizability</h3>
+<p>To ensure linearizability, read operations must perform a <a href="../../../raft/struct.Raft.html#method.get_read_log_id" title="method openraft::raft::Raft::get_read_log_id"><code>get_read_log_id()</code></a> operation on the leader before proceeding.</p>
+<p>This method confirms that this node is the leader at the time of invocation by sending heartbeats to a quorum of followers, and returns <code>(read_log_id, last_applied_log_id)</code>:</p>
+<ul>
+<li><code>read_log_id</code> represents the log id up to which the state machine should apply to ensure a
+linearizable read,</li>
+<li><code>last_applied_log_id</code> is the last applied log id.</li>
+</ul>
+<p>The caller then wait for <code>last_applied_log_id</code> to catch up <code>read_log_id</code>, which can be done by subscribing to <a href="../../../raft/struct.Raft.html#method.metrics" title="method openraft::raft::Raft::metrics"><code>Raft::metrics</code></a>,
+and at last, proceed with the state machine read.</p>
+<p>The above steps are encapsulated in the <a href="../../../raft/struct.Raft.html#method.ensure_linearizable" title="method openraft::raft::Raft::ensure_linearizable"><code>ensure_linearizable()</code></a> method.</p>
+<h3 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>my_raft.ensure_linearizable().<span class="kw">await</span><span class="question-mark">?</span>;
+proceed_with_state_machine_read();</code></pre></div>
+<p>The above snippet does the same as the following:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>(read_log_id, applied) = <span class="self">self</span>.get_read_log_id().<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="kw">if </span>read_log_id.index() &gt; applied.index() {
+    <span class="self">self</span>.wait(<span class="prelude-val">None</span>).applied_index_at_least(read_log_id.index(), <span class="string">""</span>).<span class="kw">await</span><span class="question-mark">?
+</span>}
+
+proceed_with_state_machine_read();</code></pre></div>
+<p>The comparison <code>read_log_id &gt; applied_log_id</code> would also be valid in the above example.</p>
+<h3 id="ensuring-linearizability-with-read_log_id"><a class="doc-anchor" href="#ensuring-linearizability-with-read_log_id">§</a>Ensuring Linearizability with <code>read_log_id</code></h3>
+<p>The <code>read_log_id</code> is determined as the maximum of the <code>last_committed_log_id</code> and the
+log id of the first log entry in the current leader’s term (the “blank” log entry).</p>
+<p>Assumes another earlier read operation reads from state machine with up to log id <code>A</code>.
+Since the leader has all committed entries up to its initial blank log entry,
+we have: <code>read_log_id &gt;= A</code>.</p>
+<p>When the <code>last_applied_log_id</code> meets or exceeds <code>read_log_id</code>,
+the state machine contains all state upto <code>A</code>. Therefore, a linearizable read is assured
+when <code>last_applied_log_id &gt;= read_log_id</code>.</p>
+<h3 id="ensuring-linearizability-with-read_index"><a class="doc-anchor" href="#ensuring-linearizability-with-read_index">§</a>Ensuring Linearizability with <code>read_index</code></h3>
+<p>And it is also legal by comparing <code>last_applied_log_id.index() &gt;= read_log_id.index()</code>
+due to the guarantee that committed logs will not be lost.</p>
+<p>Since a previous read could only have observed committed logs, and <code>read_log_id.index()</code> is
+at least as large as any committed log, once <code>last_applied_log_id.index() &gt;= read_log_id.index()</code>, the state machine is assured to reflect all entries seen by any past read.</p>
+</div></details></section></div></main></body></html>

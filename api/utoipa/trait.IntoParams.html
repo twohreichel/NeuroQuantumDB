@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait used to convert implementing type to OpenAPI parameters."><title>IntoParams in utoipa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">IntoParams</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa/index.html">utoipa</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Into<wbr>Params</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#examples" title="Examples">Examples</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.into_params" title="into_params">into_params</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa</a></div><h1>Trait <span class="trait">Into<wbr>Params</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa/lib.rs.html#1108-1114">Source</a> </span></div><pre class="rust item-decl"><code>pub trait IntoParams {
+    // Required method
+    fn <a href="#tymethod.into_params" class="fn">into_params</a>(
+        parameter_in_provider: impl <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="openapi/path/enum.ParameterIn.html" title="enum utoipa::openapi::path::ParameterIn">ParameterIn</a>&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="openapi/path/struct.Parameter.html" title="struct utoipa::openapi::path::Parameter">Parameter</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait used to convert implementing type to OpenAPI parameters.</p>
+<p>This trait is <a href="derive.IntoParams.html">derivable</a> for structs which are used to describe <code>path</code> or <code>query</code> parameters.
+For more details of <code>#[derive(IntoParams)]</code> refer to <a href="derive.IntoParams.html">derive documentation</a>.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p>Derive <a href="trait.IntoParams.html" title="trait utoipa::IntoParams"><code>IntoParams</code></a> implementation. This example will fail to compile because <a href="trait.IntoParams.html" title="trait utoipa::IntoParams"><code>IntoParams</code></a> cannot
+be used alone and it need to be used together with endpoint using the params as well. See
+<a href="derive.IntoParams.html">derive documentation</a> for more details.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>utoipa::{IntoParams};
+
+<span class="attr">#[derive(IntoParams)]
+</span><span class="kw">struct </span>PetParams {
+    <span class="doccomment">/// Id of pet
+    </span>id: i64,
+    <span class="doccomment">/// Name of pet
+    </span>name: String,
+}</code></pre></div>
+<p>Roughly equal manual implementation of <a href="trait.IntoParams.html" title="trait utoipa::IntoParams"><code>IntoParams</code></a> trait.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>utoipa::IntoParams <span class="kw">for </span>PetParams {
+    <span class="kw">fn </span>into_params(
+        parameter_in_provider: <span class="kw">impl </span>Fn() -&gt; <span class="prelude-ty">Option</span>&lt;utoipa::openapi::path::ParameterIn&gt;
+    ) -&gt; Vec&lt;utoipa::openapi::path::Parameter&gt; {
+        <span class="macro">vec!</span>[
+            utoipa::openapi::path::ParameterBuilder::new()
+                .name(<span class="string">"id"</span>)
+                .required(utoipa::openapi::Required::True)
+                .parameter_in(parameter_in_provider().unwrap_or_default())
+                .description(<span class="prelude-val">Some</span>(<span class="string">"Id of pet"</span>))
+                .schema(<span class="prelude-val">Some</span>(
+                    utoipa::openapi::ObjectBuilder::new()
+                        .schema_type(utoipa::openapi::schema::Type::Integer)
+                        .format(<span class="prelude-val">Some</span>(utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::Int64))),
+                ))
+                .build(),
+            utoipa::openapi::path::ParameterBuilder::new()
+                .name(<span class="string">"name"</span>)
+                .required(utoipa::openapi::Required::True)
+                .parameter_in(parameter_in_provider().unwrap_or_default())
+                .description(<span class="prelude-val">Some</span>(<span class="string">"Name of pet"</span>))
+                .schema(<span class="prelude-val">Some</span>(
+                    utoipa::openapi::ObjectBuilder::new()
+                        .schema_type(utoipa::openapi::schema::Type::String),
+                ))
+                .build(),
+        ]
+    }
+}</code></pre></div></div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.into_params" class="method"><a class="src rightside" href="../src/utoipa/lib.rs.html#1111-1113">Source</a><h4 class="code-header">fn <a href="#tymethod.into_params" class="fn">into_params</a>(
+    parameter_in_provider: impl <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="openapi/path/enum.ParameterIn.html" title="enum utoipa::openapi::path::ParameterIn">ParameterIn</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="openapi/path/struct.Parameter.html" title="struct utoipa::openapi::path::Parameter">Parameter</a>&gt;</h4></section></summary><div class="docblock"><p>Provide <a href="https://doc.rust-lang.org/1.91.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec"><code>Vec</code></a> of <a href="openapi/path/struct.Parameter.html" title="struct utoipa::openapi::path::Parameter"><code>openapi::path::Parameter</code></a>s to caller. The result is used in <code>utoipa-gen</code> library to
+provide OpenAPI parameter information for the endpoint using the parameters.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.91.1/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/utoipa/trait.IntoParams.js" async></script></section></div></main></body></html>

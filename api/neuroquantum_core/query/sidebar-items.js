@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OptimizationSuggestionType","QueryType","SuggestedIndexType"],"struct":["NeuromorphicQueryProcessor","OptimizationSuggestion","Query","QueryCondition","QueryResult","QueryStatistics"]};

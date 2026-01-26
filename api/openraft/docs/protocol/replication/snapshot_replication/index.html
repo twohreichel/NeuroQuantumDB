@@ -1,0 +1,106 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Snapshot-Based Replication"><title>openraft::docs::protocol::replication::snapshot_replication - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module snapshot_replication</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module snapshot_<wbr>replication</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#snapshot-based-replication" title="Snapshot-Based Replication">Snapshot-Based Replication</a><ul><li><a href="#1-snapshot-log-conditions" title="1. Snapshot-Log conditions">1. Snapshot-Log conditions</a></li><li><a href="#2-install-snapshot" title="2. Install Snapshot">2. Install Snapshot</a></li><li><a href="#3-purge-logs" title="3. Purge Logs">3. Purge Logs</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>protocol::<wbr>replication</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../index.html">openraft</a>::<wbr><a href="../../../index.html">docs</a>::<wbr><a href="../../index.html">protocol</a>::<wbr><a href="../index.html">replication</a></div><h1>Module <span>snapshot_<wbr>replication</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../../src/openraft/docs/protocol/mod.rs.html#18">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="snapshot-based-replication"><a class="doc-anchor" href="#snapshot-based-replication">§</a>Snapshot-Based Replication</h2>
+<p>Snapshot replication can be considered a special type of log replication: it
+replicates all <strong>committed</strong> logs from index 0 to a specified index, similar to
+the append-entry process, it removes conflicting logs, before installing a
+snapshot:</p>
+<ul>
+<li>
+<p>(1) If the snapshot’s logs match the logs already stored on a
+Follower/Learner, no action is taken before installing snapshot.</p>
+</li>
+<li>
+<p>(2) If the snapshot’s logs conflict with the local logs, <strong>ALL</strong> non-committed
+logs will be removed before installing snapshot. Additionally, the
+membership roll must be rolled back to a previous, non-conflicting state.</p>
+</li>
+</ul>
+<p>After truncating conflicting logs, the snapshot is installed.
+The final step is to purge logs the snapshot contains.</p>
+<h3 id="1-snapshot-log-conditions"><a class="doc-anchor" href="#1-snapshot-log-conditions">§</a>1. Snapshot-Log conditions</h3>
+<p>There are four cases when a snapshot is about to install on a Follower/Learner:</p>
+<ol>
+<li>Snapshot before <code>last_purged</code> log index:</li>
+</ol>
+<p>This won’t happen, because the snapshot last log id is smaller than the
+committed log id: <code>snapshot.last_log_id &lt; last_purged &lt;= committed_log_id</code></p>
+<div class="example-wrap"><pre class="language-text"><code>     snapshot ----.
+                  v
+-----------------------llllllllll---&gt;</code></pre></div>
+<ol start="2">
+<li>Snapshot last log id matches the local last log id:</li>
+</ol>
+<p>No action needed before installing snapshot.</p>
+<div class="example-wrap"><pre class="language-text"><code>     snapshot ----.
+                  v
+--------------llllllllll------------&gt;</code></pre></div>
+<ol start="3">
+<li>Snapshot last log id conflicts the local last log id:</li>
+</ol>
+<p>Delete all non-committed logs then install snapshot.</p>
+<div class="example-wrap"><pre class="language-text"><code>     snapshot ----.
+                  v
+--------------lllxxxxxxx------------&gt;</code></pre></div>
+<ol start="4">
+<li>Snapshot last log id is after local last log id:</li>
+</ol>
+<p>Delete all non-committed logs then install snapshot.
+Because any log before snapshot.last_log_id are committed(store on a quorum),
+thus are safe to delete.</p>
+<div class="example-wrap"><pre class="language-text"><code>     snapshot ----.
+                  v
+----lllllllllll---------------------&gt;</code></pre></div>
+<p>To summarize the above four cases:</p>
+<ul>
+<li>If snapshot last log id matches: nothing to do.</li>
+<li>If snapshot last log id does not match (conflict or no such log): delete all
+non-committed logs.</li>
+</ul>
+<h4 id="rationale-of-conflicting-logs-handling"><a class="doc-anchor" href="#rationale-of-conflicting-logs-handling">§</a>Rationale of Conflicting Logs Handling</h4>
+<p>If the local log is in conflict with <a href="../../../../storage/struct.SnapshotMeta.html#method.last_log_id" title="method openraft::storage::SnapshotMeta::last_log_id"><code>snapshot_meta.last_log_id</code></a>, it must
+delete all <strong>non-committed</strong> logs, not only the logs after
+<a href="../../../../storage/struct.SnapshotMeta.html#method.last_log_id" title="method openraft::storage::SnapshotMeta::last_log_id"><code>snapshot_meta.last_log_id</code></a>.</p>
+<p>If not to delete all non-committed logs, the following situation may occur:
+Although the node with conflicting logs won’t become a leader at once,
+but it could become a leader when it receives more logs and stores them after
+<a href="../../../../storage/struct.SnapshotMeta.html#method.last_log_id" title="method openraft::storage::SnapshotMeta::last_log_id"><code>snapshot_meta.last_log_id</code></a>.</p>
+<p>Because the logs(which might be conflicting) before
+<a href="../../../../storage/struct.SnapshotMeta.html#method.last_log_id" title="method openraft::storage::SnapshotMeta::last_log_id"><code>snapshot_meta.last_log_id</code></a> is not deleted, there’s a chance that this node
+becomes the leader and uses these logs for replication.</p>
+<blockquote>
+<p>Why a node with conflicting log won’t become a leader:</p>
+<p>According to the Raft specification, for this node to become a leader, it must
+contain all committed logs. However, the log entry at <code>last_applied.index</code> is
+not committed; thus the node cannot become a leader.</p>
+</blockquote>
+<h4 id="safe-to-remove-all-non-committed-logs"><a class="doc-anchor" href="#safe-to-remove-all-non-committed-logs">§</a>Safe to Remove All Non-Committed Logs</h4>
+<p>For this reason, Openraft truncates <strong>ALL</strong> non-committed logs and this is safe,
+because: <code>snapshot_meta.last_log_id</code> is committed (or it can not be in a
+snapshot). If the local log ID conflicts with <code>snapshot_meta.last_log_id</code>, a
+quorum must exist that contains <code>snapshot_meta.last_log_id</code>. Therefore, it is
+<strong>safe to remove all logs</strong> on this node.</p>
+<h3 id="2-install-snapshot"><a class="doc-anchor" href="#2-install-snapshot">§</a>2. Install Snapshot</h3>
+<p>Installing snapshot includes two steps:</p>
+<ul>
+<li>Save snapshot to disk.</li>
+<li>Replace state machine with the content of snapshot.</li>
+</ul>
+<h3 id="3-purge-logs"><a class="doc-anchor" href="#3-purge-logs">§</a>3. Purge Logs</h3>
+<p>The final step is to purge logs up to <a href="../../../../storage/struct.SnapshotMeta.html#method.last_log_id" title="method openraft::storage::SnapshotMeta::last_log_id"><code>snapshot_meta.last_log_id</code></a>.
+This step is necessary because:</p>
+<ul>
+<li>
+<ol>
+<li>A local log that is &lt;= <a href="../../../../storage/struct.SnapshotMeta.html#method.last_log_id" title="method openraft::storage::SnapshotMeta::last_log_id"><code>snapshot_meta.last_log_id</code></a> may conflict with the leader, and can not be used anymore.</li>
+</ol>
+</li>
+<li>
+<ol start="2">
+<li>There may be a hole in the logs, if <code>snapshot_last_log_id &gt; local_last_log_id</code>:</li>
+</ol>
+<div class="example-wrap"><pre class="language-text"><code>    snapshot ----.
+                 v
+----lllllllllll---------------------&gt;</code></pre></div></li>
+</ul>
+<p>If this node crashes after installing snapshot and before purging logs,
+the log will be purged the next start-up, in <a href="../../../../storage/struct.StorageHelper.html#method.get_initial_state" title="method openraft::storage::StorageHelper::get_initial_state"><code>get_initial_state()</code></a>.</p>
+</div></details></section></div></main></body></html>

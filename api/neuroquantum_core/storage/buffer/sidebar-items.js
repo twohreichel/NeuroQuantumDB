@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EvictionPolicyType"],"mod":["eviction","flusher","frame"],"struct":["BufferPoolConfig","BufferPoolManager","BufferPoolStats","CacheMetrics"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_byte_search_processor"],"struct":["ByteOracle","DatabaseOracle","GroverSearchResult","QuantumProcessorConfig","QuantumStateProcessor"],"trait":["Oracle"]};

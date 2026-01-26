@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["actix_web",[]],["aws_smithy_types",[["impl <a class=\"trait\" href=\"bytes/buf/buf_impl/trait.Buf.html\" title=\"trait bytes::buf::buf_impl::Buf\">Buf</a> for <a class=\"struct\" href=\"aws_smithy_types/byte_stream/struct.AggregatedBytes.html\" title=\"struct aws_smithy_types::byte_stream::AggregatedBytes\">AggregatedBytes</a>"]]],["bytes",[]],["bytes_utils",[["impl&lt;'a, B: <a class=\"trait\" href=\"bytes/buf/buf_impl/trait.Buf.html\" title=\"trait bytes::buf::buf_impl::Buf\">Buf</a>&gt; <a class=\"trait\" href=\"bytes/buf/buf_impl/trait.Buf.html\" title=\"trait bytes::buf::buf_impl::Buf\">Buf</a> for <a class=\"struct\" href=\"bytes_utils/struct.SegmentedSlice.html\" title=\"struct bytes_utils::SegmentedSlice\">SegmentedSlice</a>&lt;'a, B&gt;"],["impl&lt;B: <a class=\"trait\" href=\"bytes/buf/buf_impl/trait.Buf.html\" title=\"trait bytes::buf::buf_impl::Buf\">Buf</a>&gt; <a class=\"trait\" href=\"bytes/buf/buf_impl/trait.Buf.html\" title=\"trait bytes::buf::buf_impl::Buf\">Buf</a> for <a class=\"struct\" href=\"bytes_utils/struct.SegmentedBuf.html\" title=\"struct bytes_utils::SegmentedBuf\">SegmentedBuf</a>&lt;B&gt;"]]],["hyper",[]],["tonic",[["impl <a class=\"trait\" href=\"bytes/buf/buf_impl/trait.Buf.html\" title=\"trait bytes::buf::buf_impl::Buf\">Buf</a> for <a class=\"struct\" href=\"tonic/codec/struct.DecodeBuf.html\" title=\"struct tonic::codec::DecodeBuf\">DecodeBuf</a>&lt;'_&gt;"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[16,318,13,796,13,265]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutObjectRetentionError"],"mod":["builders"],"struct":["PutObjectRetention","PutObjectRetentionInput","PutObjectRetentionOutput"]};

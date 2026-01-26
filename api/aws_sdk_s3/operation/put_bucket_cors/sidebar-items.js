@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketCorsError"],"mod":["builders"],"struct":["PutBucketCors","PutBucketCorsInput","PutBucketCorsOutput"]};

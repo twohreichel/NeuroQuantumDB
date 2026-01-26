@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketLoggingError"],"mod":["builders"],"struct":["PutBucketLogging","PutBucketLoggingInput","PutBucketLoggingOutput"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LogError"],"struct":["BatchConfig","BatchConfigBuilder","BatchLogProcessor","BatchLogProcessorBuilder","Builder","LogData","LogRecord","Logger","LoggerProvider","SimpleLogProcessor","TraceContext"],"trait":["LogProcessor"],"type":["LogResult"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["hamming_distance_simd","pack_bases","transpose_bytes","unpack_bases"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketAccelerateConfigurationError"],"mod":["builders"],"struct":["GetBucketAccelerateConfiguration","GetBucketAccelerateConfigurationInput","GetBucketAccelerateConfigurationOutput"]};

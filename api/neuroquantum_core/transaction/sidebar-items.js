@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IsolationLevel","LockType","LogRecordType","TransactionStatus"],"struct":["Lock","LockManager","LogManager","LogRecord","RecoveryManager","RecoveryStatistics","Transaction","TransactionManager","TransactionStatistics","WALLogStats"],"trait":["RecoveryStorageCallback"],"type":["LSN","ResourceId","TransactionId"]};

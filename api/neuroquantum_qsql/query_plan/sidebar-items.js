@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RECURSIVE_CTE_LIMIT"],"enum":["ExecutionStrategy","QuantumOptimizationType","QueryValue"],"struct":["CTEContext","ColumnInfo","ExecutionStats","ExecutorConfig","OptimizationMetadata","QuantumOptimization","QueryExecutor","QueryPlan","QueryResult","SynapticPathway"],"type":["QueryResultData"]};

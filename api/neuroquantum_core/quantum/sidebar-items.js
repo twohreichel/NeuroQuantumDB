@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["backends","grover_hardware_backends","grover_quantum","legacy","parallel_tempering_hardware_backends","quantum_parallel_tempering","qubo_hardware_backends","qubo_quantum","tfim","tfim_hardware_backends","tfim_quantum","tfim_unified"]};

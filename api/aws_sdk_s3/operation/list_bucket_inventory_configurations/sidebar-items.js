@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ListBucketInventoryConfigurationsError"],"mod":["builders"],"struct":["ListBucketInventoryConfigurations","ListBucketInventoryConfigurationsInput","ListBucketInventoryConfigurationsOutput"]};

@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Byte Unit"><title>byte_unit - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="byte_unit" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate byte_unit</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../byte_unit/index.html">byte_<wbr>unit</a><span class="version">5.2.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#byte-unit" title="Byte Unit">Byte Unit</a><ul><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#no-std" title="No Std">No Std</a></li><li><a href="#serde-support" title="Serde Support">Serde Support</a></li><li><a href="#schemars-support" title="Schemars Support">Schemars Support</a></li><li><a href="#rocket-support" title="Rocket Support">Rocket Support</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>byte_<wbr>unit</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/byte_unit/lib.rs.html#1-237">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="byte-unit"><a class="doc-anchor" href="#byte-unit">§</a>Byte Unit</h2>
+<p>A library for interaction with units of bytes.</p>
+<p>The units are <strong>B</strong> for 1 byte, <strong>KB</strong> for 1000 bytes, <strong>MiB</strong> for 1048576 bytes, <strong>GB</strong> for 1000000000 bytes, etc, and up to <strong>E</strong> or <strong>Y</strong> (if the <code>u128</code> feature is enabled).</p>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>The data types for storing the size in bits/bytes are <code>u64</code> by default, meaning the highest supported unit is up to <strong>E</strong>. If the <code>u128</code> feature is enabled, the data types will use <code>u128</code>, increasing the highest supported unit up to <strong>Y</strong>.</p>
+<h4 id="unit"><a class="doc-anchor" href="#unit">§</a>Unit</h4>
+<p>The enum <code>Unit</code> can be used for representing the unit of bits/bytes.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::Unit;
+
+<span class="macro">assert_eq!</span>(<span class="string">"KB"</span>, Unit::KB.as_str());
+<span class="macro">assert_eq!</span>(<span class="string">"MiB"</span>, Unit::MiB.as_str());
+
+<span class="macro">assert_eq!</span>(Unit::KB, Unit::parse_str(<span class="string">"K"</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>).unwrap());
+<span class="macro">assert_eq!</span>(Unit::Kbit, Unit::parse_str(<span class="string">"K"</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>).unwrap());
+
+<span class="macro">assert_eq!</span>(Unit::KB, Unit::parse_str(<span class="string">"KB"</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>).unwrap());
+<span class="macro">assert_eq!</span>(Unit::KB, Unit::parse_str(<span class="string">"Kb"</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>).unwrap());
+<span class="macro">assert_eq!</span>(Unit::Kbit, Unit::parse_str(<span class="string">"Kbit"</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>).unwrap());
+
+<span class="macro">assert_eq!</span>(Unit::KB, Unit::parse_str(<span class="string">"KB"</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>).unwrap());
+<span class="macro">assert_eq!</span>(Unit::Kbit, Unit::parse_str(<span class="string">"Kb"</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>).unwrap());</code></pre></div><h4 id="byte"><a class="doc-anchor" href="#byte">§</a>Byte</h4>
+<p>The <code>Byte</code> struct can be used for representing a size in bytes.</p>
+<p>The <code>from_*</code> associated functions can be used to create a <code>Byte</code> instance from different data types.  The <code>as_*</code> methods can retrieve the size as a primitive type.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::{Byte, Unit};
+
+<span class="macro">assert_eq!</span>(<span class="number">15000</span>, Byte::from_u64(<span class="number">15000</span>).as_u64());
+<span class="macro">assert_eq!</span>(<span class="number">15000</span>, Byte::from_u64_with_unit(<span class="number">15</span>, Unit::KB).unwrap().as_u64());</code></pre></div>
+<p>You can also parse a string to create a <code>Byte</code> instance.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::Byte;
+
+<span class="macro">assert_eq!</span>(<span class="number">50840000</span>, Byte::parse_str(<span class="string">"50.84 MB"</span>, <span class="bool-val">true</span>).unwrap().as_u64());</code></pre></div>
+<p>A <code>Byte</code> instance can be formatted to string precisely. For more detailed usage, please refer to the implementation documentation of <code>Display::fmt</code> for <code>Byte</code>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::Byte;
+
+<span class="kw">let </span>byte = Byte::from_u64(<span class="number">15500</span>);
+
+<span class="macro">assert_eq!</span>(<span class="string">"15500"</span>, byte.to_string());
+
+<span class="macro">assert_eq!</span>(<span class="string">"15.5 KB"</span>, <span class="macro">format!</span>(<span class="string">"{byte:#}"</span>));
+<span class="macro">assert_eq!</span>(<span class="string">"15500 B"</span>, <span class="macro">format!</span>(<span class="string">"{byte:#.0}"</span>));</code></pre></div><h5 id="arithmetic"><a class="doc-anchor" href="#arithmetic">§</a>Arithmetic</h5>
+<p>There are <code>add</code>, <code>subtract</code>, <code>multiply</code>, and <code>divide</code> methods.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::Byte;
+
+<span class="kw">let </span>a = Byte::from_u64(<span class="number">15500</span>);
+<span class="kw">let </span>b = Byte::from_u64(<span class="number">500</span>);
+
+<span class="macro">assert_eq!</span>(<span class="number">16000</span>, a.add(b).unwrap().as_u64());
+<span class="macro">assert_eq!</span>(<span class="number">15000</span>, a.subtract(b).unwrap().as_u64());
+
+<span class="macro">assert_eq!</span>(<span class="number">31000</span>, a.multiply(<span class="number">2</span>).unwrap().as_u64());
+<span class="macro">assert_eq!</span>(<span class="number">3100</span>, a.divide(<span class="number">5</span>).unwrap().as_u64());</code></pre></div><h5 id="find-out-an-appropriate-unit"><a class="doc-anchor" href="#find-out-an-appropriate-unit">§</a>Find Out an Appropriate Unit</h5>
+<p>The <code>get_exact_unit</code> and <code>get_recoverable_unit</code> methods is useful if you want to find out a unit that is appropriate for a <code>Byte</code> instance.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::{Byte, Unit};
+
+<span class="kw">let </span>byte = Byte::from_u64(<span class="number">50840000</span>);
+
+<span class="macro">assert_eq!</span>((<span class="number">50840</span>, Unit::KB), byte.get_exact_unit(<span class="bool-val">false</span>));
+<span class="macro">assert_eq!</span>((<span class="number">50.84f64</span>.try_into().unwrap(), Unit::MB), byte.get_recoverable_unit(<span class="bool-val">false</span>, <span class="number">2</span>));
+<span class="macro">assert_eq!</span>((<span class="number">50840</span>.into(), Unit::KB), byte.get_recoverable_unit(<span class="bool-val">false</span>, <span class="number">0</span>));</code></pre></div><h5 id="adjustedbyte"><a class="doc-anchor" href="#adjustedbyte">§</a>AdjustedByte</h5>
+<p>The <code>AdjustedByte</code> struct can be used for roughly representing a size of bytes with a unit.</p>
+<p>To change the unit of a <code>Byte</code> instance, you can use the <code>get_adjusted_unit</code> method.</p>
+<p>An <code>AdjustedByte</code> instance can be formatted to string. For more detailed usage, please refer to the implementation documentation of <code>Display::fmt</code> for <code>AdjustedByte</code>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::{Byte, Unit};
+
+<span class="kw">let </span>byte = Byte::parse_str(<span class="string">"123KiB"</span>, <span class="bool-val">true</span>).unwrap();
+
+<span class="kw">let </span>adjusted_byte = byte.get_adjusted_unit(Unit::KB);
+
+<span class="macro">assert_eq!</span>(<span class="string">"125.952 KB"</span>, adjusted_byte.to_string());
+<span class="macro">assert_eq!</span>(<span class="string">"125.95 KB"</span>, <span class="macro">format!</span>(<span class="string">"{adjusted_byte:.2}"</span>));</code></pre></div>
+<p>The <code>get_appropriate_unit</code> method can be used to automatically find an appropriate unit for creating an <code>AdjustedByte</code> instance.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::{Byte, Unit, UnitType};
+
+<span class="kw">let </span>byte = Byte::from_u64(<span class="number">1500000</span>);
+
+<span class="kw">let </span>adjusted_byte = byte.get_appropriate_unit(UnitType::Binary);
+
+<span class="macro">assert_eq!</span>(<span class="string">"1.43 MiB"</span>, <span class="macro">format!</span>(<span class="string">"{adjusted_byte:.2}"</span>));</code></pre></div><h4 id="bit"><a class="doc-anchor" href="#bit">§</a>Bit</h4>
+<p>The <code>Bit</code> struct can be used for representing a size in bits.</p>
+<p>The <code>bit</code> feature must be enabled.</p>
+<p>Usage of the <code>Bit</code> struct and the <code>Byte</code> struct is very similar. Also, There is the <code>AdjustedBit</code> struct. The difference lies in the fact that the <code>parse_str</code> method of the <code>Bit</code> struct cannot be configured to ignore case; it always does not ignore case.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>byte_unit::{Bit, Unit};
+
+<span class="kw">let </span>bit = Bit::parse_str(<span class="string">"123Kib"</span>).unwrap();
+
+<span class="kw">let </span>adjusted_bit = bit.get_adjusted_unit(Unit::Kbit);
+
+<span class="macro">assert_eq!</span>(<span class="string">"125.952 Kb"</span>, adjusted_bit.to_string());
+<span class="macro">assert_eq!</span>(<span class="string">"125.95 Kb"</span>, <span class="macro">format!</span>(<span class="string">"{adjusted_bit:.2}"</span>));</code></pre></div><h3 id="no-std"><a class="doc-anchor" href="#no-std">§</a>No Std</h3>
+<p>Disable the default features to compile this crate without std.</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies.byte-unit]
+version = &quot;*&quot;
+default-features = false
+features = [&quot;byte&quot;]</code></pre></div><h3 id="serde-support"><a class="doc-anchor" href="#serde-support">§</a>Serde Support</h3>
+<p>Enable the <code>serde</code> feature to support the serde framework.</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies.byte-unit]
+version = &quot;*&quot;
+features = [&quot;serde&quot;]</code></pre></div><h3 id="schemars-support"><a class="doc-anchor" href="#schemars-support">§</a>Schemars Support</h3>
+<p>Enable the <code>schemars</code> feature to support Schemars. Probably the <code>serde</code> feature is also needed.</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies.byte-unit]
+version = &quot;*&quot;
+features = [&quot;serde&quot;, &quot;schemars&quot;]</code></pre></div><h3 id="rocket-support"><a class="doc-anchor" href="#rocket-support">§</a>Rocket Support</h3>
+<p>Enable the <code>rocket</code> feature to support the Rocket framework.</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies.byte-unit]
+version = &quot;*&quot;
+features = [&quot;rocket&quot;]</code></pre></div></div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub extern crate <a class="mod" href="../rust_decimal/index.html" title="mod rust_decimal">rust_decimal</a>;</code></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AdjustedByte.html" title="struct byte_unit::AdjustedByte">Adjusted<wbr>Byte</a></dt><dd>Generated from the <a href="./struct.Byte.html#method.get_adjusted_unit"><code>Byte::get_adjusted_unit</code></a> method or the the <a href="./struct.Byte.html#method.get_appropriate_unit"><code>Byte::get_appropriate_unit</code></a> method.</dd><dt><a class="struct" href="struct.Byte.html" title="struct byte_unit::Byte">Byte</a></dt><dd>Representing the size in bytes.</dd><dt><a class="struct" href="struct.ExceededBoundsError.html" title="struct byte_unit::ExceededBoundsError">Exceeded<wbr>Bounds<wbr>Error</a></dt><dd>The error type returned when it exceeds representation range.</dd><dt><a class="struct" href="struct.TryFromIntError.html" title="struct byte_unit::TryFromIntError">TryFrom<wbr>IntError</a></dt><dd>The error type returned when a checked integral type conversion fails.</dd><dt><a class="struct" href="struct.UnitParseError.html" title="struct byte_unit::UnitParseError">Unit<wbr>Parse<wbr>Error</a></dt><dd>The error type returned when parsing units.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ParseError.html" title="enum byte_unit::ParseError">Parse<wbr>Error</a></dt><dd>The error type returned when parsing values with a unit.</dd><dt><a class="enum" href="enum.Unit.html" title="enum byte_unit::Unit">Unit</a></dt><dd>The unit of bits/bytes.</dd><dt><a class="enum" href="enum.UnitType.html" title="enum byte_unit::UnitType">Unit<wbr>Type</a></dt><dd>Choose how to find an appropriate unit based on a base of 2 or 10.</dd><dt><a class="enum" href="enum.ValueParseError.html" title="enum byte_unit::ValueParseError">Value<wbr>Parse<wbr>Error</a></dt><dd>The error type returned when parsing values.</dd></dl></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CreateBucketMetadataConfigurationError"],"mod":["builders"],"struct":["CreateBucketMetadataConfiguration","CreateBucketMetadataConfigurationInput","CreateBucketMetadataConfigurationOutput"]};

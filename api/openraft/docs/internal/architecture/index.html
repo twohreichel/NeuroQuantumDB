@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Openraft Architecture"><title>openraft::docs::internal::architecture - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module architecture</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module architecture</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#openraft-architecture" title="Openraft Architecture">Openraft Architecture</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>internal</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">internal</a></div><h1>Module <span>architecture</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/internal/mod.rs.html#3">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="openraft-architecture"><a class="doc-anchor" href="#openraft-architecture">§</a>Openraft Architecture</h2>
+<p>The Openraft architecture is designed to provide a modular and extensible
+framework for implementing the Raft consensus algorithm. Each component serves a
+specific purpose and communicates with other components through channels or
+APIs. Users can customize the network, log storage, and state machine layers to
+fit their specific needs and requirements.</p>
+<p>The major components inside Openraft include:</p>
+<ul>
+<li>
+<p><strong><a href="../../../raft/struct.Raft.html" title="struct openraft::raft::Raft"><code>Raft</code></a></strong>: This is the control handle for the application and user. It
+provides APIs to send <code>RaftMsg</code> to <code>RaftCore</code> to manipulate Openraft.</p>
+</li>
+<li>
+<p><strong><code>RaftCore</code></strong>: This is the main component running in a <code>tokio::task</code>,
+which handles all client requests (such as <a href="../../../raft/struct.Raft.html#method.client_write" title="method openraft::raft::Raft::client_write"><code>client_write</code></a>) and Raft
+protocol requests (such as <a href="../../../network/trait.RaftNetwork.html#tymethod.append_entries" title="method openraft::network::RaftNetwork::append_entries"><code>append_entries</code></a>). It is primarily an event
+loop that receives messages from the <code>RaftMsg</code> channel and the internal
+notification channel <code>Notify</code>.</p>
+<p>In <code>v0.8</code>, <a href="../../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> runs in the same task as <code>RaftCore</code>, while
+<a href="../../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a> runs in a standalone task.</p>
+</li>
+<li>
+<p><strong><code>ReplicationHandle</code></strong>: This is the control handle for replication tasks,
+e.g., sending replication commands to <code>ReplicationCore</code>.</p>
+</li>
+<li>
+<p><strong><code>ReplicationCore</code></strong>: This is another event loop running in separate tasks
+to replicate logs or snapshots. It communicates with <code>RaftCore</code> through
+channels.</p>
+</li>
+<li>
+<p><strong><a href="../../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a></strong>: This is a user-provided component that implements the
+network transport layer, e.g., sending logs to a remote node or sending a
+<a href="../../../raft/struct.VoteRequest.html" title="struct openraft::raft::VoteRequest"><code>VoteRequest</code></a> to a remote node.</p>
+</li>
+<li>
+<p><strong><a href="../../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a></strong>: This is a user-provided component that implements the
+log storage layer, e.g., appending a log to the log storage or reading a log
+from the log storage.</p>
+</li>
+<li>
+<p><strong><a href="../../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a></strong>: This is a user-provided component that implements
+the state machine and snapshot, e.g., applying a log to the state machine or
+building a snapshot from the state machine.</p>
+<p>In <code>v0.8</code>, <a href="../../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> and <a href="../../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a> are both wrappers of
+<a href="../../../storage/trait.RaftStorage.html" title="trait openraft::storage::RaftStorage"><code>RaftStorage</code></a>.</p>
+</li>
+</ul>
+<div class="example-wrap"><pre class="language-bob"><code>
+        .~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~.
+        !          User                   !
+        !          o                      !
+        !          |                      !
+        !          |                      !
+        !          | &quot;client_write(impl AppData) -&gt; impl AppDataResponse&quot;
+        !          | &quot;is_leader()&quot;        !
+        !          | &quot;change_membership()&quot;!
+        !          v                      !
+        !          Raft                   !                      .-----&gt; Raft o---.
+        &#39;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~&#39;                      |                |       
+                   |                                             |                |       
+                   | enum RaftMes                                |                |       
+                   |                                             |                |       
+           .~~~~~~~|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~.             |         .~~~~~~|~~~~~~~~~~~~.
+           !       v                               !             |         !      v            !
+.----------------o RaftCore ---------------------------.         |         !      RaftCore     !
+|          !          o                            !   |         |         !                   !
+|          !          |                            !   |         |         &#39;~~~~~~~~~~~~~~~~~~~&#39;
+|          !       .--+--------.                   !   |         |                                                  
+|          !       v           v                   !   |         |                                                       
+|          ! ReplicationHandle ReplicationHandle   !   |         |                                                       
+|          !  |                |                   !   |         |    
+|          &#39;~~|~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~&#39;   |         |                                                       
+|             |                |                       |         |    
+|  .~~~~~~~~~~|~~~~~~~~~~.  .~~|~~~~~~~~~~~~~~~~~~~.   |         | RPC:                      
+|  !          v          !  !  v                   !   |         |   &quot;vote()&quot;                
+|  ! ReplicationCore     !  !  ReplicationCore     !   |         |   &quot;append_entries()&quot;      
+|  ! o                   !  !  o  o                !   |         |   &quot;install_snapshot()&quot;    
+|  &#39;~|~~~~~~~~~~~~~~~~~~~&#39;  !  |  |                !   |         |    
+|    |                      !  |  v                !   |         |    
+|    |                      !  |  RaftNetwork--------------------&#39;    
+|    |                      &#39;~~|~~~~~~~~~~~~~~~~~~~&#39;   |
+|    |                         |                       | &quot;apply()&quot;
+|    `------------+------------&#39;                       | &quot;build_snapshot()&quot;
+|                 | &quot;get_log()&quot;            .-----------&#39; &quot;install_snapshot()&quot;
+| &quot;append_log()&quot;  |                        | 
+| &quot;...&quot;           |             .~~~~~~~~~~|~~~~~~~~~~. 
+`--------.        |             !          v          ! 
+         |        |             !   RaftStateMachine  ! 
+         |        |             !          o          ! 
+         |        |             !          |          ! 
+         |        |             &#39;~~~~~~~~~~|~~~~~~~~~~&#39; 
+         v        v                        |            
+         RaftLogStorage                    |            
+           o                               |            
+           |                               |            
+           v                               v            
+       local-disk                     local-disk        
+ -----------------------------------------------                     -----------------------------------------------
+ Node 1                                                              Node 2
+
+Legends:
+
+.~~~~~~~~~~~~~~.
+! &quot;tokio task&quot; !
+&#39;~~~~~~~~~~~~~~&#39;
+
+o--&gt; function call
+---&gt; async communication: via channel or RPC</code></pre></div></div></details></section></div></main></body></html>

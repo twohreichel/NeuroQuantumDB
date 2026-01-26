@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DataPoint","Exemplar","ExponentialBucket","ExponentialHistogram","ExponentialHistogramDataPoint","Gauge","Histogram","HistogramDataPoint","Metric","ResourceMetrics","ScopeMetrics","Sum"],"trait":["Aggregation"]};

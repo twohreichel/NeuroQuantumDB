@@ -1,0 +1,795 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Path attribute macro implements OpenAPI path for the decorated function."><title>path in utoipa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">path</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa/index.html">utoipa</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">path</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#path-attributes" title="Path Attributes">Path Attributes</a></li><li><a href="#request-body-attributes" title="Request Body Attributes">Request Body Attributes</a><ul><li><a href="#simple-format-definition-by-request_body--" title="Simple format definition by `request_body = ...`">Simple format definition by <code>request_body = ...</code></a></li><li><a href="#advanced-format-definition-by-request_body" title="Advanced format definition by `request_body(...)`">Advanced format definition by <code>request_body(...)</code></a></li></ul></li><li><a href="#response-attributes" title="Response Attributes">Response Attributes</a><ul><li><a href="#response-examples-syntax" title="Response `examples(...)` syntax">Response <code>examples(...)</code> syntax</a></li><li><a href="#response-links-syntax" title="Response `links(...)` syntax">Response <code>links(...)</code> syntax</a></li><li><a href="#responses-from-intoresponses" title="Responses from `IntoResponses`">Responses from <code>IntoResponses</code></a></li></ul></li><li><a href="#response-header-attributes" title="Response Header Attributes">Response Header Attributes</a></li><li><a href="#params-attributes" title="Params Attributes">Params Attributes</a><ul><li><a href="#tuples" title="Tuples">Tuples</a></li><li><a href="#intoparams-type" title="IntoParams Type">IntoParams Type</a></li></ul></li><li><a href="#security-requirement-attributes" title="Security Requirement Attributes">Security Requirement Attributes</a></li><li><a href="#extensions-requirements-attributes" title="Extensions Requirements Attributes">Extensions Requirements Attributes</a></li><li><a href="#actix_extras-feature-support-for-actix-web" title="actix_extras feature support for actix-web">actix_extras feature support for actix-web</a></li><li><a href="#rocket_extras-feature-support-for-rocket" title="rocket_extras feature support for rocket">rocket_extras feature support for rocket</a></li><li><a href="#axum_extras-feature-support-for-axum" title="axum_extras feature support for axum">axum_extras feature support for axum</a></li><li><a href="#defining-file-uploads" title="Defining file uploads">Defining file uploads</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa</a></div><h1>Attribute Macro <span class="attr">path</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa_gen/lib.rs.html#1893">Source</a> </span></div><pre class="rust item-decl"><code>#[path]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Path attribute macro implements OpenAPI path for the decorated function.</p>
+<p>This is a <code>#[derive]</code> implementation for <a href="trait.Path.html"><code>Path</code></a> trait. Macro accepts set of attributes that can
+be used to configure and override default values what are resolved automatically.</p>
+<p>You can use the Rust’s own <code>#[deprecated]</code> attribute on functions to mark it as deprecated and it will
+reflect to the generated OpenAPI spec. Only <strong>parameters</strong> has a special <strong>deprecated</strong> attribute to define them as deprecated.</p>
+<p><code>#[deprecated]</code> attribute supports adding additional details such as a reason and or since version but this is is not supported in
+OpenAPI. OpenAPI has only a boolean flag to determine deprecation. While it is totally okay to declare deprecated with reason
+<code>#[deprecated  = "There is better way to do this"]</code> the reason would not render in OpenAPI spec.</p>
+<p>Doc comment at decorated function will be used for <em><code>description</code></em> and <em><code>summary</code></em> of the path.
+First line of the doc comment will be used as the <em><code>summary</code></em> while the remaining lines will be
+used as <em><code>description</code></em>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="doccomment">/// This is a summary of the operation
+///
+/// The rest of the doc comment will be included to operation description.
+</span><span class="attr">#[utoipa::path(get, path = <span class="string">"/operation"</span>)]
+</span><span class="kw">fn </span>operation() {}</code></pre></div><h2 id="path-attributes"><a class="doc-anchor" href="#path-attributes">§</a>Path Attributes</h2>
+<ul>
+<li>
+<p><code>operation</code> <em><strong>Must be first parameter!</strong></em> Accepted values are known HTTP operations such as
+<em><code>get, post, put, delete, head, options, patch, trace</code></em>.</p>
+</li>
+<li>
+<p><code>method(get, head, ...)</code> Http methods for the operation. This allows defining multiple
+HTTP methods at once for single operation. Either <em><code>operation</code></em> or <em><code>method(...)</code></em> <em><strong>must be
+provided.</strong></em></p>
+</li>
+<li>
+<p><code>path = "..."</code> Must be OpenAPI format compatible str with arguments within curly braces. E.g <em><code>{id}</code></em></p>
+</li>
+<li>
+<p><code>impl_for = ...</code> Optional type to implement the <a href="trait.Path.html"><code>Path</code></a> trait. By default a new type
+is used for the implementation.</p>
+</li>
+<li>
+<p><code>operation_id = ...</code> Unique operation id for the endpoint. By default this is mapped to function name.
+The operation_id can be any valid expression (e.g. string literals, macro invocations, variables) so long
+as its result can be converted to a <code>String</code> using <code>String::from</code>.</p>
+</li>
+<li>
+<p><code>context_path = "..."</code> Can add optional scope for <strong>path</strong>. The <strong>context_path</strong> will be prepended to beginning of <strong>path</strong>.
+This is particularly useful when <strong>path</strong> does not contain the full path to the endpoint. For example if web framework
+allows operation to be defined under some context path or scope which does not reflect to the resolved path then this
+<strong>context_path</strong> can become handy to alter the path.</p>
+</li>
+<li>
+<p><code>tag = "..."</code> Can be used to group operations. Operations with same tag are grouped together. By default
+this is derived from the module path of the handler that is given to <a href="derive.OpenApi.html"><code>OpenApi</code></a>.</p>
+</li>
+<li>
+<p><code>tags = ["tag1", ...]</code> Can be used to group operations. Operations with same tag are grouped
+together. Tags attribute can be used to add additional <em>tags</em> for the operation. If both
+<em><code>tag</code></em> and <em><code>tags</code></em> are provided then they will be combined to a single <em><code>tags</code></em> array.</p>
+</li>
+<li>
+<p><code>request_body = ... | request_body(...)</code> Defining request body indicates that the request is expecting request body within
+the performed request.</p>
+</li>
+<li>
+<p><code>responses(...)</code> Slice of responses the endpoint is going to possibly return to the caller.</p>
+</li>
+<li>
+<p><code>params(...)</code> Slice of params that the endpoint accepts.</p>
+</li>
+<li>
+<p><code>security(...)</code> List of <a href="openapi/security/struct.SecurityRequirement.html"><code>SecurityRequirement</code></a>s local to the path operation.</p>
+</li>
+<li>
+<p><code>summary = ...</code> Allows overriding summary of the path. Value can be literal string or valid
+rust expression e.g. <code>include_str!(...)</code> or <code>const</code> reference.</p>
+</li>
+<li>
+<p><code>description = ...</code> Allows overriding description of the path. Value can be literal string or valid
+rust expression e.g. <code>include_str!(...)</code> or <code>const</code> reference.</p>
+</li>
+<li>
+<p><code>extensions(...)</code> List of extensions local to the path operation.</p>
+</li>
+</ul>
+<h2 id="request-body-attributes"><a class="doc-anchor" href="#request-body-attributes">§</a>Request Body Attributes</h2><h3 id="simple-format-definition-by-request_body--"><a class="doc-anchor" href="#simple-format-definition-by-request_body--">§</a>Simple format definition by <code>request_body = ...</code></h3>
+<ul>
+<li><em><code>request_body = Type</code></em>, <em><code>request_body = inline(Type)</code></em> or <em><code>request_body = ref("...")</code></em>.
+The given <em><code>Type</code></em> can be any Rust type that is JSON parseable. It can be Option, Vec or Map etc.
+With <em><code>inline(...)</code></em> the schema will be inlined instead of a referenced which is the default for
+<a href="trait.ToSchema.html"><code>ToSchema</code></a> types. <em><code>ref("./external.json")</code></em> can be used to reference external
+json file for body schema. <strong>Note!</strong> Utoipa does <strong>not</strong> guarantee that free form <em><code>ref</code></em> is accessible via
+OpenAPI doc or Swagger UI, users are responsible for making these guarantees.</li>
+</ul>
+<h3 id="advanced-format-definition-by-request_body"><a class="doc-anchor" href="#advanced-format-definition-by-request_body">§</a>Advanced format definition by <code>request_body(...)</code></h3>
+<p>With advanced format the request body supports defining either one or multiple request bodies by <code>content</code> attribute.</p>
+<h4 id="common-request-body-attributes"><a class="doc-anchor" href="#common-request-body-attributes">§</a>Common request body attributes</h4>
+<ul>
+<li>
+<p><code>description = "..."</code> Define the description for the request body object as str.</p>
+</li>
+<li>
+<p><code>example = ...</code> Can be <em><code>json!(...)</code></em>. <em><code>json!(...)</code></em> should be something that
+<em><code>serde_json::json!</code></em> can parse as a <em><code>serde_json::Value</code></em>.</p>
+</li>
+<li>
+<p><code>examples(...)</code> Define multiple examples for single request body. This attribute is mutually
+exclusive to the <em><code>example</code></em> attribute and if both are defined this will override the <em><code>example</code></em>.
+This has same syntax as <em><code>examples(...)</code></em> in <a href="#response-attributes">Response Attributes</a>
+<em>examples(…)</em></p>
+</li>
+</ul>
+<h4 id="single-request-body-content"><a class="doc-anchor" href="#single-request-body-content">§</a>Single request body content</h4>
+<ul>
+<li>
+<p><code>content = ...</code> Can be <em><code>content = Type</code></em>, <em><code>content = inline(Type)</code></em> or <em><code>content = ref("...")</code></em>. The
+given <em><code>Type</code></em> can be any Rust type that is JSON parseable. It can be Option, Vec
+or Map etc. With <em><code>inline(...)</code></em> the schema will be inlined instead of a referenced
+which is the default for <a href="trait.ToSchema.html"><code>ToSchema</code></a> types. <em><code>ref("./external.json")</code></em>
+can be used to reference external json file for body schema. <strong>Note!</strong> Utoipa does <strong>not</strong> guarantee
+that free form <em><code>ref</code></em> is accessible via OpenAPI doc or Swagger UI, users are responsible for making
+these guarantees.</p>
+</li>
+<li>
+<p><code>content_type = "..."</code> Can be used to override the default behavior
+of auto resolving the content type from the <code>content</code> attribute. If defined the value should be valid
+content type such as <em><code>application/json</code></em> . By default the content type is <em><code>text/plain</code></em>
+for <a href="https://doc.rust-lang.org/std/primitive/index.html">primitive Rust types</a>, <code>application/octet-stream</code> for <em><code>[u8]</code></em> and <em><code>application/json</code></em>
+for struct and mixed enum types.</p>
+</li>
+</ul>
+<p><em><strong>Example of single request body definitions.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code> request_body(content = String, description = &quot;Xml as string request&quot;, content_type = &quot;text/xml&quot;),
+ request_body(content_type = &quot;application/json&quot;),
+ request_body = Pet,
+ request_body = Option&lt;[Pet]&gt;,</code></pre></div><h4 id="multiple-request-body-content"><a class="doc-anchor" href="#multiple-request-body-content">§</a>Multiple request body content</h4>
+<ul>
+<li>
+<p><code>content(...)</code> Can be tuple of content tuples according to format below.</p>
+<div class="example-wrap"><pre class="language-text"><code>( schema )
+( schema = &quot;content/type&quot;, example = ..., examples(..., ...)  )
+( &quot;content/type&quot;, ),
+( &quot;content/type&quot;, example = ..., examples(..., ...) )</code></pre></div>
+<p>First argument of content tuple is <em><code>schema</code></em>, which is optional as long as either <em><code>schema</code></em>
+or <em><code>content/type</code></em> is defined. The <em><code>schema</code></em> and <em><code>content/type</code></em> is separated with equals
+(=) sign. Optionally content tuple supports defining <em><code>example</code></em>  and <em><code>examples</code></em> arguments. See
+<a href="attr.path.html#common-request-body-attributes" title="attr utoipa::path">common request body attributes</a></p>
+</li>
+</ul>
+<p><em><strong>Example of multiple request body definitions.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code> // guess the content type for Pet and Pet2
+ request_body(description = &quot;Common description&quot;,
+    content(
+        (Pet),
+        (Pet2)
+    )
+ ),
+ // define explicit content types
+ request_body(description = &quot;Common description&quot;,
+    content(
+        (Pet = &quot;application/json&quot;, examples(..., ...), example = ...),
+        (Pet2 = &quot;text/xml&quot;, examples(..., ...), example = ...)
+    )
+ ),
+ // omit schema and accept arbitrary content types
+ request_body(description = &quot;Common description&quot;,
+    content(
+        (&quot;application/json&quot;),
+        (&quot;text/xml&quot;, examples(..., ...), example = ...)
+    )
+ ),</code></pre></div><h2 id="response-attributes"><a class="doc-anchor" href="#response-attributes">§</a>Response Attributes</h2>
+<ul>
+<li>
+<p><code>status = ...</code> Is either a valid http status code integer. E.g. <em><code>200</code></em> or a string value representing
+a range such as <em><code>"4XX"</code></em> or <code>"default"</code> or a valid <em><code>http::status::StatusCode</code></em>.
+<em><code>StatusCode</code></em> can either be use path to the status code or <em>status code</em> constant directly.</p>
+</li>
+<li>
+<p><code>description = "..."</code> Define description for the response as str.</p>
+</li>
+<li>
+<p><code>body = ...</code> Optional response body object type. When left empty response does not expect to send any
+response body. Can be <em><code>body = Type</code></em>, <em><code>body = inline(Type)</code></em>, or <em><code>body = ref("...")</code></em>.
+The given <em><code>Type</code></em> can be any Rust type that is JSON parseable. It can be Option, Vec or Map etc.
+With <em><code>inline(...)</code></em> the schema will be inlined instead of a referenced which is the default for
+<a href="trait.ToSchema.html"><code>ToSchema</code></a> types. <em><code>ref("./external.json")</code></em>
+can be used to reference external json file for body schema. <strong>Note!</strong> Utoipa does <strong>not</strong> guarantee
+that free form <em><code>ref</code></em> is accessible via OpenAPI doc or Swagger UI, users are responsible for making
+these guarantees.</p>
+</li>
+<li>
+<p><code>content_type = "..."</code> Can be used to override the default behavior
+of auto resolving the content type from the <code>body</code> attribute. If defined the value should be valid
+content type such as <em><code>application/json</code></em> . By default the content type is <em><code>text/plain</code></em>
+for <a href="https://doc.rust-lang.org/std/primitive/index.html">primitive Rust types</a>, <code>application/octet-stream</code> for <em><code>[u8]</code></em> and <em><code>application/json</code></em>
+for struct and mixed enum types.</p>
+</li>
+<li>
+<p><code>headers(...)</code> Slice of response headers that are returned back to a caller.</p>
+</li>
+<li>
+<p><code>example = ...</code> Can be <em><code>json!(...)</code></em>. <em><code>json!(...)</code></em> should be something that
+<em><code>serde_json::json!</code></em> can parse as a <em><code>serde_json::Value</code></em>.</p>
+</li>
+<li>
+<p><code>response = ...</code> Type what implements <a href="trait.ToResponse.html"><code>ToResponse</code></a> trait. This can alternatively be used to
+define response attributes. <em><code>response</code></em> attribute cannot co-exist with other than <em><code>status</code></em> attribute.</p>
+</li>
+<li>
+<p><code>content((...), (...))</code> Can be used to define multiple return types for single response status. Supports same syntax as
+<a href="attr.path.html#multiple-request-body-content" title="attr utoipa::path">multiple request body content</a>.</p>
+</li>
+<li>
+<p><code>examples(...)</code> Define multiple examples for single response. This attribute is mutually
+exclusive to the <em><code>example</code></em> attribute and if both are defined this will override the <em><code>example</code></em>.</p>
+</li>
+<li>
+<p><code>links(...)</code> Define a map of operations links that can be followed from the response.</p>
+</li>
+</ul>
+<h3 id="response-examples-syntax"><a class="doc-anchor" href="#response-examples-syntax">§</a>Response <code>examples(...)</code> syntax</h3>
+<ul>
+<li><code>name = ...</code> This is first attribute and value must be literal string.</li>
+<li><code>summary = ...</code> Short description of example. Value must be literal string.</li>
+<li><code>description = ...</code> Long description of example. Attribute supports markdown for rich text
+representation. Value must be literal string.</li>
+<li><code>value = ...</code> Example value. It must be <em><code>json!(...)</code></em>. <em><code>json!(...)</code></em> should be something that
+<em><code>serde_json::json!</code></em> can parse as a <em><code>serde_json::Value</code></em>.</li>
+<li><code>external_value = ...</code> Define URI to literal example value. This is mutually exclusive to
+the <em><code>value</code></em> attribute. Value must be literal string.</li>
+</ul>
+<p><em><strong>Example of example definition.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code> (&quot;John&quot; = (summary = &quot;This is John&quot;, value = json!({&quot;name&quot;: &quot;John&quot;})))</code></pre></div><h3 id="response-links-syntax"><a class="doc-anchor" href="#response-links-syntax">§</a>Response <code>links(...)</code> syntax</h3>
+<ul>
+<li>
+<p><code>operation_ref = ...</code> Define a relative or absolute URI reference to an OAS operation. This field is
+mutually exclusive of the <em><code>operation_id</code></em> field, and <strong>must</strong> point to an <a href="openapi/path/struct.Operation.html">Operation Object</a>.
+Value can be be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static
+<a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</p>
+</li>
+<li>
+<p><code>operation_id = ...</code> Define the name of an existing, resolvable OAS operation, as defined with a unique
+<em><code>operation_id</code></em>. This field is mutually exclusive of the <em><code>operation_ref</code></em> field.
+Value can be be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static
+<a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</p>
+</li>
+<li>
+<p><code>parameters(...)</code> A map representing parameters to pass to an operation as specified with <em><code>operation_id</code></em>
+or identified by <em><code>operation_ref</code></em>. The key is parameter name to be used and value can
+be any value supported by JSON or an <a href="https://spec.openapis.org/oas/latest.html#runtime-expressions">expression</a> e.g. <code>$path.id</code></p>
+<ul>
+<li><code>name = ...</code> Define name for the parameter.
+Value can be be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static
+<a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</li>
+<li><code>value</code> = Any value that can be supported by JSON or an <a href="https://spec.openapis.org/oas/latest.html#runtime-expressions">expression</a>.</li>
+</ul>
+<p><em><strong>Example of parameters syntax:</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>parameters(
+     (&quot;name&quot; = value),
+     (&quot;name&quot; = value)
+),</code></pre></div></li>
+<li>
+<p><code>request_body = ...</code> Define a literal value or an <a href="https://spec.openapis.org/oas/latest.html#runtime-expressions">expression</a> to be used as request body when
+operation is called</p>
+</li>
+<li>
+<p><code>description = ...</code> Define description of the link. Value supports Markdown syntax.Value can be be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or
+an expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static <a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</p>
+</li>
+<li>
+<p><code>server(...)</code> Define <a href="openapi/server/struct.Server.html">Server</a> object to be used by the target operation. See
+<a href="derive.OpenApi.html#servers-attribute-syntax">server syntax</a></p>
+</li>
+</ul>
+<p><strong>Links syntax example:</strong> See the full example below in <a href="#examples">examples</a>.</p>
+<div class="example-wrap"><pre class="language-text"><code>responses(
+    (status = 200, description = &quot;success response&quot;,
+        links(
+            (&quot;link_name&quot; = (
+                operation_id = &quot;test_links&quot;,
+                parameters((&quot;key&quot; = &quot;value&quot;), (&quot;json_value&quot; = json!(1))),
+                request_body = &quot;this is body&quot;,
+                server(url = &quot;http://localhost&quot;)
+            ))
+        )
+    )
+)</code></pre></div>
+<p><strong>Minimal response format:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>responses(
+    (status = 200, description = &quot;success response&quot;),
+    (status = 404, description = &quot;resource missing&quot;),
+    (status = &quot;5XX&quot;, description = &quot;server error&quot;),
+    (status = StatusCode::INTERNAL_SERVER_ERROR, description = &quot;internal server error&quot;),
+    (status = IM_A_TEAPOT, description = &quot;happy easter&quot;)
+)</code></pre></div>
+<p><strong>More complete Response:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>responses(
+    (status = 200, description = &quot;Success response&quot;, body = Pet, content_type = &quot;application/json&quot;,
+        headers(...),
+        example = json!({&quot;id&quot;: 1, &quot;name&quot;: &quot;bob the cat&quot;})
+    )
+)</code></pre></div>
+<p><strong>Multiple response return types with <em><code>content(...)</code></em> attribute:</strong></p>
+<p><em><strong>Define multiple response return types for single response status with their own example.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>responses(
+   (status = 200, content(
+           (User = &quot;application/vnd.user.v1+json&quot;, example = json!(User {id: &quot;id&quot;.to_string()})),
+           (User2 = &quot;application/vnd.user.v2+json&quot;, example = json!(User2 {id: 2}))
+       )
+   )
+)</code></pre></div><h4 id="using-toresponse-for-reusable-responses"><a class="doc-anchor" href="#using-toresponse-for-reusable-responses">§</a>Using <code>ToResponse</code> for reusable responses</h4>
+<p><em><strong><code>ReusableResponse</code> must be a type that implements <a href="trait.ToResponse.html"><code>ToResponse</code></a>.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>responses(
+    (status = 200, response = ReusableResponse)
+)</code></pre></div>
+<p><em><strong><a href="trait.ToResponse.html"><code>ToResponse</code></a> can also be inlined to the responses map.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>responses(
+    (status = 200, response = inline(ReusableResponse))
+)</code></pre></div><h3 id="responses-from-intoresponses"><a class="doc-anchor" href="#responses-from-intoresponses">§</a>Responses from <code>IntoResponses</code></h3>
+<p><em><strong>Responses for a path can be specified with one or more types that implement
+<a href="trait.IntoResponses.html"><code>IntoResponses</code></a>.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>responses(MyResponse)</code></pre></div><h2 id="response-header-attributes"><a class="doc-anchor" href="#response-header-attributes">§</a>Response Header Attributes</h2>
+<ul>
+<li>
+<p><code>name</code> Name of the header. E.g. <em><code>x-csrf-token</code></em></p>
+</li>
+<li>
+<p><code>type</code> Additional type of the header value. Can be <code>Type</code> or <code>inline(Type)</code>.
+The given <em><code>Type</code></em> can be any Rust type that is JSON parseable. It can be Option, Vec or Map etc.
+With <em><code>inline(...)</code></em> the schema will be inlined instead of a referenced which is the default for
+<a href="trait.ToSchema.html"><code>ToSchema</code></a> types. <strong>Reminder!</strong> It’s up to the user to use valid type for the
+response header.</p>
+</li>
+<li>
+<p><code>description = "..."</code> Can be used to define optional description for the response header as str.</p>
+</li>
+</ul>
+<p><strong>Header supported formats:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>(&quot;x-csrf-token&quot;),
+(&quot;x-csrf-token&quot; = String, description = &quot;New csrf token&quot;),</code></pre></div><h2 id="params-attributes"><a class="doc-anchor" href="#params-attributes">§</a>Params Attributes</h2>
+<p>The list of attributes inside the <code>params(...)</code> attribute can take two forms: <a href="#tuples">Tuples</a> or <a href="#intoparams-type">IntoParams
+Type</a>.</p>
+<h3 id="tuples"><a class="doc-anchor" href="#tuples">§</a>Tuples</h3>
+<p>In the tuples format, parameters are specified using the following attributes inside a list of
+tuples separated by commas:</p>
+<ul>
+<li>
+<p><code>name</code> <em><strong>Must be the first argument</strong></em>. Define the name for parameter.</p>
+</li>
+<li>
+<p><code>parameter_type</code> Define possible type for the parameter. Can be <code>Type</code> or <code>inline(Type)</code>.
+The given <em><code>Type</code></em> can be any Rust type that is JSON parseable. It can be Option, Vec or Map etc.
+With <em><code>inline(...)</code></em> the schema will be inlined instead of a referenced which is the default for
+<a href="trait.ToSchema.html"><code>ToSchema</code></a> types. Parameter type is placed after <code>name</code> with
+equals sign E.g. <em><code>"id" = string</code></em></p>
+</li>
+<li>
+<p><code>in</code> <em><strong>Must be placed after name or parameter_type</strong></em>. Define the place of the parameter.
+This must be one of the variants of <a href="openapi/path/enum.ParameterIn.html"><code>openapi::path::ParameterIn</code></a>.
+E.g. <em><code>Path, Query, Header, Cookie</code></em></p>
+</li>
+<li>
+<p><code>deprecated</code> Define whether the parameter is deprecated or not. Can optionally be defined
+with explicit <code>bool</code> value as <em><code>deprecated = bool</code></em>.</p>
+</li>
+<li>
+<p><code>description = "..."</code> Define possible description for the parameter as str.</p>
+</li>
+<li>
+<p><code>style = ...</code> Defines how parameters are serialized by <a href="openapi/path/enum.ParameterStyle.html"><code>ParameterStyle</code></a>. Default values are based on <em><code>in</code></em> attribute.</p>
+</li>
+<li>
+<p><code>explode</code> Defines whether new <em><code>parameter=value</code></em> is created for each parameter within <em><code>object</code></em> or <em><code>array</code></em>.</p>
+</li>
+<li>
+<p><code>allow_reserved</code> Defines whether reserved characters <em><code>:/?#[]@!$&amp;'()*+,;=</code></em> is allowed within value.</p>
+</li>
+<li>
+<p><code>example = ...</code> Can method reference or <em><code>json!(...)</code></em>. Given example
+will override any example in underlying parameter type.</p>
+</li>
+<li>
+<p><code>extensions(...)</code> List of extensions local to the parameter</p>
+</li>
+</ul>
+<h6 id="parameter-type-attributes"><a class="doc-anchor" href="#parameter-type-attributes">§</a>Parameter type attributes</h6>
+<p>These attributes supported when <em><code>parameter_type</code></em> is present. Either by manually providing one
+or otherwise resolved e.g from path macro argument when <em><code>actix_extras</code></em> crate feature is
+enabled.</p>
+<ul>
+<li>
+<p><code>format = ...</code> May either be variant of the <a href="openapi/schema/enum.KnownFormat.html"><code>KnownFormat</code></a> enum, or otherwise
+an open value as a string. By default the format is derived from the type of the property
+according OpenApi spec.</p>
+</li>
+<li>
+<p><code>write_only</code> Defines property is only used in <strong>write</strong> operations <em>POST,PUT,PATCH</em> but not in <em>GET</em></p>
+</li>
+<li>
+<p><code>read_only</code> Defines property is only used in <strong>read</strong> operations <em>GET</em> but not in <em>POST,PUT,PATCH</em></p>
+</li>
+<li>
+<p><code>xml(...)</code> Can be used to define <a href="openapi/xml/struct.Xml.html"><code>Xml</code></a> object properties for the parameter type.
+See configuration options at xml attributes of <a href="derive.ToSchema.html#xml-attribute-configuration-options" title="derive utoipa::ToSchema"><code>ToSchema</code></a></p>
+</li>
+<li>
+<p><code>nullable</code> Defines property is nullable (note this is different to non-required).</p>
+</li>
+<li>
+<p><code>multiple_of = ...</code> Can be used to define multiplier for a value. Value is considered valid
+division will result an <code>integer</code>. Value must be strictly above <em><code>0</code></em>.</p>
+</li>
+<li>
+<p><code>maximum = ...</code> Can be used to define inclusive upper bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>minimum = ...</code> Can be used to define inclusive lower bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>exclusive_maximum = ...</code> Can be used to define exclusive upper bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>exclusive_minimum = ...</code> Can be used to define exclusive lower bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>max_length = ...</code> Can be used to define maximum length for <code>string</code> types.</p>
+</li>
+<li>
+<p><code>min_length = ...</code> Can be used to define minimum length for <code>string</code> types.</p>
+</li>
+<li>
+<p><code>pattern = ...</code> Can be used to define valid regular expression in <em>ECMA-262</em> dialect the field value must match.</p>
+</li>
+<li>
+<p><code>max_items = ...</code> Can be used to define maximum items allowed for <code>array</code> fields. Value must
+be non-negative integer.</p>
+</li>
+<li>
+<p><code>min_items = ...</code> Can be used to define minimum items allowed for <code>array</code> fields. Value must
+be non-negative integer.</p>
+</li>
+</ul>
+<h6 id="parameter-formats"><a class="doc-anchor" href="#parameter-formats">§</a>Parameter Formats</h6><div class="example-wrap"><pre class="language-test"><code>(&quot;name&quot; = ParameterType, ParameterIn, ...)
+(&quot;name&quot;, ParameterIn, ...)</code></pre></div>
+<p><strong>For example:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>params(
+    (&quot;limit&quot; = i32, Query),
+    (&quot;x-custom-header&quot; = String, Header, description = &quot;Custom header&quot;),
+    (&quot;id&quot; = String, Path, deprecated, description = &quot;Pet database id&quot;),
+    (&quot;name&quot;, Path, deprecated, description = &quot;Pet name&quot;),
+    (
+        &quot;value&quot; = inline(Option&lt;[String]&gt;),
+        Query,
+        description = &quot;Value description&quot;,
+        style = Form,
+        allow_reserved,
+        deprecated,
+        explode,
+        example = json!([&quot;Value&quot;])),
+        max_length = 10,
+        min_items = 1
+    )
+)</code></pre></div><h3 id="intoparams-type"><a class="doc-anchor" href="#intoparams-type">§</a>IntoParams Type</h3>
+<p>In the IntoParams parameters format, the parameters are specified using an identifier for a type
+that implements <a href="trait.IntoParams.html"><code>IntoParams</code></a>. See <a href="trait.IntoParams.html"><code>IntoParams</code></a> for an
+example.</p>
+<div class="example-wrap"><pre class="language-text"><code>params(MyParameters)</code></pre></div>
+<p><strong>Note!</strong> that <code>MyParameters</code> can also be used in combination with the <a href="#tuples">tuples
+representation</a> or other structs.</p>
+<div class="example-wrap"><pre class="language-text"><code>params(
+    MyParameters1,
+    MyParameters2,
+    (&quot;id&quot; = String, Path, deprecated, description = &quot;Pet database id&quot;),
+)</code></pre></div><h2 id="security-requirement-attributes"><a class="doc-anchor" href="#security-requirement-attributes">§</a>Security Requirement Attributes</h2>
+<ul>
+<li><code>name</code> Define the name for security requirement. This must match to name of existing
+<a href="openapi/security/enum.SecurityScheme.html"><code>SecurityScheme</code></a>.</li>
+<li><code>scopes = [...]</code> Define the list of scopes needed. These must be scopes defined already in
+existing <a href="openapi/security/enum.SecurityScheme.html"><code>SecurityScheme</code></a>.</li>
+</ul>
+<p><strong>Security Requirement supported formats:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>(),
+(&quot;name&quot; = []),
+(&quot;name&quot; = [&quot;scope1&quot;, &quot;scope2&quot;]),
+(&quot;name&quot; = [&quot;scope1&quot;, &quot;scope2&quot;], &quot;name2&quot; = []),</code></pre></div>
+<p>Leaving empty <em><code>()</code></em> creates an empty <a href="openapi/security/struct.SecurityRequirement.html"><code>SecurityRequirement</code></a> this is useful when
+security requirement is optional for operation.</p>
+<p>You can define multiple security requirements within same parenthesis separated by comma. This
+allows you to define keys that must be simultaneously provided for the endpoint / API.</p>
+<p><em><strong>Following could be explained as: Security is optional and if provided it must either contain
+<code>api_key</code> or <code>key AND key2</code>.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>(),
+(&quot;api_key&quot; = []),
+(&quot;key&quot; = [], &quot;key2&quot; = []),</code></pre></div><h2 id="extensions-requirements-attributes"><a class="doc-anchor" href="#extensions-requirements-attributes">§</a>Extensions Requirements Attributes</h2>
+<ul>
+<li><code>x-property</code> defines the name of the extension.</li>
+<li><code>json!(...)</code> defines the value associated with the named extension as a <code>serde_json::Value</code>.</li>
+</ul>
+<p><strong>Extensions Requitement supported formats:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>(&quot;x-property&quot; = json!({ &quot;type&quot;: &quot;mock&quot; }) ),
+(&quot;x-an-extension&quot; = json!({ &quot;type&quot;: &quot;mock&quot; }) ),
+(&quot;x-another-extension&quot; = json!( &quot;body&quot; ) ),</code></pre></div><h2 id="actix_extras-feature-support-for-actix-web"><a class="doc-anchor" href="#actix_extras-feature-support-for-actix-web">§</a>actix_extras feature support for actix-web</h2>
+<p><strong>actix_extras</strong> feature gives <strong>utoipa</strong> ability to parse path operation information from <strong>actix-web</strong> types and macros.</p>
+<ol>
+<li>Ability to parse <code>path</code> from <strong>actix-web</strong> path attribute macros e.g. <em><code>#[get(...)]</code></em> or
+<code>#[route(...)]</code>.</li>
+<li>Ability to parse [<code>std::primitive</code>]  or [<code>String</code>] or <a href="https://doc.rust-lang.org/1.91.1/std/primitive.tuple.html" title="primitive tuple"><code>tuple</code></a> typed <code>path</code> parameters from <strong>actix-web</strong> <em><code>web::Path&lt;...&gt;</code></em>.</li>
+<li>Ability to parse <code>path</code> and <code>query</code> parameters form <strong>actix-web</strong> <em><code>web::Path&lt;...&gt;</code></em>, <em><code>web::Query&lt;...&gt;</code></em> types
+with <a href="trait.IntoParams.html"><code>IntoParams</code></a> trait.</li>
+</ol>
+<p>See the <strong>actix_extras</strong> in action in examples <a href="https://github.com/juhaku/utoipa/tree/master/examples/todo-actix">todo-actix</a>.</p>
+<p>With <strong>actix_extras</strong> feature enabled the you can leave out definitions for <strong>path</strong>, <strong>operation</strong>
+and <strong>parameter types</strong>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>actix_web::{get, web, HttpResponse, Responder};
+<span class="kw">use </span>serde_json::json;
+
+<span class="doccomment">/// Get Pet by id
+</span><span class="attr">#[utoipa::path(
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"Pet found from database"</span>)
+    ),
+    params(
+        (<span class="string">"id"</span>, description = <span class="string">"Pet id"</span>),
+    )
+)]
+#[get(<span class="string">"/pet/{id}"</span>)]
+</span><span class="kw">async fn </span>get_pet_by_id(id: web::Path&lt;i32&gt;) -&gt; <span class="kw">impl </span>Responder {
+    HttpResponse::Ok().json(<span class="macro">json!</span>({ <span class="string">"pet"</span>: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, <span class="kw-2">&amp;</span>id.into_inner()) }))
+}</code></pre></div>
+<p>With <strong>actix_extras</strong> you may also not to list any <em><strong>params</strong></em> if you do not want to specify any description for them. Params are
+resolved from path and the argument types of handler</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>actix_web::{get, web, HttpResponse, Responder};
+<span class="kw">use </span>serde_json::json;
+
+<span class="doccomment">/// Get Pet by id
+</span><span class="attr">#[utoipa::path(
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"Pet found from database"</span>)
+    )
+)]
+#[get(<span class="string">"/pet/{id}"</span>)]
+</span><span class="kw">async fn </span>get_pet_by_id(id: web::Path&lt;i32&gt;) -&gt; <span class="kw">impl </span>Responder {
+    HttpResponse::Ok().json(<span class="macro">json!</span>({ <span class="string">"pet"</span>: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, <span class="kw-2">&amp;</span>id.into_inner()) }))
+}</code></pre></div><h2 id="rocket_extras-feature-support-for-rocket"><a class="doc-anchor" href="#rocket_extras-feature-support-for-rocket">§</a>rocket_extras feature support for rocket</h2>
+<p><strong>rocket_extras</strong> feature enhances path operation parameter support. It gives <strong>utoipa</strong> ability to parse <code>path</code>, <code>path parameters</code>
+and <code>query parameters</code> based on arguments given to <strong>rocket</strong>  proc macros such as <em><strong><code>#[get(...)]</code></strong></em>.</p>
+<ol>
+<li>It is able to parse parameter types for <a href="https://doc.rust-lang.org/std/primitive/index.html">primitive types</a>, [<code>String</code>], [<code>Vec</code>], [<code>Option</code>] or [<code>std::path::PathBuf</code>]
+type.</li>
+<li>It is able to determine <code>parameter_in</code> for <a href="trait.IntoParams.html"><code>IntoParams</code></a> trait used for <code>FromForm</code> type of query parameters.</li>
+</ol>
+<p>See the <strong>rocket_extras</strong> in action in examples <a href="https://github.com/juhaku/utoipa/tree/master/examples/rocket-todo">rocket-todo</a>.</p>
+<h2 id="axum_extras-feature-support-for-axum"><a class="doc-anchor" href="#axum_extras-feature-support-for-axum">§</a>axum_extras feature support for axum</h2>
+<p><strong>axum_extras</strong> feature enhances parameter support for path operation in following ways.</p>
+<ol>
+<li>It allows users to use tuple style path parameters e.g. <em><code>Path((id, name)): Path&lt;(i32, String)&gt;</code></em> and resolves
+parameter names and types from it.</li>
+<li>It enhances <a href="derive.IntoParams.html"><code>IntoParams</code> derive</a> functionality by automatically resolving <em><code>parameter_in</code></em> from
+<em><code>Path&lt;...&gt;</code></em> or <em><code>Query&lt;...&gt;</code></em> handler function arguments.</li>
+</ol>
+<p><em><strong>Resole path argument types from tuple style handler arguments.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="doccomment">/// Get todo by id and name.
+</span><span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/todo/{id}"</span>,
+    params(
+        (<span class="string">"id"</span>, description = <span class="string">"Todo id"</span>),
+        (<span class="string">"name"</span>, description = <span class="string">"Todo name"</span>)
+    ),
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"Get todo success"</span>, body = String)
+    )
+)]
+</span><span class="kw">async fn </span>get_todo(
+    Path((id, name)): Path&lt;(i32, String)&gt;
+) -&gt; String {
+    String::new()
+}</code></pre></div>
+<p><em><strong>Use <code>IntoParams</code> to resolve query parameters.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Deserialize, IntoParams)]
+</span><span class="kw">struct </span>TodoSearchQuery {
+    <span class="doccomment">/// Search by value. Search is incase sensitive.
+    </span>value: String,
+    <span class="doccomment">/// Search by `done` status.
+    </span>done: bool,
+}
+
+<span class="doccomment">/// Search Todos by query params.
+</span><span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/todo/search"</span>,
+    params(
+        TodoSearchQuery
+    ),
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"List matching todos by query"</span>, body = [String]</span>)
+    )
+)]
+<span class="kw">async fn </span>search_todos(
+    query: Query&lt;TodoSearchQuery&gt;,
+) -&gt; Json&lt;Vec&lt;String&gt;&gt; {
+    Json(<span class="macro">vec!</span>[])
+}</code></pre></div><h2 id="defining-file-uploads"><a class="doc-anchor" href="#defining-file-uploads">§</a>Defining file uploads</h2>
+<p>File uploads can be defined in accordance to Open API specification <a href="https://spec.openapis.org/oas/v3.1.0.html#considerations-for-file-uploads">file uploads</a>.</p>
+<p><em><strong>Example sending <code>jpg</code> and <code>png</code> images as <code>application/octet-stream</code>.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+    post,
+    request_body(
+        content(
+            (<span class="string">"image/png"</span>),
+            (<span class="string">"image/jpg"</span>),
+        ),
+    ),
+    path = <span class="string">"/test_images"
+</span>)]
+</span><span class="kw">async fn </span>test_images(_body: Vec&lt;u8&gt;) {}</code></pre></div>
+<p><em><strong>Example of sending <code>multipart</code> form.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToSchema)]
+</span><span class="kw">struct </span>MyForm {
+    order_id: i32,
+    <span class="attr">#[schema(content_media_type = <span class="string">"application/octet-stream"</span>)]
+    </span>file_bytes: Vec&lt;u8&gt;,
+}
+
+<span class="attr">#[utoipa::path(
+    post,
+    request_body(content = inline(MyForm), content_type = <span class="string">"multipart/form-data"</span>),
+    path = <span class="string">"/test_multipart"
+</span>)]
+</span><span class="kw">async fn </span>test_multipart(_body: MyForm) {}</code></pre></div>
+<p><em><strong>Example of sending arbitrary binary content as <code>application/octet-stream</code>.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+    post,
+    request_body = Vec&lt;u8&gt;,
+    path = <span class="string">"/test-octet-stream"</span>,
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"success response"</span>)
+    ),
+)]
+</span><span class="kw">async fn </span>test_octet_stream(_body: Vec&lt;u8&gt;) {}</code></pre></div>
+<p><em><strong>Example of sending <code>png</code> image as <code>base64</code> encoded.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToSchema)]
+#[schema(content_encoding = <span class="string">"base64"</span>)]
+</span><span class="kw">struct </span>MyPng(String);
+
+<span class="attr">#[utoipa::path(
+    post,
+    request_body(content = inline(MyPng), content_type = <span class="string">"image/png"</span>),
+    path = <span class="string">"/test_png"</span>,
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"success response"</span>)
+    ),
+)]
+</span><span class="kw">async fn </span>test_png(_body: MyPng) {}</code></pre></div><h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p><em><strong>More complete example.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+   post,
+   operation_id = <span class="string">"custom_post_pet"</span>,
+   path = <span class="string">"/pet"</span>,
+   tag = <span class="string">"pet_handlers"</span>,
+   request_body(content = Pet, description = <span class="string">"Pet to store the database"</span>, content_type = <span class="string">"application/json"</span>),
+   responses(
+        (status = <span class="number">200</span>, description = <span class="string">"Pet stored successfully"</span>, body = Pet, content_type = <span class="string">"application/json"</span>,
+            headers(
+                (<span class="string">"x-cache-len" </span>= String, description = <span class="string">"Cache length"</span>)
+            ),
+            example = <span class="macro">json!</span>({<span class="string">"id"</span>: <span class="number">1</span>, <span class="string">"name"</span>: <span class="string">"bob the cat"</span>})
+        ),
+   ),
+   params(
+     (<span class="string">"x-csrf-token" </span>= String, Header, deprecated, description = <span class="string">"Current csrf token of user"</span>),
+   ),
+   security(
+       (),
+       (<span class="string">"my_auth" </span>= [<span class="string">"read:items"</span>, <span class="string">"edit:items"</span>]</span>),
+       (<span class="string">"token_jwt" </span>= [])
+   )
+)]
+<span class="kw">fn </span>post_pet(pet: Pet) -&gt; Pet {
+    Pet {
+        id: <span class="number">4</span>,
+        name: <span class="string">"bob the cat"</span>.to_string(),
+    }
+}</code></pre></div>
+<p><em><strong>More minimal example with the defaults.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+   post,
+   path = <span class="string">"/pet"</span>,
+   request_body = Pet,
+   responses(
+        (status = <span class="number">200</span>, description = <span class="string">"Pet stored successfully"</span>, body = Pet,
+            headers(
+                (<span class="string">"x-cache-len"</span>, description = <span class="string">"Cache length"</span>)
+            )
+        ),
+   ),
+   params(
+     (<span class="string">"x-csrf-token"</span>, Header, description = <span class="string">"Current csrf token of user"</span>),
+   )
+)]
+</span><span class="kw">fn </span>post_pet(pet: Pet) -&gt; Pet {
+    Pet {
+        id: <span class="number">4</span>,
+        name: <span class="string">"bob the cat"</span>.to_string(),
+    }
+}</code></pre></div>
+<p><em><strong>Use of Rust’s own <code>#[deprecated]</code> attribute will reflect to the generated OpenAPI spec and mark this operation as deprecated.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"Pet found from database"</span>)
+    ),
+    params(
+        (<span class="string">"id"</span>, description = <span class="string">"Pet id"</span>),
+    )
+)]
+#[get(<span class="string">"/pet/{id}"</span>)]
+#[deprecated]
+</span><span class="kw">async fn </span>get_pet_by_id(id: web::Path&lt;i32&gt;) -&gt; <span class="kw">impl </span>Responder {
+    HttpResponse::Ok().json(<span class="macro">json!</span>({ <span class="string">"pet"</span>: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, <span class="kw-2">&amp;</span>id.into_inner()) }))
+}</code></pre></div>
+<p><em><strong>Define context path for endpoint. The resolved <strong>path</strong> shown in OpenAPI doc will be <code>/api/pet/{id}</code>.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+    context_path = <span class="string">"/api"</span>,
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"Pet found from database"</span>)
+    )
+)]
+#[get(<span class="string">"/pet/{id}"</span>)]
+</span><span class="kw">async fn </span>get_pet_by_id(id: web::Path&lt;i32&gt;) -&gt; <span class="kw">impl </span>Responder {
+    HttpResponse::Ok().json(<span class="macro">json!</span>({ <span class="string">"pet"</span>: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, <span class="kw-2">&amp;</span>id.into_inner()) }))
+}</code></pre></div>
+<p><em><strong>Example with multiple return types</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/user"</span>,
+    responses(
+        (status = <span class="number">200</span>, content(
+                (User1 = <span class="string">"application/vnd.user.v1+json"</span>, example = <span class="macro">json!</span>({<span class="string">"id"</span>: <span class="string">"id"</span>.to_string()})),
+                (User2 = <span class="string">"application/vnd.user.v2+json"</span>, example = <span class="macro">json!</span>({<span class="string">"id"</span>: <span class="number">2</span>}))
+            )
+        )
+    )
+)]
+</span><span class="kw">fn </span>get_user() -&gt; Box&lt;<span class="kw">dyn </span>User&gt; {
+  Box::new(User1 {id: <span class="string">"id"</span>.to_string()})
+}</code></pre></div>
+<p><em><strong>Example with multiple examples on single response.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/user"</span>,
+    responses(
+        (status = <span class="number">200</span>, body = User,
+            examples(
+                (<span class="string">"Demo" </span>= (summary = <span class="string">"This is summary"</span>, description = <span class="string">"Long description"</span>,
+                            value = <span class="macro">json!</span>(User{name: <span class="string">"Demo"</span>.to_string()}))),
+                (<span class="string">"John" </span>= (summary = <span class="string">"Another user"</span>, value = <span class="macro">json!</span>({<span class="string">"name"</span>: <span class="string">"John"</span>})))
+             )
+        )
+    )
+)]
+</span><span class="kw">fn </span>get_user() -&gt; User {
+  User {name: <span class="string">"John"</span>.to_string()}
+}</code></pre></div>
+<p><em><strong>Example of using links in response.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/test-links"</span>,
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"success response"</span>,
+            links(
+                (<span class="string">"getFoo" </span>= (
+                    operation_id = <span class="string">"test_links"</span>,
+                    parameters((<span class="string">"key" </span>= <span class="string">"value"</span>), (<span class="string">"json_value" </span>= <span class="macro">json!</span>(<span class="number">1</span>))),
+                    request_body = <span class="string">"this is body"</span>,
+                    server(url = <span class="string">"http://localhost"</span>)
+                )),
+                (<span class="string">"getBar" </span>= (
+                    operation_ref = <span class="string">"this is ref"
+                </span>))
+            )
+        )
+    ),
+)]
+</span><span class="kw">async fn </span>test_links() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+    <span class="string">""
+</span>}</code></pre></div></div></details></section></div></main></body></html>

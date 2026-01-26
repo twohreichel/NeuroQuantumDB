@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Threads (tasks)"><title>openraft::docs::internal::threading - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module threading</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module threading</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#threads-tasks" title="Threads (tasks)">Threads (tasks)</a></li><li><a href="#communication-between-tasks" title="Communication between tasks">Communication between tasks</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>internal</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">internal</a></div><h1>Module <span>threading</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/internal/mod.rs.html#7">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="threads-tasks"><a class="doc-anchor" href="#threads-tasks">§</a>Threads (tasks)</h2>
+<p>There are several threads, also known as tokio-tasks, in this Raft implementation:</p>
+<ul>
+<li>
+<p><strong><code>RaftCore</code></strong>:
+All user request handling and log IO are done in this thread.</p>
+<p>All writes to the <a href="../../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> are done in this task, meaning writes
+to the store are serialized.</p>
+<p><strong>Lifecycle</strong>:</p>
+<ul>
+<li>The RaftCore thread is spawned when a Raft node is created and keeps
+running until the Raft node is dropped.</li>
+</ul>
+</li>
+<li>
+<p><strong>Replication tasks</strong>:
+There is exactly one replication task spawned for every target node
+(i.e., a follower or learner).</p>
+<p>A replication task replicates logs or snapshots to its target. A replication
+thread does not write logs or state machines but only reads from them.</p>
+<p><strong>Lifecycle</strong>:</p>
+<ul>
+<li>A replication task is spawned when <code>RaftCore</code> enters <code>LeaderState</code>.</li>
+<li>A replication task is dropped when <strong>change-membership</strong> log take effects or when <code>RaftCore</code> quits <code>LeaderState</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>StateMachine</strong>:
+Handles all state-machine read and write operations, such as applying a committed log
+entry, or constructing a snapshot.</p>
+<p><strong>Lifecycle</strong>:</p>
+<ul>
+<li>Spawned when the <code>RaftCore</code> is initialized, and continues running until
+<code>RaftCore</code> is terminated.</li>
+</ul>
+</li>
+<li>
+<p><strong>Snapshot building task</strong>:
+Is a short term task for building a snapshot.</p>
+<p><strong>Lifecycle</strong>:</p>
+<ul>
+<li>The snapshot building task is spawned by [<code>StateMachine task</code>] when a
+snapshot is requested and is dropped once the snapshot is ready.</li>
+</ul>
+</li>
+<li>
+<p><strong>User application</strong>:
+runs in another task that spawns the RaftCore task and keeps a control
+handle <a href="../../../raft/struct.Raft.html" title="struct openraft::raft::Raft"><code>Raft</code></a>.</p>
+</li>
+</ul>
+<h2 id="communication-between-tasks"><a class="doc-anchor" href="#communication-between-tasks">§</a>Communication between tasks</h2>
+<p>All tasks communicate with channels:</p>
+<div class="example-wrap"><pre class="language-text"><code>User
+|
+| write;
+| change_membership;
+| ...
+|
+|                     new log to
+|                     replicate;
+`---------&gt; RaftCore -------------+-&gt; Replication -.
+            ^|  ^                 |                |
+            ||  |                 `-&gt; Replication -+
+            ||  |                           ^      |
+            ||  `---------------------------|------&#39;
+            ||     update replication state;|
+            ||     need snapshot;           |
+            ||                              |
+            ||                              |
+            ||                              |
+            ||  install_snapshot            |
+            ||  apply_log                   |
+            |&#39;----------------&gt; sm::Worker  |
+            |                   |  |        |
+            &#39;-------------------&#39;  |        |
+                applied result     |        |
+                                   |        |
+                                   |        |
+                                   |        |snapshot is ready;
+                                   v        |
+                                   Build-snapshot
+</code></pre></div>
+<ul>
+<li>
+<p>User to RaftCore: <a href="../../../raft/struct.Raft.html" title="struct openraft::raft::Raft"><code>Raft</code></a> sends <code>RaftMsg</code> through <code>Raft.tx_api</code> to <code>RaftCore</code>,
+<code>RaftMsg</code> contains a oneshot channel for <code>RaftCore</code> to send back a response.</p>
+</li>
+<li>
+<p>RaftCore to Replication: <code>RaftCore</code> maintains a channel for every replication
+task.
+The messages sent to the replication task include:</p>
+<ul>
+<li>a new log ID to replicate,</li>
+<li>and the index that the leader has committed.</li>
+</ul>
+</li>
+<li>
+<p>Replication to RaftCore:</p>
+<ul>
+<li>Replication tasks send the already replicated log ID
+to RaftCore through another per-replication channel.</li>
+</ul>
+</li>
+<li>
+<p>RaftCore to <code>sm::Worker</code>: <code>RaftCore</code> forwards entries to apply to
+<code>sm::Worker</code>, and if snapshot-based replication is required, <code>RaftCore</code>
+sends a message to <code>sm::Worker</code>, which then spawns a task to build
+the snapshot.</p>
+</li>
+<li>
+<p>Build-snapshot to RaftCore: once the snapshot building is completed, the spawned
+task sends a message to <code>RaftCore</code> via <code>Notify</code> containing the snapshot information.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

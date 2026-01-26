@@ -1,0 +1,169 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The OTLP Exporter supports exporting logs, metrics and traces in the OTLP format to the OpenTelemetry collector or other compatible backend."><title>opentelemetry_otlp - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="opentelemetry_otlp" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate opentelemetry_otlp</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../opentelemetry_otlp/index.html">opentelemetry_<wbr>otlp</a><span class="version">0.27.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#quickstart" title="Quickstart">Quickstart</a><ul><li><a href="#performance" title="Performance">Performance</a></li></ul></li><li><a href="#feature-flags" title="Feature Flags">Feature Flags</a></li><li><a href="#kitchen-sink-full-configuration" title="Kitchen Sink Full Configuration">Kitchen Sink Full Configuration</a></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>opentelemetry_<wbr>otlp</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/opentelemetry_otlp/lib.rs.html#1-415">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The OTLP Exporter supports exporting logs, metrics and traces in the OTLP
+format to the OpenTelemetry collector or other compatible backend.</p>
+<p>The OpenTelemetry Collector offers a vendor-agnostic implementation on how
+to receive, process, and export telemetry data. In addition, it removes
+the need to run, operate, and maintain multiple agents/collectors in
+order to support open-source telemetry data formats (e.g. Jaeger,
+Prometheus, etc.) sending to multiple open-source or commercial back-ends.</p>
+<p>Currently, this crate only support sending telemetry in OTLP
+via grpc and http (in binary format). Supports for other format and protocol
+will be added in the future. The details of what’s currently offering in this
+crate can be found in this doc.</p>
+<h2 id="quickstart"><a class="doc-anchor" href="#quickstart">§</a>Quickstart</h2>
+<p>First make sure you have a running version of the opentelemetry collector
+you want to send data to:</p>
+<div class="example-wrap"><pre class="language-shell"><code>$ docker run -p 4317:4317 otel/opentelemetry-collector:latest</code></pre></div>
+<p>Then create a new <code>Exporter</code>, and <code>Provider</code> with the recommended defaults to start exporting
+telemetry.</p>
+<p>You will have to build a OTLP exporter first. Create the correct exporter based on the signal
+you are looking to export <code>SpanExporter::builder()</code>, <code>MetricExporter::builder()</code>,
+<code>LogExporter::builder()</code> respectively for traces, metrics, and logs.</p>
+<p>Once you have the exporter, you can create your <code>Provider</code> by starting with <code>TracerProvider::builder()</code>,
+<code>SdkMeterProvider::builder()</code>, and <code>LoggerProvider::builder()</code> respectively for traces, metrics, and logs.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>opentelemetry::global;
+<span class="kw">use </span>opentelemetry::trace::Tracer;
+
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
+    <span class="comment">// First, create a OTLP exporter builder. Configure it as you need.
+    </span><span class="kw">let </span>otlp_exporter = opentelemetry_otlp::SpanExporter::builder().with_tonic().build()<span class="question-mark">?</span>;
+    <span class="comment">// Then pass it into provider builder
+    </span><span class="kw">let _ </span>= opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_simple_exporter(otlp_exporter)
+        .build();
+    <span class="kw">let </span>tracer = global::tracer(<span class="string">"my_tracer"</span>);
+    tracer.in_span(<span class="string">"doing_work"</span>, |cx| {
+        <span class="comment">// Traced app logic here...
+    </span>});
+
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div><h3 id="performance"><a class="doc-anchor" href="#performance">§</a>Performance</h3>
+<p>For optimal performance, a batch exporter is recommended as the simple
+exporter will export each span synchronously on dropping. You can enable the
+[<code>rt-tokio</code>], [<code>rt-tokio-current-thread</code>] or [<code>rt-async-std</code>] features and
+specify a runtime on the pipeline builder to have a batch exporter
+configured for you automatically.</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+opentelemetry_sdk = { version = &quot;*&quot;, features = [&quot;async-std&quot;] }
+opentelemetry-otlp = { version = &quot;*&quot;, features = [&quot;grpc-tonic&quot;] }</code></pre></div>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>tracer = opentelemetry_sdk::trace::TracerProvider::builder()
+       .with_batch_exporter(
+           opentelemetry_otlp::SpanExporter::builder()
+               .with_tonic()
+               .build()<span class="question-mark">?</span>,
+           opentelemetry_sdk::runtime::Tokio,
+        )
+       .build();
+</code></pre></div><h2 id="feature-flags"><a class="doc-anchor" href="#feature-flags">§</a>Feature Flags</h2>
+<p>The following feature flags can enable exporters for different telemetry signals:</p>
+<ul>
+<li><code>trace</code>: Includes the trace exporters (enabled by default).</li>
+<li><code>metrics</code>: Includes the metrics exporters.</li>
+<li><code>logs</code>: Includes the logs exporters.</li>
+</ul>
+<p>The following feature flags generate additional code and types:</p>
+<ul>
+<li><code>serialize</code>: Enables serialization support for type defined in this create via <code>serde</code>.</li>
+<li><code>populate-logs-event-name</code>: Enables sending <code>LogRecord::event_name</code> as an attribute
+with the key <code>name</code></li>
+</ul>
+<p>The following feature flags offer additional configurations on gRPC:</p>
+<p>For users uses <code>tonic</code> as grpc layer:</p>
+<ul>
+<li><code>grpc-tonic</code>: Use <code>tonic</code> as grpc layer. This is enabled by default.</li>
+<li><code>gzip-tonic</code>: Use gzip compression for <code>tonic</code> grpc layer.</li>
+<li><code>zstd-tonic</code>: Use zstd compression for <code>tonic</code> grpc layer.</li>
+<li><code>tls-roots</code>: Adds system trust roots to rustls-based gRPC clients using the rustls-native-certs crate</li>
+<li><code>tls-webkpi-roots</code>: Embeds Mozilla’s trust roots to rustls-based gRPC clients using the webkpi-roots crate</li>
+</ul>
+<p>The following feature flags offer additional configurations on http:</p>
+<ul>
+<li><code>http-proto</code>: Use http as transport layer, protobuf as body format.</li>
+<li><code>reqwest-blocking-client</code>: Use reqwest blocking http client.</li>
+<li><code>reqwest-client</code>: Use reqwest http client.</li>
+<li><code>reqwest-rustls</code>: Use reqwest with TLS with system trust roots via <code>rustls-native-certs</code> crate.</li>
+<li><code>reqwest-rustls-webkpi-roots</code>: Use reqwest with TLS with Mozilla’s trust roots via <code>webkpi-roots</code> crate.</li>
+</ul>
+<h2 id="kitchen-sink-full-configuration"><a class="doc-anchor" href="#kitchen-sink-full-configuration">§</a>Kitchen Sink Full Configuration</h2>
+<p>Example showing how to override all configuration options.</p>
+<p>Generally there are two parts of configuration. One is the exporter, the other is the provider.
+Users can configure the exporter using <a href="struct.SpanExporter.html#method.builder" title="associated function opentelemetry_otlp::SpanExporter::builder">SpanExporter::builder()</a> for traces,
+and <a href="struct.MetricExporter.html#method.builder" title="associated function opentelemetry_otlp::MetricExporter::builder">MetricExporter::builder()</a> + <a href="../opentelemetry_sdk/metrics/periodic_reader/struct.PeriodicReader.html#method.builder" title="associated function opentelemetry_sdk::metrics::periodic_reader::PeriodicReader::builder">opentelemetry_sdk::metrics::PeriodicReader::builder()</a> for metrics.
+Once you have an exporter, you can add it to either a <a href="../opentelemetry_sdk/trace/provider/struct.TracerProvider.html#method.builder" title="associated function opentelemetry_sdk::trace::provider::TracerProvider::builder">opentelemetry_sdk::trace::TracerProvider::builder()</a> for traces,
+or <a href="../opentelemetry_sdk/metrics/meter_provider/struct.SdkMeterProvider.html#method.builder" title="associated function opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::builder">opentelemetry_sdk::metrics::SdkMeterProvider::builder()</a> for metrics.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>opentelemetry::{global, KeyValue, trace::Tracer};
+<span class="kw">use </span>opentelemetry_sdk::{trace::{<span class="self">self</span>, RandomIdGenerator, Sampler}, Resource};
+<span class="kw">use </span>opentelemetry_sdk::metrics::Temporality;
+<span class="kw">use </span>opentelemetry_otlp::{Protocol, WithExportConfig, WithTonicConfig};
+<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>tonic::metadata::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>map = MetadataMap::with_capacity(<span class="number">3</span>);
+
+    map.insert(<span class="string">"x-host"</span>, <span class="string">"example.com"</span>.parse().unwrap());
+    map.insert(<span class="string">"x-number"</span>, <span class="string">"123"</span>.parse().unwrap());
+    map.insert_bin(<span class="string">"trace-proto-bin"</span>, MetadataValue::from_bytes(<span class="string">b"[binary data]"</span>));
+    <span class="kw">let </span>exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(<span class="string">"http://localhost:4317"</span>)
+        .with_timeout(Duration::from_secs(<span class="number">3</span>))
+        .with_metadata(map)
+        .build()<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>tracer_provider = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+        .with_config(
+            trace::Config::default()
+                .with_sampler(Sampler::AlwaysOn)
+                .with_id_generator(RandomIdGenerator::default())
+                .with_max_events_per_span(<span class="number">64</span>)
+                .with_max_attributes_per_span(<span class="number">16</span>)
+                .with_max_events_per_span(<span class="number">16</span>)
+                .with_resource(Resource::new(<span class="macro">vec!</span>[KeyValue::new(<span class="string">"service.name"</span>, <span class="string">"example"</span>)])),
+        ).build();
+    global::set_tracer_provider(tracer_provider);
+    <span class="kw">let </span>tracer = global::tracer(<span class="string">"tracer-name"</span>);
+
+    <span class="kw">let </span>exporter = opentelemetry_otlp::MetricExporter::builder()
+       .with_tonic()
+       .with_endpoint(<span class="string">"http://localhost:4318/v1/metrics"</span>)
+       .with_protocol(Protocol::Grpc)
+       .with_timeout(Duration::from_secs(<span class="number">3</span>))
+       .build()
+       .unwrap();
+
+   <span class="kw">let </span>reader = opentelemetry_sdk::metrics::PeriodicReader::builder(exporter, opentelemetry_sdk::runtime::Tokio)
+       .with_interval(std::time::Duration::from_secs(<span class="number">3</span>))
+        .with_timeout(Duration::from_secs(<span class="number">10</span>))
+       .build();
+
+   <span class="kw">let </span>provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder()
+       .with_reader(reader)
+        .with_resource(Resource::new(<span class="macro">vec!</span>[KeyValue::new(<span class="string">"service.name"</span>, <span class="string">"example"</span>)]))
+        .build();
+
+    tracer.in_span(<span class="string">"doing_work"</span>, |cx| {
+        <span class="comment">// Traced app logic here...
+    </span>});
+
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ExportConfig.html" title="struct opentelemetry_otlp::ExportConfig">Export<wbr>Config</a></dt><dd>Configuration for the OTLP exporter.</dd><dt><a class="struct" href="struct.LogExporter.html" title="struct opentelemetry_otlp::LogExporter">LogExporter</a></dt><dd>OTLP exporter that sends log data</dd><dt><a class="struct" href="struct.MetricExporter.html" title="struct opentelemetry_otlp::MetricExporter">Metric<wbr>Exporter</a></dt><dd>Export metrics in OTEL format.</dd><dt><a class="struct" href="struct.NoExporterBuilderSet.html" title="struct opentelemetry_otlp::NoExporterBuilderSet">NoExporter<wbr>Builder<wbr>Set</a></dt><dd>Type to indicate the builder does not have a client set.</dd><dt><a class="struct" href="struct.SpanExporter.html" title="struct opentelemetry_otlp::SpanExporter">Span<wbr>Exporter</a></dt><dd>OTLP exporter that sends tracing information</dd><dt><a class="struct" href="struct.TonicConfig.html" title="struct opentelemetry_otlp::TonicConfig">Tonic<wbr>Config</a></dt><dd>Configuration for <a href="https://github.com/hyperium/tonic">tonic</a></dd><dt><a class="struct" href="struct.TonicExporterBuilder.html" title="struct opentelemetry_otlp::TonicExporterBuilder">Tonic<wbr>Exporter<wbr>Builder</a></dt><dd>Configuration for the <a href="https://github.com/hyperium/tonic">tonic</a> OTLP GRPC exporter.</dd><dt><a class="struct" href="struct.TonicExporterBuilderSet.html" title="struct opentelemetry_otlp::TonicExporterBuilderSet">Tonic<wbr>Exporter<wbr>Builder<wbr>Set</a></dt><dd>Type to hold the <a href="struct.TonicExporterBuilder.html" title="struct opentelemetry_otlp::TonicExporterBuilder">TonicExporterBuilder</a> and indicate it has been set.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Compression.html" title="enum opentelemetry_otlp::Compression">Compression</a></dt><dd>The compression algorithm to use when sending data.</dd><dt><a class="enum" href="enum.Error.html" title="enum opentelemetry_otlp::Error">Error</a></dt><dd>Wrap type for errors from this crate.</dd><dt><a class="enum" href="enum.Protocol.html" title="enum opentelemetry_otlp::Protocol">Protocol</a></dt><dd>The communication protocol to use when exporting data.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_COMPRESSION.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_COMPRESSION">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>COMPRESSION</a></dt><dd>Compression algorithm to use, defaults to none.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_ENDPOINT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_ENDPOINT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>ENDPOINT</a></dt><dd>Target to which the exporter is going to send signals, defaults to https://localhost:4317.
+Learn about the relationship between this constant and metrics/spans/logs at
+<a href="https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#endpoint-urls-for-otlphttp">https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#endpoint-urls-for-otlphttp</a></dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_ENDPOINT_DEFAULT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_ENDPOINT_DEFAULT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>ENDPOINT_<wbr>DEFAULT</a></dt><dd>Default target to which the exporter is going to send signals.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_HEADERS.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_HEADERS">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>HEADERS</a></dt><dd>Key-value pairs to be used as headers associated with gRPC or HTTP requests
+Example: <code>k1=v1,k2=v2</code>
+Note: as of now, this is only supported for HTTP requests.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_LOGS_COMPRESSION.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_LOGS_COMPRESSION">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>LOGS_<wbr>COMPRESSION</a></dt><dd>Compression algorithm to use, defaults to none.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_LOGS_ENDPOINT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>LOGS_<wbr>ENDPOINT</a></dt><dd>Target to which the exporter is going to send logs</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_LOGS_HEADERS.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_LOGS_HEADERS">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>LOGS_<wbr>HEADERS</a></dt><dd>Key-value pairs to be used as headers associated with gRPC or HTTP requests
+for sending logs.
+Example: <code>k1=v1,k2=v2</code>
+Note: this is only supported for HTTP.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_LOGS_TIMEOUT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_LOGS_TIMEOUT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>LOGS_<wbr>TIMEOUT</a></dt><dd>Maximum time the OTLP exporter will wait for each batch logs export.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_METRICS_COMPRESSION.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_METRICS_COMPRESSION">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>METRICS_<wbr>COMPRESSION</a></dt><dd>Compression algorithm to use, defaults to none.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_METRICS_ENDPOINT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>METRICS_<wbr>ENDPOINT</a></dt><dd>Target to which the exporter is going to send metrics, defaults to https://localhost:4317/v1/metrics.
+Learn about the relationship between this constant and default/spans/logs at
+<a href="https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#endpoint-urls-for-otlphttp">https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#endpoint-urls-for-otlphttp</a></dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_METRICS_HEADERS.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_METRICS_HEADERS">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>METRICS_<wbr>HEADERS</a></dt><dd>Key-value pairs to be used as headers associated with gRPC or HTTP requests
+for sending metrics.
+Example: <code>k1=v1,k2=v2</code>
+Note: this is only supported for HTTP.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_METRICS_TIMEOUT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_METRICS_TIMEOUT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>METRICS_<wbr>TIMEOUT</a></dt><dd>Max waiting time for the backend to process each metrics batch, defaults to 10s.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_PROTOCOL.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_PROTOCOL">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>PROTOCOL</a></dt><dd>Protocol the exporter will use. Either <code>http/protobuf</code> or <code>grpc</code>.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_PROTOCOL_DEFAULT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_PROTOCOL_DEFAULT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>PROTOCOL_<wbr>DEFAULT</a></dt><dd>Default protocol, using grpc</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_TIMEOUT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_TIMEOUT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>TIMEOUT</a></dt><dd>Max waiting time for the backend to process each signal batch, defaults to 10 seconds.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_TIMEOUT_DEFAULT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_TIMEOUT_DEFAULT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>TIMEOUT_<wbr>DEFAULT</a></dt><dd>Default max waiting time for the backend to process each signal batch.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_TRACES_COMPRESSION.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_TRACES_COMPRESSION">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>TRACES_<wbr>COMPRESSION</a></dt><dd>Compression algorithm to use, defaults to none.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_TRACES_ENDPOINT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>TRACES_<wbr>ENDPOINT</a></dt><dd>Target to which the exporter is going to send spans, defaults to https://localhost:4317/v1/traces.
+Learn about the relationship between this constant and default/metrics/logs at
+<a href="https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#endpoint-urls-for-otlphttp">https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#endpoint-urls-for-otlphttp</a></dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_TRACES_HEADERS.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_TRACES_HEADERS">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>TRACES_<wbr>HEADERS</a></dt><dd>Key-value pairs to be used as headers associated with gRPC or HTTP requests
+for sending spans.
+Example: <code>k1=v1,k2=v2</code>
+Note: this is only supported for HTTP.</dd><dt><a class="constant" href="constant.OTEL_EXPORTER_OTLP_TRACES_TIMEOUT.html" title="constant opentelemetry_otlp::OTEL_EXPORTER_OTLP_TRACES_TIMEOUT">OTEL_<wbr>EXPORTER_<wbr>OTLP_<wbr>TRACES_<wbr>TIMEOUT</a></dt><dd>Max waiting time for the backend to process each spans batch, defaults to 10s.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.HasExportConfig.html" title="trait opentelemetry_otlp::HasExportConfig">HasExport<wbr>Config</a></dt><dd>Provide access to the <a href="struct.ExportConfig.html" title="struct opentelemetry_otlp::ExportConfig">ExportConfig</a> field within the exporter builders.</dd><dt><a class="trait" href="trait.HasTonicConfig.html" title="trait opentelemetry_otlp::HasTonicConfig">HasTonic<wbr>Config</a></dt><dd>Expose interface for modifying <a href="struct.TonicConfig.html" title="struct opentelemetry_otlp::TonicConfig">TonicConfig</a> fields within the exporter builders.</dd><dt><a class="trait" href="trait.WithExportConfig.html" title="trait opentelemetry_otlp::WithExportConfig">With<wbr>Export<wbr>Config</a></dt><dd>Expose methods to override <a href="struct.ExportConfig.html" title="struct opentelemetry_otlp::ExportConfig">ExportConfig</a>.</dd><dt><a class="trait" href="trait.WithTonicConfig.html" title="trait opentelemetry_otlp::WithTonicConfig">With<wbr>Tonic<wbr>Config</a></dt><dd>Expose methods to override <a href="struct.TonicConfig.html" title="struct opentelemetry_otlp::TonicConfig">TonicConfig</a>.</dd></dl></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["default_credential_builder"],"struct":["MockCredential","MockCredentialBuilder","MockData"]};

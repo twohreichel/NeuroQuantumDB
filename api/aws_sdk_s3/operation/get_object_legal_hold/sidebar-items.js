@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetObjectLegalHoldError"],"mod":["builders"],"struct":["GetObjectLegalHold","GetObjectLegalHoldInput","GetObjectLegalHoldOutput"]};

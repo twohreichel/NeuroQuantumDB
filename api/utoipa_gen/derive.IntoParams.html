@@ -1,0 +1,317 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate path parameters from struct’s fields."><title>IntoParams in utoipa_gen - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa_gen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">IntoParams</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa_gen/index.html">utoipa_<wbr>gen</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Into<wbr>Params</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#intoparams-container-attributes-for-into_params" title="IntoParams Container Attributes for `#[into_params(...)]`">IntoParams Container Attributes for <code>#[into_params(...)]</code></a></li><li><a href="#intoparams-field-attributes-for-param" title="IntoParams Field Attributes for `#[param(...)]`">IntoParams Field Attributes for <code>#[param(...)]</code></a><ul><li><a href="#field-nullability-and-required-rules" title="Field nullability and required rules">Field nullability and required rules</a></li></ul></li><li><a href="#partial-serde-attributes-support" title="Partial `#[serde(...)]` attributes support">Partial <code>#[serde(...)]</code> attributes support</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa_<wbr>gen</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa_gen</a></div><h1>Derive Macro <span class="derive">Into<wbr>Params</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa_gen/lib.rs.html#2595-2612">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(IntoParams)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[param]
+    #[into_params]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate <a href="attr.path.html#params-attributes">path parameters</a> from struct’s
+fields.</p>
+<p>This is <code>#[derive]</code> implementation for <a href="trait.IntoParams.html"><code>IntoParams</code></a> trait.</p>
+<p>Typically path parameters need to be defined within <a href="attr.path.html#params-attributes"><code>#[utoipa::path(...params(...))]</code></a> section
+for the endpoint. But this trait eliminates the need for that when <a href="https://doc.rust-lang.org/std/keyword.struct.html"><code>struct</code></a>s are used to define parameters.
+Still <a href="https://doc.rust-lang.org/1.91.1/core/primitive/index.html" title="mod core::primitive"><code>std::primitive</code></a> and <a href="https://doc.rust-lang.org/1.91.1/alloc/string/struct.String.html" title="struct alloc::string::String"><code>String</code></a> path parameters or <a href="https://doc.rust-lang.org/1.91.1/std/primitive.tuple.html" title="primitive tuple"><code>tuple</code></a> style path parameters need to be defined
+within <code>params(...)</code> section if description or other than default configuration need to be given.</p>
+<p>You can use the Rust’s own <code>#[deprecated]</code> attribute on field to mark it as
+deprecated and it will reflect to the generated OpenAPI spec.</p>
+<p><code>#[deprecated]</code> attribute supports adding additional details such as a reason and or since version
+but this is is not supported in OpenAPI. OpenAPI has only a boolean flag to determine deprecation.
+While it is totally okay to declare deprecated with reason
+<code>#[deprecated  = "There is better way to do this"]</code> the reason would not render in OpenAPI spec.</p>
+<p>Doc comment on struct fields will be used as description for the generated parameters.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::IntoParams)]
+</span><span class="kw">struct </span>Query {
+    <span class="doccomment">/// Query todo items by name.
+    </span>name: String
+}</code></pre></div><h2 id="intoparams-container-attributes-for-into_params"><a class="doc-anchor" href="#intoparams-container-attributes-for-into_params">§</a>IntoParams Container Attributes for <code>#[into_params(...)]</code></h2>
+<p>The following attributes are available for use in on the container attribute <code>#[into_params(...)]</code> for the struct
+deriving <code>IntoParams</code>:</p>
+<ul>
+<li><code>names(...)</code> Define comma separated list of names for unnamed fields of struct used as a path parameter.
+<strong>Only</strong> supported on <strong>unnamed structs</strong>.</li>
+<li><code>style = ...</code> Defines how all parameters are serialized by <a href="openapi/path/enum.ParameterStyle.html"><code>ParameterStyle</code></a>. Default
+values are based on <em><code>parameter_in</code></em> attribute.</li>
+<li><code>parameter_in = ...</code> =  Defines where the parameters of this field are used with a value from
+<a href="openapi/path/enum.ParameterIn.html"><code>openapi::path::ParameterIn</code></a>. There is no default value, if this attribute is not
+supplied, then the value is determined by the <code>parameter_in_provider</code> in
+<a href="trait.IntoParams.html#tymethod.into_params"><code>IntoParams::into_params()</code></a>.</li>
+<li><code>rename_all = ...</code> Can be provided to alternatively to the serde’s <code>rename_all</code> attribute. Effectively provides same functionality.</li>
+</ul>
+<p>Use <code>names</code> to define name for single unnamed argument.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(IntoParams)]
+#[into_params(names(<span class="string">"id"</span>))]
+</span><span class="kw">struct </span>Id(u64);</code></pre></div>
+<p>Use <code>names</code> to define names for multiple unnamed arguments.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(IntoParams)]
+#[into_params(names(<span class="string">"id"</span>, <span class="string">"name"</span>))]
+</span><span class="kw">struct </span>IdAndName(u64, String);</code></pre></div><h2 id="intoparams-field-attributes-for-param"><a class="doc-anchor" href="#intoparams-field-attributes-for-param">§</a>IntoParams Field Attributes for <code>#[param(...)]</code></h2>
+<p>The following attributes are available for use in the <code>#[param(...)]</code> on struct fields:</p>
+<ul>
+<li>
+<p><code>style = ...</code> Defines how the parameter is serialized by <a href="openapi/path/enum.ParameterStyle.html"><code>ParameterStyle</code></a>. Default values are based on <em><code>parameter_in</code></em> attribute.</p>
+</li>
+<li>
+<p><code>explode</code> Defines whether new <em><code>parameter=value</code></em> pair is created for each parameter within <em><code>object</code></em> or <em><code>array</code></em>.</p>
+</li>
+<li>
+<p><code>allow_reserved</code> Defines whether reserved characters <em><code>:/?#[]@!$&amp;'()*+,;=</code></em> is allowed within value.</p>
+</li>
+<li>
+<p><code>example = ...</code> Can be method reference or <em><code>json!(...)</code></em>. Given example
+will override any example in underlying parameter type.</p>
+</li>
+<li>
+<p><code>value_type = ...</code> Can be used to override default type derived from type of the field used in OpenAPI spec.
+This is useful in cases where the default type does not correspond to the actual type e.g. when
+any third-party types are used which are not <a href="trait.ToSchema.html"><code>ToSchema</code></a>s nor <a href="https://doc.rust-lang.org/std/primitive/index.html"><code>primitive</code> types</a>.
+The value can be any Rust type what normally could be used to serialize to JSON, or either virtual type <em><code>Object</code></em>
+or <em><code>Value</code></em>.
+<em><code>Object</code></em> will be rendered as generic OpenAPI object <em>(<code>type: object</code>)</em>.
+<em><code>Value</code></em> will be rendered as any OpenAPI value (i.e. no <code>type</code> restriction).</p>
+</li>
+<li>
+<p><code>inline</code> If set, the schema for this field’s type needs to be a <a href="trait.ToSchema.html"><code>ToSchema</code></a>, and
+the schema definition will be inlined.</p>
+</li>
+<li>
+<p><code>default = ...</code> Can be method reference or <em><code>json!(...)</code></em>.</p>
+</li>
+<li>
+<p><code>format = ...</code> May either be variant of the <a href="openapi/schema/enum.KnownFormat.html"><code>KnownFormat</code></a> enum, or otherwise
+an open value as a string. By default the format is derived from the type of the property
+according OpenApi spec.</p>
+</li>
+<li>
+<p><code>write_only</code> Defines property is only used in <strong>write</strong> operations <em>POST,PUT,PATCH</em> but not in <em>GET</em>.</p>
+</li>
+<li>
+<p><code>read_only</code> Defines property is only used in <strong>read</strong> operations <em>GET</em> but not in <em>POST,PUT,PATCH</em>.</p>
+</li>
+<li>
+<p><code>xml(...)</code> Can be used to define <a href="openapi/xml/struct.Xml.html"><code>Xml</code></a> object properties applicable to named fields.
+See configuration options at xml attributes of <a href="derive.ToSchema.html#xml-attribute-configuration-options" title="derive utoipa_gen::ToSchema"><code>ToSchema</code></a></p>
+</li>
+<li>
+<p><code>nullable</code> Defines property is nullable (note this is different to non-required).</p>
+</li>
+<li>
+<p><code>required = ...</code> Can be used to enforce required status for the parameter. <a href="derive.IntoParams.html#field-nullability-and-required-rules" title="derive utoipa_gen::IntoParams">See
+rules</a></p>
+</li>
+<li>
+<p><code>rename = ...</code> Can be provided to alternatively to the serde’s <code>rename</code> attribute. Effectively provides same functionality.</p>
+</li>
+<li>
+<p><code>multiple_of = ...</code> Can be used to define multiplier for a value. Value is considered valid
+division will result an <code>integer</code>. Value must be strictly above <em><code>0</code></em>.</p>
+</li>
+<li>
+<p><code>maximum = ...</code> Can be used to define inclusive upper bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>minimum = ...</code> Can be used to define inclusive lower bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>exclusive_maximum = ...</code> Can be used to define exclusive upper bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>exclusive_minimum = ...</code> Can be used to define exclusive lower bound to a <code>number</code> value.</p>
+</li>
+<li>
+<p><code>max_length = ...</code> Can be used to define maximum length for <code>string</code> types.</p>
+</li>
+<li>
+<p><code>min_length = ...</code> Can be used to define minimum length for <code>string</code> types.</p>
+</li>
+<li>
+<p><code>pattern = ...</code> Can be used to define valid regular expression in <em>ECMA-262</em> dialect the field value must match.</p>
+</li>
+<li>
+<p><code>max_items = ...</code> Can be used to define maximum items allowed for <code>array</code> fields. Value must
+be non-negative integer.</p>
+</li>
+<li>
+<p><code>min_items = ...</code> Can be used to define minimum items allowed for <code>array</code> fields. Value must
+be non-negative integer.</p>
+</li>
+<li>
+<p><code>schema_with = ...</code> Use <em><code>schema</code></em> created by provided function reference instead of the
+default derived <em><code>schema</code></em>. The function must match to <code>fn() -&gt; Into&lt;RefOr&lt;Schema&gt;&gt;</code>. It does
+not accept arguments and must return anything that can be converted into <code>RefOr&lt;Schema&gt;</code>.</p>
+</li>
+<li>
+<p><code>additional_properties = ...</code> Can be used to define free form types for maps such as
+<a href="https://doc.rust-lang.org/1.91.1/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap"><code>HashMap</code></a> and <a href="https://doc.rust-lang.org/1.91.1/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap"><code>BTreeMap</code></a>.
+Free form type enables use of arbitrary types within map values.
+Supports formats <em><code>additional_properties</code></em> and <em><code>additional_properties = true</code></em>.</p>
+</li>
+<li>
+<p><code>ignore</code> or <code>ignore = ...</code> Can be used to skip the field from being serialized to OpenAPI schema. It accepts either a literal <code>bool</code> value
+or a path to a function that returns <code>bool</code> (<code>Fn() -&gt; bool</code>).</p>
+</li>
+</ul>
+<h5 id="field-nullability-and-required-rules"><a class="doc-anchor" href="#field-nullability-and-required-rules">§</a>Field nullability and required rules</h5>
+<p>Same rules for nullability and required status apply for <em><code>IntoParams</code></em> field attributes as for
+<em><code>ToSchema</code></em> field attributes. <a href="derive.ToSchema.html#field-nullability-and-required-rules" title="derive utoipa_gen::ToSchema">See the rules</a>.</p>
+<h2 id="partial-serde-attributes-support"><a class="doc-anchor" href="#partial-serde-attributes-support">§</a>Partial <code>#[serde(...)]</code> attributes support</h2>
+<p>IntoParams derive has partial support for <a href="https://serde.rs/attributes.html">serde attributes</a>. These supported attributes will reflect to the
+generated OpenAPI doc. The following attributes are currently supported:</p>
+<ul>
+<li><code>rename_all = "..."</code> Supported at the container level.</li>
+<li><code>rename = "..."</code> Supported <strong>only</strong> at the field level.</li>
+<li><code>default</code> Supported at the container level and field level according to <a href="https://serde.rs/attributes.html">serde attributes</a>.</li>
+<li><code>skip_serializing_if = "..."</code> Supported  <strong>only</strong> at the field level.</li>
+<li><code>with = ...</code> Supported <strong>only</strong> at field level.</li>
+<li><code>skip_serializing = "..."</code> Supported  <strong>only</strong> at the field or variant level.</li>
+<li><code>skip_deserializing = "..."</code> Supported  <strong>only</strong> at the field or variant level.</li>
+<li><code>skip = "..."</code> Supported  <strong>only</strong> at the field level.</li>
+</ul>
+<p>Other <em><code>serde</code></em> attributes will impact the serialization but will not be reflected on the generated OpenAPI doc.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p><em><strong>Demonstrate <a href="trait.IntoParams.html"><code>IntoParams</code></a> usage with resolving <code>Path</code> and <code>Query</code> parameters
+with <em><code>actix-web</code></em></strong></em>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>actix_web::{get, HttpResponse, Responder};
+<span class="kw">use </span>actix_web::web::{Path, Query};
+<span class="kw">use </span>serde::Deserialize;
+<span class="kw">use </span>serde_json::json;
+<span class="kw">use </span>utoipa::IntoParams;
+
+<span class="attr">#[derive(Deserialize, IntoParams)]
+</span><span class="kw">struct </span>PetPathArgs {
+    <span class="doccomment">/// Id of pet
+    </span>id: i64,
+    <span class="doccomment">/// Name of pet
+    </span>name: String,
+}
+
+<span class="attr">#[derive(Deserialize, IntoParams)]
+</span><span class="kw">struct </span>Filter {
+    <span class="doccomment">/// Age filter for pets
+    </span><span class="attr">#[deprecated]
+    #[param(style = Form, explode, allow_reserved, example = <span class="macro">json!</span>([<span class="number">10</span>]</span>))]
+    age: <span class="prelude-ty">Option</span>&lt;Vec&lt;i32&gt;&gt;,
+}
+
+<span class="attr">#[utoipa::path(
+    params(PetPathArgs, Filter),
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"success response"</span>)
+    )
+)]
+#[get(<span class="string">"/pet/{id}/{name}"</span>)]
+</span><span class="kw">async fn </span>get_pet(pet: Path&lt;PetPathArgs&gt;, query: Query&lt;Filter&gt;) -&gt; <span class="kw">impl </span>Responder {
+    HttpResponse::Ok().json(<span class="macro">json!</span>({ <span class="string">"id"</span>: pet.id }))
+}</code></pre></div>
+<p><em><strong>Demonstrate <a href="trait.IntoParams.html"><code>IntoParams</code></a> usage with the <code>#[into_params(...)]</code> container attribute to
+be used as a path query, and inlining a schema query field:</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>serde::Deserialize;
+<span class="kw">use </span>utoipa::{IntoParams, ToSchema};
+
+<span class="attr">#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = <span class="string">"snake_case"</span>)]
+</span><span class="kw">enum </span>PetKind {
+    Dog,
+    Cat,
+}
+
+<span class="attr">#[derive(Deserialize, IntoParams)]
+#[into_params(style = Form, parameter_in = Query)]
+</span><span class="kw">struct </span>PetQuery {
+    <span class="doccomment">/// Name of pet
+    </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Age of pet
+    </span>age: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+    <span class="doccomment">/// Kind of pet
+    </span><span class="attr">#[param(inline)]
+    </span>kind: PetKind
+}
+
+<span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/get_pet"</span>,
+    params(PetQuery),
+    responses(
+        (status = <span class="number">200</span>, description = <span class="string">"success response"</span>)
+    )
+)]
+</span><span class="kw">async fn </span>get_pet(query: PetQuery) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p><em><strong>Override <code>String</code> with <code>i64</code> using <code>value_type</code> attribute.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(IntoParams)]
+#[into_params(parameter_in = Query)]
+</span><span class="kw">struct </span>Filter {
+    <span class="attr">#[param(value_type = i64)]
+    </span>id: String,
+}</code></pre></div>
+<p><em><strong>Override <code>String</code> with <code>Object</code> using <code>value_type</code> attribute. <em><code>Object</code></em> will render as <code>type: object</code> in OpenAPI spec.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(IntoParams)]
+#[into_params(parameter_in = Query)]
+</span><span class="kw">struct </span>Filter {
+    <span class="attr">#[param(value_type = Object)]
+    </span>id: String,
+}</code></pre></div>
+<p><em><strong>You can use a generic type to override the default type of the field.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(IntoParams)]
+#[into_params(parameter_in = Query)]
+</span><span class="kw">struct </span>Filter {
+    <span class="attr">#[param(value_type = <span class="prelude-ty">Option</span>&lt;String&gt;)]
+    </span>id: String
+}</code></pre></div>
+<p><em><strong>You can even override a <a href="https://doc.rust-lang.org/1.91.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec"><code>Vec</code></a> with another one.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(IntoParams)]
+#[into_params(parameter_in = Query)]
+</span><span class="kw">struct </span>Filter {
+    <span class="attr">#[param(value_type = Vec&lt;i32&gt;)]
+    </span>id: Vec&lt;String&gt;
+}</code></pre></div>
+<p><em><strong>We can override value with another <a href="trait.ToSchema.html"><code>ToSchema</code></a>.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">struct </span>Id {
+    value: i64,
+}
+
+<span class="attr">#[derive(IntoParams)]
+#[into_params(parameter_in = Query)]
+</span><span class="kw">struct </span>Filter {
+    <span class="attr">#[param(value_type = Id)]
+    </span>id: String
+}</code></pre></div>
+<p><em><strong>Example with validation attributes.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::IntoParams)]
+</span><span class="kw">struct </span>Item {
+    <span class="attr">#[param(maximum = <span class="number">10</span>, minimum = <span class="number">5</span>, multiple_of = <span class="number">2.5</span>)]
+    </span>id: i32,
+    <span class="attr">#[param(max_length = <span class="number">10</span>, min_length = <span class="number">5</span>, pattern = <span class="string">"[a-z]*"</span>)]
+    </span>value: String,
+    <span class="attr">#[param(max_items = <span class="number">5</span>, min_items = <span class="number">1</span>)]
+    </span>items: Vec&lt;String&gt;,
+}</code></pre></div>
+<p><em><strong>Use <code>schema_with</code> to manually implement schema for a field.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>custom_type() -&gt; Object {
+    ObjectBuilder::new()
+        .schema_type(utoipa::openapi::schema::Type::String)
+        .format(<span class="prelude-val">Some</span>(utoipa::openapi::SchemaFormat::Custom(
+            <span class="string">"email"</span>.to_string(),
+        )))
+        .description(<span class="prelude-val">Some</span>(<span class="string">"this is the description"</span>))
+        .build()
+}
+
+<span class="attr">#[derive(utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
+</span><span class="kw">struct </span>Query {
+    <span class="attr">#[param(schema_with = custom_type)]
+    </span>email: String,
+}</code></pre></div></div></details></section></div></main></body></html>

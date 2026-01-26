@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketMetricsConfigurationError"],"mod":["builders"],"struct":["PutBucketMetricsConfiguration","PutBucketMetricsConfigurationInput","PutBucketMetricsConfigurationOutput"]};
