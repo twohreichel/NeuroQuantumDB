@@ -23,10 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
-      # Root package (use direct outputs for root component)
-      neuroquantumdb_release_created: ${{ steps.release.outputs.release_created }}
-      neuroquantumdb_tag_name: ${{ steps.release.outputs.tag_name }}
-      neuroquantumdb_version: ${{ steps.release.outputs.version }}
+      paths_released: ${{ steps.release.outputs.paths_released }}
       # PHP driver
       php_release_created: ${{ steps.release.outputs['connecting-libraries/php--release_created'] }}
       php_tag_name: ${{ steps.release.outputs['connecting-libraries/php--tag_name'] }}
@@ -60,10 +57,24 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  build-rust-binaries:
-    name: Build ${{ matrix.target }}
+      - name: Summary of releases
+        run: |
+          echo "### Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Released | Version | Tag |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|----------|---------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| neuroquantum-core | ${{ steps.release.outputs['crates/neuroquantum-core--release_created'] || 'false' }} | ${{ steps.release.outputs['crates/neuroquantum-core--version'] || '-' }} | ${{ steps.release.outputs['crates/neuroquantum-core--tag_name'] || '-' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| neuroquantum-qsql | ${{ steps.release.outputs['crates/neuroquantum-qsql--release_created'] || 'false' }} | ${{ steps.release.outputs['crates/neuroquantum-qsql--version'] || '-' }} | ${{ steps.release.outputs['crates/neuroquantum-qsql--tag_name'] || '-' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| neuroquantum-cluster | ${{ steps.release.outputs['crates/neuroquantum-cluster--release_created'] || 'false' }} | ${{ steps.release.outputs['crates/neuroquantum-cluster--version'] || '-' }} | ${{ steps.release.outputs['crates/neuroquantum-cluster--tag_name'] || '-' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| neuroquantum-api | ${{ steps.release.outputs['crates/neuroquantum-api--release_created'] || 'false' }} | ${{ steps.release.outputs['crates/neuroquantum-api--version'] || '-' }} | ${{ steps.release.outputs['crates/neuroquantum-api--tag_name'] || '-' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| neuroquantum-wasm | ${{ steps.release.outputs['crates/neuroquantum-wasm--release_created'] || 'false' }} | ${{ steps.release.outputs['crates/neuroquantum-wasm--version'] || '-' }} | ${{ steps.release.outputs['crates/neuroquantum-wasm--tag_name'] || '-' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| php-driver | ${{ steps.release.outputs['connecting-libraries/php--release_created'] || 'false' }} | ${{ steps.release.outputs['connecting-libraries/php--version'] || '-' }} | ${{ steps.release.outputs['connecting-libraries/php--tag_name'] || '-' }} |" >> $GITHUB_STEP_SUMMARY
+
+  # Build API binary when neuroquantum-api is released
+  build-api-binaries:
+    name: Build neuroquantum-api (${{ matrix.target }})
     needs: release-please
-    if: needs.release-please.outputs.neuroquantumdb_release_created == 'true'
+    if: needs.release-please.outputs.api_release_created == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -148,10 +159,41 @@ jobs:
           path: release-artifacts/${{ matrix.name }}
           retention-days: 1
 
+  # Upload API release assets
+  upload-api-release-assets:
+    name: Upload API Release Assets
+    needs: [release-please, build-api-binaries]
+    if: needs.release-please.outputs.api_release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: release-artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p final-release
+          for dir in release-artifacts/neuroquantum-api-*; do
+            if [ -d "$dir" ]; then
+              cp "$dir"/* final-release/ || true
+            fi
+          done
+          ls -la final-release/
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.api_tag_name }}
+          files: final-release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build WASM when neuroquantum-wasm is released
   build-wasm:
     name: Build WASM Package
     needs: release-please
-    if: needs.release-please.outputs.neuroquantumdb_release_created == 'true'
+    if: needs.release-please.outputs.wasm_release_created == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Free up disk space
@@ -197,48 +239,36 @@ jobs:
       - name: Upload WASM artifact
         uses: actions/upload-artifact@v6
         with:
-          name: neuroquantum-wasm
+          name: neuroquantum-wasm-pkg
           path: crates/neuroquantum-wasm/pkg/*.tgz
           retention-days: 1
 
-  upload-release-assets:
-    name: Upload Release Assets
-    needs: [release-please, build-rust-binaries, build-wasm]
-    if: needs.release-please.outputs.neuroquantumdb_release_created == 'true'
+  # Upload WASM release assets
+  upload-wasm-release-assets:
+    name: Upload WASM Release Assets
+    needs: [release-please, build-wasm]
+    if: needs.release-please.outputs.wasm_release_created == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
+      - name: Download WASM artifact
         uses: actions/download-artifact@v7
         with:
+          name: neuroquantum-wasm-pkg
           path: release-artifacts
-
-      - name: Prepare release files
-        run: |
-          mkdir -p final-release
-          # Move binary artifacts
-          for dir in release-artifacts/neuroquantum-api-*; do
-            if [ -d "$dir" ]; then
-              cp "$dir"/* final-release/ || true
-            fi
-          done
-          # Move WASM artifact
-          if [ -d "release-artifacts/neuroquantum-wasm" ]; then
-            cp release-artifacts/neuroquantum-wasm/*.tgz final-release/ || true
-          fi
-          ls -la final-release/
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release-please.outputs.neuroquantumdb_tag_name }}
-          files: final-release/*
+          tag_name: ${{ needs.release-please.outputs.wasm_tag_name }}
+          files: release-artifacts/*.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-crates:
-    name: Publish to crates.io
-    needs: [release-please, upload-release-assets]
-    if: needs.release-please.outputs.neuroquantumdb_release_created == 'true'
+  # Publish individual crates to crates.io when released
+  publish-core:
+    name: Publish neuroquantum-core to crates.io
+    needs: release-please
+    if: needs.release-please.outputs.core_release_created == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Free up disk space
@@ -248,7 +278,6 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo docker image prune --all --force
-          df -h
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -262,41 +291,174 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      # Publish crates in dependency order
       - name: Publish neuroquantum-core
         run: cargo publish -p neuroquantum-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
+
+  publish-qsql:
+    name: Publish neuroquantum-qsql to crates.io
+    needs: [release-please, publish-core]
+    if: |
+      always() &&
+      needs.release-please.outputs.qsql_release_created == 'true' &&
+      (needs.publish-core.result == 'success' || needs.publish-core.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.91.1"
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: false
 
       - name: Wait for crates.io index update
+        if: needs.publish-core.result == 'success'
         run: sleep 30
 
       - name: Publish neuroquantum-qsql
         run: cargo publish -p neuroquantum-qsql --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
+
+  publish-cluster:
+    name: Publish neuroquantum-cluster to crates.io
+    needs: [release-please, publish-qsql]
+    if: |
+      always() &&
+      needs.release-please.outputs.cluster_release_created == 'true' &&
+      (needs.publish-qsql.result == 'success' || needs.publish-qsql.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.91.1"
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: false
 
       - name: Wait for crates.io index update
+        if: needs.publish-qsql.result == 'success'
         run: sleep 30
 
       - name: Publish neuroquantum-cluster
         run: cargo publish -p neuroquantum-cluster --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
+
+  publish-api:
+    name: Publish neuroquantum-api to crates.io
+    needs: [release-please, publish-cluster]
+    if: |
+      always() &&
+      needs.release-please.outputs.api_release_created == 'true' &&
+      (needs.publish-cluster.result == 'success' || needs.publish-cluster.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.91.1"
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: false
 
       - name: Wait for crates.io index update
+        if: needs.publish-cluster.result == 'success'
         run: sleep 30
 
       - name: Publish neuroquantum-api
         run: cargo publish -p neuroquantum-api --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
+
+  publish-wasm:
+    name: Publish neuroquantum-wasm to crates.io
+    needs: [release-please, publish-api]
+    if: |
+      always() &&
+      needs.release-please.outputs.wasm_release_created == 'true' &&
+      (needs.publish-api.result == 'success' || needs.publish-api.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.91.1"
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: false
 
       - name: Wait for crates.io index update
+        if: needs.publish-api.result == 'success'
         run: sleep 30
 
       - name: Publish neuroquantum-wasm
         run: cargo publish -p neuroquantum-wasm --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
 
+  # Publish PHP Driver when released
   publish-php-driver:
     name: Publish PHP Driver
     needs: release-please
@@ -309,7 +471,6 @@ jobs:
       - name: Create PHP Driver release archive
         run: |
           cd connecting-libraries/php
-          # Create a clean archive with only PHP driver files
           zip -r ../../php-driver-${{ needs.release-please.outputs.php_version }}.zip . \
             -x "vendor/*" \
             -x ".git/*" \

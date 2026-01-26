@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "WebAssembly bindings for NeuroQuantumDB - run neuromorphic database in the browser"
+description = "WebAssembly bindings for NeuroQuantumDB - run the neuromorphic database in the browser"
 keywords = ["wasm", "webassembly", "database", "neuromorphic", "quantum"]
 categories = ["wasm", "database"]
 

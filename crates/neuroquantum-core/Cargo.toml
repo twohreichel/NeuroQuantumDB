@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Core neuromorphic database engine with DNA compression"
+description = "Core neuromorphic database engine with DNA compression and SIMD optimizations"
 keywords = ["database", "neuromorphic", "dna-compression", "bioinformatics", "simd"]
 categories = ["database", "compression", "science"]
 
