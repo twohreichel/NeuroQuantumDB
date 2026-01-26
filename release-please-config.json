@@ -1,31 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "4bd5d3ea67357947ba3aa45644fff97c00349013",
-  "always-update": true,
-  "include-v-in-tag": false,
+  "always-update": false,
+  "include-v-in-tag": true,
   "packages": {
-    ".": {
-      "release-type": "simple",
-      "component": "neuroquantumdb",
-      "changelog-path": "CHANGELOG.md",
-      "include-component-in-tag": false,
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "Cargo.toml",
-          "jsonpath": "$.workspace.package.version"
-        }
-      ]
-    },
     "connecting-libraries/php": {
       "release-type": "php",
       "component": "php-driver",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": true,
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
       "skip-github-release": false
     },
     "crates/neuroquantum-core": {
@@ -33,47 +18,46 @@
       "component": "neuroquantum-core",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": true,
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true
     },
     "crates/neuroquantum-qsql": {
       "release-type": "rust",
       "component": "neuroquantum-qsql",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": true,
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true
     },
     "crates/neuroquantum-cluster": {
       "release-type": "rust",
       "component": "neuroquantum-cluster",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": true,
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true
     },
     "crates/neuroquantum-api": {
       "release-type": "rust",
       "component": "neuroquantum-api",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": true,
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true
     },
     "crates/neuroquantum-wasm": {
       "release-type": "rust",
       "component": "neuroquantum-wasm",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": true,
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true
     }
   },
-  "separate-pull-requests": false,
+  "separate-pull-requests": true,
   "tag-separator": "/",
   "sequential-calls": false,
-  "group-pull-request-title-pattern": "chore: release main",
-  "pull-request-title-pattern": "chore(${scope}): release${component} ${version}",
+  "pull-request-title-pattern": "chore(${component}): release ${version}",
   "changelog-sections": [
     {"type": "feat", "section": "Features"},
     {"type": "fix", "section": "Bug Fixes"},
@@ -85,12 +69,5 @@
     {"type": "build", "section": "Build System"},
     {"type": "chore", "section": "Miscellaneous", "hidden": true}
   ],
-  "commit-search-depth": 500,
-  "plugins": [
-    {
-      "type": "cargo-workspace",
-      "merge": true,
-      "considerAllArtifacts": true
-    }
-  ]
+  "commit-search-depth": 500
 }
