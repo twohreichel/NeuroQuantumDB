@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Distributed cluster management for NeuroQuantumDB with Raft consensus"
+description = "Distributed cluster management for NeuroQuantumDB with Raft consensus and automatic failover"
 keywords = ["database", "distributed", "raft", "consensus", "cluster"]
 categories = ["database", "network-programming"]
 
