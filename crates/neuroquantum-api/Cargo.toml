@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "NeuroQuantumDB REST API Server"
+description = "NeuroQuantumDB REST API Server with WebSocket support"
 keywords = ["api", "rest", "server", "database", "neuroquantum"]
 categories = ["database", "web-programming::http-server"]
 
