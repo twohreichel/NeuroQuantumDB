@@ -1,9 +1,9 @@
 {
-  ".": "0.2.0",
-  "connecting-libraries/php": "0.3.0",
-  "crates/neuroquantum-core": "0.2.0",
-  "crates/neuroquantum-qsql": "0.2.0",
-  "crates/neuroquantum-cluster": "0.2.0",
-  "crates/neuroquantum-api": "0.2.0",
-  "crates/neuroquantum-wasm": "0.2.0"
+  ".": "0.0.0",
+  "connecting-libraries/php": "0.0.0",
+  "crates/neuroquantum-core": "0.0.0",
+  "crates/neuroquantum-qsql": "0.0.0",
+  "crates/neuroquantum-cluster": "0.0.0",
+  "crates/neuroquantum-api": "0.0.0",
+  "crates/neuroquantum-wasm": "0.0.0"
 }
