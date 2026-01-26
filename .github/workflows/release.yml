@@ -142,7 +142,7 @@ jobs:
           copy target\${{ matrix.target }}\release\neuroquantum-api.exe release-artifacts\${{ matrix.name }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.name }}
           path: release-artifacts/${{ matrix.name }}
@@ -195,7 +195,7 @@ jobs:
         run: npm pack
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: neuroquantum-wasm
           path: crates/neuroquantum-wasm/pkg/*.tgz
