@@ -61,7 +61,7 @@
       "bump-minor-pre-major": true
     }
   },
-  "separate-pull-requests": false,
+  "separate-pull-requests": true,
   "tag-separator": "/",
   "group-pull-request-title-pattern": "chore: release ${version}",
   "pull-request-title-pattern": "chore: release ${component} ${version}",

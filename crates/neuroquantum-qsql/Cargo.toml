@@ -1,11 +1,11 @@
 [package]
 name = "neuroquantum-qsql"
-version = "0.2.0" # x-release-please-version
+version = "0.0.0" # x-release-please-version
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "QSQL language implementation for NeuroQuantumDB with neuromorphic and quantum extensions"
+description = "QSQL query language implementation for NeuroQuantumDB with neuromorphic and quantum extensions"
 keywords = ["sql", "query-language", "database", "neuromorphic", "quantum"]
 categories = ["database", "parser-implementations"]
 

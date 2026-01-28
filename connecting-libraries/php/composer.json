@@ -1,7 +1,7 @@
 {
     "name": "neuroquantum/php-driver",
-    "version": "0.3.0",
-    "description": "Official PHP driver for NeuroQuantumDB - A neuromorphic and quantum-inspired database",
+    "version": "0.0.0",
+    "description": "Official PHP driver for NeuroQuantumDB - A high-performance neuromorphic and quantum-inspired database",
     "type": "library",
     "license": "MIT",
     "minimum-stability": "stable",

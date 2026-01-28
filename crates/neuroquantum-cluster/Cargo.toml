@@ -1,11 +1,11 @@
 [package]
 name = "neuroquantum-cluster"
-version = "0.2.0" # x-release-please-version
+version = "0.0.0" # x-release-please-version
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Distributed cluster management for NeuroQuantumDB with Raft consensus"
+description = "Distributed cluster management for NeuroQuantumDB with Raft consensus and automatic failover"
 keywords = ["database", "distributed", "raft", "consensus", "cluster"]
 categories = ["database", "network-programming"]
 
