@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * NeuroQuantumDB PHP Driver
+ *
+ * Official PHP driver for NeuroQuantumDB - A high-performance neuromorphic
+ * and quantum-inspired database.
+ *
+ * @package NeuroQuantum
+ * @version 0.0.0
+ * @see CHANGELOG.md for release history
+ */
+
 declare(strict_types=1);
 
 namespace NeuroQuantum;
