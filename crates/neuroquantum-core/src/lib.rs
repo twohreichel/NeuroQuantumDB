@@ -3,6 +3,10 @@
 //! This is the core library for the `NeuroQuantumDB` neuromorphic database system,
 //! featuring advanced DNA-based compression, quantum storage optimization, and
 //! synaptic learning algorithms.
+//!
+//! # Version
+//!
+//! This crate follows semantic versioning. See CHANGELOG.md for release history.
 
 // Allow common pedantic/nursery warnings for library code
 // These are intentional design decisions or too strict for practical use
