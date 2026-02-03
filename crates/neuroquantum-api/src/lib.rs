@@ -1,3 +1,12 @@
+//! # NeuroQuantumDB REST API Server
+//!
+//! This crate provides the REST API server for NeuroQuantumDB with WebSocket
+//! support for real-time updates.
+//!
+//! # Version
+//!
+//! This crate follows semantic versioning. See CHANGELOG.md for release history.
+
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,

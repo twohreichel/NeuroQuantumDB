@@ -1,3 +1,14 @@
+//! # `NeuroQuantumDB` WebAssembly Bindings
+//!
+//! This crate provides WebAssembly bindings for `NeuroQuantumDB`, enabling
+//! the neuromorphic database to run directly in web browsers.
+//!
+//! # Version
+//!
+//! This crate follows semantic versioning. See CHANGELOG.md for release history.
+//!
+//! ## Features
+
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
@@ -12,12 +23,6 @@
     clippy::unused_async,
     clippy::needless_pass_by_ref_mut
 )]
-//! # `NeuroQuantumDB` WebAssembly Bindings
-//!
-//! This crate provides WebAssembly bindings for `NeuroQuantumDB`, enabling
-//! the neuromorphic database to run directly in web browsers.
-//!
-//! ## Features
 //!
 //! - SQL query execution in the browser
 //! - In-memory storage for WASM

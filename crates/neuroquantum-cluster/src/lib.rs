@@ -1,3 +1,12 @@
+//! # NeuroQuantumDB Cluster Management
+//!
+//! This crate provides distributed cluster management for NeuroQuantumDB with
+//! Raft consensus and automatic failover capabilities.
+//!
+//! # Version
+//!
+//! This crate follows semantic versioning. See CHANGELOG.md for release history.
+
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
