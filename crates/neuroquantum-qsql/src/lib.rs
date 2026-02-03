@@ -1,3 +1,12 @@
+//! # NeuroQuantumDB QSQL Query Language
+//!
+//! This crate implements the QSQL query language for NeuroQuantumDB with
+//! neuromorphic and quantum extensions.
+//!
+//! # Version
+//!
+//! This crate follows semantic versioning. See CHANGELOG.md for release history.
+
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
