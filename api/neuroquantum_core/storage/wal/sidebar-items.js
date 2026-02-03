@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TransactionStatus","WALRecordType"],"mod":["checkpoint","log_writer","recovery"],"struct":["TransactionState","TransactionStats","TransactionSummary","WALConfig","WALManager","WALRecord"],"type":["LSN","TransactionId"]};

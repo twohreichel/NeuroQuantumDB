@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UploadPartCopyError"],"mod":["builders"],"struct":["UploadPartCopy","UploadPartCopyInput","UploadPartCopyOutput"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IzhikevichNeuronType"],"struct":["IzhikevichNeuron","IzhikevichParameters","NetworkStatistics","STDPRule","SpikingNeuralNetwork","SpikingSynapse"]};

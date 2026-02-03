@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BackupStatus","BackupStorageType","BackupType"],"mod":["incremental","restore","storage_backend"],"struct":["BackupConfig","BackupManager","BackupMetadata","BackupStats","S3Config"],"type":["BackupId"]};

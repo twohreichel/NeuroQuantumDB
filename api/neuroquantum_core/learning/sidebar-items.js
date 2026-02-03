@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AntiHebbianLearning","AntiHebbianStats","HebbianLearningEngine","LearningStats","PlasticityCycleResult","QueryPattern","WinnerInfo"]};

@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Understanding Openraft Log Pointers"><title>openraft::docs::data::log_pointers - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module log_pointers</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module log_<wbr>pointers</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#understanding-openraft-log-pointers" title="Understanding Openraft Log Pointers">Understanding Openraft Log Pointers</a><ul><li><a href="#optionally-persisted-committed" title="Optionally Persisted `committed`">Optionally Persisted <code>committed</code></a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>data</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">data</a></div><h1>Module <span>log_<wbr>pointers</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/data/mod.rs.html#11">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="understanding-openraft-log-pointers"><a class="doc-anchor" href="#understanding-openraft-log-pointers">§</a>Understanding Openraft Log Pointers</h2>
+<p>Inside Openraft, there are several pointers pointing to the raft-log:</p>
+<ul>
+<li>
+<p><code>purged</code>:    the last log entry that has been purged from the log, inclusive.
+Log entries that are included in a snapshot will be purged.
+openraft purges logs from the beginning to a configured position, when a fresh snapshot is built,
+<code>purged</code> is the greatest log id that openraft <strong>does not store</strong>.</p>
+</li>
+<li>
+<p><code>snapshot</code>:  the last log entry that has been included in the latest snapshot, inclusive.
+Openraft takes a snapshot of the state-machine periodically.
+Therefore, a snapshot is a compacted format of a continuous range of log entries.</p>
+</li>
+<li>
+<p><code>applied</code>:   the last log entry that has been applied to the state machine, inclusive.
+In raft only committed log entry can be applied.</p>
+</li>
+<li>
+<p><code>committed</code>: the last log entry that has been committed(granted by a quorum and at the leader’s term) by the leader, inclusive.</p>
+</li>
+<li>
+<p><code>last_log</code>:  the last log entry in the log, inclusive.</p>
+</li>
+</ul>
+<p>Within openraft, the log pointers mentioned above always hold that:
+<code>purged</code> ≤ <code>snapshot</code> ≤ <code>applied</code> ≤ <code>committed</code> ≤ <code>last_log</code>.</p>
+<p>The log indexes of a follower are always behind or equal the leader’s <code>last_log</code>.
+If a follower’s <code>last_log</code> is lagging behind the leader’s <code>purged</code>, it will be replicated using a snapshot.</p>
+<div class="example-wrap"><pre class="language-text"><code>       .- delayed follower
+       |
+øøøøøøøøøøøøøøøLLLLLLLLLLLLLLLLLLLLLLLLLL
+-------+------+------+-----+------+-----+-----------&gt; log index
+              |      |     |      |     |
+              |      |     |      |     ` last_log
+              |      |     |      ` committed
+              |      |     ` applied
+              |      ` snapshot
+              ` purged</code></pre></div><h3 id="optionally-persisted-committed"><a class="doc-anchor" href="#optionally-persisted-committed">§</a>Optionally Persisted <code>committed</code></h3>
+<p>In standard raft, <code>committed</code> is not persisted.
+<code>committed</code> log index can be recovered when leader established (by re-commit all logs),
+or when a follower receives <code>committed</code> log id message from the leader.</p>
+<p>Openraft provides optional API for application to store <code>committed</code> log id.
+See: <a href="../../../storage/trait.RaftLogStorage.html#method.save_committed" title="method openraft::storage::RaftLogStorage::save_committed"><code>RaftLogStorage::save_committed</code></a>.</p>
+<p>If the state machine does not flush state to disk before returning from <code>apply()</code>,
+<a href="../../../storage/trait.RaftLogStorage.html#method.save_committed" title="method openraft::storage::RaftLogStorage::save_committed"><code>RaftLogStorage::save_committed</code></a> may help restoring the last committed log id.</p>
+<ul>
+<li>
+<p>If the <code>committed</code> log id is saved, the state machine will be recovered to the state
+corresponding to this <code>committed</code> log id upon system startup, i.e., the state at the point
+when the committed log id was applied.</p>
+</li>
+<li>
+<p>If the <code>committed</code> log id is not saved, Openraft will just recover the state machine to
+the state of the last snapshot taken.</p>
+</li>
+</ul>
+<h4 id="why"><a class="doc-anchor" href="#why">§</a>Why</h4>
+<p>The reason of adding a persisted <code>committed</code> is to just make things clear.
+Without persisting <code>committed</code>:</p>
+<ul>
+<li>The <code>RaftMetrics.last_applied</code> will fall back upon startup, which may confuse a monitoring service.</li>
+<li>The application may depend on the state in the state machine, e.g., by saving node information in the state machine. State falling back may cause a node to try to contact a removed node.</li>
+</ul>
+<p>Although these issues can all be addressed, it introduces more work to make things strictly correct.
+A state machine that won’t revert to a former state is easier to use:)</p>
+<h4 id="overhead"><a class="doc-anchor" href="#overhead">§</a>Overhead</h4>
+<p>The overhead introduced by calling <code>save_committed()</code> should be minimal: in average, it will be called for every <code>max_payload_entries</code> log entries. Meanwhile I do not quite worry about the penalty, unless there is a measurable overhead.</p>
+</div></details></section></div></main></body></html>

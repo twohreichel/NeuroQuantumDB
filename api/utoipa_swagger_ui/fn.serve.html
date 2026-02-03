@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="User friendly way to serve Swagger UI and its content via web server."><title>serve in utoipa_swagger_ui - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa_swagger_ui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">serve</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa_swagger_ui/index.html">utoipa_<wbr>swagger_<wbr>ui</a><span class="version">9.0.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">serve</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa_<wbr>swagger_<wbr>ui</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa_swagger_ui</a></div><h1>Function <span class="fn">serve</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa_swagger_ui/lib.rs.html#1458-1498">Source</a> </span></div><pre class="rust item-decl"><code>pub fn serve&lt;'a&gt;(
+    path: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html">str</a>,
+    config: <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="struct.Config.html" title="struct utoipa_swagger_ui::Config">Config</a>&lt;'a&gt;&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.91.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.SwaggerFile.html" title="struct utoipa_swagger_ui::SwaggerFile">SwaggerFile</a>&lt;'a&gt;&gt;, <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/error/trait.Error.html" title="trait core::error::Error">Error</a>&gt;&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>User friendly way to serve Swagger UI and its content via web server.</p>
+<ul>
+<li><strong>path</strong> Should be the relative path to Swagger UI resource within the web server.</li>
+<li><strong>config</strong> Swagger <a href="struct.Config.html" title="struct utoipa_swagger_ui::Config"><code>Config</code></a> to use for the Swagger UI.</li>
+</ul>
+<p>Typically this function is implemented <em><strong>within</strong></em> handler what serves the Swagger UI. Handler itself must
+match to user defined path that points to the root of the Swagger UI and match everything relatively
+from the root of the Swagger UI <em><strong>(tail path)</strong></em>. The relative path from root of the Swagger UI
+is used to serve <a href="struct.SwaggerFile.html" title="struct utoipa_swagger_ui::SwaggerFile"><code>SwaggerFile</code></a>s. If Swagger UI is served from path <code>/swagger-ui/</code> then the <code>tail</code>
+is everything under the <code>/swagger-ui/</code> prefix.</p>
+<p><em>There are also implementations in <a href="https://github.com/juhaku/utoipa/tree/master/examples">examples of utoipa repository</a>.</em></p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p><em><strong>Reference implementation with <code>actix-web</code>.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// The config should be created in main function or in initialization before
+// creation of the handler which will handle serving the Swagger UI.
+</span><span class="kw">let </span>config = Arc::new(Config::from(<span class="string">"/api-doc.json"</span>));
+
+<span class="comment">// This "/" is for demonstrative purposes only. The actual path should point to
+// file within Swagger UI. In real implementation this is the `tail` path from root of the
+// Swagger UI to the file served.
+</span><span class="kw">let </span>tail_path = <span class="string">"/"</span>;
+
+<span class="kw">fn </span>get_swagger_ui(tail_path: String, config: Arc&lt;Config&gt;) -&gt; HttpResponse {
+  <span class="kw">match </span>utoipa_swagger_ui::serve(tail_path.as_ref(), config) {
+      <span class="prelude-val">Ok</span>(swagger_file) =&gt; swagger_file
+          .map(|file| {
+              HttpResponse::Ok()
+                  .content_type(file.content_type)
+                  .body(file.bytes.to_vec())
+          })
+          .unwrap_or_else(|| HttpResponse::NotFound().finish()),
+      <span class="prelude-val">Err</span>(error) =&gt; HttpResponse::InternalServerError().body(error.to_string()),
+  }
+}</code></pre></div></div></details></section></div></main></body></html>

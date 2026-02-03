@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":["Validate"],"enum":["ValidationErrorsKind"],"fn":["validate_must_match"],"struct":["ValidationError","ValidationErrors"],"trait":["AsRegex","Validate","ValidateArgs","ValidateContains","ValidateDoesNotContain","ValidateEmail","ValidateIp","ValidateLength","ValidateRange","ValidateRegex","ValidateRequired","ValidateUrl"]};

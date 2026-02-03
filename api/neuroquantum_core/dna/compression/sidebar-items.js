@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BitStream","CompressedSequence","CompressionStep","DNACompressionEngine","HuffmanTree"]};

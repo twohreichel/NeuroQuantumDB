@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AppendEntriesResponse"],"mod":["responder","trigger"],"struct":["AppendEntriesRequest","ClientWriteResponse","InstallSnapshotRequest","InstallSnapshotResponse","Raft","RuntimeConfigHandle","SnapshotResponse","VoteRequest","VoteResponse"],"type":["ClientWriteResult"]};

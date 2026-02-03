@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketAnalyticsConfigurationError"],"mod":["builders"],"struct":["GetBucketAnalyticsConfiguration","GetBucketAnalyticsConfigurationInput","GetBucketAnalyticsConfigurationOutput"]};

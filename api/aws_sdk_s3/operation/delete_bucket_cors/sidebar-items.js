@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeleteBucketCorsError"],"mod":["builders"],"struct":["DeleteBucketCors","DeleteBucketCorsInput","DeleteBucketCorsOutput"]};

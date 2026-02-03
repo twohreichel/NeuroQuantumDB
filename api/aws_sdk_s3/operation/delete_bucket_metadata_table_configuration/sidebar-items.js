@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeleteBucketMetadataTableConfigurationError"],"mod":["builders"],"struct":["DeleteBucketMetadataTableConfiguration","DeleteBucketMetadataTableConfigurationInput","DeleteBucketMetadataTableConfigurationOutput"]};

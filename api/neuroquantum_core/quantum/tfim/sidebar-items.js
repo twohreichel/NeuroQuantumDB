@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FieldSchedule"],"struct":["TFIMProblem","TFIMSolution","TFIMSolver","TransverseFieldConfig"]};

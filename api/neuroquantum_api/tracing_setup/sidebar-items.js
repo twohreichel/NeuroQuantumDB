@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SamplerType"],"fn":["create_resource","create_sampler","init_tracing","shutdown_tracing"]};

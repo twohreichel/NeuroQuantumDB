@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ReconnectMode","RetryAction","RetryMode","ShouldAttempt"],"struct":["ClientRateLimiter","RetryConfig","RetryConfigBuilder","RetryPartition","TokenBucket"],"trait":["ClassifyRetry"]};

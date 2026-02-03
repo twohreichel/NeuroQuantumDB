@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketAccelerateConfigurationError"],"mod":["builders"],"struct":["PutBucketAccelerateConfiguration","PutBucketAccelerateConfigurationInput","PutBucketAccelerateConfigurationOutput"]};

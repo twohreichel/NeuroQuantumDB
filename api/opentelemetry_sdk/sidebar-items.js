@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["error","export","logs","metrics","propagation","resource","runtime","trace"],"struct":["Resource"]};

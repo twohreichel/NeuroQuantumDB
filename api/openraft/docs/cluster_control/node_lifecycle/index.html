@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Node Lifecycle"><title>openraft::docs::cluster_control::node_lifecycle - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module node_lifecycle</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module node_<wbr>lifecycle</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#node-lifecycle" title="Node Lifecycle">Node Lifecycle</a><ul><li><a href="#removing-a-node-from-membership-config" title="Removing a Node from Membership Config">Removing a Node from Membership Config</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>cluster_<wbr>control</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">cluster_control</a></div><h1>Module <span>node_<wbr>lifecycle</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/cluster_control/mod.rs.html#11">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="node-lifecycle"><a class="doc-anchor" href="#node-lifecycle">§</a>Node Lifecycle</h2>
+<ul>
+<li>
+<p>When a node is added using <a href="../../../raft/struct.Raft.html#method.add_learner" title="method openraft::raft::Raft::add_learner"><code>Raft::add_learner()</code></a>, it immediately starts receiving log
+replication from the leader, meaning it becomes a <code>Learner</code>.</p>
+</li>
+<li>
+<p>A <code>Learner</code> transitions to a <code>Voter</code> when <a href="../../../raft/struct.Raft.html#method.change_membership" title="method openraft::raft::Raft::change_membership"><code>Raft::change_membership()</code></a> includes it as a
+<code>Voter</code>. A <code>Voter</code> can then become a <code>Candidate</code> or <code>Leader</code>.</p>
+</li>
+<li>
+<p>When a node, regardless of being a <code>Learner</code> or <code>Voter</code>, is removed from membership, the
+leader ceases replication to it immediately, i.e., when the new membership that
+excludes the node is observed (no need for commitment).</p>
+<p>The removed node will not receive any log replication or heartbeat from the
+leader. It will enter the <code>Candidate</code> state because it is unaware of its removal.</p>
+</li>
+</ul>
+<h3 id="removing-a-node-from-membership-config"><a class="doc-anchor" href="#removing-a-node-from-membership-config">§</a>Removing a Node from Membership Config</h3>
+<p>When membership changes, for example, from a joint config <code>[(1,2,3), (3,4,5)]</code> to a uniform config <code>[3,4,5]</code> (assuming the leader is <code>3</code>), the leader
+stops replication to <code>1,2</code> when the uniform config <code>[3,4,5]</code> is observed (no need for commitment).</p>
+<p>This is correct because:</p>
+<ul>
+<li>
+<p>If the leader (<code>3</code>) eventually commits <code>[3,4,5]</code>, it will ultimately stop replication to <code>1,2</code>.</p>
+</li>
+<li>
+<p>If the leader (<code>3</code>) crashes before committing <code>[3,4,5]</code>:</p>
+<ul>
+<li>And a new leader observes the membership config log <code>[3,4,5]</code>, it will proceed to commit it and finally stop replication to <code>1,2</code>.</li>
+<li>Or a new leader does not observe the membership config log <code>[3,4,5]</code>, it will re-establish replication to <code>1,2</code>.</li>
+</ul>
+</li>
+</ul>
+<p>In any scenario, stopping replication immediately is acceptable.</p>
+<p>One consideration is that nodes, such as <code>1,2</code>, are unaware of their removal from the cluster:</p>
+<ul>
+<li>
+<p>Removed nodes will enter the <code>Candidate</code> state and continue to increase their <code>term</code> and elect themselves.
+This will not impact the functioning cluster:</p>
+<ul>
+<li>
+<p>The nodes in the functioning cluster have more logs; thus, the election will never succeed.</p>
+</li>
+<li>
+<p>The leader will not attempt to communicate with the removed nodes, so it will not see their higher <code>term</code>.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Removed nodes should eventually be shut down. Regardless of whether the leader
+replicates the membership without these removed nodes to them, an external process should
+always shut them down. This is because there is no
+guarantee that a removed node can receive the membership log within a finite time.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

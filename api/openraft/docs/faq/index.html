@@ -1,0 +1,182 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="FAQ"><title>openraft::docs::faq - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module faq</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module faq</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#faq" title="FAQ">FAQ</a><ul><li><a href="#general" title="General">General</a></li><li><a href="#observation-and-management" title="Observation and Management">Observation and Management</a></li><li><a href="#data-structure" title="Data structure">Data structure</a></li><li><a href="#replication" title="Replication">Replication</a></li><li><a href="#cluster-management" title="Cluster management">Cluster management</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">openraft</a>::<wbr><a href="../index.html">docs</a></div><h1>Module <span>faq</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/openraft/docs/faq/mod.rs.html#1-4">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="faq"><a class="doc-anchor" href="#faq">§</a>FAQ</h2>
+<ul>
+<li><a href="#general">General</a>
+<ul>
+<li><a href="#what-are-the-differences-between-openraft-and-standard-raft">What are the differences between Openraft and standard Raft?</a></li>
+</ul>
+</li>
+<li><a href="#observation-and-management">Observation and Management</a>
+<ul>
+<li><a href="#how-to-get-notified-when-the-server-state-changes">How to get notified when the server state changes?</a></li>
+</ul>
+</li>
+<li><a href="#data-structure">Data structure</a>
+<ul>
+<li><a href="#why-is-log-id-a-tuple-of-term-node_id-log_index">Why is log id a tuple of <code>(term, node_id, log_index)</code>?</a></li>
+</ul>
+</li>
+<li><a href="#replication">Replication</a>
+<ul>
+<li><a href="#how-to-minimize-error-logging-when-a-follower-is-offline">How to minimize error logging when a follower is offline</a></li>
+</ul>
+</li>
+<li><a href="#cluster-management">Cluster management</a>
+<ul>
+<li><a href="#how-to-initialize-a-cluster">How to initialize a cluster?</a></li>
+<li><a href="#are-there-any-issues-with-running-a-single-node-service">Are there any issues with running a single node service?</a></li>
+<li><a href="#how-do-i-store-additional-information-about-nodes-in-openraft">How do I store additional information about nodes in Openraft?</a></li>
+<li><a href="#how-to-remove-node-2-safely-from-a-cluster-1-2-3">How to remove node-2 safely from a cluster <code>{1, 2, 3}</code>?</a></li>
+<li><a href="#what-actions-are-required-when-a-node-restarts">What actions are required when a node restarts?</a></li>
+<li><a href="#what-will-happen-when-data-gets-lost">What will happen when data gets lost?</a></li>
+<li><a href="#can-i-wipe-out-the-data-of-one-node-and-wait-for-the-leader-to-replicate-all-data-to-it-again">Can I wipe out the data of ONE node and wait for the leader to replicate all data to it again?</a></li>
+<li><a href="#is-openraft-resilient-to-incorrectly-configured-clusters">Is Openraft resilient to incorrectly configured clusters?</a></li>
+</ul>
+</li>
+</ul>
+<h3 id="general"><a class="doc-anchor" href="#general">§</a>General</h3><h4 id="what-are-the-differences-between-openraft-and-standard-raft"><a class="doc-anchor" href="#what-are-the-differences-between-openraft-and-standard-raft">§</a>What are the differences between Openraft and standard Raft?</h4>
+<ul>
+<li>Optionally, In one term there could be more than one leaders to be established, in order to reduce election conflict. See: std mode and adv mode leader id: <a href="../data/leader_id/index.html" title="mod openraft::docs::data::leader_id"><code>leader_id</code></a>;</li>
+<li>Openraft stores committed log id: See: <a href="../../storage/trait.RaftLogStorage.html#method.save_committed" title="method openraft::storage::RaftLogStorage::save_committed"><code>RaftLogStorage::save_committed()</code></a>;</li>
+<li>Openraft optimized <code>ReadIndex</code>: no <code>blank log</code> check: <a href="../protocol/read/index.html" title="mod openraft::docs::protocol::read"><code>Linearizable Read</code></a>.</li>
+<li>A restarted Leader will stay in Leader state if possible;</li>
+<li>Does not support single step membership change. Only joint is supported.</li>
+</ul>
+<h3 id="observation-and-management"><a class="doc-anchor" href="#observation-and-management">§</a>Observation and Management</h3><h4 id="how-to-get-notified-when-the-server-state-changes"><a class="doc-anchor" href="#how-to-get-notified-when-the-server-state-changes">§</a>How to get notified when the server state changes?</h4>
+<p>To monitor the state of a Raft node,
+it’s recommended to subscribe to updates in the <a href="../../metrics/struct.RaftMetrics.html" title="struct openraft::metrics::RaftMetrics"><code>RaftMetrics</code></a>
+by calling <a href="../../raft/struct.Raft.html#method.metrics" title="method openraft::raft::Raft::metrics"><code>Raft::metrics()</code></a>.</p>
+<p>The following code snippet provides an example of how to wait for changes in <code>RaftMetrics</code> until a leader is elected:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span><span class="kw-2">mut </span>rx = <span class="self">self</span>.raft.metrics();
+<span class="kw">loop </span>{
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(l) = rx.borrow().current_leader {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(l));
+    }
+
+    rx.changed().<span class="kw">await</span><span class="question-mark">?</span>;
+}</code></pre></div>
+<p>The second example calls a function when the current node becomes the leader:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span><span class="kw-2">mut </span>rx = <span class="self">self</span>.raft.metrics();
+<span class="kw">loop </span>{
+    <span class="kw">if </span>rx.borrow().state == ServerState::Leader {
+         app_init_leader();
+    }
+
+    rx.changed().<span class="kw">await</span><span class="question-mark">?</span>;
+}</code></pre></div><h3 id="data-structure"><a class="doc-anchor" href="#data-structure">§</a>Data structure</h3><h4 id="why-is-log-id-a-tuple-of-term-node_id-log_index"><a class="doc-anchor" href="#why-is-log-id-a-tuple-of-term-node_id-log_index">§</a>Why is log id a tuple of <code>(term, node_id, log_index)</code>?</h4>
+<p>In standard Raft log id is <code>(term, log_index)</code>, in Openraft he log id <code>(term, node_id, log_index)</code> is used to minimize the chance of election conflicts.
+This way in every term there could be more than one leaders elected, and the last one is valid.
+See: <a href="../data/leader_id/index.html" title="mod openraft::docs::data::leader_id"><code>leader-id</code></a> for details.</p>
+<h3 id="replication"><a class="doc-anchor" href="#replication">§</a>Replication</h3><h4 id="how-to-minimize-error-logging-when-a-follower-is-offline"><a class="doc-anchor" href="#how-to-minimize-error-logging-when-a-follower-is-offline">§</a>How to minimize error logging when a follower is offline</h4>
+<p>Excessive error logging, like <code>ERROR openraft::replication: 248: RPCError err=NetworkError: ...</code>, occurs when a follower node becomes unresponsive. To alleviate this, implement a mechanism within <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> that returns a <a href="../../error/struct.Unreachable.html" title="struct openraft::error::Unreachable"><code>Unreachable</code></a> error instead of a <a href="../../error/struct.NetworkError.html" title="struct openraft::error::NetworkError"><code>NetworkError</code></a> when immediate replication retries to the affected node are not advised.</p>
+<h3 id="cluster-management"><a class="doc-anchor" href="#cluster-management">§</a>Cluster management</h3><h4 id="how-to-initialize-a-cluster"><a class="doc-anchor" href="#how-to-initialize-a-cluster">§</a>How to initialize a cluster?</h4>
+<p>There are two ways to initialize a raft cluster, assuming there are three nodes,
+<code>n1, n2, n3</code>:</p>
+<ol>
+<li>
+<p>Single-step method:
+Call <code>Raft::initialize()</code> on any one of the nodes with the configuration of
+all 3 nodes, e.g. <code>n2.initialize(btreeset! {1,2,3})</code>.</p>
+</li>
+<li>
+<p>Incremental method:
+First, call <code>Raft::initialize()</code> on <code>n1</code> with configuration containing <code>n1</code>
+itself, e.g., <code>n1.initialize(btreeset! {1})</code>.
+Subsequently use <code>Raft::change_membership()</code> on <code>n1</code> to add <code>n2</code> and <code>n3</code>
+into the cluster.</p>
+</li>
+</ol>
+<p>Employing the second method provides the flexibility to start with a single-node
+cluster for testing purposes and subsequently expand it to a three-node cluster
+for deployment in a production environment.</p>
+<h4 id="are-there-any-issues-with-running-a-single-node-service"><a class="doc-anchor" href="#are-there-any-issues-with-running-a-single-node-service">§</a>Are there any issues with running a single node service?</h4>
+<p>Not at all.</p>
+<p>Running a cluster with just one node is a standard approach for testing or as an initial step in setting up a cluster.</p>
+<p>A single node functions exactly the same as cluster mode.
+It will consistently maintain the <code>Leader</code> status and never transition to <code>Candidate</code> or <code>Follower</code> states.</p>
+<h4 id="how-do-i-store-additional-information-about-nodes-in-openraft"><a class="doc-anchor" href="#how-do-i-store-additional-information-about-nodes-in-openraft">§</a>How do I store additional information about nodes in Openraft?</h4>
+<p>By default, Openraft provide a <a href="../../struct.BasicNode.html" title="struct openraft::BasicNode"><code>BasicNode</code></a> as the node type in a cluster.
+To store more information about each node in Openraft, define a custom struct
+with the desired fields and use it in place of <code>BasicNode</code>. Here’s a brief
+guide:</p>
+<ol>
+<li>Define your custom node struct:</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(...)]
+</span><span class="kw">struct </span>MyNode {
+    ipv4: String,
+    ipv6: String,
+    port: u16,
+    <span class="comment">// Add additional fields as needed
+</span>}</code></pre></div>
+<ol start="2">
+<li>Register the custom node type with <code>declare_raft_types!</code> macro:</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">openraft::declare_raft_types!</span>(
+   <span class="kw">pub </span>MyRaftConfig: 
+       <span class="comment">// ... 
+       </span>NodeId = u64,        <span class="comment">// Use the appropriate type for NodeId
+       </span>Node = MyNode,       <span class="comment">// Replace BasicNode with your custom node type
+       // ... other associated types
+</span>);</code></pre></div>
+<p>Use <code>MyRaftConfig</code> in your Raft setup to utilize the custom node structure.</p>
+<h4 id="how-to-remove-node-2-safely-from-a-cluster-1-2-3"><a class="doc-anchor" href="#how-to-remove-node-2-safely-from-a-cluster-1-2-3">§</a>How to remove node-2 safely from a cluster <code>{1, 2, 3}</code>?</h4>
+<p>Call <code>Raft::change_membership(btreeset!{1, 3})</code> to exclude node-2 from
+the cluster. Then wipe out node-2 data.
+<strong>NEVER</strong> modify/erase the data of any node that is still in a raft cluster, unless you know what you are doing.</p>
+<h4 id="what-actions-are-required-when-a-node-restarts"><a class="doc-anchor" href="#what-actions-are-required-when-a-node-restarts">§</a>What actions are required when a node restarts?</h4>
+<p>None. No calls, e.g., to either <a href="../../raft/struct.Raft.html#method.add_learner" title="method openraft::raft::Raft::add_learner"><code>add_learner()</code></a> or <a href="../../raft/struct.Raft.html#method.change_membership" title="method openraft::raft::Raft::change_membership"><code>change_membership()</code></a>
+are necessary.</p>
+<p>Openraft maintains the membership configuration in <a href="../../struct.Membership.html" title="struct openraft::Membership"><code>Membership</code></a> for for all
+nodes in the cluster, including voters and non-voters (learners).  When a
+<code>follower</code> or <code>learner</code> restarts, the leader will automatically re-establish
+replication.</p>
+<h4 id="what-will-happen-when-data-gets-lost"><a class="doc-anchor" href="#what-will-happen-when-data-gets-lost">§</a>What will happen when data gets lost?</h4>
+<p>Raft operates on the presumption that the storage medium (i.e., the disk) is
+secure and reliable.</p>
+<p>If this presumption is violated, e.g., the raft logs are lost or the snapshot is
+damaged, no predictable outcome can be assured. In other words, the resulting
+behavior is <strong>undefined</strong>.</p>
+<h4 id="can-i-wipe-out-the-data-of-one-node-and-wait-for-the-leader-to-replicate-all-data-to-it-again"><a class="doc-anchor" href="#can-i-wipe-out-the-data-of-one-node-and-wait-for-the-leader-to-replicate-all-data-to-it-again">§</a>Can I wipe out the data of ONE node and wait for the leader to replicate all data to it again?</h4>
+<p>Avoid doing this. Doing so will panic the leader. But it is permitted
+if <a href="../feature_flags/index.html#loosen_follower_log_revert" title="mod openraft::docs::feature_flags"><code>loosen-follower-log-revert</code></a> feature flag is enabled.</p>
+<p>In a raft cluster, although logs are replicated to multiple nodes,
+wiping out a node and restarting it is still possible to cause data loss.
+Assumes the leader is <code>N1</code>, followers are <code>N2, N3, N4, N5</code>:</p>
+<ul>
+<li>A log(<code>a</code>) that is replicated by <code>N1</code> to <code>N2, N3</code> is considered committed.</li>
+<li>At this point, if <code>N3</code> is replaced with an empty node, and at once the leader
+<code>N1</code> is crashed. Then <code>N5</code> may elected as a new  leader with granted vote by
+<code>N3, N4</code>;</li>
+<li>Then the new leader <code>N5</code> will not have log <code>a</code>.</li>
+</ul>
+<div class="example-wrap"><pre class="language-text"><code>Ni: Node i
+Lj: Leader   at term j
+Fj: Follower at term j
+
+N1 | L1  a  crashed
+N2 | F1  a
+N3 | F1  a  erased          F2
+N4 |                        F2
+N5 |                 elect  L2
+----------------------------+---------------&gt; time
+                            Data loss: N5 does not have log `a`</code></pre></div>
+<p>But for even number nodes cluster, Erasing <strong>exactly one</strong> node won’t cause data loss.
+Thus, in a special scenario like this, or for testing purpose, you can use
+<code>--feature loosen-follower-log-revert</code> to permit erasing a node.</p>
+<h4 id="is-openraft-resilient-to-incorrectly-configured-clusters"><a class="doc-anchor" href="#is-openraft-resilient-to-incorrectly-configured-clusters">§</a>Is Openraft resilient to incorrectly configured clusters?</h4>
+<p>No, Openraft, like standard raft, cannot identify errors in cluster configuration.</p>
+<p>A common error is the assigning a wrong network addresses to a node. In such
+a scenario, if this node becomes the leader, it will attempt to replicate
+logs to itself. This will cause Openraft to panic because replication
+messages can only be received by a follower.</p>
+<div class="example-wrap"><pre class="language-text"><code>thread &#39;main&#39; panicked at openraft/src/engine/engine_impl.rs:793:9:
+assertion failed: self.internal_server_state.is_following()</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// openraft/src/engine/engine_impl.rs:793
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>following_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; FollowingHandler&lt;C&gt; {
+    <span class="macro">debug_assert!</span>(<span class="self">self</span>.internal_server_state.is_following());
+    <span class="comment">// ...
+</span>}</code></pre></div></div></details></section></div></main></body></html>

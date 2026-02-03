@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["KeyStorageStrategy"],"struct":["EncryptedData","EncryptionConfig","EncryptionManager","KeyRotationResult","KeychainStatus","MigrationResult","SecurityStatus"]};

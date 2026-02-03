@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketRequestPaymentError"],"mod":["builders"],"struct":["PutBucketRequestPayment","PutBucketRequestPaymentInput","PutBucketRequestPaymentOutput"]};

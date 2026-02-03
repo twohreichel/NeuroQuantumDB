@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetWebIdentityTokenError"],"mod":["builders"],"struct":["GetWebIdentityToken","GetWebIdentityTokenInput","GetWebIdentityTokenOutput"]};

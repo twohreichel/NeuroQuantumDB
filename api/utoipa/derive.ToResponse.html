@@ -1,0 +1,167 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate reusable OpenAPI response that can be used in `utoipa::path` or in `OpenApi`."><title>ToResponse in utoipa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">ToResponse</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa/index.html">utoipa</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">ToResponse</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#toresponse-response-attributes" title="ToResponse `#[response(...)]` attributes">ToResponse <code>#[response(...)]</code> attributes</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa</a></div><h1>Derive Macro <span class="derive">ToResponse</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa_gen/lib.rs.html#2807">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(ToResponse)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[response]
+    #[content]
+    #[to_schema]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate reusable OpenAPI response that can be used
+in <a href="attr.path.html"><code>utoipa::path</code></a> or in <a href="derive.OpenApi.html"><code>OpenApi</code></a>.</p>
+<p>This is <code>#[derive]</code> implementation for <a href="trait.ToResponse.html"><code>ToResponse</code></a> trait.</p>
+<p><em><code>#[response]</code></em> attribute can be used to alter and add <a href="#toresponse-response-attributes">response attributes</a>.</p>
+<p><em><code>#[content]</code></em> attributes is used to make enum variant a content of a specific type for the
+response.</p>
+<p><em><code>#[to_schema]</code></em> attribute is used to inline a schema for a response in unnamed structs or
+enum variants with <code>#[content]</code> attribute. <strong>Note!</strong> <a href="derive.ToSchema.html" title="derive utoipa::ToSchema"><code>ToSchema</code></a> need to be implemented for
+the field or variant type.</p>
+<p>Type derived with <em><code>ToResponse</code></em> uses provided doc comment as a description for the response. It
+can alternatively be overridden with <em><code>description = ...</code></em> attribute.</p>
+<p><em><code>ToResponse</code></em> can be used in four different ways to generate OpenAPI response component.</p>
+<ol>
+<li>
+<p>By decorating <code>struct</code> or <code>enum</code> with <a href="derive.ToResponse.html" title="derive utoipa::ToResponse"><code>ToResponse</code></a> derive macro. This will create a
+response with inlined schema resolved from the fields of the <code>struct</code> or <code>variants</code> of the
+enum.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[derive(ToResponse)]
+ #[response(description = <span class="string">"Person response returns single Person entity"</span>)]
+ </span><span class="kw">struct </span>Person {
+     name: String,
+ }</code></pre></div></li>
+<li>
+<p>By decorating unnamed field <code>struct</code> with <a href="derive.ToResponse.html" title="derive utoipa::ToResponse"><code>ToResponse</code></a> derive macro. Unnamed field struct
+allows users to use new type pattern to define one inner field which is used as a schema for
+the generated response. This allows users to define <code>Vec</code> and <code>Option</code> response types.
+Additionally these types can also be used with <code>#[to_schema]</code> attribute to inline the
+field’s type schema if it implements <a href="derive.ToSchema.html" title="derive utoipa::ToSchema"><code>ToSchema</code></a> derive macro.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="doccomment">/// Person list response
+ </span><span class="attr">#[derive(utoipa::ToResponse)]
+ </span><span class="kw">struct </span>PersonList(Vec&lt;Person&gt;);</code></pre></div></li>
+<li>
+<p>By decorating unit struct with <a href="derive.ToResponse.html" title="derive utoipa::ToResponse"><code>ToResponse</code></a> derive macro. Unit structs will produce a
+response without body.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="doccomment">/// Success response which does not have body.
+ </span><span class="attr">#[derive(utoipa::ToResponse)]
+ </span><span class="kw">struct </span>SuccessResponse;</code></pre></div></li>
+<li>
+<p>By decorating <code>enum</code> with variants having <code>#[content(...)]</code> attribute. This allows users to
+define multiple response content schemas to single response according to OpenAPI spec.
+<strong>Note!</strong> Enum with <em><code>content</code></em> attribute in variants cannot have enum level <em><code>example</code></em> or
+<em><code>examples</code></em> defined. Instead examples need to be defined per variant basis. Additionally
+these variants can also be used with <code>#[to_schema]</code> attribute to inline the variant’s type schema
+if it implements <a href="derive.ToSchema.html" title="derive utoipa::ToSchema"><code>ToSchema</code></a> derive macro.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[derive(utoipa::ToSchema)]
+ </span><span class="kw">struct </span>Admin {
+     name: String,
+ }
+ <span class="attr">#[derive(utoipa::ToSchema)]
+ </span><span class="kw">struct </span>Admin2 {
+     name: String,
+     id: i32,
+ }
+
+ <span class="attr">#[derive(utoipa::ToResponse)]
+ </span><span class="kw">enum </span>Person {
+     <span class="attr">#[response(examples(
+         (<span class="string">"Person1" </span>= (value = <span class="macro">json!</span>({<span class="string">"name"</span>: <span class="string">"name1"</span>}))),
+         (<span class="string">"Person2" </span>= (value = <span class="macro">json!</span>({<span class="string">"name"</span>: <span class="string">"name2"</span>})))
+     ))]
+     </span>Admin(<span class="attr">#[content(<span class="string">"application/vnd-custom-v1+json"</span>)] </span>Admin),
+
+     <span class="attr">#[response(example = <span class="macro">json!</span>({<span class="string">"name"</span>: <span class="string">"name3"</span>, <span class="string">"id"</span>: <span class="number">1</span>}))]
+     </span>Admin2(<span class="attr">#[content(<span class="string">"application/vnd-custom-v2+json"</span>)] #[to_schema] </span>Admin2),
+ }</code></pre></div></li>
+</ol>
+<h2 id="toresponse-response-attributes"><a class="doc-anchor" href="#toresponse-response-attributes">§</a>ToResponse <code>#[response(...)]</code> attributes</h2>
+<ul>
+<li>
+<p><code>description = "..."</code> Define description for the response as str. This can be used to
+override the default description resolved from doc comments if present.</p>
+</li>
+<li>
+<p><code>content_type = "..."</code> Can be used to override the default behavior
+of auto resolving the content type from the <code>body</code> attribute. If defined the value should be valid
+content type such as <em><code>application/json</code></em> . By default the content type is <em><code>text/plain</code></em>
+for <a href="https://doc.rust-lang.org/std/primitive/index.html">primitive Rust types</a>, <code>application/octet-stream</code> for <em><code>[u8]</code></em> and <em><code>application/json</code></em>
+for struct and mixed enum types.</p>
+</li>
+<li>
+<p><code>headers(...)</code> Slice of response headers that are returned back to a caller.</p>
+</li>
+<li>
+<p><code>example = ...</code> Can be <em><code>json!(...)</code></em>. <em><code>json!(...)</code></em> should be something that
+<em><code>serde_json::json!</code></em> can parse as a <em><code>serde_json::Value</code></em>.</p>
+</li>
+<li>
+<p><code>examples(...)</code> Define multiple examples for single response. This attribute is mutually
+exclusive to the <em><code>example</code></em> attribute and if both are defined this will override the <em><code>example</code></em>.</p>
+<ul>
+<li><code>name = ...</code> This is first attribute and value must be literal string.</li>
+<li><code>summary = ...</code> Short description of example. Value must be literal string.</li>
+<li><code>description = ...</code> Long description of example. Attribute supports markdown for rich text
+representation. Value must be literal string.</li>
+<li><code>value = ...</code> Example value. It must be <em><code>json!(...)</code></em>. <em><code>json!(...)</code></em> should be something that
+<em><code>serde_json::json!</code></em> can parse as a <em><code>serde_json::Value</code></em>.</li>
+<li><code>external_value = ...</code> Define URI to literal example value. This is mutually exclusive to
+the <em><code>value</code></em> attribute. Value must be literal string.</li>
+</ul>
+<p><em><strong>Example of example definition.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code> (&quot;John&quot; = (summary = &quot;This is John&quot;, value = json!({&quot;name&quot;: &quot;John&quot;})))</code></pre></div></li>
+</ul>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p><em><strong>Use reusable response in operation handler.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToResponse)]
+</span><span class="kw">struct </span>PersonResponse {
+   value: String
+}
+
+<span class="attr">#[derive(utoipa::OpenApi)]
+#[openapi(components(responses(PersonResponse)))]
+</span><span class="kw">struct </span>Doc;
+
+<span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/api/person"</span>,
+    responses(
+        (status = <span class="number">200</span>, response = PersonResponse)
+    )
+)]
+</span><span class="kw">fn </span>get_person() -&gt; PersonResponse {
+    PersonResponse { value: <span class="string">"person"</span>.to_string() }
+}</code></pre></div>
+<p><em><strong>Create a response from named struct.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="doccomment">/// This is description
+ ///
+ /// It will also be used in `ToSchema` if present
+ </span><span class="attr">#[derive(utoipa::ToSchema, utoipa::ToResponse)]
+ #[response(
+     description = <span class="string">"Override description for response"</span>,
+     content_type = <span class="string">"text/xml"
+ </span>)]
+ #[response(
+     example = <span class="macro">json!</span>({<span class="string">"name"</span>: <span class="string">"the name"</span>}),
+     headers(
+         (<span class="string">"csrf-token"</span>, description = <span class="string">"response csrf token"</span>),
+         (<span class="string">"random-id" </span>= i32)
+     )
+ )]
+ </span><span class="kw">struct </span>Person {
+     name: String,
+ }</code></pre></div>
+<p><em><strong>Create inlined person list response.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="doccomment">/// Person list response
+ </span><span class="attr">#[derive(utoipa::ToResponse)]
+ </span><span class="kw">struct </span>PersonList(<span class="attr">#[to_schema] </span>Vec&lt;Person&gt;);</code></pre></div>
+<p><em><strong>Create enum response from variants.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[derive(utoipa::ToResponse)]
+ </span><span class="kw">enum </span>PersonType {
+     Value(String),
+     Foobar,
+ }</code></pre></div></div></details></section></div></main></body></html>

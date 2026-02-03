@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`RaftStateMachine` serves as the core API for managing the state machine and snapshot functionalities. It directly ties the concepts of state management and snapshotting, acknowledging that snapshots are often simply persisted states of the state machine."><title>openraft::docs::components::state_machine - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module state_machine</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module state_<wbr>machine</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#key-responsibilities" title="Key Responsibilities">Key Responsibilities</a></li><li><a href="#state-management-in-raft-state-machines" title="State Management in Raft State Machines">State Management in Raft State Machines</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>components</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">components</a></div><h1>Module <span>state_<wbr>machine</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/components/mod.rs.html#5">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="../../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a> serves as the core API for managing the state machine and
+snapshot functionalities.
+It directly ties the concepts of state management and snapshotting,
+acknowledging that snapshots are often simply persisted states of the state
+machine.</p>
+<h3 id="key-responsibilities"><a class="doc-anchor" href="#key-responsibilities">§</a>Key Responsibilities</h3>
+<p>The <a href="../../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a> encapsulates several critical responsibilities:</p>
+<ol>
+<li>
+<p><strong>Log Application</strong>: It requires an implementation of the <a href="../../../storage/trait.RaftStateMachine.html#tymethod.apply" title="method openraft::storage::RaftStateMachine::apply"><code>apply</code></a> method,
+where the state machine processes and applies committed log entries.  This
+method is central to maintaining the state machine’s integrity and ensuring
+that all state transitions are based on the replicated and committed log
+entries.</p>
+</li>
+<li>
+<p><strong>Querying State and Snapshots</strong>: <a href="../../../storage/trait.RaftStateMachine.html#tymethod.applied_state" title="method openraft::storage::RaftStateMachine::applied_state"><code>applied_state</code></a> allow querying the
+current state of the state machine.</p>
+</li>
+<li>
+<p><strong>Snapshot Handling</strong>: Through methods like <a href="../../../storage/trait.RaftStateMachine.html#tymethod.get_snapshot_builder" title="method openraft::storage::RaftStateMachine::get_snapshot_builder"><code>get_snapshot_builder</code></a>,
+<a href="../../../storage/trait.RaftStateMachine.html#tymethod.begin_receiving_snapshot" title="method openraft::storage::RaftStateMachine::begin_receiving_snapshot"><code>begin_receiving_snapshot</code></a>, <a href="../../../storage/trait.RaftStateMachine.html#tymethod.get_current_snapshot" title="method openraft::storage::RaftStateMachine::get_current_snapshot"><code>get_current_snapshot</code></a> and
+<a href="../../../storage/trait.RaftStateMachine.html#tymethod.install_snapshot" title="method openraft::storage::RaftStateMachine::install_snapshot"><code>install_snapshot</code></a> defines a comprehensive approach to managing snapshots.
+These methods cover creating snapshots, handling incoming snapshot data from
+the leader, and installing snapshots to bring the state machine to a specific
+state.</p>
+</li>
+</ol>
+<h3 id="state-management-in-raft-state-machines"><a class="doc-anchor" href="#state-management-in-raft-state-machines">§</a>State Management in Raft State Machines</h3>
+<ul>
+<li>
+<p><strong>State Reversion and Recovery</strong>:
+The state machine in the Raft application is typically an in-memory component.
+Upon startup, the state machine may revert to a previous state. This setup is
+generally acceptable because the combination of a persistent snapshot and the
+Raft logs provides sufficient information to reconstruct the state. This process
+involves first rebuilding the state machine from the snapshot and then
+reapplying any logs that are not included in the snapshot.</p>
+<p>Afterwards, Raft log entries are applied to update the state machine to its
+current state.</p>
+</li>
+<li>
+<p><strong>Distinct Management of Membership and Normal Logs</strong>:
+Within the state machine, the state of membership configuration logs and the
+state of normal logs are managed separately, though they are stored together.
+These can be thought of as two distinct sections.</p>
+</li>
+<li>
+<p><strong>Membership Config State Beyond the Last Applied</strong>:
+It is acceptable for the membership to return with a log ID greater than the
+last applied log ID, provided that the corresponding Raft logs have not been
+purged and can thus be reapplied to the state machine. Upon startup, the most
+recent membership configuration is loaded by scanning the logs starting from the
+<code>last-applied-log-id</code>.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

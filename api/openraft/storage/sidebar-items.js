@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Adaptor","LogApplied","LogFlushed","LogState","Snapshot","SnapshotMeta","SnapshotSignature","StorageHelper"],"trait":["RaftLogReader","RaftLogReaderExt","RaftLogStorage","RaftLogStorageExt","RaftSnapshotBuilder","RaftStateMachine","RaftStorage"]};

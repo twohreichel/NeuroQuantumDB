@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Metric","WaitError"],"struct":["RaftDataMetrics","RaftMetrics","RaftServerMetrics","Wait"]};

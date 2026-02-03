@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeleteObjectTaggingError"],"mod":["builders"],"struct":["DeleteObjectTagging","DeleteObjectTaggingInput","DeleteObjectTaggingOutput"]};

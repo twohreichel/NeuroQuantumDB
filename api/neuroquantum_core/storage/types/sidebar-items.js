@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DataType","ReferentialAction","Value"],"struct":["ColumnDefinition","ForeignKeyConstraint","TableSchema"],"type":["RowId"]};

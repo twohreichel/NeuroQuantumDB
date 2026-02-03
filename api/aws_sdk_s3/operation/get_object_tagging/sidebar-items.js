@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetObjectTaggingError"],"mod":["builders"],"struct":["GetObjectTagging","GetObjectTaggingInput","GetObjectTaggingOutput"]};

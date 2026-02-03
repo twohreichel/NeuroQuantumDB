@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Guide for upgrading from v0.8 to v0.9:"><title>openraft::docs::upgrade_guide::upgrade_08_09 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module upgrade_08_09</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module upgrade_<wbr>08_<wbr>09</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#guide-for-upgrading-from-v08-to-v09" title="Guide for upgrading from v0.8 to v0.9:">Guide for upgrading from v0.8 to v0.9:</a><ul><li><a href="#major-changes" title="Major changes:">Major changes:</a></li><li><a href="#upgrade-for-api-changes" title="Upgrade for API changes">Upgrade for API changes</a></li><li><a href="#upgrade-rafttypeconfig" title="Upgrade `RaftTypeConfig`">Upgrade <code>RaftTypeConfig</code></a></li><li><a href="#upgrade-log-storage-save-committed-log-id" title="Upgrade log storage: save committed log id">Upgrade log storage: save committed log id</a></li><li><a href="#upgrade-snapshot-transmission" title="Upgrade snapshot transmission">Upgrade snapshot transmission</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>upgrade_<wbr>guide</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">upgrade_guide</a></div><h1>Module <span>upgrade_<wbr>08_<wbr>09</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/upgrade_guide/mod.rs.html#12">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="guide-for-upgrading-from-v08-to-v09"><a class="doc-anchor" href="#guide-for-upgrading-from-v08-to-v09">§</a>Guide for upgrading from <a href="https://github.com/datafuselabs/openraft/tree/v0.8.9">v0.8</a> to <a href="https://github.com/datafuselabs/openraft/tree/release-0.9">v0.9</a>:</h2>
+<p><a href="https://github.com/datafuselabs/openraft/blob/release-0.9/change-log.md">Change log v0.9.0</a></p>
+<h3 id="major-changes"><a class="doc-anchor" href="#major-changes">§</a>Major changes:</h3>
+<ul>
+<li>
+<p>Removed Compatibility support for v0.7.</p>
+</li>
+<li>
+<p>Add <a href="../../../async_runtime/trait.AsyncRuntime.html" title="trait openraft::async_runtime::AsyncRuntime"><code>AsyncRuntime</code></a> as an abstraction for async runtime.
+An application can use a different async runtime other than <a href="https://tokio.rs/"><code>tokio</code></a> by implementing the <a href="../../../async_runtime/trait.AsyncRuntime.html" title="trait openraft::async_runtime::AsyncRuntime"><code>AsyncRuntime</code></a> trait.</p>
+</li>
+<li>
+<p><code>committed</code> log id can be optionally saved with <a href="../../../storage/trait.RaftLogStorage.html#method.save_committed" title="method openraft::storage::RaftLogStorage::save_committed"><code>RaftLogStorage::save_committed()</code></a>.</p>
+</li>
+<li>
+<p>New errors: <a href="../../../error/struct.PayloadTooLarge.html" title="struct openraft::error::PayloadTooLarge"><code>PayloadTooLarge</code></a>: to inform Openraft to split append entries request into smaller ones.</p>
+</li>
+<li>
+<p>New API: support linearizable read: <a href="../../../raft/struct.Raft.html#method.ensure_linearizable" title="method openraft::raft::Raft::ensure_linearizable"><code>Raft::ensure_linearizable()</code></a>.</p>
+</li>
+<li>
+<p>New API to support generic snapshot data transfer with the following new APIs:</p>
+<ul>
+<li><a href="../../../raft/struct.Raft.html#method.get_snapshot" title="method openraft::raft::Raft::get_snapshot"><code>Raft::get_snapshot()</code></a></li>
+<li><a href="../../../raft/struct.Raft.html#method.begin_receiving_snapshot" title="method openraft::raft::Raft::begin_receiving_snapshot"><code>Raft::begin_receiving_snapshot()</code></a></li>
+<li><a href="../../../raft/struct.Raft.html#method.install_full_snapshot" title="method openraft::raft::Raft::install_full_snapshot"><code>Raft::install_full_snapshot()</code></a></li>
+<li><a href="../../../network/trait.RaftNetwork.html#method.full_snapshot" title="method openraft::network::RaftNetwork::full_snapshot"><code>RaftNetwork::full_snapshot()</code></a></li>
+</ul>
+</li>
+<li>
+<p>New feature flags:</p>
+<ul>
+<li><a href="../../feature_flags/index.html#feature-flag-singlethreaded" title="mod openraft::docs::feature_flags"><code>singlethreaded</code></a>: Run Openraft in a single threaded environment, i.e., without requiring <code>Send</code> bound.</li>
+<li><a href="../../feature_flags/index.html#feature-flag-loosen-follower-log-revert" title="mod openraft::docs::feature_flags"><code>loosen-follower-log-revert</code></a>: Allows cleaning a follower’s data, useful for testing.</li>
+<li><a href="../../feature_flags/index.html#feature-flag-generic-snapshot-data" title="mod openraft::docs::feature_flags"><code>generic-snapshot-data</code></a>: Remove <code>AsyncRead + AsyncWrite</code> bound from snapshot data. Let application define its own snapshot data transfer.</li>
+</ul>
+</li>
+</ul>
+<h3 id="upgrade-for-api-changes"><a class="doc-anchor" href="#upgrade-for-api-changes">§</a>Upgrade for API changes</h3>
+<p>The first step for upgrading is to adapt the changes in the API.
+Follow the following steps to update your application to pass compilation with v0.9.</p>
+<ul>
+<li>
+<p>Implementation of <code>RaftLogReader::get_log_state()</code> is moved to <code>RaftLogReader::get_log_state()</code>.</p>
+</li>
+<li>
+<p>Generic types parameters <code>N, LS, SM</code> are removed from <code>Raft&lt;C, N, LS, SM&gt;</code>.</p>
+</li>
+<li>
+<p><code>RaftNetwork::send_xxx()</code> methods are removed, and should be replaced with <code>RaftNetwork::xxx()</code>:</p>
+<ul>
+<li><code>RaftNetwork::send_append_entries()</code> to <code>RaftNetwork::append_entries()</code>;</li>
+<li><code>RaftNetwork::send_vote()</code> to <code>RaftNetwork::vote()</code>;</li>
+<li><code>RaftNetwork::send_install_snapshot()</code> to <code>RaftNetwork::install_snapshot()</code>;</li>
+</ul>
+</li>
+<li>
+<p><code>async</code> traits in Openraft are declared with <a href="https://docs.rs/openraft-macros/latest/openraft_macros/"><code>#[openraft-macros::add_async_trait]</code></a> attribute since 0.9.
+<code>#[async_trait::async_trait]</code> are no longer needed when implementing <code>async</code> trait.</p>
+<p>For example, upgrade 0.8 async-trait implementation</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl </span>RaftNetwork&lt;TypeConfig&gt; <span class="kw">for </span>MyNetwork {}</code></pre></div>
+<p>to</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>RaftNetwork&lt;TypeConfig&gt; <span class="kw">for </span>MyNetwork {}</code></pre></div></li>
+</ul>
+<h3 id="upgrade-rafttypeconfig"><a class="doc-anchor" href="#upgrade-rafttypeconfig">§</a>Upgrade <code>RaftTypeConfig</code></h3>
+<ul>
+<li>
+<p>Add <code>AsyncRuntime</code> to <code>RaftTypeConfig</code> to specify the async runtime to use.
+Openraft provides a default implementations: <code>TokioRuntime</code>.
+For example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">openraft::declare_raft_types!</span>(
+  <span class="kw">pub </span>TypeConfig:
+      <span class="comment">// ...
+      </span>AsyncRuntime = TokioRuntime
+);</code></pre></div>
+<p>You can just implement the <a href="../../../async_runtime/trait.AsyncRuntime.html" title="trait openraft::async_runtime::AsyncRuntime"><code>AsyncRuntime</code></a> trait for your own async runtime and use it in <code>RaftTypeConfig</code>.</p>
+</li>
+</ul>
+<h3 id="upgrade-log-storage-save-committed-log-id"><a class="doc-anchor" href="#upgrade-log-storage-save-committed-log-id">§</a>Upgrade log storage: save committed log id</h3>
+<p>In v0.9, <code>save_committed()</code> is added to <code>RaftLogStorage</code> trait to optionally save the <code>committed</code> log id.
+For example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>RaftLogStorage <span class="kw">for </span>YourStorage {
+    <span class="comment">// ...
+    </span><span class="kw">fn </span>save_committed(<span class="kw-2">&amp;</span><span class="self">self</span>, committed: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), StorageError&gt; {
+        <span class="comment">// ...
+    </span>}
+}</code></pre></div>
+<p>If committed log id is saved,
+the committed log will be applied to state machine via <a href="../../../storage/trait.RaftStateMachine.html#tymethod.apply" title="method openraft::storage::RaftStateMachine::apply"><code>RaftStateMachine::apply()</code></a> upon startup,
+if they are not already applied.</p>
+<p>Not implementing <code>save_committed()</code> will not affect correctness.</p>
+<h3 id="upgrade-snapshot-transmission"><a class="doc-anchor" href="#upgrade-snapshot-transmission">§</a>Upgrade snapshot transmission</h3>
+<p>In v0.9, an application can use its own snapshot data transfer by enabling <a href="../../feature_flags/index.html#feature-flag-generic-snapshot-data" title="mod openraft::docs::feature_flags"><code>generic-snapshot-data</code></a> feature flag.
+With this flag enabled, the snapshot data can be arbitrary type
+and is no longer required to implement <code>AsyncRead + AsyncWrite</code> trait.</p>
+<p>To use arbitrary snapshot data, the application needs to:</p>
+<ul>
+<li>
+<p>Specify the snapshot data type in <code>RaftTypeConfig</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">openraft::declare_raft_types!</span>(
+  <span class="kw">pub </span>TypeConfig:
+      <span class="comment">// ...
+      </span>SnapshotData = YourSnapshotData
+);</code></pre></div></li>
+<li>
+<p>implement the snapshot transfer in the application’s network layer by implementing the <a href="../../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> trait.
+For example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>RaftNetwork <span class="kw">for </span>YourNetwork {
+    <span class="comment">// ...
+    </span><span class="kw">fn </span>full_snapshot(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="comment">/*...*/</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>,<span class="kw">_</span>&gt; {
+        <span class="comment">// ...
+    </span>}
+}</code></pre></div>
+<p><code>full_snapshot()</code> allows for the transfer of snapshot data using any preferred method.
+Openraft provides a default implementation in <a href="../../../network/snapshot_transport/struct.Chunked.html" title="struct openraft::network::snapshot_transport::Chunked"><code>Chunked</code></a>.
+<a href="../../../network/snapshot_transport/struct.Chunked.html" title="struct openraft::network::snapshot_transport::Chunked"><code>Chunked</code></a> just delegate the transmission to several calls
+to the old chunk-based API <code>RaftNetwork::install_snapshot()</code>.
+If you want to minimize the changes in your application,
+just call <code>Chunked::send_snapshot()</code> in <code>full_snapshot()</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>RaftNetwork <span class="kw">for </span>YourNetwork {
+    <span class="kw">async fn </span>full_snapshot(<span class="kw-2">&amp;mut </span><span class="self">self</span>, vote: Vote&lt;C::NodeId&gt;, snapshot: Snapshot&lt;C&gt;, <span class="comment">/*...*/
+    </span>) -&gt; <span class="prelude-ty">Result</span>&lt;SnapshotResponse&lt;C::NodeId&gt;, StreamingError&lt;C, Fatal&lt;C::NodeId&gt;&gt;&gt; {
+        <span class="kw">let </span>resp = Chunked::send_snapshot(<span class="self">self</span>, vote, snapshot, <span class="comment">/*...*/</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(resp)
+    }
+}</code></pre></div>
+<p>Refer to: <a href="https://github.com/datafuselabs/openraft/blob/2cc7170ffaf87c674e5ca13370402528f8ab3958/openraft/src/network/network.rs#L129">the default chunk-based snapshot sending</a></p>
+</li>
+<li>
+<p>On the receiving end,
+when the application finished receiving the snapshot data,
+it should call <a href="../../../raft/struct.Raft.html#method.install_full_snapshot" title="method openraft::raft::Raft::install_full_snapshot"><code>Raft::install_full_snapshot()</code></a> to install it.</p>
+<p><code>Chunked::receive_snapshot</code> provides a default chunk-based implementation for receiving snapshot data.
+The application can just use it:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>handle_install_snapshot_request(
+    <span class="kw-2">&amp;</span><span class="self">self</span>,
+    req: InstallSnapshotRequest&lt;C&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;
+<span class="kw">where </span>C::SnapshotData: AsyncRead + AsyncWrite + AsyncSeek + Unpin,
+{
+    <span class="kw">let </span>my_vote = <span class="self">self</span>.with_raft_state(|state| <span class="kw-2">*</span>state.vote_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>resp = InstallSnapshotResponse { vote: my_vote };
+
+    <span class="kw">let </span>finished_snapshot = {
+        <span class="kw">use </span><span class="kw">crate</span>::network::snapshot_transport::Chunked;
+        <span class="kw">use </span><span class="kw">crate</span>::network::snapshot_transport::SnapshotTransport;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>streaming = <span class="self">self</span>.snapshot.lock().<span class="kw">await</span>;
+        Chunked::receive_snapshot(<span class="kw-2">&amp;mut *</span>streaming, <span class="self">self</span>, req).<span class="kw">await</span><span class="question-mark">?
+    </span>};
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(snapshot) = finished_snapshot {
+        <span class="kw">let </span>resp = <span class="self">self</span>.install_full_snapshot(req_vote, snapshot).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(resp.into());
+    }
+    <span class="prelude-val">Ok</span>(resp)
+}</code></pre></div>
+<p>Refer to: <a href="https://github.com/datafuselabs/openraft/blob/c9a463f5ce73d1e7dd66eabfe909fe8d5a087f0e/openraft/src/raft/mod.rs#L447">the default chunk-based snapshot receiving</a></p>
+<p>Note that the application is responsible for maintaining a streaming state <a href="../../../network/snapshot_transport/struct.Streaming.html" title="struct openraft::network::snapshot_transport::Streaming"><code>Streaming</code></a>
+during receiving chunks.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

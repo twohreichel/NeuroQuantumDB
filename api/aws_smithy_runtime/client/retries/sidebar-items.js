@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAXIMUM_CAPACITY"],"mod":["classifiers","strategy"],"struct":["ClientRateLimiter","ClientRateLimiterBuilder","ClientRateLimiterPartition","RetryPartition","RetryPartitionBuilder","TokenBucket","TokenBucketBuilder"]};

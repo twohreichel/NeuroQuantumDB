@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketLifecycleConfigurationError"],"mod":["builders"],"struct":["GetBucketLifecycleConfiguration","GetBucketLifecycleConfigurationInput","GetBucketLifecycleConfigurationOutput"]};

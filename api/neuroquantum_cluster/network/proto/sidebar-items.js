@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cluster_node_client","cluster_node_server"],"struct":["AppendEntriesRequest","AppendEntriesResponse","HandshakeRequest","HandshakeResponse","HeartbeatRequest","HeartbeatResponse","InstallSnapshotRequest","InstallSnapshotResponse","LogEntry","VoteRequest","VoteResponse"]};

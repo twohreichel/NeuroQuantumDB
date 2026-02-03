@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EEGError","FilterCoefficients","FilterType","FrequencyBand"],"struct":["AuthenticationResult","ButterworthDesign","CascadedBiquads","DigitalFilter","EEGAuthService","EEGFeatures","EEGProcessor","FFTAnalyzer","FrequencySpectrum","IIRCoefficients","UserSignature"]};

@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Vote"><title>openraft::docs::data::vote - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module vote</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module vote</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#vote" title="Vote">Vote</a><ul><li><a href="#partial-order" title="Partial order">Partial order</a></li><li><a href="#vote-and-membership-define-the-server-state" title="Vote and Membership define the server state">Vote and Membership define the server state</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>data</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">data</a></div><h1>Module <span>vote</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/data/mod.rs.html#7">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="vote"><a class="doc-anchor" href="#vote">§</a>Vote</h2>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>Vote&lt;NID: NodeId&gt; {
+    leader_id: LeaderId&lt;NID&gt;,
+    committed: bool,
+}</code></pre></div>
+<p>In Openraft, the <a href="../../../struct.Vote.html" title="struct openraft::Vote"><code>Vote</code></a> defines the pseudo time which determines the <code>leader</code> in a distributed consensus.
+Essentially, each <code>vote</code> represents a distinct time point, similar to the concept of <code>rnd</code> or <code>ballot-number</code> in Paxos.</p>
+<p>In a standard Raft, the corresponding concept is <code>(term, voted_for: Option&lt;NodeId&gt;)</code>.</p>
+<p>The validity checking for RPCs in Openraft, such as when handling vote or append-entries requests,
+is straightforward. Essentially, <strong>a node will grant a <code>Vote</code> only if it is greater than or equal to the last <code>Vote</code> it has seen</strong>.
+Refer to the <code>PartialOrd</code> implementation for <a href="../../../struct.Vote.html" title="struct openraft::Vote"><code>Vote</code></a>. The pseudocode about vote order checking is as follows:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>handle_vote(vote: Vote) {
+    <span class="kw">if </span>!(vote &gt;= <span class="self">self</span>.vote) {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(())
+    }
+    save_vote(vote);
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div><h3 id="partial-order"><a class="doc-anchor" href="#partial-order">§</a>Partial order</h3>
+<p><code>Vote</code> in Openraft is partially ordered value,
+i.e., it is legal that <code>!(vote_a =&gt; vote_b) &amp;&amp; !(vote_a &lt;= vote_b)</code>.
+Because <code>Vote.leader_id</code> may be a partial order value:</p>
+<p>Openraft provides two election modes.</p>
+<ul>
+<li>the default mode: every term may have more than one leader.</li>
+<li>and the standard Raft mode: every term has only one leader(enabled by <a href="../../feature_flags/index.html" title="mod openraft::docs::feature_flags"><code>single-term-leader</code></a>),</li>
+</ul>
+<p>The only difference between these two modes is the definition of <code>LeaderId</code>, and the <code>PartialOrd</code> implementation of it.
+See: <a href="../leader_id/index.html" title="mod openraft::docs::data::leader_id"><code>leader-id</code></a>.</p>
+<h3 id="vote-and-membership-define-the-server-state"><a class="doc-anchor" href="#vote-and-membership-define-the-server-state">§</a>Vote and Membership define the server state</h3>
+<p>In the default mode, the <code>Vote</code> defines the server state (leader, candidate, follower or learner).
+A server state has a unique corresponding <code>vote</code>, thus <code>vote</code> can be used to identify different server
+states, i.e, if the <code>vote</code> changes, the server state must have changed.</p>
+<p>Note: follower and learner in Openraft is almost the same. The only difference
+is a learner does not try to elect itself.</p>
+<p>Note: a follower will switch to a learner and vice versa without changing the <code>vote</code>, when a
+new membership log is replicated to a follower or learner.</p>
+<p>E.g.:</p>
+<ul>
+<li>
+<p>Node-2 with vote <code>(term=1, node_id=2, committed=true)</code>:</p>
+<ul>
+<li>is a leader if it is <strong>present</strong> in config, either a voter or non-voter.</li>
+<li>is a learner if it is <strong>absent</strong> in config.</li>
+</ul>
+</li>
+<li>
+<p>Node-2 with vote <code>(term=1, node_id=2, committed=false)</code>:</p>
+<ul>
+<li>is a candidate if it is <strong>present</strong> in config, either a voter or non-voter.</li>
+<li>is a learner if it is <strong>absent</strong> in config.</li>
+</ul>
+</li>
+<li>
+<p>Node-3 with vote <code>(term=1, node_id=99, committed=false|true)</code>:</p>
+<ul>
+<li>is a follower if it is a <strong>voter</strong> in config,</li>
+<li>is a learner if it is a <strong>non-voter</strong> or <strong>absent</strong> in config.</li>
+</ul>
+</li>
+</ul>
+<p>For node-2:</p>
+<div><table><thead><tr><th>vote \ membership</th><th>Voter</th><th>Non-voter</th><th>Absent</th></tr></thead><tbody>
+<tr><td>(term=1, node_id=2, committed=true)</td><td>leader</td><td>leader</td><td>learner</td></tr>
+<tr><td>(term=1, node_id=2, committed=false)</td><td>candidate</td><td>candidate</td><td>learner</td></tr>
+<tr><td>(term=1, node_id=99, committed=true)</td><td>follower</td><td>learner</td><td>learner</td></tr>
+<tr><td>(term=1, node_id=99, committed=false)</td><td>follower</td><td>learner</td><td>learner</td></tr>
+</tbody></table>
+</div></div></details></section></div></main></body></html>

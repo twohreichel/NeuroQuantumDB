@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ConfigChangeType","LogEntryData","QuorumStatus","RaftState"],"struct":["ConfigChange","ConsensusState","FencingToken","LeaderLease","LogEntry","RaftConsensus"]};

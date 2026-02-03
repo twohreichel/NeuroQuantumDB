@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Leader-id in Advanced mode and Standard mode"><title>openraft::docs::data::leader_id - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module leader_id</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module leader_<wbr>id</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#leader-id-in-advanced-mode-and-standard-mode" title="Leader-id in Advanced mode and Standard mode">Leader-id in Advanced mode and Standard mode</a><ul><li><a href="#definition-of-leaderid" title="Definition of `LeaderId`">Definition of <code>LeaderId</code></a></li><li><a href="#usage-of-leaderid" title="Usage of `LeaderId`">Usage of <code>LeaderId</code></a></li><li><a href="#default-advanced-mode" title="Default: advanced mode">Default: advanced mode</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>data</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">data</a></div><h1>Module <span>leader_<wbr>id</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/data/mod.rs.html#3">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h3 id="leader-id-in-advanced-mode-and-standard-mode"><a class="doc-anchor" href="#leader-id-in-advanced-mode-and-standard-mode">§</a>Leader-id in Advanced mode and Standard mode</h3>
+<p>Openraft provides two <code>LeaderId</code> types to switch between these two modes with feature <a href="../../feature_flags/index.html" title="mod openraft::docs::feature_flags"><code>single-term-leader</code></a> :</p>
+<p>The feature <a href="../../feature_flags/index.html" title="mod openraft::docs::feature_flags"><code>single-term-leader</code></a> affects the <code>PartialOrd</code> implementation of <code>LeaderId</code>, where <code>LeaderId</code> is defined as a tuple <code>(term, node_id)</code>.</p>
+<h4 id="definition-of-leaderid"><a class="doc-anchor" href="#definition-of-leaderid">§</a>Definition of <code>LeaderId</code></h4>
+<p>Within Openraft, and also implicitly in the standard Raft, <code>LeaderId</code> is utilized to uniquely identify a leader. The <code>LeaderId</code> could either be a confirmed leader, one that has been granted by a <code>Quorum</code>, or a potential <code>Leader</code>, such as a <code>Candidate</code>.</p>
+<ul>
+<li>
+<p>In standard Raft, the definition of <code>LeaderId</code> as <code>(term, node_id)</code> implies a <strong><code>partial order</code></strong>, although it is not explicitly articulated in the original paper.</p>
+<p>When comparing two <code>LeaderId</code> <code>A</code> and <code>B</code>, the partial order for <code>LeaderId</code> in standard Raft is as follows:</p>
+<p><code>A.term &gt; B.term ↔ A &gt; B</code>.
+<br/><br/></p>
+</li>
+<li>
+<p>Conversely, in Openraft, with the <a href="../../feature_flags/index.html" title="mod openraft::docs::feature_flags"><code>single-term-leader</code></a> feature disabled by default, <code>LeaderId</code> follows a <code>total order</code> based on lexicographical comparison:</p>
+<p><code>A.term &gt; B.term || (A.term == B.term &amp;&amp; A.node_id &gt; B.node_id) ↔ A &gt; B</code>.</p>
+</li>
+</ul>
+<p>Activating the <code>single-term-leader</code> feature makes <code>LeaderId</code> conform to the <code>partial order</code> seen in standard Raft.</p>
+<h4 id="usage-of-leaderid"><a class="doc-anchor" href="#usage-of-leaderid">§</a>Usage of <code>LeaderId</code></h4>
+<p>When handling <code>VoteRequest</code>, both Openraft and standard Raft (though not explicitly detailed) rely on the ordering of <code>LeaderId</code> to decide whether to grant a vote:
+<strong>a node will grant a vote with a <code>LeaderId</code> that is greater than any it has previously granted</strong>.</p>
+<p>Consequently, by default in Openraft (with <code>single-term-leader</code> disabled), it is possible to elect multiple <code>Leader</code>s within the same term, with the last elected <code>Leader</code> being recognized as valid. In contrast, under standard Raft protocol, only a single <code>Leader</code> is elected per <code>term</code>.</p>
+<h4 id="default-advanced-mode"><a class="doc-anchor" href="#default-advanced-mode">§</a>Default: advanced mode</h4>
+<p><code>cargo build</code> without <a href="../../feature_flags/index.html" title="mod openraft::docs::feature_flags"><code>single-term-leader</code></a>, is the advanced mode, the default mode:
+<code>LeaderId</code> is defined as the following, and it is a <strong>totally ordered</strong> value(two or more leaders can be granted in the same term):</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// Advanced mode(default):
+</span><span class="attr">#[cfg(not(feature = <span class="string">"single-term-leader"</span>))]
+#[derive(PartialOrd, Ord)]
+</span><span class="kw">pub struct </span>LeaderId&lt;NID: NodeId&gt;
+{
+  <span class="kw">pub </span>term: u64,
+  <span class="kw">pub </span>node_id: NID,
+}</code></pre></div>
+<p>Which means, in a single <code>term</code>, there could be more than one leaders
+elected(although only the last is valid and can commit logs).</p>
+<ul>
+<li>
+<p>Pros: election conflict is minimized,</p>
+</li>
+<li>
+<p>Cons: <code>LogId</code> becomes larger: every log has to store an additional <code>NodeId</code> in <code>LogId</code>:
+<code>LogId: {{term, NodeId}, index}</code>.
+If an application uses a big <code>NodeId</code> type, e.g., UUID, the penalty may not
+be negligible.</p>
+</li>
+</ul>
+<h5 id="standard-mode"><a class="doc-anchor" href="#standard-mode">§</a>Standard mode</h5>
+<p><code>cargo build --features "single-term-leader"</code> builds openraft in standard raft mode.
+In the standard mode, <code>LeaderId</code> is defined as the following, and it is a <strong>partially ordered</strong> value(no two leaders can be granted in the same term):</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// Standard raft mode:
+</span><span class="attr">#[cfg(feature = <span class="string">"single-term-leader"</span>)]
+</span><span class="kw">pub struct </span>LeaderId&lt;NID: NodeId&gt;
+{
+  <span class="kw">pub </span>term: u64,
+  <span class="kw">pub </span>voted_for: <span class="prelude-ty">Option</span>&lt;NID&gt;,
+}
+
+<span class="kw">impl</span>&lt;NID: NodeId&gt; PartialOrd <span class="kw">for </span>LeaderId&lt;NID&gt; {
+
+  <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Ordering&gt; {
+    <span class="kw">match </span>PartialOrd::partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>.term, <span class="kw-2">&amp;</span>other.term) {
+    
+      <span class="prelude-val">Some</span>(Ordering::Equal) =&gt; {
+        <span class="kw">match </span>(<span class="kw-2">&amp;</span><span class="self">self</span>.voted_for, <span class="kw-2">&amp;</span>other.voted_for) {
+          (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(Ordering::Equal),
+          (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(Ordering::Greater),
+          (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="prelude-val">Some</span>(Ordering::Less),
+          (<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) =&gt; { <span class="kw">if </span>a == b { <span class="prelude-val">Some</span>(Ordering::Equal) } <span class="kw">else </span>{ <span class="prelude-val">None </span>} }
+        }
+      }
+      cmp =&gt; cmp,
+    }
+  }
+}</code></pre></div>
+<p>In this mode, only one leader can be elected in each <code>term</code>.</p>
+<p>The partial order relation of <code>LeaderId</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>LeaderId(<span class="number">3</span>, <span class="prelude-val">None</span>)    &gt;  LeaderId(<span class="number">2</span>, <span class="prelude-val">None</span>):    <span class="bool-val">true
+</span>LeaderId(<span class="number">3</span>, <span class="prelude-val">None</span>)    &gt;  LeaderId(<span class="number">2</span>, <span class="prelude-val">Some</span>(y)): <span class="bool-val">true
+</span>LeaderId(<span class="number">3</span>, <span class="prelude-val">None</span>)    == LeaderId(<span class="number">3</span>, <span class="prelude-val">None</span>):    <span class="bool-val">true
+</span>LeaderId(<span class="number">3</span>, <span class="prelude-val">Some</span>(x)) &gt;  LeaderId(<span class="number">2</span>, <span class="prelude-val">Some</span>(y)): <span class="bool-val">true
+</span>LeaderId(<span class="number">3</span>, <span class="prelude-val">Some</span>(x)) &gt;  LeaderId(<span class="number">3</span>, <span class="prelude-val">None</span>):    <span class="bool-val">true
+</span>LeaderId(<span class="number">3</span>, <span class="prelude-val">Some</span>(x)) == LeaderId(<span class="number">3</span>, <span class="prelude-val">Some</span>(x)): <span class="bool-val">true
+</span>LeaderId(<span class="number">3</span>, <span class="prelude-val">Some</span>(x)) &gt;  LeaderId(<span class="number">3</span>, <span class="prelude-val">Some</span>(y)): <span class="bool-val">false</span></code></pre></div>
+<p>The partial order between <code>Vote</code> is defined as:
+Given two <code>Vote</code> <code>a</code> and <code>b</code>:
+<code>a &gt; b</code> iff:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>a.leader_id &gt; b.leader_id || (
+  !(a.leader_id &lt; b.leader_id) &amp;&amp; a.committed &gt; b.committed
+)</code></pre></div>
+<p>In other words, if <code>a.leader_id</code> and <code>b.leader_id</code> is not
+comparable(<code>!(a.leader_id&gt;=b.leader_id) &amp;&amp; !(a.leader_id&lt;=b.leader_id)</code>), use
+field <code>committed</code> to determine the order between <code>a</code> and <code>b</code>.</p>
+<p>Because a leader must be granted by a quorum before committing any log, two
+incomparable <code>leader_id</code> can not both be granted.
+So let a committed <code>Vote</code> override a incomparable non-committed is safe.</p>
+<ul>
+<li>
+<p>Pros: <code>LogId</code> just store a <code>term</code>.</p>
+</li>
+<li>
+<p>Cons: election conflicting rate may increase.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

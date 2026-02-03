@@ -1,0 +1,146 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate responses with status codes what can be attached to the `utoipa::path`."><title>IntoResponses in utoipa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">IntoResponses</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa/index.html">utoipa</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Into<wbr>Responses</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#intoresponses-response-attributes" title="IntoResponses `#[response(...)]` attributes">IntoResponses <code>#[response(...)]</code> attributes</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa</a></div><h1>Derive Macro <span class="derive">Into<wbr>Responses</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa_gen/lib.rs.html#2992">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(IntoResponses)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[response]
+    #[to_schema]
+    #[ref_response]
+    #[to_response]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate responses with status codes what
+can be attached to the <a href="attr.path.html#responses-from-intoresponses"><code>utoipa::path</code></a>.</p>
+<p>This is <code>#[derive]</code> implementation of <a href="trait.IntoResponses.html"><code>IntoResponses</code></a> trait. <a href="derive.IntoResponses.html" title="derive utoipa::IntoResponses"><code>IntoResponses</code></a>
+can be used to decorate <em><code>structs</code></em> and <em><code>enums</code></em> to generate response maps that can be used in
+<a href="attr.path.html#responses-from-intoresponses"><code>utoipa::path</code></a>. If <em><code>struct</code></em> is decorated with <a href="derive.IntoResponses.html" title="derive utoipa::IntoResponses"><code>IntoResponses</code></a> it will be
+used to create a map of responses containing single response. Decorating <em><code>enum</code></em> with
+<a href="derive.IntoResponses.html" title="derive utoipa::IntoResponses"><code>IntoResponses</code></a> will create a map of responses with a response for each variant of the <em><code>enum</code></em>.</p>
+<p>Named field <em><code>struct</code></em> decorated with <a href="derive.IntoResponses.html" title="derive utoipa::IntoResponses"><code>IntoResponses</code></a> will create a response with inlined schema
+generated from the body of the struct. This is a conveniency which allows users to directly
+create responses with schemas without first creating a separate <a href="trait.ToResponse.html">response</a> type.</p>
+<p>Unit <em><code>struct</code></em> behaves similarly to then named field struct. Only difference is that it will create
+a response without content since there is no inner fields.</p>
+<p>Unnamed field <em><code>struct</code></em> decorated with <a href="derive.IntoResponses.html" title="derive utoipa::IntoResponses"><code>IntoResponses</code></a> will by default create a response with
+referenced <a href="trait.ToSchema.html">schema</a> if field is object or schema if type is <a href="https://doc.rust-lang.org/std/primitive/index.html">primitive
+type</a>. <em><code>#[to_schema]</code></em> attribute at field of unnamed <em><code>struct</code></em> can be used to inline
+the schema if type of the field implements <a href="trait.ToSchema.html"><code>ToSchema</code></a> trait. Alternatively
+<em><code>#[to_response]</code></em> and <em><code>#[ref_response]</code></em> can be used at field to either reference a reusable
+<a href="trait.ToResponse.html">response</a> or inline a reusable <a href="trait.ToResponse.html">response</a>. In both cases the field
+type is expected to implement <a href="trait.ToResponse.html"><code>ToResponse</code></a> trait.</p>
+<p>Enum decorated with <a href="derive.IntoResponses.html" title="derive utoipa::IntoResponses"><code>IntoResponses</code></a> will create a response for each variant of the <em><code>enum</code></em>.
+Each variant must have it’s own <em><code>#[response(...)]</code></em> definition. Unit variant will behave same
+as unit <em><code>struct</code></em> by creating a response without content. Similarly named field variant and
+unnamed field variant behaves the same as it was named field <em><code>struct</code></em> and unnamed field
+<em><code>struct</code></em>.</p>
+<p><em><code>#[response]</code></em> attribute can be used at named structs, unnamed structs, unit structs and enum
+variants to alter <a href="#intoresponses-response-attributes">response attributes</a> of responses.</p>
+<p>Doc comment on a <em><code>struct</code></em> or <em><code>enum</code></em> variant will be used as a description for the response.
+It can also be overridden with <em><code>description = "..."</code></em> attribute.</p>
+<h2 id="intoresponses-response-attributes"><a class="doc-anchor" href="#intoresponses-response-attributes">§</a>IntoResponses <code>#[response(...)]</code> attributes</h2>
+<ul>
+<li>
+<p><code>status = ...</code> Must be provided. Is either a valid http status code integer. E.g. <em><code>200</code></em> or a
+string value representing a range such as <em><code>"4XX"</code></em> or <code>"default"</code> or a valid <em><code>http::status::StatusCode</code></em>.
+<em><code>StatusCode</code></em> can either be use path to the status code or <em>status code</em> constant directly.</p>
+</li>
+<li>
+<p><code>description = "..."</code> Define description for the response as str. This can be used to
+override the default description resolved from doc comments if present.</p>
+</li>
+<li>
+<p><code>content_type = "..."</code> Can be used to override the default behavior
+of auto resolving the content type from the <code>body</code> attribute. If defined the value should be valid
+content type such as <em><code>application/json</code></em> . By default the content type is <em><code>text/plain</code></em>
+for <a href="https://doc.rust-lang.org/std/primitive/index.html">primitive Rust types</a>, <code>application/octet-stream</code> for <em><code>[u8]</code></em> and <em><code>application/json</code></em>
+for struct and mixed enum types.</p>
+</li>
+<li>
+<p><code>headers(...)</code> Slice of response headers that are returned back to a caller.</p>
+</li>
+<li>
+<p><code>example = ...</code> Can be <em><code>json!(...)</code></em>. <em><code>json!(...)</code></em> should be something that
+<em><code>serde_json::json!</code></em> can parse as a <em><code>serde_json::Value</code></em>.</p>
+</li>
+<li>
+<p><code>examples(...)</code> Define multiple examples for single response. This attribute is mutually
+exclusive to the <em><code>example</code></em> attribute and if both are defined this will override the <em><code>example</code></em>.</p>
+<ul>
+<li><code>name = ...</code> This is first attribute and value must be literal string.</li>
+<li><code>summary = ...</code> Short description of example. Value must be literal string.</li>
+<li><code>description = ...</code> Long description of example. Attribute supports markdown for rich text
+representation. Value must be literal string.</li>
+<li><code>value = ...</code> Example value. It must be <em><code>json!(...)</code></em>. <em><code>json!(...)</code></em> should be something that
+<em><code>serde_json::json!</code></em> can parse as a <em><code>serde_json::Value</code></em>.</li>
+<li><code>external_value = ...</code> Define URI to literal example value. This is mutually exclusive to
+the <em><code>value</code></em> attribute. Value must be literal string.</li>
+</ul>
+<p><em><strong>Example of example definition.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code> (&quot;John&quot; = (summary = &quot;This is John&quot;, value = json!({&quot;name&quot;: &quot;John&quot;})))</code></pre></div></li>
+</ul>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p><em><strong>Use <code>IntoResponses</code> to define <a href="attr.path.html" title="attr utoipa::path"><code>utoipa::path</code></a> responses.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToSchema)]
+</span><span class="kw">struct </span>BadRequest {
+    message: String,
+}
+
+<span class="attr">#[derive(utoipa::IntoResponses)]
+</span><span class="kw">enum </span>UserResponses {
+    <span class="doccomment">/// Success response
+    </span><span class="attr">#[response(status = <span class="number">200</span>)]
+    </span>Success { value: String },
+
+    <span class="attr">#[response(status = <span class="number">404</span>)]
+    </span>NotFound,
+
+    <span class="attr">#[response(status = <span class="number">400</span>)]
+    </span>BadRequest(BadRequest),
+}
+
+<span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/api/user"</span>,
+    responses(
+        UserResponses
+    )
+)]
+</span><span class="kw">fn </span>get_user() -&gt; UserResponses {
+   UserResponses::NotFound
+}</code></pre></div>
+<p><em><strong>Named struct response with inlined schema.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="doccomment">/// This is success response
+</span><span class="attr">#[derive(utoipa::IntoResponses)]
+#[response(status = <span class="number">200</span>)]
+</span><span class="kw">struct </span>SuccessResponse {
+    value: String,
+}</code></pre></div>
+<p><em><strong>Unit struct response without content.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::IntoResponses)]
+#[response(status = NOT_FOUND)]
+</span><span class="kw">struct </span>NotFound;</code></pre></div>
+<p><em><strong>Unnamed struct response with inlined response schema.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::IntoResponses)]
+#[response(status = <span class="number">201</span>)]
+</span><span class="kw">struct </span>CreatedResponse(<span class="attr">#[to_schema] </span>Foo);</code></pre></div>
+<p><em><strong>Enum with multiple responses.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::IntoResponses)]
+</span><span class="kw">enum </span>UserResponses {
+    <span class="doccomment">/// Success response description.
+    </span><span class="attr">#[response(status = <span class="number">200</span>)]
+    </span>Success { value: String },
+
+    <span class="attr">#[response(status = <span class="number">404</span>)]
+    </span>NotFound,
+
+    <span class="attr">#[response(status = <span class="number">400</span>)]
+    </span>BadRequest(BadRequest),
+
+    <span class="attr">#[response(status = <span class="number">500</span>)]
+    </span>ServerError(<span class="attr">#[ref_response] </span>Response),
+
+    <span class="attr">#[response(status = <span class="number">418</span>)]
+    </span>TeaPot(<span class="attr">#[to_response] </span>Response),
+}</code></pre></div></div></details></section></div></main></body></html>

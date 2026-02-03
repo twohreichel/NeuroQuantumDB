@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["ast","error","executor","explain","index_advisor","natural_language","optimizer","parser","prepared_statements","query_plan","query_plan_cache"],"struct":["QSQLConfig","QSQLEngine","QSQLMetrics"]};

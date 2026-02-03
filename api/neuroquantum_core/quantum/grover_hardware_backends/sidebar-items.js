@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BraketGroverConfig","BraketGroverSolver","IBMGroverConfig","IBMGroverSolver","IonQGroverConfig","IonQGroverSolver","SimulatorGroverConfig","SimulatorGroverSolver","UnifiedGroverConfig","UnifiedGroverSolver"],"trait":["GroverHardwareBackend"]};

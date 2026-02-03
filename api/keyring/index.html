@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Keyring"><title>keyring - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="keyring" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate keyring</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../keyring/index.html">keyring</a><span class="version">3.6.3</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#keyring" title="Keyring">Keyring</a><ul><li><a href="#design" title="Design">Design</a></li><li><a href="#crate-provided-credential-stores" title="Crate-provided Credential Stores">Crate-provided Credential Stores</a></li><li><a href="#client-provided-credential-stores" title="Client-provided Credential Stores">Client-provided Credential Stores</a></li><li><a href="#mock-credential-store" title="Mock Credential Store">Mock Credential Store</a></li><li><a href="#interoperability-with-third-parties" title="Interoperability with Third Parties">Interoperability with Third Parties</a></li><li><a href="#caveats" title="Caveats">Caveats</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>keyring</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/keyring/lib.rs.html#1-745">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="keyring"><a class="doc-anchor" href="#keyring">§</a>Keyring</h2>
+<p>This is a cross-platform library that does storage and retrieval of passwords
+(or other secrets) in an underlying platform-specific secure store.
+A top-level introduction to the library’s usage, as well as a small code sample,
+may be found in <a href="https://crates.io/crates/keyring">the library’s entry on crates.io</a>.
+Currently supported platforms are
+Linux,
+FreeBSD,
+OpenBSD,
+Windows,
+macOS, and iOS.</p>
+<h3 id="design"><a class="doc-anchor" href="#design">§</a>Design</h3>
+<p>This crate implements a very simple, platform-independent concrete object called an <em>entry</em>.
+Each entry is identified by a &lt;<em>service name</em>, <em>user name</em>&gt; pair of UTF-8 strings,
+optionally augmented by a <em>target</em> string (which can be used to distinguish two entries
+that have the same <em>service name</em> and <em>user name</em>).
+Entries support setting, getting, and forgetting (aka deleting) passwords (UTF-8 strings)
+and binary secrets (byte arrays).</p>
+<p>Entries provide persistence for their passwords by wrapping credentials held in platform-specific
+credential stores.  The implementations of these platform-specific stores are captured
+in two types (with associated traits):</p>
+<ul>
+<li>a <em>credential builder</em>, represented by the <a href="credential/type.CredentialBuilder.html" title="type keyring::credential::CredentialBuilder">CredentialBuilder</a> type
+(and <a href="credential/trait.CredentialBuilderApi.html" title="trait keyring::credential::CredentialBuilderApi">CredentialBuilderApi</a> trait).  Credential
+builders are given the identifying information provided for an entry and map
+it to the identifying information for a platform-specific credential.</li>
+<li>a <em>credential</em>, represented by the <a href="credential/type.Credential.html" title="type keyring::credential::Credential">Credential</a> type
+(and <a href="credential/trait.CredentialApi.html" title="trait keyring::credential::CredentialApi">CredentialApi</a> trait).  The platform-specific credential
+identified by a builder for an entry is what provides the secure storage
+for that entry’s password/secret.</li>
+</ul>
+<h3 id="crate-provided-credential-stores"><a class="doc-anchor" href="#crate-provided-credential-stores">§</a>Crate-provided Credential Stores</h3>
+<p>This crate runs on several different platforms, and it provides one
+or more implementations of credential stores on each platform.
+These implementations work by mapping the data used to identify an entry
+to data used to identify platform-specific storage objects.
+For example, on macOS, the service and user provided for an entry
+are mapped to the service and user attributes that identify a
+generic credential in the macOS keychain.</p>
+<p>Typically, platform-specific stores (called <em>keystores</em> in this crate)
+have a richer model of a credential than
+the one used by this crate to identify entries.
+These keystores expose their specific model in the
+concrete credential objects they use to implement the Credential trait.
+In order to allow clients to access this richer model, the Credential trait
+has an <a href="credential/trait.CredentialApi.html#tymethod.as_any" title="method keyring::credential::CredentialApi::as_any">as_any</a> method that returns a
+reference to the underlying
+concrete object typed as <a href="https://doc.rust-lang.org/1.91.1/core/any/trait.Any.html" title="trait core::any::Any">Any</a>, so that it can be downgraded to
+its concrete type.</p>
+<h4 id="credential-store-features"><a class="doc-anchor" href="#credential-store-features">§</a>Credential store features</h4>
+<p>Each of the platform-specific credential stores is associated with one or more features.
+These features control whether that store is included when the crate is built.  For
+example, the macOS Keychain credential store is only included if the <code>"apple-native"</code>
+feature is specified (and the crate is built with a macOS target).</p>
+<p>If no specified credential store features apply to a given platform,
+this crate will use the (platform-independent) <em>mock</em> credential store (see below)
+on that platform. There are no
+default features in this crate: you must specify explicitly which platform-specific
+credential stores you intend to use.</p>
+<p>Here are the available credential store features:</p>
+<ul>
+<li>
+<p><code>apple-native</code>: Provides access to the Keychain credential store on macOS and iOS.</p>
+</li>
+<li>
+<p><code>windows-native</code>: Provides access to the Windows Credential Store on Windows.</p>
+</li>
+<li>
+<p><code>linux-native</code>: Provides access to the <code>keyutils</code> storage on Linux.</p>
+</li>
+<li>
+<p><code>linux-native-sync-persistent</code>: Uses both <code>keyutils</code> and <code>sync-secret-service</code>
+(see below) for storage. See the docs for the <code>keyutils_persistent</code>
+module for a full explanation of why both are used. Because this
+store uses the <code>sync-secret-service</code>, you can use additional features related
+to that store (described below).</p>
+</li>
+<li>
+<p><code>linux-native-async-persistent</code>: Uses both <code>keyutils</code> and <code>async-secret-service</code>
+(see below) for storage. See the docs for the <code>keyutils_persistent</code>
+module for a full explanation of why both are used.
+Because this store uses the <code>async-secret-service</code>, you
+must specify the additional features required by that store (described below).</p>
+</li>
+<li>
+<p><code>sync-secret-service</code>: Provides access to the DBus-based
+<a href="https://specifications.freedesktop.org/secret-service/latest/">Secret Service</a>
+storage on Linux, FreeBSD, and OpenBSD.  This is a <em>synchronous</em> keystore that provides
+support for encrypting secrets when they are transferred across the bus. If you wish
+to use this encryption support, additionally specify one (and only one) of the
+<code>crypto-rust</code> or <code>crypto-openssl</code> features (to choose the implementation libraries
+used for the encryption). By default, this keystore requires that the DBus library be
+installed on the user’s machine (and the openSSL library if you specify it for
+encryption), but you can avoid this requirement by specifying the <code>vendored</code> feature
+(which will cause the build to include those libraries statically).</p>
+</li>
+<li>
+<p><code>async-secret-service</code>: Provides access to the DBus-based
+<a href="https://specifications.freedesktop.org/secret-service/latest/">Secret Service</a>
+storage on Linux, FreeBSD, and OpenBSD.  This is an <em>asynchronous</em> keystore that
+always encrypts secrets when they are transferred across the bus. You <em>must</em> specify
+both an async runtime feature (either <code>tokio</code> or <code>async-io</code>) and a cryptographic
+implementation (either <code>crypto-rust</code> or <code>crypto-openssl</code>) when using this
+keystore. If you want to use openSSL encryption but those libraries are not
+installed on the user’s machine, specify the <code>vendored</code> feature
+to statically link them with the built crate.</p>
+</li>
+</ul>
+<p>The Linux platform is the only one for which this crate supplies multiple keystores:
+native (keyutils), sync or async secret service, and sync or async “combo” (both
+keyutils and secret service). You cannot specify use of both sync and async
+keystores; this will lead to a compile error.  If you enable a combo keystore on Linux,
+that will be the default keystore. If you don’t enable a
+combo keystore on Linux, but you do enable both the native and secret service keystores,
+the secret service will be the default.</p>
+<h3 id="client-provided-credential-stores"><a class="doc-anchor" href="#client-provided-credential-stores">§</a>Client-provided Credential Stores</h3>
+<p>In addition to the platform stores implemented by this crate, clients
+are free to provide their own secure stores and use those.  There are
+two mechanisms provided for this:</p>
+<ul>
+<li>
+<p>Clients can give their desired credential builder to the crate
+for use by the <a href="struct.Entry.html#method.new" title="associated function keyring::Entry::new">Entry::new</a> and <a href="struct.Entry.html#method.new_with_target" title="associated function keyring::Entry::new_with_target">Entry::new_with_target</a> calls.
+This is done by making a call to <a href="fn.set_default_credential_builder.html" title="fn keyring::set_default_credential_builder">set_default_credential_builder</a>.
+The major advantage of this approach is that client code remains
+independent of the credential builder being used.</p>
+</li>
+<li>
+<p>Clients can construct their concrete credentials directly and
+then turn them into entries by using the <a href="struct.Entry.html#method.new_with_credential" title="associated function keyring::Entry::new_with_credential">Entry::new_with_credential</a>
+call. The major advantage of this approach is that credentials
+can be identified however clients want, rather than being restricted
+to the simple model used by this crate.</p>
+</li>
+</ul>
+<h3 id="mock-credential-store"><a class="doc-anchor" href="#mock-credential-store">§</a>Mock Credential Store</h3>
+<p>In addition to the platform-specific credential stores, this crate
+always provides a mock credential store that clients can use to
+test their code in a platform independent way.  The mock credential
+store allows for pre-setting errors as well as password values to
+be returned from <a href="struct.Entry.html" title="struct keyring::Entry">Entry</a> method calls.</p>
+<h3 id="interoperability-with-third-parties"><a class="doc-anchor" href="#interoperability-with-third-parties">§</a>Interoperability with Third Parties</h3>
+<p>Each of the platform-specific credential stores provided by this crate uses
+an underlying store that may also be used by modules written
+in other languages.  If you want to interoperate with these third party
+credential writers, then you will need to understand the details of how the
+target, service, and user of this crate’s generic model
+are used to identify credentials in the platform-specific store.
+These details are in the implementation of this crate’s secure-storage
+modules, and are documented in the headers of those modules.</p>
+<p>(<em>N.B.</em> Since the included credential store implementations are platform-specific,
+you may need to use the Platform drop-down on <a href="https://docs.rs/keyring">docs.rs</a> to
+view the storage module documentation for your desired platform.)</p>
+<h3 id="caveats"><a class="doc-anchor" href="#caveats">§</a>Caveats</h3>
+<p>This module expects passwords to be UTF-8 encoded strings,
+so if a third party has stored an arbitrary byte string
+then retrieving that as a password will return a
+<a href="error/enum.Error.html#variant.BadEncoding" title="variant keyring::error::Error::BadEncoding">BadEncoding</a> error.
+The returned error will have the raw bytes attached,
+so you can access them, but you can also just fetch
+them directly using <a href="struct.Entry.html#method.get_secret" title="method keyring::Entry::get_secret">get_secret</a> rather than
+<a href="struct.Entry.html#method.get_password" title="method keyring::Entry::get_password">get_password</a>.</p>
+<p>While this crate’s code is thread-safe, the underlying credential
+stores may not handle access from different threads reliably.
+In particular, accessing the same credential
+from multiple threads at the same time can fail, especially on
+Windows and Linux, because the accesses may not be serialized in the same order
+they are made. And for RPC-based credential stores such as the dbus-based Secret
+Service, accesses from multiple threads (and even the same thread very quickly)
+are not recommended, as they may cause the RPC mechanism to fail.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.Credential"><code>pub use credential::<a class="type" href="credential/type.Credential.html" title="type keyring::credential::Credential">Credential</a>;</code></dt><dt id="reexport.CredentialBuilder"><code>pub use credential::<a class="type" href="credential/type.CredentialBuilder.html" title="type keyring::credential::CredentialBuilder">CredentialBuilder</a>;</code></dt><dt id="reexport.Error"><code>pub use error::<a class="enum" href="error/enum.Error.html" title="enum keyring::error::Error">Error</a>;</code></dt><dt id="reexport.Result"><code>pub use error::<a class="type" href="error/type.Result.html" title="type keyring::error::Result">Result</a>;</code></dt><dt id="reexport.default"><code>pub use <a class="mod" href="mock/index.html" title="mod keyring::mock">mock</a> as default;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="credential/index.html" title="mod keyring::credential">credential</a></dt><dd>Platform-independent secure storage model</dd><dt><a class="mod" href="error/index.html" title="mod keyring::error">error</a></dt><dd>Platform-independent error model.</dd><dt><a class="mod" href="mock/index.html" title="mod keyring::mock">mock</a></dt><dd>Mock credential store</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Entry.html" title="struct keyring::Entry">Entry</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.set_default_credential_builder.html" title="fn keyring::set_default_credential_builder">set_<wbr>default_<wbr>credential_<wbr>builder</a></dt><dd>Set the credential builder used by default to create entries.</dd></dl></section></div></main></body></html>

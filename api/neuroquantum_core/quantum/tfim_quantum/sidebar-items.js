@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["QuantumBackend","QuantumGate","SolutionMethod","VQEAnsatz"],"struct":["HardwareMapping","QuantumCircuit","QuantumObservables","QuantumTFIMConfig","QuantumTFIMProblem","QuantumTFIMSolution","QuantumTFIMSolver"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketRequestPaymentError"],"mod":["builders"],"struct":["GetBucketRequestPayment","GetBucketRequestPaymentInput","GetBucketRequestPaymentOutput"]};

@@ -1,0 +1,280 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Getting Started with Openraft"><title>openraft::docs::getting_started - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module getting_started</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module getting_<wbr>started</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#getting-started-with-openraft" title="Getting Started with Openraft">Getting Started with Openraft</a><ul><li><a href="#1-define-client-request-and-response" title="1. Define client request and response">1. Define client request and response</a></li><li><a href="#2-define-types-for-the-application" title="2. Define types for the application">2. Define types for the application</a></li><li><a href="#3-implement-raftlogstorage-and-raftstatemachine" title="3. Implement `RaftLogStorage` and `RaftStateMachine`">3. Implement <code>RaftLogStorage</code> and <code>RaftStateMachine</code></a></li><li><a href="#4-implement-raftnetwork" title="4. Implement `RaftNetwork`">4. Implement <code>RaftNetwork</code></a></li><li><a href="#5-put-everything-together" title="5. Put everything together">5. Put everything together</a></li><li><a href="#6-run-the-cluster" title="6. Run the cluster">6. Run the cluster</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">openraft</a>::<wbr><a href="../index.html">docs</a></div><h1>Module <span>getting_<wbr>started</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/openraft/docs/getting_started/mod.rs.html#1">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="getting-started-with-openraft"><a class="doc-anchor" href="#getting-started-with-openraft">§</a>Getting Started with Openraft</h2>
+<p>In this chapter, we will build a key-value store cluster using Openraft.</p>
+<ol>
+<li>
+<p><a href="https://github.com/datafuselabs/openraft/tree/main/examples/raft-kv-memstore">examples/raft-kv-memstore</a>
+is a complete example application that includes the server, client, and a demo cluster. This example uses an in-memory store for data storage.</p>
+</li>
+<li>
+<p><a href="https://github.com/datafuselabs/openraft/tree/main/examples/raft-kv-rocksdb">examples/raft-kv-rocksdb</a>
+is another complete example application that includes the server, client, and a demo cluster. This example uses RocksDB for persistent storage.</p>
+</li>
+</ol>
+<p>You can use these examples as a starting point for building your own key-value
+store cluster with Openraft.</p>
+<hr />
+<p>Raft is a distributed consensus protocol designed to manage a replicated log containing state machine commands from clients.</p>
+<p>Raft includes two major parts:</p>
+<ul>
+<li>Replicating logs consistently among nodes,</li>
+<li>Consuming the logs, which is mainly defined in the state machine.</li>
+</ul>
+<p>Implementing your own Raft-based application with Openraft is quite simple, and it involves:</p>
+<ol>
+<li>Defining client request and response,</li>
+<li>Implementing a storage for Raft to store its state,</li>
+<li>Implementing a network layer for Raft to transmit messages.</li>
+</ol>
+<h3 id="1-define-client-request-and-response"><a class="doc-anchor" href="#1-define-client-request-and-response">§</a>1. Define client request and response</h3>
+<p>A request is some data that modifies the Raft state machine.
+A response is some data that the Raft state machine returns to the client.</p>
+<p>Request and response can be any types that implement <a href="../../trait.AppData.html" title="trait openraft::AppData"><code>AppData</code></a> and <a href="../../trait.AppDataResponse.html" title="trait openraft::AppDataResponse"><code>AppDataResponse</code></a>, for example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+</span><span class="kw">pub struct </span>Request {key: String}
+
+<span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+</span><span class="kw">pub struct </span>Response(<span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, ClientError&gt;);</code></pre></div>
+<p>These two types are entirely application-specific and are mainly related to the
+state machine implementation in <a href="../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a>.</p>
+<h3 id="2-define-types-for-the-application"><a class="doc-anchor" href="#2-define-types-for-the-application">§</a>2. Define types for the application</h3>
+<p>Openraft is a generic implementation of Raft. It requires the application to define
+concrete types for its generic arguments. Most types are parameterized by
+<a href="../../type_config/trait.RaftTypeConfig.html" title="trait openraft::type_config::RaftTypeConfig"><code>RaftTypeConfig</code></a> and will be used to create a <code>Raft</code> instance:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>TypeConfig {}
+<span class="kw">impl </span>openraft::RaftTypeConfig <span class="kw">for </span>TypeConfig {
+    <span class="kw">type </span>D = Request;
+    <span class="kw">type </span>R = Response;
+    <span class="kw">type </span>NodeId = NodeId;
+    <span class="kw">type </span>Node = BasicNode;
+    <span class="kw">type </span>Entry = openraft::Entry&lt;TypeConfig&gt;;
+    <span class="kw">type </span>SnapshotData = Cursor&lt;Vec&lt;u8&gt;&gt;;
+    <span class="kw">type </span>AsyncRuntime = TokioRuntime;
+}</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>Raft&lt;C: RaftTypeConfig&gt; {}</code></pre></div>
+<p>Openraft provides default implementations for <code>Node</code> (<a href="../../struct.EmptyNode.html" title="struct openraft::EmptyNode"><code>EmptyNode</code></a> and <a href="../../struct.BasicNode.html" title="struct openraft::BasicNode"><code>BasicNode</code></a>) and log <code>Entry</code> (<a href="../../entry/struct.Entry.html" title="struct openraft::entry::Entry"><code>Entry</code></a>).
+You can use these implementations directly or define your own custom types.</p>
+<p>A <a href="../../type_config/trait.RaftTypeConfig.html" title="trait openraft::type_config::RaftTypeConfig"><code>RaftTypeConfig</code></a> is also used by other components such as <a href="../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a>, <a href="../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a>,
+<a href="../../network/trait.RaftNetworkFactory.html" title="trait openraft::network::RaftNetworkFactory"><code>RaftNetworkFactory</code></a> and <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a>.</p>
+<h3 id="3-implement-raftlogstorage-and-raftstatemachine"><a class="doc-anchor" href="#3-implement-raftlogstorage-and-raftstatemachine">§</a>3. Implement <a href="../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> and <a href="../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a></h3>
+<p>The trait <a href="../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> defines how log data is stored and consumed.
+It could be a wrapper for a local key-value store like <a href="https://docs.rs/rocksdb/latest/rocksdb/">RocksDB</a>.</p>
+<p>The trait <a href="../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a> defines how log is interpreted. Usually it is an in memory state machine with or without on-disk data backed.</p>
+<p>There is a good example,
+<a href="https://github.com/datafuselabs/openraft/blob/main/examples/raft-kv-memstore/src/store/mod.rs"><code>Mem KV Store</code></a>,
+that demonstrates what should be done when a method is called. The storage methods are listed as the below.
+Follow the link to method document to see the details.</p>
+<div><table><thead><tr><th>Kind</th><th><a href="../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> method</th><th>Return value</th><th>Description</th></tr></thead><tbody>
+<tr><td>Read log:</td><td><a href="../../storage/trait.RaftLogStorage.html#tymethod.get_log_reader" title="method openraft::storage::RaftLogStorage::get_log_reader"><code>get_log_reader()</code></a></td><td>impl <a href="../../storage/trait.RaftLogReader.html" title="trait openraft::storage::RaftLogReader"><code>RaftLogReader</code></a></td><td>get a read-only log reader</td></tr>
+<tr><td></td><td></td><td>↳ <a href="../../storage/trait.RaftLogReader.html#tymethod.try_get_log_entries" title="method openraft::storage::RaftLogReader::try_get_log_entries"><code>try_get_log_entries()</code></a></td><td>get a range of logs</td></tr>
+<tr><td></td><td><a href="../../storage/trait.RaftLogStorage.html#tymethod.get_log_state" title="method openraft::storage::RaftLogStorage::get_log_state"><code>get_log_state()</code></a></td><td><a href="../../storage/struct.LogState.html" title="struct openraft::storage::LogState"><code>LogState</code></a></td><td>get first/last log id</td></tr>
+<tr><td>Write log:</td><td><a href="../../storage/trait.RaftLogStorage.html#tymethod.append" title="method openraft::storage::RaftLogStorage::append"><code>append()</code></a></td><td>()</td><td>append logs</td></tr>
+<tr><td>Write log:</td><td><a href="../../storage/trait.RaftLogStorage.html#tymethod.truncate" title="method openraft::storage::RaftLogStorage::truncate"><code>truncate()</code></a></td><td>()</td><td>delete logs <code>[index, +oo)</code></td></tr>
+<tr><td>Write log:</td><td><a href="../../storage/trait.RaftLogStorage.html#tymethod.purge" title="method openraft::storage::RaftLogStorage::purge"><code>purge()</code></a></td><td>()</td><td>purge logs <code>(-oo, index]</code></td></tr>
+<tr><td>Vote:</td><td><a href="../../storage/trait.RaftLogStorage.html#tymethod.save_vote" title="method openraft::storage::RaftLogStorage::save_vote"><code>save_vote()</code></a></td><td>()</td><td>save vote</td></tr>
+<tr><td>Vote:</td><td><a href="../../storage/trait.RaftLogStorage.html#tymethod.read_vote" title="method openraft::storage::RaftLogStorage::read_vote"><code>read_vote()</code></a></td><td><a href="../../struct.Vote.html" title="struct openraft::Vote"><code>Vote</code></a></td><td>read vote</td></tr>
+</tbody></table>
+</div><div><table><thead><tr><th>Kind</th><th><a href="../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a> method</th><th>Return value</th><th>Description</th></tr></thead><tbody>
+<tr><td>SM:</td><td><a href="../../storage/trait.RaftStateMachine.html#tymethod.applied_state" title="method openraft::storage::RaftStateMachine::applied_state"><code>applied_state()</code></a></td><td><a href="../../log_id/struct.LogId.html" title="struct openraft::log_id::LogId"><code>LogId</code></a>, <a href="../../struct.Membership.html" title="struct openraft::Membership"><code>Membership</code></a></td><td>get last applied log id, membership</td></tr>
+<tr><td>SM:</td><td><a href="../../storage/trait.RaftStateMachine.html#tymethod.apply" title="method openraft::storage::RaftStateMachine::apply"><code>apply()</code></a></td><td>Vec of <a href="../../trait.AppDataResponse.html" title="trait openraft::AppDataResponse"><code>AppDataResponse</code></a></td><td>apply logs to state machine</td></tr>
+<tr><td>Snapshot:</td><td><a href="../../storage/trait.RaftStateMachine.html#tymethod.begin_receiving_snapshot" title="method openraft::storage::RaftStateMachine::begin_receiving_snapshot"><code>begin_receiving_snapshot()</code></a></td><td><code>SnapshotData</code></td><td>begin to install snapshot</td></tr>
+<tr><td>Snapshot:</td><td><a href="../../storage/trait.RaftStateMachine.html#tymethod.install_snapshot" title="method openraft::storage::RaftStateMachine::install_snapshot"><code>install_snapshot()</code></a></td><td>()</td><td>install snapshot</td></tr>
+<tr><td>Snapshot:</td><td><a href="../../storage/trait.RaftStateMachine.html#tymethod.get_current_snapshot" title="method openraft::storage::RaftStateMachine::get_current_snapshot"><code>get_current_snapshot()</code></a></td><td><a href="../../storage/struct.Snapshot.html" title="struct openraft::storage::Snapshot"><code>Snapshot</code></a></td><td>get current snapshot</td></tr>
+<tr><td>Snapshot:</td><td><a href="../../storage/trait.RaftStateMachine.html#tymethod.get_snapshot_builder" title="method openraft::storage::RaftStateMachine::get_snapshot_builder"><code>get_snapshot_builder()</code></a></td><td>impl <a href="../../storage/trait.RaftSnapshotBuilder.html" title="trait openraft::storage::RaftSnapshotBuilder"><code>RaftSnapshotBuilder</code></a></td><td>get a snapshot builder</td></tr>
+<tr><td></td><td></td><td>↳ <a href="../../storage/trait.RaftSnapshotBuilder.html#tymethod.build_snapshot" title="method openraft::storage::RaftSnapshotBuilder::build_snapshot"><code>build_snapshot()</code></a></td><td>build a snapshot from state machine</td></tr>
+</tbody></table>
+</div>
+<p>Most of the APIs are quite straightforward, except two indirect APIs:</p>
+<ul>
+<li>
+<p>Read logs:
+<a href="../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> defines a method <a href="../../storage/trait.RaftLogStorage.html#tymethod.get_log_reader" title="method openraft::storage::RaftLogStorage::get_log_reader"><code>get_log_reader()</code></a> to get log reader <a href="../../storage/trait.RaftLogReader.html" title="trait openraft::storage::RaftLogReader"><code>RaftLogReader</code></a> :</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">trait </span>RaftLogStorage&lt;C: RaftTypeConfig&gt; {
+    <span class="kw">type </span>LogReader: RaftLogReader&lt;C&gt;;
+    <span class="kw">async fn </span>get_log_reader(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::LogReader;
+}</code></pre></div>
+<p><a href="../../storage/trait.RaftLogReader.html" title="trait openraft::storage::RaftLogReader"><code>RaftLogReader</code></a> defines the APIs to read logs, and is an also super trait of <a href="../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> :</p>
+<ul>
+<li><a href="../../storage/trait.RaftLogReader.html#tymethod.try_get_log_entries" title="method openraft::storage::RaftLogReader::try_get_log_entries"><code>try_get_log_entries()</code></a> get log entries in a range;</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">trait </span>RaftLogReader&lt;C: RaftTypeConfig&gt; {
+    <span class="kw">async fn </span>try_get_log_entries&lt;RB: RangeBounds&lt;u64&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, range: RB) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;C::Entry&gt;, ...&gt;;
+}</code></pre></div>
+<p>And <a href="../../storage/trait.RaftLogStorage.html#tymethod.get_log_state" title="method openraft::storage::RaftLogStorage::get_log_state"><code>RaftLogStorage::get_log_state()</code></a> get latest log state from the storage;</p>
+</li>
+<li>
+<p>Build a snapshot from the local state machine needs to be done in two steps:</p>
+<ul>
+<li><a href="../../storage/trait.RaftStateMachine.html#tymethod.get_snapshot_builder" title="method openraft::storage::RaftStateMachine::get_snapshot_builder"><code>RaftStateMachine::get_snapshot_builder() -&gt; Self::SnapshotBuilder</code></a>,</li>
+<li><a href="../../storage/trait.RaftSnapshotBuilder.html#tymethod.build_snapshot" title="method openraft::storage::RaftSnapshotBuilder::build_snapshot"><code>RaftSnapshotBuilder::build_snapshot() -&gt; Result&lt;Snapshot&gt;</code></a>,</li>
+</ul>
+</li>
+</ul>
+<h4 id="ensure-the-storage-implementation-is-correct"><a class="doc-anchor" href="#ensure-the-storage-implementation-is-correct">§</a>Ensure the storage implementation is correct</h4>
+<p>There is a <a href="../../testing/struct.Suite.html" title="struct openraft::testing::Suite">Test suite for RaftLogStorage and RaftStateMachine</a> available in Openraft.
+If your implementation passes the tests, Openraft should work well with it.
+To test your implementation, you have two options:</p>
+<ol>
+<li>Run <code>Suite::test_all()</code> with an <code>async fn()</code> that creates a new pair of <a href="../../storage/trait.RaftLogStorage.html" title="trait openraft::storage::RaftLogStorage"><code>RaftLogStorage</code></a> and <a href="../../storage/trait.RaftStateMachine.html" title="trait openraft::storage::RaftStateMachine"><code>RaftStateMachine</code></a>,
+as shown in the <a href="https://github.com/datafuselabs/openraft/blob/main/memstore/src/test.rs"><code>MemStore</code> test</a>:</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">pub fn </span>test_mem_store() -&gt; anyhow::Result&lt;()&gt; {
+  openraft::testing::Suite::test_all(MemStore::new_async)
+}</code></pre></div>
+<ol start="2">
+<li>Alternatively, run <code>Suite::test_all()</code> with a <a href="../../testing/trait.StoreBuilder.html" title="trait openraft::testing::StoreBuilder"><code>StoreBuilder</code></a> implementation,
+as shown in the <a href="https://github.com/datafuselabs/openraft/blob/main/rocksstore/src/test.rs"><code>RocksStore</code> test</a>.</li>
+</ol>
+<p>By following either of these approaches, you can ensure that your custom storage implementation can work correctly in a distributed system.</p>
+<h4 id="an-implementation-has-to-guarantee-data-durability"><a class="doc-anchor" href="#an-implementation-has-to-guarantee-data-durability">§</a>An implementation has to guarantee data durability.</h4>
+<p>The caller always assumes a completed writing is persistent.
+The raft correctness highly depends on a reliable store.</p>
+<h3 id="4-implement-raftnetwork"><a class="doc-anchor" href="#4-implement-raftnetwork">§</a>4. Implement <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a></h3>
+<p>Raft nodes need to communicate with each other to achieve consensus about the logs.
+The trait <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> defines the data transmission requirements.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub trait </span>RaftNetwork&lt;C: RaftTypeConfig&gt;: Send + Sync + <span class="lifetime">'static </span>{
+    <span class="kw">async fn </span>vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rpc: VoteRequest&lt;C::NodeId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;...&gt;;
+    <span class="kw">async fn </span>append_entries(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rpc: AppendEntriesRequest&lt;C&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;...&gt;;
+    <span class="kw">async fn </span>snapshot(<span class="kw-2">&amp;mut </span><span class="self">self</span>, vote: Vote&lt;C::NodeId&gt;, snapshot: Snapshot&lt;C&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;...&gt;;
+}</code></pre></div>
+<p>An implementation of <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> can be considered as a wrapper that invokes
+the corresponding methods of a remote <a href="../../raft/struct.Raft.html" title="struct openraft::raft::Raft"><code>Raft</code></a>. It is responsible for sending
+and receiving messages between Raft nodes.</p>
+<p>Here is the list of methods that need to be implemented for the <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> trait:</p>
+<div><table><thead><tr><th><a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> method</th><th>forward request</th><th>to target</th></tr></thead><tbody>
+<tr><td><a href="../../network/trait.RaftNetwork.html#tymethod.append_entries" title="method openraft::network::RaftNetwork::append_entries"><code>append_entries()</code></a></td><td><a href="../../raft/struct.AppendEntriesRequest.html" title="struct openraft::raft::AppendEntriesRequest"><code>AppendEntriesRequest</code></a></td><td>remote node <a href="../../raft/struct.Raft.html#method.append_entries" title="method openraft::raft::Raft::append_entries"><code>Raft::append_entries()</code></a></td></tr>
+<tr><td><a href="../../network/trait.RaftNetwork.html#method.full_snapshot" title="method openraft::network::RaftNetwork::full_snapshot"><code>full_snapshot()</code></a></td><td><a href="../../storage/struct.Snapshot.html" title="struct openraft::storage::Snapshot"><code>Snapshot</code></a></td><td>remote node <a href="../../raft/struct.Raft.html#method.install_full_snapshot" title="method openraft::raft::Raft::install_full_snapshot"><code>Raft::install_full_snapshot()</code></a></td></tr>
+<tr><td><a href="../../network/trait.RaftNetwork.html#tymethod.vote" title="method openraft::network::RaftNetwork::vote"><code>vote()</code></a></td><td><a href="../../raft/struct.VoteRequest.html" title="struct openraft::raft::VoteRequest"><code>VoteRequest</code></a></td><td>remote node <a href="../../raft/struct.Raft.html#method.vote" title="method openraft::raft::Raft::vote"><code>Raft::vote()</code></a></td></tr>
+</tbody></table>
+</div>
+<p><a href="https://github.com/datafuselabs/openraft/blob/main/examples/raft-kv-memstore/src/network/raft_network_impl.rs">Mem KV Network</a>
+demonstrates how to forward messages to other Raft nodes using <a href="https://docs.rs/reqwest/latest/reqwest/"><code>reqwest</code></a> as network transport layer.</p>
+<p>To receive and handle these requests, there should be a server endpoint for each of these RPCs.
+When the server receives a Raft RPC, it simply passes it to its <code>raft</code> instance and replies with the returned result:
+<a href="https://github.com/datafuselabs/openraft/blob/main/examples/raft-kv-memstore/src/network/raft.rs">Mem KV Server</a>.</p>
+<p>For a real-world implementation, you may want to use <a href="https://github.com/hyperium/tonic">Tonic gRPC</a> to handle gRPC-based communication between Raft nodes. The <a href="https://github.com/datafuselabs/databend/blob/6603392a958ba8593b1f4b01410bebedd484c6a9/metasrv/src/network.rs#L89">databend-meta</a> project provides an excellent real-world example of a Tonic gRPC-based Raft network implementation.</p>
+<h4 id="implement-raftnetworkfactory"><a class="doc-anchor" href="#implement-raftnetworkfactory">§</a>Implement <a href="../../network/trait.RaftNetworkFactory.html" title="trait openraft::network::RaftNetworkFactory"><code>RaftNetworkFactory</code></a></h4>
+<p><a href="../../network/trait.RaftNetworkFactory.html" title="trait openraft::network::RaftNetworkFactory"><code>RaftNetworkFactory</code></a> is a singleton responsible for creating <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> instances for each replication target node.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub trait </span>RaftNetworkFactory&lt;C: RaftTypeConfig&gt;: Send + Sync + <span class="lifetime">'static </span>{
+    <span class="kw">type </span>Network: RaftNetwork&lt;C&gt;;
+    <span class="kw">async fn </span>new_client(<span class="kw-2">&amp;mut </span><span class="self">self</span>, target: C::NodeId, node: <span class="kw-2">&amp;</span>C::Node) -&gt; <span class="self">Self</span>::Network;
+}</code></pre></div>
+<p>This trait contains only one method:</p>
+<ul>
+<li><a href="../../network/trait.RaftNetworkFactory.html#tymethod.new_client" title="method openraft::network::RaftNetworkFactory::new_client"><code>RaftNetworkFactory::new_client()</code></a> builds a new <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> instance for a target node, intended for sending RPCs to that node.
+The associated type <code>RaftNetworkFactory::Network</code> represents the application’s implementation of the <code>RaftNetwork</code> trait.</li>
+</ul>
+<p>This function should <strong>not</strong> establish a connection; instead, it should create a client that connects when
+necessary.</p>
+<h4 id="find-the-address-of-the-target-node"><a class="doc-anchor" href="#find-the-address-of-the-target-node">§</a>Find the address of the target node.</h4>
+<p>In Openraft, an implementation of <a href="../../network/trait.RaftNetwork.html" title="trait openraft::network::RaftNetwork"><code>RaftNetwork</code></a> needs to connect to remote Raft peers. To store additional information about each peer, you need to specify the <code>Node</code> type in <code>RaftTypeConfig</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>TypeConfig {}
+<span class="kw">impl </span>openraft::RaftTypeConfig <span class="kw">for </span>TypeConfig {
+   <span class="comment">// ...
+   </span><span class="kw">type </span>Node = BasicNode;
+}</code></pre></div>
+<p>Then use <code>Raft::add_learner(node_id, BasicNode::new("127.0.0.1"), ...)</code> to instruct Openraft to store node information in <a href="../../struct.Membership.html" title="struct openraft::Membership"><code>Membership</code></a>. This information is then consistently replicated across all nodes, and will be passed to <a href="../../network/trait.RaftNetworkFactory.html#tymethod.new_client" title="method openraft::network::RaftNetworkFactory::new_client"><code>RaftNetworkFactory::new_client()</code></a> to connect to remote Raft peers:</p>
+<div class="example-wrap"><pre class="language-json"><code>{
+  &quot;configs&quot;: [ [ 1, 2, 3 ] ],
+  &quot;nodes&quot;: {
+    &quot;1&quot;: { &quot;addr&quot;: &quot;127.0.0.1:21001&quot; },
+    &quot;2&quot;: { &quot;addr&quot;: &quot;127.0.0.1:21002&quot; },
+    &quot;3&quot;: { &quot;addr&quot;: &quot;127.0.0.1:21003&quot; }
+  }
+}</code></pre></div><h4 id="caution-ensure-that-a-connection-to-the-right-node"><a class="doc-anchor" href="#caution-ensure-that-a-connection-to-the-right-node">§</a>Caution: ensure that a connection to the right node</h4>
+<p>See: <a href="../cluster_control/dynamic_membership/index.html#ensure-connection-to-the-correct-node" title="mod openraft::docs::cluster_control::dynamic_membership">Ensure connection to the correct node</a></p>
+<h3 id="5-put-everything-together"><a class="doc-anchor" href="#5-put-everything-together">§</a>5. Put everything together</h3>
+<p>Finally, we put these parts together and boot up a raft node
+<a href="https://github.com/datafuselabs/openraft/blob/main/examples/raft-kv-memstore/src/lib.rs">main.rs</a>
+:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">openraft::declare_raft_types!</span>(
+    <span class="kw">pub </span>TypeConfig:
+        D = Request,
+        R = Response,
+);
+
+<span class="attr">#[actix_web::main]
+</span><span class="kw">async fn </span>main() -&gt; std::io::Result&lt;()&gt; {
+
+    <span class="kw">let </span>node_id = <span class="number">1</span>;
+    <span class="kw">let </span>config = Arc::new(Config::default().validate().unwrap());
+
+    <span class="kw">let </span>log_store = LogStore::default();
+    <span class="kw">let </span>state_machine_store = Arc::new(StateMachineStore::default());
+    <span class="kw">let </span>network = Network {};
+
+    <span class="kw">let </span>raft = openraft::Raft::new(
+        node_id,
+        config.clone(),
+        network,
+        log_store.clone(),
+        state_machine_store.clone(),
+    )
+    .<span class="kw">await
+    </span>.unwrap();
+
+    <span class="kw">let </span>app_data = Data::new(App {
+        id: node_id,
+        addr: <span class="string">"127.0.0.1:9999"</span>.to_string(),
+        raft,
+        log_store,
+        state_machine_store,
+        config,
+    });
+
+    HttpServer::new(<span class="kw">move </span>|| {
+      App::new()
+              .wrap(Logger::default())
+              .wrap(Logger::new(<span class="string">"%a %{User-Agent}i"</span>))
+              .wrap(middleware::Compress::default())
+              .app_data(app.clone())
+
+              <span class="comment">// raft internal RPC
+              </span>.service(raft::append).service(raft::snapshot).service(raft::vote)
+
+              <span class="comment">// admin API
+              </span>.service(management::init)
+              .service(management::add_learner)
+              .service(management::change_membership)
+              .service(management::metrics)
+              .service(management::list_nodes)
+
+              <span class="comment">// application API
+              </span>.service(api::write).service(api::read)
+    })
+    .bind(options.http_addr)<span class="question-mark">?
+    </span>.run()
+    .<span class="kw">await
+</span>}
+</code></pre></div><h3 id="6-run-the-cluster"><a class="doc-anchor" href="#6-run-the-cluster">§</a>6. Run the cluster</h3>
+<p>To set up a demo Raft cluster, follow these steps:</p>
+<ol>
+<li>Bring up three uninitialized Raft nodes.</li>
+<li>Initialize a single-node cluster.</li>
+<li>Add more Raft nodes to the cluster.</li>
+<li>Update the membership configuration.</li>
+</ol>
+<p>The <a href="https://github.com/datafuselabs/openraft/tree/main/examples/raft-kv-memstore">examples/raft-kv-memstore</a>
+directory provides a detailed description of these steps.</p>
+<p>Additionally, two test scripts for setting up a cluster are available:</p>
+<ul>
+<li>
+<p><a href="https://github.com/datafuselabs/openraft/blob/main/examples/raft-kv-memstore/test-cluster.sh">test-cluster.sh</a>
+is a minimal Bash script that uses <code>curl</code> to communicate with the Raft
+cluster. It demonstrates the plain HTTP messages being sent and received.</p>
+</li>
+<li>
+<p><a href="https://github.com/datafuselabs/openraft/blob/main/examples/raft-kv-memstore/tests/cluster/test_cluster.rs">test_cluster.rs</a>
+uses the <code>ExampleClient</code> to set up a cluster, write data, and read it back.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

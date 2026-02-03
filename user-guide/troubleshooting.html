@@ -1,0 +1,2038 @@
+<!DOCTYPE HTML>
+<html lang="de" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Troubleshooting - NeuroQuantumDB Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Comprehensive documentation for NeuroQuantumDB - Ultra-efficient neuromorphic database for edge computing">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-5286ab13.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-4f2988c5.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">NeuroQuantumDB Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/neuroquantumdb/neuroquantumdb" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/neuroquantumdb/neuroquantumdb/edit/main/docs/docs/user-guide/troubleshooting.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<p>This comprehensive guide helps you diagnose and resolve common issues with NeuroQuantumDB.</p>
+<h2 id="1-common-errors-and-solutions"><a class="header" href="#1-common-errors-and-solutions">1. Common Errors and Solutions</a></h2>
+<h3 id="connection-refused"><a class="header" href="#connection-refused">Connection Refused</a></h3>
+<p><strong>Symptom:</strong> <code>Connection refused</code> or <code>Failed to connect to localhost:8080</code></p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Server is not running</li>
+<li>Wrong host/port configuration</li>
+<li>Firewall blocking connection</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Check if server is running
+ps aux | grep neuroquantum-api
+
+# Check port availability
+netstat -tuln | grep 8080
+# or
+lsof -i :8080
+
+# Start server if not running
+./neuroquantum-api --config config/prod.toml
+
+# Verify server is listening
+curl http://localhost:8080/health
+</code></pre>
+<hr>
+<h3 id="server-wont-start-address-already-in-use"><a class="header" href="#server-wont-start-address-already-in-use">Server Won’t Start (Address Already in Use)</a></h3>
+<p><strong>Symptom:</strong> <code>Address already in use</code> error during startup</p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Find process using port
+lsof -i :8080
+netstat -tulnp | grep 8080
+
+# Kill the process
+kill -9 &lt;PID&gt;
+
+# Or change port in config
+# config/prod.toml
+[server]
+port = 8081
+</code></pre>
+<hr>
+<h3 id="out-of-memory"><a class="header" href="#out-of-memory">Out of Memory</a></h3>
+<p><strong>Symptom:</strong> Server crashes, <code>OOM</code> errors, or extreme slowness</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check memory usage
+free -h
+top -o %MEM
+
+# Check NeuroQuantumDB memory
+ps aux | grep neuroquantum-api
+
+# Check buffer pool metrics
+curl http://localhost:8080/metrics | grep buffer_pool
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-toml"># config/prod.toml - Reduce buffer pool size
+[storage]
+buffer_pool_size_mb = 128  # Default: 256
+
+# Enable DNA compression to reduce memory
+[compression]
+dna_enabled = true
+compression_level = 6
+
+# Limit concurrent connections
+[server]
+max_connections = 50  # Default: 100
+</code></pre>
+<p><strong>Additional steps:</strong></p>
+<pre><code class="language-bash"># Set memory limit with systemd
+# /etc/systemd/system/neuroquantumdb.service
+[Service]
+MemoryLimit=512M
+
+# Or use Docker limits
+docker run -m 512m neuroquantumdb/neuroquantum-api
+</code></pre>
+<hr>
+<h3 id="transaction-deadlock"><a class="header" href="#transaction-deadlock">Transaction Deadlock</a></h3>
+<p><strong>Symptom:</strong> <code>TXN_DEADLOCK</code> error, transactions hanging</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check for long-running transactions
+curl http://localhost:8080/api/v1/admin/transactions
+
+# Enable deadlock logging
+RUST_LOG=neuroquantum_core::transaction=debug ./neuroquantum-api
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-sql">-- Always acquire locks in same order
+BEGIN TRANSACTION;
+SELECT * FROM table_a WHERE id = 1 FOR UPDATE;
+SELECT * FROM table_b WHERE id = 2 FOR UPDATE;
+COMMIT;
+
+-- Set transaction timeout
+SET transaction_timeout = '30s';
+</code></pre>
+<pre><code class="language-toml"># config/prod.toml
+[transaction]
+deadlock_detection_interval_ms = 100
+max_transaction_duration_secs = 30
+</code></pre>
+<hr>
+<h3 id="query-timeout"><a class="header" href="#query-timeout">Query Timeout</a></h3>
+<p><strong>Symptom:</strong> <code>QUERY_TIMEOUT</code> error, queries never complete</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-sql">-- Check query execution plan
+EXPLAIN SELECT * FROM large_table WHERE complex_condition;
+
+-- Enable query logging
+SET log_queries = true;
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-toml"># Increase query timeout
+[query]
+timeout_seconds = 60  # Default: 30
+
+# Increase statement timeout
+[query]
+statement_timeout_seconds = 120
+</code></pre>
+<pre><code class="language-sql">-- Create missing indexes
+CREATE INDEX idx_user_email ON users(email);
+CREATE INDEX idx_order_date ON orders(created_at);
+
+-- Optimize query
+-- Before: Full table scan
+SELECT * FROM users WHERE LOWER(email) = 'user@example.com';
+
+-- After: Index usage
+SELECT * FROM users WHERE email = 'user@example.com';
+</code></pre>
+<hr>
+<h3 id="authentication-failed"><a class="header" href="#authentication-failed">Authentication Failed</a></h3>
+<p><strong>Symptom:</strong> <code>401 Unauthorized</code> or <code>AUTH_INVALID_TOKEN</code></p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Verify token format
+echo $TOKEN
+
+# Should be: Bearer eyJhbGc...
+
+# Test authentication endpoint
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/auth/verify
+
+# Check JWT secret configuration
+grep jwt_secret config/prod.toml
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Generate new JWT secret
+neuroquantum-api generate-jwt-secret
+
+# Set in configuration
+export NQDB_JWT_SECRET="your-generated-secret"
+
+# Verify token expiration
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/auth/info
+
+# Generate new token
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "password"}'
+</code></pre>
+<hr>
+<h3 id="permission-denied"><a class="header" href="#permission-denied">Permission Denied</a></h3>
+<p><strong>Symptom:</strong> <code>AUTH_INSUFFICIENT_PERMISSIONS</code> or <code>403 Forbidden</code></p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Check user permissions
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/auth/permissions
+
+# Grant required permissions (as admin)
+curl -X POST http://localhost:8080/api/v1/admin/users/123/permissions \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"permissions": ["read", "write", "admin"]}'
+</code></pre>
+<hr>
+<h3 id="disk-full"><a class="header" href="#disk-full">Disk Full</a></h3>
+<p><strong>Symptom:</strong> <code>STORAGE_DISK_FULL</code> error, write operations fail</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check disk usage
+df -h /var/lib/neuroquantumdb
+
+# Check data directory size
+du -sh /var/lib/neuroquantumdb/*
+
+# Check WAL size
+du -sh /var/lib/neuroquantumdb/wal
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Archive old WAL files
+neuroquantum-api wal-archive --before 2024-01-01
+
+# Enable WAL compression
+# config/prod.toml
+[storage]
+wal_compression = true
+
+# Clean up old backups
+rm -rf /var/lib/neuroquantumdb/backups/old-*
+
+# Vacuum database
+neuroquantum-api vacuum --full
+</code></pre>
+<hr>
+<h3 id="data-corruption"><a class="header" href="#data-corruption">Data Corruption</a></h3>
+<p><strong>Symptom:</strong> <code>STORAGE_CORRUPTED</code> error, checksum failures</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Run integrity check
+neuroquantum-api check --verbose
+
+# Check specific table
+neuroquantum-api check --table users
+
+# Review logs for corruption patterns
+grep -i corrupt /var/log/neuroquantumdb/app.log
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Restore from backup (if available)
+neuroquantum-api restore --from /backups/latest.nqdb
+
+# Attempt repair (may lose data)
+neuroquantum-api repair --table users --force
+
+# Rebuild indexes
+neuroquantum-api reindex --all
+</code></pre>
+<hr>
+<h3 id="wal-write-failed"><a class="header" href="#wal-write-failed">WAL Write Failed</a></h3>
+<p><strong>Symptom:</strong> <code>STORAGE_WAL_ERROR</code>, transactions fail to commit</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check WAL directory permissions
+ls -la /var/lib/neuroquantumdb/wal
+
+# Check disk I/O
+iostat -x 1 10
+
+# Verify WAL configuration
+grep wal config/prod.toml
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Fix permissions
+chown -R neuroquantum:neuroquantum /var/lib/neuroquantumdb/wal
+chmod 700 /var/lib/neuroquantumdb/wal
+
+# Increase WAL buffer
+# config/prod.toml
+[storage]
+wal_buffer_size_mb = 16  # Default: 8
+
+# Sync mode for reliability
+[storage]
+wal_sync_mode = "fsync"  # Options: fsync, fdatasync, none
+</code></pre>
+<hr>
+<h3 id="lock-timeout"><a class="header" href="#lock-timeout">Lock Timeout</a></h3>
+<p><strong>Symptom:</strong> <code>STORAGE_LOCK_TIMEOUT</code>, operations hang waiting for locks</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Monitor lock contention
+curl http://localhost:8080/api/v1/admin/locks
+
+# Check for blocking queries
+curl http://localhost:8080/api/v1/admin/blocked-queries
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-toml"># Increase lock timeout
+[storage]
+lock_timeout_ms = 5000  # Default: 1000
+
+# Reduce lock contention
+[storage]
+lock_granularity = "row"  # Options: table, page, row
+</code></pre>
+<hr>
+<h3 id="high-cpu-usage"><a class="header" href="#high-cpu-usage">High CPU Usage</a></h3>
+<p><strong>Symptom:</strong> CPU usage constantly &gt; 80%</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Profile CPU usage
+top -p $(pgrep neuroquantum-api)
+
+# Get CPU metrics
+curl http://localhost:8080/metrics | grep cpu
+
+# Enable query profiling
+RUST_LOG=neuroquantum_core::query=trace ./neuroquantum-api
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Identify slow queries
+neuroquantum-api slow-queries --min-duration 1s
+
+# Optimize queries with indexes
+# Add query result caching
+# config/prod.toml
+[cache]
+query_cache_size_mb = 64
+query_cache_ttl_secs = 300
+</code></pre>
+<hr>
+<h3 id="network-timeout"><a class="header" href="#network-timeout">Network Timeout</a></h3>
+<p><strong>Symptom:</strong> Clients timeout waiting for responses</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Test network latency
+ping -c 10 database-host
+
+# Check network metrics
+curl http://localhost:8080/metrics | grep network
+
+# Monitor connection state
+netstat -an | grep 8080
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-toml"># Increase timeouts
+[server]
+request_timeout_secs = 60
+keep_alive_timeout_secs = 75
+
+# Enable TCP keepalive
+[server]
+tcp_keepalive_secs = 60
+</code></pre>
+<hr>
+<h3 id="backup-failed"><a class="header" href="#backup-failed">Backup Failed</a></h3>
+<p><strong>Symptom:</strong> Backup operations fail or timeout</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check backup status
+neuroquantum-api backup-status
+
+# Test backup manually
+neuroquantum-api backup --dest /tmp/test-backup.nqdb
+
+# Check disk space
+df -h /var/backups
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Increase backup timeout
+neuroquantum-api backup --timeout 3600 \
+  --dest /backups/$(date +%Y%m%d).nqdb
+
+# Use incremental backups
+neuroquantum-api backup --incremental \
+  --base /backups/base.nqdb \
+  --dest /backups/incr-$(date +%Y%m%d).nqdb
+
+# Schedule backups during low-traffic periods
+# crontab
+0 2 * * * /usr/bin/neuroquantum-api backup --dest /backups/daily.nqdb
+</code></pre>
+<hr>
+<h3 id="restore-failed"><a class="header" href="#restore-failed">Restore Failed</a></h3>
+<p><strong>Symptom:</strong> Cannot restore from backup</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Verify backup integrity
+neuroquantum-api verify-backup /backups/latest.nqdb
+
+# Check backup format
+file /backups/latest.nqdb
+
+# Review restore logs
+tail -f /var/log/neuroquantumdb/restore.log
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Stop server before restore
+systemctl stop neuroquantumdb
+
+# Restore with force flag
+neuroquantum-api restore --force \
+  --from /backups/latest.nqdb \
+  --to /var/lib/neuroquantumdb
+
+# Verify after restore
+neuroquantum-api check --verbose
+
+# Restart server
+systemctl start neuroquantumdb
+</code></pre>
+<hr>
+<h3 id="index-corruption"><a class="header" href="#index-corruption">Index Corruption</a></h3>
+<p><strong>Symptom:</strong> Query results inconsistent, <code>INDEX_CORRUPTED</code> errors</p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Reindex specific table
+neuroquantum-api reindex --table users
+
+# Reindex all tables
+neuroquantum-api reindex --all
+
+# Drop and recreate index
+neuroquantum-api drop-index idx_user_email
+neuroquantum-api create-index idx_user_email ON users(email)
+</code></pre>
+<hr>
+<h3 id="service-wont-stop"><a class="header" href="#service-wont-stop">Service Won’t Stop</a></h3>
+<p><strong>Symptom:</strong> <code>systemctl stop</code> hangs, process won’t terminate</p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Check for stuck transactions
+curl http://localhost:8080/api/v1/admin/transactions
+
+# Force shutdown (last resort)
+kill -TERM $(pgrep neuroquantum-api)
+
+# Wait 30 seconds, then force kill
+sleep 30
+kill -KILL $(pgrep neuroquantum-api)
+
+# Clean up stale PID files
+rm -f /var/run/neuroquantumdb.pid
+</code></pre>
+<hr>
+<h3 id="configuration-error"><a class="header" href="#configuration-error">Configuration Error</a></h3>
+<p><strong>Symptom:</strong> <code>CONFIG_ERROR</code>, server fails to start</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Validate configuration
+neuroquantum-api validate-config --config config/prod.toml
+
+# Check syntax
+grep -v '^#' config/prod.toml | grep -v '^$'
+
+# Test with default config
+neuroquantum-api --config /dev/null
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Use example configuration
+cp config/prod.toml.example config/prod.toml
+
+# Check environment variables
+env | grep NQDB_
+
+# Override with environment
+export NQDB_PORT=8080
+export NQDB_HOST=0.0.0.0
+./neuroquantum-api
+</code></pre>
+<hr>
+<h3 id="ssltls-errors"><a class="header" href="#ssltls-errors">SSL/TLS Errors</a></h3>
+<p><strong>Symptom:</strong> Certificate errors, handshake failures</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Test SSL connection
+openssl s_client -connect localhost:8443
+
+# Verify certificate
+openssl x509 -in /etc/neuroquantumdb/cert.pem -text -noout
+
+# Check certificate expiration
+openssl x509 -in /etc/neuroquantumdb/cert.pem -noout -enddate
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Generate self-signed certificate (dev only)
+openssl req -x509 -newkey rsa:4096 \
+  -keyout key.pem -out cert.pem \
+  -days 365 -nodes
+
+# Configure TLS
+# config/prod.toml
+[server.tls]
+enabled = true
+cert_path = "/etc/neuroquantumdb/cert.pem"
+key_path = "/etc/neuroquantumdb/key.pem"
+
+# Use Let's Encrypt (production)
+certbot certonly --standalone -d db.example.com
+</code></pre>
+<hr>
+<h3 id="migration-failed"><a class="header" href="#migration-failed">Migration Failed</a></h3>
+<p><strong>Symptom:</strong> Schema migration errors</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check migration status
+neuroquantum-api migration-status
+
+# List pending migrations
+neuroquantum-api migration-list --pending
+
+# Review migration logs
+tail -f /var/log/neuroquantumdb/migration.log
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Rollback failed migration
+neuroquantum-api migration-rollback
+
+# Apply migrations one by one
+neuroquantum-api migration-apply --version 001
+
+# Force migration (careful!)
+neuroquantum-api migration-apply --force
+</code></pre>
+<hr>
+<h3 id="rate-limit-exceeded"><a class="header" href="#rate-limit-exceeded">Rate Limit Exceeded</a></h3>
+<p><strong>Symptom:</strong> <code>RATE_LIMIT_EXCEEDED</code> errors, 429 responses</p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-toml"># Increase rate limits
+[security]
+rate_limit_requests = 1000  # Default: 100
+rate_limit_window_secs = 60
+
+# Whitelist trusted IPs
+[security]
+rate_limit_whitelist = ["10.0.0.0/8", "192.168.1.100"]
+</code></pre>
+<hr>
+<h3 id="quantum-search-timeout"><a class="header" href="#quantum-search-timeout">Quantum Search Timeout</a></h3>
+<p><strong>Symptom:</strong> Quantum search queries timeout or fail</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check quantum processor status
+curl http://localhost:8080/api/v1/admin/quantum/status
+
+# Monitor quantum metrics
+curl http://localhost:8080/metrics | grep quantum
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-toml"># Adjust quantum search parameters
+[quantum]
+max_iterations = 1000  # Default: 500
+search_timeout_ms = 5000  # Default: 2000
+
+# Reduce search space
+[quantum]
+vector_dimensions = 128  # Default: 256
+</code></pre>
+<hr>
+<h3 id="dna-compression-failed"><a class="header" href="#dna-compression-failed">DNA Compression Failed</a></h3>
+<p><strong>Symptom:</strong> Compression errors, degraded performance</p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-toml"># Adjust compression settings
+[compression]
+dna_enabled = true
+compression_level = 4  # Lower = faster, less compression
+
+# Disable for specific tables
+# In QSQL
+CREATE TABLE large_data (
+  id INTEGER PRIMARY KEY,
+  data TEXT COMPRESSION NONE
+);
+</code></pre>
+<hr>
+<h2 id="2-log-analysis"><a class="header" href="#2-log-analysis">2. Log Analysis</a></h2>
+<h3 id="configuring-log-levels"><a class="header" href="#configuring-log-levels">Configuring Log Levels</a></h3>
+<pre><code class="language-bash"># Environment variable (most common)
+export RUST_LOG=info
+
+# Module-specific logging
+export RUST_LOG=neuroquantum_core=debug,neuroquantum_api=info
+
+# Trace level for all modules (verbose)
+export RUST_LOG=trace
+
+# Multiple modules with different levels
+export RUST_LOG=neuroquantum_core::storage=trace,neuroquantum_core::query=debug,info
+</code></pre>
+<p><strong>Configuration file:</strong></p>
+<pre><code class="language-toml"># config/prod.toml
+[logging]
+level = "info"  # Options: error, warn, info, debug, trace
+format = "json"  # Options: json, plain
+output = "/var/log/neuroquantumdb/app.log"
+
+# Module-specific levels
+[logging.modules]
+"neuroquantum_core::storage" = "debug"
+"neuroquantum_core::transaction" = "trace"
+</code></pre>
+<h3 id="understanding-important-log-messages"><a class="header" href="#understanding-important-log-messages">Understanding Important Log Messages</a></h3>
+<p><strong>Startup Messages:</strong></p>
+<pre><code>INFO neuroquantum_api: Server starting version=1.0.0
+INFO neuroquantum_core::storage: Buffer pool initialized size_mb=256
+INFO neuroquantum_core::wal: WAL recovery completed records=1523
+INFO neuroquantum_api: Server listening address=0.0.0.0:8080
+</code></pre>
+<p><strong>Error Messages:</strong></p>
+<pre><code>ERROR neuroquantum_core::storage: WAL write failed error="disk full"
+ERROR neuroquantum_core::transaction: Deadlock detected txn_id=12345
+ERROR neuroquantum_api: Authentication failed user=unknown reason="invalid token"
+WARN neuroquantum_core::query: Slow query detected duration_ms=5234
+</code></pre>
+<p><strong>Performance Warnings:</strong></p>
+<pre><code>WARN neuroquantum_core::storage: Buffer pool hit ratio low ratio=0.45
+WARN neuroquantum_core: High memory usage used_mb=1024 total_mb=1024
+WARN neuroquantum_core::query: Full table scan detected table=users
+</code></pre>
+<p><strong>Transaction Messages:</strong></p>
+<pre><code>DEBUG neuroquantum_core::transaction: Transaction started txn_id=12345
+DEBUG neuroquantum_core::transaction: Acquiring lock table=users mode=exclusive
+TRACE neuroquantum_core::transaction: Lock acquired duration_ms=2
+INFO neuroquantum_core::transaction: Transaction committed txn_id=12345 duration_ms=45
+</code></pre>
+<h3 id="log-rotation-setup"><a class="header" href="#log-rotation-setup">Log Rotation Setup</a></h3>
+<p><strong>Using logrotate (Linux):</strong></p>
+<pre><code class="language-bash"># /etc/logrotate.d/neuroquantumdb
+/var/log/neuroquantumdb/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 neuroquantum neuroquantum
+    sharedscripts
+    postrotate
+        systemctl reload neuroquantumdb
+    endscript
+}
+</code></pre>
+<p><strong>Built-in rotation:</strong></p>
+<pre><code class="language-toml"># config/prod.toml
+[logging.rotation]
+enabled = true
+max_size_mb = 100
+max_age_days = 30
+max_backups = 10
+compress = true
+</code></pre>
+<h3 id="log-aggregation"><a class="header" href="#log-aggregation">Log Aggregation</a></h3>
+<p><strong>Filebeat configuration:</strong></p>
+<pre><code class="language-yaml"># filebeat.yml
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/neuroquantumdb/*.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    fields:
+      service: neuroquantumdb
+      environment: production
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: "neuroquantumdb-%{+yyyy.MM.dd}"
+</code></pre>
+<p><strong>Fluentd configuration:</strong></p>
+<pre><code class="language-xml"># fluent.conf
+&lt;source&gt;
+  @type tail
+  path /var/log/neuroquantumdb/app.log
+  pos_file /var/log/td-agent/neuroquantumdb.pos
+  tag neuroquantumdb
+  &lt;parse&gt;
+    @type json
+    time_key timestamp
+    time_format %Y-%m-%dT%H:%M:%S.%NZ
+  &lt;/parse&gt;
+&lt;/source&gt;
+
+&lt;match neuroquantumdb&gt;
+  @type elasticsearch
+  host elasticsearch
+  port 9200
+  index_name neuroquantumdb
+  type_name _doc
+&lt;/match&gt;
+</code></pre>
+<p><strong>Structured logging queries:</strong></p>
+<pre><code class="language-bash"># Find all errors in last hour
+jq 'select(.level == "ERROR" and .timestamp &gt; "2024-01-07T10:00:00Z")' \
+  /var/log/neuroquantumdb/app.log
+
+# Count errors by type
+jq -s 'group_by(.error_type) | map({type: .[0].error_type, count: length})' \
+  /var/log/neuroquantumdb/app.log
+
+# Find slow queries
+jq 'select(.duration_ms &gt; 1000) | {query: .query, duration: .duration_ms}' \
+  /var/log/neuroquantumdb/app.log
+</code></pre>
+<hr>
+<h2 id="3-diagnostic-tools"><a class="header" href="#3-diagnostic-tools">3. Diagnostic Tools</a></h2>
+<h3 id="health-check-endpoints"><a class="header" href="#health-check-endpoints">Health Check Endpoints</a></h3>
+<p><strong>Basic health check:</strong></p>
+<pre><code class="language-bash">curl http://localhost:8080/health
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "status": "healthy",
+  "version": "1.0.0",
+  "uptime_seconds": 3600,
+  "storage": {
+    "status": "ok",
+    "used_bytes": 1073741824,
+    "available_bytes": 5368709120
+  },
+  "connections": {
+    "active": 15,
+    "max": 100
+  }
+}
+</code></pre>
+<p><strong>Detailed health check:</strong></p>
+<pre><code class="language-bash">curl http://localhost:8080/api/v1/admin/health/detailed
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "status": "healthy",
+  "checks": {
+    "storage": "ok",
+    "wal": "ok",
+    "replication": "ok",
+    "cluster": "degraded"
+  },
+  "metrics": {
+    "query_rate": 125.5,
+    "avg_query_time_ms": 23.4,
+    "buffer_pool_hit_ratio": 0.95,
+    "active_transactions": 5
+  }
+}
+</code></pre>
+<p><strong>Component-specific checks:</strong></p>
+<pre><code class="language-bash"># Check storage
+curl http://localhost:8080/api/v1/admin/health/storage
+
+# Check WAL
+curl http://localhost:8080/api/v1/admin/health/wal
+
+# Check cluster
+curl http://localhost:8080/api/v1/admin/health/cluster
+</code></pre>
+<h3 id="interpreting-metrics"><a class="header" href="#interpreting-metrics">Interpreting Metrics</a></h3>
+<p><strong>Prometheus endpoint:</strong></p>
+<pre><code class="language-bash">curl http://localhost:8080/metrics
+</code></pre>
+<p><strong>Key metrics to monitor:</strong></p>
+<p><strong>Query Performance:</strong></p>
+<pre><code># Total queries
+nqdb_queries_total{type="select"} 125432
+
+# Query latency percentiles
+nqdb_query_duration_seconds{quantile="0.5"} 0.012
+nqdb_query_duration_seconds{quantile="0.95"} 0.145
+nqdb_query_duration_seconds{quantile="0.99"} 0.523
+
+# Slow queries
+nqdb_slow_queries_total 15
+</code></pre>
+<p><strong>Storage Metrics:</strong></p>
+<pre><code># Buffer pool efficiency
+nqdb_buffer_pool_hits_total 1234567
+nqdb_buffer_pool_misses_total 45678
+# Hit ratio = hits / (hits + misses) = 0.964
+
+# Disk usage
+nqdb_storage_used_bytes 1073741824
+nqdb_storage_available_bytes 5368709120
+
+# WAL activity
+nqdb_wal_writes_total 98765
+nqdb_wal_sync_duration_seconds 0.003
+</code></pre>
+<p><strong>Connection Metrics:</strong></p>
+<pre><code># Active connections
+nqdb_connections_active 25
+nqdb_connections_max 100
+
+# Connection errors
+nqdb_connection_errors_total{type="timeout"} 5
+nqdb_connection_errors_total{type="refused"} 2
+</code></pre>
+<p><strong>Transaction Metrics:</strong></p>
+<pre><code># Active transactions
+nqdb_transactions_active 8
+
+# Transaction outcomes
+nqdb_transactions_committed_total 45678
+nqdb_transactions_aborted_total 234
+nqdb_transactions_deadlocked_total 12
+
+# Transaction duration
+nqdb_transaction_duration_seconds{quantile="0.95"} 0.089
+</code></pre>
+<p><strong>Resource Metrics:</strong></p>
+<pre><code># Memory usage
+nqdb_memory_used_bytes 536870912
+nqdb_memory_buffer_pool_bytes 268435456
+
+# CPU usage
+nqdb_cpu_seconds_total 1234.56
+
+# I/O operations
+nqdb_disk_reads_total 345678
+nqdb_disk_writes_total 123456
+</code></pre>
+<h3 id="activating-debug-mode"><a class="header" href="#activating-debug-mode">Activating Debug Mode</a></h3>
+<p><strong>Method 1: Environment variable</strong></p>
+<pre><code class="language-bash"># Full trace logging
+RUST_LOG=trace ./neuroquantum-api
+
+# Specific modules
+RUST_LOG=neuroquantum_core::storage=trace,neuroquantum_core::transaction=debug \
+  ./neuroquantum-api
+</code></pre>
+<p><strong>Method 2: Configuration file</strong></p>
+<pre><code class="language-toml"># config/debug.toml
+[logging]
+level = "trace"
+
+[debug]
+enabled = true
+query_logging = true
+transaction_logging = true
+storage_logging = true
+</code></pre>
+<p><strong>Method 3: Runtime toggle (requires admin authentication)</strong></p>
+<pre><code class="language-bash"># Enable debug mode
+curl -X POST http://localhost:8080/api/v1/admin/debug/enable \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Set log level at runtime
+curl -X POST http://localhost:8080/api/v1/admin/logging/level \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"level": "debug"}'
+
+# Disable debug mode
+curl -X POST http://localhost:8080/api/v1/admin/debug/disable \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+</code></pre>
+<h3 id="query-profiling"><a class="header" href="#query-profiling">Query Profiling</a></h3>
+<p><strong>Enable query profiling:</strong></p>
+<pre><code class="language-sql">-- Enable for session
+SET profile_queries = true;
+
+-- Execute query
+SELECT * FROM users WHERE email LIKE '%@example.com%';
+
+-- View profile
+SHOW PROFILE;
+</code></pre>
+<p><strong>Profile output:</strong></p>
+<pre><code>Query Plan:
+  Sequential Scan on users (cost=0..1523.45 rows=234)
+    Filter: email LIKE '%@example.com%'
+  
+Execution Stats:
+  Planning Time: 2.34 ms
+  Execution Time: 145.67 ms
+  Rows Returned: 234
+  
+Buffer Usage:
+  Shared Blocks Hit: 1523
+  Shared Blocks Read: 45
+  Shared Blocks Written: 0
+</code></pre>
+<p><strong>Command-line profiling:</strong></p>
+<pre><code class="language-bash"># Profile specific query
+neuroquantum-api profile-query \
+  --query "SELECT * FROM users WHERE email = 'test@example.com'"
+
+# Profile slow queries
+neuroquantum-api profile-slow-queries \
+  --min-duration 1000  # milliseconds
+
+# Generate query report
+neuroquantum-api query-report \
+  --output /tmp/query-report.html \
+  --start "2024-01-01" \
+  --end "2024-01-07"
+</code></pre>
+<p><strong>Real-time query monitoring:</strong></p>
+<pre><code class="language-bash"># Watch active queries
+watch -n 1 'curl -s http://localhost:8080/api/v1/admin/queries | jq'
+
+# Stream query log
+tail -f /var/log/neuroquantumdb/queries.log | jq 'select(.duration_ms &gt; 100)'
+</code></pre>
+<hr>
+<h2 id="4-recovery-procedures"><a class="header" href="#4-recovery-procedures">4. Recovery Procedures</a></h2>
+<h3 id="crash-recovery"><a class="header" href="#crash-recovery">Crash Recovery</a></h3>
+<p><strong>Automatic recovery on startup:</strong></p>
+<pre><code class="language-bash"># Start server (recovery happens automatically)
+./neuroquantum-api --config config/prod.toml
+
+# Monitor recovery progress
+tail -f /var/log/neuroquantumdb/app.log | grep recovery
+</code></pre>
+<p><strong>Manual recovery:</strong></p>
+<pre><code class="language-bash"># Check database consistency
+neuroquantum-api check --all
+
+# Recover from WAL
+neuroquantum-api recover-wal \
+  --wal-dir /var/lib/neuroquantumdb/wal \
+  --data-dir /var/lib/neuroquantumdb/data
+
+# Verify recovery
+neuroquantum-api verify --verbose
+</code></pre>
+<p><strong>Recovery stages:</strong></p>
+<pre><code>INFO Crash recovery started
+INFO Scanning WAL files found=15
+INFO Replaying WAL records records=45678
+INFO Rebuilding indexes tables=23
+INFO Recovery completed duration_secs=12.3
+INFO Database is ready
+</code></pre>
+<h3 id="repairing-corrupted-data"><a class="header" href="#repairing-corrupted-data">Repairing Corrupted Data</a></h3>
+<p><strong>Detect corruption:</strong></p>
+<pre><code class="language-bash"># Run integrity check
+neuroquantum-api check --verbose
+
+# Check specific table
+neuroquantum-api check --table users
+
+# Check indexes
+neuroquantum-api check-indexes --all
+</code></pre>
+<p><strong>Repair procedures:</strong></p>
+<p><strong>Option 1: Rebuild from WAL</strong></p>
+<pre><code class="language-bash"># Stop server
+systemctl stop neuroquantumdb
+
+# Backup current data
+cp -r /var/lib/neuroquantumdb/data /var/lib/neuroquantumdb/data.backup
+
+# Rebuild from WAL
+neuroquantum-api rebuild \
+  --wal-dir /var/lib/neuroquantumdb/wal \
+  --data-dir /var/lib/neuroquantumdb/data
+
+# Verify
+neuroquantum-api check --all
+
+# Start server
+systemctl start neuroquantumdb
+</code></pre>
+<p><strong>Option 2: Restore from backup</strong></p>
+<pre><code class="language-bash"># Stop server
+systemctl stop neuroquantumdb
+
+# Restore from backup
+neuroquantum-api restore \
+  --from /backups/latest.nqdb \
+  --to /var/lib/neuroquantumdb
+
+# Apply WAL logs since backup
+neuroquantum-api apply-wal \
+  --wal-dir /var/lib/neuroquantumdb/wal \
+  --since-backup
+
+# Start server
+systemctl start neuroquantumdb
+</code></pre>
+<p><strong>Option 3: Repair in-place (may lose data)</strong></p>
+<pre><code class="language-bash"># Attempt automatic repair
+neuroquantum-api repair --all --auto
+
+# Manual repair with options
+neuroquantum-api repair \
+  --table users \
+  --fix-checksums \
+  --rebuild-indexes \
+  --vacuum
+
+# Export salvageable data
+neuroquantum-api export-data \
+  --table users \
+  --output /tmp/users-recovered.csv \
+  --skip-corrupted
+</code></pre>
+<h3 id="restoring-from-backup"><a class="header" href="#restoring-from-backup">Restoring from Backup</a></h3>
+<p><strong>Full restore:</strong></p>
+<pre><code class="language-bash"># Stop database
+systemctl stop neuroquantumdb
+
+# Restore backup
+neuroquantum-api restore \
+  --from /backups/2024-01-07.nqdb \
+  --to /var/lib/neuroquantumdb \
+  --force
+
+# Verify integrity
+neuroquantum-api check --all
+
+# Start database
+systemctl start neuroquantumdb
+</code></pre>
+<p><strong>Point-in-time recovery (PITR):</strong></p>
+<pre><code class="language-bash"># Restore base backup
+neuroquantum-api restore \
+  --from /backups/base-2024-01-01.nqdb \
+  --to /var/lib/neuroquantumdb
+
+# Replay WAL to specific timestamp
+neuroquantum-api replay-wal \
+  --wal-dir /backups/wal \
+  --until "2024-01-07T12:30:00Z" \
+  --data-dir /var/lib/neuroquantumdb
+
+# Verify and start
+neuroquantum-api check --all
+systemctl start neuroquantumdb
+</code></pre>
+<p><strong>Incremental restore:</strong></p>
+<pre><code class="language-bash"># Restore base backup
+neuroquantum-api restore \
+  --from /backups/base.nqdb \
+  --to /var/lib/neuroquantumdb
+
+# Apply incremental backups in order
+neuroquantum-api restore \
+  --from /backups/incr-2024-01-02.nqdb \
+  --to /var/lib/neuroquantumdb \
+  --incremental
+
+neuroquantum-api restore \
+  --from /backups/incr-2024-01-03.nqdb \
+  --to /var/lib/neuroquantumdb \
+  --incremental
+</code></pre>
+<p><strong>Selective restore:</strong></p>
+<pre><code class="language-bash"># Restore specific tables
+neuroquantum-api restore \
+  --from /backups/latest.nqdb \
+  --tables users,orders \
+  --to /var/lib/neuroquantumdb
+
+# Restore specific database
+neuroquantum-api restore \
+  --from /backups/latest.nqdb \
+  --database production \
+  --to /var/lib/neuroquantumdb
+</code></pre>
+<h3 id="cluster-recovery"><a class="header" href="#cluster-recovery">Cluster Recovery</a></h3>
+<p>⚠️ <strong>Note:</strong> Cluster features are experimental. For production, use single-node configuration.</p>
+<p><strong>Recover single node:</strong></p>
+<pre><code class="language-bash"># Stop failed node
+ssh node1 "systemctl stop neuroquantumdb"
+
+# Sync from healthy node
+neuroquantum-api sync-node \
+  --from node2:9000 \
+  --to node1 \
+  --full
+
+# Start node
+ssh node1 "systemctl start neuroquantumdb"
+
+# Verify cluster status
+neuroquantum-api cluster-status
+</code></pre>
+<p><strong>Recover from quorum loss:</strong></p>
+<pre><code class="language-bash"># Force promote a node to leader (careful!)
+neuroquantum-api force-leader \
+  --node node2 \
+  --cluster-id cluster-prod
+
+# Restart other nodes
+for node in node1 node3; do
+  ssh $node "systemctl restart neuroquantumdb"
+done
+
+# Wait for cluster to stabilize
+neuroquantum-api wait-for-cluster --timeout 300
+</code></pre>
+<p><strong>Rebuild cluster from backup:</strong></p>
+<pre><code class="language-bash"># Restore backup on all nodes
+for node in node1 node2 node3; do
+  ssh $node "systemctl stop neuroquantumdb"
+  ssh $node "neuroquantum-api restore --from /backups/cluster.nqdb"
+done
+
+# Start bootstrap node first
+ssh node1 "systemctl start neuroquantumdb"
+sleep 10
+
+# Start remaining nodes
+ssh node2 "systemctl start neuroquantumdb"
+ssh node3 "systemctl start neuroquantumdb"
+
+# Verify cluster
+neuroquantum-api cluster-status --wait-for-healthy
+</code></pre>
+<hr>
+<h2 id="5-performance-problems"><a class="header" href="#5-performance-problems">5. Performance Problems</a></h2>
+<h3 id="identifying-slow-queries"><a class="header" href="#identifying-slow-queries">Identifying Slow Queries</a></h3>
+<p><strong>Enable slow query logging:</strong></p>
+<pre><code class="language-toml"># config/prod.toml
+[query]
+log_slow_queries = true
+slow_query_threshold_ms = 1000
+</code></pre>
+<p><strong>Find slow queries:</strong></p>
+<pre><code class="language-bash"># View slow query log
+tail -f /var/log/neuroquantumdb/slow-queries.log
+
+# Get slow query report
+neuroquantum-api slow-query-report \
+  --since "24h" \
+  --output /tmp/slow-queries.html
+
+# Top 10 slowest queries
+curl http://localhost:8080/api/v1/admin/slow-queries?limit=10 | jq
+</code></pre>
+<p><strong>Analyze slow query:</strong></p>
+<pre><code class="language-sql">-- Get execution plan
+EXPLAIN ANALYZE SELECT * FROM users 
+WHERE email LIKE '%@example.com%';
+
+-- Output shows:
+-- Sequential Scan on users (cost=0..1523.45) (actual time=0.123..145.678)
+--   Filter: email LIKE '%@example.com%'
+--   Rows Removed by Filter: 9766
+
+-- Solution: Create index for prefix searches
+CREATE INDEX idx_user_email_gin ON users USING GIN(email);
+</code></pre>
+<p><strong>Optimization strategies:</strong></p>
+<pre><code class="language-sql">-- 1. Add indexes
+CREATE INDEX idx_user_created ON users(created_at);
+CREATE INDEX idx_order_status ON orders(status);
+
+-- 2. Use covering indexes
+CREATE INDEX idx_user_email_name ON users(email, name);
+
+-- 3. Optimize JOIN queries
+-- Before: Multiple table scans
+SELECT u.*, o.* FROM users u, orders o WHERE u.id = o.user_id;
+
+-- After: Explicit JOIN with indexes
+SELECT u.*, o.* FROM users u
+INNER JOIN orders o ON u.id = o.user_id
+WHERE u.created_at &gt; '2024-01-01';
+
+-- 4. Limit result sets
+SELECT * FROM large_table LIMIT 100;
+
+-- 5. Use query cache
+-- config/prod.toml
+[cache]
+query_cache_size_mb = 64
+</code></pre>
+<h3 id="debugging-high-cpumemory-usage"><a class="header" href="#debugging-high-cpumemory-usage">Debugging High CPU/Memory Usage</a></h3>
+<p><strong>Monitor resource usage:</strong></p>
+<pre><code class="language-bash"># Real-time monitoring
+top -p $(pgrep neuroquantum-api)
+
+# Detailed CPU profiling
+perf record -p $(pgrep neuroquantum-api) -g -- sleep 60
+perf report
+
+# Memory profiling
+valgrind --tool=massif ./neuroquantum-api --config config/prod.toml
+
+# Get metrics
+curl http://localhost:8080/metrics | grep -E "(cpu|memory)"
+</code></pre>
+<p><strong>High CPU causes and solutions:</strong></p>
+<p><strong>1. Too many concurrent queries:</strong></p>
+<pre><code class="language-toml"># Limit concurrent queries
+[query]
+max_concurrent_queries = 50
+
+# Use connection pooling
+[server]
+max_connections = 100
+connection_queue_size = 50
+</code></pre>
+<p><strong>2. Missing indexes:</strong></p>
+<pre><code class="language-bash"># Find queries doing full table scans
+neuroquantum-api find-missing-indexes
+
+# Output suggests:
+# CREATE INDEX idx_users_email ON users(email);
+</code></pre>
+<p><strong>3. Complex queries:</strong></p>
+<pre><code class="language-sql">-- Simplify queries, break into smaller pieces
+-- Use materialized views for expensive aggregations
+CREATE MATERIALIZED VIEW user_stats AS
+SELECT user_id, COUNT(*) as order_count, SUM(total) as total_spent
+FROM orders
+GROUP BY user_id;
+
+-- Refresh periodically instead of computing every time
+REFRESH MATERIALIZED VIEW user_stats;
+</code></pre>
+<p><strong>High memory causes and solutions:</strong></p>
+<p><strong>1. Large buffer pool:</strong></p>
+<pre><code class="language-toml"># Reduce buffer pool
+[storage]
+buffer_pool_size_mb = 128  # Adjust based on available RAM
+</code></pre>
+<p><strong>2. Memory leaks (check logs):</strong></p>
+<pre><code class="language-bash"># Monitor memory over time
+while true; do
+  ps aux | grep neuroquantum-api | awk '{print $6}'
+  sleep 60
+done
+
+# If increasing, may need to restart periodically
+# /etc/systemd/system/neuroquantumdb.service
+[Service]
+Restart=always
+RuntimeMaxSec=86400  # Restart daily
+</code></pre>
+<p><strong>3. Large result sets:</strong></p>
+<pre><code class="language-sql">-- Use pagination
+SELECT * FROM large_table LIMIT 100 OFFSET 0;
+
+-- Use cursor for large exports
+DECLARE cur CURSOR FOR SELECT * FROM large_table;
+FETCH 1000 FROM cur;
+</code></pre>
+<h3 id="disk-io-bottlenecks"><a class="header" href="#disk-io-bottlenecks">Disk I/O Bottlenecks</a></h3>
+<p><strong>Diagnose I/O issues:</strong></p>
+<pre><code class="language-bash"># Monitor disk I/O
+iostat -x 1 10
+
+# Check for high await times (&gt; 10ms is concerning)
+# Device   r/s   w/s   await   util%
+# sda      123   456   45.67   95%
+
+# Monitor NeuroQuantumDB I/O
+iotop -p $(pgrep neuroquantum-api)
+
+# Check disk metrics
+curl http://localhost:8080/metrics | grep disk
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<p><strong>1. Use faster storage:</strong></p>
+<pre><code class="language-bash"># Move data to SSD
+rsync -av /var/lib/neuroquantumdb/ /mnt/ssd/neuroquantumdb/
+
+# Update configuration
+[storage]
+data_path = "/mnt/ssd/neuroquantumdb"
+</code></pre>
+<p><strong>2. Optimize WAL:</strong></p>
+<pre><code class="language-toml"># Increase WAL buffer
+[storage]
+wal_buffer_size_mb = 32
+
+# Reduce sync frequency (less durable but faster)
+[storage]
+wal_sync_mode = "fdatasync"  # or "none" for testing only
+
+# Place WAL on separate disk
+[storage]
+wal_path = "/mnt/fast-disk/wal"
+</code></pre>
+<p><strong>3. Increase buffer pool:</strong></p>
+<pre><code class="language-toml"># More buffer pool = less disk I/O
+[storage]
+buffer_pool_size_mb = 512  # If you have RAM available
+</code></pre>
+<p><strong>4. Enable compression:</strong></p>
+<pre><code class="language-toml"># Reduce I/O through compression
+[compression]
+dna_enabled = true
+compression_level = 6
+</code></pre>
+<p><strong>5. Optimize queries:</strong></p>
+<pre><code class="language-sql">-- Reduce I/O by selecting only needed columns
+-- Bad: SELECT *
+SELECT * FROM large_table;
+
+-- Good: SELECT specific columns
+SELECT id, name, email FROM large_table;
+</code></pre>
+<h3 id="network-latency-issues"><a class="header" href="#network-latency-issues">Network Latency Issues</a></h3>
+<p><strong>Diagnose network problems:</strong></p>
+<pre><code class="language-bash"># Test latency to database
+ping -c 100 database-host
+
+# Trace route
+traceroute database-host
+
+# Test bandwidth
+iperf3 -c database-host
+
+# Monitor network metrics
+curl http://localhost:8080/metrics | grep network
+
+# Check for packet loss
+netstat -s | grep -i error
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<p><strong>1. Use connection pooling:</strong></p>
+<pre><code class="language-bash"># Client-side pooling reduces connection overhead
+# Example with connection pool library
+</code></pre>
+<p><strong>2. Enable compression:</strong></p>
+<pre><code class="language-toml"># Compress network traffic
+[server]
+enable_compression = true
+compression_level = 6
+</code></pre>
+<p><strong>3. Increase timeouts:</strong></p>
+<pre><code class="language-toml"># Allow for higher latency
+[server]
+request_timeout_secs = 60
+keep_alive_timeout_secs = 75
+</code></pre>
+<p><strong>4. Batch operations:</strong></p>
+<pre><code class="language-sql">-- Instead of multiple single inserts
+INSERT INTO users (name, email) VALUES ('User 1', 'user1@example.com');
+INSERT INTO users (name, email) VALUES ('User 2', 'user2@example.com');
+
+-- Batch insert
+INSERT INTO users (name, email) VALUES 
+  ('User 1', 'user1@example.com'),
+  ('User 2', 'user2@example.com'),
+  ('User 3', 'user3@example.com');
+</code></pre>
+<p><strong>5. Use local replica:</strong></p>
+<pre><code class="language-toml"># Set up read replica closer to application
+[replication]
+enabled = true
+replica_nodes = ["local-replica:8080"]
+
+# Route read queries to replica
+[query]
+read_replica_enabled = true
+</code></pre>
+<hr>
+<h2 id="6-cluster-specific-issues"><a class="header" href="#6-cluster-specific-issues">6. Cluster-Specific Issues</a></h2>
+<p>⚠️ <strong>Warning:</strong> Cluster mode is experimental. These troubleshooting steps are for development/testing only.</p>
+<h3 id="node-not-reachable"><a class="header" href="#node-not-reachable">Node Not Reachable</a></h3>
+<p><strong>Symptom:</strong> Cluster health shows node as unreachable</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check cluster status
+neuroquantum-api cluster-status
+
+# Ping node directly
+ping node2
+
+# Test node port
+telnet node2 9000
+
+# Check node health
+curl http://node2:8080/health
+
+# Review cluster logs
+tail -f /var/log/neuroquantumdb/cluster.log
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<p><strong>1. Network connectivity:</strong></p>
+<pre><code class="language-bash"># Check firewall
+sudo ufw status
+sudo firewall-cmd --list-all
+
+# Open cluster port
+sudo ufw allow 9000/tcp
+sudo firewall-cmd --add-port=9000/tcp --permanent
+
+# Verify DNS resolution
+nslookup node2
+host node2
+</code></pre>
+<p><strong>2. Node is down:</strong></p>
+<pre><code class="language-bash"># SSH to node and check service
+ssh node2 "systemctl status neuroquantumdb"
+
+# Start if stopped
+ssh node2 "systemctl start neuroquantumdb"
+
+# Check for errors
+ssh node2 "journalctl -u neuroquantumdb -n 100"
+</code></pre>
+<p><strong>3. Configuration mismatch:</strong></p>
+<pre><code class="language-bash"># Verify cluster configuration matches
+ssh node2 "cat config/prod.toml | grep -A 10 '\[cluster\]'"
+
+# Check node ID is unique
+grep node_id config/prod.toml
+ssh node2 "grep node_id config/prod.toml"
+</code></pre>
+<h3 id="split-brain-situation"><a class="header" href="#split-brain-situation">Split Brain Situation</a></h3>
+<p><strong>Symptom:</strong> Multiple nodes think they are leader</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check leader on each node
+for node in node1 node2 node3; do
+  echo "=== $node ==="
+  curl -s http://$node:8080/api/v1/admin/cluster/leader
+done
+
+# Review Raft state
+neuroquantum-api cluster-debug --show-raft
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<p><strong>1. Force new leader election:</strong></p>
+<pre><code class="language-bash"># Stop all nodes
+for node in node1 node2 node3; do
+  ssh $node "systemctl stop neuroquantumdb"
+done
+
+# Start nodes one by one
+ssh node1 "systemctl start neuroquantumdb"
+sleep 30
+
+ssh node2 "systemctl start neuroquantumdb"
+sleep 30
+
+ssh node3 "systemctl start neuroquantumdb"
+
+# Verify cluster converged
+neuroquantum-api cluster-status --wait-for-leader
+</code></pre>
+<p><strong>2. Quorum restore:</strong></p>
+<pre><code class="language-bash"># If you have majority of nodes healthy
+neuroquantum-api force-quorum \
+  --nodes node1,node2 \
+  --cluster-id cluster-prod
+
+# Remove failed node from cluster
+neuroquantum-api remove-node --node node3
+
+# Add node back after fixing
+neuroquantum-api add-node \
+  --node node3 \
+  --addr node3:9000
+</code></pre>
+<p><strong>Prevention:</strong></p>
+<pre><code class="language-toml"># Ensure proper network settings
+[cluster]
+heartbeat_interval_ms = 100
+election_timeout_ms = 1000
+network_timeout_ms = 5000
+
+# Use odd number of nodes (3, 5, 7)
+# Never use 2 nodes (can't form majority)
+</code></pre>
+<h3 id="replication-lag"><a class="header" href="#replication-lag">Replication Lag</a></h3>
+<p><strong>Symptom:</strong> Replica data is behind leader</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check replication lag
+curl http://localhost:8080/api/v1/admin/replication/lag
+
+# Output:
+# {
+#   "node2": {"lag_bytes": 104857600, "lag_seconds": 45},
+#   "node3": {"lag_bytes": 52428800, "lag_seconds": 23}
+# }
+
+# Monitor replication metrics
+curl http://localhost:8080/metrics | grep replication
+</code></pre>
+<p><strong>Causes and solutions:</strong></p>
+<p><strong>1. Network issues:</strong></p>
+<pre><code class="language-bash"># Test bandwidth between nodes
+iperf3 -c node2
+
+# Increase replication timeout
+# config/prod.toml
+[replication]
+sync_timeout_secs = 60
+</code></pre>
+<p><strong>2. Replica overloaded:</strong></p>
+<pre><code class="language-bash"># Check replica CPU/memory
+ssh node2 "top -b -n 1"
+
+# Reduce read traffic to replica
+# Route reads to less-loaded replicas
+</code></pre>
+<p><strong>3. Large transactions:</strong></p>
+<pre><code class="language-toml"># Increase replication buffer
+[replication]
+buffer_size_mb = 64
+
+# Batch replication
+[replication]
+batch_size = 1000
+batch_timeout_ms = 100
+</code></pre>
+<p><strong>4. Slow disk on replica:</strong></p>
+<pre><code class="language-bash"># Check I/O on replica
+ssh node2 "iostat -x 1 10"
+
+# Move to faster storage
+# Consider SSD for replicas
+</code></pre>
+<p><strong>Recovery:</strong></p>
+<pre><code class="language-bash"># Force full resync (last resort)
+neuroquantum-api resync-replica \
+  --replica node2 \
+  --full
+
+# Or restore from backup
+ssh node2 "systemctl stop neuroquantumdb"
+ssh node2 "neuroquantum-api restore --from /backups/latest.nqdb"
+ssh node2 "systemctl start neuroquantumdb"
+</code></pre>
+<h3 id="leader-election-problems"><a class="header" href="#leader-election-problems">Leader Election Problems</a></h3>
+<p><strong>Symptom:</strong> Cluster can’t elect leader, writes fail</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check leader status
+neuroquantum-api cluster-status | jq '.leader'
+
+# View election logs
+grep -i election /var/log/neuroquantumdb/cluster.log
+
+# Check quorum
+neuroquantum-api cluster-quorum
+</code></pre>
+<p><strong>Causes and solutions:</strong></p>
+<p><strong>1. No quorum (majority nodes down):</strong></p>
+<pre><code class="language-bash"># In 3-node cluster, need 2 nodes minimum
+
+# Check node status
+for node in node1 node2 node3; do
+  echo "$node: $(curl -s http://$node:8080/health | jq .status)"
+done
+
+# Bring up failed nodes
+# For emergency, force quorum (data loss risk)
+neuroquantum-api force-quorum --nodes node1,node2
+</code></pre>
+<p><strong>2. Network partition:</strong></p>
+<pre><code class="language-bash"># Nodes can't communicate with each other
+
+# Check network between nodes
+for node in node1 node2 node3; do
+  echo "Testing from $node:"
+  ssh $node "ping -c 3 node1"
+  ssh $node "ping -c 3 node2"
+  ssh $node "ping -c 3 node3"
+done
+
+# Fix network, restart cluster
+</code></pre>
+<p><strong>3. Clock skew:</strong></p>
+<pre><code class="language-bash"># Check time on all nodes
+for node in node1 node2 node3; do
+  echo "$node: $(ssh $node date)"
+done
+
+# Sync clocks with NTP
+for node in node1 node2 node3; do
+  ssh $node "sudo ntpdate -s time.nist.gov"
+done
+
+# Configure NTP
+# /etc/ntp.conf or /etc/systemd/timesyncd.conf
+</code></pre>
+<p><strong>4. Configuration issues:</strong></p>
+<pre><code class="language-toml"># Ensure election timeouts are appropriate
+[cluster]
+election_timeout_ms = 1000  # Not too short
+heartbeat_interval_ms = 100  # Should be &lt; election_timeout / 3
+
+# Ensure node IDs are unique
+[cluster]
+node_id = 1  # Must be unique per node
+</code></pre>
+<hr>
+<h2 id="7-faq"><a class="header" href="#7-faq">7. FAQ</a></h2>
+<h3 id="general-questions"><a class="header" href="#general-questions">General Questions</a></h3>
+<p><strong>Q: How do I check the NeuroQuantumDB version?</strong></p>
+<pre><code class="language-bash">neuroquantum-api --version
+# or
+curl http://localhost:8080/api/v1/version
+</code></pre>
+<p><strong>Q: Where are the log files located?</strong></p>
+<p>Default locations:</p>
+<ul>
+<li>Application logs: <code>/var/log/neuroquantumdb/app.log</code></li>
+<li>Slow query logs: <code>/var/log/neuroquantumdb/slow-queries.log</code></li>
+<li>Cluster logs: <code>/var/log/neuroquantumdb/cluster.log</code></li>
+<li>Audit logs: <code>/var/log/neuroquantumdb/audit.log</code></li>
+</ul>
+<p>Or configured in <code>config/prod.toml</code>:</p>
+<pre><code class="language-toml">[logging]
+output = "/custom/path/app.log"
+</code></pre>
+<p><strong>Q: How do I increase memory limits?</strong></p>
+<pre><code class="language-toml"># config/prod.toml
+[storage]
+buffer_pool_size_mb = 512  # Adjust based on available RAM
+</code></pre>
+<p><strong>Q: Can I run NeuroQuantumDB on Windows?</strong></p>
+<p>NeuroQuantumDB is optimized for Linux (especially ARM64). Windows support is experimental. Use Docker or WSL2 for best results.</p>
+<p><strong>Q: How do I enable TLS/SSL?</strong></p>
+<pre><code class="language-toml"># config/prod.toml
+[server.tls]
+enabled = true
+cert_path = "/etc/neuroquantumdb/cert.pem"
+key_path = "/etc/neuroquantumdb/key.pem"
+</code></pre>
+<h3 id="performance-questions"><a class="header" href="#performance-questions">Performance Questions</a></h3>
+<p><strong>Q: Why are my queries slow?</strong></p>
+<p>Common causes:</p>
+<ol>
+<li>Missing indexes - Run <code>EXPLAIN</code> to check query plan</li>
+<li>Full table scans - Create appropriate indexes</li>
+<li>Large result sets - Add <code>LIMIT</code> clauses</li>
+<li>Low buffer pool hit ratio - Increase <code>buffer_pool_size_mb</code></li>
+<li>Disk I/O bottleneck - Use SSD storage</li>
+</ol>
+<p><strong>Q: How do I optimize for low memory environments (Raspberry Pi)?</strong></p>
+<pre><code class="language-toml"># config/low-memory.toml
+[storage]
+buffer_pool_size_mb = 64
+page_size_kb = 4
+
+[compression]
+dna_enabled = true
+compression_level = 9
+
+[cache]
+query_cache_size_mb = 16
+</code></pre>
+<p><strong>Q: What’s the recommended buffer pool size?</strong></p>
+<p>Rule of thumb: 25-40% of available RAM</p>
+<ul>
+<li>1GB RAM → 256-384 MB</li>
+<li>2GB RAM → 512-768 MB</li>
+<li>4GB RAM → 1-1.5 GB</li>
+</ul>
+<p><strong>Q: How do I monitor performance?</strong></p>
+<pre><code class="language-bash"># Prometheus metrics
+curl http://localhost:8080/metrics
+
+# Health check
+curl http://localhost:8080/health
+
+# Query stats
+curl http://localhost:8080/api/v1/admin/query-stats
+</code></pre>
+<h3 id="backup-and-recovery-questions"><a class="header" href="#backup-and-recovery-questions">Backup and Recovery Questions</a></h3>
+<p><strong>Q: How often should I backup?</strong></p>
+<p>Recommended schedule:</p>
+<ul>
+<li>Full backup: Daily during low-traffic hours</li>
+<li>Incremental backup: Every 6 hours</li>
+<li>WAL archiving: Continuous</li>
+</ul>
+<pre><code class="language-bash"># crontab example (note: % must be escaped with \ in crontab)
+0 2 * * * neuroquantum-api backup --dest /backups/daily-$(date +\%Y\%m\%d).nqdb
+0 */6 * * * neuroquantum-api backup --incremental --dest /backups/incr-$(date +\%Y\%m\%d-\%H).nqdb
+</code></pre>
+<p><strong>Q: How do I perform point-in-time recovery?</strong></p>
+<pre><code class="language-bash"># Restore base backup
+neuroquantum-api restore --from /backups/base.nqdb
+
+# Replay WAL to specific time
+neuroquantum-api replay-wal \
+  --until "2024-01-07T12:30:00Z" \
+  --wal-dir /backups/wal
+</code></pre>
+<p><strong>Q: Can I backup while the database is running?</strong></p>
+<p>Yes, NeuroQuantumDB supports online backups:</p>
+<pre><code class="language-bash">neuroquantum-api backup --online --dest /backups/live.nqdb
+</code></pre>
+<h3 id="cluster-questions"><a class="header" href="#cluster-questions">Cluster Questions</a></h3>
+<p><strong>Q: Is cluster mode production-ready?</strong></p>
+<p>⚠️ No, cluster mode is currently in beta. For production use, deploy single-node instances with external replication/backup.</p>
+<p><strong>Q: How many nodes should I have in a cluster?</strong></p>
+<ul>
+<li><strong>Development:</strong> 1 node</li>
+<li><strong>Testing:</strong> 3 nodes (minimum for HA)</li>
+<li><strong>Production (when stable):</strong> 5 or 7 nodes</li>
+</ul>
+<p>Always use odd numbers (3, 5, 7) to ensure quorum.</p>
+<p><strong>Q: What happens if I lose the leader node?</strong></p>
+<p>In a healthy cluster with quorum, a new leader is elected automatically within 1-3 seconds. Writes are briefly paused during election.</p>
+<p><strong>Q: How do I add a node to an existing cluster?</strong></p>
+<pre><code class="language-bash"># On new node, configure cluster settings
+# config/prod.toml
+[cluster]
+enabled = true
+node_id = 4
+bind_addr = "0.0.0.0:9000"
+peers = ["node1:9000", "node2:9000", "node3:9000"]
+
+# Add node to cluster
+neuroquantum-api add-node \
+  --node node4 \
+  --addr node4:9000 \
+  --cluster-id cluster-prod
+
+# Wait for sync
+neuroquantum-api cluster-status
+</code></pre>
+<h3 id="security-questions"><a class="header" href="#security-questions">Security Questions</a></h3>
+<p><strong>Q: How do I change the JWT secret?</strong></p>
+<pre><code class="language-bash"># Generate new secret (copy the output)
+neuroquantum-api generate-jwt-secret
+# Example output: mK8vX2pQ9rT5nL3wY7aH6cB1dF4gJ0sZ
+
+# Update config with the generated secret
+export NQDB_JWT_SECRET="mK8vX2pQ9rT5nL3wY7aH6cB1dF4gJ0sZ"
+
+# Restart server
+systemctl restart neuroquantumdb
+
+# Note: This invalidates all existing tokens
+</code></pre>
+<p><strong>Q: How do I enable audit logging?</strong></p>
+<pre><code class="language-toml"># config/prod.toml
+[audit]
+enabled = true
+log_file = "/var/log/neuroquantumdb/audit.log"
+log_level = "info"
+include_queries = true
+include_auth = true
+</code></pre>
+<p><strong>Q: How do I restrict access by IP address?</strong></p>
+<pre><code class="language-toml"># config/prod.toml
+[security]
+admin_ip_whitelist = ["127.0.0.1", "192.168.1.0/24", "10.0.0.100"]
+rate_limit_enabled = true
+rate_limit_requests = 100
+rate_limit_window_secs = 60
+</code></pre>
+<h3 id="troubleshooting-questions"><a class="header" href="#troubleshooting-questions">Troubleshooting Questions</a></h3>
+<p><strong>Q: Server starts but immediately crashes</strong></p>
+<p>Check:</p>
+<ol>
+<li>Disk space: <code>df -h</code></li>
+<li>Memory: <code>free -h</code></li>
+<li>Permissions: <code>ls -la /var/lib/neuroquantumdb</code></li>
+<li>Logs: <code>tail -n 100 /var/log/neuroquantumdb/app.log</code></li>
+<li>Configuration: <code>neuroquantum-api validate-config</code></li>
+</ol>
+<p><strong>Q: Cannot connect via REST API</strong></p>
+<p>Check:</p>
+<ol>
+<li>Server is running: <code>systemctl status neuroquantumdb</code></li>
+<li>Firewall: <code>sudo ufw status</code></li>
+<li>Port is open: <code>netstat -tuln | grep 8080</code></li>
+<li>Bind address: Check <code>[server] host</code> in config</li>
+<li>TLS configuration if enabled</li>
+</ol>
+<p><strong>Q: Queries return wrong results</strong></p>
+<p>Potential causes:</p>
+<ol>
+<li>Data corruption - Run <code>neuroquantum-api check --all</code></li>
+<li>Index corruption - Run <code>neuroquantum-api reindex --all</code></li>
+<li>Cache issue - Restart server or clear cache</li>
+<li>Race condition in transaction - Review transaction isolation levels</li>
+</ol>
+<p><strong>Q: How do I report a bug?</strong></p>
+<ol>
+<li>Check <a href="https://github.com/neuroquantumdb/neuroquantumdb/issues">GitHub Issues</a></li>
+<li>Gather information:
+<pre><code class="language-bash"># Version
+neuroquantum-api --version
+
+# System info
+uname -a
+
+# Configuration (redact secrets!)
+cat config/prod.toml
+
+# Recent logs
+tail -n 100 /var/log/neuroquantumdb/app.log
+
+# Metrics
+curl http://localhost:8080/metrics &gt; metrics.txt
+</code></pre>
+</li>
+<li>Create detailed issue with:
+<ul>
+<li>Description of problem</li>
+<li>Steps to reproduce</li>
+<li>Expected vs actual behavior</li>
+<li>Version and system info</li>
+<li>Relevant logs</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
+<p>If you cannot resolve your issue using this guide:</p>
+<ol>
+<li>
+<p><strong>Search Documentation:</strong></p>
+<ul>
+<li><a href="../user-guide/">User Guide</a></li>
+<li><a href="../reference/api.html">API Reference</a></li>
+<li><a href="../developer-guide/">Developer Guide</a></li>
+</ul>
+</li>
+<li>
+<p><strong>Community Support:</strong></p>
+<ul>
+<li><a href="https://github.com/neuroquantumdb/neuroquantumdb/discussions">GitHub Discussions</a></li>
+<li><a href="https://github.com/neuroquantumdb/neuroquantumdb/issues">GitHub Issues</a></li>
+</ul>
+</li>
+<li>
+<p><strong>When Opening an Issue:</strong></p>
+<ul>
+<li>NeuroQuantumDB version: <code>neuroquantum-api --version</code></li>
+<li>Operating system and architecture: <code>uname -a</code></li>
+<li>Configuration (redact secrets)</li>
+<li>Steps to reproduce the problem</li>
+<li>Complete error logs</li>
+<li>Output of: <code>curl http://localhost:8080/health</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Emergency Support:</strong></p>
+<ul>
+<li>For critical production issues, include <code>[URGENT]</code> in issue title</li>
+<li>Provide full diagnostic dump:
+<pre><code class="language-bash">neuroquantum-api diagnostic-dump --output /tmp/diagnostic.tar.gz
+</code></pre>
+</li>
+</ul>
+</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../user-guide/monitoring.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../developer-guide/architecture.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../user-guide/monitoring.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../developer-guide/architecture.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

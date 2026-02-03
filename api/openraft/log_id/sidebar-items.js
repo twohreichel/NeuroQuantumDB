@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["LogId"],"trait":["LogIdOptionExt","LogIndexOptionExt","RaftLogId"]};

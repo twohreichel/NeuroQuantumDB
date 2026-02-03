@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ShardState","TransferStatus"],"struct":["RebalanceConfig","RebalanceProgress","ShardInfo","ShardManager","ShardStats","ShardTransfer"],"type":["ShardId","TransferId"]};

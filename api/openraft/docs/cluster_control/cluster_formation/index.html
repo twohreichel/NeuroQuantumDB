@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Formation of Clusters"><title>openraft::docs::cluster_control::cluster_formation - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module cluster_formation</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module cluster_<wbr>formation</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#formation-of-clusters" title="Formation of Clusters">Formation of Clusters</a><ul><li><a href="#raftinitialize" title="`Raft::initialize()`"><code>Raft::initialize()</code></a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>cluster_<wbr>control</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">cluster_control</a></div><h1>Module <span>cluster_<wbr>formation</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/cluster_control/mod.rs.html#3">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="formation-of-clusters"><a class="doc-anchor" href="#formation-of-clusters">§</a>Formation of Clusters</h2>
+<p>When a <code>Raft</code> node is created by <a href="../../../raft/struct.Raft.html#method.new" title="associated function openraft::raft::Raft::new"><code>Raft::new()</code></a>, it enters the <code>Learner</code> state.</p>
+<p>In order to establish a cluster, the application invokes <a href="../../../raft/struct.Raft.html#method.initialize" title="method openraft::raft::Raft::initialize"><code>Raft::initialize(membership)</code></a>.</p>
+<h3 id="raftinitialize"><a class="doc-anchor" href="#raftinitialize">§</a><code>Raft::initialize()</code></h3>
+<p>This method will:</p>
+<ul>
+<li>
+<p>Add a membership log at index 0 with the log id <code>(leader_id=LeaderId::default(), index=0)</code>.
+The membership will be immediately effective.</p>
+</li>
+<li>
+<p>Transition to the <code>Candidate</code> state and initiate voting to become the leader.</p>
+</li>
+<li>
+<p>The leader will commit an blank log to commit all previous logs.</p>
+</li>
+</ul>
+<h4 id="errors-and-failures"><a class="doc-anchor" href="#errors-and-failures">§</a>Errors and Failures</h4>
+<ul>
+<li>
+<p>If this method is called on a node that has already been initialized, it will simply return an error and remain safe,
+i.e., if <code>last_log_id</code> on this node is not <code>None</code>, or <code>vote</code> on this node is not <code>(0,0)</code>.</p>
+</li>
+<li>
+<p>If this method is called on more than one node simultaneously:</p>
+<ul>
+<li>
+<p>with the same <code>membership</code>, it is safe,
+as the voting protocol ensures consistency.</p>
+</li>
+<li>
+<p>with different <code>membership</code>, it is <strong>ILLEGAL</strong> and will lead to an undefined
+state, also known as the <strong>split-brain</strong> state.</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="preconditions-for-initialization"><a class="doc-anchor" href="#preconditions-for-initialization">§</a>Preconditions for Initialization</h4>
+<p>The legal initialization conditions are as follows:</p>
+<p>The initial membership log with log id <code>(leader_id=LeaderId::default(), index=0)</code> will be appended to a node without consensus.
+This must not violate the commit condition:</p>
+<ol>
+<li>
+<p>Log id <code>(leader_id=LeaderId::default(), index=0)</code> must not exceed any committed log id.
+If <code>leader_id</code> is not the smallest value, i.e., <code>(term=0, node_id=0)</code>, it may be greater than some
+committed log id. This is why the first log must be the smallest: <code>((term=0, node_id=0), 0)</code>.</p>
+</li>
+<li>
+<p>A node should not append a log that is smaller than its <code>vote</code>.
+Otherwise, it is effectively altering the <strong>history</strong> seen by other nodes.
+This may (but not necessarily) disrupt consensus, depending on the protocol.
+For example, if the cluster has been running a fast-paxos-like protocol, appending a smaller log than <code>vote</code> is illegal.
+By prohibiting the appending of a smaller log than <code>vote</code>, it will always be safe.</p>
+</li>
+</ol>
+<p>For these two reasons, appending the first log is only allowed if:
+<code>vote==(0,0)</code>. This is why the initial value of <code>vote</code> must be <code>(0,0)</code>.</p>
+</div></details></section></div></main></body></html>

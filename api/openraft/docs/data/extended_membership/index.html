@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extended membership change algorithm"><title>openraft::docs::data::extended_membership - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="openraft" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module extended_membership</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../openraft/index.html">openraft</a><span class="version">0.9.21</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module extended_<wbr>membership</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#extended-membership-change-algorithm" title="Extended membership change algorithm">Extended membership change algorithm</a><ul><li><a href="#flexibility" title="Flexibility">Flexibility</a></li><li><a href="#disjoint-memberships" title="Disjoint memberships">Disjoint memberships</a></li><li><a href="#spec-of-extended-membership-change-algorithm" title="Spec of extended membership change algorithm">Spec of extended membership change algorithm</a></li><li><a href="#proof-of-correctness" title="Proof of correctness">Proof of correctness</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In openraft::<wbr>docs::<wbr>data</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">openraft</a>::<wbr><a href="../../index.html">docs</a>::<wbr><a href="../index.html">data</a></div><h1>Module <span>extended_<wbr>membership</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/openraft/docs/data/mod.rs.html#19">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="extended-membership-change-algorithm"><a class="doc-anchor" href="#extended-membership-change-algorithm">§</a>Extended membership change algorithm</h2>
+<p>Openraft tries to commit one or more membership logs in order to change the
+membership to a specified <code>voter_list</code>. At each step, the log that it tries to
+commit is:</p>
+<ul>
+<li>
+<p>The <code>voter_list</code> itself, if it is <strong>safe</strong> to change from the previous
+membership to <code>voter_list</code> directly.</p>
+</li>
+<li>
+<p>Otherwise, a <strong>joint</strong> config of the specified <code>voter_list</code> and the
+config in the previous membership.</p>
+</li>
+</ul>
+<p>The algorithm used by Openraft is known as the <strong>Extended membership change</strong>.</p>
+<blockquote>
+<p>The Extended membership change algorithm used by Openraft is a more
+generalized form of the standard Raft membership change algorithm. The 2-step
+joint algorithm and the 1-step algorithm described in the Raft paper are
+specialized versions of this algorithm.</p>
+</blockquote>
+<p>The Extended membership change algorithm provides more flexible than the original joint algorithm:</p>
+<ul>
+<li>The original <strong>Joint</strong> algorithm in the Raft paper allows changing
+membership in an alternate pattern of joint membership and uniform
+membership. For example, the membership entry in a log history could be:</li>
+</ul>
+<p><code>c1</code> → <code>c1c2</code> → <code>c2</code> → <code>c2c3</code> → <code>c3</code> …</p>
+<p>where:</p>
+<ul>
+<li>
+<p><code>cᵢ</code> is a uniform membership, such as <code>{a, b, c}</code>;</p>
+</li>
+<li>
+<p><code>cᵢcⱼ</code> is a joint of two node lists, such as <code>[{a, b, c}, {x, y, z}]</code>.</p>
+</li>
+<li>
+<p><strong>Extended</strong> algorithm:</p>
+<p>Extended membership change algorithm allows changing membership in the
+following way:</p>
+<p><code>c1</code>  →  <code>c1c2c3</code>  →  <code>c3c4</code>  →  <code>c4</code>.</p>
+<p>Or revert to a previous membership:</p>
+<p><code>c1c2c3</code>  →  <code>c1</code>.</p>
+</li>
+</ul>
+<h3 id="flexibility"><a class="doc-anchor" href="#flexibility">§</a>Flexibility</h3>
+<p>Here’s the example, which demonstrates that it is always safe to change
+membership from one to another along the edges in the following diagram:</p>
+<div class="example-wrap"><pre class="language-text"><code>          c3
+         /  \
+        /    \
+       /      \
+   c1c3 ------ c2c3
+    / \        / \
+   /   \      /   \
+  /     \    /     \
+c1 ----- c1c2 ----- c2</code></pre></div><h3 id="disjoint-memberships"><a class="doc-anchor" href="#disjoint-memberships">§</a>Disjoint memberships</h3>
+<p>A counter-intuitive conclusion is that:</p>
+<p><strong>Even when two leaders propose two memberships without intersection, consensus
+will still, be achieved</strong>.</p>
+<p>E.g., given the current membership to be <code>c1c2</code>,</p>
+<ul>
+<li>if <code>L1</code> proposed <code>c1c3</code>,</li>
+<li>and <code>L2</code> proposed <code>c2c4</code>.</li>
+</ul>
+<p>There won’t be a brain split problem.</p>
+<h3 id="spec-of-extended-membership-change-algorithm"><a class="doc-anchor" href="#spec-of-extended-membership-change-algorithm">§</a>Spec of extended membership change algorithm</h3>
+<p>The Extended membership change algorithm used by Openraft requires four
+constraints to work correctly:</p>
+<p>This algorithm relies on four constraints for proper functioning:</p>
+<ul>
+<li>
+<p>(0) <strong>use-at-once</strong>:
+The new membership appended to the log becomes effective immediately, meaning that openraft
+uses the last seen membership config in the log, regardless of whether it is committed or not.</p>
+</li>
+<li>
+<p>(1) <strong>propose-after-commit</strong>:
+A leader can propose new membership only after the previous one has been
+committed.</p>
+</li>
+<li>
+<p>(2) <strong>old-new-intersect</strong> (safe transition):
+(This constraint is the only one loosened from the original Raft) Any
+quorum in the new membership (<code>m'</code>) intersects with any quorum in the old
+committed membership (<code>m</code>):</p>
+<p><code>∀qᵢ ∈ m, ∀qⱼ ∈ m'</code>: <code>qᵢ ∩ qⱼ ≠ ø</code>.</p>
+</li>
+<li>
+<p>(3) <strong>initial-log</strong>:
+A leader must replicate an initial empty log to a quorum in the last seen
+membership to commit all previous logs.</p>
+</li>
+</ul>
+<p>In our implementation, (2) <strong>old-new-intersect</strong> is simplified as follows:
+The new membership must include a config entry identical to one in the last
+committed membership.</p>
+<p>For example, if the last committed membership is <code>[{a, b, c}]</code>, then a valid new membership could be:
+a joint membership: <code>[{a, b, c}, {x, y, z}]</code>.</p>
+<p>If the last committed membership is <code>[{a, b, c}, {x, y, z}]</code>, a valid new membership
+might be: <code>[{a, b, c}]</code>, or <code>[{x, y, z}]</code>.</p>
+<h3 id="proof-of-correctness"><a class="doc-anchor" href="#proof-of-correctness">§</a>Proof of correctness</h3>
+<p>Assuming a brain split issue has occurred,
+there are two leaders (<code>L1</code> and <code>L2</code>) proposing different memberships (<code>m1</code> and <code>m2</code>(<code>mᵢ = cᵢcⱼ...</code>)):</p>
+<p><code>L1</code>: <code>m1</code>,
+<code>L2</code>: <code>m2</code></p>
+<p>As a result, the log history of <code>L1</code> and the log history of <code>L2</code> have diverged.
+Let <code>m0</code> represent the last common membership in the log histories:</p>
+<div class="example-wrap"><pre class="language-text"><code>L1       L2
+
+m1       m2
+ \      /
+  \    o   term-2
+   \   |
+    `--o   term-1
+       |
+       m0</code></pre></div>
+<p>From (1) <strong>propose-after-commit</strong>,</p>
+<ul>
+<li><code>L1</code> must have committed log entry <code>m0</code> to a quorum in <code>m0</code> in <code>term_1</code>.</li>
+<li><code>L2</code> must have committed log entry <code>m0</code> to a quorum in <code>m0</code> in <code>term_2</code>.</li>
+</ul>
+<p>Assume <code>term_1 &lt; term_2</code>.</p>
+<p>From (3) <strong>initial-log</strong>, <code>L2</code> has at least one log with <code>term_2</code> committed in a
+quorum in <code>m0</code>.</p>
+<p>∵ (2) <strong>old-new-intersect</strong> and the fact that <code>term_1 &lt; term_2</code>,</p>
+<p>∴ log entry <code>m1</code> can never be committed by <code>L1</code>,
+because log replication or voting will always see a higher <code>term_2</code> on a node in a quorum in <code>m0</code>.</p>
+<p>For the same reason, a candidate with log entry <code>m1</code> can never become a leader.</p>
+<p>∴ It’s impossible for two leaders to both commit a log entry.</p>
+<p>QED.</p>
+</div></details></section></div></main></body></html>

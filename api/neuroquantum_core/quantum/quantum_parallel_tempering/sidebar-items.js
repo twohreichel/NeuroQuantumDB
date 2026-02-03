@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["QuantumBackend","QuantumState"],"fn":["create_quantum_ising_optimizer"],"struct":["IsingHamiltonian","QuantumParallelTempering","QuantumParallelTemperingConfig","QuantumParallelTemperingSolution","QuantumReplica","ThermodynamicObservables"]};

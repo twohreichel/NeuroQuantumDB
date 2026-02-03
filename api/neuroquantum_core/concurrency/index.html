@@ -1,0 +1,213 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Module exports"><title>neuroquantum_core::concurrency - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="neuroquantum_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module concurrency</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../neuroquantum_core/index.html">neuroquantum_<wbr>core</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module concurrency</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#concurrency-model-and-lock-hierarchy-documentation" title="Concurrency Model and Lock Hierarchy Documentation">Concurrency Model and Lock Hierarchy Documentation</a><ul><li><a href="#lock-hierarchy-overview" title="Lock Hierarchy Overview">Lock Hierarchy Overview</a></li><li><a href="#lock-types-and-usage-guidelines" title="Lock Types and Usage Guidelines">Lock Types and Usage Guidelines</a></li><li><a href="#detailed-lock-inventory" title="Detailed Lock Inventory">Detailed Lock Inventory</a></li><li><a href="#deadlock-prevention-rules" title="Deadlock Prevention Rules">Deadlock Prevention Rules</a></li><li><a href="#example-correct-lock-acquisition-order" title="Example: Correct Lock Acquisition Order">Example: Correct Lock Acquisition Order</a></li><li><a href="#example-incorrect-lock-acquisition-dont-do-this" title="Example: Incorrect Lock Acquisition (DON’T DO THIS)">Example: Incorrect Lock Acquisition (DON’T DO THIS)</a></li><li><a href="#performance-considerations" title="Performance Considerations">Performance Considerations</a></li><li><a href="#testing-for-deadlocks" title="Testing for Deadlocks">Testing for Deadlocks</a></li></ul></li></ul><h3><a href="#enums">Module Items</a></h3><ul class="block"><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate neuroquantum_<wbr>core</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">neuroquantum_core</a></div><h1>Module <span>concurrency</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/neuroquantum_core/concurrency.rs.html#1-368">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Module exports</p>
+<h2 id="concurrency-model-and-lock-hierarchy-documentation"><a class="doc-anchor" href="#concurrency-model-and-lock-hierarchy-documentation">§</a>Concurrency Model and Lock Hierarchy Documentation</h2>
+<p>This module documents the concurrency model and lock hierarchy used throughout
+NeuroQuantumDB. Following these guidelines is critical to prevent deadlocks
+and ensure thread-safe operation.</p>
+<h3 id="lock-hierarchy-overview"><a class="doc-anchor" href="#lock-hierarchy-overview">§</a>Lock Hierarchy Overview</h3>
+<p>NeuroQuantumDB uses a strict lock hierarchy to prevent deadlocks. Locks must
+always be acquired in order from <strong>Level 1 (highest)</strong> to <strong>Level 6 (lowest)</strong>.
+Never acquire a higher-level lock while holding a lower-level lock.</p>
+<div class="example-wrap"><pre class="language-text"><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│                     NEUROQUANTUMDB LOCK HIERARCHY                           │
+│                                                                             │
+│  Level 1 (Top)     ┌─────────────────────────────────────────┐              │
+│  Database          │  Arc&lt;tokio::sync::RwLock&lt;NeuroQuantumDB&gt;&gt;│             │
+│                    └─────────────────────────────────────────┘              │
+│                                      │                                      │
+│                                      ▼                                      │
+│  Level 2           ┌─────────────────────────────────────────┐              │
+│  Query Engine      │  Arc&lt;tokio::sync::Mutex&lt;QSQLEngine&gt;&gt;    │              │
+│                    └─────────────────────────────────────────┘              │
+│                                      │                                      │
+│                                      ▼                                      │
+│  Level 3           ┌─────────────────────────────────────────┐              │
+│  Storage           │  Arc&lt;tokio::sync::RwLock&lt;StorageEngine&gt;&gt;│              │
+│                    └─────────────────────────────────────────┘              │
+│                                      │                                      │
+│                    ┌─────────────────┼─────────────────┐                    │
+│                    ▼                 ▼                 ▼                    │
+│  Level 4      ┌─────────┐     ┌───────────┐     ┌───────────┐               │
+│  Subsystems   │   WAL   │     │   BTree   │     │ Buffer    │               │
+│               │ Manager │     │  Indexes  │     │   Pool    │               │
+│               └─────────┘     └───────────┘     └───────────┘               │
+│                                      │                                      │
+│                                      ▼                                      │
+│  Level 5           ┌─────────────────────────────────────────┐              │
+│  Monitoring        │  Arc&lt;tokio::sync::RwLock&lt;QueryMetrics&gt;&gt; │              │
+│                    └─────────────────────────────────────────┘              │
+│                                      │                                      │
+│                                      ▼                                      │
+│  Level 6 (Bottom)  ┌─────────────────────────────────────────┐              │
+│  Utilities         │  std::sync::Mutex (CircuitBreaker, etc.)│              │
+│                    └─────────────────────────────────────────┘              │
+└─────────────────────────────────────────────────────────────────────────────┘</code></pre></div><h3 id="lock-types-and-usage-guidelines"><a class="doc-anchor" href="#lock-types-and-usage-guidelines">§</a>Lock Types and Usage Guidelines</h3><h4 id="tokiosyncrwlock-preferred-for-async"><a class="doc-anchor" href="#tokiosyncrwlock-preferred-for-async">§</a>tokio::sync::RwLock (Preferred for Async)</h4>
+<p>Use <code>tokio::sync::RwLock</code> for all asynchronous code paths. This lock is
+designed to work correctly with Tokio’s async runtime and will not block
+the executor thread.</p>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Any data accessed in async functions</li>
+<li>Shared state in API handlers</li>
+<li>Database and storage engine wrappers</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>let db = Arc::new(tokio::sync::RwLock::new(NeuroQuantumDB::new()));
+
+// Read access (multiple readers allowed)
+let guard = db.read().await;
+
+// Write access (exclusive)
+let mut guard = db.write().await;</code></pre></div><h4 id="tokiosyncmutex-exclusive-async-access"><a class="doc-anchor" href="#tokiosyncmutex-exclusive-async-access">§</a>tokio::sync::Mutex (Exclusive Async Access)</h4>
+<p>Use <code>tokio::sync::Mutex</code> when you need exclusive access and don’t benefit
+from read/write separation (e.g., when most operations are mutations).</p>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Query execution engines</li>
+<li>State machines with mostly write operations</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>let engine = Arc::new(tokio::sync::Mutex::new(QSQLEngine::new()));
+let mut guard = engine.lock().await;</code></pre></div><h4 id="stdsyncrwlock-sync-code-only"><a class="doc-anchor" href="#stdsyncrwlock-sync-code-only">§</a>std::sync::RwLock (Sync Code Only)</h4>
+<p>Use <code>std::sync::RwLock</code> <strong>only</strong> in synchronous code that is never called
+from an async context. Holding a <code>std::sync</code> lock across an <code>.await</code> point
+will block the async executor and can cause deadlocks.</p>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Internal synchronous modules (e.g., <code>spiking.rs</code>, <code>synaptic.rs</code>)</li>
+<li>Configuration that is set once and read many times</li>
+</ul>
+<p><strong>Warning:</strong></p>
+<div class="example-wrap"><pre class="language-text"><code>// ❌ WRONG: Don&#39;t hold std::sync locks across .await
+let guard = std_rwlock.read().unwrap();
+some_async_function().await;  // DEADLOCK RISK!
+drop(guard);
+
+// ✅ CORRECT: Drop before await
+let data = {
+    let guard = std_rwlock.read().unwrap();
+    guard.clone()
+};
+some_async_function().await;</code></pre></div><h4 id="stdsyncmutex-short-critical-sections"><a class="doc-anchor" href="#stdsyncmutex-short-critical-sections">§</a>std::sync::Mutex (Short Critical Sections)</h4>
+<p>Use <code>std::sync::Mutex</code> for very short critical sections in sync code,
+such as updating counters or simple state machines.</p>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Circuit breaker state (see <code>middleware.rs</code>)</li>
+<li>Error correction statistics</li>
+<li>Atomic-like operations that need more complex logic</li>
+</ul>
+<h3 id="detailed-lock-inventory"><a class="doc-anchor" href="#detailed-lock-inventory">§</a>Detailed Lock Inventory</h3><h4 id="level-1-database-layer"><a class="doc-anchor" href="#level-1-database-layer">§</a>Level 1: Database Layer</h4><div><table><thead><tr><th>Lock</th><th>Type</th><th>Location</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>NeuroQuantumDB</code></td><td><code>Arc&lt;tokio::sync::RwLock&lt;_&gt;&gt;</code></td><td><code>neuroquantum-api/src/lib.rs</code></td><td>Main database access</td></tr>
+</tbody></table>
+</div><h4 id="level-2-query-engine-layer"><a class="doc-anchor" href="#level-2-query-engine-layer">§</a>Level 2: Query Engine Layer</h4><div><table><thead><tr><th>Lock</th><th>Type</th><th>Location</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>QSQLEngine</code></td><td><code>Arc&lt;tokio::sync::Mutex&lt;_&gt;&gt;</code></td><td><code>neuroquantum-api/src/lib.rs</code></td><td>Query execution</td></tr>
+<tr><td><code>QSQLEngine</code></td><td><code>Arc&lt;tokio::sync::Mutex&lt;_&gt;&gt;</code></td><td><code>websocket/handler.rs</code></td><td>WebSocket query execution</td></tr>
+</tbody></table>
+</div><h4 id="level-3-storage-layer"><a class="doc-anchor" href="#level-3-storage-layer">§</a>Level 3: Storage Layer</h4><div><table><thead><tr><th>Lock</th><th>Type</th><th>Location</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>StorageEngine</code></td><td><code>Arc&lt;tokio::sync::RwLock&lt;_&gt;&gt;</code></td><td><code>neuroquantum-qsql/src/lib.rs</code></td><td>Storage access for QSQL</td></tr>
+<tr><td><code>StorageEngine</code></td><td><code>Arc&lt;tokio::sync::RwLock&lt;_&gt;&gt;</code></td><td><code>query_plan.rs</code></td><td>Query executor storage</td></tr>
+</tbody></table>
+</div><h4 id="level-4-storage-subsystems"><a class="doc-anchor" href="#level-4-storage-subsystems">§</a>Level 4: Storage Subsystems</h4><div><table><thead><tr><th>Lock</th><th>Type</th><th>Location</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>BufferPoolManager</code></td><td>Internal</td><td><code>storage/buffer/</code></td><td>Page buffer management</td></tr>
+<tr><td><code>WALManager</code></td><td>Internal</td><td><code>storage/wal/</code></td><td>Write-ahead logging</td></tr>
+<tr><td><code>BTree</code></td><td>Internal</td><td><code>storage/btree/</code></td><td>Index operations</td></tr>
+</tbody></table>
+</div><h4 id="level-5-monitoring-layer"><a class="doc-anchor" href="#level-5-monitoring-layer">§</a>Level 5: Monitoring Layer</h4><div><table><thead><tr><th>Lock</th><th>Type</th><th>Location</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>SlowQueryLog</code></td><td><code>Arc&lt;tokio::sync::RwLock&lt;_&gt;&gt;</code></td><td><code>monitoring/query_metrics.rs</code></td><td>Slow query tracking</td></tr>
+<tr><td><code>IndexUsageStats</code></td><td><code>Arc&lt;tokio::sync::RwLock&lt;_&gt;&gt;</code></td><td><code>monitoring/query_metrics.rs</code></td><td>Index statistics</td></tr>
+<tr><td><code>LockContentionTracker</code></td><td><code>Arc&lt;tokio::sync::RwLock&lt;_&gt;&gt;</code></td><td><code>monitoring/query_metrics.rs</code></td><td>Lock contention stats</td></tr>
+<tr><td><code>QueryExecutionStats</code></td><td><code>Arc&lt;tokio::sync::RwLock&lt;_&gt;&gt;</code></td><td><code>monitoring/query_metrics.rs</code></td><td>Execution statistics</td></tr>
+</tbody></table>
+</div><h4 id="level-6-utility-layer"><a class="doc-anchor" href="#level-6-utility-layer">§</a>Level 6: Utility Layer</h4><div><table><thead><tr><th>Lock</th><th>Type</th><th>Location</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>CircuitBreakerState</code></td><td><code>Rc&lt;std::sync::Mutex&lt;_&gt;&gt;</code></td><td><code>middleware.rs</code></td><td>Circuit breaker FSM</td></tr>
+<tr><td><code>ErrorCorrectionStats</code></td><td><code>Arc&lt;std::sync::Mutex&lt;_&gt;&gt;</code></td><td><code>dna/error_correction.rs</code></td><td>Error correction stats</td></tr>
+<tr><td><code>SynapticNetwork</code></td><td><code>std::sync::RwLock&lt;_&gt;</code></td><td><code>synaptic.rs</code></td><td>Synaptic weight updates</td></tr>
+<tr><td><code>SpikingNetwork</code></td><td><code>std::sync::RwLock&lt;_&gt;</code></td><td><code>spiking.rs</code></td><td>Neural network state</td></tr>
+</tbody></table>
+</div><h4 id="websocket-subsystem-independent-hierarchy"><a class="doc-anchor" href="#websocket-subsystem-independent-hierarchy">§</a>WebSocket Subsystem (Independent Hierarchy)</h4>
+<p>The WebSocket subsystem has its own lock hierarchy that is <strong>independent</strong>
+of the main database hierarchy. WebSocket locks should not be held while
+acquiring database locks, and vice versa.</p>
+<div class="example-wrap"><pre class="language-text"><code>┌───────────────────────────────────────────────────────────────┐
+│              WEBSOCKET LOCK HIERARCHY (INDEPENDENT)          │
+│                                                               │
+│  WS Level 1    ┌────────────────────────────────────┐         │
+│  Connections   │  DashMap&lt;ConnectionId, Connection&gt; │         │
+│                └────────────────────────────────────┘         │
+│                                 │                             │
+│                                 ▼                             │
+│  WS Level 2    ┌────────────────────────────────────┐         │
+│  PubSub        │  Arc&lt;tokio::sync::RwLock&lt;Channels&gt;&gt;│         │
+│                └────────────────────────────────────┘         │
+│                                 │                             │
+│                                 ▼                             │
+│  WS Level 3    ┌────────────────────────────────────┐         │
+│  Flow Control  │  Arc&lt;tokio::sync::RwLock&lt;FlowCtrl&gt;&gt;│         │
+│                └────────────────────────────────────┘         │
+│                                 │                             │
+│                                 ▼                             │
+│  WS Level 4    ┌────────────────────────────────────┐         │
+│  Shutdown      │  Arc&lt;tokio::sync::RwLock&lt;bool&gt;&gt;    │         │
+│                └────────────────────────────────────┘         │
+└───────────────────────────────────────────────────────────────┘</code></pre></div><h3 id="deadlock-prevention-rules"><a class="doc-anchor" href="#deadlock-prevention-rules">§</a>Deadlock Prevention Rules</h3>
+<ol>
+<li>
+<p><strong>Always acquire locks in hierarchy order</strong> (Level 1 → Level 6)</p>
+</li>
+<li>
+<p><strong>Never hold locks across <code>.await</code> points</strong> when using <code>std::sync</code> locks</p>
+</li>
+<li>
+<p><strong>Prefer <code>tokio::sync</code> locks</strong> in async code</p>
+</li>
+<li>
+<p><strong>Keep critical sections short</strong> - do expensive work outside the lock</p>
+</li>
+<li>
+<p><strong>Use <code>try_lock()</code> with timeout</strong> for non-critical operations</p>
+</li>
+<li>
+<p><strong>Document lock acquisition</strong> in complex functions</p>
+</li>
+</ol>
+<h3 id="example-correct-lock-acquisition-order"><a class="doc-anchor" href="#example-correct-lock-acquisition-order">§</a>Example: Correct Lock Acquisition Order</h3><div class="example-wrap"><pre class="language-text"><code>async fn execute_query_with_storage(
+    db: Arc&lt;tokio::sync::RwLock&lt;NeuroQuantumDB&gt;&gt;,
+    engine: Arc&lt;tokio::sync::Mutex&lt;QSQLEngine&gt;&gt;,
+    storage: Arc&lt;tokio::sync::RwLock&lt;StorageEngine&gt;&gt;,
+) -&gt; Result&lt;()&gt; {
+    // ✅ CORRECT: Acquire in hierarchy order (Level 1 → 2 → 3)
+     
+    // Level 1: Database (if needed)
+    let db_guard = db.read().await;
+     
+    // Level 2: Query Engine
+    let mut engine_guard = engine.lock().await;
+     
+    // Level 3: Storage
+    let storage_guard = storage.read().await;
+     
+    // ... perform operations ...
+     
+    // Locks are dropped in reverse order automatically
+    Ok(())
+}</code></pre></div><h3 id="example-incorrect-lock-acquisition-dont-do-this"><a class="doc-anchor" href="#example-incorrect-lock-acquisition-dont-do-this">§</a>Example: Incorrect Lock Acquisition (DON’T DO THIS)</h3><div class="example-wrap"><pre class="language-text"><code>async fn bad_lock_order(
+    storage: Arc&lt;tokio::sync::RwLock&lt;StorageEngine&gt;&gt;,
+    db: Arc&lt;tokio::sync::RwLock&lt;NeuroQuantumDB&gt;&gt;,
+) -&gt; Result&lt;()&gt; {
+    // ❌ WRONG: Acquiring Level 3 before Level 1
+    let storage_guard = storage.write().await;
+    let db_guard = db.read().await;  // POTENTIAL DEADLOCK!
+     
+    Ok(())
+}</code></pre></div><h3 id="performance-considerations"><a class="doc-anchor" href="#performance-considerations">§</a>Performance Considerations</h3>
+<ul>
+<li><strong>Use <code>read()</code> when possible</strong>: Multiple readers can proceed concurrently</li>
+<li><strong>Batch writes</strong>: Combine multiple writes under a single write lock</li>
+<li><strong>Clone data out</strong>: If you need data for a long operation, clone it and release the lock</li>
+<li><strong>Consider DashMap</strong>: For high-contention maps, use <code>DashMap</code> (sharded concurrent HashMap)</li>
+</ul>
+<h3 id="testing-for-deadlocks"><a class="doc-anchor" href="#testing-for-deadlocks">§</a>Testing for Deadlocks</h3>
+<p>Run stress tests with thread sanitizer enabled:</p>
+<div class="example-wrap"><pre class="language-bash"><code>RUSTFLAGS=&quot;-Z sanitizer=thread&quot; cargo test --release</code></pre></div>
+<p>Or use the built-in stress tests:</p>
+<div class="example-wrap"><pre class="language-bash"><code>cargo test --package neuroquantum-core stress_test -- --ignored</code></pre></div></div></details><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.LockLevel.html" title="enum neuroquantum_core::concurrency::LockLevel">Lock<wbr>Level</a></dt><dd>Lock level in the hierarchy (lower number = higher priority)</dd><dt><a class="enum" href="enum.WebSocketLockLevel.html" title="enum neuroquantum_core::concurrency::WebSocketLockLevel">WebSocket<wbr>Lock<wbr>Level</a></dt><dd>WebSocket-specific lock levels (independent hierarchy)</dd></dl></section></div></main></body></html>

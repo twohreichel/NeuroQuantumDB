@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DecodedFrame","UnmarshalledMessage"],"fn":["read_message_from","write_headers_to","write_message_to"],"struct":["DeferredSigner","DeferredSignerSender","MessageFrameDecoder","NoOpSigner"],"trait":["MarshallMessage","SignMessage","UnmarshallMessage"],"type":["SignMessageError"]};

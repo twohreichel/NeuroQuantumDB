@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketVersioningError"],"mod":["builders"],"struct":["PutBucketVersioning","PutBucketVersioningInput","PutBucketVersioningOutput"]};

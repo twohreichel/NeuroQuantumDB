@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Chunked","Streaming"],"trait":["SnapshotTransport"]};

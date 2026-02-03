@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ReorganizationType"],"struct":["AccessPatterns","CapacityCheckResult","CapacityConfig","ConsolidationResult","PlasticityMatrix","PlasticityParams","PlasticityStats","ReorganizationEvent"]};

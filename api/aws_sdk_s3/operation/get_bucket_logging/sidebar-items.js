@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketLoggingError"],"mod":["builders"],"struct":["GetBucketLogging","GetBucketLoggingInput","GetBucketLoggingOutput"]};

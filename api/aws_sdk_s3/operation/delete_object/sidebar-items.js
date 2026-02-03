@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeleteObjectError"],"mod":["builders"],"struct":["DeleteObject","DeleteObjectInput","DeleteObjectOutput"]};

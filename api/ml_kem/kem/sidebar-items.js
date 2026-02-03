@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DecapsulationKey","EncapsulationKey","Kem"],"trait":["Decapsulate","Encapsulate"]};

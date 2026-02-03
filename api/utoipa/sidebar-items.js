@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"attr":["path"],"derive":["IntoParams","IntoResponses","OpenApi","ToResponse","ToSchema"],"enum":["Number"],"macro":["schema"],"mod":["openapi"],"trait":["IntoParams","IntoResponses","Modify","OpenApi","PartialSchema","Path","ToResponse","ToSchema"],"type":["TupleUnit"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AggregatedMessage","CloseCode","Item","Message","ProtocolError"],"fn":["handle"],"struct":["AggregatedMessageStream","CloseReason","Closed","MessageStream","Session","StreamingBody"]};

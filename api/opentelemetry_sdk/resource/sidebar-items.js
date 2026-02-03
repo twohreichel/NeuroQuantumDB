@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["EnvResourceDetector","Iter","Resource","SdkProvidedResourceDetector","TelemetryResourceDetector"],"trait":["ResourceDetector"]};

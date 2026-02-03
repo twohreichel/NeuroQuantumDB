@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketTaggingError"],"mod":["builders"],"struct":["PutBucketTagging","PutBucketTaggingInput","PutBucketTaggingOutput"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeleteBucketWebsiteError"],"mod":["builders"],"struct":["DeleteBucketWebsite","DeleteBucketWebsiteInput","DeleteBucketWebsiteOutput"]};

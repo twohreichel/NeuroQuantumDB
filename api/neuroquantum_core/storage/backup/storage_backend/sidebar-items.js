@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["LocalBackend","S3Backend"],"trait":["BackupStorageBackend"]};

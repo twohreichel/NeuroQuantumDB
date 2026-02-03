@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AccessPattern","ExecutionStrategy","OptimizationHint","QuantumOptimizationType"],"struct":["NeuromorphicOptimizer","OptimizationMetadata","OptimizationStats","OptimizerConfig","QuantumOptimization","QueryPattern","QueryPlan","SynapticPathway"]};

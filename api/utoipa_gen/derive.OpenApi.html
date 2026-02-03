@@ -1,0 +1,236 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate OpenApi base object with defaults from project settings."><title>OpenApi in utoipa_gen - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="utoipa_gen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">OpenApi</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../utoipa_gen/index.html">utoipa_<wbr>gen</a><span class="version">5.4.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">OpenApi</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#openapi-openapi-attributes" title="OpenApi `#[openapi(...)]` attributes">OpenApi <code>#[openapi(...)]</code> attributes</a></li><li><a href="#info-attribute-syntax" title="`info(...)` attribute syntax"><code>info(...)</code> attribute syntax</a></li><li><a href="#tags-attribute-syntax" title="`tags(...)` attribute syntax"><code>tags(...)</code> attribute syntax</a></li><li><a href="#servers-attribute-syntax" title="`servers(...)` attribute syntax"><code>servers(...)</code> attribute syntax</a></li><li><a href="#nest-attribute-syntax" title="`nest(...)` attribute syntax"><code>nest(...)</code> attribute syntax</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate utoipa_<wbr>gen</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">utoipa_gen</a></div><h1>Derive Macro <span class="derive">OpenApi</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/utoipa_gen/lib.rs.html#2238-2245">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(OpenApi)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[openapi]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate OpenApi base object with defaults from
+project settings.</p>
+<p>This is <code>#[derive]</code> implementation for <a href="trait.OpenApi.html"><code>OpenApi</code></a> trait. The macro accepts one <code>openapi</code> argument.</p>
+<h2 id="openapi-openapi-attributes"><a class="doc-anchor" href="#openapi-openapi-attributes">§</a>OpenApi <code>#[openapi(...)]</code> attributes</h2>
+<ul>
+<li><code>paths(...)</code>  List of method references having attribute <a href="attr.path.html"><code>#[utoipa::path]</code></a> macro.</li>
+<li><code>components(schemas(...), responses(...))</code> Takes available <em><code>component</code></em> configurations. Currently only
+<em><code>schema</code></em> and <em><code>response</code></em> components are supported.
+<ul>
+<li><code>schemas(...)</code> List of <a href="derive.ToSchema.html"><code>ToSchema</code></a>s in OpenAPI schema.</li>
+<li><code>responses(...)</code> List of types that implement <a href="trait.ToResponse.html"><code>ToResponse</code></a>.</li>
+</ul>
+</li>
+<li><code>modifiers(...)</code> List of items implementing <a href="trait.Modify.html"><code>Modify</code></a> trait for runtime OpenApi modification.
+See the <a href="trait.Modify.html">trait documentation</a> for more details.</li>
+<li><code>security(...)</code> List of <a href="openapi/security/struct.SecurityRequirement.html"><code>SecurityRequirement</code></a>s global to all operations.
+See more details in <a href="attr.path.html"><code>#[utoipa::path(...)]</code></a> <a href="attr.path.html#security-requirement-attributes">attribute macro security options</a>.</li>
+<li><code>tags(...)</code> List of <a href="openapi/tag/struct.Tag.html"><code>Tag</code></a>s which must match the tag <em><strong>path operation</strong></em>.  Tags can be used to
+define extra information for the API to produce richer documentation. See <a href="#tags-attribute-syntax">tags attribute syntax</a>.</li>
+<li><code>external_docs(...)</code> Can be used to reference external resource to the OpenAPI doc for extended documentation.
+External docs can be in <a href="openapi/struct.OpenApi.html"><code>OpenApi</code></a> or in <a href="openapi/tag/struct.Tag.html"><code>Tag</code></a> level.</li>
+<li><code>servers(...)</code> Define <a href="openapi/server/index.html"><code>servers</code></a> as derive argument to the <em><code>OpenApi</code></em>. Servers
+are completely optional and thus can be omitted from the declaration. See <a href="#servers-attribute-syntax">servers attribute
+syntax</a></li>
+<li><code>info(...)</code> Declare <a href="openapi/info/struct.Info.html"><code>Info</code></a> attribute values used to override the default values
+generated from Cargo environment variables. <strong>Note!</strong> Defined attributes will override the
+whole attribute from generated values of Cargo environment variables. E.g. defining
+<code>contact(name = ...)</code> will ultimately override whole contact of info and not just partially
+the name. See <a href="#info-attribute-syntax">info attribute syntax</a></li>
+<li><code>nest(...)</code> Allows nesting <a href="openapi/struct.OpenApi.html"><code>OpenApi</code></a>s to this <em><code>OpenApi</code></em> instance. Nest
+takes comma separated list of tuples of nested <code>OpenApi</code>s. <em><code>OpenApi</code></em> instance must
+implement <a href="trait.OpenApi.html"><code>OpenApi</code></a> trait. Nesting allows defining one <code>OpenApi</code> per defined path.
+If more instances is defined only latest one will be rentained.
+See the <em><a href="#nest-attribute-syntax">nest(…) attribute syntax below</a></em></li>
+</ul>
+<p>OpenApi derive macro will also derive <a href="openapi/info/struct.Info.html"><code>Info</code></a> for OpenApi specification using Cargo
+environment variables.</p>
+<ul>
+<li>env <code>CARGO_PKG_NAME</code> map to info <code>title</code></li>
+<li>env <code>CARGO_PKG_VERSION</code> map to info <code>version</code></li>
+<li>env <code>CARGO_PKG_DESCRIPTION</code> map info <code>description</code></li>
+<li>env <code>CARGO_PKG_AUTHORS</code> map to contact <code>name</code> and <code>email</code> <strong>only first author will be used</strong></li>
+<li>env <code>CARGO_PKG_LICENSE</code> map to info <code>license</code></li>
+</ul>
+<h2 id="info-attribute-syntax"><a class="doc-anchor" href="#info-attribute-syntax">§</a><code>info(...)</code> attribute syntax</h2>
+<ul>
+<li><code>title = ...</code> Define title of the API. It can be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an
+expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static <a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</li>
+<li><code>terms_of_service = ...</code> Define URL to the Terms of Service for the API. It can be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an
+expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static <a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference. Value
+must be valid URL.</li>
+<li><code>description = ...</code> Define description of the API. Markdown can be used for rich text
+representation. It can be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static
+<a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</li>
+<li><code>version = ...</code> Override default version from <em><code>Cargo.toml</code></em>. Value can be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an
+expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a> or static <a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</li>
+<li><code>contact(...)</code> Used to override the whole contact generated from environment variables.
+<ul>
+<li><code>name = ...</code> Define identifying name of contact person / organization. It Can be a literal string.</li>
+<li><code>email = ...</code> Define email address of the contact person / organization. It can be a literal string.</li>
+<li><code>url = ...</code> Define URL pointing to the contact information. It must be in URL formatted string.</li>
+</ul>
+</li>
+<li><code>license(...)</code> Used to override the whole license generated from environment variables.
+<ul>
+<li><code>name = ...</code> License name of the API. It can be a literal string.</li>
+<li><code>url = ...</code> Define optional URL of the license. It must be URL formatted string.</li>
+</ul>
+</li>
+</ul>
+<h2 id="tags-attribute-syntax"><a class="doc-anchor" href="#tags-attribute-syntax">§</a><code>tags(...)</code> attribute syntax</h2>
+<ul>
+<li><code>name = ...</code> Must be provided, can be <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a> or an expression such as <a href="https://doc.rust-lang.org/std/macro.include_str.html"><code>include_str!</code></a>
+or static <a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a> reference.</li>
+<li><code>description = ...</code> Optional description for the tag. Can be either or static <a href="https://doc.rust-lang.org/1.91.1/std/primitive.str.html" title="primitive str"><code>str</code></a>
+or an expression e.g. <em><code>include_str!(...)</code></em> macro call or reference to static <a href="https://doc.rust-lang.org/std/keyword.const.html"><code>const</code></a>.</li>
+<li><code>external_docs(...)</code> Optional links to external documents.
+<ul>
+<li><code>url = ...</code> Mandatory URL for external documentation.</li>
+<li><code>description = ...</code> Optional description for the <em><code>url</code></em> link.</li>
+</ul>
+</li>
+</ul>
+<h2 id="servers-attribute-syntax"><a class="doc-anchor" href="#servers-attribute-syntax">§</a><code>servers(...)</code> attribute syntax</h2>
+<ul>
+<li><code>url = ...</code> Define the url for server. It can be literal string.</li>
+<li><code>description = ...</code> Define description for the server. It can be literal string.</li>
+<li><code>variables(...)</code> Can be used to define variables for the url.
+<ul>
+<li><code>name = ...</code> Is the first argument within parentheses. It must be literal string.</li>
+<li><code>default = ...</code> Defines a default value for the variable if nothing else will be
+provided. If <em><code>enum_values</code></em> is defined the <em><code>default</code></em> must be found within the enum
+options. It can be a literal string.</li>
+<li><code>description = ...</code> Define the description for the variable. It can be a literal string.</li>
+<li><code>enum_values(...)</code> Define list of possible values for the variable. Values must be
+literal strings.</li>
+</ul>
+</li>
+</ul>
+<p><em><strong>Example server variable definition.</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>(&quot;username&quot; = (default = &quot;demo&quot;, description = &quot;Default username for API&quot;)),
+(&quot;port&quot; = (enum_values(&quot;8080&quot;, &quot;5000&quot;, &quot;4545&quot;)))</code></pre></div><h2 id="nest-attribute-syntax"><a class="doc-anchor" href="#nest-attribute-syntax">§</a><code>nest(...)</code> attribute syntax</h2>
+<ul>
+<li><code>path = ...</code> Define mandatory path for nesting the <a href="openapi/struct.OpenApi.html"><code>OpenApi</code></a>.</li>
+<li><code>api = ...</code> Define mandatory path to struct that implements <a href="trait.OpenApi.html"><code>OpenApi</code></a> trait.
+The fully qualified path (<em><code>path::to</code></em>) will become the default <em><code>tag</code></em> for the nested
+<code>OpenApi</code> endpoints if provided.</li>
+<li><code>tags = [...]</code> Define optional tags what are appended to the existing list of tags.</li>
+</ul>
+<p><em><strong>Example of nest definition</strong></em></p>
+<div class="example-wrap"><pre class="language-text"><code>(path = &quot;path/to/nest&quot;, api = path::to::NestableApi),
+(path = &quot;path/to/nest&quot;, api = path::to::NestableApi, tags = [&quot;nestableapi&quot;, ...])</code></pre></div><h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p><em><strong>Define OpenApi schema with some paths and components.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(ToSchema)]
+</span><span class="kw">struct </span>Pet {
+    name: String,
+    age: i32,
+}
+
+<span class="attr">#[derive(ToSchema)]
+</span><span class="kw">enum </span>Status {
+    Active, InActive, Locked,
+}
+
+<span class="attr">#[utoipa::path(get, path = <span class="string">"/pet"</span>)]
+</span><span class="kw">fn </span>get_pet() -&gt; Pet {
+    Pet {
+        name: <span class="string">"bob"</span>.to_string(),
+        age: <span class="number">8</span>,
+    }
+}
+
+<span class="attr">#[utoipa::path(get, path = <span class="string">"/status"</span>)]
+</span><span class="kw">fn </span>get_status() -&gt; Status {
+    Status::Active
+}
+
+<span class="attr">#[derive(OpenApi)]
+#[openapi(
+    paths(get_pet, get_status),
+    components(schemas(Pet, Status)),
+    security(
+        (),
+        (<span class="string">"my_auth" </span>= [<span class="string">"read:items"</span>, <span class="string">"edit:items"</span>]</span>),
+        (<span class="string">"token_jwt" </span>= [])
+    ),
+    tags(
+        (name = <span class="string">"pets::api"</span>, description = <span class="string">"All about pets"</span>,
+            external_docs(url = <span class="string">"http://more.about.pets.api"</span>, description = <span class="string">"Find out more"</span>))
+    ),
+    external_docs(url = <span class="string">"http://more.about.our.apis"</span>, description = <span class="string">"More about our APIs"</span>)
+)]
+<span class="kw">struct </span>ApiDoc;</code></pre></div>
+<p><em><strong>Define servers to OpenApi.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(OpenApi)]
+#[openapi(
+    servers(
+        (url = <span class="string">"http://localhost:8989"</span>, description = <span class="string">"Local server"</span>),
+        (url = <span class="string">"http://api.{username}:{port}"</span>, description = <span class="string">"Remote API"</span>,
+            variables(
+                (<span class="string">"username" </span>= (default = <span class="string">"demo"</span>, description = <span class="string">"Default username for API"</span>)),
+                (<span class="string">"port" </span>= (default = <span class="string">"8080"</span>, enum_values(<span class="string">"8080"</span>, <span class="string">"5000"</span>, <span class="string">"3030"</span>), description = <span class="string">"Supported ports for API"</span>))
+            )
+        )
+    )
+)]
+</span><span class="kw">struct </span>ApiDoc;</code></pre></div>
+<p><em><strong>Define info attribute values used to override auto generated ones from Cargo environment
+variables.</strong></em></p>
+
+<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(OpenApi)]
+#[openapi(info(
+    title = <span class="string">"title override"</span>,
+    description = <span class="macro">include_str!</span>(<span class="string">"./path/to/content"</span>), <span class="comment">// fail compile cause no such file
+    </span>contact(name = <span class="string">"Test"</span>)
+))]
+</span><span class="kw">struct </span>ApiDoc;</code></pre></div>
+<p><em><strong>Create OpenAPI with reusable response.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(utoipa::ToSchema)]
+</span><span class="kw">struct </span>Person {
+    name: String,
+}
+
+<span class="doccomment">/// Person list response
+</span><span class="attr">#[derive(utoipa::ToResponse)]
+</span><span class="kw">struct </span>PersonList(Vec&lt;Person&gt;);
+
+<span class="attr">#[utoipa::path(
+    get,
+    path = <span class="string">"/person-list"</span>,
+    responses(
+        (status = <span class="number">200</span>, response = PersonList)
+    )
+)]
+</span><span class="kw">fn </span>get_persons() -&gt; Vec&lt;Person&gt; {
+    <span class="macro">vec!</span>[]
+}
+
+<span class="attr">#[derive(utoipa::OpenApi)]
+#[openapi(
+    components(
+        schemas(Person),
+        responses(PersonList)
+    )
+)]
+</span><span class="kw">struct </span>ApiDoc;</code></pre></div>
+<p><em><strong>Nest <em><code>UserApi</code></em> to the current api doc instance.</strong></em></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[utoipa::path(get, path = <span class="string">"/api/v1/status"</span>)]
+ </span><span class="kw">fn </span>test_path_status() {}
+
+ <span class="attr">#[utoipa::path(get, path = <span class="string">"/test"</span>)]
+ </span><span class="kw">fn </span>user_test_path() {}
+
+ <span class="attr">#[derive(OpenApi)]
+ #[openapi(paths(user_test_path))]
+ </span><span class="kw">struct </span>UserApi;
+
+ <span class="attr">#[derive(OpenApi)]
+ #[openapi(
+     paths(
+         test_path_status
+     ),
+     nest(
+         (path = <span class="string">"/api/v1/user"</span>, api = UserApi),
+     )
+ )]
+ </span><span class="kw">struct </span>ApiDoc;</code></pre></div></div></details></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PutBucketOwnershipControlsError"],"mod":["builders"],"struct":["PutBucketOwnershipControls","PutBucketOwnershipControlsInput","PutBucketOwnershipControlsOutput"]};

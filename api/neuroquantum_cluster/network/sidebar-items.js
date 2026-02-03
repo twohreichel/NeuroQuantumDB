@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ClusterMessage"],"mod":["proto"],"struct":["AppendEntriesRequest","AppendEntriesResponse","InstallSnapshotRequest","InstallSnapshotResponse","LogEntryCompact","NetworkTransport","PingRequest","PongResponse","RequestVoteRequest","RequestVoteResponse"]};

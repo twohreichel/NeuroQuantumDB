@@ -1,0 +1,1269 @@
+<!DOCTYPE HTML>
+<html lang="de" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Performance Tuning - NeuroQuantumDB Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Comprehensive documentation for NeuroQuantumDB - Ultra-efficient neuromorphic database for edge computing">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-5286ab13.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-4f2988c5.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">NeuroQuantumDB Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/neuroquantumdb/neuroquantumdb" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/neuroquantumdb/neuroquantumdb/edit/main/docs/docs/user-guide/performance-tuning.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="performance-tuning-guide"><a class="header" href="#performance-tuning-guide">Performance Tuning Guide</a></h1>
+<p>This comprehensive guide covers performance optimization techniques for NeuroQuantumDB, from basic configuration to advanced troubleshooting.</p>
+<h2 id="table-of-contents"><a class="header" href="#table-of-contents">Table of Contents</a></h2>
+<ol>
+<li><a href="#1-configuration">Configuration</a></li>
+<li><a href="#2-query-optimization">Query Optimization</a></li>
+<li><a href="#3-hardware-recommendations">Hardware Recommendations</a></li>
+<li><a href="#4-monitoring">Monitoring</a></li>
+<li><a href="#5-troubleshooting">Troubleshooting</a></li>
+<li><a href="#6-benchmarking">Benchmarking</a></li>
+</ol>
+<hr>
+<h2 id="1-configuration"><a class="header" href="#1-configuration">1. Configuration</a></h2>
+<h3 id="11-memory-settings"><a class="header" href="#11-memory-settings">1.1 Memory Settings</a></h3>
+<h4 id="buffer-pool-size"><a class="header" href="#buffer-pool-size">Buffer Pool Size</a></h4>
+<p>The buffer pool caches frequently accessed data pages in memory, significantly improving read performance.</p>
+<pre><code class="language-toml"># config/prod.toml
+[storage]
+buffer_pool_size_mb = 256  # Default: 256MB
+
+# Recommendation based on available RAM:
+# - 1GB RAM:  buffer_pool_size_mb = 128
+# - 4GB RAM:  buffer_pool_size_mb = 512
+# - 8GB RAM:  buffer_pool_size_mb = 1024
+# - 16GB RAM: buffer_pool_size_mb = 2048
+</code></pre>
+<p><strong>Rule of Thumb:</strong> Allocate 25-40% of available RAM to the buffer pool. Leave sufficient memory for the OS and other processes.</p>
+<p><strong>Monitoring Buffer Pool Efficiency:</strong></p>
+<pre><code class="language-bash"># Check buffer pool hit rate via Prometheus
+curl http://localhost:8080/metrics | grep nqdb_buffer_pool_hits
+</code></pre>
+<p><strong>Target:</strong> Buffer pool hit rate &gt; 95% indicates good cache efficiency.</p>
+<h4 id="memory-pool-size"><a class="header" href="#memory-pool-size">Memory Pool Size</a></h4>
+<p>Controls the memory pool for query execution and temporary data structures.</p>
+<pre><code class="language-toml">[performance]
+memory_pool_size_mb = 256  # Per-query memory limit
+
+# Adjust based on query complexity:
+# - Simple queries: 64-128 MB
+# - Complex aggregations: 256-512 MB
+# - Large joins: 512-1024 MB
+</code></pre>
+<h4 id="garbage-collection-threshold"><a class="header" href="#garbage-collection-threshold">Garbage Collection Threshold</a></h4>
+<pre><code class="language-toml">[performance]
+gc_threshold_mb = 50  # Trigger GC when unused memory exceeds threshold
+</code></pre>
+<p>Lower values trade increased GC frequency for lower memory footprint. Increase for workloads with many temporary objects.</p>
+<h3 id="12-connection-pool-settings"><a class="header" href="#12-connection-pool-settings">1.2 Connection Pool Settings</a></h3>
+<h4 id="server-configuration"><a class="header" href="#server-configuration">Server Configuration</a></h4>
+<pre><code class="language-toml">[server]
+workers = 8              # Number of worker threads (match CPU cores)
+max_connections = 10000  # Maximum concurrent connections
+
+# Conservative sizing:
+# workers = CPU cores (or CPU cores - 1)
+# max_connections ≈ workers × 1000-2000
+</code></pre>
+<p><strong>Connection Memory Overhead:</strong> Each connection consumes ~200KB. For 10,000 connections, reserve ~2GB RAM.</p>
+<h4 id="database-connection-pool"><a class="header" href="#database-connection-pool">Database Connection Pool</a></h4>
+<pre><code class="language-toml">[database]
+max_connections = 500           # Maximum pool size
+connection_timeout = 10          # Seconds to wait for connection
+query_timeout = 30               # Maximum query execution time (seconds)
+</code></pre>
+<p><strong>Sizing Guidelines:</strong></p>
+<ul>
+<li><strong>Low concurrency</strong> (&lt; 100 active queries): <code>max_connections = 50-100</code></li>
+<li><strong>Medium concurrency</strong> (100-500 active queries): <code>max_connections = 200-500</code></li>
+<li><strong>High concurrency</strong> (&gt; 500 active queries): <code>max_connections = 500-1000</code></li>
+</ul>
+<p>⚠️ <strong>Warning:</strong> Very high connection counts can degrade performance due to context switching. Consider connection pooling at the application layer.</p>
+<h3 id="13-wal-write-ahead-logging-configuration"><a class="header" href="#13-wal-write-ahead-logging-configuration">1.3 WAL (Write-Ahead Logging) Configuration</a></h3>
+<p>WAL ensures ACID compliance and crash recovery but impacts write performance.</p>
+<pre><code class="language-toml">[storage]
+wal_enabled = true                    # Enable WAL (required for durability)
+wal_path = "/var/lib/neuroquantumdb/wal"
+</code></pre>
+<h4 id="wal-tuning-parameters"><a class="header" href="#wal-tuning-parameters">WAL Tuning Parameters</a></h4>
+<p>While NeuroQuantumDB manages WAL automatically, understand these concepts:</p>
+<p><strong>Checkpoint Frequency:</strong></p>
+<ul>
+<li>More frequent checkpoints = slower writes, faster recovery</li>
+<li>Less frequent checkpoints = faster writes, slower recovery</li>
+</ul>
+<p><strong>WAL Sync Modes</strong> (if configurable in future versions):</p>
+<ul>
+<li><code>fsync</code>: Maximum durability, slowest (each commit syncs to disk)</li>
+<li><code>async</code>: Best performance, risk of data loss on crash</li>
+<li><code>group_commit</code>: Batches commits for balanced performance/durability</li>
+</ul>
+<p><strong>Best Practices:</strong></p>
+<ol>
+<li>Store WAL on fast SSD storage</li>
+<li>Use separate disk from main data files if possible</li>
+<li>Monitor WAL size with <code>du -h /var/lib/neuroquantumdb/wal</code></li>
+<li>Archive old WAL files after successful checkpoints</li>
+</ol>
+<h3 id="14-index-settings"><a class="header" href="#14-index-settings">1.4 Index Settings</a></h3>
+<p>Indexes accelerate queries but slow down inserts and consume storage.</p>
+<h4 id="creating-indexes"><a class="header" href="#creating-indexes">Creating Indexes</a></h4>
+<pre><code class="language-sql">-- Create B+Tree index (default)
+CREATE INDEX idx_users_email ON users(email);
+
+-- Create unique index
+CREATE UNIQUE INDEX idx_users_id ON users(id);
+
+-- Composite index for multi-column queries
+CREATE INDEX idx_orders_user_date ON orders(user_id, order_date);
+</code></pre>
+<h4 id="index-strategy"><a class="header" href="#index-strategy">Index Strategy</a></h4>
+<p><strong>When to Index:</strong></p>
+<ul>
+<li>✅ Columns frequently used in <code>WHERE</code> clauses</li>
+<li>✅ Foreign key columns for joins</li>
+<li>✅ Columns used in <code>ORDER BY</code> and <code>GROUP BY</code></li>
+<li>✅ Primary keys (automatically indexed)</li>
+</ul>
+<p><strong>When NOT to Index:</strong></p>
+<ul>
+<li>❌ Small tables (&lt; 1000 rows) — sequential scan is faster</li>
+<li>❌ Columns with low cardinality (e.g., boolean flags)</li>
+<li>❌ Frequently updated columns — index maintenance overhead</li>
+<li>❌ Columns in write-heavy tables</li>
+</ul>
+<h4 id="index-maintenance"><a class="header" href="#index-maintenance">Index Maintenance</a></h4>
+<pre><code class="language-sql">-- View indexes on a table
+SHOW INDEXES FROM users;
+
+-- Drop unused index
+DROP INDEX idx_users_email;
+</code></pre>
+<p><strong>Monitoring:</strong> Track index usage and remove unused indexes to save storage and improve write performance.</p>
+<hr>
+<h2 id="2-query-optimization"><a class="header" href="#2-query-optimization">2. Query Optimization</a></h2>
+<h3 id="21-using-explain"><a class="header" href="#21-using-explain">2.1 Using EXPLAIN</a></h3>
+<p>EXPLAIN shows the query execution plan, helping identify performance bottlenecks.</p>
+<pre><code class="language-sql">EXPLAIN SELECT * FROM users WHERE email = 'john@example.com';
+</code></pre>
+<p><strong>Output Interpretation:</strong></p>
+<pre><code>Query Plan:
+├─ Index Scan on idx_users_email
+│  ├─ Estimated rows: 1
+│  ├─ Cost: 0.42
+│  └─ Index: B+Tree
+└─ Execution time: 1.2ms
+</code></pre>
+<p><strong>Key Metrics:</strong></p>
+<ul>
+<li><strong>Scan Type:</strong> <code>Index Scan</code> &gt; <code>Sequential Scan</code> for large tables</li>
+<li><strong>Estimated Rows:</strong> Fewer rows = faster query</li>
+<li><strong>Cost:</strong> Lower is better (arbitrary units)</li>
+</ul>
+<h3 id="22-index-strategies"><a class="header" href="#22-index-strategies">2.2 Index Strategies</a></h3>
+<h4 id="choose-the-right-index-order"><a class="header" href="#choose-the-right-index-order">Choose the Right Index Order</a></h4>
+<p>For composite indexes, order matters:</p>
+<pre><code class="language-sql">-- ✅ GOOD: Index matches query order
+CREATE INDEX idx_orders_user_date ON orders(user_id, order_date);
+SELECT * FROM orders WHERE user_id = 123 AND order_date &gt; '2025-01-01';
+
+-- ❌ POOR: Index doesn't match query
+SELECT * FROM orders WHERE order_date &gt; '2025-01-01' AND user_id = 123;
+-- Consider: CREATE INDEX idx_orders_date_user ON orders(order_date, user_id);
+</code></pre>
+<p><strong>Rule:</strong> Put the most selective column first (column with highest cardinality).</p>
+<h4 id="covering-indexes"><a class="header" href="#covering-indexes">Covering Indexes</a></h4>
+<p>Include all columns used in a query to avoid table lookups:</p>
+<pre><code class="language-sql">-- Query uses id, email, created_at
+CREATE INDEX idx_users_covering ON users(email, id, created_at);
+
+SELECT id, created_at FROM users WHERE email = 'john@example.com';
+-- ✅ Can be satisfied entirely from index
+</code></pre>
+<h3 id="23-query-rewriting"><a class="header" href="#23-query-rewriting">2.3 Query Rewriting</a></h3>
+<h4 id="avoid-select-"><a class="header" href="#avoid-select-">Avoid SELECT *</a></h4>
+<pre><code class="language-sql">-- ❌ BAD: Retrieves unnecessary data
+SELECT * FROM users WHERE id = 1;
+
+-- ✅ GOOD: Only fetch needed columns
+SELECT id, email, name FROM users WHERE id = 1;
+</code></pre>
+<h4 id="use-efficient-joins"><a class="header" href="#use-efficient-joins">Use Efficient Joins</a></h4>
+<pre><code class="language-sql">-- ❌ AVOID: Cartesian product
+SELECT * FROM users, orders WHERE users.id = orders.user_id;
+
+-- ✅ PREFER: Explicit JOIN
+SELECT u.*, o.* FROM users u
+INNER JOIN orders o ON u.id = o.user_id;
+</code></pre>
+<h4 id="limit-result-sets"><a class="header" href="#limit-result-sets">Limit Result Sets</a></h4>
+<pre><code class="language-sql">-- Always use LIMIT for large result sets
+SELECT * FROM logs ORDER BY timestamp DESC LIMIT 100;
+</code></pre>
+<h4 id="optimize-subqueries"><a class="header" href="#optimize-subqueries">Optimize Subqueries</a></h4>
+<pre><code class="language-sql">-- ❌ SLOW: Correlated subquery
+SELECT * FROM users u WHERE u.id IN (
+  SELECT user_id FROM orders WHERE total &gt; 100
+);
+
+-- ✅ FAST: Use JOIN instead
+SELECT DISTINCT u.* FROM users u
+INNER JOIN orders o ON u.id = o.user_id
+WHERE o.total &gt; 100;
+</code></pre>
+<h3 id="24-batch-operations"><a class="header" href="#24-batch-operations">2.4 Batch Operations</a></h3>
+<p>Group multiple operations into single transactions for better performance.</p>
+<h4 id="batch-inserts"><a class="header" href="#batch-inserts">Batch Inserts</a></h4>
+<pre><code class="language-sql">-- ❌ SLOW: Individual inserts
+INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
+INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');
+INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com');
+
+-- ✅ FAST: Batch insert
+BEGIN TRANSACTION;
+INSERT INTO users (name, email) VALUES 
+  ('Alice', 'alice@example.com'),
+  ('Bob', 'bob@example.com'),
+  ('Charlie', 'charlie@example.com');
+COMMIT;
+</code></pre>
+<p><strong>Performance Gain:</strong> 10-100x faster for large batches.</p>
+<h4 id="batch-updates"><a class="header" href="#batch-updates">Batch Updates</a></h4>
+<pre><code class="language-sql">BEGIN TRANSACTION;
+UPDATE users SET status = 'active' WHERE id IN (1, 2, 3, 4, 5);
+UPDATE users SET last_login = NOW() WHERE id IN (1, 2, 3, 4, 5);
+COMMIT;
+</code></pre>
+<h3 id="25-caching-strategies"><a class="header" href="#25-caching-strategies">2.5 Caching Strategies</a></h3>
+<h4 id="application-level-caching"><a class="header" href="#application-level-caching">Application-Level Caching</a></h4>
+<pre><code class="language-rust">// Example: Redis cache
+use redis::Client;
+
+let client = Client::open("redis://127.0.0.1/")?;
+let mut con = client.get_connection()?;
+
+// Check cache first
+let cached: Option&lt;String&gt; = con.get("user:123").ok();
+if let Some(data) = cached {
+    return Ok(data);
+}
+
+// Cache miss - query database
+let result = query_database("SELECT * FROM users WHERE id = 123")?;
+con.set_ex("user:123", &amp;result, 300)?; // TTL: 5 minutes</code></pre>
+<h4 id="query-result-caching"><a class="header" href="#query-result-caching">Query Result Caching</a></h4>
+<p>NeuroQuantumDB includes built-in caching:</p>
+<pre><code class="language-toml">[database.dna_config]
+cache_size_mb = 64  # DNA compression cache
+</code></pre>
+<p><strong>Effective for:</strong></p>
+<ul>
+<li>Frequently accessed bioinformatics data</li>
+<li>Repetitive read queries</li>
+<li>Cold start scenarios</li>
+</ul>
+<hr>
+<h2 id="3-hardware-recommendations"><a class="header" href="#3-hardware-recommendations">3. Hardware Recommendations</a></h2>
+<h3 id="31-cpu-requirements"><a class="header" href="#31-cpu-requirements">3.1 CPU Requirements</a></h3>
+<h4 id="minimum-specifications"><a class="header" href="#minimum-specifications">Minimum Specifications</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Workload</th><th>Cores</th><th>Architecture</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Development</strong></td><td>2 cores</td><td>x86_64 or ARM64</td><td>Sufficient for testing</td></tr>
+<tr><td><strong>Small Production</strong></td><td>4 cores</td><td>x86_64 or ARM64</td><td>Up to 100 req/s</td></tr>
+<tr><td><strong>Medium Production</strong></td><td>8 cores</td><td>x86_64 or ARM64</td><td>Up to 500 req/s</td></tr>
+<tr><td><strong>Large Production</strong></td><td>16+ cores</td><td>x86_64 or ARM64</td><td>Up to 2000+ req/s</td></tr>
+</tbody>
+</table>
+</div>
+<h4 id="arm64-optimization"><a class="header" href="#arm64-optimization">ARM64 Optimization</a></h4>
+<p>NeuroQuantumDB is optimized for ARM64 (Apple Silicon, Raspberry Pi 4):</p>
+<pre><code class="language-toml">[performance]
+arm64_neon_enabled = true  # Enable NEON SIMD instructions
+</code></pre>
+<p><strong>Performance Gains with NEON:</strong></p>
+<ul>
+<li>DNA Compression: 4.27x faster</li>
+<li>Matrix operations: 3-5x faster</li>
+<li>Vector computations: 2-4x faster</li>
+</ul>
+<p><strong>Recommended ARM64 Hardware:</strong></p>
+<ul>
+<li><strong>Edge Deployment:</strong> Raspberry Pi 4 (4GB+ RAM)</li>
+<li><strong>Desktop/Server:</strong> Apple M1/M2/M3, AWS Graviton 3/4</li>
+<li><strong>High Performance:</strong> Ampere Altra, NVIDIA Grace</li>
+</ul>
+<h3 id="32-ram-sizing"><a class="header" href="#32-ram-sizing">3.2 RAM Sizing</a></h3>
+<h4 id="memory-requirements-by-workload"><a class="header" href="#memory-requirements-by-workload">Memory Requirements by Workload</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Workload</th><th>Minimum RAM</th><th>Recommended RAM</th><th>Buffer Pool</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Development</strong></td><td>1 GB</td><td>2 GB</td><td>128 MB</td><td>Single user testing</td></tr>
+<tr><td><strong>Small DB</strong> (&lt; 1GB data)</td><td>2 GB</td><td>4 GB</td><td>512 MB</td><td>Up to 50 connections</td></tr>
+<tr><td><strong>Medium DB</strong> (1-10GB data)</td><td>8 GB</td><td>16 GB</td><td>2048 MB</td><td>Up to 500 connections</td></tr>
+<tr><td><strong>Large DB</strong> (10-100GB data)</td><td>32 GB</td><td>64 GB</td><td>8192 MB</td><td>Up to 2000 connections</td></tr>
+<tr><td><strong>Very Large DB</strong> (&gt; 100GB)</td><td>128 GB+</td><td>256 GB+</td><td>32768+ MB</td><td>Enterprise scale</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Calculation Formula:</strong></p>
+<pre><code>Total RAM = Buffer Pool + Connection Memory + OS + App Overhead
+         ≈ Buffer Pool + (max_connections × 0.2 MB) + 2 GB + 1 GB
+</code></pre>
+<p><strong>Example:</strong> For 500 connections with 2GB buffer pool:</p>
+<pre><code>Total = 2048 MB + (500 × 0.2 MB) + 2048 MB + 1024 MB ≈ 5.2 GB
+Recommended: 8 GB RAM
+</code></pre>
+<h3 id="33-storage-ssd-vs-hdd"><a class="header" href="#33-storage-ssd-vs-hdd">3.3 Storage: SSD vs HDD</a></h3>
+<h4 id="storage-performance-comparison"><a class="header" href="#storage-performance-comparison">Storage Performance Comparison</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Operation</th><th>HDD</th><th>SATA SSD</th><th>NVMe SSD</th><th>Recommended</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Sequential Read</strong></td><td>120 MB/s</td><td>550 MB/s</td><td>3500 MB/s</td><td>NVMe &gt; SATA SSD</td></tr>
+<tr><td><strong>Random Read</strong></td><td>1 MB/s</td><td>95 MB/s</td><td>500 MB/s</td><td>NVMe &gt; SATA SSD</td></tr>
+<tr><td><strong>Random Write</strong></td><td>1 MB/s</td><td>90 MB/s</td><td>450 MB/s</td><td>NVMe &gt; SATA SSD</td></tr>
+<tr><td><strong>Latency</strong></td><td>10-20 ms</td><td>0.1-0.2 ms</td><td>0.01-0.02 ms</td><td>NVMe &gt; SATA SSD</td></tr>
+</tbody>
+</table>
+</div>
+<p>⚠️ <strong>Critical:</strong> NeuroQuantumDB requires SSD for production. HDD is only acceptable for development/testing.</p>
+<h4 id="storage-layout"><a class="header" href="#storage-layout">Storage Layout</a></h4>
+<p><strong>Single Disk Setup:</strong></p>
+<pre><code>/var/lib/neuroquantumdb/
+├── data/           # Main database files
+└── wal/            # Write-ahead log
+</code></pre>
+<p><strong>Multi-Disk Setup (Optimal):</strong></p>
+<pre><code>Disk 1 (NVMe): /var/lib/neuroquantumdb/data/   # Main data
+Disk 2 (SSD):  /var/lib/neuroquantumdb/wal/    # WAL for write performance
+</code></pre>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Parallel I/O for reads and writes</li>
+<li>WAL writes don’t block data reads</li>
+<li>Improved crash recovery performance</li>
+</ul>
+<h4 id="storage-capacity-planning"><a class="header" href="#storage-capacity-planning">Storage Capacity Planning</a></h4>
+<pre><code>Required Storage = Raw Data Size × Compression Ratio × Safety Factor
+
+Example (bioinformatics data):
+- Raw data: 100 GB
+- DNA compression ratio: 4:1
+- After compression: 25 GB
+- Safety factor: 3× (indexes, WAL, temp)
+- Total needed: 75 GB
+</code></pre>
+<p><strong>Recommendations:</strong></p>
+<ul>
+<li><strong>Development:</strong> 50-100 GB SSD</li>
+<li><strong>Small Production:</strong> 250-500 GB NVMe SSD</li>
+<li><strong>Medium Production:</strong> 1-2 TB NVMe SSD</li>
+<li><strong>Large Production:</strong> 4+ TB NVMe SSD (RAID 10)</li>
+</ul>
+<h3 id="34-network-for-cluster-deployments"><a class="header" href="#34-network-for-cluster-deployments">3.4 Network for Cluster Deployments</a></h3>
+<p>⚠️ <strong>Note:</strong> Cluster mode is currently in Beta. For production, use single-node configuration.</p>
+<p>For future cluster deployments:</p>
+<h4 id="network-requirements"><a class="header" href="#network-requirements">Network Requirements</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Minimum</th><th>Recommended</th><th>Optimal</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Bandwidth</strong></td><td>1 Gbps</td><td>10 Gbps</td><td>25-100 Gbps</td></tr>
+<tr><td><strong>Latency</strong></td><td>&lt; 10 ms</td><td>&lt; 1 ms</td><td>&lt; 0.5 ms</td></tr>
+<tr><td><strong>Topology</strong></td><td>Star</td><td>Full Mesh</td><td>RDMA Network</td></tr>
+</tbody>
+</table>
+</div>
+<h4 id="network-configuration"><a class="header" href="#network-configuration">Network Configuration</a></h4>
+<pre><code class="language-toml"># config/cluster.toml (EXPERIMENTAL)
+[cluster]
+enabled = false  # Keep disabled for production
+node_id = 1
+bind_addr = "0.0.0.0:9000"
+
+peers = [
+    "10.0.1.2:9000",  # Node 2
+    "10.0.1.3:9000"   # Node 3
+]
+</code></pre>
+<p><strong>Best Practices:</strong></p>
+<ul>
+<li>Use dedicated network for inter-node communication</li>
+<li>Enable TCP keepalive</li>
+<li>Use load balancers with health checks</li>
+<li>Monitor network saturation</li>
+</ul>
+<hr>
+<h2 id="4-monitoring"><a class="header" href="#4-monitoring">4. Monitoring</a></h2>
+<h3 id="41-prometheus-metrics-interpretation"><a class="header" href="#41-prometheus-metrics-interpretation">4.1 Prometheus Metrics Interpretation</a></h3>
+<p>NeuroQuantumDB exposes metrics at <code>http://localhost:8080/metrics</code>.</p>
+<h4 id="key-performance-metrics"><a class="header" href="#key-performance-metrics">Key Performance Metrics</a></h4>
+<p><strong>Query Performance:</strong></p>
+<pre><code class="language-promql"># Query rate (queries per second)
+rate(nqdb_queries_total[5m])
+
+# Query latency (p50, p95, p99)
+histogram_quantile(0.50, rate(nqdb_query_duration_seconds_bucket[5m]))
+histogram_quantile(0.95, rate(nqdb_query_duration_seconds_bucket[5m]))
+histogram_quantile(0.99, rate(nqdb_query_duration_seconds_bucket[5m]))
+
+# Slow queries (&gt; 1 second)
+rate(nqdb_query_duration_seconds_bucket{le="1.0"}[5m])
+</code></pre>
+<p><strong>Resource Utilization:</strong></p>
+<pre><code class="language-promql"># Buffer pool hit rate
+rate(nqdb_buffer_pool_hits[5m]) / rate(nqdb_buffer_pool_accesses[5m])
+
+# Active connections
+nqdb_connections_active
+
+# Memory usage (if exposed)
+process_resident_memory_bytes
+</code></pre>
+<p><strong>Feature-Specific Metrics:</strong></p>
+<pre><code class="language-promql"># DNA compression operations
+rate(nqdb_dna_compressions_total[5m])
+
+# Quantum search operations
+rate(nqdb_quantum_searches_total[5m])
+
+# Transaction rate
+rate(nqdb_transactions_total[5m])
+</code></pre>
+<h4 id="target-thresholds"><a class="header" href="#target-thresholds">Target Thresholds</a></h4>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Target</th><th>Warning</th><th>Critical</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Query Latency (p95)</strong></td><td>&lt; 100 ms</td><td>100-500 ms</td><td>&gt; 500 ms</td></tr>
+<tr><td><strong>Buffer Pool Hit Rate</strong></td><td>&gt; 95%</td><td>90-95%</td><td>&lt; 90%</td></tr>
+<tr><td><strong>Active Connections</strong></td><td>&lt; 80% max</td><td>80-90% max</td><td>&gt; 90% max</td></tr>
+<tr><td><strong>CPU Usage</strong></td><td>&lt; 70%</td><td>70-85%</td><td>&gt; 85%</td></tr>
+<tr><td><strong>Disk I/O Wait</strong></td><td>&lt; 10%</td><td>10-25%</td><td>&gt; 25%</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="42-grafana-dashboards-setup"><a class="header" href="#42-grafana-dashboards-setup">4.2 Grafana Dashboards Setup</a></h3>
+<h4 id="1-add-prometheus-data-source"><a class="header" href="#1-add-prometheus-data-source">1. Add Prometheus Data Source</a></h4>
+<pre><code class="language-bash"># In Grafana UI:
+Configuration → Data Sources → Add data source → Prometheus
+URL: http://localhost:9090
+</code></pre>
+<h4 id="2-import-dashboard"><a class="header" href="#2-import-dashboard">2. Import Dashboard</a></h4>
+<p>NeuroQuantumDB includes pre-built dashboards:</p>
+<pre><code class="language-bash"># Dashboard files located at:
+docker/monitoring/dashboards/neuroquantumdb-overview.json
+docker/monitoring/dashboards/neuroquantumdb-performance.json
+</code></pre>
+<p><strong>Import Steps:</strong></p>
+<ol>
+<li>Grafana UI → Dashboards → Import</li>
+<li>Upload JSON file or paste JSON</li>
+<li>Select Prometheus data source</li>
+<li>Click “Import”</li>
+</ol>
+<h4 id="3-key-dashboard-panels"><a class="header" href="#3-key-dashboard-panels">3. Key Dashboard Panels</a></h4>
+<p><strong>Overview Dashboard:</strong></p>
+<ul>
+<li>Query throughput (QPS)</li>
+<li>Active connections</li>
+<li>Resource usage (CPU, RAM, Disk)</li>
+<li>Error rate</li>
+</ul>
+<p><strong>Performance Dashboard:</strong></p>
+<ul>
+<li>Query latency percentiles (p50, p95, p99)</li>
+<li>Buffer pool efficiency</li>
+<li>Index usage</li>
+<li>WAL write rate</li>
+<li>DNA compression ratio</li>
+</ul>
+<h3 id="43-alerting-configuration"><a class="header" href="#43-alerting-configuration">4.3 Alerting Configuration</a></h3>
+<h4 id="prometheus-alerting-rules"><a class="header" href="#prometheus-alerting-rules">Prometheus Alerting Rules</a></h4>
+<p>Create <code>/etc/prometheus/alerts/neuroquantumdb.yml</code>:</p>
+<pre><code class="language-yaml">groups:
+  - name: neuroquantumdb
+    interval: 30s
+    rules:
+      # High query latency
+      - alert: HighQueryLatency
+        expr: histogram_quantile(0.95, rate(nqdb_query_duration_seconds_bucket[5m])) &gt; 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High query latency detected"
+          description: "P95 latency is {{ $value }}s (threshold: 1s)"
+
+      # Low buffer pool hit rate
+      - alert: LowBufferPoolHitRate
+        expr: rate(nqdb_buffer_pool_hits[5m]) / rate(nqdb_buffer_pool_accesses[5m]) &lt; 0.90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Buffer pool hit rate below 90%"
+          description: "Consider increasing buffer_pool_size_mb"
+
+      # Connection pool exhaustion
+      - alert: ConnectionPoolNearLimit
+        expr: nqdb_connections_active / nqdb_connections_max &gt; 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Connection pool usage above 85%"
+          description: "{{ $value }}% of connections in use"
+
+      # Database down
+      - alert: DatabaseDown
+        expr: up{job="neuroquantumdb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NeuroQuantumDB is down"
+          description: "Instance {{ $labels.instance }} is unreachable"
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(nqdb_errors_total[5m]) &gt; 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "{{ $value }} errors/sec"
+</code></pre>
+<h4 id="alertmanager-configuration"><a class="header" href="#alertmanager-configuration">Alertmanager Configuration</a></h4>
+<p>Configure <code>/etc/alertmanager/alertmanager.yml</code>:</p>
+<pre><code class="language-yaml">global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'cluster']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'team-notifications'
+
+receivers:
+  - name: 'team-notifications'
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#database-alerts'
+        title: 'NeuroQuantumDB Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    
+    email_configs:
+      - to: 'dba-team@example.com'
+        from: 'alerts@example.com'
+        smarthost: 'smtp.example.com:587'
+        auth_username: 'alerts@example.com'
+        auth_password: 'password'
+</code></pre>
+<h3 id="44-performance-regression-detection"><a class="header" href="#44-performance-regression-detection">4.4 Performance Regression Detection</a></h3>
+<h4 id="continuous-monitoring"><a class="header" href="#continuous-monitoring">Continuous Monitoring</a></h4>
+<p>Track performance trends over time:</p>
+<pre><code class="language-promql"># Compare current week vs last week
+avg_over_time(
+  histogram_quantile(0.95, rate(nqdb_query_duration_seconds_bucket[5m]))[7d:1h]
+)
+
+# Month-over-month query throughput
+avg_over_time(rate(nqdb_queries_total[5m])[30d:1h])
+</code></pre>
+<h4 id="benchmark-regression-tests"><a class="header" href="#benchmark-regression-tests">Benchmark Regression Tests</a></h4>
+<p>Run automated benchmarks after deployments:</p>
+<pre><code class="language-bash"># Run benchmark suite
+cargo bench --features benchmarks
+
+# Compare with baseline
+# Results stored in: target/criterion/
+criterion-compare baseline current
+</code></pre>
+<p><strong>Set up CI/CD integration:</strong></p>
+<pre><code class="language-yaml"># .github/workflows/benchmark.yml
+- name: Run Benchmarks
+  run: cargo bench --features benchmarks -- --save-baseline main
+
+- name: Compare Benchmarks
+  run: cargo bench --features benchmarks -- --baseline main
+</code></pre>
+<hr>
+<h2 id="5-troubleshooting"><a class="header" href="#5-troubleshooting">5. Troubleshooting</a></h2>
+<h3 id="51-identifying-slow-queries"><a class="header" href="#51-identifying-slow-queries">5.1 Identifying Slow Queries</a></h3>
+<h4 id="enable-query-logging"><a class="header" href="#enable-query-logging">Enable Query Logging</a></h4>
+<pre><code class="language-toml">[logging]
+level = "debug"
+structured_logging = true
+</code></pre>
+<pre><code class="language-bash"># Watch for slow queries in logs
+tail -f /var/log/neuroquantumdb/api.log | grep "Query executed" | grep -E "[0-9]{4,}ms"
+</code></pre>
+<h4 id="analyzing-query-plans"><a class="header" href="#analyzing-query-plans">Analyzing Query Plans</a></h4>
+<pre><code class="language-sql">-- Get execution plan
+EXPLAIN SELECT u.name, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY u.name;
+
+-- Look for:
+-- ❌ "Sequential Scan" on large tables
+-- ❌ High "Cost" estimates
+-- ❌ Missing indexes
+</code></pre>
+<h4 id="common-slow-query-patterns"><a class="header" href="#common-slow-query-patterns">Common Slow Query Patterns</a></h4>
+<p><strong>1. Missing Index:</strong></p>
+<pre><code class="language-sql">-- SLOW: Sequential scan
+SELECT * FROM users WHERE email = 'john@example.com';
+
+-- FIX: Add index
+CREATE INDEX idx_users_email ON users(email);
+</code></pre>
+<p><strong>2. Non-Sargable Queries:</strong></p>
+<pre><code class="language-sql">-- ❌ SLOW: Function on indexed column prevents index usage
+SELECT * FROM users WHERE UPPER(email) = 'JOHN@EXAMPLE.COM';
+
+-- ✅ FAST: Use case-insensitive index or normalize data
+SELECT * FROM users WHERE email = LOWER('john@example.com');
+</code></pre>
+<p><strong>3. Large Result Sets:</strong></p>
+<pre><code class="language-sql">-- ❌ SLOW: Returns millions of rows
+SELECT * FROM logs;
+
+-- ✅ FAST: Use pagination
+SELECT * FROM logs ORDER BY timestamp DESC LIMIT 1000 OFFSET 0;
+</code></pre>
+<p><strong>4. Inefficient Joins:</strong></p>
+<pre><code class="language-sql">-- ❌ SLOW: Cartesian product
+SELECT * FROM users, orders;
+
+-- ✅ FAST: Proper JOIN with index
+SELECT u.*, o.* FROM users u
+INNER JOIN orders o ON u.id = o.user_id;
+-- Ensure index exists: CREATE INDEX idx_orders_user_id ON orders(user_id);
+</code></pre>
+<h3 id="52-memory-issues"><a class="header" href="#52-memory-issues">5.2 Memory Issues</a></h3>
+<h4 id="symptoms"><a class="header" href="#symptoms">Symptoms</a></h4>
+<ul>
+<li>Server crashes with OOM errors</li>
+<li>Swap usage increases significantly</li>
+<li>Query performance degrades over time</li>
+<li><code>malloc</code> failures in logs</li>
+</ul>
+<h4 id="diagnosis"><a class="header" href="#diagnosis">Diagnosis</a></h4>
+<pre><code class="language-bash"># Check memory usage
+free -h
+
+# Monitor NeuroQuantumDB process
+ps aux | grep neuroquantum-api
+
+# Check buffer pool size
+curl http://localhost:8080/metrics | grep buffer_pool
+</code></pre>
+<h4 id="solutions"><a class="header" href="#solutions">Solutions</a></h4>
+<p><strong>1. Reduce Buffer Pool Size:</strong></p>
+<pre><code class="language-toml">[storage]
+buffer_pool_size_mb = 128  # Reduce from 256
+</code></pre>
+<p><strong>2. Limit Query Memory:</strong></p>
+<pre><code class="language-toml">[performance]
+memory_pool_size_mb = 128  # Reduce per-query limit
+</code></pre>
+<p><strong>3. Reduce Connection Count:</strong></p>
+<pre><code class="language-toml">[server]
+max_connections = 5000  # Reduce from 10000
+
+[database]
+max_connections = 250  # Reduce from 500
+</code></pre>
+<p><strong>4. Enable DNA Compression:</strong></p>
+<pre><code class="language-toml">[compression]
+dna_enabled = true
+compression_level = 6  # Higher = better compression, slower
+</code></pre>
+<p><strong>5. Increase System Limits:</strong></p>
+<pre><code class="language-bash"># Edit /etc/security/limits.conf
+neuroquantum soft memlock unlimited
+neuroquantum hard memlock unlimited
+
+# Edit /etc/sysctl.conf
+vm.overcommit_memory = 2
+vm.overcommit_ratio = 90
+</code></pre>
+<h3 id="53-lock-contention"><a class="header" href="#53-lock-contention">5.3 Lock Contention</a></h3>
+<h4 id="symptoms-1"><a class="header" href="#symptoms-1">Symptoms</a></h4>
+<ul>
+<li>Queries waiting for locks</li>
+<li>Timeout errors</li>
+<li>Decreased throughput under high concurrency</li>
+</ul>
+<h4 id="diagnosis-1"><a class="header" href="#diagnosis-1">Diagnosis</a></h4>
+<pre><code class="language-sql">-- Check for blocked queries (if implemented)
+SHOW LOCKS;
+
+-- Check long-running transactions
+SHOW TRANSACTIONS;
+</code></pre>
+<pre><code class="language-bash"># Monitor lock wait metrics
+curl http://localhost:8080/metrics | grep lock_wait
+</code></pre>
+<h4 id="solutions-1"><a class="header" href="#solutions-1">Solutions</a></h4>
+<p><strong>1. Optimize Transaction Scope:</strong></p>
+<pre><code class="language-sql">-- ❌ BAD: Long-running transaction
+BEGIN TRANSACTION;
+SELECT * FROM large_table;  -- Holds locks for a long time
+-- ... extensive processing ...
+UPDATE users SET status = 'processed';
+COMMIT;
+
+-- ✅ GOOD: Minimize lock duration
+SELECT * FROM large_table;  -- Query outside transaction
+-- ... extensive processing ...
+BEGIN TRANSACTION;
+UPDATE users SET status = 'processed';
+COMMIT;  -- Locks held briefly
+</code></pre>
+<p><strong>2. Use Batch Updates:</strong></p>
+<pre><code class="language-sql">-- Process in smaller batches to reduce lock time
+BEGIN TRANSACTION;
+UPDATE users SET status = 'active' WHERE id BETWEEN 1 AND 1000;
+COMMIT;
+
+BEGIN TRANSACTION;
+UPDATE users SET status = 'active' WHERE id BETWEEN 1001 AND 2000;
+COMMIT;
+</code></pre>
+<p><strong>3. Read Committed Isolation:</strong></p>
+<pre><code class="language-sql">-- Use lower isolation level if full serialization isn't needed
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+</code></pre>
+<p><strong>4. Partition Hot Tables:</strong></p>
+<pre><code class="language-sql">-- Split frequently updated table into partitions
+-- (Future feature)
+CREATE TABLE orders_2025_01 PARTITION OF orders
+  FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+</code></pre>
+<h3 id="54-disk-io-problems"><a class="header" href="#54-disk-io-problems">5.4 Disk I/O Problems</a></h3>
+<h4 id="symptoms-2"><a class="header" href="#symptoms-2">Symptoms</a></h4>
+<ul>
+<li>High disk I/O wait (<code>iowait</code> in <code>top</code>)</li>
+<li>Slow write performance</li>
+<li>WAL checkpoint delays</li>
+<li>Queries timing out</li>
+</ul>
+<h4 id="diagnosis-2"><a class="header" href="#diagnosis-2">Diagnosis</a></h4>
+<pre><code class="language-bash"># Monitor disk I/O
+iostat -x 1
+
+# Check disk usage
+df -h /var/lib/neuroquantumdb
+
+# Monitor I/O wait
+top  # Look for high %wa (wait)
+
+# Specific process I/O
+iotop -p $(pgrep neuroquantum-api)
+</code></pre>
+<h4 id="solutions-2"><a class="header" href="#solutions-2">Solutions</a></h4>
+<p><strong>1. Upgrade to SSD/NVMe:</strong></p>
+<ul>
+<li>HDD → SATA SSD: 10-50x performance improvement</li>
+<li>SATA SSD → NVMe: 3-7x performance improvement</li>
+</ul>
+<p><strong>2. Separate WAL and Data Disks:</strong></p>
+<pre><code class="language-toml">[storage]
+data_path = "/mnt/nvme0/neuroquantumdb"  # Fast NVMe
+wal_path = "/mnt/ssd0/neuroquantumdb/wal"  # Separate SSD
+</code></pre>
+<p><strong>3. Increase Buffer Pool:</strong></p>
+<pre><code class="language-toml">[storage]
+buffer_pool_size_mb = 2048  # More caching = less disk I/O
+</code></pre>
+<p><strong>4. Optimize WAL Configuration:</strong></p>
+<pre><code class="language-bash"># Ensure WAL files aren't on slow storage
+ls -lh /var/lib/neuroquantumdb/wal/
+
+# Archive old WAL files
+neuroquantum-api wal-archive --compress --target /backup/wal/
+</code></pre>
+<p><strong>5. Check Disk Health:</strong></p>
+<pre><code class="language-bash"># SMART status
+smartctl -a /dev/sda
+
+# File system errors
+dmesg | grep -i error
+</code></pre>
+<p><strong>6. Disable Unnecessary Services:</strong></p>
+<pre><code class="language-bash"># Stop disk-intensive background services
+systemctl stop updatedb.timer  # mlocate indexing
+systemctl stop fstrim.timer     # If on HDD
+</code></pre>
+<hr>
+<h2 id="6-benchmarking"><a class="header" href="#6-benchmarking">6. Benchmarking</a></h2>
+<h3 id="61-running-benchmarks"><a class="header" href="#61-running-benchmarks">6.1 Running Benchmarks</a></h3>
+<p>NeuroQuantumDB uses <a href="https://github.com/bheisler/criterion.rs">Criterion.rs</a> for performance benchmarking.</p>
+<h4 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h4>
+<pre><code class="language-bash"># Install Rust nightly (for certain benchmark features)
+rustup install nightly
+
+# Clone repository
+git clone https://github.com/twoh-me/NeuroQuantumDB.git
+cd NeuroQuantumDB
+</code></pre>
+<h4 id="running-all-benchmarks"><a class="header" href="#running-all-benchmarks">Running All Benchmarks</a></h4>
+<pre><code class="language-bash"># Full benchmark suite (takes 30-60 minutes)
+cargo bench --features benchmarks
+
+# Results saved to: target/criterion/
+# HTML reports: target/criterion/*/report/index.html
+</code></pre>
+<h4 id="running-specific-benchmarks"><a class="header" href="#running-specific-benchmarks">Running Specific Benchmarks</a></h4>
+<pre><code class="language-bash"># B+Tree index benchmarks
+cargo bench --features benchmarks -p neuroquantum-core --bench btree_benchmark
+
+# DNA compression benchmarks
+cargo bench --features benchmarks -p neuroquantum-core --bench dna_compression
+
+# Quantum algorithm benchmarks
+cargo bench --features benchmarks -p neuroquantum-core --bench grover_search
+cargo bench --features benchmarks -p neuroquantum-core --bench quantum_annealing
+
+# NEON SIMD optimization benchmarks
+cargo bench --features benchmarks -p neuroquantum-core --bench neon_optimization
+
+# Storage benchmarks
+cargo bench --features benchmarks -p neuroquantum-core --bench page_storage_benchmark
+</code></pre>
+<h4 id="quick-benchmarks-reduced-samples"><a class="header" href="#quick-benchmarks-reduced-samples">Quick Benchmarks (Reduced Samples)</a></h4>
+<pre><code class="language-bash"># Run with fewer samples for faster results
+cargo bench --features benchmarks -- --sample-size 10
+</code></pre>
+<h3 id="62-interpreting-results"><a class="header" href="#62-interpreting-results">6.2 Interpreting Results</a></h3>
+<h4 id="understanding-criterion-output"><a class="header" href="#understanding-criterion-output">Understanding Criterion Output</a></h4>
+<pre><code>B+Tree Sequential Insert/100
+                        time:   [1.71 ms 1.73 ms 1.75 ms]
+                        change: [-5.99% -5.53% -5.01%] (p = 0.00 &lt; 0.05)
+                        Performance has improved.
+</code></pre>
+<p><strong>Key Fields:</strong></p>
+<ul>
+<li><strong>time</strong>: <code>[lower_bound median upper_bound]</code> — 95% confidence interval</li>
+<li><strong>change</strong>: Comparison with previous run (if exists)</li>
+<li><strong>Performance has improved/regressed</strong>: Statistical significance (p &lt; 0.05)</li>
+</ul>
+<h4 id="performance-baselines"><a class="header" href="#performance-baselines">Performance Baselines</a></h4>
+<p>See <a href="../reference/benchmarks.html">Performance Benchmarks</a> for detailed baseline metrics.</p>
+<p><strong>Key Performance Indicators:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Metric</th><th>Baseline (M2 Pro)</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>B+Tree Insert</strong></td><td>1K elements</td><td>21.15 ms (47.29 Kelem/s)</td></tr>
+<tr><td><strong>DNA Compression</strong></td><td>8 KB data</td><td>21.74 ms (368 KiB/s)</td></tr>
+<tr><td><strong>DNA Decompression</strong></td><td>64 KB data</td><td>9.36 ms (6.68 MiB/s)</td></tr>
+<tr><td><strong>NEON SIMD Speedup</strong></td><td>DNA encoding</td><td>4.27x faster than scalar</td></tr>
+<tr><td><strong>Grover’s Search</strong></td><td>64 elements</td><td>1.43 µs</td></tr>
+<tr><td><strong>Matrix Multiply</strong></td><td>32×32</td><td>6.73 µs</td></tr>
+<tr><td><strong>Page Allocation</strong></td><td>1K pages</td><td>13.10 ms (76.34 Kelem/s)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="63-comparison-with-other-databases"><a class="header" href="#63-comparison-with-other-databases">6.3 Comparison with Other Databases</a></h3>
+<h4 id="methodology"><a class="header" href="#methodology">Methodology</a></h4>
+<p><strong>Fair Comparison Requirements:</strong></p>
+<ol>
+<li>Same hardware (CPU, RAM, disk)</li>
+<li>Same dataset size and characteristics</li>
+<li>Same query workload (read/write ratio)</li>
+<li>Same isolation level (ACID guarantees)</li>
+<li>Warm cache state</li>
+</ol>
+<h4 id="sample-benchmark-workload"><a class="header" href="#sample-benchmark-workload">Sample Benchmark Workload</a></h4>
+<pre><code class="language-bash"># sysbench-style benchmark
+# 1M rows, 8 threads, 60 seconds
+
+# NeuroQuantumDB
+sysbench --test=oltp --oltp-table-size=1000000 \
+  --num-threads=8 --max-time=60 \
+  --db-driver=neuroquantum run
+
+# Compare with PostgreSQL, MySQL, SQLite
+</code></pre>
+<h4 id="interpreting-comparisons"><a class="header" href="#interpreting-comparisons">Interpreting Comparisons</a></h4>
+<p><strong>What to Compare:</strong></p>
+<ul>
+<li>✅ Throughput (QPS) for similar query types</li>
+<li>✅ Latency percentiles (p95, p99) under load</li>
+<li>✅ Memory footprint for similar datasets</li>
+<li>✅ Storage efficiency (compression ratios)</li>
+</ul>
+<p><strong>What NOT to Compare:</strong></p>
+<ul>
+<li>❌ Different workloads (OLTP vs OLAP)</li>
+<li>❌ Different data types (time-series vs relational)</li>
+<li>❌ Different features (e.g., NeuroQuantumDB’s DNA compression vs standard compression)</li>
+</ul>
+<h4 id="neuroquantumdb-strengths"><a class="header" href="#neuroquantumdb-strengths">NeuroQuantumDB Strengths</a></h4>
+<ul>
+<li><strong>DNA Compression:</strong> 4:1 compression ratio for bioinformatics data</li>
+<li><strong>ARM64 Optimization:</strong> NEON SIMD provides 4.27x speedup</li>
+<li><strong>Quantum Algorithms:</strong> Efficient for specific search patterns (Grover’s algorithm)</li>
+<li><strong>Edge Computing:</strong> Low power consumption (&lt; 1.5W) on Raspberry Pi 4</li>
+<li><strong>Neuromorphic Features:</strong> Adaptive learning and pattern recognition</li>
+</ul>
+<h4 id="trade-offs"><a class="header" href="#trade-offs">Trade-offs</a></h4>
+<ul>
+<li><strong>Maturity:</strong> PostgreSQL/MySQL have decades of optimization</li>
+<li><strong>Ecosystem:</strong> Fewer third-party tools and integrations</li>
+<li><strong>Use Case:</strong> Optimized for edge computing and specialized workloads</li>
+</ul>
+<h3 id="64-custom-benchmarking"><a class="header" href="#64-custom-benchmarking">6.4 Custom Benchmarking</a></h3>
+<h4 id="application-specific-benchmarks"><a class="header" href="#application-specific-benchmarks">Application-Specific Benchmarks</a></h4>
+<p>Create benchmarks that match your actual workload:</p>
+<pre><code class="language-rust">// benches/custom_workload.rs
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use neuroquantum_core::Database;
+
+fn my_workload_benchmark(c: &amp;mut Criterion) {
+    let db = Database::new("test_db").unwrap();
+    
+    c.bench_function("my_workload", |b| {
+        b.iter(|| {
+            // Your typical query pattern
+            db.execute(black_box("SELECT * FROM users WHERE active = true"))
+        });
+    });
+}
+
+criterion_group!(benches, my_workload_benchmark);
+criterion_main!(benches);</code></pre>
+<pre><code class="language-bash"># Run custom benchmark
+cargo bench --bench custom_workload
+</code></pre>
+<h4 id="load-testing"><a class="header" href="#load-testing">Load Testing</a></h4>
+<p>Use tools like <code>wrk</code> or <code>k6</code> for HTTP API load testing:</p>
+<pre><code class="language-bash"># Install wrk
+sudo apt-get install wrk
+
+# Load test REST API
+wrk -t8 -c100 -d30s --latency \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8080/api/v1/query
+
+# Example output:
+# Latency Distribution
+#   50%   12.34ms
+#   75%   23.45ms
+#   90%   34.56ms
+#   99%   89.12ms
+</code></pre>
+<hr>
+<h2 id="best-practices-summary"><a class="header" href="#best-practices-summary">Best Practices Summary</a></h2>
+<h3 id="configuration-checklist"><a class="header" href="#configuration-checklist">Configuration Checklist</a></h3>
+<ul>
+<li>✅ Set <code>buffer_pool_size_mb</code> to 25-40% of RAM</li>
+<li>✅ Configure <code>workers</code> to match CPU cores</li>
+<li>✅ Enable WAL for durability (<code>wal_enabled = true</code>)</li>
+<li>✅ Tune <code>max_connections</code> based on expected load</li>
+<li>✅ Enable DNA compression for bioinformatics data</li>
+<li>✅ Enable NEON SIMD on ARM64 (<code>arm64_neon_enabled = true</code>)</li>
+</ul>
+<h3 id="query-optimization-checklist"><a class="header" href="#query-optimization-checklist">Query Optimization Checklist</a></h3>
+<ul>
+<li>✅ Use <code>EXPLAIN</code> to analyze query plans</li>
+<li>✅ Create indexes on frequently queried columns</li>
+<li>✅ Avoid <code>SELECT *</code> — fetch only needed columns</li>
+<li>✅ Use batch operations for bulk inserts/updates</li>
+<li>✅ Implement application-level caching</li>
+<li>✅ Limit result sets with <code>LIMIT</code> clauses</li>
+</ul>
+<h3 id="hardware-checklist"><a class="header" href="#hardware-checklist">Hardware Checklist</a></h3>
+<ul>
+<li>✅ Use SSD or NVMe storage (never HDD for production)</li>
+<li>✅ Separate WAL and data on different disks if possible</li>
+<li>✅ Provision adequate RAM (8GB+ for production)</li>
+<li>✅ Match worker threads to CPU cores</li>
+</ul>
+<h3 id="monitoring-checklist"><a class="header" href="#monitoring-checklist">Monitoring Checklist</a></h3>
+<ul>
+<li>✅ Set up Prometheus metrics scraping</li>
+<li>✅ Configure Grafana dashboards</li>
+<li>✅ Enable alerting for critical metrics</li>
+<li>✅ Monitor buffer pool hit rate (target &gt; 95%)</li>
+<li>✅ Track query latency percentiles (p95, p99)</li>
+<li>✅ Set up log aggregation</li>
+</ul>
+<h3 id="maintenance-checklist"><a class="header" href="#maintenance-checklist">Maintenance Checklist</a></h3>
+<ul>
+<li>✅ Regular benchmark regression tests</li>
+<li>✅ Archive old WAL files</li>
+<li>✅ Monitor disk space usage</li>
+<li>✅ Review slow query logs weekly</li>
+<li>✅ Update indexes based on query patterns</li>
+<li>✅ Keep NeuroQuantumDB updated</li>
+</ul>
+<hr>
+<h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
+<p>If you encounter performance issues not covered in this guide:</p>
+<ol>
+<li><strong>Search Documentation:</strong> Check <a href="troubleshooting.html">troubleshooting guide</a></li>
+<li><strong>GitHub Discussions:</strong> Ask in <a href="https://github.com/twoh-me/NeuroQuantumDB/discussions">community discussions</a></li>
+<li><strong>Open Issue:</strong> Report performance bugs at <a href="https://github.com/twoh-me/NeuroQuantumDB/issues">GitHub Issues</a></li>
+<li><strong>Share Metrics:</strong> Include Prometheus metrics and EXPLAIN output when asking for help</li>
+</ol>
+<hr>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="configuration.html">Configuration Guide</a> — Detailed configuration reference</li>
+<li><a href="monitoring.html">Monitoring Guide</a> — Prometheus and Grafana setup</li>
+<li><a href="troubleshooting.html">Troubleshooting Guide</a> — Common issues and solutions</li>
+<li><a href="../reference/benchmarks.html">Performance Benchmarks</a> — Baseline performance metrics</li>
+<li><a href="../developer-guide/architecture.html">Architecture</a> — Understanding internal components</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../user-guide/cluster-split-brain-prevention.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../user-guide/monitoring.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../user-guide/cluster-split-brain-prevention.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../user-guide/monitoring.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

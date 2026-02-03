@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ActivationFunction","ConnectionType"],"struct":["NetworkStats","Neuron","QueryPattern","Synapse","SynapticConnection","SynapticNetwork","SynapticNode"]};

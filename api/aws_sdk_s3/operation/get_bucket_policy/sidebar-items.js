@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GetBucketPolicyError"],"mod":["builders"],"struct":["GetBucketPolicy","GetBucketPolicyInput","GetBucketPolicyOutput"]};

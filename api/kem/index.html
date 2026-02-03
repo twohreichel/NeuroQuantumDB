@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="RustCrypto: Key Encapsulation Mechanisms (KEMs)"><title>kem - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="kem" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://raw.githubusercontent.com/RustCrypto/media/8f1a9894/logo.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate kem</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../kem/index.html"><img src="https://raw.githubusercontent.com/RustCrypto/media/8f1a9894/logo.svg" alt="logo"></a><h2><a href="../kem/index.html">kem</a><span class="version">0.3.0-pre.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#rustcrypto-key-encapsulation-mechanisms-kems" title="RustCrypto: Key Encapsulation Mechanisms (KEMs)">RustCrypto: Key Encapsulation Mechanisms (KEMs)</a><ul><li><a href="#minimum-supported-rust-version" title="Minimum Supported Rust Version">Minimum Supported Rust Version</a></li><li><a href="#semver-policy" title="SemVer Policy">SemVer Policy</a></li><li><a href="#license" title="License">License</a></li></ul></li></ul><h3><a href="#traits">Crate Items</a></h3><ul class="block"><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>kem</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/kem/lib.rs.html#1-35">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="rustcrypto-key-encapsulation-mechanisms-kems"><a class="doc-anchor" href="#rustcrypto-key-encapsulation-mechanisms-kems">§</a><a href="https://github.com/RustCrypto">RustCrypto</a>: Key Encapsulation Mechanisms (KEMs)</h2>
+<p><a href="https://crates.io/crates/kem"><img src="https://img.shields.io/crates/v/kem.svg" alt="crate" /></a>
+<a href="https://docs.rs/kem/"><img src="https://docs.rs/kem/badge.svg" alt="Docs" /></a>
+<img src="https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg" alt="Apache2/MIT licensed" />
+<img src="https://img.shields.io/badge/rustc-1.66+-blue.svg" alt="Rust Version" />
+<a href="https://rustcrypto.zulipchat.com/#narrow/stream/260048-signatures"><img src="https://img.shields.io/badge/zulip-join_chat-blue.svg" alt="Project Chat" /></a>
+<a href="https://github.com/RustCrypto/traits/actions?query=workflow%3Akem"><img src="https://github.com/RustCrypto/traits/workflows/kem/badge.svg?branch=master&amp;event=push" alt="Build Status" /></a></p>
+<p>This crate provides a common set of traits for <a href="https://en.wikipedia.org/wiki/Key_encapsulation">key encapsulation mechanisms</a>—algorithms for non-interactively establishing secrets between peers. This is intended to be implemented by libraries which produce or contain implementations of key encapsulation mechanisms, and used by libraries which want to produce or consume encapsulated secrets while generically supporting any compatible backend.</p>
+<p>The crate exposes two traits, <code>Encapsulate</code> and <code>Decapsulate</code>, which are both generic over the encapsulated key type and the shared secret type. They are also agnostic about the structure of <code>Self</code>. For example, a simple Saber implementation may just impl <code>Encapsulate</code> for a single public key:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Must make a newtype to implement the trait
+</span><span class="kw">struct </span>MyPubkey(SaberPublicKey);
+
+<span class="kw">impl </span>Encapsulate&lt;SaberEncappedKey, SaberSharedSecret&gt; <span class="kw">for </span>MyPubkey {
+    <span class="comment">// Encapsulation is infallible
+    </span><span class="kw">type </span>Error = !;
+
+    <span class="kw">fn </span>encapsulate(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        csprng: <span class="kw">impl </span>CryptoRngCore,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(SaberEncappedKey, SaberSharedSecret), !&gt; {
+        <span class="kw">let </span>(ss, ek) = saber_encapsulate(<span class="kw-2">&amp;</span>csprng, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>);
+        <span class="prelude-val">Ok</span>((ek, ss))
+    }
+}</code></pre></div>
+<p>And on the other end of complexity, an <a href="https://www.signal.org/docs/specifications/x3dh/">X3DH</a> implementation might impl <code>Encapsulate</code> for a public key bundle plus a sender identity key:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>PubkeyBundle {
+    ik: IdentityPubkey,
+    spk: SignedPrePubkey,
+    sig: Signature,
+    opk: OneTimePrePubkey,
+}
+
+<span class="comment">// Encap context is the recipient's pubkeys and the sender's identity key
+</span><span class="kw">struct </span>EncapContext(PubkeyBundle, IdentityPrivkey);
+
+<span class="kw">impl </span>Encapsulate&lt;EphemeralKey, SharedSecret&gt; <span class="kw">for </span>EncapContext {
+    <span class="comment">// Encapsulation fails if signature verification fails
+    </span><span class="kw">type </span>Error = SigError;
+
+    <span class="kw">fn </span>encapsulate(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        csprng: <span class="kw">impl </span>CryptoRngCore,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(EphemeralKey, SharedSecret), <span class="self">Self</span>::Error&gt; {
+        <span class="comment">// Make a new ephemeral key. This will be the encapped key
+        </span><span class="kw">let </span>ek = EphemeralKey::gen(<span class="kw-2">&amp;mut </span>csprng);
+
+        <span class="comment">// Deconstruct the recipient's pubkey bundle
+        </span><span class="kw">let </span>PubkeyBundle {
+            <span class="kw-2">ref </span>ik,
+            <span class="kw-2">ref </span>spk,
+            <span class="kw-2">ref </span>sig,
+            <span class="kw-2">ref </span>opk,
+        } = <span class="self">self</span>.<span class="number">0</span>;
+        <span class="kw">let </span>my_ik = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">1</span>;
+
+        <span class="comment">// Verify the signature
+        </span><span class="self">self</span>.<span class="number">0</span>.verify(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>some_sig_pubkey)<span class="question-mark">?</span>;
+
+        <span class="comment">// Do the X3DH operation to get the shared secret
+        </span><span class="kw">let </span>shared_secret = x3dh_a(sig, my_ik, spk, <span class="kw-2">&amp;</span>ek, ik, opk)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>((ek, shared_secret))
+    }
+}</code></pre></div>
+<p><a href="https://docs.rs/kem/">Documentation</a></p>
+<h3 id="minimum-supported-rust-version"><a class="doc-anchor" href="#minimum-supported-rust-version">§</a>Minimum Supported Rust Version</h3>
+<p>Rust <strong>1.66</strong> or higher.</p>
+<p>Minimum supported Rust version can be changed in the future, but it will be
+done with a minor version bump.</p>
+<h3 id="semver-policy"><a class="doc-anchor" href="#semver-policy">§</a>SemVer Policy</h3>
+<ul>
+<li>All on-by-default features of this library are covered by SemVer</li>
+<li>MSRV is considered exempt from SemVer as noted above</li>
+</ul>
+<h3 id="license"><a class="doc-anchor" href="#license">§</a>License</h3>
+<p>Licensed under either of</p>
+<ul>
+<li><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a></li>
+<li><a href="http://opensource.org/licenses/MIT">MIT license</a></li>
+</ul>
+<p>at your option.</p>
+<h4 id="contribution"><a class="doc-anchor" href="#contribution">§</a>Contribution</h4>
+<p>Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.</p>
+</div></details><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Decapsulate.html" title="trait kem::Decapsulate">Decapsulate</a></dt><dd>A value that can be used to decapsulate an encapsulated key. Often, this will just be a secret
+key. But, as with <a href="trait.Encapsulate.html" title="trait kem::Encapsulate"><code>Encapsulate</code></a>, it can be a bundle of secret keys, or it can include a
+sender’s private key for authenticated encapsulation.</dd><dt><a class="trait" href="trait.Encapsulate.html" title="trait kem::Encapsulate">Encapsulate</a></dt><dd>A value that can be encapsulated to. Often, this will just be a public key. However, it can
+also be a bundle of public keys, or it can include a sender’s private key for authenticated
+encapsulation.</dd></dl></section></div></main></body></html>

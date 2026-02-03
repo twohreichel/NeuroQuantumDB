@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["count_base_frequencies_avx2","crc32_avx2","decode_chunk_avx2","detect_avx2_capabilities","encode_chunk_avx2","find_pattern_avx2","hamming_distance_avx2","memcpy_avx2"],"struct":["Avx2Capabilities"]};
