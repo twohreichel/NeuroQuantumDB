@@ -89,11 +89,11 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 rustfft = "6.4"
 
 # CLI
-clap = { version = "4.5.56", features = ["derive"] }
+clap = { version = "4.5.57", features = ["derive"] }
 
 [features]
 default = []
 
 [dev-dependencies]
 tempfile = "3.23"
-proptest = "1.9"
+proptest = "1.10"

@@ -58,8 +58,8 @@ async-trait = "0.1.89"
 futures = "0.3"
 
 # AWS SDK for S3 backups
-aws-config = "1.8.12"
-aws-sdk-s3 = "1.121.0"
+aws-config = "1.8.13"
+aws-sdk-s3 = "1.122.0"
 
 # Compression algorithms for comparison
 flate2 = "1.1"
@@ -105,7 +105,7 @@ sysinfo = "0.37.2"
 keyring = "3.6.3"
 
 [dev-dependencies]
-proptest = "1.9"
+proptest = "1.10"
 rand.workspace = true
 tempfile = "3.23"
 tokio-test = "0.4"
