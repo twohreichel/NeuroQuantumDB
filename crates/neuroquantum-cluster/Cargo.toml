@@ -48,7 +48,7 @@ neuroquantum-core = { path = "../neuroquantum-core" }
 openraft = { version = "0.9", features = ["serde", "tracing-log"] }
 
 # gRPC for inter-node communication
-tonic = "0.14.3"
+tonic = "0.14.4"
 prost = "0.14.3"
 tonic-prost = "0.14"
 
@@ -75,11 +75,11 @@ bytes = "1.11"
 backon = "1.6"
 
 [dev-dependencies]
-tempfile = "3.23"
+tempfile = "3.25"
 tokio-test = "0.4"
 
 [build-dependencies]
-tonic-prost-build = "0.14.3"
+tonic-prost-build = "0.14.4"
 
 [features]
 default = []
